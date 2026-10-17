@@ -1,0 +1,54 @@
+PROGRAM local_constants
+%NOLOCKGROUP
+CONST seed = 2
+VAR first_total,second_total: INTEGER
+    factorial_result,before_change,after_change: INTEGER
+    chosen,counter_cleared: BOOLEAN
+    message: STRING[8]
+
+ROUTINE change(p: INTEGER)
+BEGIN
+  before_change = p
+  p = 99
+  after_change = p
+END change
+
+ROUTINE build(first: INTEGER): INTEGER
+CONST count = seed + 1
+      width = count + 2
+      selected = 2
+      ready = ON
+      label = 'local'
+VAR values: ARRAY[count] OF INTEGER
+    tag: STRING[width]
+    i,total: INTEGER
+BEGIN
+  total = 0
+  FOR i = 1 TO count DO
+    values[i] = first + i
+    total = total + values[i]
+  ENDFOR
+  counter_cleared = UNINIT(i)
+  tag = label + '-extra'
+  message = tag
+  SELECT selected OF
+  CASE(selected): chosen = ready
+  CASE(2): chosen = OFF
+  ENDSELECT
+done::
+  change(count)
+  RETURN total + count
+END build
+
+ROUTINE factorial(n: INTEGER): INTEGER
+CONST one = 1
+BEGIN
+  IF n = 0 THEN RETURN one ENDIF
+  RETURN n * factorial(n - one)
+END factorial
+
+BEGIN
+  first_total = build(10)
+  second_total = build(20)
+  factorial_result = factorial(5)
+END local_constants

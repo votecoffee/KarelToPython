@@ -1,0 +1,34 @@
+PROGRAM vector_routines
+VAR
+  source,returned,copied,from_expression,from_call,sum_value: VECTOR
+  observed,dot_value: REAL
+ROUTINE make(x,y,z: REAL): VECTOR
+VAR
+  built: VECTOR
+BEGIN
+  built.x=x
+  built.y=y
+  built.z=z
+  RETURN built
+END make
+ROUTINE twice(value: VECTOR): VECTOR
+BEGIN
+  value=value*2
+  RETURN value
+END twice
+ROUTINE inspect(value: VECTOR): REAL
+BEGIN
+  value.x=99
+  RETURN value.y
+END inspect
+BEGIN
+  source=make(1,2,3)
+  returned=twice((source))
+  from_expression=twice(source+source)
+  from_call=twice(make(4,5,6))
+  observed=inspect(make(7,8,9))
+  copied=twice(source)
+  source.x=10
+  sum_value=make(1,2,3)+make(4,5,6)
+  dot_value=make(1,2,3)@make(1,2,3)
+END vector_routines

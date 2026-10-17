@@ -1,0 +1,26 @@
+PROGRAM ABORT_CONTROL
+VAR progress: INTEGER
+    reached_end: BOOLEAN
+ROUTINE inner
+VAR counter: INTEGER
+BEGIN
+  FOR counter=1 TO 3 DO
+    progress=counter
+    WRITE(counter)
+    IF counter=2 THEN
+      ABORT
+    ENDIF
+  ENDFOR
+END inner
+ROUTINE outer
+BEGIN
+  inner
+END outer
+BEGIN
+  progress=0
+  reached_end=OFF
+  WRITE('start')
+  outer
+  reached_end=ON
+  WRITE('end')
+END ABORT_CONTROL

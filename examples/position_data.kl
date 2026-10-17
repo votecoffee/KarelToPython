@@ -1,0 +1,76 @@
+PROGRAM POSDATA
+TYPE holder_t = STRUCTURE
+  frame: POSITION
+  extended: XYZWPREXT
+ENDSTRUCTURE
+VAR
+  frame: POSITION
+  extended, saved: XYZWPREXT
+  values: ARRAY[2] OF XYZWPREXT
+  holder: holder_t
+  offset: VECTOR
+  orientation_unknown: BOOLEAN
+  config_value_unchanged: BOOLEAN
+  observed: REAL
+
+ROUTINE init_config(c: CONFIG)
+BEGIN
+  c.cfg_turn_no1 = 0
+  c.cfg_turn_no2 = 0
+  c.cfg_turn_no3 = 0
+  c.cfg_flip = OFF
+  c.cfg_left = OFF
+  c.cfg_up = ON
+  c.cfg_front = ON
+END init_config
+
+ROUTINE initialize(value: XYZWPREXT)
+BEGIN
+  value.x = 1.25
+  value.y = 2.5
+  value.z = -3
+  value.w = 0
+  value.p = 90
+  value.r = 180
+  init_config(value.config_data)
+  value.ext1 = 7
+  value.ext2 = -8
+  value.ext3 = 0.5
+END initialize
+
+ROUTINE locate(value: POSITION)
+BEGIN
+  value.location.x = 10
+  value.location.y = 20
+  value.location.z = 30
+  init_config(value.config_data)
+END locate
+
+ROUTINE change_turn(value: INTEGER)
+BEGIN
+  value = 7
+END change_turn
+
+ROUTINE copy_with_alias(field: REAL; target: XYZWPREXT)
+BEGIN
+  target = extended
+  field = 99
+END copy_with_alias
+
+BEGIN
+  locate(frame)
+  orientation_unknown = UNINIT(frame.normal.x)
+  change_turn(frame.config_data.cfg_turn_no1)
+  config_value_unchanged = frame.config_data.cfg_turn_no1 = 0
+  offset = frame.location
+  offset.x = 11
+  initialize(extended)
+  saved = extended
+  copy_with_alias(saved.ext1, saved)
+  values[1] = extended
+  values[2] = saved
+  holder.frame.location = frame.location
+  holder.frame.config_data = frame.config_data
+  holder.extended = extended
+  observed = holder.frame.location.x + values[2].ext3
+END POSDATA

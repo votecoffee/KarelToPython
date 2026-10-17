@@ -1,0 +1,54 @@
+PROGRAM structure_arrays
+%NOLOCKGROUP
+TYPE
+  item_t = STRUCTURE
+    count: INTEGER
+    label: STRING[3]
+    slots: ARRAY[2] OF INTEGER
+  ENDSTRUCTURE
+  holder_t = STRUCTURE
+    records: ARRAY[2] OF item_t
+    ready: BOOLEAN
+  ENDSTRUCTURE
+VAR
+  source,saved,target: ARRAY[2] OF item_t
+  grid: ARRAY[2,2] OF item_t
+  holder,saved_holder: holder_t
+  seen_after_copy: INTEGER
+
+ROUTINE initialize(item: item_t; seed: INTEGER)
+BEGIN
+  item.count = seed
+  item.label = 'part'
+  item.slots[1] = seed
+  item.slots[2] = seed + 1
+END initialize
+
+ROUTINE fill(table: ARRAY OF item_t)
+VAR k: INTEGER
+BEGIN
+  FOR k = 1 TO ARRAY_LEN(table) DO
+    initialize(table[k],k*10)
+  ENDFOR
+END fill
+
+ROUTINE replace_and_change(field: INTEGER; table,replacement: ARRAY OF item_t)
+BEGIN
+  table = replacement
+  seen_after_copy = field
+  field = 99
+END replace_and_change
+
+BEGIN
+  fill(source)
+  fill(target)
+  target[2].count = 40
+  saved = source
+  replace_and_change(target[2].count,target,source)
+  grid[2,1] = source[1]
+  holder.records = source
+  holder.ready = TRUE
+  saved_holder = holder
+  holder.records[1].count = 77
+  source[1].slots[1] = 7
+END structure_arrays

@@ -1,0 +1,61 @@
+PROGRAM WQUOTE
+CONST MESSAGE = 'ABC'
+TYPE packet_t = STRUCTURE
+  label: STRING[8]
+ENDSTRUCTURE
+VAR
+  original: STRING[8]
+  packet: packet_t
+  words: ARRAY[2] OF STRING[8]
+  emitted: INTEGER
+  counter_cleared: BOOLEAN
+
+ROUTINE emit(p: STRING)
+BEGIN
+  WRITE(p::8::2)
+  emitted = emitted + 1
+END emit
+
+ROUTINE series
+VAR i: INTEGER
+BEGIN
+  FOR i = 1 TO 2 DO
+    WRITE(CHR(64+i)::6::3)
+    emitted = emitted + 1
+  ENDFOR
+  counter_cleared = UNINIT(i)
+END series
+
+BEGIN
+  emitted = 0
+  original = MESSAGE
+  packet.label = 'robot'
+  words[1] = 'left'
+  words[2] = 'right'
+  WRITE(original::8::2)
+  emitted = emitted + 1
+  WRITE(original::8::3)
+  emitted = emitted + 1
+  WRITE(original::0)
+  emitted = emitted + 1
+  WRITE(original::255::1)
+  emitted = emitted + 1
+  emit('ok')
+  USING packet DO
+    WRITE(label::10::3)
+  ENDUSING
+  emitted = emitted + 1
+  WRITE(words[1]::8::2)
+  emitted = emitted + 1
+  WRITE(''::3::2)
+  emitted = emitted + 1
+  series
+  SELECT emitted OF
+  CASE(10):
+    WRITE('done'::0::1)
+    emitted = emitted + 1
+  ELSE:
+    WRITE('unexpected')
+  ENDSELECT
+  original = 'kept'
+END WQUOTE

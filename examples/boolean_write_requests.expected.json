@@ -1,0 +1,14 @@
+{
+  "READY": true,
+  "PACKET": {
+    "ENABLED": false,
+    "LABEL": "ready"
+  },
+  "FLAGS": [
+    true,
+    false,
+    true
+  ],
+  "CHECKS": 5,
+  "COUNTER_CLEARED": true
+}

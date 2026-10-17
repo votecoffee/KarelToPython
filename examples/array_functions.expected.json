@@ -1,0 +1,33 @@
+{
+  "INITIAL": [
+    11,
+    99,
+    13
+  ],
+  "COPIED": [
+    1,
+    2,
+    3
+  ],
+  "STAGED": [
+    6,
+    7,
+    8
+  ],
+  "HOLDER": {
+    "SLOTS": [
+      77,
+      7,
+      8
+    ]
+  },
+  "FLAGS": [
+    true,
+    false
+  ],
+  "MEASUREMENTS": [
+    1.25,
+    2.5
+  ],
+  "OBSERVED": 5
+}

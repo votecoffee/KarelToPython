@@ -1,0 +1,111 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Data-only offline records. Prototype field/copy/reference behavior is checked; no robot configuration, frame, geometry, storage-layout or controller runtime equivalence is claimed.",
+  "rules": [
+    {
+      "feature": "XYZWPR and VECTOR fields",
+      "pdf_pages": [
+        600,
+        629
+      ],
+      "visual_inspection": true,
+      "documented": "XYZWPR exposes X/Y/Z/W/P/R REAL fields and CONFIG_DATA of CONFIG type, all read-write. VECTOR exposes read-write X/Y/Z REAL fields. Positions are referenced to a coordinate frame in KAREL.",
+      "implemented": "Exact built-in type identities, global/local declarations, structure fields, fixed/named 1D/2D/3D arrays, scalar field reads/writes and exact-type reference parameters. REAL fields use the existing conservative exact binary32 normal-or-zero model. INTEGER assignment promotes through that REAL guard.",
+      "restriction": "The record contains only offline values. No motion-group/frame metadata is introduced. Cross-type positional conversion, POSITION geometry operators, builtin record USING and record READ/WRITE remain blocked.",
+      "tests": "tests/test_data_records.py: field/type/context, exactness, reference and rejection checks"
+    },
+    {
+      "feature": "CONFIG fields and conservative turn range",
+      "pdf_pages": [
+        145,
+        146,
+        347
+      ],
+      "visual_inspection": true,
+      "documented": "CONFIG contains CFG_TURN_NO1/2/3 INTEGER and CFG_FLIP/LEFT/UP/FRONT BOOLEAN fields. Oversized compact fields produce an abort. Chapter 8 Table 8.1 lists turn numbers -8 through 7, while requiring robot-specific configuration validity.",
+      "implemented": "Strict initialized INTEGER and BOOLEAN writes. Turn storage is guarded to -8..7 before mutation. Initial scalar leaves are uninitialized; individual scalar UNINIT remains supported. Copy validation rechecks turn ranges, including nested records and arrays.",
+      "restriction": "This is a conservative prototype range, not proof of physical bit layout, exact controller overflow/alarm behavior, joint assignment, kinematics or robot-specific reachability/configuration validity. Whole-record UNINIT remains blocked.",
+      "tests": "tests/test_data_records.py: valid endpoints, strict types, failed-write preservation, range rechecking and initialization"
+    },
+    {
+      "feature": "CONFIG subfields always passed by value",
+      "pdf_pages": [
+        95,
+        96,
+        347
+      ],
+      "visual_inspection": true,
+      "documented": "Each CONFIG subfield can be a routine argument, but is always passed by value. The general reference rule applies to ordinary variables; value arguments own temporaries.",
+      "implemented": "Direct, nested, array-selected and forwarded CONFIG scalar subfields create independent INTEGER/BOOLEAN/REAL value temporaries for internal user calls. Index expressions are evaluated once. Ordinary XYZWPR/VECTOR REAL fields still pass by reference when bare. Whole exact-type CONFIG records pass by reference. Static sites are reported in config_subfield_arguments.",
+      "restriction": "CONFIG subfields as conversion-procedure output aliases remain blocked with E_CONFIG_OUTPUT. Effect analysis remains conservative and may overestimate writes through a CONFIG-subfield argument. Exact initialized record values/results use positional_routine_semantics.json; positional conversions remain blocked.",
+      "tests": "tests/test_data_records.py: value isolation, reference forwarding, numeric promotion, evaluation count and cleanup"
+    },
+    {
+      "feature": "Checked exact-type data copies",
+      "pdf_pages": [
+        95,
+        96,
+        315,
+        316,
+        347,
+        600,
+        629
+      ],
+      "documented": "CONFIG permits assignment and parameter passing; VECTOR assignments require VECTOR values. XYZWPR exposes its components as a predefined structure. General assignment and reference rules distinguish copied values from shared storage.",
+      "implemented": "Fully initialized exact-type whole-record and record-array copies are independent and preserve existing destination aggregate storage recursively, so captured REAL-field and whole-CONFIG references survive replacement. Allocation counts all record scalar leaves against the existing 32767-leaf limit.",
+      "restriction": "Partial copies fail before destination mutation. Built-in types remain distinct from same-shaped user structures. Exact-type data copy is an offline policy; frame transformations and physical alias/storage behavior are unvalidated.",
+      "tests": "tests/test_data_records.py: deep copies, complete-initialization guards, nested arrays/structures and stable captured references"
+    }
+  ],
+  "unresolved": [
+    "Robot/group axis-count and unit mapping; POSITION initialization and read-only argument behavior remain separate gaps",
+    "Group/frame metadata, positional conversions, coordinate transforms, kinematics and configuration validity",
+    "POSITION operators, literal constructors and native aggregate return/value behavior",
+    "Partial-copy behavior, whole-record initialization predicates, physical layout and alias behavior",
+    "Record/file I/O, register/controller adapters and motion"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "position_update": {
+    "version": "0.31.0",
+    "ledger": "position_semantics.json",
+    "types": [
+      "POSITION",
+      "XYZWPREXT"
+    ],
+    "boundary": "POSITION orientation fields are recursively read-only and start uninitialized; writable location/configuration and extra-axis data rules are separate from geometry or controller behavior."
+  },
+  "joint_update": {
+    "version": "0.32.0",
+    "ledger": "joint_semantics.json",
+    "boundary": "JOINTPOS is a distinct opaque type, not a record with invented axis fields. Exact-width copy/reference/array forms and explicit-context conversions are supported."
+  },
+  "vector_update": {
+    "version": "0.33.0",
+    "ledger": "vector_semantics.json",
+    "boundary": "Checked initialized VECTOR arithmetic, scaling/division, equality, cross/dot products; POSITION transforms and general rounding remain unsupported."
+  },
+  "unpos_update": {
+    "version": "0.35.0",
+    "ledger": "unpos_semantics.json",
+    "boundary": "Exact XYZWPR extraction only; six REAL outputs plus CONFIG; disjoint references and preflight guards. No positional coercion, POS constructor or controller semantics."
+  },
+  "vector_routine_update": {
+    "version": "0.38.0",
+    "ledger": "vector_routine_semantics.json",
+    "boundary": "Exact initialized VECTOR results and writable value copies are supported. Bare protected orientation arguments, effect/order guards and controller boundaries remain; positional values use positional_routine_semantics.json."
+  },
+  "positional_routine_update": {
+    "version": "0.40.0",
+    "ledger": "positional_routine_semantics.json",
+    "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

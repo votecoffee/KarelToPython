@@ -1,0 +1,55 @@
+PROGRAM string_value_inputs
+%NOLOCKGROUP
+CONST
+  greeting = 'ready'
+TYPE
+  packet_t = STRUCTURE
+    label: STRING[8]
+  ENDSTRUCTURE
+VAR
+  original,copied,final_text: STRING[16]
+  packet: packet_t
+  from_literal,from_expression,from_field,from_local,parsed: INTEGER
+  counter_cleared: BOOLEAN
+ROUTINE length(source: STRING): INTEGER
+BEGIN
+  RETURN STR_LEN(source)
+END length
+ROUTINE remember(source: STRING)
+BEGIN
+  original = 'changed'
+  copied = source
+END remember
+ROUTINE parse(source: STRING; destination: INTEGER)
+BEGIN
+  CNV_STR_INT(source,destination)
+END parse
+ROUTINE copy(source,destination: STRING)
+BEGIN
+  destination = source
+END copy
+ROUTINE work
+CONST
+  label = 'local'
+VAR
+  i: INTEGER
+BEGIN
+  from_local = length(label+'!')
+  FOR i=1 TO 2 DO
+    copy(CHR(64+i),final_text)
+  ENDFOR
+  counter_cleared = UNINIT(i)
+END work
+BEGIN
+  original = greeting
+  packet.label = 'work'
+  from_literal = length('literal')
+  from_expression = length(original+'!')
+  from_field = length((packet.label))
+  remember((original))
+  parse('42',parsed)
+  GOTO start
+  copy('skipped',final_text)
+start::
+  work
+END string_value_inputs

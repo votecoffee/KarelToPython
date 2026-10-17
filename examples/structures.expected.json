@@ -1,0 +1,28 @@
+{
+  "SOURCE_RECORD": {
+    "ITEM": {
+      "COUNT": 7,
+      "LABEL": "abc"
+    },
+    "READY": true,
+    "MEASUREMENT": 2.5,
+    "SLOTS": [
+      10,
+      20
+    ]
+  },
+  "COPY_RECORD": {
+    "ITEM": {
+      "COUNT": 99,
+      "LABEL": "abc"
+    },
+    "READY": true,
+    "MEASUREMENT": 2.5,
+    "SLOTS": [
+      10,
+      20
+    ]
+  },
+  "SEEN_AFTER_COPY": 5,
+  "WAS_UNINITIALIZED": true
+}

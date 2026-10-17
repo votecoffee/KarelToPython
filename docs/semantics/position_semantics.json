@@ -1,0 +1,90 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Data-only POSITION/XYZWPREXT support. No implicit orientation, frame/group context, positional conversion, kinematics or controller runtime equivalence is introduced.",
+  "rules": [
+    {
+      "feature": "POSITION field shape and access modes",
+      "pdf_pages": [
+        481
+      ],
+      "visual_inspection": true,
+      "documented": "POSITION exposes NORMAL, ORIENT and APPROACH as read-only VECTOR fields; LOCATION is read-write VECTOR and CONFIG_DATA is read-write CONFIG. Position values refer to a coordinate frame; the manual separately permits positional conversion and lists frame operators.",
+      "implemented": "POSITION declarations, local storage, nested structure fields, fixed/named arrays and exact-type reference parameters. Writable LOCATION scalar/whole-vector access and CONFIG_DATA scalar/whole-CONFIG access use the existing checked types. Read-only orientation vectors and scalar components can be read or queried for scalar initialization.",
+      "restriction": "Every orientation scalar leaf starts uninitialized. No source initializer, identity orientation, POS/UNPOS constructor, register input or positional conversion is synthesized. LOCATION/CONFIG_DATA writes do not initialize orientation; complete POSITION copying still requires every source leaf initialized.",
+      "tests": "tests/test_position_data.py: field forms, initialization, arrays/references and writable location/configuration checks"
+    },
+    {
+      "feature": "Recursive POSITION read-only protection",
+      "pdf_pages": [
+        481
+      ],
+      "visual_inspection": true,
+      "documented": "NORMAL/ORIENT/APPROACH are labeled read-only in Figure A.16.15. No distinct bare-argument behavior for their subfields is established by this entry.",
+      "implemented": "Direct or nested assignments and conversion outputs under these three fields are rejected with E_POSITION_READ_ONLY. Runtime ReadOnlyFieldReference also blocks set/clear on whole vectors and scalar descendants. Orientation subtree protection is established by destination context and survives cloning/copying within POSITION, structures and arrays. A detached initialized VECTOR value copy becomes independently writable.",
+      "restriction": "Bare orientation vector/scalar arguments are conservatively rejected with E_POSITION_READ_ONLY_ARG, including calls whose formal is read only. Explicit scalar expression/value arguments can read initialized contents. Explicitly grouped initialized VECTOR values can detach into writable copies under vector_routine_semantics.json; other exact-type positional values use positional_routine_semantics.json. Protection applies to supported KAREL source/runtime accessors, not to arbitrary host mutation of private prototype state.",
+      "tests": "tests/test_position_data.py: nested targets, arguments, conversion outputs, runtime alias/set/clear guards and copy-context ownership"
+    },
+    {
+      "feature": "POSITION copy verification boundary",
+      "pdf_pages": [
+        95,
+        96,
+        315,
+        316,
+        481
+      ],
+      "implemented": "Exact-type complete data copies reuse the existing initialized-leaf and stable-storage checks. Writable LOCATION aliases survive a complete copy while orientation aliases remain protected. Partially initialized copies fail before destination mutation.",
+      "restriction": "Because this release supplies no POSITION source constructor, complete-copy/protected-read tests explicitly seed synthetic orientation data in a host fixture. They establish offline copy/protection behavior only, not a KAREL initialization path, valid robot frame, rotation matrix or controller-equivalent operation.",
+      "tests": "tests/test_position_data.py: synthetic fixture is named seed_orientation and labeled as host-only evidence"
+    },
+    {
+      "feature": "XYZWPREXT fields",
+      "pdf_pages": [
+        629,
+        630
+      ],
+      "visual_inspection": true,
+      "documented": "XYZWPREXT has X/Y/Z/W/P/R REAL fields, CONFIG_DATA of CONFIG, and EXT1/EXT2/EXT3 REAL fields. All fields are read-write.",
+      "implemented": "Global/local declarations, nested structures, fixed/named arrays, exact-type references, scalar references and complete independent copies. Extra axes use the existing exact REAL checks. CONFIG subfields retain value-only argument behavior and conservative -8..7 turn guards. Source initialization can assign every leaf.",
+      "restriction": "XYZWPREXT remains distinct from XYZWPR and POSITION. No axis units, motion-group mapping, frame context, cross-type conversion, geometric operators or controller APIs are inferred.",
+      "tests": "tests/test_position_data.py and examples/position_data.kl: extra axes, initialization, copy/reference/array ownership and rejection controls"
+    }
+  ],
+  "unresolved": [
+    "POSITION source initialization and acquisition without invented orientation defaults",
+    "Bare read-only orientation argument behavior",
+    "Robot/group joint-count and axis-unit mapping; JOINTPOS data support is recorded in joint_semantics.json",
+    "Frames, conversions, POS construction and cross-type positional conversion, relative/approximate operators, kinematics and robot configuration validity",
+    "Controller layout, task/alarm behavior, file/register access and execution"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "vector_update": {
+    "version": "0.33.0",
+    "ledger": "vector_semantics.json",
+    "boundary": "Checked initialized VECTOR arithmetic, scaling/division, equality, cross/dot products; POSITION transforms and general rounding remain unsupported."
+  },
+  "unpos_update": {
+    "version": "0.35.0",
+    "ledger": "unpos_semantics.json",
+    "boundary": "Exact XYZWPR extraction only; six REAL outputs plus CONFIG; disjoint references and preflight guards. No positional coercion, POS constructor or controller semantics."
+  },
+  "vector_routine_update": {
+    "version": "0.38.0",
+    "ledger": "vector_routine_semantics.json",
+    "boundary": "Exact initialized VECTOR results and writable value copies are supported. Bare protected orientation arguments, effect/order guards and controller boundaries remain; positional values use positional_routine_semantics.json."
+  },
+  "positional_routine_update": {
+    "version": "0.40.0",
+    "ledger": "positional_routine_semantics.json",
+    "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

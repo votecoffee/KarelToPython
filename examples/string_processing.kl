@@ -1,0 +1,19 @@
+PROGRAM string_processing
+%NOLOCKGROUP
+VAR
+  labels: ARRAY[2] OF STRING[2]
+  match_position,character_code: INTEGER
+  extracted: STRING[8]
+
+ROUTINE prepare(names: ARRAY OF STRING)
+BEGIN
+  names[1] = 'ABCDE'
+  names[2] = CHR(66) + CHR(67)
+END prepare
+
+BEGIN
+  prepare(labels)
+  extracted = SUB_STR('ABCDEF',2,2)
+  match_position = INDEX(extracted,CHR(67))
+  character_code = ORD(labels[2],2)
+END string_processing

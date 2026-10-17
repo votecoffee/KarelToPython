@@ -1,0 +1,14 @@
+{
+  "ORIGINAL": "changed",
+  "COPIED": "ready",
+  "FINAL_TEXT": "B",
+  "PACKET": {
+    "LABEL": "work"
+  },
+  "FROM_LITERAL": 7,
+  "FROM_EXPRESSION": 6,
+  "FROM_FIELD": 4,
+  "FROM_LOCAL": 6,
+  "PARSED": 42,
+  "COUNTER_CLEARED": true
+}

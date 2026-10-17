@@ -1,0 +1,63 @@
+PROGRAM WBOOL
+CONST INITIAL_READY = ON
+TYPE packet_t = STRUCTURE
+  enabled: BOOLEAN
+  label: STRING[8]
+ENDSTRUCTURE
+VAR
+  ready: BOOLEAN
+  packet: packet_t
+  flags: ARRAY[3] OF BOOLEAN
+  checks: INTEGER
+  counter_cleared: BOOLEAN
+
+ROUTINE emit(value: BOOLEAN)
+BEGIN
+  WRITE(value)
+  checks = checks + 1
+END emit
+
+ROUTINE next_ready: BOOLEAN
+BEGIN
+  checks = checks + 1
+  RETURN checks = 2
+END next_ready
+
+ROUTINE series
+VAR i: INTEGER
+BEGIN
+  FOR i = 1 TO 3 DO
+    emit(flags[i])
+  ENDFOR
+  counter_cleared = UNINIT(i)
+END series
+
+BEGIN
+  checks = 0
+  ready = INITIAL_READY
+  packet.enabled = OFF
+  packet.label = 'ready'
+  flags[1] = ON
+  flags[2] = OFF
+  flags[3] = ON
+  WRITE('start')
+  WRITE(ready)
+  WRITE(packet.enabled)
+  emit(ON)
+  WRITE(next_ready())
+  USING packet DO
+    WRITE(enabled)
+  ENDUSING
+  series
+  SELECT checks OF
+  CASE(5):
+    WRITE(checks = 5)
+  ELSE:
+    WRITE(OFF)
+  ENDSELECT
+  WRITE(counter_cleared)
+  GO TO done
+  WRITE('skipped')
+done::
+  WRITE('done')
+END WBOOL

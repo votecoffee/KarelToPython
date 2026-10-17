@@ -1,0 +1,64 @@
+PROGRAM WINT
+CONST INITIAL_COUNT = 123
+TYPE packet_t = STRUCTURE
+  count: INTEGER
+  ready: BOOLEAN
+ENDSTRUCTURE
+VAR
+  count: INTEGER
+  packet: packet_t
+  numbers: ARRAY[3] OF INTEGER
+  checks: INTEGER
+  counter_cleared: BOOLEAN
+
+ROUTINE emit(value: INTEGER)
+BEGIN
+  WRITE(value)
+  checks = checks + 1
+END emit
+
+ROUTINE next_count: INTEGER
+BEGIN
+  checks = checks + 1
+  RETURN checks
+END next_count
+
+ROUTINE series
+VAR i: INTEGER
+BEGIN
+  FOR i = 1 TO 3 DO
+    emit(numbers[i])
+  ENDFOR
+  counter_cleared = UNINIT(i)
+END series
+
+BEGIN
+  checks = 0
+  count = INITIAL_COUNT
+  packet.count = 42
+  packet.ready = ON
+  numbers[1] = 0
+  numbers[2] = 7
+  numbers[3] = MAXINT - 1
+  WRITE('start')
+  WRITE(count)
+  WRITE(packet.count)
+  emit(0)
+  WRITE(next_count())
+  USING packet DO
+    WRITE(count)
+    WRITE(ready)
+  ENDUSING
+  series
+  SELECT checks OF
+  CASE(5):
+    WRITE(checks)
+  ELSE:
+    WRITE(0)
+  ENDSELECT
+  WRITE(counter_cleared)
+  GO TO done
+  WRITE(-5)
+done::
+  WRITE('done')
+END WINT

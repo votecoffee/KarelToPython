@@ -1,0 +1,67 @@
+{
+  "SOURCE": [
+    7.0,
+    -2.5,
+    3.0,
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    }
+  ],
+  "READ_BACK": [
+    7.0,
+    -2.5,
+    3.0,
+    91.0,
+    92.0
+  ],
+  "PREFIX": [
+    7.0,
+    -2.5
+  ],
+  "JOINT": {
+    "axes": [
+      7.0,
+      -2.5,
+      3.0
+    ]
+  },
+  "SAVED": {
+    "axes": [
+      1.25,
+      -2.5,
+      3.0
+    ]
+  },
+  "JOINTS": [
+    {
+      "axes": [
+        1.25,
+        -2.5,
+        3.0
+      ]
+    },
+    {
+      "axes": [
+        7.0,
+        -2.5,
+        3.0
+      ]
+    }
+  ],
+  "HOLDER": {
+    "JOINT": {
+      "axes": [
+        1.25,
+        -2.5,
+        3.0
+      ]
+    }
+  },
+  "STATUS": 0,
+  "WAS_UNKNOWN": true,
+  "IS_UNKNOWN": false,
+  "TAIL_UNKNOWN": true
+}

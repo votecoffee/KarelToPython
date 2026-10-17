@@ -1,0 +1,58 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Documented routine-local declarations and lexical scope, with existing checked constant and value-argument policies. Tests establish offline prototype behavior; no fresh compiler or controller execution.",
+  "rules": [
+    {
+      "feature": "Routine-local CONST sections",
+      "pdf_pages": [
+        55,
+        89,
+        90,
+        94,
+        95
+      ],
+      "documented": "Routines may contain CONST and VAR sections with the same syntax as program declarations. Sections may repeat and appear in any order. Routine constants and variables are recognized only in their declaring routine; types cannot be declared in a routine.",
+      "implemented": "CONST/VAR sections are parsed in source order. Local INTEGER, BOOLEAN, exact REAL and ASCII STRING constants use the existing constant-expression evaluator and may depend on global or earlier local constants. Local constants can supply subsequent local array dimensions and STRING capacities, executable expressions and INTEGER CASE values.",
+      "restriction": "Forward or self dependencies, variable/parameter references and built-in/user calls in constant definitions remain blocked. The existing exact REAL, signed INTEGER, negative MOD and MININT source rules are unchanged. Routine-local TYPE remains prohibited.",
+      "tests": "tests/test_local_constants.py: LocalConstantBehaviorTests and LocalConstantRejectionTests"
+    },
+    {
+      "feature": "Lexical scope and immutable storage",
+      "pdf_pages": [
+        55,
+        94,
+        95
+      ],
+      "implemented": "Each routine resolves only global constants and its own local constants. Sibling routines may independently reuse local names. Recursion and nested calls never inherit caller constants. Resolved scalar values are emitted directly without writable runtime cells or entries in global snapshots. Reports preserve declaring routine, name, value and physical position.",
+      "restriction": "Duplicate local identifiers, predefined/controller names and local constant shadowing of global constants, variables, types, routines or the program name are blocked. This conservative namespace boundary does not claim full KAREL shadowing behavior. Label and USING-field collisions retain existing fail-closed rules.",
+      "tests": "tests/test_local_constants.py: scope, recursion, namespace, USING, labels and report tests"
+    },
+    {
+      "feature": "Local constant arguments and output guards",
+      "pdf_pages": [
+        95,
+        96
+      ],
+      "documented": "Constant and expression arguments are passed by value; changes to a temporary do not affect the original argument.",
+      "implemented": "INTEGER/BOOLEAN/REAL local constants create independent checked scalar argument temporaries, including repeated arguments and INTEGER-to-REAL promotion. Assignment, conversion outputs, FOR counters and UNINIT require writable variable storage and reject local constants. Prior writes persist on later runtime errors and routine frames unwind.",
+      "restriction": "STRING constants can now pass to read-only formals under string_value_semantics.json. Writable STRING values remain blocked with E_STRING_VALUE. MAXINT remains excluded from INTEGER storage, value temporaries and results without inferring special-state behavior.",
+      "tests": "tests/test_local_constants.py: argument isolation, conversion, output, MAXINT and failure cleanup tests"
+    }
+  ],
+  "unresolved": [
+    "Local constant shadowing and name-space precedence beyond the conservative implemented boundary",
+    "Broader constant grammar and built-in evaluation during declarations",
+    "STRING value-temporary capacities and general REAL rounding",
+    "Controller/compiler release behavior, runtime memory layout and call-stack limits"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

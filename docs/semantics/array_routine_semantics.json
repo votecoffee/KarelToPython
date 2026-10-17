@@ -1,0 +1,75 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Internal unsized one-dimensional scalar ARRAY results used only in direct assignments. Checked offline ownership/initialization/type/length policy; no native layout, stack cost, ABI, partial-copy or controller-runtime equivalence claim.",
+  "current_visual_inspection_pages": [
+    321,
+    558
+  ],
+  "rules": [
+    {
+      "feature": "Unsized ARRAY function declarations",
+      "pdf_pages": [
+        93,
+        312
+      ],
+      "documented": "ARRAY is a function return type. Result declarations omit size so returned length can vary. A returned array must match the destination size and data type.",
+      "implemented": "ROUTINE f(...): ARRAY OF INTEGER, BOOLEAN, REAL, BYTE or SHORT. Internal functions return anonymous concrete 1D array storage. Length and exact element type are retained from source storage, including reference formals and explicit global shape specialization.",
+      "restriction": "Prototype subset only: no named/multidimensional/STRING/record/joint result declarations or values, fixed/wildcard result dimensions, external routines or inferred shape/capacity. Explicit f() calls are required; bare zero-argument function-name spelling remains unsupported.",
+      "tests": "tests/test_array_results.py: all three scalar types, differing lengths, global/local/formal/field storage, external shapes, recursion, FOR, SELECT and labels; tests/test_narrow_array_results.py: narrow endpoints, formals, fields, shapes and recursion"
+    },
+    {
+      "feature": "Direct assignment context only",
+      "pdf_pages": [
+        93,
+        97,
+        312
+      ],
+      "documented": "An ARRAY-valued function result can be used only in a direct assignment; it cannot be an argument to another routine. The manual shows staging into an array before passing it.",
+      "implemented": "Only a complete explicit function() call as assignment RHS enables ARRAY results. Ordinary destination arrays, supported fields and reference formals use existing exact concrete type/length checks. Staged arrays can then pass by reference.",
+      "restriction": "Grouped result calls, operator/condition/selector/built-in arguments, routine arguments and direct RETURN forwarding fail with E_ARRAY_RESULT_CONTEXT or an earlier existing guard. Whole-array value arguments remain prohibited. Named destination identity is not erased and mismatched sizes/types are not coerced.",
+      "tests": "tests/test_array_results.py: context negatives, staging, generic destinations, nominal/length checks, preserved destination and indexed-target effects"
+    },
+    {
+      "feature": "Checked independent copy before cleanup",
+      "pdf_pages": [
+        93,
+        95,
+        96,
+        312,
+        313
+      ],
+      "implemented": "RETURN validates every INTEGER/BOOLEAN/REAL/BYTE/SHORT element and concrete storage shape, then clones before local-frame cleanup. All elements must be initialized. Copies are independent and bounded to 32767 elements by the existing prototype allocation guard. Captured element references remain attached when a destination is replaced in place.",
+      "restriction": "Full initialization is a conservative prototype restriction, not a native rule established here. Unknown data, malformed host storage and rounded/invalid numeric contents fail before any returned value or assignment is exposed. Existing side effects are retained; errors/ABORT/depth failures unwind frames.",
+      "tests": "tests/test_array_results.py: independence, source/destination aliasing, stable element references, full-init/type/range/shape guards, maximum length, errors/ABORT/depth cleanup"
+    },
+    {
+      "feature": "Narrow integer ARRAY function elements",
+      "pdf_pages": [
+        93,
+        312,
+        321,
+        558
+      ],
+      "documented": "ARRAY results omit size and keep element data type. BYTE and SHORT may occur within arrays or structures. BYTE has values 0..255 and no uninitialized checking; SHORT stores -32768..32766 with 32767 denoting uninitialized. Out-of-range assignment is an execution error.",
+      "implemented": "Reuse checked array-result copies: known BYTE 0..255 and initialized SHORT -32768..32766 retain exact element type and concrete length. The SHORT marker, unknown initial BYTE contents and malformed host leaves fail before exposing a result or changing the destination. Earlier effects persist and frames unwind. Scalar narrow arguments to INTEGER/REAL remain independent promoted temporaries.",
+      "restriction": "Full known initialization is a conservative prototype guard, not a native BYTE or partial-copy claim. No whole-array element promotion, direct scalar BYTE/SHORT results, guessed BYTE defaults, BYTE initialization queries, native layout/ABI, native alarms or controller-runtime equivalence.",
+      "tests": "tests/test_narrow_array_results.py: 34 checks; all 256 BYTE values, SHORT bounds/marker, ownership, exact type/length, promotion, effects, cleanup and blocked contexts; examples/narrow_array_functions.kl"
+    }
+  ],
+  "unresolved": [
+    "Native ARRAY return lifetime, stack allocation, layout/ABI and partial/uninitialized copy behavior",
+    "Named, multidimensional, STRING/record/joint and external ARRAY result forms",
+    "Bare zero-argument function-name call syntax and broader expression/namespace rules",
+    "Native task/alarm behavior on length/type/copy failure and controller runtime equivalence"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

@@ -1,0 +1,48 @@
+PROGRAM using_fields
+%NOLOCKGROUP
+TYPE
+  item_t = STRUCTURE
+    value: INTEGER
+    label: STRING[3]
+    slots: ARRAY[2] OF INTEGER
+  ENDSTRUCTURE
+  status_t = STRUCTURE
+    value: INTEGER
+    ready: BOOLEAN
+  ENDSTRUCTURE
+VAR
+  first: item_t
+  second: status_t
+  value,total,inspected: INTEGER
+
+ROUTINE increment(p: INTEGER)
+BEGIN
+  p = p + 1
+END increment
+
+ROUTINE inspect(p: item_t): INTEGER
+BEGIN
+  USING p DO
+    RETURN slots[1] + slots[2]
+  ENDUSING
+END inspect
+
+BEGIN
+  value = 90
+  first.value = 1
+  USING first,second DO
+    value = 10
+    ready = TRUE
+    label = 'abcdef'
+    slots[1] = 1
+    slots[2] = 2
+    total = value + ARRAY_LEN(slots)
+    increment(value)
+  ENDUSING
+  inspected = inspect(first)
+  USING first DO
+    again::
+    value = value + 1
+    IF value < 3 THEN GO TO again ENDIF
+  ENDUSING
+END using_fields

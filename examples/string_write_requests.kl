@@ -1,0 +1,35 @@
+PROGRAM string_write_requests
+%NOLOCKGROUP
+CONST
+  ready_text = 'ready'
+VAR
+  total: INTEGER
+  counter_cleared: BOOLEAN
+ROUTINE emit(text: STRING)
+BEGIN
+  WRITE(text)
+END emit
+ROUTINE work
+VAR
+  i: INTEGER
+BEGIN
+  FOR i=1 TO 3 DO
+    emit(CHR(64+i))
+    total = total + 1
+  ENDFOR
+  counter_cleared = UNINIT(i)
+END work
+BEGIN
+  total = 0
+  emit(ready_text)
+  GOTO start
+  WRITE('skipped')
+start::
+  work
+  SELECT total OF
+  CASE(3):
+    WRITE('done')
+  ELSE:
+    WRITE('unexpected')
+  ENDSELECT
+END string_write_requests

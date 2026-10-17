@@ -1,0 +1,54 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Explicit positive dimensions specialize direct static global ARRAY declarations during offline translation. This does not reproduce controller variable loading, preexisting values or dynamic storage.",
+  "rules": [
+    {
+      "feature": "Dimensions established before load",
+      "pdf_pages": [
+        75
+      ],
+      "visual_inspection": true,
+      "documented": "Section 2.5.2 permits * dimensions and requires their actual sizes to be established before the PC loads; explicit dimensions must agree with external storage.",
+      "implemented": "translate(array_shapes={name: dimensions}) and repeated CLI --array-shape NAME=DIM[,DIM] supply every outer dimension, including fixed ones. All are strict INTEGER in 1..32767; declared fixed dimensions must agree. Case-insensitive names are normalized; missing, duplicate, unused, malformed or rank-mismatched context is rejected.",
+      "restriction": "Specialization is explicit translation context, not discovered or authenticated controller configuration. The documented zero-size fallback is excluded. No VR/KCL parser, controller variable creation, dynamic resize or implicit dimensions.",
+      "tests": "tests/test_variable_arrays.py: dimensions, mixed constants, missing/conflicting/unused context and CLI/API controls"
+    },
+    {
+      "feature": "Static declaration scope",
+      "pdf_pages": [
+        75
+      ],
+      "visual_inspection": true,
+      "documented": "Variable-sized arrays are permitted in VAR, not TYPE, and only for static variables.",
+      "implemented": "Only direct global VAR ARRAY declarations containing * can use external shapes. Fixed dimensions retain constant/range checks. Named fixed ARRAY/STRUCTURE elements retain existing nominal and initialization guards; at most three total logical dimensions and 32767 scalar leaves.",
+      "restriction": "Wildcard TYPE definitions, fields and fresh routine-local storage remain blocked. Existing wildcard reference formals still take concrete caller storage; they do not consume external shape entries.",
+      "tests": "tests/test_variable_arrays.py: TYPE/field/local guards, rank/capacity limits, formals and named subarrays"
+    },
+    {
+      "feature": "Concrete offline storage and provenance",
+      "pdf_pages": [
+        75
+      ],
+      "visual_inspection": true,
+      "implemented": "Resolved dimensions are embedded in generated storage and immutable tuple metadata Program.external_array_shapes. Reports preserve original wildcard/fixed dimensions, physical declaration locations, resolved outer/logical dimensions, canonical translation_context and its SHA-256. Source SHA-256 and context SHA-256 are separate. A different shape requires retranslation.",
+      "restriction": "The context supplies dimensions only: new offline globals keep existing uninitialized/unknown markers. No preexisting data, controller persistence/reload semantics or success status is invented. Runtime copy, reference capture, bounds, effect and read-only guards are unchanged.",
+      "tests": "tests/test_variable_arrays.py, tests/test_variable_array_audit.py and examples/variable_arrays.kl"
+    }
+  ],
+  "unresolved": [
+    "Native external VR/KCL/storage shape acquisition and validation",
+    "Zero/unestablished dimensions and controller load/reload state",
+    "Persistent values, resizing and routine-local/static declaration attributes",
+    "Multidimensional ARRAY_LEN count semantics and anonymous inline nested ARRAY syntax"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

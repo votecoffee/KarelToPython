@@ -1,0 +1,44 @@
+PROGRAM text_real_conversion
+%NOLOCKGROUP
+TYPE packet_t = STRUCTURE
+  value: REAL
+  text: STRING[8]
+ENDSTRUCTURE
+VAR values,copied: ARRAY[3] OF REAL
+    total,invalid,underflow,pure_result: REAL
+    invalid_detected: BOOLEAN
+    packet: packet_t
+
+ROUTINE load_rows(rows: ARRAY OF REAL)
+VAR i: INTEGER
+BEGIN
+  FOR i=1 TO ARRAY_LEN(rows) DO
+    SELECT i OF
+      CASE(1): CNV_STR_REAL('1.25',rows[i])
+      CASE(2): CNV_STR_REAL('-2.5E-1',rows[i])
+      CASE(3): CNV_STR_REAL('1.25E+2',rows[i])
+    ENDSELECT
+  ENDFOR
+END load_rows
+
+ROUTINE local_parse: REAL
+VAR result: REAL
+BEGIN
+  CNV_STR_REAL('2.5',result)
+  RETURN result
+END local_parse
+
+BEGIN
+  load_rows(values)
+  copied=values
+  total=values[1]+values[2]+values[3]
+  invalid=1.0
+  CNV_STR_REAL('A',invalid)
+  invalid_detected=UNINIT(invalid)
+  CNV_STR_REAL('1.0E-40',underflow)
+  USING packet DO
+    text='2.5'
+    CNV_STR_REAL(text,value)
+  ENDUSING
+  pure_result=local_parse()+1.0
+END text_real_conversion

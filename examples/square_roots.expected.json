@@ -1,0 +1,36 @@
+{
+  "LEG_A": 3.0,
+  "LEG_B": 4.0,
+  "HYPOTENUSE": 5.0,
+  "NESTED_ROOT": 4.0,
+  "SQUARES": [
+    [
+      0.0,
+      0.25
+    ],
+    [
+      2.25,
+      16.0
+    ]
+  ],
+  "ROOTS": [
+    [
+      0.0,
+      0.5
+    ],
+    [
+      1.5,
+      4.0
+    ]
+  ],
+  "BYTES": [
+    144,
+    {
+      "unknown_byte": true
+    }
+  ],
+  "SOURCE_COUNT": 81,
+  "ROUNDED_ROOT": 3,
+  "PROMOTED_ROOT": 9.0,
+  "BYTE_ROOT": 12.0
+}

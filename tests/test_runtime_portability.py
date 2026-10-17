@@ -1,0 +1,57 @@
+"""The generated module can run with just the small runtime distribution."""
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+from karel2py import translate
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class RuntimePortabilityTests(unittest.TestCase):
+    def test_only_init_and_runtime_needed(self):
+        examples = [('control_flow', 'TOTAL', 200), ('parameters', 'FACTORIAL_RESULT', 120),
+                    ('aggregate_parameters', 'VALUES', [99, 20, 30, 40]),
+                    ('string_processing', 'LABELS', ['AB', 'BC']),
+                    ('exact_numeric', 'HALF_VALUE', 1.25),
+                    ('structures', 'SEEN_AFTER_COPY', 5),
+                    ('labelled_flow', 'TOTAL', 33),
+                    ('loop_routines', 'FIRST_ZERO', 3),
+                    ('multidimensional_arrays', 'FOUND_COORDINATE', 23),
+                    ('narrow_integers', 'SENTINEL_DETECTED', True),
+                    ('square_roots', 'HYPOTENUSE', 5.0),
+                    ('structure_arrays', 'SEEN_AFTER_COPY', 20),
+                    ('using_fields', 'VALUE', 90),
+                    ('host_delays', 'TOTAL', 6),
+                    ('string_value_inputs', 'COPIED', 'ready'),
+                    ('string_write_requests', 'TOTAL', 3),
+                    ('string_write_formats', 'EMITTED', 11),
+                    ('string_write_quotes', 'EMITTED', 11),
+                    ('boolean_write_requests', 'CHECKS', 5)]
+        for example, key, expected in examples:
+            with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
+                result = translate((ROOT / f'examples/{example}.kl').read_text())
+                target = Path(folder)
+                package = target / 'karel2py'
+                package.mkdir()
+                for name in ('__init__.py', 'runtime.py'):
+                    shutil.copyfile(ROOT / 'karel2py' / name, package / name)
+                (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
+                (target / 'check.py').write_text('import json\nfrom converted import Program\nprint(json.dumps(Program().run()))\n')
+                process = subprocess.run([sys.executable, 'check.py'], cwd=target, capture_output=True, text=True)
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(json.loads(process.stdout)[key], expected)
+
+    def test_source_identifiers_do_not_collide_with_python_keywords(self):
+        result = translate('PROGRAM T\nVAR class, print, R: INTEGER\nBEGIN class = 1 print = 2 R = class + print END T')
+        namespace = {'__name__': 'generated'}
+        exec(result.python_source, namespace)
+        self.assertEqual(namespace['Program']().run()['R'], 3)
+
+
+if __name__ == '__main__': unittest.main()

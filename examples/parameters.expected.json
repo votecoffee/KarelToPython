@@ -1,0 +1,13 @@
+{
+  "ARGUMENT": 9,
+  "AFTER_VALUE": 5,
+  "FACTORIAL_RESULT": 120,
+  "VALUES": [
+    6,
+    {
+      "uninitialized": true
+    }
+  ],
+  "SAME_STORAGE": true,
+  "INITIALIZED": true
+}

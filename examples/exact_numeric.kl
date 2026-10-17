@@ -1,0 +1,25 @@
+PROGRAM exact_numeric
+%NOLOCKGROUP
+VAR
+  source_count,rounded,truncated: INTEGER
+  measurement,promoted_value,half_value: REAL
+
+ROUTINE adjust(value: REAL)
+BEGIN
+  value = value + 1.5
+  promoted_value = value
+END adjust
+
+ROUTINE halve(value: REAL): REAL
+BEGIN
+  RETURN value / 2.0
+END halve
+
+BEGIN
+  source_count = 3
+  adjust(source_count)
+  measurement = 2.5
+  half_value = halve(measurement)
+  rounded = ROUND(measurement)
+  truncated = TRUNC(-measurement)
+END exact_numeric

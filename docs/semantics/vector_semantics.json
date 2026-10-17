@@ -1,0 +1,79 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Initialized VECTOR algebra in the exact binary32 subset. These rules do not establish controller numeric rounding, frame transforms, units, kinematics or runtime equivalence.",
+  "rules": [
+    {
+      "feature": "Component arithmetic and equality",
+      "pdf_pages": [
+        81,
+        84,
+        85
+      ],
+      "visual_inspection": true,
+      "documented": "VECTOR addition/subtraction produces corresponding component sums/differences. VECTOR relations allow equality and inequality only.",
+      "implemented": "All six input REAL components must be initialized and exact. Componentwise + and - return fresh VECTOR values, and =/<> compare all three component values. No short-circuit equality can hide unknown components. Assignment uses checked copies and stable destination fields.",
+      "restriction": "No unary VECTOR signs, ordered VECTOR comparisons, VECTOR*VECTOR or VECTOR/VECTOR, constructor or implicit aggregate conversion. Exact initialized aggregate results/value parameters use the routine semantics ledgers. POSITION orientation protections remain in force.",
+      "tests": "tests/test_vector_operations.py: manual addition, subtraction, equality, copies, aliases, arrays/structures, unknown components and type guards"
+    },
+    {
+      "feature": "Scalar scaling and division",
+      "pdf_pages": [
+        84,
+        85
+      ],
+      "visual_inspection": true,
+      "documented": "INTEGER/REAL multiplication and division with VECTOR operate componentwise in both operand orders. Scalar/VECTOR uses component reciprocals; a zero scalar divisor or zero vector divisor component causes an error.",
+      "implemented": "Scalar converts through the existing exact REAL guard before component arithmetic. Every result uses the shared normal-or-zero binary32 policy. Scalar/VECTOR additionally requires each reciprocal exact and non-underflowing, conservatively covering the manual reciprocal-then-multiply description. Guards precede destination mutation.",
+      "restriction": "Some mathematically exact quotients are rejected if an intermediate reciprocal needs rounding. Example 7/(7,7,7) is blocked. No assumption about native implementation order, signed zero, error status, axis units or controller overflow/rounding is made.",
+      "tests": "tests/test_vector_operations.py: both orders and numeric types, narrowing promotion, divide-by-zero, reciprocal/integer promotion exactness, underflow and overflow"
+    },
+    {
+      "feature": "Cross and dot products",
+      "pdf_pages": [
+        81,
+        85
+      ],
+      "visual_inspection": true,
+      "documented": "Cross # follows the right hand rule and rejects zero or exactly parallel inputs. Dot @ sums corresponding products and returns REAL. Both precede multiplication/division and addition.",
+      "implemented": "Cross uses the three signed determinants; zero/parallel exact results raise. Dot checks all products and every possible pairwise partial sum before the total, avoiding an unsupported choice of sum association. Product/partial-sum intermediates must be exact binary32 without underflow. Cross outputs also reject underflow. Manual examples (3,4,5)#(6,7,8)=(-3,6,-3) and dot=86 pass. Parser retains highest NOT precedence and requires parentheses for same-level #/@ chains.",
+      "restriction": "Conservative intermediate guards can reject cancellation whose final result would be representable. Unparenthesized #/@ chains are rejected with E_VECTOR_ASSOCIATIVITY pending same-level associativity evidence. Overflow, inexact intermediates, and compound underflow are rejected without guessing native algorithms or alarms. No magnitude/normalization/trigonometry or POSITION transforms are introduced.",
+      "tests": "tests/test_vector_operations.py: manual products, operand order, precedence, grouping, zero/parallel inputs, hidden cancellation overflow/rounding and underflow"
+    },
+    {
+      "feature": "Effects and record protection",
+      "pdf_pages": [
+        95,
+        96,
+        600
+      ],
+      "implemented": "VECTOR results are independent writable objects; existing destination references survive assignment. Nested arrays/structures and reference formals retain their contracts. Initialized protected orientation vectors can be read, producing detached results. Bare orientation argument restrictions and recursively read-only destination checks remain. Effectful routine calls inside operator expressions remain rejected.",
+      "restriction": "No source POSITION orientation initializer is supplied. Read-only operand testing uses a synthetic host fixture only for copy/protection checks. No controller adapter, device read or robot program is executed.",
+      "tests": "tests/test_vector_operations.py and tests/test_vector_audit.py: destination aliases, protected fixture, function-effect guards, lexical decoys and source/PC drift controls"
+    }
+  ],
+  "unresolved": [
+    "General REAL rounding, subnormal/signed-zero handling and compound-product implementation details",
+    "VECTOR constructors, other aggregate value parameters/function results and broader math builtins",
+    "POSITION initialization, relative/approximate operators, frames, kinematics and controller APIs"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "vector_routine_update": {
+    "version": "0.38.0",
+    "ledger": "vector_routine_semantics.json",
+    "boundary": "Exact initialized VECTOR results and writable value copies are supported. Bare protected orientation arguments, effect/order guards and controller boundaries remain; positional values use positional_routine_semantics.json."
+  },
+  "positional_routine_update": {
+    "version": "0.40.0",
+    "ledger": "positional_routine_semantics.json",
+    "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

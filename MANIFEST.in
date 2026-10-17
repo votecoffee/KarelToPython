@@ -1,0 +1,11 @@
+include LICENSE README.md CONTRIBUTING.md AGENTS.md
+recursive-include docs *.md *.json
+recursive-include examples *.kl *.json
+recursive-include tests *.py
+recursive-include tools *.py *.md
+prune .local
+prune work
+prune outputs
+prune build
+prune dist
+global-exclude *.py[cod] *.report.json

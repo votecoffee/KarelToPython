@@ -1,0 +1,27 @@
+# Private inputs, local research, generated modules, reports and release work.
+/.local/
+/work/
+/outputs/
+/build/
+/dist/
+/*.egg-info/
+/converted.py
+/translation.json
+**/*.report.json
+**/*_corpus_audit.json
+**/*_corpus_baseline_*.json
+
+# Python environments, caches and editor state.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

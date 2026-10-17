@@ -1,0 +1,47 @@
+PROGRAM predefined_constants
+%NOLOCKGROUP
+CONST lower = MININT
+      upper = MAXINT - 1
+      switched_on = ON
+TYPE packet_t = STRUCTURE
+  count: INTEGER
+  ready: BOOLEAN
+ENDSTRUCTURE
+VAR lowest,highest: INTEGER
+    values: ARRAY[2] OF INTEGER
+    enabled,disabled,copied_flag: BOOLEAN
+    minimum_as_real: REAL
+    packet: packet_t
+    before_change,after_change: INTEGER
+
+ROUTINE change(n: INTEGER)
+BEGIN
+  n = 7
+END change
+
+ROUTINE copied(flag: BOOLEAN): BOOLEAN
+VAR saved: BOOLEAN
+BEGIN
+  saved = flag
+  flag = OFF
+  RETURN saved
+END copied
+
+BEGIN
+  lowest = lower
+  highest = upper
+  values[1] = MININT
+  values[2] = MAXINT - 1
+  enabled = switched_on
+  disabled = OFF
+  copied_flag = copied(ON)
+  minimum_as_real = MININT
+  USING packet DO
+    count = MININT + 1
+    ready = ON
+  ENDUSING
+  before_change = MININT
+  change((before_change))
+  after_change = before_change
+  change(after_change)
+END predefined_constants

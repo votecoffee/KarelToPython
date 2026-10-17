@@ -1,0 +1,17 @@
+{
+  "SMALL_TEXT": "abc",
+  "LARGE_TEXT": "abcdef",
+  "VALUES": [
+    99,
+    20,
+    30,
+    40
+  ],
+  "SAVED": [
+    10,
+    20,
+    30,
+    40
+  ],
+  "SEEN_AFTER_COPY": 10
+}

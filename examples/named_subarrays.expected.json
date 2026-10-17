@@ -1,0 +1,86 @@
+{
+  "PRIMARY": [
+    [
+      [
+        77,
+        99
+      ],
+      [
+        40,
+        41
+      ]
+    ],
+    [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    ]
+  ],
+  "BACKUP": [
+    [
+      [
+        20,
+        21
+      ],
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    ]
+  ],
+  "COPIED_PLANE": [
+    [
+      10,
+      11
+    ],
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "COPIED_ROW": [
+    7,
+    99
+  ],
+  "OBSERVED": 31,
+  "TOTAL": 257
+}

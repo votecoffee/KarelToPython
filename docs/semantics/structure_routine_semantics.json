@@ -1,0 +1,71 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Internal named STRUCTURE results and writable value temporaries with exact nominal identity. This is a checked offline data-copy contract, not native ABI, layout or controller-runtime authentication.",
+  "current_visual_inspection_pages": [
+    71,
+    564
+  ],
+  "rules": [
+    {
+      "feature": "Named STRUCTURE function results",
+      "pdf_pages": [
+        71,
+        93,
+        564
+      ],
+      "documented": "User-defined data can be returned by functions and passed as parameters. Different user-defined type names remain distinct even with identical declarations. Chapter 5 requires a return value and describes fallthrough failure.",
+      "implemented": "Internal routines may return a prior named STRUCTURE type. Each RETURN recursively validates and copies its declared record tree before local-frame cleanup. Results can come from local/global/formal/field/element storage or another same-type function. Destination assignments preserve existing captured storage.",
+      "restriction": "Named ARRAY results, scalar/type aliases, forward result-type declarations, external types/routines, recursive types and controller positional conversion remain blocked. Native partial/uninitialized return behavior is not inferred.",
+      "tests": "tests/test_structure_routines.py: identity, capacities, local/global/formal/field/element returns, recursion, labels/SELECT/FOR and cleanup"
+    },
+    {
+      "feature": "Writable record value arguments",
+      "pdf_pages": [
+        71,
+        96,
+        564
+      ],
+      "documented": "Expression arguments are temporary value copies. Grouping a variable makes it an expression; changing a value parameter does not change the original argument.",
+      "implemented": "Grouped named records, fields and array elements plus named STRUCTURE function results receive independent writable temporary storage. Bare records keep references. Bare forwarding uses the owned temporary; regrouping makes another copy. Captured nested field/array references remain stable across whole-temporary assignment.",
+      "restriction": "All leaves must be initialized and known, including arrays and BYTE fields. This is a conservative prototype guard, not a claim that native KAREL forbids every partial copy. Whole ARRAY values and ambiguous multi-call argument order remain blocked.",
+      "tests": "tests/test_structure_routines.py: copied/grouped/function-result arguments, mixed/repeated values, forwarding, single evaluation and alias preservation"
+    },
+    {
+      "feature": "Recursive validation and ownership",
+      "pdf_pages": [
+        71,
+        96,
+        564
+      ],
+      "implemented": "Concrete field types and names, fixed/named ARRAY shapes/storage counts, STRING capacities, numeric storage checks, CONFIG bounds and joint widths are validated recursively. Every copied value is bounded to 32767 scalar leaves. POSITION orientation protection is created from destination type context and retained through nested records/arrays. No partially built copy is exposed on failure.",
+      "restriction": "No values, unit/group context or POSITION orientation initialization are invented. Protected POSITION testing uses a synthetic host fixture only. String fields have declared capacities; no direct STRING function-result or writable STRING value-temporary capacity is inferred. Existing numeric/effect/order/FOR/depth guards remain.",
+      "tests": "tests/test_structure_routines.py: malformed host storage, unknown leaves, capacity/type/range guards, nested data records, joint copies and protected fixture"
+    }
+  ],
+  "unresolved": [
+    "Native STRUCTURE value/return layout, stack cost and runtime observation",
+    "Partial/uninitialized native copies and unknown BYTE contents",
+    "Broader ARRAY results and STRING return conflict; native positional ownership remains unverified",
+    "External type/routine binding, persistent data and controller integration"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "positional_routine_update": {
+    "version": "0.40.0",
+    "ledger": "positional_routine_semantics.json",
+    "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
+  },
+  "array_routine_update": {
+    "version": "0.44.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Unsized 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results in direct assignment only, full initialized/known checked copies before cleanup and exact concrete destinations. BYTE/SHORT scalar arguments to INTEGER/REAL remain independent value copies. Broader ARRAY results and whole ARRAY value arguments remain blocked."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

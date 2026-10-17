@@ -1,0 +1,74 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-backed source forms with explicit prototype exclusions. Unit and example expectations establish offline behavior only; no compiler/controller equivalence or extra original-source acceptance is claimed.",
+  "rules": [
+    {
+      "feature": "Physical-line continuation",
+      "pdf_pages": [
+        62,
+        71,
+        72
+      ],
+      "documented": "The concatenation character & continues a line. The declaration example has a trailing comment after &; the structure-access example continues before a dot field selector.",
+      "implemented": "A trailing & followed by optional whitespace/comment and a physical newline removes that marker and newline. The next physical line must contain complete source tokens. Chained segments, supported declarations, field paths, signatures, expressions and flow constructs use the existing parser/type/effect/flow checks.",
+      "restriction": "Inline, leading or dangling markers, blank/comment-only target lines, continued directives and lexical token reconstruction are blocked. Potential token fusion without explicit whitespace is rejected. The manual examples do not independently settle all excluded layouts.",
+      "tests": "tests/test_source_continuations.py: ContinuationExecutionTests and ContinuationBoundaryTests"
+    },
+    {
+      "feature": "Newlines, comments and statement separators",
+      "pdf_pages": [
+        61,
+        62
+      ],
+      "documented": "The character set treats form feed as a newline and tab as blank space. Carriage returns or semicolons separate statements; BEGIN requires a separator.",
+      "implemented": "LF, CRLF, CR and form feed each advance one physical line. Comments terminate at each recognized newline. Tabs remain whitespace and use character-based diagnostic columns. Ampersands inside literals/comments remain data. A continuation immediately after BEGIN is rejected; an intervening semicolon is retained.",
+      "restriction": "General enforcement of every BEGIN separator in uncontinued legacy source and release-specific newline/encoding behavior remain outside this extension. Strings cannot span physical lines; non-ASCII source string values remain blocked by the existing subset.",
+      "tests": "tests/test_source_continuations.py: all-newline example and location tests, literal/comment and BEGIN negative controls"
+    },
+    {
+      "feature": "Physical-line length",
+      "pdf_pages": [
+        62
+      ],
+      "documented": "A line is truncated after 252 characters.",
+      "implemented": "Every physical line participating in a continuation must have at most 252 characters, including its marker and trailing comment. Overlength segments fail with E_CONTINUATION_LINE_LENGTH; no source text is silently truncated.",
+      "restriction": "General truncation on uncontinued lines is not modeled. This is a fail-closed prototype limit, not evidence of release-specific compiler truncation or tab expansion.",
+      "tests": "tests/test_source_continuations.py: exact-length acceptance and overlength left/right/intermediate rejection"
+    },
+    {
+      "feature": "Diagnostics and provenance",
+      "pdf_pages": [
+        71,
+        72
+      ],
+      "implemented": "Token locations retain physical line/column values. Reports record marker and next-token coordinates and preserve the original source hash. Source maps and runtime operand errors identify the physical source line. Rejected forced CLI conversions preserve the existing generated module.",
+      "restriction": "These report/CLI policies are prototype behavior. Compiler alarm IDs, controller locations and source recovery are not authenticated.",
+      "tests": "tests/test_source_continuations.py: ContinuationLocationTests"
+    }
+  ],
+  "unresolved": [
+    "Token-spanning concatenation and continued string literals",
+    "Blank/comment-only intermediate lines and directive continuation",
+    "General 252-character truncation and legacy uncontinued BEGIN separator acceptance",
+    "Other release source coverage, controller character sets, compiler alarms and runtime behavior"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "literal_update": {
+    "version": "0.36.0",
+    "ledger": "literal_semantics.json",
+    "boundary": "Doubled ASCII apostrophes decode inside one physical STRING token before logical-value checks. Existing quoted-WRITE, writable value and STRING-result guards remain."
+  },
+  "variable_array_update": {
+    "version": "0.37.0",
+    "ledger": "variable_array_semantics.json",
+    "boundary": "Direct global wildcard ARRAY declarations may be specialized using explicit positive array_shapes translation context. TYPE/field/local wildcards, inferred storage and runtime resizing remain blocked; existing guards retained."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

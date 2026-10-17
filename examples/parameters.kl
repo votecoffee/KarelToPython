@@ -1,0 +1,45 @@
+PROGRAM PARAMETERS
+VAR
+  argument, after_value, factorial_result: INTEGER
+  values: ARRAY[2] OF INTEGER
+  same_storage, initialized: BOOLEAN
+
+ROUTINE triple(parameter: INTEGER)
+BEGIN
+  parameter = parameter * 3
+END triple
+
+ROUTINE initialize(parameter: INTEGER)
+BEGIN
+  IF UNINIT(parameter) THEN
+    parameter = 5
+  ENDIF
+END initialize
+
+ROUTINE alias_test(first, second: INTEGER; aliased: BOOLEAN)
+BEGIN
+  first = 7
+  aliased = second = 7
+  second = 9
+END alias_test
+
+ROUTINE factorial(n: INTEGER): INTEGER
+BEGIN
+  IF n = 0 THEN
+    RETURN 1
+  ELSE
+    RETURN n * factorial(n - 1)
+  ENDIF
+END factorial
+
+BEGIN
+  initialize(argument)
+  initialized = NOT UNINIT(argument)
+  triple((argument))
+  after_value = argument
+  triple(argument)
+  values[1] = 2
+  triple(values[1])
+  alias_test(argument, argument, same_storage)
+  factorial_result = factorial(5)
+END PARAMETERS

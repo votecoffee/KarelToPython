@@ -1,0 +1,83 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-backed storage contexts, ranges, SHORT sentinel and scalar argument passing. Unknown BYTE contents and checked INTEGER expression promotion are explicit offline policies. No controller initialization/layout/alias/exception observations or fresh compiler run.",
+  "rules": [
+    {
+      "feature": "BYTE storage and range",
+      "pdf_pages": [
+        70,
+        321
+      ],
+      "implemented": "BYTE elements in fixed one-, two- and three-dimensional arrays and BYTE fields in named structures. INTEGER/SHORT scalar assignments are range-checked in 0..255; out-of-range writes fail before changing the destination.",
+      "restriction": "Standalone BYTE variables, scalar BYTE formals and BYTE function returns remain blocked. No wrapping, clipping or implicit REAL/BOOLEAN/STRING conversion.",
+      "tests": "tests/test_narrow_integers.py: StorageTests and BoundaryTests"
+    },
+    {
+      "feature": "BYTE initialization boundary",
+      "pdf_pages": [
+        321
+      ],
+      "implemented": "Unwritten BYTE storage is represented as UNKNOWN_BYTE and snapshots expose {unknown_byte: true}. Reading it raises a prototype error until explicitly assigned. Whole-array copies preserve unknown cells as unknown without inventing their contents.",
+      "restriction": "The manual says no uninitialized checking is done on BYTE; this unknown marker is not KAREL uninitialized state or a controller default. BYTE UNINIT queries are rejected with E_BYTE_UNINIT, even after a write. Unknown BYTE leaves also prevent whole-structure copies under the existing conservative full-leaf guard.",
+      "tests": "tests/test_narrow_integers.py: StorageTests, CopyTests, BoundaryTests and RuntimeTests"
+    },
+    {
+      "feature": "SHORT range and sentinel",
+      "pdf_pages": [
+        70,
+        558,
+        569
+      ],
+      "implemented": "SHORT array elements and structure fields hold initialized values -32768..32766. Assignment of 32767 stores the uninitialized marker; scalar UNINIT detects it and subsequent ordinary reads fail. Values outside -32768..32767 are rejected before destination mutation.",
+      "restriction": "Standalone SHORT variables, scalar SHORT formals and SHORT function returns remain blocked. Whole-array copies preserve uninitialized SHORT elements; enclosing structure copies retain their fully-initialized-leaves guard. Python errors do not model controller alarms.",
+      "tests": "tests/test_narrow_integers.py: StorageTests, CopyTests and BoundaryTests"
+    },
+    {
+      "feature": "Scalar expressions and assignments",
+      "pdf_pages": [
+        78,
+        79,
+        80,
+        81,
+        82,
+        321,
+        558
+      ],
+      "implemented": "Known BYTE/SHORT scalar values participate in existing checked INTEGER arithmetic, bit operations, comparisons, indexes, SELECT, FOR bounds and INTEGER built-in arguments. Numeric mixed operations and assignment to REAL use the existing exactness guard. Assignment back to BYTE/SHORT applies the storage range/sentinel rules.",
+      "restriction": "Checked signed-32-bit expression promotion is a prototype policy; no narrow intermediate wrapping is introduced. Existing signed-MOD, effect/order and REAL rounding restrictions remain active. Whole arrays require exact concrete element types and do not convert BYTE/SHORT/INTEGER array-wide.",
+      "tests": "tests/test_narrow_integers.py: ExpressionTests and BoundaryTests"
+    },
+    {
+      "feature": "Scalar argument value conversion and whole-array references",
+      "pdf_pages": [
+        95,
+        96,
+        321,
+        558
+      ],
+      "implemented": "BYTE/SHORT scalar arguments to INTEGER or REAL formals are always independent value temporaries, including bare fields and array elements. Two arguments from one narrow cell are independent copies. Whole ARRAY OF BYTE/SHORT formals retain reference binding, caller shape and checked writes; rank-matched wildcard forms are supported.",
+      "restriction": "Unknown BYTE or uninitialized SHORT scalar arguments fail before entering the callee. Whole-array value passing, different element types and rank mismatches remain blocked. Runtime alias/layout behavior on the controller remains unverified.",
+      "tests": "tests/test_narrow_integers.py: ParameterTests, CopyTests and BoundaryTests"
+    }
+  ],
+  "unresolved": [
+    "Actual initial BYTE contents and observable BYTE initialization-query behavior",
+    "Controller BYTE/SHORT expression representation, intermediate width and physical storage layout",
+    "Partially known/initialized whole-structure copy behavior",
+    "Controller exception, task/alarm and release-specific behavior"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "array_routine_update": {
+    "version": "0.44.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Internal unsized 1D BYTE/SHORT results are independent full checked copies, with exact concrete destinations and direct assignment context only. Initial BYTE contents stay unknown; SHORT 32767 remains uninitialized. No whole-array promotion or direct scalar narrow results."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

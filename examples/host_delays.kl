@@ -1,0 +1,35 @@
+PROGRAM host_delays
+%NOLOCKGROUP
+VAR total,before_delay,after_delay: INTEGER
+    chosen,counter_cleared: BOOLEAN
+
+ROUTINE pause_and_add(duration: INTEGER)
+BEGIN
+  before_delay = total
+  DELAY duration
+  total = total + duration
+  after_delay = total
+END pause_and_add
+
+ROUTINE sequence
+CONST unit = 1
+VAR k: INTEGER
+BEGIN
+  FOR k = 1 TO 3 DO
+    pause_and_add((k))
+  ENDFOR
+  counter_cleared = UNINIT(k)
+  SELECT total OF
+  CASE(6): DELAY unit chosen = ON
+  ELSE: chosen = OFF
+  ENDSELECT
+END sequence
+
+BEGIN
+  total = 0
+  DELAY 0
+  GOTO start
+  DELAY 86400000
+start::
+  sequence
+END host_delays

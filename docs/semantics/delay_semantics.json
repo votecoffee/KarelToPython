@@ -1,0 +1,66 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "python_reference": "https://docs.python.org/3.11/library/time.html#time.sleep",
+  "python_reference_checked": "2026-10-13; Python 3.11.17 documentation, not execution on controller Python 3.11.5",
+  "boundary": "Documented DELAY source/range rules with tested calling-host-thread blocking and injected-sleeper behavior. No controller scheduling, motion, pause, abort, RMI timing or runtime equivalence is established.",
+  "rules": [
+    {
+      "feature": "DELAY statement and range",
+      "pdf_pages": [
+        368,
+        369
+      ],
+      "documented": "The argument is an INTEGER expression specifying milliseconds. Zero has no effect. A value below zero or greater than one day causes an execution error.",
+      "implemented": "DELAY expression is checked as INTEGER and evaluated once. Runtime accepts 0..86400000 milliseconds inclusive and rejects invalid values before calling the host sleeper. BYTE/SHORT values use existing checked INTEGER promotion. Uninitialized/unknown reads and integer-expression errors keep their existing guards.",
+      "restriction": "Range failures use source-located KarelRuntimeError rather than authenticated FANUC alarm/task state. The step budget counts statements and does not impose a wall-clock timeout. %DELAY, PAUSE, ABORT and condition handlers remain blocked.",
+      "tests": "tests/test_delays.py: DelayBehaviorTests, DelayFailureTests and DelayRejectionTests"
+    },
+    {
+      "feature": "Host sleeping and injectable test adapter",
+      "pdf_pages": [
+        368,
+        369
+      ],
+      "python_pdf": "B-84464EN-26_01_01.pdf PDF pages 18-19, I.4.3: time is listed among tested standard-library modules",
+      "implemented": "Program(sleep=None) uses Python time.sleep(milliseconds / 1000.0). Program(sleep=callable) binds a per-instance synchronous callback accepting seconds and returning None. Zero skips the callback, avoiding the host-thread yield of time.sleep(0). Calls block ordinary generated execution until the callback returns. Tests inject recorders; the small runnable example uses only seven milliseconds of requested default host sleep.",
+      "restriction": "Host seconds conversion is adapter arithmetic and does not widen the exact KAREL REAL subset. Python sleep may last longer because of host scheduling, while KAREL documents rounding/$SCR.$cond_time behavior. None of motion continuation, controller pause/resume timing, abort cancellation, task holds or RMI queue semantics is modeled. Injected callbacks are explicitly supplied Python behavior, not controller clock models.",
+      "tests": "tests/test_delays.py; examples/host_delays.kl; tests/test_runtime_portability.py"
+    },
+    {
+      "feature": "Routine timing effects and failure cleanup",
+      "pdf_pages": [
+        89,
+        91,
+        92,
+        94,
+        368,
+        369
+      ],
+      "implemented": "Reports identify source DELAY statements and propagate potential_host_delays through routine call graphs, including recursive paths. May-delay function calls retain conservative operator/indexed-target ordering guards. Defined single-expression duration calls are evaluated once. Prior writes persist on runtime range/sleeper errors and routine frames unwind. Ordinary callback exceptions become source-located KarelRuntimeError with chained causes; KeyboardInterrupt/SystemExit propagate through cleanup.",
+      "restriction": "Potential timing effects are conservative and include statically present DELAY statements even when skipped or zero. Callback return values other than None are rejected. Existing scalar/reference, argument-order, FOR-counter and control-flow restrictions are unchanged.",
+      "tests": "tests/test_delays.py: call graph, recursive, control-flow, ordering and error tests"
+    }
+  ],
+  "unresolved": [
+    "Controller delay rounding and $SCR.$cond_time scheduling boundaries",
+    "Motion continuation, pause/resume timing, abort/RUN cancellation and task hold reporting",
+    "Native controller Python timing, signal/interruption and deployment behavior",
+    "General evaluation-order rules for functions with timing effects"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "corpus_host_sleep": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "abort_update": {
+    "version": "0.34.0",
+    "ledger": "abort_semantics.json",
+    "boundary": "Bare ABORT terminates this offline instance without rollback; no task/action/condition or motion semantics. Routine effects propagate and frames unwind; direct FOR use requires fresh routine-local counters."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

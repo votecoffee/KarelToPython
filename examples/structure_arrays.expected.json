@@ -1,0 +1,161 @@
+{
+  "SOURCE": [
+    {
+      "COUNT": 10,
+      "LABEL": "par",
+      "SLOTS": [
+        7,
+        11
+      ]
+    },
+    {
+      "COUNT": 20,
+      "LABEL": "par",
+      "SLOTS": [
+        20,
+        21
+      ]
+    }
+  ],
+  "SAVED": [
+    {
+      "COUNT": 10,
+      "LABEL": "par",
+      "SLOTS": [
+        10,
+        11
+      ]
+    },
+    {
+      "COUNT": 20,
+      "LABEL": "par",
+      "SLOTS": [
+        20,
+        21
+      ]
+    }
+  ],
+  "TARGET": [
+    {
+      "COUNT": 10,
+      "LABEL": "par",
+      "SLOTS": [
+        10,
+        11
+      ]
+    },
+    {
+      "COUNT": 99,
+      "LABEL": "par",
+      "SLOTS": [
+        20,
+        21
+      ]
+    }
+  ],
+  "GRID": [
+    [
+      {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "LABEL": {
+          "uninitialized": true
+        },
+        "SLOTS": [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      },
+      {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "LABEL": {
+          "uninitialized": true
+        },
+        "SLOTS": [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "COUNT": 10,
+        "LABEL": "par",
+        "SLOTS": [
+          10,
+          11
+        ]
+      },
+      {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "LABEL": {
+          "uninitialized": true
+        },
+        "SLOTS": [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      }
+    ]
+  ],
+  "HOLDER": {
+    "RECORDS": [
+      {
+        "COUNT": 77,
+        "LABEL": "par",
+        "SLOTS": [
+          10,
+          11
+        ]
+      },
+      {
+        "COUNT": 20,
+        "LABEL": "par",
+        "SLOTS": [
+          20,
+          21
+        ]
+      }
+    ],
+    "READY": true
+  },
+  "SAVED_HOLDER": {
+    "RECORDS": [
+      {
+        "COUNT": 10,
+        "LABEL": "par",
+        "SLOTS": [
+          10,
+          11
+        ]
+      },
+      {
+        "COUNT": 20,
+        "LABEL": "par",
+        "SLOTS": [
+          20,
+          21
+        ]
+      }
+    ],
+    "READY": true
+  },
+  "SEEN_AFTER_COPY": 20
+}

@@ -1,0 +1,133 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual rules and an explicitly chosen conservative representability guard. This is not authenticated controller storage, arithmetic, alarm, or runtime-equivalence evidence.",
+  "model": {
+    "name": "exact_binary32_normal_or_zero",
+    "basis": "The documented REAL range and approximate seven significant decimal digits are consistent with binary32. Consistency does not prove the controller representation or rounding behavior.",
+    "literal_parsing": "Decimal text is converted to an exact rational before any float conversion.",
+    "arithmetic": "Exact rational intermediate results are checked after every operation. Values are stored as Python floats only when they equal their binary32 encoding exactly.",
+    "rounding": "Values requiring any rounding are rejected. The model does not choose a controller rounding mode or emulate general REAL arithmetic.",
+    "underflow": "Magnitudes below the manual's printed 1.175494E-38 threshold become positive zero. The nearby interval below the minimum normal binary32 value is rejected.",
+    "limits": "Magnitudes above the manual's printed 3.4028236E+38 limit raise overflow. Remaining ambiguous binary32 boundary cases are rejected.",
+    "signed_zero": "Not modeled; zero is normalized to positive zero.",
+    "square_root": "Input is checked with the existing REAL guard first. The reduced rational numerator and denominator must both be perfect squares; their exact root must pass the same REAL guard. No host floating-point square root or tolerance is used.",
+    "controller_validated": false,
+    "trigonometry": "Explicit rational-period/finite-table exact results after existing REAL input checks; see trig_semantics.json. No host trig/libm."
+  },
+  "rules": [
+    {
+      "feature": "SQRT",
+      "pdf_pages": [
+        560
+      ],
+      "documented": "SQRT(x) accepts a REAL argument, returns its positive square root as REAL and aborts for negative x.",
+      "implemented": "Nonnegative exact REAL inputs and exact INTEGER/BYTE/SHORT promotions. An exact rational root is computed from checked integer square roots of the reduced numerator and denominator, then validated for normal binary32 or permitted zero.",
+      "restriction": "Irrational roots are blocked with a source-located KarelRuntimeError before destination assignment. Arguments requiring REAL rounding are rejected even when their mathematical root would be exact. Negative representable inputs raise a domain error. Existing underflow normalization runs first, so a tiny negative value normalized to zero produces zero; this policy is not a controller observation. SQRT in CONST remains blocked by the restricted constant evaluator. KAREL abort/task/alarm behavior is not modeled.",
+      "tests": "tests/test_square_roots.py; examples/square_roots.kl",
+      "controller_validated": false
+    },
+    {
+      "feature": "REAL declarations, literals and arithmetic",
+      "pdf_pages": [
+        78,
+        79,
+        80,
+        81,
+        502,
+        503
+      ],
+      "implemented": "REAL variables, constants, arrays, parameters and function results; unary signs; numeric +, -, *, / and comparisons for the exact subset.",
+      "restriction": "Rounding-dependent literals fail conversion with E_REAL_LITERAL. Dynamic rounding-dependent results fail with KarelRuntimeError before destination assignment. No REAL DIV, MOD, AND, OR or NOT.",
+      "tests": "tests/test_reals.py: RealLiteralTests and RealArithmeticTests"
+    },
+    {
+      "feature": "INTEGER to REAL conversion",
+      "pdf_pages": [
+        79,
+        95,
+        96,
+        502,
+        503
+      ],
+      "implemented": "Checked scalar promotion on assignment, mixed numeric operations, REAL returns and REAL arguments. INTEGER variable and element arguments to REAL parameters are always independent value temporaries.",
+      "restriction": "Promotion needing rounding is rejected. No array-wide INTEGER-to-REAL conversion. REAL-to-INTEGER assignment requires an explicit conversion built-in.",
+      "tests": "tests/test_reals.py: RealParameterTests and RealRejectionTests"
+    },
+    {
+      "feature": "ABS",
+      "pdf_pages": [
+        302
+      ],
+      "implemented": "INTEGER inputs return INTEGER; exact REAL inputs return REAL.",
+      "restriction": "Existing INTEGER overflow checks and REAL exactness guards apply.",
+      "tests": "tests/test_reals.py: RealArithmeticTests"
+    },
+    {
+      "feature": "ROUND",
+      "pdf_pages": [
+        520
+      ],
+      "implemented": "Returns the nearest INTEGER, with half ties away from zero. Checks the documented input interval -2147483648 through 2147483646.",
+      "restriction": "Input REAL exactness is checked before rounding; ordinary Python round is not used.",
+      "tests": "tests/test_reals.py: NumericConversionTests"
+    },
+    {
+      "feature": "TRUNC",
+      "pdf_pages": [
+        567,
+        568
+      ],
+      "implemented": "Removes the fractional part toward zero. Checks the documented input interval -2147483648 through 2147483583.",
+      "restriction": "Input REAL exactness is checked before conversion.",
+      "tests": "tests/test_reals.py: NumericConversionTests"
+    }
+  ],
+  "python_references": [
+    {
+      "url": "https://docs.python.org/3.11/library/math.html#math.isqrt",
+      "rule": "isqrt computes the floor of an exact nonnegative integer square root. Squaring the candidate verifies a perfect square without floating-point root rounding.",
+      "verified_date": "2026-10-13"
+    },
+    {
+      "url": "https://docs.python.org/3.11/library/struct.html#format-characters",
+      "rule": "The f format uses IEEE 754 binary32 independently of host floating-point format; used only as a representability guard.",
+      "verified_date": "2026-10-13"
+    },
+    {
+      "url": "https://docs.python.org/3.11/library/fractions.html",
+      "rule": "Exact rational representation and arithmetic, including Decimal and float inputs.",
+      "verified_date": "2026-10-13"
+    },
+    {
+      "url": "https://docs.python.org/3.11/library/decimal.html",
+      "rule": "Exact decimal construction from source text before representability testing.",
+      "verified_date": "2026-10-13"
+    }
+  ],
+  "unresolved": [
+    "Controller REAL storage representation and rounding mode are not authenticated by these checks.",
+    "General rounded REAL arithmetic and conversion remain blocked, including literals such as 0.1.",
+    "General SQRT rounding, negative underflow domain order and controller abort/task/alarm behavior remain unverified.",
+    "Near-underflow boundary, signed zero and exact alarm/task behavior need controller observations.",
+    "Signed INTEGER MOD behavior remains blocked pending discriminating controls."
+  ],
+  "vector_update": {
+    "version": "0.33.0",
+    "ledger": "vector_semantics.json",
+    "boundary": "Checked initialized VECTOR arithmetic, scaling/division, equality, cross/dot products; POSITION transforms and general rounding remain unsupported."
+  },
+  "trig_update": {
+    "version": "0.41.0",
+    "ledger": "trig_semantics.json",
+    "boundary": "SIN/COS/TAN/ASIN/ACOS accept only explicit exact degree/input subsets. General rounding, ATAN2/EXP/LN and controller behavior remain unsupported."
+  },
+  "atan2_update": {
+    "version": "0.42.0",
+    "ledger": "atan2_semantics.json",
+    "boundary": "KAREL (x,y) order, exact axes and positive diagonal only; other positive bearings and all negative coordinates are guarded. No general ATAN2 range/rounding or controller behavior."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

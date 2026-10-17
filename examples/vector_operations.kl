@@ -1,0 +1,25 @@
+PROGRAM VECTOR_OPERATIONS
+VAR first_vec, second_vec, total_vec, cross_vec, scaled_vec: VECTOR
+    reciprocal_vec, saved_vec: VECTOR
+    inner_value, observed: REAL
+    same_value, different_value: BOOLEAN
+ROUTINE double_and_capture(item: VECTOR; captured: REAL)
+BEGIN
+  item = item * 2
+  observed = captured
+  captured = 9
+END double_and_capture
+BEGIN
+  first_vec.x = 3; first_vec.y = 4; first_vec.z = 5
+  second_vec.x = 6; second_vec.y = 7; second_vec.z = 8
+  total_vec = first_vec + second_vec
+  cross_vec = first_vec # second_vec
+  inner_value = first_vec @ second_vec
+  scaled_vec = 2 * (first_vec - second_vec)
+  reciprocal_vec.x = 2; reciprocal_vec.y = 4; reciprocal_vec.z = 8
+  reciprocal_vec = 4 / reciprocal_vec
+  saved_vec = total_vec
+  same_value = saved_vec = total_vec
+  different_value = first_vec <> second_vec
+  double_and_capture(total_vec, total_vec.x)
+END VECTOR_OPERATIONS

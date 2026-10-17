@@ -1,0 +1,11 @@
+{
+  "VISITS": 3,
+  "TOTAL": 33,
+  "ROUNDS": 2,
+  "COUNTER": {
+    "uninitialized": true
+  },
+  "FACTORIAL_RESULT": 120,
+  "COUNTER_CLEARED": true,
+  "FINISHED": true
+}

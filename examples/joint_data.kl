@@ -1,0 +1,44 @@
+PROGRAM JDATA
+TYPE holder_t = STRUCTURE
+  joint: JOINTPOS3
+ENDSTRUCTURE
+VAR
+  source: ARRAY[5] OF REAL
+  read_back: ARRAY[5] OF REAL
+  prefix: ARRAY[2] OF REAL
+  joint, saved: JOINTPOS3
+  joints: ARRAY[2] OF JOINTPOS3
+  holder: holder_t
+  status: INTEGER
+  was_unknown, is_unknown, tail_unknown: BOOLEAN
+
+ROUTINE load(values: ARRAY OF REAL; target: JOINTPOS3; result: INTEGER)
+BEGIN
+  CNV_REL_JPOS(values, target, result)
+END load
+
+ROUTINE replace_with_alias(target: JOINTPOS3; alias: JOINTPOS3)
+BEGIN
+  target = saved
+  load(source, alias, status)
+END replace_with_alias
+
+BEGIN
+  was_unknown = UNINIT(joint)
+  source[1] = 1.25
+  source[2] = -2.5
+  source[3] = 3
+  tail_unknown = UNINIT(source[5])
+  load(source, joint, status)
+  saved = joint
+  source[1] = 7
+  replace_with_alias(joint, joint)
+  is_unknown = UNINIT(joint)
+  read_back[4] = 91
+  read_back[5] = 92
+  CNV_JPOS_REL(joint, read_back, status)
+  CNV_JPOS_REL(joint, prefix, status)
+  holder.joint = saved
+  joints[1] = saved
+  joints[2] = joint
+END JDATA

@@ -1,0 +1,9 @@
+{
+  "FIRST_MATCH": 7,
+  "EMPTY_MATCH": 5,
+  "EMPTY_ELSE": 13,
+  "NESTED_RESULT": 17,
+  "VISITS": 1,
+  "LOOP_VISITS": 3,
+  "CHOSEN_RESULT": 7
+}

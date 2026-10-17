@@ -1,0 +1,36 @@
+PROGRAM aggregate_parameters
+%NOLOCKGROUP
+VAR
+  small_text: STRING[3]
+  large_text: STRING[8]
+  values,saved: ARRAY[4] OF INTEGER
+  seen_after_copy: INTEGER
+
+ROUTINE label(text: STRING)
+BEGIN
+  text = 'abcdef'
+END label
+
+ROUTINE fill(table: ARRAY OF INTEGER)
+VAR
+  i: INTEGER
+BEGIN
+  FOR i = 1 TO ARRAY_LEN(table) DO
+    table[i] = i * 10
+  ENDFOR
+END fill
+
+ROUTINE copy_and_change(destination,source: ARRAY OF INTEGER; slot: INTEGER)
+BEGIN
+  destination = source
+  seen_after_copy = slot
+  slot = 99
+END copy_and_change
+
+BEGIN
+  label(small_text)
+  label(large_text)
+  fill(saved)
+  values[1] = 1
+  copy_and_change(values,saved,values[1])
+END aggregate_parameters

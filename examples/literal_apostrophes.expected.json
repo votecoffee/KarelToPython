@@ -1,0 +1,18 @@
+{
+  "SOURCE": "robot's",
+  "TRIMMED": "can'",
+  "QUOTE": "'",
+  "QUOTED_PAIR": "''",
+  "SOURCE_TEXT": " WRITE ('hello world', CR)",
+  "LABELS": [
+    "robot's",
+    "A'B"
+  ],
+  "PACKET": {
+    "LABEL": "end's"
+  },
+  "LOCATION": 6,
+  "LENGTH": 8,
+  "CODE": 39,
+  "MATCHED": true
+}

@@ -1,0 +1,55 @@
+{
+  "BYTES": [
+    10,
+    20,
+    30
+  ],
+  "SAVED_BYTES": [
+    10,
+    20,
+    30
+  ],
+  "SHORTS": [
+    -32768,
+    32766,
+    {
+      "uninitialized": true
+    }
+  ],
+  "GRID": [
+    [
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      }
+    ],
+    [
+      255,
+      {
+        "unknown_byte": true
+      }
+    ]
+  ],
+  "PACKET": {
+    "CODE": 99,
+    "COUNT": 123,
+    "PAYLOAD": [
+      254,
+      0
+    ]
+  },
+  "SAVED_PACKET": {
+    "CODE": 20,
+    "COUNT": 123,
+    "PAYLOAD": [
+      254,
+      0
+    ]
+  },
+  "VALUE_SEEN": 10,
+  "SUM": 32776,
+  "PROMOTED_VALUE": -32767.5,
+  "SENTINEL_DETECTED": true
+}

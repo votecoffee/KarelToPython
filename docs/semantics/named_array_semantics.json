@@ -1,0 +1,92 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-backed nominal type policy and checked offline storage/reference behavior. No controller representation, load/save ABI, release-specific compiler acceptance or runtime equivalence is established.",
+  "rules": [
+    {
+      "feature": "Fixed named ARRAY declarations",
+      "pdf_pages": [
+        70,
+        71,
+        74,
+        75
+      ],
+      "implemented": "TYPE name = ARRAY[dimensions] OF element defines a distinct nominal type. One through three total logical dimensions, existing scalar elements and prior named STRUCTURE or ARRAY elements are supported. Names are case-insensitive. Variables, routine locals, structure fields and named reference formals retain the declared identity. Nested ARRAY components and named-prefix selection are recorded in subarray_semantics.json.",
+      "restriction": "Scalar and STRING type aliases, aliases to existing type names, FROM declarations, wildcard declaration sizes and routine-local TYPE sections remain blocked. Array sizes and aggregate scalar-leaf capacity retain the existing 32767 prototype guards.",
+      "tests": "tests/test_named_arrays.py: NamedArrayStorageTests and NamedArrayRejectionTests"
+    },
+    {
+      "feature": "Nominal whole-array assignment",
+      "pdf_pages": [
+        71,
+        312,
+        313,
+        315,
+        316
+      ],
+      "implemented": "Same-named-type whole copies are independent and preserve destination storage for outstanding element/field references. Distinct declared array types cannot be assigned to each other even when their shapes and element declarations match. Copies between named and fixed anonymous arrays are conservatively rejected. Array type identity is an optional fourth ARRAY type-spec component and is preserved in reports and storage.",
+      "restriction": "Named-to-anonymous assignment restrictions are a conservative prototype boundary where the manual does not explicitly establish conversion rules. Existing partial STRUCTURE/BYTE initialization guards are unchanged; no new whole-copy initialization semantics are inferred.",
+      "tests": "tests/test_named_arrays.py: NamedArrayStorageTests, NamedArrayReferenceTests and NamedArrayRuntimeTests"
+    },
+    {
+      "feature": "Named and anonymous ARRAY reference formals",
+      "pdf_pages": [
+        71,
+        74,
+        75,
+        95,
+        96
+      ],
+      "implemented": "A named ARRAY formal binds only a reference of that same declared type. Whole-array value arguments remain rejected. Rank- and element-compatible anonymous ARRAY formals can receive named storage and keep its actual identity, capacity, shape and aliases. Whole assignments through anonymous formals validate the concrete named type before changing the destination. Generic interfaces match logical rank and terminal scalar/STRUCTURE types while explicit named ARRAY components must match. A statically named selected component may be forwarded to a formal of that named type.",
+      "restriction": "The manual's named-subarray-to-anonymous-formal example supports a generic ARRAY interface, but exact whole named-array reference interoperability remains a tested prototype policy without independent compiler/controller observations. Generic-formal forwarding to a named formal is blocked when the static identity is unknown. Copying distinct concrete named types through generic formals raises a runtime error, with prior writes retained and frames unwound.",
+      "tests": "tests/test_named_arrays.py: NamedArrayReferenceTests and NamedArrayRuntimeTests"
+    },
+    {
+      "feature": "Existing element, structure and control-flow rules",
+      "pdf_pages": [
+        72,
+        73,
+        74,
+        75,
+        96
+      ],
+      "implemented": "Full one-based subscripts and named-component prefixes, STRING capacities, narrow-integer rules, exact REAL checks, ARRAY_LEN for one logical dimension, USING field qualification, routine effect analysis and stable captured aliases apply to named arrays. Nested named arrays with STRUCTURE leaves retain complete-initialization and allocation guards.",
+      "restriction": "Prefixes within unnamed dimension groups, chained brackets and inline anonymous ARRAY OF ARRAY syntax remain blocked. Named ARRAY function returns remain blocked with E_RETURN_TYPE. Stable nested aliases and generic interface interoperability are tested prototype policies without compiler/controller observation.",
+      "tests": "tests/test_named_arrays.py; tests/test_subarrays.py; existing array, structure, USING, numeric and branch tests"
+    }
+  ],
+  "unresolved": [
+    "Named STRING/scalar conversions, type aliases and nominal scalar operator rules",
+    "Controller observations of nested ARRAY storage, subarray ownership and aliases across replacement",
+    "Named aggregate return lifetime, copying and expression-argument restrictions",
+    "Generic-to-named reference forwarding with runtime-only type identity",
+    "Controller type registration, variable-file load/save consistency and external FROM type declarations"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "additional_implementation_evidence": [
+    "subarray_semantics.json"
+  ],
+  "variable_array_update": {
+    "version": "0.37.0",
+    "ledger": "variable_array_semantics.json",
+    "boundary": "Direct global wildcard ARRAY declarations may be specialized using explicit positive array_shapes translation context. TYPE/field/local wildcards, inferred storage and runtime resizing remain blocked; existing guards retained."
+  },
+  "structure_routine_update": {
+    "version": "0.39.0",
+    "ledger": "structure_routine_semantics.json",
+    "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
+  },
+  "array_routine_update": {
+    "version": "0.44.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Unsized 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results in direct assignment only, full initialized/known checked copies before cleanup and exact concrete destinations. BYTE/SHORT scalar arguments to INTEGER/REAL remain independent value copies. Broader ARRAY results and whole ARRAY value arguments remain blocked."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

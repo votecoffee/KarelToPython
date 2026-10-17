@@ -1,0 +1,35 @@
+PROGRAM LITERAL_APOSTROPHES
+CONST label='robot''s'
+TYPE packet_t=STRUCTURE
+  label: STRING[20]
+ENDSTRUCTURE
+VAR source: STRING[20]
+    trimmed: STRING[4]
+    quote: STRING[1]
+    quoted_pair: STRING[2]
+    source_text: STRING[40]
+    labels: ARRAY[2] OF STRING[20]
+    packet: packet_t
+    location, length, code: INTEGER
+    matched: BOOLEAN
+ROUTINE inspect(value: STRING): INTEGER
+BEGIN
+  RETURN STR_LEN(value)
+END inspect
+BEGIN
+  source=label
+  quote=''''
+  quoted_pair=''''''
+  trimmed='can''t'
+  labels[1]=source
+  labels[2]='A''B'
+  packet.label='end''s'
+  location=INDEX(source,quote)
+  length=inspect(source+quote)
+  code=ORD(quote,1)
+  matched=quote=CHR(39)
+  source_text=' WRITE (''hello world'', CR)'
+  WRITE(source)
+  WRITE(quote)
+  WRITE(source_text)
+END LITERAL_APOSTROPHES

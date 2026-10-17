@@ -1,0 +1,59 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Documented field lookup with explicitly restricted selectors and lexical normalization. Tests establish offline prototype behavior only; compiler/controller equivalence and excluded forms remain unverified.",
+  "rules": [
+    {
+      "feature": "USING statement and field lookup",
+      "pdf_pages": [
+        72,
+        572
+      ],
+      "documented": "USING struct_var{,struct_var} DO statements ENDUSING permits unqualified structure fields. Fields override same-named variables; the right-most listed structure containing a field wins. The translator searches listed variables from right to left.",
+      "implemented": "One or more bare named STRUCTURE variables, including routine locals and reference formals. Direct fields override ordinary variable names; unmatched names retain lexical lookup. Unqualified fields become explicit field expressions before type, effect and flow analysis. Qualified-root identifiers undergo the same documented field precedence; inserted qualifiers are not rewritten again.",
+      "restriction": "Nested USING, indexed/field/function selectors, call/constant-name collisions and shadowed FOR counters remain blocked. Only direct fields are exposed; nested fields retain explicit dot paths. The inspected field-versus-variable rule does not independently establish constant/routine namespace priority; those collisions are explicit prototype exclusions.",
+      "tests": "tests/test_using.py: UsingResolutionTests and UsingBoundaryTests"
+    },
+    {
+      "feature": "Lexical routine scope and parameters",
+      "pdf_pages": [
+        72,
+        95,
+        96,
+        572
+      ],
+      "implemented": "Resolved scalar/STRING/ARRAY/STRUCTURE fields use existing reference/value rules, narrow numeric promotion and physical capacities. Caller USING aliases do not change a separately declared callee's name lookup. Fresh routine locals, RETURN and error cleanup retain their existing behavior. Reports record selector priority and source-located resolved uses.",
+      "restriction": "STRING value inputs require read-only formals under string_value_semantics.json; STRUCTURE values use structure_routine_semantics.json; whole ARRAY values remain blocked. General controller ownership, namespace collisions and stack behavior are not authenticated.",
+      "tests": "tests/test_using.py: UsingRoutineTests"
+    },
+    {
+      "feature": "Control flow and effect checks",
+      "pdf_pages": [
+        88,
+        98,
+        99,
+        393,
+        423,
+        424,
+        572
+      ],
+      "implemented": "Existing IF/SELECT/WHILE/REPEAT and unshadowed FOR forms operate on qualified fields. Same-block jumps and exits to ancestors include USING blocks; jumps into nested/sibling USING blocks and FOR-body labels/jumps are rejected. Alias normalization precedes transitive write-effect analysis so global/formal field writes cannot bypass expression-order checks.",
+      "restriction": "These flow/effect and alias-lifetime policies remain prototype restrictions, not controller observations. Shadowed FOR counters, unsupported jump entries and order-sensitive calls remain fail-closed.",
+      "tests": "tests/test_using.py: UsingControlFlowTests and UsingBoundaryTests"
+    }
+  ],
+  "unresolved": [
+    "Nested USING priority and namespace collisions with constant/routine names",
+    "Indexed/field selectors, selection timing and complex selector lifetime",
+    "FOR counters that resolve to structure fields",
+    "Controller observations of alias lifetime, task faults and release-specific acceptance"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

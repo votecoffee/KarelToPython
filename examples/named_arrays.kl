@@ -1,0 +1,68 @@
+PROGRAM named_arrays
+%NOLOCKGROUP
+CONST width = 2
+TYPE row_t = ARRAY[width] OF INTEGER
+     names_t = ARRAY[2] OF STRING[3]
+     matrix_t = ARRAY[2,2] OF INTEGER
+     packet_t = STRUCTURE
+       data: row_t
+       ready: BOOLEAN
+     ENDSTRUCTURE
+     packets_t = ARRAY[1] OF packet_t
+VAR first,second: row_t
+    names: names_t
+    matrix: matrix_t
+    packets,copied: packets_t
+    total: INTEGER
+
+ROUTINE fill(p: row_t)
+BEGIN
+  p[1] = 7
+  p[2] = 9
+END fill
+
+ROUTINE copy_with_capture(element: INTEGER; target,source: row_t)
+BEGIN
+  target = source
+  element = 11
+END copy_with_capture
+
+ROUTINE increment_last(p: ARRAY OF INTEGER)
+BEGIN
+  p[2] = p[2] + 1
+END increment_last
+
+ROUTINE label_names(p: ARRAY OF STRING)
+BEGIN
+  p[1] = 'abcdef'
+  p[2] = 'xyz'
+END label_names
+
+ROUTINE sum_row(p: row_t): INTEGER
+VAR i,result: INTEGER
+BEGIN
+  result = 0
+  FOR i = 1 TO ARRAY_LEN(p) DO
+    result = result + p[i]
+  ENDFOR
+  RETURN result
+END sum_row
+
+BEGIN
+  fill(first)
+  second = first
+  first[1] = 1
+  copy_with_capture(first[1],first,second)
+  increment_last(first)
+  label_names(names)
+  matrix[1,1] = 1
+  matrix[1,2] = 2
+  matrix[2,1] = 3
+  matrix[2,2] = 4
+  packets[1].data = second
+  packets[1].ready = ON
+  copied = packets
+  packets[1].data[1] = 13
+finished::
+  total = sum_row(first)
+END named_arrays

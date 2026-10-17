@@ -1,0 +1,93 @@
+PROGRAM positional_routines
+VAR
+  original,detached,referenced: XYZWPR
+  extended,extended_copy: XYZWPREXT
+  configuration,config_copy: CONFIG
+  joints,joint_copy,joint_reference: JOINTPOS3
+ROUTINE make_config: CONFIG
+VAR c: CONFIG
+BEGIN
+  c.cfg_turn_no1=0
+  c.cfg_turn_no2=0
+  c.cfg_turn_no3=0
+  c.cfg_flip=OFF
+  c.cfg_left=OFF
+  c.cfg_up=OFF
+  c.cfg_front=OFF
+  RETURN c
+END make_config
+ROUTINE config_variant(c: CONFIG): CONFIG
+BEGIN
+  c.cfg_turn_no1=-1
+  c.cfg_flip=ON
+  RETURN c
+END config_variant
+ROUTINE make_pose(x: REAL): XYZWPR
+VAR p: XYZWPR
+BEGIN
+  p.x=x
+  p.y=2
+  p.z=3
+  p.w=0
+  p.p=90
+  p.r=180
+  p.config_data=make_config()
+  RETURN p
+END make_pose
+ROUTINE revise(p: XYZWPR): XYZWPR
+BEGIN
+  p.x=p.x+10
+  p.config_data.cfg_flip=ON
+  RETURN p
+END revise
+ROUTINE make_extended: XYZWPREXT
+VAR p: XYZWPREXT
+BEGIN
+  p.x=4
+  p.y=5
+  p.z=6
+  p.w=0
+  p.p=0
+  p.r=0
+  p.config_data=make_config()
+  p.ext1=1
+  p.ext2=2
+  p.ext3=3
+  RETURN p
+END make_extended
+ROUTINE revise_extended(p: XYZWPREXT): XYZWPREXT
+BEGIN
+  p.ext1=p.ext1+10
+  RETURN p
+END revise_extended
+ROUTINE make_joints(first: REAL): JOINTPOS3
+VAR
+  axes: ARRAY[3] OF REAL
+  j: JOINTPOS3
+  status: INTEGER
+BEGIN
+  axes[1]=first
+  axes[2]=first+1
+  axes[3]=first+2
+  CNV_REL_JPOS(axes,j,status)
+  RETURN j
+END make_joints
+ROUTINE replace_joints(j: JOINTPOS3): JOINTPOS3
+BEGIN
+  j=make_joints(7)
+  RETURN j
+END replace_joints
+BEGIN
+  original=make_pose(1)
+  detached=revise((original))
+  referenced=revise(original)
+  original.x=99
+  configuration=make_config()
+  config_copy=config_variant((configuration))
+  extended=make_extended()
+  extended_copy=revise_extended((extended))
+  joints=make_joints(1)
+  joint_copy=replace_joints((joints))
+  joint_reference=replace_joints(joints)
+  joints=make_joints(4)
+END positional_routines

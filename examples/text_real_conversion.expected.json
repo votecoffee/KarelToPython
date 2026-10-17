@@ -1,0 +1,23 @@
+{
+  "VALUES": [
+    1.25,
+    -0.25,
+    125.0
+  ],
+  "COPIED": [
+    1.25,
+    -0.25,
+    125.0
+  ],
+  "TOTAL": 126.0,
+  "INVALID": {
+    "uninitialized": true
+  },
+  "UNDERFLOW": 0.0,
+  "PURE_RESULT": 3.5,
+  "INVALID_DETECTED": true,
+  "PACKET": {
+    "VALUE": 2.5,
+    "TEXT": "2.5"
+  }
+}

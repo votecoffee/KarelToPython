@@ -1,0 +1,40 @@
+PROGRAM square_roots
+%NOLOCKGROUP
+VAR
+  leg_a,leg_b,hypotenuse,nested_root: REAL
+  squares,roots: ARRAY[2,2] OF REAL
+  bytes: ARRAY[2] OF BYTE
+  source_count,rounded_root: INTEGER
+  promoted_root,byte_root: REAL
+
+ROUTINE root(value: REAL): REAL
+BEGIN
+  RETURN SQRT(value)
+END root
+
+ROUTINE fill
+VAR row,column: INTEGER
+BEGIN
+  FOR row = 1 TO 2 DO
+    FOR column = 1 TO 2 DO
+      roots[row,column] = root(squares[row,column])
+    ENDFOR
+  ENDFOR
+END fill
+
+BEGIN
+  leg_a = 3.0
+  leg_b = 4.0
+  hypotenuse = SQRT(leg_a * leg_a + leg_b * leg_b)
+  squares[1,1] = 0.0
+  squares[1,2] = 0.25
+  squares[2,1] = 2.25
+  squares[2,2] = 16.0
+  fill
+  source_count = 81
+  promoted_root = root(source_count)
+  bytes[1] = 144
+  byte_root = SQRT(bytes[1])
+  nested_root = SQRT(SQRT(256.0))
+  rounded_root = ROUND(SQRT(6.25))
+END square_roots

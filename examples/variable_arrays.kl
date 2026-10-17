@@ -1,0 +1,32 @@
+PROGRAM variable_arrays
+CONST
+  fixed_rows=2
+TYPE
+  row_t=ARRAY[2] OF INTEGER
+VAR
+  readings,saved: ARRAY[*] OF INTEGER
+  grid: ARRAY[fixed_rows,*] OF INTEGER
+  slabs: ARRAY[*,*] OF row_t
+  count,total: INTEGER
+ROUTINE seed(data: ARRAY OF INTEGER)
+VAR
+  i: INTEGER
+BEGIN
+  FOR i=1 TO ARRAY_LEN(data) DO
+    data[i]=i*2
+  ENDFOR
+END seed
+ROUTINE patch(data: row_t)
+BEGIN
+  data[2]=9
+END patch
+BEGIN
+  seed(readings)
+  saved=readings
+  readings[1]=8
+  grid[2,3]=7
+  slabs[2,1,1]=5
+  patch(slabs[2,1])
+  count=ARRAY_LEN(saved)
+  total=saved[1]+saved[2]+saved[3]
+END variable_arrays

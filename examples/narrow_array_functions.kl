@@ -1,0 +1,58 @@
+PROGRAM narrow_array_functions
+%NOLOCKGROUP
+TYPE
+  packet_t = STRUCTURE
+    payload: ARRAY[3] OF BYTE
+  ENDSTRUCTURE
+VAR
+  bytes, copied, staged: ARRAY[3] OF BYTE
+  shorts, short_copy: ARRAY[3] OF SHORT
+  packet: packet_t
+  total: INTEGER
+
+ROUTINE byte_values: ARRAY OF BYTE
+VAR values: ARRAY[3] OF BYTE
+BEGIN
+  values[1]=0
+  values[2]=127
+  values[3]=255
+  RETURN values
+END byte_values
+
+ROUTINE short_values: ARRAY OF SHORT
+VAR values: ARRAY[3] OF SHORT
+BEGIN
+  values[1]=-32768
+  values[2]=0
+  values[3]=32766
+  RETURN values
+END short_values
+
+ROUTINE duplicate_bytes(values: ARRAY OF BYTE): ARRAY OF BYTE
+BEGIN
+  RETURN values
+END duplicate_bytes
+
+ROUTINE duplicate_shorts(values: ARRAY OF SHORT): ARRAY OF SHORT
+BEGIN
+  RETURN values
+END duplicate_shorts
+
+ROUTINE replace_bytes(values: ARRAY OF BYTE; promoted: INTEGER)
+BEGIN
+  values=byte_values()
+  promoted=42
+END replace_bytes
+
+BEGIN
+  bytes=byte_values()
+  copied=duplicate_bytes(bytes)
+  replace_bytes(bytes,bytes[2])
+  packet.payload=duplicate_bytes(copied)
+  staged=duplicate_bytes(packet.payload)
+  packet.payload[3]=1
+  shorts=short_values()
+  short_copy=duplicate_shorts(shorts)
+  shorts[2]=7
+  total=bytes[2]+staged[3]+short_copy[1]+short_copy[3]
+END narrow_array_functions

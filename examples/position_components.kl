@@ -1,0 +1,24 @@
+PROGRAM POSITION_COMPONENTS
+VAR pose: XYZWPR
+    components: ARRAY[6] OF REAL
+    saved_config: CONFIG
+    observed: REAL
+ROUTINE extract(src: XYZWPR; values: ARRAY OF REAL; dest: CONFIG)
+BEGIN
+  UNPOS(src,values[1],values[2],values[3],values[4],values[5],values[6],dest)
+END extract
+BEGIN
+  pose.x=1.25; pose.y=-2.5; pose.z=3
+  pose.w=0; pose.p=90; pose.r=-180
+  pose.config_data.cfg_turn_no1=0
+  pose.config_data.cfg_turn_no2=-1
+  pose.config_data.cfg_turn_no3=2
+  pose.config_data.cfg_flip=OFF
+  pose.config_data.cfg_left=ON
+  pose.config_data.cfg_up=OFF
+  pose.config_data.cfg_front=ON
+  extract(pose,components,saved_config)
+  observed=components[1]+components[2]
+  saved_config.cfg_flip=ON
+  pose.x=99
+END POSITION_COMPONENTS

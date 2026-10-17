@@ -1,0 +1,14 @@
+{
+  "COUNT": 123,
+  "PACKET": {
+    "COUNT": 42,
+    "READY": true
+  },
+  "NUMBERS": [
+    0,
+    7,
+    2147483646
+  ],
+  "CHECKS": 5,
+  "COUNTER_CLEARED": true
+}

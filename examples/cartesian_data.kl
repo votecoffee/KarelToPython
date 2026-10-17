@@ -1,0 +1,66 @@
+PROGRAM CARTDATA
+TYPE holder_t = STRUCTURE
+  offset: VECTOR
+  pose: XYZWPR
+ENDSTRUCTURE
+VAR
+  point, saved_point: XYZWPR
+  config_copy: CONFIG
+  direction, saved_direction: VECTOR
+  vectors: ARRAY[2] OF VECTOR
+  holder: holder_t
+  observed: REAL
+  config_value_unchanged: BOOLEAN
+
+ROUTINE init_config(c: CONFIG)
+BEGIN
+  c.cfg_turn_no1 = 0
+  c.cfg_turn_no2 = 0
+  c.cfg_turn_no3 = 0
+  c.cfg_flip = OFF
+  c.cfg_left = OFF
+  c.cfg_up = ON
+  c.cfg_front = ON
+END init_config
+
+ROUTINE init_point(p: XYZWPR)
+BEGIN
+  p.x = 1.25
+  p.y = 2.5
+  p.z = -3
+  p.w = 0
+  p.p = 90
+  p.r = 180
+  init_config(p.config_data)
+END init_point
+
+ROUTINE overwrite_turn(value: INTEGER)
+BEGIN
+  value = 7
+END overwrite_turn
+
+ROUTINE copy_with_alias(field: REAL; target: XYZWPR)
+BEGIN
+  target = point
+  field = 99
+END copy_with_alias
+
+BEGIN
+  init_point(point)
+  saved_point = point
+  copy_with_alias(saved_point.x, saved_point)
+  overwrite_turn(point.config_data.cfg_turn_no1)
+  config_value_unchanged = point.config_data.cfg_turn_no1 = 0
+  config_copy = point.config_data
+  config_copy.cfg_flip = ON
+  direction.x = 1
+  direction.y = 2
+  direction.z = 3
+  saved_direction = direction
+  saved_direction.z = -9
+  vectors[1] = direction
+  vectors[2] = saved_direction
+  holder.offset = direction
+  holder.pose = point
+  observed = holder.pose.x + vectors[2].z
+END CARTDATA

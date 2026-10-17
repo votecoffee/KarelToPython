@@ -1,0 +1,43 @@
+PROGRAM structure_routines
+TYPE
+  entry_t=STRUCTURE
+    id: INTEGER
+    label: STRING[5]
+    values: ARRAY[2] OF INTEGER
+  ENDSTRUCTURE
+VAR
+  original,detached,referenced,staged: entry_t
+  items: ARRAY[2] OF entry_t
+  observed: INTEGER
+ROUTINE build(number: INTEGER): entry_t
+VAR
+  local: entry_t
+BEGIN
+  local.id=number
+  local.label='robot''s'
+  local.values[1]=number
+  local.values[2]=number+1
+  RETURN local
+END build
+ROUTINE revise(value: entry_t): entry_t
+BEGIN
+  value.id=value.id+10
+  value.label='edited'
+  value.values[1]=99
+  RETURN value
+END revise
+ROUTINE inspect(value: entry_t)
+BEGIN
+  value.values[2]=77
+  observed=value.id
+END inspect
+BEGIN
+  original=build(1)
+  detached=revise((original))
+  items[1]=build(3)
+  staged=revise(build(4))
+  items[2]=staged
+  inspect((items[1]))
+  referenced=revise(original)
+  original.values[2]=88
+END structure_routines

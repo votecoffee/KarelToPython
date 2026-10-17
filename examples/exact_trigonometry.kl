@@ -1,0 +1,53 @@
+PROGRAM exact_trigonometry
+%NOLOCKGROUP
+TYPE direction_t=STRUCTURE
+  x: REAL
+  y: REAL
+ENDSTRUCTURE
+VAR angles: ARRAY[4] OF REAL
+    sines,cosines,tangents: ARRAY[4] OF REAL
+    inverse_inputs,inverse_sines,inverse_cosines: ARRAY[5] OF REAL
+    direction: direction_t
+    low_boundary,high_boundary,combined,returned: REAL
+    checked: BOOLEAN
+ROUTINE fill_forward
+VAR i: INTEGER
+BEGIN
+  FOR i=1 TO 4 DO
+    sines[i]=SIN(angles[i])
+    cosines[i]=COS(angles[i])
+    tangents[i]=TAN(angles[i])
+  ENDFOR
+END fill_forward
+ROUTINE fill_inverse
+VAR i: INTEGER
+BEGIN
+  FOR i=1 TO 5 DO
+    inverse_sines[i]=ASIN(inverse_inputs[i])
+    inverse_cosines[i]=ACOS(inverse_inputs[i])
+  ENDFOR
+END fill_inverse
+ROUTINE returned_sine(angle: REAL): REAL
+BEGIN
+  RETURN SIN(angle)
+END returned_sine
+BEGIN
+  angles[1]=-360
+  angles[2]=-180
+  angles[3]=0
+  angles[4]=180
+  inverse_inputs[1]=-1
+  inverse_inputs[2]=-.5
+  inverse_inputs[3]=0
+  inverse_inputs[4]=.5
+  inverse_inputs[5]=1
+  fill_forward
+  fill_inverse
+  direction.x=COS(60)
+  direction.y=SIN(30)
+  low_boundary=SIN(-18000)
+  high_boundary=COS(18000)
+  combined=ASIN(SIN(150))+ACOS(COS(120))+TAN(45)
+  returned=returned_sine(90)
+  checked=(direction.x=direction.y) AND (returned=1)
+END exact_trigonometry

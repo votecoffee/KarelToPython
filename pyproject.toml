@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "karel2py"
+version = "0.44.0"
+description = "Fail-closed KAREL source to Python translator prototype"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/votecoffee/KarelToPython"
+Issues = "https://github.com/votecoffee/KarelToPython/issues"
+
+[project.scripts]
+karel2py = "karel2py.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["karel2py*"]

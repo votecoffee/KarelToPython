@@ -1,0 +1,12 @@
+{
+  "ORIGINAL": "kept",
+  "PACKET": {
+    "LABEL": "robot"
+  },
+  "WORDS": [
+    "left",
+    "right"
+  ],
+  "EMITTED": 11,
+  "COUNTER_CLEARED": true
+}

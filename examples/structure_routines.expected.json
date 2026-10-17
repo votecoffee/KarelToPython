@@ -1,0 +1,53 @@
+{
+  "ORIGINAL": {
+    "ID": 11,
+    "LABEL": "edite",
+    "VALUES": [
+      99,
+      88
+    ]
+  },
+  "DETACHED": {
+    "ID": 11,
+    "LABEL": "edite",
+    "VALUES": [
+      99,
+      2
+    ]
+  },
+  "REFERENCED": {
+    "ID": 11,
+    "LABEL": "edite",
+    "VALUES": [
+      99,
+      2
+    ]
+  },
+  "STAGED": {
+    "ID": 14,
+    "LABEL": "edite",
+    "VALUES": [
+      99,
+      5
+    ]
+  },
+  "ITEMS": [
+    {
+      "ID": 3,
+      "LABEL": "robot",
+      "VALUES": [
+        3,
+        4
+      ]
+    },
+    {
+      "ID": 14,
+      "LABEL": "edite",
+      "VALUES": [
+        99,
+        5
+      ]
+    }
+  ],
+  "OBSERVED": 3
+}

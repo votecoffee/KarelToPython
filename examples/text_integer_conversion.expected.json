@@ -1,0 +1,27 @@
+{
+  "PARSED": 12,
+  "MINIMUM": -2147483648,
+  "POSITIVE": 42,
+  "INVALID_NUMBER": {
+    "uninitialized": true
+  },
+  "ROUNDTRIPPED": 25,
+  "VALUES": [
+    12,
+    -5
+  ],
+  "TEXTS": [
+    " 12",
+    " -5"
+  ],
+  "SMALL": " ***",
+  "BAD_BASE": {
+    "uninitialized": true
+  },
+  "INVALID_TEXT_DETECTED": true,
+  "INVALID_BASE_DETECTED": true,
+  "PACKET": {
+    "NUMBER": 25,
+    "TEXT": " 25"
+  }
+}

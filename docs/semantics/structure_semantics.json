@@ -1,0 +1,96 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual rules support named types, field access and reference binding. Tests establish the offline prototype only. Copy guards and storage preservation are explicit implementation policies, not authenticated controller observations.",
+  "rules": [
+    {
+      "feature": "Named STRUCTURE definitions and identity",
+      "pdf_pages": [
+        70,
+        71,
+        72,
+        73,
+        564
+      ],
+      "implemented": "TYPE name = STRUCTURE with scalar fields (including BYTE/SHORT), fixed 1D/2D/3D scalar or prior named-structure arrays, and previously defined named structures. Different names remain different types even with identical layouts. Built-in XYZWPR, CONFIG and VECTOR data records can also be fields; see data_record_semantics.json.",
+      "restriction": "No other type aliases, inline structures, recursive or forward type references, external type definitions or routine-local types.",
+      "tests": "tests/test_structures.py: FieldTests and StructureRejectionTests"
+    },
+    {
+      "feature": "Explicit field paths",
+      "pdf_pages": [
+        72,
+        73
+      ],
+      "implemented": "Case-insensitive nested dot/index paths, including arrays of structures and arrays within their fields; existing INTEGER, REAL, BOOLEAN and STRING checks.",
+      "restriction": "USING supports bare named structure variables with lexical right-most field resolution, as recorded in using_semantics.json. Nested/complex selectors and namespace/counter collisions remain blocked. Supported XYZWPR/CONFIG/VECTOR fields are described in data_record_semantics.json. Other geometry fields, structure comparisons and aggregate UNINIT remain blocked.",
+      "tests": "tests/test_structures.py: FieldTests and StructureRejectionTests"
+    },
+    {
+      "feature": "Structure and field reference parameters",
+      "pdf_pages": [
+        71,
+        95,
+        96
+      ],
+      "implemented": "Bare structures, indexed structure elements, nested structure fields, scalar fields and indexed array fields bind to caller storage. Scalar fields use existing value/reference and numeric promotion rules; STRING and ARRAY fields retain caller capacity. Fresh local structure/structure-array frames and cleanup are supported.",
+      "restriction": "Bare references retain existing behavior. Named STRUCTURE values/results use the initialized bounded recursive copies recorded in structure_routine_semantics.json. Native layout, stack cost and controller alias behavior remain unverified.",
+      "tests": "tests/test_structures.py: StructureParameterTests"
+    },
+    {
+      "feature": "Whole structure assignment",
+      "pdf_pages": [
+        71,
+        315,
+        316
+      ],
+      "implemented": "Independent field copies between the same named type, including nested structures and supported array fields. Destination aggregate storage is preserved recursively so captured structure-element, nested field and array references remain attached.",
+      "restriction": "Every source scalar leaf must be initialized and BYTE contents must be known before copying. The guard rejects partial/unknown copies before destination mutation. This restriction is a conservative policy, not a claim that KAREL prohibits all partially initialized structure copies.",
+      "tests": "tests/test_structures.py: StructureCopyTests and RuntimeStructureGuards"
+    },
+    {
+      "feature": "Aggregate UNINIT restrictions",
+      "pdf_pages": [
+        569
+      ],
+      "implemented": "UNINIT accepts supported scalar variables, scalar fields and indexed scalar elements. Whole STRUCTURE and unsubscripted ARRAY arguments are rejected, matching the manual's explicit exclusions.",
+      "restriction": "No aggregate initialization predicate is introduced; PATH and other controller types remain unsupported.",
+      "tests": "tests/test_structures.py: StructureRejectionTests; tests/test_aggregate_parameters.py"
+    },
+    {
+      "feature": "Field effects and indexed assignment order",
+      "pdf_pages": [],
+      "implemented": "Assignments to fields mark their root global/formal variable as potentially written. Fresh local structure writes remain local. Effectful function results assigned to indexed targets are rejected.",
+      "restriction": "Conservative analysis; no claim about KAREL target/value evaluation order. The indexed-result guard also applies to plain arrays.",
+      "tests": "tests/test_structures.py: StructureParameterTests and StructureRejectionTests"
+    }
+  ],
+  "unresolved": [
+    "Partially initialized or unknown-BYTE whole structure-array copies",
+    "Partially initialized whole-structure assignment",
+    "Native structure value-temporary layout, partial initialization behavior, stack cost and function return ownership",
+    "Scalar/type-to-type aliases beyond named STRUCTURE and ARRAY definitions and assignment/conversion rules across aliases",
+    "Controller observation of named ARRAY component ownership and aliases; inline anonymous nested ARRAY syntax remains blocked. Named ARRAY definitions and nested components are recorded in named_array_semantics.json and subarray_semantics.json",
+    "Nested/complex USING field scopes, namespace collisions and external/shared type consistency checks",
+    "Controller storage layout, alias observations, exceptions and alarm/task behavior"
+  ],
+  "validation": {
+    "manual_inspected": true,
+    "fresh_compiler_run": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "position_update": {
+    "version": "0.31.0",
+    "ledger": "position_semantics.json",
+    "boundary": "POSITION/XYZWPREXT can be fields. POSITION orientation descendants remain protected even through nested structure copies."
+  },
+  "structure_routine_update": {
+    "version": "0.39.0",
+    "ledger": "structure_routine_semantics.json",
+    "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

@@ -1,0 +1,73 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Internal exact-type VECTOR returned values and value arguments only. Runtime evidence is offline; other aggregate results/value forms and controller execution remain unverified.",
+  "rules": [
+    {
+      "feature": "VECTOR function results",
+      "pdf_pages": [
+        93,
+        600
+      ],
+      "visual_inspection": true,
+      "documented": "The VECTOR type explicitly allows VECTOR function return types and requires VECTOR expressions. Chapter 5 requires a RETURN value and describes the runtime error if no RETURN executes.",
+      "implemented": "Internal routines may declare a VECTOR result. Each RETURN checks all initialized X/Y/Z through the existing REAL policy, then builds independent writable VECTOR storage before local-frame cleanup. Results may come from local/global/reference storage or VECTOR expressions/functions; assignments retain existing destination storage.",
+      "restriction": "Broader ARRAY results, direct STRING results and external FROM routines, VECTOR aliases/constructors, positional conversion and source POSITION orientation initialization remain blocked. Falling through a function raises a source-located offline error; native alarm/task behavior is not claimed.",
+      "tests": "tests/test_vector_routines.py: local/global/formal/field/element/operator returns, recursion, SELECT/labels/FOR, copies and frame cleanup"
+    },
+    {
+      "feature": "Writable value temporaries",
+      "pdf_pages": [
+        96,
+        600
+      ],
+      "visual_inspection": true,
+      "documented": "Expression arguments are passed as temporary copies; parentheses turn a variable argument into a value expression. Modifying the parameter does not modify the original argument. VECTOR arguments must be VECTOR expressions.",
+      "implemented": "Grouped VECTOR variables/fields/elements, VECTOR operator results and returned VECTOR values get independent writable temporary storage. The source is validated before the callee executes. Bare ordinary VECTOR arguments keep references. Forwarding a bare value-formal references its owned temporary; grouping it makes another copy.",
+      "restriction": "No cross-type or robot-dependent positional conversion. Whole ARRAY values remain blocked; positional/joint values use positional_routine_semantics.json. Bare protected POSITION orientation arguments stay rejected; explicit grouped/returned initialized orientation vectors detach into writable copies, tested only with a synthetic host fixture.",
+      "tests": "tests/test_vector_routines.py: caller isolation, repeated/mixed arguments, forwarding, captured fields, single evaluation and initialized protected fixture"
+    },
+    {
+      "feature": "Effects and rejection boundaries",
+      "pdf_pages": [
+        93,
+        96,
+        600
+      ],
+      "visual_inspection": true,
+      "implemented": "Potential parameter/global writes, delays, output and ABORT remain transitive. Operator expressions, indexed targets and multiple-argument calls retain existing conservative evaluation-order guards. Reports record vector_returns/vector_value_arguments, independent-copy policy and reference/value passing modes. Numeric errors and uninitialized values are checked before exposing a returned value/temporary.",
+      "restriction": "Effect analysis is deliberately conservative: potential parameter writes stay effects even at a value-argument call site. Existing exact arithmetic, FOR counters, call-depth, destination protection, aggregate UNINIT and numeric I/O restrictions remain.",
+      "tests": "tests/test_vector_routines.py, tests/test_vector_routine_audit.py and examples/vector_routines.kl"
+    }
+  ],
+  "unresolved": [
+    "Native VECTOR return/value ABI and runtime observation",
+    "Broader ARRAY results, whole ARRAY value arguments and native positional ownership",
+    "General REAL rounding and VECTOR constructors",
+    "Source POSITION orientation acquisition and robot/frame semantics"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "structure_routine_update": {
+    "version": "0.39.0",
+    "ledger": "structure_routine_semantics.json",
+    "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
+  },
+  "positional_routine_update": {
+    "version": "0.40.0",
+    "ledger": "positional_routine_semantics.json",
+    "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
+  },
+  "array_routine_update": {
+    "version": "0.44.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Unsized 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results in direct assignment only, full initialized/known checked copies before cleanup and exact concrete destinations. BYTE/SHORT scalar arguments to INTEGER/REAL remain independent value copies. Broader ARRAY results and whole ARRAY value arguments remain blocked."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

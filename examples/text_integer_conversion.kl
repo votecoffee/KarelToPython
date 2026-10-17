@@ -1,0 +1,42 @@
+PROGRAM text_integer_conversion
+%NOLOCKGROUP
+TYPE packet_t = STRUCTURE
+  number: INTEGER
+  text: STRING[12]
+ENDSTRUCTURE
+VAR parsed,minimum,positive,invalid_number,roundtripped: INTEGER
+    values: ARRAY[2] OF INTEGER
+    texts: ARRAY[2] OF STRING[12]
+    small: STRING[4]
+    bad_base: STRING[8]
+    invalid_text_detected,invalid_base_detected: BOOLEAN
+    packet: packet_t
+
+ROUTINE format_rows(rows: ARRAY OF STRING; numbers: ARRAY OF INTEGER)
+VAR i: INTEGER
+BEGIN
+  FOR i = 1 TO ARRAY_LEN(rows) DO
+    CNV_INT_STR(numbers[i], 1, 10, rows[i])
+  ENDFOR
+END format_rows
+
+BEGIN
+  CNV_STR_INT('12', parsed)
+  CNV_STR_INT('-2147483648', minimum)
+  CNV_STR_INT('+42', positive)
+  values[1] = 12
+  values[2] = -5
+  format_rows(texts, values)
+  CNV_INT_STR(12345, 1, 0, small)
+  invalid_number = 7
+  CNV_STR_INT('A', invalid_number)
+  invalid_text_detected = UNINIT(invalid_number)
+  CNV_INT_STR(1, 1, 1, bad_base)
+  invalid_base_detected = UNINIT(bad_base)
+  USING packet DO
+    CNV_STR_INT('25', number)
+    CNV_INT_STR(number, 1, 10, text)
+  ENDUSING
+  -- Padding grammar is unresolved; extract the documented decimal token.
+  CNV_STR_INT(SUB_STR(packet.text, 2, STR_LEN(packet.text) - 1), roundtripped)
+END text_integer_conversion

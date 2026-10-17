@@ -1,0 +1,38 @@
+PROGRAM exact_bearings
+%NOLOCKGROUP
+TYPE point_t=STRUCTURE
+  x: REAL
+  y: REAL
+ENDSTRUCTURE
+VAR points: ARRAY[4] OF point_t
+    bearings: ARRAY[4] OF REAL
+    positive_x,positive_y,diagonal,nested,returned: REAL
+    checked: BOOLEAN
+ROUTINE fill_bearings
+VAR i: INTEGER
+BEGIN
+  FOR i=1 TO 4 DO
+    bearings[i]=ATAN2(points[i].x,points[i].y)
+  ENDFOR
+END fill_bearings
+ROUTINE bearing(x,y: REAL): REAL
+BEGIN
+  RETURN ATAN2(x,y)
+END bearing
+BEGIN
+  points[1].x=4
+  points[1].y=0
+  points[2].x=0
+  points[2].y=8
+  points[3].x=2.5
+  points[3].y=2.5
+  points[4].x=.5
+  points[4].y=.5
+  fill_bearings
+  positive_x=ATAN2(4,0)
+  positive_y=ATAN2(0,4)
+  diagonal=ATAN2(2.5,2.5)
+  nested=COS(ATAN2(0,4))
+  returned=bearing(.5,.5)
+  checked=(positive_x=0) AND (positive_y=90) AND (returned=45)
+END exact_bearings

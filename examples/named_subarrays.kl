@@ -1,0 +1,58 @@
+PROGRAM named_subarrays
+%NOLOCKGROUP
+TYPE row_t = ARRAY[2] OF INTEGER
+     plane_t = ARRAY[2] OF row_t
+     volume_t = ARRAY[2] OF plane_t
+VAR primary,backup: volume_t
+    copied_plane: plane_t
+    copied_row: row_t
+    observed,total: INTEGER
+
+ROUTINE fill(p: row_t; first: INTEGER)
+BEGIN
+  p[1] = first
+  p[2] = first + 1
+END fill
+
+ROUTINE replace_and_bump(cell: INTEGER; selected: row_t; whole,source: volume_t)
+BEGIN
+  whole = source
+  selected[2] = 99
+  cell = 77
+END replace_and_bump
+
+ROUTINE grid_user(data: ARRAY[*,*] OF INTEGER)
+BEGIN
+  data[2,2] = 31
+END grid_user
+
+ROUTINE row_user(data: ARRAY OF row_t)
+BEGIN
+  fill(data[2],40)
+END row_user
+
+ROUTINE sum_plane(data: ARRAY[*,*] OF INTEGER): INTEGER
+VAR i,j,result: INTEGER
+BEGIN
+  result = 0
+  FOR i = 1 TO 2 DO
+    FOR j = 1 TO 2 DO
+      result = result + data[i,j]
+    ENDFOR
+  ENDFOR
+  RETURN result
+END sum_plane
+
+BEGIN
+  fill(primary[1,1],10)
+  copied_plane = primary[1]
+  fill(backup[1,1],20)
+  replace_and_bump(primary[1,1,1],primary[1,1],primary,backup)
+  copied_row = primary[1,1]
+  copied_row[1] = 7
+  grid_user(primary[1])
+  observed = primary[1,2,2]
+  row_user(primary[1])
+finished::
+  total = sum_plane(primary[1])
+END named_subarrays

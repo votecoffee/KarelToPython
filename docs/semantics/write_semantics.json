@@ -1,0 +1,119 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "One STRING item with checked formats, or one unformatted BOOLEAN or nonnegative INTEGER item, creates an offline output request. The callback/recorder contract does not model controller I/O.",
+  "rules": [
+    {
+      "feature": "Omitted-file WRITE with one STRING data item",
+      "pdf_pages": [
+        128,
+        129,
+        135,
+        136,
+        623
+      ],
+      "documented": "Omitting the file selects TPDISPLAY unless a device directive changes the default. Unformatted ASCII STRING output uses its contents without added leading/trailing blanks or quotes. The total data processed by one READ or WRITE statement is limited to 254 bytes.",
+      "implemented": "WRITE(one_STRING_expression) evaluates initialized ASCII contents once. An input guard enforces at most 254 characters before optional formatting. Empty unformatted contents still create a request. Existing blanks and character codes are retained.",
+      "restriction": "One data item only. Explicit files/devices, CR, quoted truncation/fallback/embedded apostrophes, signed widths, negative INTEGER/REAL/aggregate output, BOOLEAN/INTEGER format specifiers and READ remain blocked. Controller over-limit outcomes and expression-buffer allocation remain unmodeled; formats cannot bypass the STRING input guard.",
+      "tests": "tests/test_writes.py: source forms, contents, scalar fields/elements, built-ins, read-only parameters and evaluation guards"
+    },
+    {
+      "feature": "Unquoted STRING output width and alignment",
+      "pdf_pages": [
+        129,
+        136
+      ],
+      "documented": "Each format specifier is an INTEGER literal following ::. The first counts total output characters including blanks: pad on the right when wider than contents, truncate on the right when narrower. A second 0 selects unquoted left alignment and 1 selects unquoted right alignment; unquoted contents have no automatic leading blank. Widths outside 1..254 use string length according to the manual.",
+      "implemented": "Optional nonnegative INTEGER literal ::width up to 2147483647, followed optionally by ::0 or ::1. Width 0 or above 254 uses current contents length. Width 1..254 truncates on the right or pads with blanks. Default/0 align left; 1 aligns right. Source storage is unchanged; the callback receives exactly the formatted text.",
+      "equivalent_python": "For checked ASCII text and width: effective = len(text) if width == 0 or width > 254 else width; clipped = text[:effective]; blanks = ' ' * (effective - len(clipped)); output = blanks + clipped if alignment == 1 else clipped + blanks",
+      "restriction": "Signed/grouped/nonliteral specifiers and additional items remain blocked. Source input must be initialized ASCII of at most 254 characters before formatting; fallback cannot hide overlong input or introduce huge padding. No controller temporary-buffer behavior is inferred.",
+      "tests": "tests/test_write_formats.py and tests/test_write_quotes.py: unquoted width, exact spaces, contents-length fallback and literal/runtime guards"
+    },
+    {
+      "feature": "Quoted STRING output that fits completely",
+      "pdf_pages": [
+        136
+      ],
+      "visual_inspection": true,
+      "documented": "Mode 2 selects left justification with quotes; mode 3 selects right justification with quotes. Quoted STRING values have a leading blank even when left justified. Table 7.7.4(b) shows ABC at width 8 in both modes and also a truncated width-4 example. Double quotes in the table are display delimiters, not output characters.",
+      "implemented": "For modes 2/3 require literal width 1..254, no embedded apostrophes and contents length + 3 <= width. Wrap text with a leading blank and single quotes, then pad to width on the selected side. Empty contents need width at least 3; the maximum fitting contents length is 251. Formatting does not modify source storage.",
+      "equivalent_python": "After guards: wrapped = \" '\" + text + \"'\"; blanks = ' ' * (width - len(wrapped)); output = wrapped + blanks if mode == 2 else blanks + wrapped",
+      "restriction": "The width-4 truncation example and general leading-blank wording do not establish all quoted truncation boundaries. Quoted truncation and embedded apostrophes raise KarelRuntimeError before request/callback. Quoted width 0 or above 254 is rejected during translation; quoted width fallback remains unresolved. No READ roundtrip or controller output equivalence is claimed.",
+      "tests": "tests/test_write_quotes.py: 73 new quoted/fallback behavior, runtime/source guard, output-effect, CLI and example checks"
+    },
+    {
+      "feature": "Default BOOLEAN output",
+      "pdf_pages": [
+        134
+      ],
+      "visual_inspection": true,
+      "documented": "Table 7.7.3(b) gives default TRUE and FALSE output with one leading blank. The output-format prose also specifies an included leading blank; displayed double quotes delimit text and are not written.",
+      "implemented": "WRITE(one_BOOLEAN_expression), without format specifiers, evaluates once and requires an initialized strict Boolean value. It emits exactly ASCII TRUE or FALSE preceded by one blank, with no quotes, trailing blank or newline. Supported constants, variables, fields, array elements, routine inputs/results and initialization queries use the same request recorder/callback contract as STRING output.",
+      "equivalent_python": "After initialization and type(value) is bool guards: text = ' TRUE' if value else ' FALSE'",
+      "restriction": "All BOOLEAN format specifiers remain blocked, including width, fallback and alignment. Page 134 prose requires a leading blank and describes left padding/truncation rules, but the visually inspected FALSE::8 row appears to omit the leading blank. The complete set of formatted edge cases is not established. Negative INTEGER/REAL/aggregate output and INTEGER format specifiers, multiple data items, READ, device/buffering/status behavior and controller runtime equivalence remain unimplemented.",
+      "tests": "tests/test_boolean_writes.py: 52 source-context, strict-type, initialization, exact-text, evaluation/effect, adapter/cleanup, CLI and example checks"
+    },
+    {
+      "feature": "Default nonnegative INTEGER output",
+      "pdf_pages": [
+        131,
+        132
+      ],
+      "visual_inspection": true,
+      "documented": "Page 131 describes default INTEGER output as decimal digits with one leading blank, and the positive 123 example agrees. The negative -5 row visibly includes a trailing blank despite the required-digits prose. The 123::6 row omits leading padding despite its right-justification comment and the prose. Page 132 gives -1::9::16 as a separate hexadecimal example.",
+      "implemented": "WRITE(one_INTEGER_expression), without format specifiers, evaluates once and requires an initialized strict int in 0..2147483647. Emit one leading blank followed by ordinary decimal digits, without quotes, trailing blanks or newline. MAXINT is allowed as an expression under the existing numeric policy; INTEGER storage still excludes the reserved upper marker. Exact INTEGER constants, variables, fields, array elements, routine inputs/results and integral builtin results use the existing request recorder/callback contract.",
+      "equivalent_python": "After initialization, strict int/range and nonnegative guards: text = ' ' + str(value)",
+      "restriction": "Every negative INTEGER result, including -5 and MININT, raises a source-located KarelRuntimeError before the request/callback. Earlier expression effects remain visible. All INTEGER formats, including decimal base 10, fallback, padding and other bases, remain rejected during translation. BYTE/SHORT storage is not accepted directly as a WRITE item; existing explicit INTEGER expression/parameter promotion can supply an INTEGER. No spacing rule is inferred from conflicting examples, and no controller output equivalence is claimed.",
+      "tests": "tests/test_integer_writes.py: 55 exact-text, strict-type/range, negative/format guard, source-context, evaluation/effect, cleanup, CLI and example checks"
+    },
+    {
+      "feature": "Per-run output request recorder and optional callback",
+      "implemented": "Program().run() records requests without writing to a device or stdout. Program(write=callable) calls a synchronous text sink returning None. Program.write_requests returns defensive copies of text/physical-line/adapter_outcome records from the most recent valid run.",
+      "restriction": "Adapter outcomes describe only the recorder/callback: recorded, callback_completed, callback_failed, callback_interrupted or callback_result_rejected. They are not IO_STATUS or physical transmission acknowledgements. Failed callbacks may retain external effects; no rollback is attempted.",
+      "tests": "tests/test_writes.py: isolated instances, repeated runs, defensive copies, callback errors/results/interruption and cleanup"
+    },
+    {
+      "feature": "Potential output effects",
+      "implemented": "Potential output requests propagate through the routine call graph, including recursion and skipped paths. Operator and indexed-target evaluation-order guards also apply to output-producing functions. A standalone result or a single-argument nesting can execute in checked order.",
+      "restriction": "Existing call/multi-argument/Boolean ordering restrictions remain. The static writes report is a list of source sites, not the runtime request sequence.",
+      "tests": "tests/test_writes.py: nested output, recursion, branches/loops/labels, timing order and effect rejections"
+    },
+    {
+      "feature": "Controller output and buffering boundary",
+      "pdf_pages": [
+        128,
+        129,
+        623
+      ],
+      "documented": "KAREL uses an I/O buffer holding up to 256 bytes and provides device/file attributes, CR and IO_STATUS semantics. The Python manual on PDF page 9 says Python standard output launched by TP/KAREL cannot be displayed on the iPendant and may be redirected to MC:pylog.txt.",
+      "implemented": "These controller mechanisms remain unmodeled. A CHR(13) input records an ASCII carriage-return character; it does not implement the reserved CR item or a controller record-flush operation.",
+      "restriction": "No file/device connection, controller write, stdout mapping, flush, transmission timing, task/alarm behavior or I/O status is claimed."
+    }
+  ],
+  "unresolved": [
+    "Multiple data items and their partial-failure/evaluation ordering",
+    "Quoted truncation, embedded apostrophes, quoted width fallback, signed width literals, CR, explicit files/devices and controller buffering/transmission",
+    "Negative INTEGER output spacing, INTEGER/BOOLEAN formats, REAL/aggregate WRITE, direct BYTE/SHORT items, READ and IO_STATUS outcomes",
+    "Controller runtime behavior and Python output destination adaptation"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "output_callback_on_corpus": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "abort_update": {
+    "version": "0.34.0",
+    "ledger": "abort_semantics.json",
+    "boundary": "Bare ABORT terminates this offline instance without rollback; no task/action/condition or motion semantics. Routine effects propagate and frames unwind; direct FOR use requires fresh routine-local counters."
+  },
+  "literal_update": {
+    "version": "0.36.0",
+    "ledger": "literal_semantics.json",
+    "boundary": "Doubled ASCII apostrophes decode inside one physical STRING token before logical-value checks. Existing quoted-WRITE, writable value and STRING-result guards remain."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

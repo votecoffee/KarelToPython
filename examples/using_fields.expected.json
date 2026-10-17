@@ -1,0 +1,17 @@
+{
+  "FIRST": {
+    "VALUE": 3,
+    "LABEL": "abc",
+    "SLOTS": [
+      1,
+      2
+    ]
+  },
+  "SECOND": {
+    "VALUE": 11,
+    "READY": true
+  },
+  "VALUE": 90,
+  "TOTAL": 12,
+  "INSPECTED": 3
+}

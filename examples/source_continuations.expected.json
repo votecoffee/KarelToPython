@@ -1,0 +1,16 @@
+{
+  "RECORD": {
+    "ITEM": {
+      "VALUE": 31,
+      "TAG": "A&B"
+    }
+  },
+  "VALUES": [
+    10,
+    20,
+    30
+  ],
+  "TOTAL": 51,
+  "RESULT": 1,
+  "TEXT": "A&B"
+}

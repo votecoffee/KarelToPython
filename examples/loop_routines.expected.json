@@ -1,0 +1,12 @@
+{
+  "VALUES": [
+    2,
+    4,
+    0,
+    8
+  ],
+  "INITIAL_SEARCH": 0,
+  "FIRST_ZERO": 3,
+  "TOTAL": 6,
+  "COUNTERS_CLEARED": true
+}

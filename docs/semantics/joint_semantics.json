@@ -1,0 +1,74 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Opaque joint values and degree-valued offline conversions. Explicit host axis context is not a controller connection, robot model, group definition or kinematic validation.",
+  "rules": [
+    {
+      "feature": "JOINTPOS declared widths",
+      "pdf_pages": [
+        449
+      ],
+      "visual_inspection": true,
+      "documented": "JOINTPOS represents REAL values per axis; JOINTPOS1 through JOINTPOS9 specify axis count and the unsuffixed default is nine. Robot/group axes can use degrees or millimeters; a group qualifier and positional conversions are separate controller semantics.",
+      "implemented": "Canonical (JOINTPOS,axis_count) identity for widths 1..9, with unsuffixed JOINTPOS equal to JOINTPOS9. Opaque uninitialized axis storage, scalar UNINIT, global/local variables, nested structures, fixed/named arrays and exact-width references/copies. Source field names or direct joint indexing are not invented. Snapshot axes lists are presentation only.",
+      "restriction": "Cross-width/cross-positional conversion and group qualifiers remain blocked; same-width joint results/value arguments use positional_routine_semantics.json. Copies require every axis initialized, preserve destination storage and recheck exact REAL values. Axis count is not a configured robot joint count.",
+      "tests": "tests/test_joint_data.py: widths, unknown state, initialization, identity, nested ownership and reference guards"
+    },
+    {
+      "feature": "REAL-array to joint conversion",
+      "pdf_pages": [
+        340,
+        341
+      ],
+      "visual_inspection": true,
+      "documented": "CNV_REL_JPOS(real_array,joint_pos,status) accepts a REAL array at least as long as the number of system joints, maps element one to joint one, ignores excess elements and requires used inputs initialized. The conversion entry describes degree values.",
+      "implemented": "Requires explicit Program(joint_axes=n), n in 1..9, as an offline degree-valued context. Declared joint width must equal n. A one-dimensional ARRAY OF REAL with length >= n supplies the first n initialized/exact values. All guards run before joint/status mutation; ignored input tail can remain uninitialized. Exact-type writable joint storage is updated and status becomes zero on offline success.",
+      "restriction": "No configured system joint count is inferred from a declaration. Mixed-width storage/context, millimeter-valued group mapping, nonzero controller status codes, pause/abort behavior and physical range/reachability are unmodeled. Guard errors raise source-located KarelRuntimeError and preserve prior outputs.",
+      "tests": "tests/test_joint_data.py: exact roundtrip, ignored tail, short input, unknown used values, context/width/type guards and output preservation"
+    },
+    {
+      "feature": "Joint to REAL-array conversion",
+      "pdf_pages": [
+        339
+      ],
+      "visual_inspection": true,
+      "documented": "CNV_JPOS_REL(joint_pos,real_array,status) maps joint one to array element one. The output may be shorter than the system joint count, and excess array elements are ignored. The entry describes degrees.",
+      "implemented": "With matching explicit axis context, requires an initialized opaque joint and a one-dimensional REAL output array. Copies min(output_length,n) axes, preserving any excess output tail. Status becomes zero only after successful offline output. Complete source joint validation precedes mutation.",
+      "restriction": "Only the exact REAL subset is modeled. Partial malformed host joints, other dimensions/types, device/machine semantics and controller failure status/partial-update ordering remain unsupported.",
+      "tests": "tests/test_joint_data.py: prefix output, preserved tail, initialization/type guards and status preservation"
+    },
+    {
+      "feature": "Output references, effects and execution context",
+      "pdf_pages": [
+        95,
+        96,
+        339,
+        340,
+        341
+      ],
+      "implemented": "Both data and status outputs are checked writable references and participate in direct/transitive routine parameter-write analysis. Generic REAL/joint array formals retain caller storage. Calls in conversion arguments, active FOR-counter outputs, CONFIG output aliases and read-only POSITION outputs remain blocked. Program(joint_axes=...) is per instance; generated modules containing joint conversions require --joint-axes 1..9 when run as scripts.",
+      "restriction": "Translation/checking never executes these conversions or discovers a controller configuration. No additional controller SDK, network connection, task/status adapter, motion or timing behavior is introduced.",
+      "tests": "tests/test_joint_data.py and tests/test_joint_audit.py: dual-output effects, forwarding, cleanup, CLI context and immutable-source scanner checks"
+    }
+  ],
+  "unresolved": [
+    "Robot/group configuration, joint/axis units and system-axis discovery",
+    "Cross-width/cross-positional conversions, forward/inverse kinematics, joint limits and reachability",
+    "Controller status codes, error/partial-update ordering, pause/abort behavior and physical layout",
+    "Native joint value/result ownership, controller register/file access and motion"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "positional_routine_update": {
+    "version": "0.40.0",
+    "ledger": "positional_routine_semantics.json",
+    "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

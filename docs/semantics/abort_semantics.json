@@ -1,0 +1,64 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Bare ABORT models termination of one offline Python execution only. Exceptions and host snapshots do not implement controller task, motion, handler, restart or persistence semantics.",
+  "rules": [
+    {
+      "feature": "Bare statement and unsupported contexts",
+      "pdf_pages": [
+        301
+      ],
+      "visual_inspection": true,
+      "documented": "ABORT terminates task execution and cancels pending/in-progress motion; the statement may specify PROGRAM[n]. Aborted programs cannot resume and must restart. The action and condition forms are separate contexts.",
+      "implemented": "Only the unqualified ABORT statement in supported program/routine bodies. It raises a distinct KarelAbort exception carrying the source line. IF/SELECT/WHILE/REPEAT/USING and label-dispatched bodies are supported. The dispatcher records ABORT as a terminal node without fall-through.",
+      "restriction": "PROGRAM[n], arguments, ABORT_TASK, ABORT actions/conditions, condition handlers and NOABORT remain explicitly unsupported. No robot task or motion cancellation is performed.",
+      "tests": "tests/test_abort.py: syntax, source locations, branches, loops, USING, terminal dispatcher and context guards"
+    },
+    {
+      "feature": "No resume and bounded restart",
+      "pdf_pages": [
+        301
+      ],
+      "visual_inspection": true,
+      "documented": "The program cannot resume after ABORT and must be restarted.",
+      "implemented": "An aborted offline Program instance remains terminal. Subsequent run() or generated routine entry raises the original source-located KarelAbort before additional statements or per-run clearing. Constructing a separate Program creates a cold offline instance with uninitialized globals and fresh traces.",
+      "restriction": "Cold construction is a conservative host contract, not an implementation of controller restart persistence, attributes, scheduler ownership or task status. No resume API or native restart operation is supplied.",
+      "tests": "tests/test_abort.py: sticky instance, preserved first location, guarded routine entry and independent cold restart"
+    },
+    {
+      "feature": "Unwinding and observations",
+      "pdf_pages": [
+        301
+      ],
+      "visual_inspection": true,
+      "documented": "ABORT terminates task execution rather than returning normally from the current routine.",
+      "implemented": "The exception propagates through nested/recursive generated calls; finally blocks discard local frames. No successful run snapshot is returned. Program.snapshot() supplies copied offline globals and Program.abort_info supplies copied termination metadata. Earlier global/reference writes, delay callbacks and WRITE requests are retained without rollback.",
+      "restriction": "These are observations of the offline model, not controller post-abort storage or external-effect guarantees. Direct ABORT inside FOR requires fresh routine-local counters; global/reference counters remain blocked because their observable abort state is unvalidated.",
+      "tests": "tests/test_abort.py and examples/abort_control.kl: nested/recursive cleanup, local FOR, retained effects, defensive observations and distinct runtime failures"
+    },
+    {
+      "feature": "Routine effects and generated scripts",
+      "pdf_pages": [
+        301
+      ],
+      "visual_inspection": true,
+      "implemented": "Potential ABORT propagates through call chains and recursion, including skipped branches. Such functions remain blocked in operator expressions/indexed assignments with ambiguous effect ordering. Reports include abort_policy, aborts and routine_effects.*.potential_aborts. Translator --check does not execute ABORT. Generated scripts exit nonzero with KarelAbort; the API caller can catch it explicitly.",
+      "restriction": "All unreachable source is still checked. Intentional offline termination is distinguished from KarelRuntimeError. No controller status or alarm code is invented.",
+      "tests": "tests/test_abort.py: transitive effects, source maps, unreachable rejection, translator CLI and generated-script exit"
+    }
+  ],
+  "unresolved": [
+    "ABORT PROGRAM[n], ABORT_TASK and task/action/condition contexts",
+    "Controller motion cancellation, handlers, NOABORT attributes and scheduler integration",
+    "Native post-abort variable/FOR-counter state, persistence and restart behavior"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

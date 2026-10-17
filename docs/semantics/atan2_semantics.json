@@ -1,0 +1,60 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Only exact unambiguous nonnegative-coordinate bearings. Manual x/y order and origin-domain evidence support a conservative mathematical contract; no native numeric implementation, signed-zero quadrant, return-range or alarm/task equivalence is authenticated.",
+  "current_visual_inspection_pages": [
+    316,
+    317
+  ],
+  "rules": [
+    {
+      "feature": "KAREL ATAN2(x,y) order and units",
+      "pdf_pages": [
+        316,
+        317
+      ],
+      "documented": "ATAN2 takes x1 then y1 as point coordinates and returns a REAL counterclockwise angle in degrees from the positive x-axis. The example calls ATAN2(x,y). Both coordinates zero cause an interpreter error.",
+      "implemented": "Exactly two checked REAL inputs, including exact INTEGER/BYTE/SHORT promotions. Both coordinates are validated before bearing classification. Positive x-axis returns 0, positive y-axis 90 and positive x=y diagonal 45, all as REAL.",
+      "restriction": "The manual entry does not establish a numeric return interval or branch-cut/signed-zero policy. All negative coordinates are conservatively rejected pending that evidence. This is a prototype boundary, not a claim those inputs are invalid in native KAREL.",
+      "tests": "tests/test_atan2.py: order-distinguishing axes, diagonal, results/types, source forms and both-input validation"
+    },
+    {
+      "feature": "Exact bearing calculation and failure boundaries",
+      "pdf_pages": [
+        316,
+        317,
+        502,
+        503
+      ],
+      "implemented": "Existing normal-or-zero REAL checks precede the origin guard. Nonnegative axes and equal positive coordinates use comparisons only, without ratio, squared norm, host trig, radians conversion, coordinate magnitude inference or tolerance snapping. Large/small exact coordinates retain their bearing without introducing arithmetic intermediates.",
+      "restriction": "Other positive bearings require rounding and fail explicitly. Origin raises a source-located offline KarelRuntimeError, not a modeled native alarm/task abort. Existing underflow normalization and signed-zero normalization run first; they do not establish native quadrant behavior.",
+      "tests": "tests/test_atan2.py: large/small scaling, avoided square overflow, near-axis/diagonal rejection, origin, negatives, nonfinite/inexact/unknown inputs and underflow ordering"
+    },
+    {
+      "feature": "Source type/order/effect integration",
+      "pdf_pages": [
+        95,
+        96,
+        316,
+        317
+      ],
+      "implemented": "Nested pure built-ins, fields/elements, reference/value parameters, REAL results, labels and routine-local FOR bodies use existing rules. Two-argument calls containing a user routine in either coordinate remain blocked, including pure routines. Arguments are evaluated once. Guard failures preserve destination/earlier independent effects and unwind frames.",
+      "restriction": "No CONST calls, general return-range/rounding, frame/POS construction, external types, robot context or controller arithmetic. Existing potential-write/delay/output/ABORT, indexed-target and call-depth guards remain.",
+      "tests": "tests/test_atan2.py: single reads, source/report positions, arity/types, pure and effectful wrappers, output preservation and frame cleanup"
+    }
+  ],
+  "unresolved": [
+    "Native output interval, negative-coordinate quadrants, branch cut and signed-zero behavior",
+    "Rounded general ATAN2 bearings and native numeric implementation",
+    "Native error/alarm/task behavior, frame/pose construction and controller execution"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

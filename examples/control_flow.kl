@@ -1,0 +1,52 @@
+PROGRAM CONTROL_FLOW
+%NOLOCKGROUP
+CONST
+  capacity = 4
+VAR
+  i, total, code: INTEGER
+  values, copied: ARRAY[capacity] OF INTEGER
+  finished, counter_cleared: BOOLEAN
+  label: STRING[8]
+
+ROUTINE double_total
+BEGIN
+  total = total * 2
+END double_total
+
+ROUTINE answer: INTEGER
+BEGIN
+  RETURN 42
+END answer
+
+BEGIN
+  total = 0
+  FOR i = 1 TO capacity DO
+    values[i] = i * 10
+    total = total + values[i]
+  ENDFOR
+  counter_cleared = UNINIT(i)
+  copied = values
+  values[1] = 999
+
+  double_total
+  code = answer()
+  SELECT code OF
+    CASE(41, 42): label = 'complete-long'
+    CASE(0): label = 'zero'
+    ELSE: label = 'other'
+  ENDSELECT
+
+  i = 0
+  REPEAT
+    i = i + 1
+  UNTIL i >= 2
+
+  finished = FALSE
+  WHILE NOT finished DO
+    IF total >= 200 THEN
+      finished = TRUE
+    ELSE
+      total = total + 1
+    ENDIF
+  ENDWHILE
+END CONTROL_FLOW

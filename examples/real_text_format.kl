@@ -1,0 +1,47 @@
+PROGRAM real_text_format
+%NOLOCKGROUP
+TYPE packet_t = STRUCTURE
+  value: REAL
+  text: STRING[12]
+ENDSTRUCTURE
+VAR numbers: ARRAY[3] OF REAL
+    labels: ARRAY[3] OF STRING[12]
+    small: STRING[3]
+    packet: packet_t
+    parsed_real: REAL
+    parsed_integer: INTEGER
+    verified: BOOLEAN
+
+ROUTINE format_rows(output: ARRAY OF STRING; source: ARRAY OF REAL)
+VAR i: INTEGER
+BEGIN
+  FOR i=1 TO ARRAY_LEN(output) DO
+    SELECT i OF
+      CASE(1): CNV_REAL_STR(source[i],1,0,output[i])
+      CASE(2): CNV_REAL_STR(source[i],1,1,output[i])
+      CASE(3): CNV_REAL_STR(source[i],1,2,output[i])
+    ENDSELECT
+  ENDFOR
+END format_rows
+
+ROUTINE local_format: BOOLEAN
+VAR text: STRING[8]
+BEGIN
+  CNV_REAL_STR(2.5,1,2,text)
+  RETURN text=' 2.50'
+END local_format
+
+BEGIN
+  numbers[1]=12.0
+  numbers[2]=2.5
+  numbers[3]=-1.25
+  format_rows(labels,numbers)
+  CNV_REAL_STR(-1.25,1,2,small)
+  USING packet DO
+    value=123.25
+    CNV_REAL_STR(value,7,2,text)
+  ENDUSING
+  CNV_STR_REAL(SUB_STR(labels[2],2,STR_LEN(labels[2])-1),parsed_real)
+  CNV_STR_INT(SUB_STR(labels[1],2,STR_LEN(labels[1])-1),parsed_integer)
+  verified=local_format()
+END real_text_format

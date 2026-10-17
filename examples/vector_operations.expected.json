@@ -1,0 +1,41 @@
+{
+  "FIRST_VEC": {
+    "X": 3.0,
+    "Y": 4.0,
+    "Z": 5.0
+  },
+  "SECOND_VEC": {
+    "X": 6.0,
+    "Y": 7.0,
+    "Z": 8.0
+  },
+  "TOTAL_VEC": {
+    "X": 9.0,
+    "Y": 22.0,
+    "Z": 26.0
+  },
+  "CROSS_VEC": {
+    "X": -3.0,
+    "Y": 6.0,
+    "Z": -3.0
+  },
+  "SCALED_VEC": {
+    "X": -6.0,
+    "Y": -6.0,
+    "Z": -6.0
+  },
+  "RECIPROCAL_VEC": {
+    "X": 2.0,
+    "Y": 1.0,
+    "Z": 0.5
+  },
+  "SAVED_VEC": {
+    "X": 9.0,
+    "Y": 11.0,
+    "Z": 13.0
+  },
+  "INNER_VALUE": 86.0,
+  "OBSERVED": 18.0,
+  "SAME_VALUE": true,
+  "DIFFERENT_VALUE": true
+}

@@ -1,0 +1,114 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual descriptions support the implemented subset. Unit tests establish prototype behavior only; no fresh compiler or controller validation was performed.",
+  "rules": [
+    {
+      "feature": "ARRAY OF STRING parameters",
+      "pdf_pages": [
+        95,
+        96,
+        126,
+        312,
+        562,
+        563
+      ],
+      "implemented": "Reference binding inherits both caller array length and physical element capacity; forwards the same storage.",
+      "restriction": "Whole-array assignment requires identical concrete length and element capacity. Different-capacity whole-array conversion is blocked.",
+      "tests": "tests/test_strings.py: StringArrayTests"
+    },
+    {
+      "feature": "SUB_STR",
+      "pdf_pages": [
+        564,
+        565
+      ],
+      "implemented": "Positive one-based start and positive count; exact in-range copies of at most 254 characters; a start after the current source length returns empty.",
+      "restriction": "In-range requests extending past the current source end and results longer than 254 are blocked pending source/runtime evidence. Destination assignment applies its existing physical bound.",
+      "tests": "tests/test_strings.py: SubstringTests"
+    },
+    {
+      "feature": "INDEX",
+      "pdf_pages": [
+        427,
+        428
+      ],
+      "implemented": "Returns the one-based position of the first exact occurrence, or zero when absent.",
+      "restriction": "An empty search string is blocked. ASCII-only source and search values.",
+      "tests": "tests/test_strings.py: IndexTests"
+    },
+    {
+      "feature": "CHR",
+      "pdf_pages": [
+        328,
+        751
+      ],
+      "implemented": "Returns one ASCII character for integer codes 0 through 127, including controls.",
+      "restriction": "Other codes and alternate character sets are blocked; Python Unicode conversion is not treated as a KAREL mapping.",
+      "tests": "tests/test_strings.py: CharacterTests"
+    },
+    {
+      "feature": "ORD",
+      "pdf_pages": [
+        469,
+        470
+      ],
+      "implemented": "Returns the ASCII code at a one-based index; rejects indexes outside the current string length.",
+      "restriction": "ASCII only. Index errors use KarelRuntimeError, not KAREL task pause/alarm behavior.",
+      "tests": "tests/test_strings.py: CharacterTests"
+    },
+    {
+      "feature": "Read-only STRING value arguments",
+      "pdf_pages": [
+        95,
+        96,
+        562,
+        563,
+        564
+      ],
+      "implemented": "ASCII logical values of at most 254 characters pass by independent initialized copy to formals with no direct/transitive potential writes; nested bare forwarding retains runtime write protection.",
+      "restriction": "Physical capacity is deliberately unspecified. Writable STRING value temporaries and STRING routine results remain blocked; see string_value_semantics.json.",
+      "tests": "tests/test_string_values.py"
+    }
+  ],
+  "unresolved": [
+    {
+      "feature": "Writable STRING value arguments",
+      "inspected_pdf_pages": [
+        95,
+        96,
+        99,
+        562,
+        563
+      ],
+      "finding": "The manual permits temporary copying but does not establish physical capacity for subsequent writes. Read-only copies now avoid using or guessing that capacity.",
+      "disposition": "E_STRING_VALUE when a target formal may be written; read-only value inputs and existing reference arguments are supported."
+    },
+    {
+      "feature": "String edge behavior",
+      "finding": "No discriminating controller observations were obtained for empty INDEX searches or SUB_STR requests extending past the current source end.",
+      "disposition": "Explicit runtime rejection; no Python slice-clipping or empty-search rule is assumed."
+    },
+    {
+      "feature": "STRING routine results",
+      "inspected_pdf_pages": [
+        85,
+        86,
+        93,
+        521,
+        562,
+        563
+      ],
+      "finding": "The string-operator chapter on PDF pages 85-86 explicitly permits a STRING routine result and shows toupper returning CHR. Routine-return descriptions on 93/521 broadly permit types except FILE/PATH/vision. The STRING type entry on 563 says STRING values cannot be returned by functions. These statements conflict within the same Rev N manual.",
+      "disposition": "E_RETURN_TYPE is retained for STRING functions pending discriminating release-specific compiler/runtime evidence. No implementation is inferred from either manual statement alone."
+    }
+  ],
+  "literal_update": {
+    "version": "0.36.0",
+    "ledger": "literal_semantics.json",
+    "boundary": "Doubled ASCII apostrophes decode inside one physical STRING token before logical-value checks. Existing quoted-WRITE, writable value and STRING-result guards remain."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

@@ -1,0 +1,132 @@
+{
+  "ORIGINAL": {
+    "X": 99.0,
+    "Y": 2.0,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 90.0,
+    "R": 180.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": true,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "DETACHED": {
+    "X": 11.0,
+    "Y": 2.0,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 90.0,
+    "R": 180.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": true,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "REFERENCED": {
+    "X": 11.0,
+    "Y": 2.0,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 90.0,
+    "R": 180.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": true,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "EXTENDED": {
+    "X": 4.0,
+    "Y": 5.0,
+    "Z": 6.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    },
+    "EXT1": 1.0,
+    "EXT2": 2.0,
+    "EXT3": 3.0
+  },
+  "EXTENDED_COPY": {
+    "X": 4.0,
+    "Y": 5.0,
+    "Z": 6.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    },
+    "EXT1": 11.0,
+    "EXT2": 2.0,
+    "EXT3": 3.0
+  },
+  "CONFIGURATION": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "CONFIG_COPY": {
+    "CFG_TURN_NO1": -1,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": true,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "JOINTS": {
+    "axes": [
+      4.0,
+      5.0,
+      6.0
+    ]
+  },
+  "JOINT_COPY": {
+    "axes": [
+      7.0,
+      8.0,
+      9.0
+    ]
+  },
+  "JOINT_REFERENCE": {
+    "axes": [
+      7.0,
+      8.0,
+      9.0
+    ]
+  }
+}

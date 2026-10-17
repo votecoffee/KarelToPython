@@ -1,0 +1,54 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "UNPOS extracts existing offline XYZWPR fields. It does not acquire a robot position, compute kinematics, validate a robot configuration or implement cross-type positional conversion.",
+  "rules": [
+    {
+      "feature": "Exact source and output types",
+      "pdf_pages": [
+        571
+      ],
+      "visual_inspection": true,
+      "documented": "UNPOS(posn,x,y,z,w,p,r,c) takes XYZWPR and sets six REAL outputs to its location/orientation components, plus one CONFIG output to its configuration.",
+      "implemented": "Exactly eight bare variable/field/array-element references: XYZWPR source, six REAL outputs, one CONFIG output. Inputs are fully initialized and use existing exact REAL and bounded CONFIG checks. Global/local storage, structures, arrays, USING and supported reference forwarding retain their ordinary types.",
+      "restriction": "POSITION, XYZWPREXT, JOINTPOS and same-shaped STRUCTURE coercions, constructors, grouped/value arguments, output expressions and user routine calls in arguments remain blocked. The manual example using CURPOS requires an additional positional conversion and controller acquisition path which is not implemented.",
+      "tests": "tests/test_unpos.py: extraction, copies, arrays/structures, USING, exact-type and expression guards"
+    },
+    {
+      "feature": "All seven reference outputs and effects",
+      "pdf_pages": [
+        571
+      ],
+      "visual_inspection": true,
+      "documented": "The x/y/z/w/p/r arguments and CONFIG c are output parameters. UNPOS is a procedure, not a function result.",
+      "implemented": "All seven outputs participate in direct/transitive parameter-write analysis. Generic REAL arrays forward actual element storage; CONFIG copies preserve existing destination field storage. Potential writes remain blocked in ambiguous operator/indexed-assignment contexts. Statements in FOR retain the existing fresh-local-counter call policy.",
+      "restriction": "No output promotion to INTEGER/BYTE/SHORT, CONFIG scalar output aliases or recursively read-only POSITION destinations. Procedures cannot be used as expressions.",
+      "tests": "tests/test_unpos.py: seven effects, transitive forwarding, pure local outputs, protected destinations, stable configuration cells and function-expression guards"
+    },
+    {
+      "feature": "Conservative alias and failure guards",
+      "pdf_pages": [
+        571
+      ],
+      "visual_inspection": true,
+      "documented": "The entry defines component outputs but does not specify overlapping source/output write order or partial updates on failures.",
+      "implemented": "All eight captured references have pairwise disjoint runtime storage footprints, including aggregate descendants. Source/output overlaps, duplicate scalar outputs and dynamic/forwarded aliases raise before output writes. All input values, output types/protection, CONFIG destination shape and alias checks finish before any mutation. Ordinary equal scalar values and distinct records in one parent array are allowed.",
+      "restriction": "Alias rejection and guard-before-write behavior are conservative prototype contracts, not claims about controller alias/error ordering, alarms or partial writes. No native status code is invented.",
+      "tests": "tests/test_unpos.py: duplicate/source/config/dynamic aliases, parent-array controls, last-component unknown/inexact values, CONFIG guards, malformed source/destination, read-only runtime references and output preservation"
+    }
+  ],
+  "unresolved": [
+    "Overlapping native reference write order and controller error/partial-update semantics",
+    "POSITION/XYZWPREXT/joint conversion, POS construction and robot/group context",
+    "Controller position acquisition, configuration validity, frame transforms and kinematics"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

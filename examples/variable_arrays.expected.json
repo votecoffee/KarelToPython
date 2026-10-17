@@ -1,0 +1,54 @@
+{
+  "READINGS": [
+    8,
+    4,
+    6
+  ],
+  "SAVED": [
+    2,
+    4,
+    6
+  ],
+  "GRID": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      7
+    ]
+  ],
+  "SLABS": [
+    [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    ],
+    [
+      [
+        5,
+        9
+      ]
+    ]
+  ],
+  "COUNT": 3,
+  "TOTAL": 12
+}

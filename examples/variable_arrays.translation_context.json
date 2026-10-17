@@ -1,0 +1,8 @@
+{
+  "array_shapes": {
+    "READINGS": [3],
+    "SAVED": [3],
+    "GRID": [2, 3],
+    "SLABS": [2, 1]
+  }
+}

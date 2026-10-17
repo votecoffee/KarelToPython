@@ -1,0 +1,130 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Restricted exact mathematical results under the prototype REAL policy. Manual degree/domain rules do not authenticate controller numeric algorithms, rounding, signed zero, alarms or task behavior.",
+  "current_visual_inspection_pages": [
+    302,
+    303,
+    313,
+    314,
+    354,
+    560,
+    565
+  ],
+  "rules": [
+    {
+      "feature": "SIN and COS",
+      "pdf_pages": [
+        354,
+        560
+      ],
+      "documented": "REAL angle in degrees, inclusive -18000..18000; result is REAL sine/cosine. Inputs outside the range cause an error in KAREL.",
+      "implemented": "Check exact normal-or-zero REAL input and documented range before rational modulo 360. SIN supports reduced angles 0,30,90,150,180,210,270,330. COS supports 0,60,90,120,180,240,270,300. Results are 0, +/-0.5 or +/-1 as mathematical identities.",
+      "restriction": "Other angles remain explicitly rejected, including valid mathematical inputs such as SIN(45) and COS(30). No host libm/radian conversion, approximation or tolerance snapping. Numeric output at these exact identities is a prototype contract, not an observed native result.",
+      "tests": "tests/test_trigonometry.py: circle values, negative angles, periods, complement/odd/even identities, boundaries and nearby failures"
+    },
+    {
+      "feature": "TAN",
+      "pdf_pages": [
+        565
+      ],
+      "documented": "REAL degree angle in -18000..18000; the example relates TAN(angle) to SIN(angle)/COS(angle).",
+      "implemented": "After input/range checks, rational modulo 180 supports reduced angles 0,45,135 with results 0,1,-1. Odd multiples of 90 degrees receive an explicit undefined-domain error.",
+      "restriction": "Other angles remain blocked pending numeric rounding evidence. Tangent-pole exception text/type is an offline diagnostic, not native alarm or task-abort evidence.",
+      "tests": "tests/test_trigonometry.py: diagonals/axes, all half turns and poles, negative periods and domain/order guards"
+    },
+    {
+      "feature": "ASIN and ACOS",
+      "pdf_pages": [
+        302,
+        303,
+        313,
+        314
+      ],
+      "documented": "Both take a REAL value in -1..1 and return the inverse angle in degrees. Explicit examples give ASIN(-1)=-90 and ACOS(-1)=180.",
+      "implemented": "After REAL/domain checks, only -1,-0.5,0,0.5,1 are supported. ASIN returns -90,-30,0,30,90; ACOS returns 180,120,90,60,0. Principal values follow standard inverse definitions and the documented examples.",
+      "restriction": "Other in-domain values fail pending rounding evidence; near endpoints are not snapped. No rounded intermediate inverse value is accepted just because a later expression might cancel it.",
+      "tests": "tests/test_trigonometry.py: endpoint/half/zero values, principal roundtrips, complement identity, domain edges and unsupported rational inputs"
+    },
+    {
+      "feature": "Existing source/effect and REAL rules",
+      "pdf_pages": [
+        79,
+        95,
+        96,
+        502,
+        503
+      ],
+      "implemented": "INTEGER/BYTE/SHORT inputs use existing checked REAL promotion. One argument is evaluated once. Nested built-ins and routine results/arguments retain existing type, effects, order, FOR, ABORT and frame-cleanup guards. Dynamic failures precede destination writes; prior independent effects persist.",
+      "restriction": "Existing underflow normalization runs first; signed zero remains normalized. Built-ins in CONST remain unsupported by the restricted constant evaluator. EXP, LN, arbitrary trig rounding and controller numeric/alarm equivalence remain unimplemented.",
+      "tests": "tests/test_trigonometry.py: source forms, reports/locations, single evaluation, failures/ABORT, side effects, wrong types and arity"
+    }
+  ],
+  "tables": {
+    "sin_degrees_mod_360": {
+      "0": 0,
+      "30": 0.5,
+      "90": 1,
+      "150": 0.5,
+      "180": 0,
+      "210": -0.5,
+      "270": -1,
+      "330": -0.5
+    },
+    "cos_degrees_mod_360": {
+      "0": 1,
+      "60": 0.5,
+      "90": 0,
+      "120": -0.5,
+      "180": -1,
+      "240": -0.5,
+      "270": 0,
+      "300": 0.5
+    },
+    "tan_degrees_mod_180": {
+      "0": 0,
+      "45": 1,
+      "135": -1
+    },
+    "inverse_inputs": [
+      -1,
+      -0.5,
+      0,
+      0.5,
+      1
+    ],
+    "asin_outputs": [
+      -90,
+      -30,
+      0,
+      30,
+      90
+    ],
+    "acos_outputs": [
+      180,
+      120,
+      90,
+      60,
+      0
+    ]
+  },
+  "unresolved": [
+    "General rounded trigonometry, EXP/LN, general ATAN2 range/rounding and controller numeric implementation",
+    "Exact native outputs near axes/endpoints, input range boundaries, signed zero and underflow/domain ordering",
+    "Native task/alarm behavior and controller execution"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "atan2_update": {
+    "version": "0.42.0",
+    "ledger": "atan2_semantics.json",
+    "boundary": "Separate exact nonnegative-coordinate ATAN2 subset; no changes to unary tables."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

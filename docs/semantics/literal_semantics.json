@@ -1,0 +1,56 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Example-backed ASCII STRING literal decoding. No file/compiler/controller operations from the reference example are implemented or executed, and no new controller output-format behavior is inferred.",
+  "rules": [
+    {
+      "feature": "Doubled source apostrophes",
+      "pdf_pages": [
+        567
+      ],
+      "additional_text_reference_pages": [
+        563
+      ],
+      "visual_inspection": true,
+      "documented": "The STRING entry uses apostrophe-delimited ASCII literals. Figure A.20.4 writes a KAREL source line containing a quoted hello-world value by doubling the embedded source apostrophes.",
+      "implemented": "One STRING token may contain doubled apostrophes. Each pair decodes to one logical apostrophe before constant evaluation, type/capacity checks, comparisons, concatenation, character/string builtins, routine inputs and unformatted output. Empty, boundary and consecutive apostrophe contents are handled as logical data.",
+      "restriction": "The escape rule is derived from the documented example; fresh KAREL compiler/runtime acceptance is not claimed. ASCII-only values, STRING function-result/writable-value restrictions, and existing logical capacity guards remain. Backslash escape processing and implicit concatenation of whitespace-separated literals are not introduced.",
+      "tests": "tests/test_literal_apostrophes.py: manual text, empty/boundary/repeated quotes, constants, comparisons, lengths, truncation, arrays/structures, parameters and inert code-like contents"
+    },
+    {
+      "feature": "Physical tokens and diagnostics",
+      "pdf_pages": [
+        61,
+        62,
+        567
+      ],
+      "implemented": "Raw token text and physical line/column positions remain unchanged. Parser reports retain raw token length, decoded length and escaped-apostrophe count per literal. Token continuation can only join complete source tokens; it cannot split or fuse quoted literals.",
+      "restriction": "Literals cannot span physical newline/form-feed boundaries. Comments/directives are not decoded as STRING data. Unmatched quotes and non-ASCII contents remain rejected. No physical token is reconstructed by unescaping across a continuation.",
+      "tests": "tests/test_literal_apostrophes.py: raw token/location metadata, source maps, complete-token continuation, fusion/multiline/unmatched/non-ASCII guards"
+    },
+    {
+      "feature": "Output and validation boundaries",
+      "pdf_pages": [
+        567
+      ],
+      "visual_inspection": true,
+      "implemented": "Unformatted and existing unquoted formatted STRING WRITE consume decoded logical contents through the existing recorder/callback contract. The example records three exact texts, including the manual generated-source line, and checks injected output independently.",
+      "restriction": "Quoted WRITE containing embedded apostrophes remains rejected before requesting output. Quoted truncation/fallback, files, TRANSLATE, LOAD, CALL_PROG, controller buffering and runtime execution remain unsupported. Only literal text is taken from the manual example.",
+      "tests": "tests/test_literal_apostrophes.py, tests/test_literal_audit.py and examples/literal_apostrophes.kl"
+    }
+  ],
+  "unresolved": [
+    "Release-specific native compiler/runtime observation of escaped apostrophe literals",
+    "Quoted WRITE embedded-apostrophe representation, truncation/fallback and controller output behavior",
+    "STRING function-result manual conflict, writable value-temporary capacity and other unresolved STRING edge cases"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

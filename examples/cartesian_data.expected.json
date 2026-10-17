@@ -1,0 +1,93 @@
+{
+  "POINT": {
+    "X": 1.25,
+    "Y": 2.5,
+    "Z": -3.0,
+    "W": 0.0,
+    "P": 90.0,
+    "R": 180.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "SAVED_POINT": {
+    "X": 99.0,
+    "Y": 2.5,
+    "Z": -3.0,
+    "W": 0.0,
+    "P": 90.0,
+    "R": 180.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "CONFIG_COPY": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": true,
+    "CFG_LEFT": false,
+    "CFG_UP": true,
+    "CFG_FRONT": true
+  },
+  "DIRECTION": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": 3.0
+  },
+  "SAVED_DIRECTION": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": -9.0
+  },
+  "VECTORS": [
+    {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": 3.0
+    },
+    {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": -9.0
+    }
+  ],
+  "HOLDER": {
+    "OFFSET": {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": 3.0
+    },
+    "POSE": {
+      "X": 1.25,
+      "Y": 2.5,
+      "Z": -3.0,
+      "W": 0.0,
+      "P": 90.0,
+      "R": 180.0,
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": true,
+        "CFG_FRONT": true
+      }
+    }
+  },
+  "OBSERVED": -7.75,
+  "CONFIG_VALUE_UNCHANGED": true
+}

@@ -1,0 +1,75 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-backed source restrictions and explicit conservative implementation policies. Offline tests and graph reports do not establish KAREL stack layout, controller alarms or controller execution equivalence.",
+  "rules": [
+    {
+      "feature": "Labels and GO TO/GOTO spelling",
+      "pdf_pages": [
+        64,
+        65,
+        423,
+        424
+      ],
+      "implemented": "Case-insensitive identifier labels followed by double colons. Forward and backward GO TO/GOTO transfers, consecutive labels, same-line statements and trailing labels. Non-reserved identifiers start with a letter and contain at most 36 characters.",
+      "restriction": "Duplicate labels and collisions with visible declarations are rejected. The 36-character cap is a modern manual subset; older documented 12-character compiler limits are not release-authenticated here.",
+      "tests": "tests/test_branches.py: LabelTransferTests and BranchRejectionTests"
+    },
+    {
+      "feature": "Local statement-label scope",
+      "pdf_pages": [
+        65,
+        94,
+        95,
+        423
+      ],
+      "implemented": "Every target must resolve in the same program or routine body. Separate bodies may reuse a label name. Each recursive routine invocation owns its generated control-flow state.",
+      "restriction": "No jumps between program and routine bodies or between routines. Undefined labels fail source translation.",
+      "tests": "tests/test_branches.py: RoutineBranchTests and BranchRejectionTests"
+    },
+    {
+      "feature": "FOR boundaries",
+      "pdf_pages": [
+        88,
+        393
+      ],
+      "implemented": "Labels and jumps anywhere inside FOR bodies are rejected, including nested branches. Whole ordinary FOR statements can be skipped or revisited by outside jumps, with existing bound and counter-clear rules.",
+      "restriction": "The manual warns of stack errors when GO TO enters or exits FOR loops. The prototype does not model or reproduce those stack-error paths.",
+      "tests": "tests/test_branches.py: LabelTransferTests, StructuredFlowParityTests and BranchRejectionTests"
+    },
+    {
+      "feature": "Structured-block entry policy",
+      "pdf_pages": [],
+      "implemented": "A jump may stay in its current structured block or exit to an ancestor block. Exits from IF, WHILE, REPEAT, SELECT and USING skip remaining statements and pending conditions on that path. USING fields are qualified lexically before graph construction.",
+      "restriction": "Entry into nested or sibling blocks is rejected with E_GOTO_ENTRY pending entry-state evidence. This is a conservative implementation policy; the manual's general label syntax is broader.",
+      "tests": "tests/test_branches.py: LabelTransferTests and BranchRejectionTests"
+    },
+    {
+      "feature": "Generated graph and offline execution",
+      "pdf_pages": [],
+      "implemented": "Bodies containing labels lower to typed statement/branch nodes and a flat Python match dispatcher. Label-free bodies retain structured Python. SELECT statements use checked first-match clause indexes and flat match cases in both engines; see select_semantics.json. Reports include label targets, node successors, source positions, Python dispatch syntax and the selected engine. Existing checks remain active in skipped as well as reachable source.",
+      "restriction": "The step budget bounds backward-jump cycles. Labels themselves consume no prototype executable step. Node IDs and step counts are implementation details, not controller instruction counts or scheduler timing.",
+      "tests": "tests/test_branches.py: LabelTransferTests, RoutineBranchTests and StructuredFlowParityTests"
+    }
+  ],
+  "unresolved": [
+    "Entry into nested or sibling structured blocks and any KAREL hidden entry state",
+    "Controller stack and alarm behavior for prohibited FOR transfers",
+    "Condition-handler branches, task actions, external routines and motion contexts",
+    "Release-specific identifier limits, compiler acceptance and controller timing"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "abort_update": {
+    "version": "0.34.0",
+    "ledger": "abort_semantics.json",
+    "boundary": "Bare ABORT terminates this offline instance without rollback; no task/action/condition or motion semantics. Routine effects propagate and frames unwind; direct FOR use requires fresh routine-local counters."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

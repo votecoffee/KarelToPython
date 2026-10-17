@@ -1,0 +1,62 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-supported value copying plus a restricted prototype policy. Tests establish offline behavior; no compiler/controller execution or temporary physical-capacity claim.",
+  "rules": [
+    {
+      "feature": "STRING arguments by value",
+      "pdf_pages": [
+        95,
+        96,
+        562,
+        563,
+        564
+      ],
+      "documented": "Constants and expressions pass a temporary copy; parentheses force variable arguments to value passing. STRING formals omit physical length; STR_LEN measures current contents.",
+      "implemented": "ASCII literals, constants, expressions and grouped STRING variables/fields/elements copy the initialized logical value once into an independent read-only temporary. Values of at most 254 characters, including empty contents, are supported.",
+      "restriction": "The 254-character input limit is a conservative prototype guard, not evidence of controller temporary allocation or expression-buffer capacity. Uninitialized, non-ASCII and overlong inputs fail before entering the callee.",
+      "tests": "tests/test_string_values.py: literals, constants, built-ins, fields/elements, snapshot isolation and runtime guards"
+    },
+    {
+      "feature": "Potential writes to individual formal parameters",
+      "pdf_pages": [
+        95,
+        96
+      ],
+      "implemented": "Assignments, FOR targets and conversion outputs identify direct writes. A fixed-point analysis propagates writes through bare reference arguments, including recursive calls and parameter permutations. Read-only STRING values are admitted only where the target formal has no potential write.",
+      "restriction": "Flow-insensitive: writes in skipped branches or after RETURN still block the value call. Grouped arguments are separate copies; a grouped STRING passed to a writer is rejected at that nested call. Writes to other formals or unrelated globals do not imply a write to this STRING temporary.",
+      "tests": "tests/test_string_values.py: direct/transitive/recursive writes, per-formal output isolation and unchanged reference writes"
+    },
+    {
+      "feature": "Runtime protection and reports",
+      "implemented": "StringValueReference retains an unspecified physical capacity and rejects both set and clear. Bare nested forwarding retains the same protected cell; grouped forwarding creates another protected copy. Reports record static argument sites and per-formal potential writes/passing modes.",
+      "restriction": "Runtime object layout is a prototype choice. No public source operation exposes the temporary capacity. Frame cleanup, source-located failures and existing evaluation-order guards remain in force.",
+      "tests": "tests/test_string_values.py; tests/test_runtime_portability.py"
+    }
+  ],
+  "unresolved": [
+    "Writable STRING value-temporary capacity and mutation/formatting behavior",
+    "STRING routine result conflict in the same manual: PDF 85-86/93/521 versus 563",
+    "Source expression-buffer behavior above the chosen logical input limit",
+    "Empty INDEX search, crossing-end SUB_STR, controller/release behavior"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "data_record_update": {
+    "version": "0.30.0",
+    "result": "5 complete selected sources: 4 translate and 1 remain rejected. Complete source/paired-PC hashes unchanged; no source trimming, execution or compiler/controller run.",
+    "boundary": "The unchanged full sources and paired-PC hashes are preserved. The four gained controls overlap the positional audit; gains are not additive."
+  },
+  "literal_update": {
+    "version": "0.36.0",
+    "ledger": "literal_semantics.json",
+    "boundary": "Doubled ASCII apostrophes decode inside one physical STRING token before logical-value checks. Existing quoted-WRITE, writable value and STRING-result guards remain."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

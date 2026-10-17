@@ -1,0 +1,88 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Restricted pure-data conversion procedures with checked caller output references. Accepted source, successful conversion, Python tests and controller behavior are separate evidence. General conversion grammar, widths, bases and alarms are not authenticated.",
+  "rules": [
+    {
+      "feature": "CNV_STR_INT",
+      "pdf_pages": [
+        341,
+        342,
+        445
+      ],
+      "documented": "Converts source STRING into target INTEGER. Invalid INTEGER representations leave target uninitialized. INTEGER literals consist of digits with an optional sign; INTEGER variables/parameters have a restricted range.",
+      "implemented": "Complete ASCII signed decimal tokens, including leading zeros, up to 254 characters. Alphabetic-only invalid text clears the output. Checked numeric writes use the existing -2147483648..2147483646 storage guard; MAXINT and out-of-range parses fail before changing the target. STRING expressions are values; no user STRING temporary or function return is enabled.",
+      "restriction": "Whitespace, blank/empty text, prefixes, underscores, mixed invalid text, fractional/scientific forms and partial parsing remain blocked. Alphabetic invalid-result handling uses the documented decimal-literal grammar as its bounded classification; it is not a complete controller parser. Out-of-range/special-state conversion outcomes remain unresolved and are blocked.",
+      "tests": "tests/test_text_integer_conversion.py: ConversionValueTests, ConversionRuntimeBoundaryTests and ConversionTranslationBoundaryTests"
+    },
+    {
+      "feature": "CNV_INT_STR",
+      "pdf_pages": [
+        338,
+        339,
+        422,
+        557,
+        667
+      ],
+      "documented": "INTEGER expression source; INTEGER length/base expressions; STRING output. The result holds source and at least one leading blank. Base may be 0 or 2..16, with 0 meaning decimal. Invalid length/base clears the output. Insufficient target capacity produces one blank followed by asterisks filling its declared capacity. PDF pages 422/557 use length 1 and base 10; page 667 uses length 1 and base 0 followed by SUB_STR starting at 2 to omit the leading blank.",
+      "implemented": "Length 1, matching documented manual usage; decimal bases 0/10. One leading blank followed by signed decimal digits. Capacity overflow uses a blank and asterisks instead of right truncation. A base outside 0 or 2..16 clears the output only after the supported length rule is satisfied. MAXINT may be formatted as an expression value.",
+      "restriction": "Other width/alignment/length-validity rules and valid nondecimal bases remain blocked. Signed nondecimal representation and digit case are not inferred. Input evaluation/fault ordering and PBCORE controller environment behavior remain unverified.",
+      "tests": "tests/test_text_integer_conversion.py: decimal formatting, invalid-base, capacity threshold and format guard tests"
+    },
+    {
+      "feature": "CNV_STR_REAL",
+      "pdf_pages": [
+        342,
+        502,
+        503
+      ],
+      "documented": "Converts decimal STRING input to REAL output; invalid decimal representations leave output uninitialized. The procedure documents nn.nnEsnn scientific text with a signed exponent. REAL data-type rules specify the printed magnitude limits, underflow zero, and scientific notation.",
+      "implemented": "Complete ASCII optional sign followed by digits.digits, optionally uppercase E and an explicitly signed decimal exponent; input cap 254 characters. Exact Decimal parsing reuses the existing normal-binary32-or-zero prototype guard. Alphabetic-only invalid text clears the exact REAL output reference. Non-finite host spellings are not passed to Decimal or float.",
+      "restriction": "Integer-only text, omitted point sides, lowercase/unsigned exponent forms, spaces, prefixes, underscores, mixed invalid text and partial parsing remain blocked even where the REAL literal grammar is broader. Rounding, overflow, ambiguous subnormal boundaries and extreme unsupported Decimal exponents raise before output mutation. Underflow and signed-zero normalization are the existing explicit prototype policies, not conversion-specific controller observations. No general controller conversion parser or alarm behavior is claimed.",
+      "tests": "tests/test_text_real_conversion.py; examples/text_real_conversion.kl; numeric_semantics.json defines the shared REAL guard"
+    },
+    {
+      "feature": "CNV_REAL_STR",
+      "pdf_pages": [
+        339,
+        340,
+        502,
+        503
+      ],
+      "documented": "REAL source, INTEGER minimum length and fractional-digit count, STRING output. Zero digits suppress the decimal point; negative digits request scientific notation. Result contains at least one leading blank. Insufficient declared output capacity returns a blank and asterisks. Invalid format parameters return uninitialized output, but their complete validity ranges are not specified here.",
+      "implemented": "Fixed fractional-digit counts 0, 1 and 2. The source passes the shared exact REAL guard, then exact rational scaling by 10**num_digits must be integral. Decimal digits are assembled from that integer without host floating-point formatting or rounding. One leading blank; trailing fractional zeros retained. Positive minimum length must not exceed the natural result length, so no extra width padding is guessed. Output uses caller capacity and the blank/asterisk overflow rule.",
+      "restriction": "Rounding-dependent decimal output, scientific notation, other precisions, extra padding and invalid-format classification are blocked before output mutation. Signed zero and underflow retain the existing numeric model. Alarm behavior, alignment, validity bounds and controller output remain unverified.",
+      "tests": "tests/test_real_text_format.py; examples/real_text_format.kl; numeric_semantics.json defines the shared REAL input guard"
+    },
+    {
+      "feature": "Caller output references, flow and effects",
+      "pdf_pages": [
+        94,
+        95,
+        96,
+        338,
+        340,
+        341,
+        342
+      ],
+      "implemented": "Unparenthesized writable exact INTEGER/STRING/REAL variable, field or full array element. Caller capacities and alias identity persist through reference formals and existing deep copies. INTEGER actuals passed to REAL formals retain independent promoted value storage. Conversion outputs are included in routine write-effect analysis after USING qualification. Inputs are read before the output reference is captured once. No user routine call may appear in conversion arguments. FOR calls require fresh local counters; active counter outputs are blocked.",
+      "restriction": "BYTE/SHORT outputs are not promoted; grouped/constant/expression outputs are rejected. Evaluation and alias policies are explicit prototype checks, not authenticated controller observations. Runtime guard failures preserve destination values and unwind existing routine frames; invalid-result clearing is distinct from a guard failure.",
+      "tests": "tests/test_text_integer_conversion.py, tests/test_text_real_conversion.py and tests/test_real_text_format.py: reference writes, output guards, global/formal/transitive/USING effect checks and frame cleanup"
+    }
+  ],
+  "unresolved": [
+    "CNV_STR_INT whitespace, prefixes, partial parsing and general invalid/range behavior",
+    "CNV_INT_STR other widths, valid nondecimal bases, negative nondecimal representation and digit case",
+    "Special-state MAXINT conversion/storage and controller alarm behavior",
+    "Argument fault/evaluation order, controller output alias rules and environment setup",
+    "CNV_STR_REAL broader decimal grammar, rounding, special-state and controller fault behavior",
+    "CNV_REAL_STR decimal rounding, scientific notation, other precisions, padding and format-parameter validity bounds"
+  ],
+  "validation": {
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

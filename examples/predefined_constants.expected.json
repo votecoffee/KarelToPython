@@ -1,0 +1,18 @@
+{
+  "LOWEST": -2147483648,
+  "HIGHEST": 2147483646,
+  "VALUES": [
+    -2147483648,
+    2147483646
+  ],
+  "ENABLED": true,
+  "DISABLED": false,
+  "COPIED_FLAG": true,
+  "MINIMUM_AS_REAL": -2147483648.0,
+  "PACKET": {
+    "COUNT": -2147483647,
+    "READY": true
+  },
+  "BEFORE_CHANGE": -2147483648,
+  "AFTER_CHANGE": 7
+}

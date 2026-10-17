@@ -1,0 +1,55 @@
+PROGRAM source_continuations
+%NOLOCKGROUP
+CONST limit = 2 + &
+  1
+TYPE inner_t = STRUCTURE
+  value: INTEGER
+  tag: STRING[3]
+ENDSTRUCTURE
+outer_t = STRUCTURE
+  item: inner_t
+ENDSTRUCTURE
+VAR record: outer_t
+    values: ARRAY[3]& -- declaration continuation
+      OF INTEGER
+    total,result: INTEGER
+    text: STRING[8]
+
+ROUTINE load(destination: outer_t; table: &
+  ARRAY OF INTEGER)
+VAR i: INTEGER
+BEGIN
+  FOR i = 1 TO &
+    limit DO
+    table[i] = i * &
+      10
+  ENDFOR
+  destination.item&
+    .value = table[3]
+  destination.item.tag = 'A&B'
+END load
+
+ROUTINE add(a: &
+  INTEGER; b: INTEGER): &
+  INTEGER
+BEGIN
+  RETURN a + &
+    b
+END add
+
+BEGIN
+  load(record, & -- caller storage is retained
+    values)
+  USING record DO
+    item.value = item&
+      .value + 1
+  ENDUSING
+  total = add((record.item.value), &
+    (values[2]))
+  text = 'A&B' -- ampersands in comments & and strings are preserved
+  result = 0
+  IF total = &
+    51 THEN
+    result = 1
+  ENDIF
+END source_continuations

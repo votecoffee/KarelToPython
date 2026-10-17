@@ -1,0 +1,68 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "pdf_pages": [
+    532
+  ],
+  "python_reference": "https://docs.python.org/3.11/reference/compound_stmts.html#the-match-statement",
+  "boundary": "Documented SELECT decisions translated to source-located Python exceptions and checked offline dispatch. No controller alarm, task-abort lifecycle, scheduling or release-specific compiler equivalence is established.",
+  "rules": [
+    {
+      "feature": "INTEGER selector and CASE values",
+      "pdf_pages": [
+        532
+      ],
+      "implemented": "The selector is checked as an INTEGER expression and evaluated once. Each CASE value must resolve through the existing compile-time INTEGER constant/literal subset. MININT and MAXINT expression values retain their established source and storage guards.",
+      "restriction": "BOOLEAN, REAL and STRING selectors or CASE values are rejected. Runtime variables are not CASE constants; unrelated constant-expression grammar is unchanged.",
+      "tests": "tests/test_select.py: SelectExecutionTests and SelectRejectionTests"
+    },
+    {
+      "feature": "First matching CASE",
+      "pdf_pages": [
+        532
+      ],
+      "implemented": "Repeated values within or across CASE lists are accepted. The first matching clause executes once, including an empty body, with no fall-through into later matching clauses or ELSE.",
+      "migration": "v0.18.0 and earlier rejected repeated CASE values with E_CASE. v0.19.0 follows the documented first-match rule.",
+      "tests": "tests/test_select.py: SelectExecutionTests and SelectRuntimeTests"
+    },
+    {
+      "feature": "Unmatched selector and ELSE presence",
+      "pdf_pages": [
+        532
+      ],
+      "implemented": "An unmatched selector executes an explicitly present ELSE. An explicitly empty ELSE permits continuation. Without ELSE, an unmatched selector raises KarelRuntimeError with No match in CASE at the SELECT physical source line before following statements execute. Prior writes persist and routine frames unwind.",
+      "migration": "v0.18.0 and earlier silently continued without a match or ELSE. v0.19.0 stops that execution path. Python exceptions implement the decision boundary; FANUC controller alarms and task lifecycle are not modeled.",
+      "tests": "tests/test_select.py: SelectExecutionTests and SelectLimitAndReportTests"
+    },
+    {
+      "feature": "CASE clause limit and generated dispatch",
+      "pdf_pages": [
+        532
+      ],
+      "implemented": "A SELECT accepts up to 1000 CASE clauses. A 1001st clause produces E_SELECT_LIMIT at that CASE token. Multiple values in a CASE list do not count as additional clauses. Checked first-match clause indexes lower to flat Python match cases. The label-control dispatcher also uses flat match cases so the supported clause limit does not create a deeply nested elif AST.",
+      "restriction": "The 1000-clause boundary is from this manual, not independent authentication across the 20 compiler releases. Python 3.11 grammar and host execution are checked; controller Python 3.11.5 execution is not tested.",
+      "tests": "tests/test_select.py: SelectLimitAndReportTests and SelectRuntimeTests"
+    },
+    {
+      "feature": "Preserved flow and diagnostic boundaries",
+      "pdf_pages": [],
+      "implemented": "Both structured and labelled bodies use the same checked selector helper. Existing statement budgets, reference writes, local frames, fresh-local FOR policies, continuation positions and jump-entry restrictions remain active. Reports record source scope/location, ordered CASE lists, clause count, ELSE presence and no-match behavior for every emitted SELECT.",
+      "restriction": "Unreachable source bodies remain statically checked. Generated node IDs, step counts and Python table validation are prototype details, not controller instructions or timing.",
+      "tests": "tests/test_select.py; tests/test_branches.py"
+    }
+  ],
+  "unresolved": [
+    "FANUC alarm numbers, abort/pause handling, condition handlers and task restart behavior",
+    "Release-specific compiler acceptance and hidden control state",
+    "General INTEGER constant-expression grammar beyond the existing supported subset"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

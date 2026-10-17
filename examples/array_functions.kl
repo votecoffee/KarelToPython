@@ -1,0 +1,53 @@
+PROGRAM array_functions
+%NOLOCKGROUP
+TYPE holder_t=STRUCTURE
+  slots: ARRAY[3] OF INTEGER
+ENDSTRUCTURE
+VAR initial,copied,staged: ARRAY[3] OF INTEGER
+    holder: holder_t
+    flags: ARRAY[2] OF BOOLEAN
+    measurements: ARRAY[2] OF REAL
+    observed: INTEGER
+ROUTINE build(seed: INTEGER): ARRAY OF INTEGER
+VAR values: ARRAY[3] OF INTEGER
+    i: INTEGER
+BEGIN
+  FOR i=1 TO 3 DO
+    values[i]=seed+i
+  ENDFOR
+  RETURN values
+END build
+ROUTINE duplicate(input: ARRAY OF INTEGER): ARRAY OF INTEGER
+BEGIN
+  RETURN input
+END duplicate
+ROUTINE new_flags: ARRAY OF BOOLEAN
+VAR values: ARRAY[2] OF BOOLEAN
+BEGIN
+  values[1]=ON
+  values[2]=OFF
+  RETURN values
+END new_flags
+ROUTINE new_measurements: ARRAY OF REAL
+VAR values: ARRAY[2] OF REAL
+BEGIN
+  values[1]=1.25
+  values[2]=2.5
+  RETURN values
+END new_measurements
+ROUTINE touch(values: ARRAY OF INTEGER; element: INTEGER)
+BEGIN
+  values=build(10)
+  element=99
+END touch
+BEGIN
+  initial=build(0)
+  copied=duplicate(initial)
+  holder.slots=build(5)
+  touch(initial,initial[2])
+  staged=duplicate(holder.slots)
+  holder.slots[1]=77
+  flags=new_flags()
+  measurements=new_measurements()
+  observed=ARRAY_LEN(copied)+copied[2]
+END array_functions

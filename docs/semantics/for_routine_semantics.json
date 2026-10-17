@@ -1,0 +1,93 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-backed routine and local-variable rules with a conservative counter-isolation policy. Tests prove offline prototype behavior; no new compiler or controller run, stack-layout authentication, or controller equivalence claim.",
+  "rules": [
+    {
+      "feature": "RETURN from a FOR body",
+      "pdf_pages": [
+        92,
+        93,
+        94,
+        95
+      ],
+      "implemented": "Procedures can return without a value and scalar functions can return a checked value from a FOR body, including nested IF/WHILE/REPEAT/SELECT constructs and nested local FOR loops. The manual's index_value search example explicitly returns from a FOR loop.",
+      "restriction": "Every active counter must be a fresh VAR declared in the current routine. Global or formal-counter early-return behavior is blocked. Local frames are destroyed on routine exit; no claim about observable controller counter state, error paths or stack layout.",
+      "tests": "tests/test_for_routines.py: ForReturnTests and ForFailureTests"
+    },
+    {
+      "feature": "Helper calls inside FOR bodies",
+      "pdf_pages": [
+        90,
+        91,
+        92,
+        94,
+        95,
+        96
+      ],
+      "implemented": "Procedure and scalar-function calls are permitted when every active counter is a fresh routine-local variable. Other scalar, field and indexed references can be passed normally; local counter names shadow globals without sharing their storage. Callee frames use their own lexical declarations.",
+      "restriction": "Calls involving global or formal FOR counters are blocked. Existing call-effect and multi-argument evaluation-order checks remain active. Calls in FOR bounds remain blocked.",
+      "tests": "tests/test_for_routines.py: ForCallTests, ForFailureTests and ForSafetyBoundaryTests"
+    },
+    {
+      "feature": "Counter arguments",
+      "pdf_pages": [
+        95,
+        96,
+        393
+      ],
+      "implemented": "Parenthesized counter arguments and expressions create independent scalar value temporaries. An INTEGER counter passed to a REAL formal is promoted by value under the existing exactness guard.",
+      "restriction": "Any active counter passed by reference is rejected with E_FOR_COUNTER, even to a currently read-only helper. This conservative policy keeps counter storage from escaping to a callee. Use parentheses for an INTEGER value argument.",
+      "tests": "tests/test_for_routines.py: ForCallTests and ForSafetyBoundaryTests"
+    },
+    {
+      "feature": "Existing FOR and source guards",
+      "pdf_pages": [
+        88,
+        393
+      ],
+      "implemented": "Inclusive bounds, initialization before final-bound evaluation, evaluate-once bounds and normal-completion counter clearing are unchanged. Runtime errors and step-budget failures unwind routine frames while retaining prior writes to reference/global storage.",
+      "restriction": "Direct counter writes, counter reuse in nested loops, labels/jumps inside FOR and ambiguous effectful indexed-result assignments remain blocked. Global-counter clearing on exceptional exits is not modeled or authenticated.",
+      "tests": "tests/test_for_routines.py: ForFailureTests and ForSafetyBoundaryTests"
+    }
+  ],
+  "unresolved": [
+    "Observable global/formal counter state when a routine returns or fails inside FOR",
+    "Permitting read-only counter references with a stronger per-parameter effect proof",
+    "User routine calls in FOR bound expressions and target/value evaluation order",
+    "Controller call stack, timing, alarms and release-specific behavior"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "abort_update": {
+    "version": "0.34.0",
+    "ledger": "abort_semantics.json",
+    "boundary": "Bare ABORT terminates this offline instance without rollback; no task/action/condition or motion semantics. Routine effects propagate and frames unwind; direct FOR use requires fresh routine-local counters."
+  },
+  "vector_routine_update": {
+    "version": "0.38.0",
+    "ledger": "vector_routine_semantics.json",
+    "boundary": "Exact initialized VECTOR results and writable value copies are supported. Bare protected orientation arguments, effect/order guards and controller boundaries remain; positional values use positional_routine_semantics.json."
+  },
+  "structure_routine_update": {
+    "version": "0.39.0",
+    "ledger": "structure_routine_semantics.json",
+    "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
+  },
+  "positional_routine_update": {
+    "version": "0.40.0",
+    "ledger": "positional_routine_semantics.json",
+    "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
+  },
+  "array_routine_update": {
+    "version": "0.44.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Unsized 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results in direct assignment only, full initialized/known checked copies before cleanup and exact concrete destinations. BYTE/SHORT scalar arguments to INTEGER/REAL remain independent value copies. Broader ARRAY results and whole ARRAY value arguments remain blocked."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

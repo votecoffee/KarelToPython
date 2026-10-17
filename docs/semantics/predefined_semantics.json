@@ -1,0 +1,59 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Documented predefined values and INTEGER variable/parameter range, with explicit prototype restrictions. Prior minimum-literal and storage assumptions are corrected. No controller observations or inferred MAXINT sentinel semantics.",
+  "rules": [
+    {
+      "feature": "ON, OFF, MININT, MAXINT",
+      "pdf_pages": [
+        65,
+        66,
+        94,
+        95
+      ],
+      "documented": "ON/OFF are BOOLEAN with the same values as TRUE/FALSE. MAXINT is INTEGER +2147483647; MININT is INTEGER -2147483648. Predefined identifiers are recognized throughout the program.",
+      "implemented": "Four typed, case-insensitive scalar value expressions. Supported CONST/dimension/SELECT expressions and internal routines recognize them. Scalar arguments create independent temporaries using existing passing and numeric-conversion rules. Reports record physical use locations and definitions.",
+      "restriction": "Controller/motion/port/file predefined names remain unsupported. Redefinition, same-named fields/types/labels and aggregate/call contexts are blocked pending namespace evidence. These four names are not reclassified as KAREL reserved words.",
+      "tests": "tests/test_predefined_constants.py: PredefinedValueTests and PredefinedRejectionTests"
+    },
+    {
+      "feature": "MININT source spelling correction",
+      "pdf_pages": [
+        65
+      ],
+      "documented": "MININT must be used in place of its numeric value -2147483648 in source.",
+      "implemented": "Bare/grouped unary-minus INTEGER literal forms for the minimum fail with E_MININT_LITERAL and a migration message. MININT is accepted, as are checked arithmetic results that equal the minimum. REAL literal forms retain separate existing representability rules.",
+      "migration": "Replace INTEGER source -2147483648 and -(2147483648) with MININT. Prior runtime minima remain valid INTEGER values; only source-literal spelling changes.",
+      "tests": "tests/test_predefined_constants.py: minimum literal negatives and MININT positives; existing range/parameter/overflow fixtures now use documented spelling"
+    },
+    {
+      "feature": "INTEGER storage range correction",
+      "pdf_pages": [
+        66,
+        445
+      ],
+      "documented": "INTEGER variables and parameters range from -2147483648 through +2147483646, while MAXINT has the predefined value +2147483647.",
+      "implemented": "Signed 32-bit expression/constant values are retained. INTEGER checked storage/value-parameter writes reject MAXINT before modifying globals, locals, fields, elements or FOR counters. Checked INTEGER function results use the same conservative guard. References preserve previous destination values; prior writes elsewhere remain visible and routine frames unwind.",
+      "restriction": "The inspected documentation does not settle MAXINT special-state storage or function-return semantics. The prototype blocks those contexts rather than interpreting MAXINT as an uninitialized sentinel. This extends the documented variable/parameter restriction conservatively to checked function results.",
+      "migration": "Programs that stored numeric/expression/constant 2147483647 now raise a source-located runtime error. MAXINT remains usable in comparisons, constants and arithmetic whose eventual stored value fits the documented range.",
+      "tests": "tests/test_predefined_constants.py: IntegerStorageBoundaryTests, destination preservation and frame cleanup"
+    }
+  ],
+  "unresolved": [
+    "MAXINT controller storage/sentinel and function-return semantics",
+    "Predefined-name redefinition and field namespace priority",
+    "Other predefined identifiers and controller adapter behavior",
+    "Release-specific source acceptance, task faults and alarm contracts"
+  ],
+  "validation": {
+    "visually_checked_pdf_pages": [
+      65,
+      445
+    ],
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

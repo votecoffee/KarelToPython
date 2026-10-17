@@ -1,0 +1,142 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-13",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-backed declarations, full subscripts, named-component prefixes and reference passing, with explicit offline storage/copy/allocation policies. Tests prove prototype behavior only. No fresh compiler run, controller execution or storage-layout authentication.",
+  "rules": [
+    {
+      "feature": "Arrays of named STRUCTURE elements",
+      "pdf_pages": [
+        71,
+        72,
+        73,
+        74,
+        75,
+        95,
+        96,
+        312,
+        315,
+        316
+      ],
+      "documented": "Arrays may contain any data type except PATH; structures use previously declared named types. Named identity and existing reference/array rules apply.",
+      "implemented": "Fixed 1D/2D/3D arrays of prior named structures in global, routine-local and structure-field declarations; full indexed field paths; nominal type/rank-matched ARRAY formals; element STRUCTURE references and scalar/array field references. ARRAY_LEN counts elements of one-dimensional arrays without reading their fields.",
+      "restriction": "Whole array/element/structure copies require identical concrete types/shapes and fully initialized known scalar leaves when structures are copied. Deep copies preserve destination element and nested-field storage identities. Partially initialized or unknown-BYTE copies fail before destination mutation. These copy/alias policies are prototype choices, not controller observations. The 32767 scalar-leaf allocation guard includes nested structure and array fields. Whole ARRAY value arguments, aggregate UNINIT, unnamed-group prefixes and multidimensional ARRAY_LEN remain blocked. Named ARRAY components with structure leaves are supported as recorded in subarray_semantics.json.",
+      "tests": "tests/test_structure_arrays.py; examples/structure_arrays.kl",
+      "controller_validated": false
+    },
+    {
+      "feature": "Fixed two- and three-dimensional scalar arrays",
+      "pdf_pages": [
+        74,
+        75,
+        312,
+        313
+      ],
+      "implemented": "Comma-separated fixed dimensions in global, routine-local and STRUCTURE-field declarations. INTEGER, BOOLEAN, exact REAL, bounded ASCII STRING and BYTE/SHORT scalar elements. Each dimension is a constant INTEGER in 1..32767. Narrow storage/value rules are recorded separately in narrow_integer_semantics.json.",
+      "restriction": "Total scalar leaves are capped at 32767 by an explicit prototype allocation guard, including nested fields when the elements are structures. This is not a claimed KAREL total-size limit. Fixed named ARRAY definitions are supported with nominal identity, as recorded in named_array_semantics.json. Variable-sized declarations outside the explicit global specialization subset, inline anonymous nested ARRAY type syntax and aliases to existing type names remain blocked.",
+      "tests": "tests/test_multidimensional_arrays.py: ElementTests, StructureFieldTests and BoundaryTests"
+    },
+    {
+      "feature": "Full comma-separated subscripts and named ARRAY component prefixes",
+      "pdf_pages": [
+        74,
+        75,
+        312
+      ],
+      "implemented": "Each dimension group requires all its indexes; a prefix may stop before a separately named ARRAY component. All indexes are one-based and checked independently. Reads, writes, scalar UNINIT and reference/value arguments use the selected type and capacity. Captured indexes are not recomputed after callee writes. Named subarrays retain nominal identity for copying and reference passing.",
+      "restriction": "Prefixes within unnamed dimension groups and chained brackets remain blocked. Multiple subscripts containing a user routine call are blocked until evaluation order is established; assignment-target and effectful indexed-result guards are retained.",
+      "tests": "tests/test_multidimensional_arrays.py: ElementTests, ReferenceTests and BoundaryTests; tests/test_subarrays.py"
+    },
+    {
+      "feature": "Rank-matched wildcard reference parameters",
+      "pdf_pages": [
+        74,
+        95,
+        96,
+        312
+      ],
+      "implemented": "ARRAY[*], ARRAY[*,*] and ARRAY[*,*,*] formals retain caller shape and scalar element type; ARRAY OF a supported scalar type remains the one-dimensional form. STRING element capacity is inherited from caller storage. Whole-array forwarding and element aliasing retain their existing reference rules. BYTE/SHORT scalar arguments to INTEGER/REAL formals use value copies, as recorded in narrow_integer_semantics.json. Generic scalar/STRUCTURE interfaces match total logical rank across named ARRAY components. ARRAY OF a prior named ARRAY component retains and checks that component identity. Reference binding keeps actual caller storage without flattening it.",
+      "restriction": "Total logical rank must match exactly and cannot exceed three. Fixed formal dimensions, whole-array value passing and array-valued functions remain blocked. Formal wildcards inherit caller storage. Separate explicit translation context is required for global wildcard declarations; routine-local wildcard declarations remain blocked.",
+      "tests": "tests/test_multidimensional_arrays.py: ReferenceTests and BoundaryTests"
+    },
+    {
+      "feature": "Whole-array copy and existing element references",
+      "pdf_pages": [
+        95,
+        96,
+        312,
+        315,
+        316
+      ],
+      "implemented": "Whole copies require identical complete concrete definitions, including shapes, element types, STRING capacity and every nominal named ARRAY identity. Copies are independent and may contain uninitialized scalar-only leaves. Destination row, plane, element and field storage remains stable across self-copy, formal assignment and containing aggregate copies.",
+      "restriction": "Fixed mismatches fail conversion; unknown formal shapes/capacities are checked at runtime before destination mutation. Every copied STRUCTURE leaf, including below nested ARRAY components, retains the complete-initialization/known-BYTE guard. Flat-to-nested or nested-to-flat concrete copy coercion is blocked. Internal component storage and snapshot lists are prototype choices without controller-layout authentication.",
+      "tests": "tests/test_multidimensional_arrays.py: CopyTests and StructureFieldTests; tests/test_subarrays.py"
+    },
+    {
+      "feature": "ARRAY_LEN and aggregate UNINIT boundaries",
+      "pdf_pages": [
+        313,
+        569
+      ],
+      "implemented": "ARRAY_LEN retains its existing one-logical-dimension behavior. UNINIT accepts supported scalar elements, including fully subscripted multidimensional elements and SHORT markers; BYTE initialization queries remain blocked.",
+      "restriction": "ARRAY_LEN on a multidimensional array is rejected with E_ARRAY_LEN because the inspected entry does not disambiguate outer-dimension count from total scalar count. Pass explicit dimension counts to routines. The manual prohibits UNINIT on an unsubscripted ARRAY or STRUCTURE.",
+      "tests": "tests/test_multidimensional_arrays.py: BoundaryTests and RuntimeGuards"
+    }
+  ],
+  "unresolved": [
+    "Partial/unknown structure-array copy behavior and controller observation of aliases across aggregate replacement",
+    "ARRAY_LEN count semantics for multidimensional arrays",
+    "Named-to-anonymous copy conversions beyond the supported reference policy, controller observation of subarray ownership and inline anonymous nested ARRAY syntax",
+    "Variable-sized declarations established by external controller storage configuration",
+    "User routine calls in multiple subscripts and target/value evaluation order",
+    "Controller allocation limits, physical layout, alias observations, alarms and release behavior"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "additional_implementation_evidence": [
+    "named_array_semantics.json",
+    "subarray_semantics.json"
+  ],
+  "data_record_update": {
+    "version": "0.30.0",
+    "ledger": "data_record_semantics.json",
+    "elements": [
+      "XYZWPR",
+      "CONFIG",
+      "VECTOR",
+      "POSITION",
+      "XYZWPREXT"
+    ],
+    "policy": "Fixed/named arrays and exact-type generic array formals accept these records. Logical rank and leaf-count limits remain; whole copies require every record leaf initialized, and CONFIG turn ranges are rechecked."
+  },
+  "position_update": {
+    "version": "0.31.0",
+    "ledger": "position_semantics.json",
+    "boundary": "POSITION array elements retain read-only orientation descendants through copies; full copies still require initialized leaves. XYZWPREXT arrays include all three extra REAL axes."
+  },
+  "joint_update": {
+    "version": "0.32.0",
+    "ledger": "joint_semantics.json",
+    "boundary": "Fixed/named JOINTPOS arrays and exact-width formals; initialized whole copies; axis values count toward leaf limits."
+  },
+  "variable_array_update": {
+    "version": "0.37.0",
+    "ledger": "variable_array_semantics.json",
+    "boundary": "Direct global wildcard ARRAY declarations may be specialized using explicit positive array_shapes translation context. TYPE/field/local wildcards, inferred storage and runtime resizing remain blocked; existing guards retained."
+  },
+  "structure_routine_update": {
+    "version": "0.39.0",
+    "ledger": "structure_routine_semantics.json",
+    "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
+  },
+  "array_routine_update": {
+    "version": "0.44.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Unsized 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results in direct assignment only, full initialized/known checked copies before cleanup and exact concrete destinations. BYTE/SHORT scalar arguments to INTEGER/REAL remain independent value copies. Broader ARRAY results and whole ARRAY value arguments remain blocked."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

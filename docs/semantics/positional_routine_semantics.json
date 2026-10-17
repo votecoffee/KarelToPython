@@ -1,0 +1,78 @@
+{
+  "translator_version": "0.44.0",
+  "date": "2026-10-15",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Exact-type internal positional results and writable independent value copies. Offline checked data ownership only; no frame/group/kinematics, native layout/ABI or controller-runtime claim.",
+  "current_visual_inspection_pages": [
+    347,
+    449,
+    481,
+    629,
+    630
+  ],
+  "rules": [
+    {
+      "feature": "Exact positional function results",
+      "pdf_pages": [
+        93,
+        347,
+        449,
+        481,
+        629,
+        630
+      ],
+      "documented": "Chapter 5 permits data-type function results except FILE, PATH and Vision types. The JOINTPOS, POSITION, XYZWPR and XYZWPREXT entries explicitly list function return values. CONFIG is included through that general rule and its predefined type definition; its entry does not separately repeat a function-return purpose.",
+      "implemented": "Internal functions may return CONFIG, XYZWPR, XYZWPREXT, POSITION and JOINTPOS1..9. Unsuffixed JOINTPOS has nine axes. Every RETURN checks the exact declared type, all initialized leaves, numeric values, CONFIG bounds and joint width, then copies before frame cleanup. No partial result is exposed.",
+      "restriction": "No cross-type/width coercion, aliases, external FROM, frame/group metadata, kinematic conversion or controller ABI. POSITION orientation has no source initialization path or invented default. ARRAY results outside array_routine_semantics.json and direct STRING results remain blocked.",
+      "tests": "tests/test_positional_routines.py: each type/width, recursion, local/global/formal/field/element results, fallthrough, cleanup and malformed values"
+    },
+    {
+      "feature": "Writable positional value arguments",
+      "pdf_pages": [
+        96,
+        347,
+        449,
+        481,
+        629,
+        630
+      ],
+      "documented": "Expressions, including grouped variables, pass temporary value copies. Bare variables retain references. CONFIG scalar subfields are always passed by value.",
+      "implemented": "Grouped exact-type storage and positional function results create independent writable temporaries. Bare forwarding keeps the owned temporary; regrouping copies again. Captured field references survive whole-temporary replacement. Bare positional records and joints retain reference passing. CONFIG scalar subfields keep their special value-only rule.",
+      "restriction": "Fully initialized values only. All argument-order, potential-write/delay/output/ABORT, indexed-target, FOR and call-depth guards remain conservative. Whole ARRAY values remain blocked. Bare protected POSITION orientation arguments remain blocked.",
+      "tests": "tests/test_positional_routines.py: reference/value isolation, forwarding, selected elements/fields, single evaluation, effect/order guards and ABORT"
+    },
+    {
+      "feature": "POSITION protection and context-free joint copies",
+      "pdf_pages": [
+        347,
+        449,
+        481,
+        629,
+        630
+      ],
+      "implemented": "The shared checked aggregate-copy layer preserves recursively read-only POSITION NORMAL/ORIENT/APPROACH and writable LOCATION/CONFIG_DATA. JOINTPOS copies retain declared axis count without requiring or inferring active conversion context. Existing CNV_REL_JPOS/CNV_JPOS_REL still require explicit matching Program(joint_axes=n).",
+      "restriction": "Complete POSITION tests use a clearly synthetic host fixture only. Data construction does not establish a valid robot configuration, frame, orientation, joint limits or units. Existing array/joint conversions remain degree-only offline models; copy support adds no millimeter/group mapping.",
+      "tests": "tests/test_positional_routines.py: protected synthetic fixture, CONFIG ranges, exact widths 1..9, context independence and retained conversion guards"
+    }
+  ],
+  "unresolved": [
+    "Native positional value/return layout, runtime copies and partial/uninitialized behavior",
+    "POSITION source initialization/acquisition and native read-only passing contract",
+    "Frame/group metadata, axis units/limits, cross-width/type conversion and kinematics",
+    "Broader ARRAY results and whole ARRAY values, STRING result conflict and writable STRING temporary capacity",
+    "Controller register/file access, external binding and motion"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "array_routine_update": {
+    "version": "0.44.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Unsized 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results in direct assignment only, full initialized/known checked copies before cleanup and exact concrete destinations. BYTE/SHORT scalar arguments to INTEGER/REAL remain independent value copies. Broader ARRAY results and whole ARRAY value arguments remain blocked."
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

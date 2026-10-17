@@ -1,0 +1,37 @@
+{
+  "POSE": {
+    "X": 99.0,
+    "Y": -2.5,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 90.0,
+    "R": -180.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": -1,
+      "CFG_TURN_NO3": 2,
+      "CFG_FLIP": false,
+      "CFG_LEFT": true,
+      "CFG_UP": false,
+      "CFG_FRONT": true
+    }
+  },
+  "COMPONENTS": [
+    1.25,
+    -2.5,
+    3.0,
+    0.0,
+    90.0,
+    -180.0
+  ],
+  "SAVED_CONFIG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": -1,
+    "CFG_TURN_NO3": 2,
+    "CFG_FLIP": true,
+    "CFG_LEFT": true,
+    "CFG_UP": false,
+    "CFG_FRONT": true
+  },
+  "OBSERVED": -1.25
+}
