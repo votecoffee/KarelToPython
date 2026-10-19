@@ -15,5 +15,5 @@
   `python tools/check_repository.py` for implementation or layout changes.
 - Generated Python and diagnostic reports are outputs; maintain the KAREL source
   and expected fixtures, rather than checking in generated example modules.
-- Commit completed, verified changes in small, cohesive checkpoints. Leave pushes
-  to the repository maintainer.
+- Commit completed, verified changes in small, cohesive checkpoints and push them
+  to origin after the relevant checks pass.
