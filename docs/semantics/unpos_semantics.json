@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "UNPOS extracts existing offline XYZWPR fields. It does not acquire a robot position, compute kinematics, validate a robot configuration or implement cross-type positional conversion.",

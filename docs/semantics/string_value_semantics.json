@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-supported value copying plus a restricted prototype policy. Tests establish offline behavior; no compiler/controller execution or temporary physical-capacity claim.",

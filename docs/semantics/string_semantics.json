@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual descriptions support the implemented subset. Unit tests establish prototype behavior only; no fresh compiler or controller validation was performed.",
@@ -110,5 +110,10 @@
     "boundary": "Doubled ASCII apostrophes decode inside one physical STRING token before logical-value checks. Existing quoted-WRITE, writable value and STRING-result guards remain."
   },
   "source_reference": "../references.md",
-  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N",
+  "array_routine_update": {
+    "version": "0.48.0",
+    "ledger": "array_routine_semantics.json",
+    "boundary": "Explicitly bounded STRING elements in ARRAY results retain exact capacity and use initialized ASCII copies; this does not enable direct STRING results or writable STRING value temporaries."
+  }
 }

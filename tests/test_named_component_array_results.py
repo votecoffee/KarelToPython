@@ -204,10 +204,8 @@ class NamedComponentArrayRejectionTests(unittest.TestCase):
     def test_named_outer_result_declaration_remains_blocked(self):
         self.reject('E_RETURN_TYPE', routines='ROUTINE make: plane_t BEGIN END make')
 
-    def test_terminal_string_arrays_remain_blocked(self):
-        for types in ('TYPE row_t=ARRAY[2] OF STRING[3]', 'TYPE text_t=ARRAY[2] OF STRING[3] row_t=ARRAY[2] OF text_t'):
-            with self.subTest(types=types):
-                self.reject('E_RETURN_TYPE', types=types, body='', declarations='', routines='ROUTINE make: ARRAY OF row_t BEGIN END make')
+    def test_direct_string_results_remain_blocked(self):
+        self.reject('E_RETURN_TYPE', body='', routines="ROUTINE make: STRING[3] BEGIN RETURN 'abc' END make")
 
     def test_four_logical_dimensions_rejected(self):
         types = TYPES + '\ncube_t=ARRAY[2] OF plane_t'

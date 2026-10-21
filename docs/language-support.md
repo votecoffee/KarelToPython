@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.47.0. Acceptance is specific to
+This is the supported prototype subset as of 0.48.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -19,7 +19,7 @@ rules, implemented restrictions and unresolved native behavior.
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference formals and named subarrays | Prototype bound of 32767 scalar leaves; whole-array value arguments prohibited; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
-| ARRAY results | Unsized anonymous outer ARRAY with scalar, prior named STRUCTURE, built-in record, exact-width JOINTPOS or prior named ARRAY elements; logical rank up to three | Every scalar leaf known/initialized; call only as complete direct-assignment RHS. One outer dimension; exact inner component names/shapes. Named outer results, flat multidimensional sources and terminal STRING arrays remain blocked. |
+| ARRAY results | Unsized anonymous outer ARRAY with scalar, explicitly bounded STRING, prior named STRUCTURE, built-in record, exact-width JOINTPOS or prior named ARRAY elements; logical rank up to three | Every scalar leaf known/initialized; call only as complete direct-assignment RHS. One outer dimension; exact inner component names/shapes and STRING capacities. Named outer results, flat multidimensional sources and unspecified STRING result capacities remain blocked. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no type aliases or ABI claim. |
 | USING | Restricted bare structure selectors and field priority | Lexical scope; no complex selector expressions or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
@@ -52,7 +52,8 @@ consume or forward an ARRAY function result. See the authored
 
 ## ARRAY function results
 
-Internal functions may return arrays of INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior
+Internal functions may return arrays of INTEGER/BOOLEAN/REAL/BYTE/SHORT,
+explicitly bounded STRING elements, prior
 named STRUCTURE types, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION, or JOINTPOS1..9.
 Unsuffixed JOINTPOS means nine axes. Elements may also be prior named fixed ARRAY
 types, with at most three logical dimensions across the result. The outer result
@@ -83,9 +84,24 @@ declared type and fixed shape. See the complete authored
 
 The result declaration still omits brackets and sizes. Flat comma-dimension
 return storage, named outer result types/storage, inline `ARRAY OF ARRAY`, and
-terminal STRING arrays remain blocked. A named subarray cannot be returned as an
+unspecified STRING result-element capacities remain blocked. A named subarray cannot be returned as an
 anonymous outer array. Named STRUCTURE elements may contain supported STRING
 fields and named arrays under the existing recursive copy rules.
+
+For STRING elements, use `ROUTINE make: ARRAY OF STRING[4]` and return an anonymous
+array whose elements have that same physical capacity. The capacity is a constant
+in 1..254. Prior named rows or planes containing bounded STRING elements also
+work. An `ARRAY OF STRING` reference formal retains its caller's capacity; RETURN
+checks that concrete capacity against the declared result. The result never
+infers a capacity or truncates elements to reconcile a mismatch. Ordinary writes
+to source storage still apply the existing right-truncation rule.
+
+Empty initialized elements are valid. Uninitialized, non-ASCII or malformed
+oversized host values fail before result assignment. See the authored
+[STRING ARRAY example](../examples/string_array_functions.kl). Direct STRING
+function results retain their existing rejection; this ARRAY subset is an offline
+composition of the documented array and bounded-string rules, without native
+compiler or controller validation.
 
 Return copies complete before local frames unwind and retain record names,
 nested array identities/shapes, STRING field capacities and joint widths. All

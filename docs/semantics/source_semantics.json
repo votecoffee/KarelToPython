@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed source forms with explicit prototype exclusions. Unit and example expectations establish offline behavior only; no compiler/controller equivalence or extra original-source acceptance is claimed.",

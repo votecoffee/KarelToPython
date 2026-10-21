@@ -338,12 +338,17 @@ class Parser:
                 element = self.take()
                 if element.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT', *DATA_RECORD_TYPES):
                     element_spec = (element.value,)
+                elif element.value == 'STRING':
+                    if not self.accept('['):
+                        self.error('E_RETURN_TYPE', 'STRING ARRAY results require an explicit element capacity in brackets', element)
+                    element_spec = ('STRING', self.expression())
+                    self.expect(']')
                 elif element.value in rt.JOINT_TYPE_NAMES:
                     element_spec = rt.joint_spec(element.value)
                 elif element.kind == 'NAME' and element.value not in RESERVED | BUILTINS:
                     element_spec = ('NAMED', element)
                 else:
-                    self.error('E_RETURN_TYPE', 'ARRAY results require supported scalar, data record, joint or prior named STRUCTURE elements', element)
+                    self.error('E_RETURN_TYPE', 'ARRAY results require supported scalars, bounded STRINGs, data records, joints or prior named aggregate elements', element)
                 if self.current.value == 'IN':
                     self.error('E_POSITION_GROUP', 'Group-qualified ARRAY result elements are not implemented', element)
                 return_type = ('ARRAY', None, element_spec)
@@ -877,8 +882,10 @@ class Emitter:
                 routine.return_type = self.resolve_spec(routine.return_type)
                 element = routine.return_type[2]
                 leaf = rt.array_leaf_spec(element) if element[0] == 'ARRAY' else element
-                if leaf[0] not in (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS') or leaf[0] == 'STRING':
-                    self.error('E_RETURN_TYPE', 'ARRAY result terminal elements require supported scalars, records or exact-width joints; STRING elements remain blocked', routine.token)
+                if leaf[0] not in (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS'):
+                    self.error('E_RETURN_TYPE', 'ARRAY result terminal elements require supported scalars, bounded STRINGs, records or exact-width joints', routine.token)
+                if leaf[0] == 'STRING':
+                    self.features.add('bounded STRING ARRAY function result')
                 if element[0] == 'ARRAY':
                     self.features.add('named-component ARRAY function result')
                 else:
@@ -1853,7 +1860,8 @@ class Emitter:
                     while source.kind == 'group': source = source.args[0]
                     if (source.kind not in ('name','field','index') or value_type[0] != 'ARRAY'
                             or rt.array_identity(value_type) is not None or len(rt.array_shape(value_type)) != 1
-                            or value_type[2] != spec[2]):
+                            or (value_type[2] != spec[2] and not
+                                (spec[2][0] == 'STRING' and value_type[2] == ('STRING', None)))):
                         self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires anonymous storage with one outer dimension and the declared exact element type; named outer arrays and flat multidimensional storage remain blocked', expr.token)
                     self.array_return_uses.append(dict(routine=self.current_routine.name, element_type=spec[2][0], element_spec=spec[2], line=line,
                                                        column=token.column, expression_kind=expr.kind,
@@ -2017,15 +2025,16 @@ def translate(source, *, filename='<input>', array_shapes=None):
                           boundary='No general ATAN2 range/rounding, signed-zero quadrant inference, frame/pose construction, robot context or controller numeric/alarm equivalence',
                           controller_validated=False),
         atan2_uses=emitter.atan2_uses,
-        array_routine_policy=dict(results='Internal unsized anonymous outer ARRAY with INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior named STRUCTURE, data record, exact-width JOINTPOS or prior named ARRAY elements; one outer dimension and at most three logical dimensions',
+        array_routine_policy=dict(results='Internal unsized anonymous outer ARRAY with INTEGER/BOOLEAN/REAL/BYTE/SHORT, explicitly bounded STRING, prior named STRUCTURE, data record, exact-width JOINTPOS or prior named ARRAY elements; one outer dimension and at most three logical dimensions',
                                    returns='Every scalar leaf initialized/checked; independent recursive copy before frame cleanup; 32767 prototype scalar-leaf limit',
                                    narrow_elements='BYTE 0..255 must be known; SHORT -32768..32766 must be initialized; 32767 remains the SHORT uninitialized marker; no whole-array element coercion',
                                    aggregate_elements='Exact named STRUCTURE identity, concrete nested shapes/STRING capacities, CONFIG checks and joint widths retained; POSITION orientation protection retained; no acquired/default robot state',
-                                   named_components='Every inner ARRAY component is a prior named fixed type; exact identity, shape and terminal type retained without flattening; terminal STRING arrays remain blocked',
+                                   named_components='Every inner ARRAY component is a prior named fixed type; exact identity, shape and terminal type retained without flattening, including bounded STRING terminals',
+                                   string_elements='Explicit exact element capacity in 1..254; inherited formal capacities checked against the declared result at runtime; known initialized ASCII leaves copied without RETURN truncation or capacity inference',
                                    use='Function call only as the complete right side of direct assignment; zero-parameter names and existing explicit calls accepted; no grouping of a call, passing to another routine, built-in consumption or direct RETURN forwarding',
                                    destinations='Existing exact concrete array type/length checks; no resizing, conversion, flattening or copy-back; stable captured element references',
                                    references='Whole ARRAY reference arguments remain supported; whole ARRAY value arguments remain prohibited',
-                                   boundary='Named outer ARRAY types, flat multidimensional result sources/declarations, STRING terminal elements, unknown leaves, external routines and native runtime/ABI behavior remain unsupported',
+                                   boundary='Named outer ARRAY types, flat multidimensional result sources/declarations, unspecified STRING result-element capacities, direct STRING results, unknown leaves, external routines and native runtime/ABI behavior remain unsupported',
                                    controller_validated=False),
         array_returns=emitter.array_return_uses, array_result_assignments=emitter.array_result_assignments,
         bare_function_calls=emitter.bare_function_uses,

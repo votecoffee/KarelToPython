@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed storage contexts, ranges, SHORT sentinel and scalar argument passing. Unknown BYTE contents and checked INTEGER expression promotion are explicit offline policies. No controller initialization/layout/alias/exception observations or fresh compiler run.",
@@ -74,9 +74,9 @@
     "controller_executed": false
   },
   "array_routine_update": {
-    "version": "0.46.0",
+    "version": "0.48.0",
     "ledger": "array_routine_semantics.json",
-    "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Named outer results, flat multidimensional result sources/declarations, terminal STRING arrays and whole ARRAY value arguments remain blocked."
+    "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, explicitly bounded STRING, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Exact STRING element capacities retained and checked without result truncation. Named outer results, flat multidimensional result sources/declarations, unspecified STRING capacities, direct STRING returns and whole ARRAY value arguments remain blocked."
   },
   "source_reference": "../references.md",
   "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"

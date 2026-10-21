@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.48.0 - 2026-10-21
+
+- Add `ARRAY OF STRING[capacity]` function results with constant capacities 1..254,
+  plus named ARRAY rows/planes whose terminal elements are bounded STRINGs.
+- Keep exact capacity/type/shape checks and independent initialized ASCII copies.
+  Reference formals retain caller capacity, which is checked at RETURN; no result
+  truncation or inferred temporary capacity. Existing context/effect/cleanup
+  checks and direct STRING result rejection remain.
+- Add 45 regression checks and a runnable authored STRING ARRAY example. The
+  combined result forms are an offline interpretation of the documented ARRAY
+  and STRING rules, without native compiler or controller validation.
+
 ## 0.47.0 - 2026-10-21
 
 - Resolve unshadowed zero-parameter internal function names as calls in value

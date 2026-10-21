@@ -1,13 +1,13 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-21",
   "page_numbering": "One-based PDF pages",
-  "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Named outer results, flat multidimensional result sources/declarations, terminal STRING arrays and whole ARRAY value arguments remain blocked. Recursive checked offline policy; no native layout, stack cost, ABI, partial-copy or controller-runtime equivalence claim.",
+  "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, explicitly bounded STRING, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Exact STRING element capacities retained and checked without result truncation. Named outer results, flat multidimensional result sources/declarations, unspecified STRING capacities, direct STRING returns and whole ARRAY value arguments remain blocked. Recursive checked offline policy; no native layout, stack cost, ABI, partial-copy or controller-runtime equivalence claim.",
   "current_visual_inspection_pages": [
-    74,
-    75,
     93,
-    312
+    312,
+    562,
+    563
   ],
   "rules": [
     {
@@ -17,8 +17,8 @@
         312
       ],
       "documented": "ARRAY is a function return type. Result declarations omit size so returned length can vary. A returned array must match the destination size and data type.",
-      "implemented": "Internal unsized ARRAY OF INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior named STRUCTURE, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION or exact-width JOINTPOS1..9. Unsuffixed JOINTPOS means nine axes. Anonymous concrete source storage with one outer dimension retains actual length and exact resolved element type. Prior named fixed ARRAY elements are also supported with one outer dimension and at most three logical dimensions; every inner component retains its exact name and shape.",
-      "restriction": "No named outer ARRAY result types/storage, flat multidimensional result sources/declarations, terminal STRING arrays, fixed/wildcard result sizes, external routines or inferred storage. Prior element-type definitions are required. A zero-parameter function name or explicit call can supply the complete assignment RHS.",
+      "implemented": "Internal unsized ARRAY OF INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior named STRUCTURE, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION or exact-width JOINTPOS1..9. Unsuffixed JOINTPOS means nine axes. Anonymous concrete source storage with one outer dimension retains actual length and exact resolved element type. Prior named fixed ARRAY elements are also supported with one outer dimension and at most three logical dimensions; every inner component retains its exact name and shape. Explicitly bounded ARRAY OF STRING[capacity] results and named ARRAY components with bounded STRING terminals retain exact capacities in 1..254.",
+      "restriction": "No named outer ARRAY result types/storage, flat multidimensional result sources/declarations, unspecified STRING result-element capacities, fixed/wildcard result sizes, external routines or inferred storage. Prior element-type definitions are required. A zero-parameter function name or explicit call can supply the complete assignment RHS.",
       "tests": "tests/test_array_results.py: all three scalar types, differing lengths, global/local/formal/field storage, external shapes, recursion, FOR, SELECT and labels; tests/test_narrow_array_results.py: narrow endpoints, formals, fields, shapes and recursion; tests/test_aggregate_array_results.py: record/joint element declarations, ownership and restrictions"
     },
     {
@@ -82,14 +82,27 @@
         312
       ],
       "documented": "ARRAY elements may be separately declared user-defined ARRAY types. Named subarray components support assignment/reference use and at most three total dimensions. ARRAY function results omit their outer size and require direct assignment to matching destination storage.",
-      "implemented": "Combine those rules in a conservative offline contract: ARRAY OF prior_named_array returns anonymous storage with one concrete outer dimension and exact fixed named inner components. Total logical rank is two or three. Supported terminal scalars, records and exact-width joints reuse recursive checked copies; report element_spec retains every component and logical_rank reports the total.",
-      "restriction": "No flattening or reconstruction from flat multidimensional sources, erasure of named outer identity, inline anonymous nesting, terminal STRING arrays, partial/unknown leaves or whole ARRAY value arguments. A generic formal preserves actual outer identity, which is checked again at RETURN. STRUCTURE fields can retain supported STRING capacities. This composition has no fresh native compiler or controller evidence.",
+      "implemented": "Combine those rules in a conservative offline contract: ARRAY OF prior_named_array returns anonymous storage with one concrete outer dimension and exact fixed named inner components. Total logical rank is two or three. Supported terminal scalars including bounded STRINGs, records and exact-width joints reuse recursive checked copies; report element_spec retains every component and logical_rank reports the total.",
+      "restriction": "No flattening or reconstruction from flat multidimensional sources, erasure of named outer identity, inline anonymous nesting, unspecified STRING result-element capacities, partial/unknown leaves or whole ARRAY value arguments. A generic formal preserves actual outer identity, which is checked again at RETURN. STRUCTURE fields can retain supported STRING capacities. This composition has no fresh native compiler or controller evidence.",
       "tests": "tests/test_named_component_array_results.py: 40 controls for two/three logical dimensions, component identity/shape, terminal types, independence, stable references, generic formals, external shapes, recursive staging, effects, corruption, ABORT and cleanup; examples/named_component_array_functions.kl"
+    },
+    {
+      "feature": "Bounded STRING ARRAY results",
+      "pdf_pages": [
+        93,
+        312,
+        562,
+        563
+      ],
+      "documented": "ARRAY results omit their outer size and require matching destination array size/data type. ARRAY elements may use data types other than PATH. STRING has an explicit physical capacity 1..254 and ordinary storage assignment truncates on the right. STRING reference parameters omit physical length and inherit caller storage. The STRING entry excludes direct STRING results.",
+      "implemented": "Compose those rules as a bounded offline contract: ARRAY OF STRING[constant_capacity] or prior named fixed ARRAY components with bounded STRING terminals. Return sources have one anonymous outer dimension and exact named inner components, total logical rank at most three. Generic ARRAY OF STRING source formals retain actual concrete capacity, checked against the fixed result capacity at runtime. Recursively copy initialized ASCII leaves, including empty strings, before local-frame cleanup. Never truncate a return to fit a different capacity, infer capacity or change the existing STRING value-temporary policy.",
+      "restriction": "This combined result syntax is an offline interpretation, not fresh native compiler or controller acceptance. Unspecified STRING result capacities and direct STRING results remain rejected. Unknown/uninitialized, non-ASCII or oversized corrupt host leaves fail before exposing a result or replacing the destination; earlier independent effects remain. Named outer identity, exact destination length/capacity, scalar-leaf limits and all existing context/effect/cleanup guards remain.",
+      "tests": "tests/test_string_array_results.py: 45 checks covering all 254 capacities at runtime, declaration endpoints/constants, generic formals, named rows/planes, stable captured references, ownership, staging, recursion, shape/capacity/type failures, corrupt leaves, earlier effects, ABORT and cleanup; examples/string_array_functions.kl"
     }
   ],
   "unresolved": [
     "Native ARRAY return lifetime, stack allocation, layout/ABI and partial/uninitialized copy behavior",
-    "Named outer ARRAY result types/storage, flat multidimensional result syntax/storage, terminal STRING arrays and external routines",
+    "Named outer ARRAY result types/storage, flat multidimensional result syntax/storage, unspecified STRING result-element capacities and external routines",
     "Broader function expression/namespace rules; bare internal zero-parameter names follow function_call_semantics.json",
     "POSITION acquisition/orientation defaults, robot/group joint context, kinematics and native task/alarm behavior"
   ],

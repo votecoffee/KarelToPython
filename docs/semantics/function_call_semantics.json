@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-21",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed invocation syntax with conservative offline name resolution and the existing checked call path. No native compiler, stack allocation, ABI or controller-runtime equivalence claim.",

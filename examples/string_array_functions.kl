@@ -1,0 +1,56 @@
+PROGRAM string_array_functions
+%NOLOCKGROUP
+CONST capacity=4
+TYPE
+  row_t=ARRAY[2] OF STRING[capacity]
+VAR
+  words,copied: ARRAY[2] OF STRING[capacity]
+  rows,row_copy: ARRAY[1] OF row_t
+  observed: INTEGER
+
+ROUTINE build: ARRAY OF STRING[capacity]
+VAR values: ARRAY[2] OF STRING[capacity]
+BEGIN
+  values[1]='ready-long'
+  values[2]=''
+  RETURN values
+END build
+
+ROUTINE duplicate(values: ARRAY OF STRING): ARRAY OF STRING[capacity]
+BEGIN
+  RETURN values
+END duplicate
+
+ROUTINE replace(values: ARRAY OF STRING; captured: STRING)
+BEGIN
+  values=build
+  captured='done-long'
+END replace
+
+ROUTINE build_rows: ARRAY OF row_t
+VAR values: ARRAY[1] OF row_t
+BEGIN
+  values[1,1]='left-long'
+  values[1,2]='right-long'
+  RETURN values
+END build_rows
+
+ROUTINE duplicate_rows(values: ARRAY OF row_t): ARRAY OF row_t
+BEGIN
+  RETURN values
+END duplicate_rows
+
+ROUTINE measure(value: STRING)
+BEGIN
+  observed=STR_LEN(value)
+END measure
+
+BEGIN
+  words=build
+  copied=duplicate(words)
+  replace(words,words[2])
+  rows=build_rows
+  row_copy=duplicate_rows(rows)
+  rows[1,1]='edit'
+  measure((row_copy[1,2]))
+END string_array_functions

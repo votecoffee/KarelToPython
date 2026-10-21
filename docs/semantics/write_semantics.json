@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "One STRING item with checked formats, or one unformatted BOOLEAN or nonnegative INTEGER item, creates an offline output request. The callback/recorder contract does not model controller I/O.",

@@ -744,14 +744,16 @@ def array_result(spec, value, line=None):
                 or not isinstance(element[2], tuple) or not element[2]):
             raise KarelRuntimeError('ARRAY results require concrete named components and at most three logical dimensions', line)
         element = element[2]
-    if element[0] == 'STRUCTURE':
+    if element[0] == 'STRING':
+        valid = len(element) == 2 and type(element[1]) is int and 1 <= element[1] <= 254
+    elif element[0] == 'STRUCTURE':
         valid = len(element) == 3 and type(element[1]) is str and type(element[2]) is tuple
     elif element[0] == 'JOINTPOS':
         valid = len(element) == 2 and type(element[1]) is int and 1 <= element[1] <= 9
     else:
         valid = element in (INTEGER, BOOLEAN, REAL, BYTE, SHORT, *((kind,) for kind in DATA_RECORD_TYPES))
     if not valid:
-        raise KarelRuntimeError('ARRAY results require supported scalar, record or exact-width joint terminal elements', line)
+        raise KarelRuntimeError('ARRAY results require supported scalar, bounded STRING, record or exact-width joint terminal elements', line)
     if (not isinstance(value, Array) or not isinstance(value.spec, tuple) or len(value.spec) != 3
             or value.spec[0] != 'ARRAY' or value.spec[2] != spec[2]):
         raise KarelRuntimeError('ARRAY result requires matching anonymous outer storage and exact element type', line)

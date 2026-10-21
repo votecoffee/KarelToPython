@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Documented predefined values and INTEGER variable/parameter range, with explicit prototype restrictions. Prior minimum-literal and storage assumptions are corrected. No controller observations or inferred MAXINT sentinel semantics.",

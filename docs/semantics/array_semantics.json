@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed declarations, full subscripts, named-component prefixes and reference passing, with explicit offline storage/copy/allocation policies. Tests prove prototype behavior only. No fresh compiler run, controller execution or storage-layout authentication.",
@@ -56,7 +56,7 @@
         312
       ],
       "implemented": "ARRAY[*], ARRAY[*,*] and ARRAY[*,*,*] formals retain caller shape and scalar element type; ARRAY OF a supported scalar type remains the one-dimensional form. STRING element capacity is inherited from caller storage. Whole-array forwarding and element aliasing retain their existing reference rules. BYTE/SHORT scalar arguments to INTEGER/REAL formals use value copies, as recorded in narrow_integer_semantics.json. Generic scalar/STRUCTURE interfaces match total logical rank across named ARRAY components. ARRAY OF a prior named ARRAY component retains and checks that component identity. Reference binding keeps actual caller storage without flattening it.",
-      "restriction": "Total logical rank must match exactly and cannot exceed three. Fixed formal dimensions, whole-array value passing and array-valued functions remain blocked. Formal wildcards inherit caller storage. Separate explicit translation context is required for global wildcard declarations; routine-local wildcard declarations remain blocked.",
+      "restriction": "Total logical rank must match exactly and cannot exceed three. Fixed formal dimensions and whole-array value passing remain blocked. Restricted internal ARRAY results follow array_routine_semantics.json. Formal wildcards inherit caller storage. Separate explicit translation context is required for global wildcard declarations; routine-local wildcard declarations remain blocked.",
       "tests": "tests/test_multidimensional_arrays.py: ReferenceTests and BoundaryTests"
     },
     {
@@ -133,9 +133,9 @@
     "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
   },
   "array_routine_update": {
-    "version": "0.46.0",
+    "version": "0.48.0",
     "ledger": "array_routine_semantics.json",
-    "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Named outer results, flat multidimensional result sources/declarations, terminal STRING arrays and whole ARRAY value arguments remain blocked."
+    "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, explicitly bounded STRING, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Exact STRING element capacities retained and checked without result truncation. Named outer results, flat multidimensional result sources/declarations, unspecified STRING capacities, direct STRING returns and whole ARRAY value arguments remain blocked."
   },
   "source_reference": "../references.md",
   "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"

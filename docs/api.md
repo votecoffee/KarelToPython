@@ -95,7 +95,10 @@ or external linkage.
 
 ARRAY return reports include the exact resolved `element_spec` and `logical_rank`
 (one through three). Unsized anonymous outer results may contain prior named
-fixed ARRAY components. Calls still require complete direct-assignment use, exact
+fixed ARRAY components. Bounded STRING elements carry their exact physical
+capacity in `element_spec`; generic source-formal capacities are checked at
+runtime, and result copying never truncates to match a different capacity.
+Calls still require complete direct-assignment use, exact
 destination types/shapes and known initialized leaves. The
 [ARRAY result contract](language-support.md#array-function-results) describes the
 supported forms and remaining restrictions.

@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.47.0",
+  "translator_version": "0.48.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Bare ABORT models termination of one offline Python execution only. Exceptions and host snapshots do not implement controller task, motion, handler, restart or persistence semantics.",
