@@ -117,12 +117,12 @@ use the ordinary checked call path; they do not represent first-class functions
 or external linkage.
 
 ARRAY return reports include the exact resolved `element_spec` and `logical_rank`
-(one through three). Unsized anonymous outer results may contain prior named
+(one through three). Anonymous outer results may contain prior named
 fixed ARRAY components. Bounded STRING elements carry their exact physical
 capacity in `element_spec`; generic source-formal capacities are checked at
 runtime, and result copying never truncates to match a different capacity.
 Results also support grouping, compatible user-routine value arguments,
-direct RETURN forwarding, logical-rank-one ARRAY_LEN and aggregate access.
+direct RETURN forwarding, ARRAY_LEN returning the first dimension and aggregate access.
 Copies retain exact types/shapes and known initialized leaves. The
 [ARRAY result contract](language-support.md#array-function-results) describes the
 supported forms and remaining restrictions.
@@ -152,3 +152,9 @@ type specs. `array_function_uses` records ARRAY-valued expression calls.
 describes subscripts/fields on explicit calls and groups. ARRAY formal
 `passing_modes` includes reference and value; see the
 [ARRAY values guide](pythonic-arrays.md).
+
+`array_result_declarations` and `array_returns` record the complete result type,
+declared dimension mask and nominal identity. Named types and anonymous fixed,
+wildcard or mixed dimensions follow the [result shape contract](array-result-shapes.md).
+`array_length_policy` defines Pythonic ARRAY_LEN as the first concrete dimension;
+it also supports matrices and nested arrays without reading scalar leaves.

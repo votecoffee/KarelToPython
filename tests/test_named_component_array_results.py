@@ -203,7 +203,7 @@ class NamedComponentArrayRejectionTests(unittest.TestCase):
         self.reject('E_ARRAY_RETURN_SOURCE', body='', routines='ROUTINE make: ARRAY OF INTEGER VAR p: ARRAY[2] OF row_t BEGIN RETURN p[1] END make')
 
     def test_named_outer_result_declaration_remains_blocked(self):
-        self.reject('E_RETURN_TYPE', routines='ROUTINE make: plane_t BEGIN END make')
+        self.reject('E_RETURN_TYPE', routines='ROUTINE make: plane_t BEGIN END make', _translator=legacy_translate)
 
     def test_direct_string_results_are_supported(self):
         program,_=compile_program(body='word=make',declarations='word: STRING[3]',routines="ROUTINE make: STRING[3] BEGIN RETURN 'abc' END make")

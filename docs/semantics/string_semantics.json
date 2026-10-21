@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.55.0",
+  "translator_version": "0.56.0",
+  "array_shape_mode_note": "Public Pythonic result declarations and first-dimension ARRAY_LEN follow ../array-result-shapes.md; older result-form and multidimensional-length rejections below are retained for the future strict milestone.",
   "array_mode_note": "Public Pythonic ARRAY value/result composition follows ../pythonic-arrays.md; older assignment-only and whole-value rejections below are retained for the future strict milestone.",
   "evaluation_mode_note": "Public Pythonic mode uses the chosen order in ../evaluation-order.md; older ordering rejections below are retained only for the future strict milestone.",
   "contract_scope": "Historical conservative STRING restrictions; current public results and value arguments follow pythonic_string_semantics.json and ../pythonic-strings.md.",

@@ -151,7 +151,7 @@ class StringArrayRejectionTests(unittest.TestCase):
                     routines='ROUTINE make: ARRAY OF STRING[3] VAR p: words_t BEGIN RETURN p END make')
 
     def test_named_outer_result_type_still_blocked(self):
-        self.reject('E_RETURN_TYPE', types=TYPES, body='', routines='ROUTINE make: row_t BEGIN END make')
+        self.reject('E_RETURN_TYPE', types=TYPES, body='', routines='ROUTINE make: row_t BEGIN END make', _translator=legacy_translate)
 
     def test_flat_multidimensional_source_still_blocked(self):
         self.reject('E_RETURN', body='', routines='ROUTINE make: ARRAY OF STRING[3] VAR p: ARRAY[2,2] OF STRING[3] BEGIN RETURN p END make')

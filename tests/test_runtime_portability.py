@@ -37,7 +37,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_output', 'COUNT', -42),
                     ('pythonic_strings', 'DECORATED', '[seed]'),
                     ('pythonic_order', 'RESULT', 12),
-                    ('pythonic_arrays', 'GENERATED', [40, 5, 6])]
+                    ('pythonic_arrays', 'GENERATED', [40, 5, 6]),
+                    ('pythonic_array_shapes', 'NAMED', [[1, 2, 3], [4, 5, 6]])]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

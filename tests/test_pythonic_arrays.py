@@ -368,10 +368,9 @@ class ArrayFailureTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program('a=make()+a')
         self.assertEqual(caught.exception.code,'E_TYPE')
 
-    def test_multidimensional_array_len_guard_remains(self):
+    def test_multidimensional_array_len_uses_first_dimension(self):
         routine='ROUTINE make: ARRAY OF row_t VAR values: ARRAY[1] OF row_t BEGIN values[1,1]=1 RETURN values END make'
-        with self.assertRaises(TranslationError) as caught: compile_program('x=ARRAY_LEN(make())',routine,types='TYPE row_t=ARRAY[1] OF INTEGER')
-        self.assertEqual(caught.exception.code,'E_ARRAY_LEN')
+        self.assertEqual(execute('x=ARRAY_LEN(make())',routine,types='TYPE row_t=ARRAY[1] OF INTEGER')['X'],1)
 
     def test_chained_result_indexes_remain_blocked(self):
         routine='ROUTINE make: ARRAY OF row_t VAR values: ARRAY[1] OF row_t BEGIN values[1,1]=1 RETURN values END make'

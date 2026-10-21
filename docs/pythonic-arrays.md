@@ -58,7 +58,7 @@ element aliases within that private array.
 ## Result composition and access
 
 ARRAY results support grouping, compatible user-routine arguments, direct RETURN
-forwarding, and `ARRAY_LEN` for logical rank one. For example,
+forwarding, and `ARRAY_LEN` returning the first dimension. For example,
 `RETURN transform(make())` can forward a fully checked result without staging it
 in a local array. Each function RETURN still captures an independent result
 before removing the routine frame.
@@ -81,22 +81,24 @@ CONFIG field passing rules and conversion argument restrictions remain.
 
 ## Remaining boundaries and reports
 
-ARRAY function declarations retain their existing unsized anonymous outer form
-with one outer dimension. Named outer results, flat multidimensional result
-sources and unspecified STRING result-element capacities remain unsupported.
+ARRAY function declarations support prior named types and anonymous fixed,
+wildcard or mixed dimensions up to logical rank three. Named results require
+exact nominal types; anonymous declarations require anonymous outer storage.
 Named inner components retain exact identity and shape. Passing a named array
 through a generic parameter preserves its identity; it does not turn it into
-anonymous outer storage for RETURN.
+anonymous outer storage. See [ARRAY result shapes](array-result-shapes.md).
 
 Arrays are not scalar arithmetic operands, Booleans, SELECT selectors or WRITE
-items. `ARRAY_LEN` on logical rank greater than one remains unsupported. Motion,
+items. `ARRAY_LEN` returns the first dimension of matrices and nested arrays. Motion,
 controller storage and native call ABI behavior are outside this offline policy.
 
 The report's `array_value_arguments` records each private copy site;
 `array_function_uses` records ARRAY-valued calls in expressions. Existing
 `array_returns` and `array_result_assignments` retain their checked-copy metadata.
 `array_value_policy` and `aggregate_access_policy` describe the chosen behavior,
-and ARRAY formal `passing_modes` now includes reference and value.
+and ARRAY formal `passing_modes` includes reference and value.
+`array_result_declarations` records result shapes and nominal identities;
+`array_length_policy` records the Pythonic first-dimension convention.
 
 The [semantic contract](semantics/pythonic_array_semantics.json) records the
 boundaries and regression tests. Older assignment-only and value-rejection tests

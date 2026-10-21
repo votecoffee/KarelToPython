@@ -294,7 +294,7 @@ class StructureArrayBoundaryTests(unittest.TestCase):
             with self.subTest(expression=expression): self.rejected(f'flag = UNINIT({expression})')
 
     def test_multidimensional_array_len_remains_blocked(self):
-        self.rejected('result = ARRAY_LEN(grid)', code='E_ARRAY_LEN')
+        self.rejected('result = ARRAY_LEN(grid)', code='E_ARRAY_LEN', _translator=legacy_translate)
 
     def test_partial_and_chained_subscripts_remain_blocked(self):
         self.rejected('result = grid[1].count', code='E_ARRAY_RANK')
@@ -310,7 +310,7 @@ class StructureArrayBoundaryTests(unittest.TestCase):
         self.rejected('result = grid[next_index(),1].count', code='E_EVALUATION_ORDER', routines='ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', _translator=legacy_translate)
 
     def test_structure_array_return_remains_blocked(self):
-        self.rejected(routines='ROUTINE make: ARRAY[2] OF item_t BEGIN RETURN items END make', code='E_RETURN_TYPE')
+        self.rejected(routines='ROUTINE make: ARRAY[2] OF item_t BEGIN RETURN items END make', code='E_RETURN_TYPE', _translator=legacy_translate)
 
     def test_forward_or_recursive_named_element_remains_blocked(self):
         self.rejected(types='TYPE outer_t = STRUCTURE children: ARRAY[2] OF item_t ENDSTRUCTURE item_t = STRUCTURE n: INTEGER ENDSTRUCTURE', declarations='outer: outer_t')

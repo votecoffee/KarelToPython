@@ -1,0 +1,22 @@
+{
+  "translator_version": "0.56.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "evidence": "Chosen Pythonic result declaration and first-dimension length policy; authored execution/runtime tests and independent example fixtures, without native acceptance claims.",
+  "declarations": "Prior named ARRAY types or anonymous ARRAY declarations with omitted, fixed, wildcard or mixed outer dimensions. Fixed sizes are global INTEGER constant expressions in 1..32767. At most three logical dimensions and 32767 scalar leaves.",
+  "wildcards": "Dimensions derive from returned concrete storage. They do not allocate or infer global/local variable storage. Declared fixed dimensions remain constraints.",
+  "identity": "Named results require exact nominal type and shape. Anonymous results require anonymous outer storage, equal outer rank and exact element/component type. No flattening, resize, identity erasure or element coercion.",
+  "return": "Evaluate once, validate every known initialized scalar leaf, copy independently before frame cleanup. Retain concrete shapes, STRING capacities, record/component identities, joint widths and POSITION protection.",
+  "failure": "Known interface mismatches fail during translation. Generic runtime mismatches fail at RETURN before destination assignment, retaining prior effects and unwinding frames. ABORT remains distinct.",
+  "array_len": "Evaluate array once and return its first concrete dimension, like Python len. Scalar leaf initialization is unnecessary; returned function data must nevertheless pass the full RETURN contract first.",
+  "boundaries": [
+    "No unspecified STRING result-element capacities or anonymous nested ARRAY component syntax",
+    "Existing global wildcard context and local/TYPE wildcard restrictions remain",
+    "Existing nominal/rank/type/domain/protection and FOR-counter checks remain",
+    "No native compiler, controller ABI/runtime, robot-context acquisition or persistence claim",
+    "Older result-form and multidimensional-length rejection tests remain internally preserved for the future strict milestone"
+  ],
+  "reports": ["array_result_declarations", "array_returns", "array_routine_policy", "array_length_policy"],
+  "tests": ["tests/test_pythonic_array_results.py", "tests/test_runtime_portability.py", "examples/pythonic_array_shapes.kl"],
+  "controller_validated": false
+}

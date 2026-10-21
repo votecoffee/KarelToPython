@@ -302,8 +302,8 @@ class BoundaryTests(unittest.TestCase):
         self.rejected('flag = UNINIT(a)', code='E_TYPE')
 
     def test_multidimensional_array_len_remains_blocked(self):
-        self.rejected('result = ARRAY_LEN(a)', code='E_ARRAY_LEN')
-        self.rejected('put(a)', 'ROUTINE put(p: ARRAY[*,*] OF INTEGER) BEGIN result = ARRAY_LEN(p) END put', code='E_ARRAY_LEN')
+        self.rejected('result = ARRAY_LEN(a)', code='E_ARRAY_LEN', _translator=legacy_translate)
+        self.rejected('put(a)', 'ROUTINE put(p: ARRAY[*,*] OF INTEGER) BEGIN result = ARRAY_LEN(p) END put', code='E_ARRAY_LEN', _translator=legacy_translate)
 
     def test_rank_above_three_rejected(self):
         self.rejected(declarations='a: ARRAY[1,1,1,1] OF INTEGER')

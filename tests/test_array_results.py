@@ -86,12 +86,12 @@ class ArrayResultFailureTests(unittest.TestCase):
     def test_array_result_return_requires_value(self): self.rejected('','E_RETURN',routines='ROUTINE make: ARRAY OF INTEGER BEGIN RETURN END make')
     def test_fixed_or_wildcard_result_dimensions_are_blocked(self):
         for dimensions in ('[1]','[*]','[*,*]'):
-            self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY{dimensions} OF INTEGER BEGIN END make')
+            self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY{dimensions} OF INTEGER BEGIN END make', _translator=legacy_translate)
     def test_other_array_element_result_types_are_blocked(self):
         for element in ('STRING','FILE','PATH','ARRAY'):
             self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY OF {element} BEGIN END make')
     def test_named_array_result_declaration_remains_blocked(self):
-        self.rejected('','E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[3] OF INTEGER',routines='ROUTINE make: row_t BEGIN END make')
+        self.rejected('','E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[3] OF INTEGER',routines='ROUTINE make: row_t BEGIN END make', _translator=legacy_translate)
     def test_multidimensional_return_source_blocked(self):
         self.rejected('','E_RETURN',routines='ROUTINE make: ARRAY OF INTEGER VAR p: ARRAY[2,2] OF INTEGER BEGIN RETURN p END make')
     def test_whole_array_value_arguments_remain_blocked(self):

@@ -245,7 +245,7 @@ class NamedArrayRejectionTests(unittest.TestCase):
     def test_generic_rank_mismatch(self):
         self.rejected('work(a)', routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN END work')
     def test_named_array_len_rank_guard(self):
-        self.rejected('x=ARRAY_LEN(a)', code='E_ARRAY_LEN', types='TYPE row_t=ARRAY[2,3] OF INTEGER')
+        self.rejected('x=ARRAY_LEN(a)', code='E_ARRAY_LEN', types='TYPE row_t=ARRAY[2,3] OF INTEGER', _translator=legacy_translate)
     def test_partial_named_array_subscript_blocked(self):
         self.rejected('x=a[1]', code='E_ARRAY_RANK', types='TYPE row_t=ARRAY[2,3] OF INTEGER')
     def test_nested_named_array_definition(self):
@@ -255,7 +255,7 @@ class NamedArrayRejectionTests(unittest.TestCase):
     def test_nested_named_array_formal(self):
         self.assertEqual(execute('work(a)', declarations='a: ARRAY[2] OF row_t', routines='ROUTINE work(p: ARRAY OF row_t) BEGIN p[1,2]=7 END work')['A'][0][1], 7)
     def test_named_array_function_result_blocked(self):
-        self.rejected(routines='ROUTINE work: row_t BEGIN RETURN a END work', code='E_RETURN_TYPE')
+        self.rejected(routines='ROUTINE work: row_t BEGIN RETURN a END work', code='E_RETURN_TYPE', _translator=legacy_translate)
     def test_type_to_type_alias_remains_blocked(self):
         self.rejected(types='TYPE row_t=ARRAY[2] OF INTEGER\nother_t=row_t', code='E_TYPE_ALIAS')
     def test_named_string_alias_remains_blocked(self):

@@ -818,12 +818,22 @@ def positional_value(spec, value, line=None):
 
 
 def array_result(spec, value, line=None):
-    """Detach one anonymous outer dimension, retaining named inner components."""
-    if (not isinstance(spec, tuple) or len(spec) != 3 or spec[:2] != ('ARRAY', None)
+    """Detach checked ARRAY results, retaining concrete shape and nominal types."""
+    pythonic = _pythonic()
+    if (not isinstance(spec, tuple) or len(spec) not in ((3, 4) if pythonic else (3,)) or spec[0] != 'ARRAY'
             or not isinstance(spec[2], tuple) or not spec[2]):
+        raise KarelRuntimeError('ARRAY results require a supported ARRAY declaration', line)
+    declared = array_shape(spec)
+    try: identity = array_identity(spec)
+    except KarelRuntimeError as exc: raise KarelRuntimeError(str(exc), line) from None
+    if not pythonic and spec[:2] != ('ARRAY', None):
         raise KarelRuntimeError('ARRAY results require an unsized 1D supported element declaration', line)
+    if (not 1 <= len(declared) <= 3 or
+            any(size is not None and (type(size) is not int or not 1 <= size <= 32767) for size in declared) or
+            identity is not None and any(size is None for size in declared)):
+        raise KarelRuntimeError('ARRAY result dimensions require fixed sizes in 1..32767 or anonymous wildcards', line)
     element = spec[2]
-    rank = 1
+    rank = len(declared)
     while element[0] == 'ARRAY':
         if (len(element) != 4 or type(element[3]) is not str or not element[3]
                 or not element[3].isascii()):
@@ -844,12 +854,19 @@ def array_result(spec, value, line=None):
         valid = element in (INTEGER, BOOLEAN, REAL, BYTE, SHORT, *((kind,) for kind in DATA_RECORD_TYPES))
     if not valid:
         raise KarelRuntimeError('ARRAY results require supported scalar, bounded STRING, record or exact-width joint terminal elements', line)
-    if (not isinstance(value, Array) or not isinstance(value.spec, tuple) or len(value.spec) != 3
+    if (not isinstance(value, Array) or not isinstance(value.spec, tuple) or len(value.spec) not in (3, 4)
             or value.spec[0] != 'ARRAY' or value.spec[2] != spec[2]):
+        raise KarelRuntimeError('ARRAY result requires matching outer storage and exact element type', line)
+    try: actual_identity = array_identity(value.spec)
+    except KarelRuntimeError as exc: raise KarelRuntimeError(str(exc), line) from None
+    if identity is None and actual_identity is not None:
         raise KarelRuntimeError('ARRAY result requires matching anonymous outer storage and exact element type', line)
+    if identity is not None and value.spec != spec:
+        raise KarelRuntimeError('ARRAY result requires identical named ARRAY type and shape', line)
     shape = array_shape(value.spec)
-    if len(shape) != 1 or type(shape[0]) is not int or not 1 <= shape[0] <= 32767:
-        raise KarelRuntimeError('ARRAY result requires a concrete 1D size in 1..32767', line)
+    if (len(shape) != len(declared) or any(type(size) is not int or not 1 <= size <= 32767 for size in shape)
+            or any(expected is not None and expected != actual for expected, actual in zip(declared, shape))):
+        raise KarelRuntimeError('ARRAY result requires a matching concrete shape in 1..32767', line)
     return _aggregate_value(value.spec, value, line)
 
 
@@ -1098,8 +1115,11 @@ def builtin(name, arguments, line=None):
     if name == 'ARRAY_LEN':
         array = arguments[0]
         if not isinstance(array, Array): raise KarelRuntimeError('Expected ARRAY', line)
-        if len(array_dimensions(array.spec)) != 1:
+        if not _pythonic() and len(array_dimensions(array.spec)) != 1:
             raise KarelRuntimeError('ARRAY_LEN on multidimensional arrays needs dimension-count validation', line)
+        if (type(array.shape) is not tuple or not 1 <= len(array.shape) <= 3 or array.shape != array_shape(array.spec)
+                or any(type(size) is not int or not 1 <= size <= 32767 for size in array.shape)):
+            raise KarelRuntimeError('ARRAY_LEN requires a concrete valid shape', line)
         return array.shape[0]
     if name == 'UNINIT': return uninit(arguments[0])
     if name == 'SUB_STR':

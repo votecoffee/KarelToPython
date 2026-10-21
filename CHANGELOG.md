@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.56.0 - 2026-10-21
+
+- Add Pythonic named ARRAY results and anonymous fixed, wildcard or mixed result
+  dimensions, including flat matrices and cubes. Resolve fixed sizes from global
+  constants and check wildcard sizes against concrete returned storage.
+- Preserve exact nominal identity, outer representation, component types,
+  initialized leaves and independent RETURN copies. Enforce three logical
+  dimensions and the 32767-leaf bound; fail known mismatches during translation
+  and generic runtime mismatches before destination assignment.
+- Define Pythonic ARRAY_LEN on matrices and nested arrays as the first concrete
+  dimension, like Python len, without requiring initialized scalar leaves.
+- Add result declaration/RETURN metadata, 89 execution/runtime regressions,
+  a complete authored example and a result-shape guide. Retain earlier result-form
+  and multidimensional-length rejections internally for the future strict milestone;
+  no native compiler, call ABI or controller-runtime equivalence claim.
+
 ## 0.55.0 - 2026-10-21
 
 - Add Pythonic ARRAY value arguments as checked independent writable copies.

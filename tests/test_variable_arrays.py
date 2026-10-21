@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
@@ -16,10 +17,10 @@ from karel2py import runtime as rt
 UNKNOWN = {'uninitialized': True}
 
 
-def compile_program(body='', *, declarations='a: ARRAY[*] OF INTEGER', types='', routines='', shapes=None, labelled=False):
+def compile_program(body='', *, declarations='a: ARRAY[*] OF INTEGER', types='', routines='', shapes=None, labelled=False, _translator=translate):
     label = 'entry::\n' if labelled else ''
     source = f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{label}{body}\nEND T'
-    result = translate(source, filename='external_arrays.kl', array_shapes=shapes)
+    result = _translator(source, filename='external_arrays.kl', array_shapes=shapes)
     ast.parse(result.python_source, feature_version=(3, 11))
     namespace = {'__name__': 'variable_array_test'}
     exec(result.python_source, namespace)
@@ -174,7 +175,7 @@ class VariableArrayContextTests(unittest.TestCase):
     def test_fixed_dimension_range_stays_strict(self): self.reject('E_SIZE',declarations='a: ARRAY[0,*] OF INTEGER',shapes={'a':[1,2]})
     def test_fixed_dimension_must_remain_constant(self): self.reject('E_CONSTANT',declarations='n: INTEGER a: ARRAY[n,*] OF INTEGER',shapes={'a':[2,2]})
     def test_whole_copy_mismatched_shapes_rejected_statically(self): self.reject('E_TYPE',body='a=b',declarations='a,b: ARRAY[*] OF INTEGER',shapes={'a':[2],'b':[3]})
-    def test_multidimensional_array_len_stays_blocked(self): self.reject('E_ARRAY_LEN',body='n=ARRAY_LEN(a)',declarations='a: ARRAY[*,*] OF INTEGER n: INTEGER',shapes={'a':[2,2]})
+    def test_multidimensional_array_len_stays_blocked(self): self.reject('E_ARRAY_LEN',body='n=ARRAY_LEN(a)',declarations='a: ARRAY[*,*] OF INTEGER n: INTEGER',shapes={'a':[2,2]}, _translator=legacy_translate)
     def test_implicit_zero_or_resize_not_introduced(self):
         self.reject('E_ARRAY_SIZE')
         self.assertEqual(execute(shapes={'a':[1]})['A'],[UNKNOWN])

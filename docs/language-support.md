@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.55.0. Acceptance is specific to
+This is the supported prototype subset as of 0.56.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -23,7 +23,7 @@ internally and in the historical semantic notes.
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference/value arguments and named subarrays | Prototype bound of 32767 scalar leaves; value arguments require known initialized leaves; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
-| ARRAY results | Unsized anonymous outer ARRAY with scalar, explicitly bounded STRING, prior named STRUCTURE, built-in record, exact-width JOINTPOS or prior named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized. One anonymous outer dimension; exact inner component names/shapes and STRING capacities; logical rank up to three. Named outer results, flat multidimensional sources and unspecified STRING result capacities remain blocked. |
+| ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. No unspecified STRING capacities, resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no type aliases or ABI claim. |
 | USING | Restricted bare structure selectors and field priority | Lexical scope; no complex selector expressions or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
@@ -57,7 +57,7 @@ such as `build()[1]` or `(build)[1]`.
 
 Bare calls use the same type, ownership, argument-order, effect, FOR, recursion
 and cleanup rules as explicit calls. ARRAY results support grouping, compatible
-user-routine arguments, direct RETURN forwarding and logical-rank-one ARRAY_LEN.
+user-routine arguments, direct RETURN forwarding and ARRAY_LEN returning the first dimension.
 See the [ARRAY values guide](pythonic-arrays.md), the authored
 [bare-call example](../examples/bare_function_calls.kl) and
 [function-call contract](semantics/function_call_semantics.json).
@@ -68,8 +68,10 @@ Internal functions may return arrays of INTEGER/BOOLEAN/REAL/BYTE/SHORT,
 explicitly bounded STRING elements, prior
 named STRUCTURE types, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION, or JOINTPOS1..9.
 Unsuffixed JOINTPOS means nine axes. Elements may also be prior named fixed ARRAY
-types, with at most three logical dimensions across the result. The outer result
-is anonymous and unsized; its single outer length comes from the returned storage.
+types, with at most three logical dimensions across the result. Named outer results
+and anonymous fixed, wildcard or mixed outer dimensions are supported. Fixed sizes
+are global constant expressions; wildcard sizes come from returned concrete storage.
+See [ARRAY result shapes](array-result-shapes.md).
 
 ```karel
 PROGRAM ARRAY_RECORDS
@@ -87,7 +89,7 @@ BEGIN
 END ARRAY_RECORDS
 ```
 
-For a matrix, declare `TYPE row_t=ARRAY[2] OF INTEGER`, then use
+For a matrix built from named rows, declare `TYPE row_t=ARRAY[2] OF INTEGER`, then use
 `ROUTINE make: ARRAY OF row_t` and return local storage declared
 `values: ARRAY[2] OF row_t`. A prior named plane type can supply the inner two
 dimensions of a three-dimensional result. Each ARRAY component retains its exact
@@ -123,7 +125,7 @@ Failure leaves the destination intact while retaining earlier independent effect
 
 Use a bare zero-argument function name or an explicit call. Results compose in
 grouping, compatible user-routine arguments, direct RETURN forwarding and
-logical-rank-one ARRAY_LEN. Explicit calls or groups support returned aggregate
+ARRAY_LEN returning the first dimension. Explicit calls or groups support returned aggregate
 subscripts and fields. Destination type and length must
 match exactly; no element coercion, resizing or nominal identity erasure occurs.
 POSITION orientation remains protected, with no source acquisition or default

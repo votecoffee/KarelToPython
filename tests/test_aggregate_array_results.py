@@ -175,12 +175,12 @@ class AggregateArrayRejectionTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,'E_TYPE')
 
     def test_named_array_result_type_remains_blocked(self):
-        self.reject('E_RETURN_TYPE',routines='ROUTINE make: row_t BEGIN END make')
+        self.reject('E_RETURN_TYPE',routines='ROUTINE make: row_t BEGIN END make', _translator=legacy_translate)
 
     def test_fixed_and_wildcard_result_sizes_remain_blocked(self):
         for dimensions in ('[1]','[*]','[*,*]'):
             with self.subTest(dimensions=dimensions):
-                self.reject('E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY{dimensions} OF item_t BEGIN END make')
+                self.reject('E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY{dimensions} OF item_t BEGIN END make', _translator=legacy_translate)
 
     def test_group_qualified_result_elements_remain_blocked(self):
         for kind in ('VECTOR','XYZWPR','JOINTPOS3'):

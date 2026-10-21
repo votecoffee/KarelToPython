@@ -337,8 +337,18 @@ class Parser:
         if self.accept(':'):
             if self.current.value == 'ARRAY':
                 array_token = self.take()
+                dimensions = None
                 if self.current.value == '[':
-                    self.error('E_RETURN_TYPE', 'ARRAY function results must omit sizes; multidimensional result declarations remain blocked', array_token)
+                    if self.mode == 'strict':
+                        self.error('E_RETURN_TYPE', 'ARRAY function results must omit sizes; multidimensional result declarations remain blocked', array_token)
+                    self.take()
+                    sizes = [Expr('array_wildcard', self.take()) if self.current.value == '*' else self.expression()]
+                    while self.accept(','):
+                        sizes.append(Expr('array_wildcard', self.take()) if self.current.value == '*' else self.expression())
+                    self.expect(']')
+                    if len(sizes) > 3:
+                        self.error('E_ARRAY_RANK', 'ARRAY results support at most three dimensions', array_token)
+                    dimensions = sizes[0] if len(sizes) == 1 else tuple(sizes)
                 self.expect('OF')
                 element = self.take()
                 if element.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT', *DATA_RECORD_TYPES):
@@ -356,7 +366,7 @@ class Parser:
                     self.error('E_RETURN_TYPE', 'ARRAY results require supported scalars, bounded STRINGs, data records, joints or prior named aggregate elements', element)
                 if self.current.value == 'IN':
                     self.error('E_POSITION_GROUP', 'Group-qualified ARRAY result elements are not implemented', element)
-                return_type = ('ARRAY', None, element_spec)
+                return_type = ('ARRAY', dimensions, element_spec)
             elif self.mode == 'pythonic' and self.current.value == 'STRING':
                 string_token = self.take()
                 if self.accept('['):
@@ -863,6 +873,30 @@ class Emitter:
             self.error('E_ARRAY_CAPACITY', 'Prototype arrays are limited to 32767 scalar leaves including STRUCTURE fields', spec[1].token)
         return ('ARRAY', size, element)
 
+    def resolve_array_result_spec(self, spec, token):
+        """Resolve Pythonic result dimensions in the global interface scope."""
+        if rt.array_identity(spec) is not None: return spec
+        element = self.resolve_spec(spec[2])
+        dimensions = []
+        for size in rt.array_shape(spec):
+            if size is None or isinstance(size, Expr) and size.kind == 'array_wildcard':
+                dimensions.append(None)
+            else:
+                value = self.constant(size)
+                if type(value) is not int or not 1 <= value <= 32767:
+                    self.error('E_SIZE', 'ARRAY result dimensions require INTEGER in 1..32767 or *', size.token)
+                dimensions.append(value)
+        if element[0] == 'ARRAY' and rt.array_identity(element) is None:
+            self.error('E_NESTED_NAMED_ARRAY', 'ARRAY result components require a prior named ARRAY type', token)
+        shape = dimensions[0] if len(dimensions) == 1 else tuple(dimensions)
+        result = ('ARRAY', shape, element)
+        if len(rt.array_dimensions(result)) > 3:
+            self.error('E_ARRAY_RANK', 'ARRAY results support at most three logical dimensions', token)
+        minimum = tuple(1 if size is None else size for size in dimensions)
+        if rt.scalar_leaf_count(('ARRAY', minimum, element)) > 32767:
+            self.error('E_ARRAY_CAPACITY', 'ARRAY results are limited to 32767 scalar leaves', token)
+        return result
+
     def resolve_global_spec(self, token, spec):
         """Specialize only direct static declarations; never guess loaded storage."""
         if spec[0] != 'ARRAY': return self.resolve_spec(spec)
@@ -941,6 +975,15 @@ class Emitter:
                 routine.return_type = self.resolve_spec(routine.return_type)
                 self.features.add('STRING function result')
             if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
+            if routine.return_type and routine.return_type[0] == 'NAMED':
+                result_token = routine.return_type[1]
+                definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
+                if definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
+                    self.error('E_TYPE', 'Named result types must be declared before the routine', result_token)
+                routine.return_type = self.resolve_spec(routine.return_type)
+                if routine.return_type[0] != 'STRUCTURE' and not (self.mode == 'pythonic' and routine.return_type[0] == 'ARRAY'):
+                    self.error('E_RETURN_TYPE', 'Named ARRAY function results remain blocked; a named result type must be a STRUCTURE', routine.token)
+                self.features.add('named ' + routine.return_type[0] + ' function result')
             if routine.return_type and routine.return_type[0] == 'ARRAY':
                 element = routine.return_type[2]
                 if element[0] == 'NAMED':
@@ -948,28 +991,22 @@ class Emitter:
                     definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
                     if definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
                         self.error('E_TYPE', 'Named result element types must be declared before the routine', result_token)
-                routine.return_type = self.resolve_spec(routine.return_type)
+                routine.return_type = (self.resolve_array_result_spec(routine.return_type, routine.token)
+                                       if self.mode == 'pythonic' else self.resolve_spec(routine.return_type))
                 element = routine.return_type[2]
                 leaf = rt.array_leaf_spec(element) if element[0] == 'ARRAY' else element
                 if leaf[0] not in (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS'):
                     self.error('E_RETURN_TYPE', 'ARRAY result terminal elements require supported scalars, bounded STRINGs, records or exact-width joints', routine.token)
                 if leaf[0] == 'STRING':
                     self.features.add('bounded STRING ARRAY function result')
+                if len(rt.array_shape(routine.return_type)) > 1:
+                    self.features.add('multidimensional ARRAY function result')
                 if element[0] == 'ARRAY':
                     self.features.add('named-component ARRAY function result')
-                else:
+                elif len(rt.array_shape(routine.return_type)) == 1:
                     self.features.add('1D aggregate ARRAY function result' if element[0] in (*RECORD_TYPES, 'JOINTPOS') else '1D scalar ARRAY function result')
             if routine.return_type and routine.return_type[0] in POSITIONAL_VALUE_TYPES:
                 self.features.add('exact positional function result')
-            if routine.return_type and routine.return_type[0] == 'NAMED':
-                result_token = routine.return_type[1]
-                definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
-                if definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
-                    self.error('E_TYPE', 'Named STRUCTURE result types must be declared before the routine', result_token)
-                routine.return_type = self.resolve_spec(routine.return_type)
-                if routine.return_type[0] != 'STRUCTURE':
-                    self.error('E_RETURN_TYPE', 'Named ARRAY function results remain blocked; a named result type must be a STRUCTURE', routine.token)
-                self.features.add('named STRUCTURE function result')
         for routine in self.program.routines:
             # Parameters are resolved before local declarations: local constants
             # cannot alter the routine's interface or a global type definition.
@@ -1434,7 +1471,7 @@ class Emitter:
             if len(expr.args) != 1: self.error('E_ARGUMENTS', 'ARRAY_LEN requires exactly one argument', expr.token)
             code, spec = self.expression(expr.args[0])
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'ARRAY_LEN requires ARRAY', expr.token)
-            if len(rt.array_dimensions(spec)) != 1:
+            if self.mode == 'strict' and len(rt.array_dimensions(spec)) != 1:
                 self.error('E_ARRAY_LEN', 'ARRAY_LEN on multidimensional arrays needs dimension-count semantics; use explicit dimensions', expr.token)
             result_type, codes = ('INTEGER',), [code]
         else:
@@ -2006,14 +2043,18 @@ class Emitter:
                     source = expr
                     while source.kind == 'group': source = source.args[0]
                     sources = ('name', 'field', 'index', 'call') if self.mode == 'pythonic' else ('name', 'field', 'index')
+                    wrong_identity = (rt.array_identity(value_type) is not None and
+                                      (self.mode == 'strict' or rt.array_identity(value_type) != rt.array_identity(spec)))
+                    expected_outer_rank = len(rt.array_shape(spec)) if self.mode == 'pythonic' else 1
                     if (source.kind not in sources or value_type[0] != 'ARRAY'
-                            or rt.array_identity(value_type) is not None or len(rt.array_shape(value_type)) != 1
+                            or wrong_identity or len(rt.array_shape(value_type)) != expected_outer_rank
                             or (value_type[2] != spec[2] and not
                                 (spec[2][0] == 'STRING' and value_type[2] == ('STRING', None)))):
-                        self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires anonymous storage with one outer dimension and the declared exact element type; named outer arrays and flat multidimensional storage remain blocked', expr.token)
+                        self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires matching outer representation, nominal identity and exact element type', expr.token)
                     self.array_return_uses.append(dict(routine=self.current_routine.name, element_type=spec[2][0], element_spec=spec[2], line=line,
                                                        column=token.column, expression_kind=expr.kind,
                                                        logical_rank=len(rt.array_dimensions(spec)),
+                                                       result_spec=spec, declared_dimensions=rt.array_shape(spec), nominal_identity=rt.array_identity(spec),
                                                        independent_copy=True, initialized_elements_required=True))
                     self.line(f'return _rt.array_result({spec!r}, {value}, {line})', token)
                 elif spec[0] == 'STRING':
@@ -2196,6 +2237,11 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                    controller_validated=False),
         array_returns=emitter.array_return_uses, array_result_assignments=emitter.array_result_assignments,
         array_function_uses=emitter.array_function_uses, array_value_arguments=emitter.array_value_uses,
+        array_result_declarations=[dict(routine=r.name, result_spec=r.return_type,
+                                       declared_dimensions=rt.array_shape(r.return_type),
+                                       nominal_identity=rt.array_identity(r.return_type),
+                                       logical_rank=len(rt.array_dimensions(r.return_type)), line=r.token.line)
+                                   for r in program.routines if r.return_type and r.return_type[0] == 'ARRAY'],
         bare_function_calls=emitter.bare_function_uses,
         bare_function_policy=dict(resolution='Unshadowed internal zero-parameter function names in value expressions resolve after USING fields and before call/effect analysis',
                                   storage='Assignment targets and field/array receiver roots remain storage; local variables, parameters and constants keep their existing binding',
@@ -2512,7 +2558,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     report['local_constant_policy']['arguments'] = 'Scalar constants pass as independent value temporaries; STRING temporaries are writable with capacity 254'
     report['data_record_policy']['parameters'] = 'Bare exact-type records keep references; grouped storage and function results use checked independent value copies; CONFIG scalar subfields pass by value'
     report['array_routine_policy'].update(
-        use='ARRAY results compose in grouped assignments, compatible routine value arguments, RETURN forwarding, ARRAY_LEN on logical rank one, and explicit result subscript/field reads',
+        results='Internal named ARRAY types or anonymous ARRAY with omitted, fixed, wildcard or mixed dimensions; up to three logical dimensions; INTEGER/BOOLEAN/REAL/BYTE/SHORT, bounded STRING, record, joint and prior named ARRAY elements',
+        declarations='Named results require exact nominal identity; anonymous results require anonymous outer storage and matching component layout; global constant sizes or runtime wildcard dimensions; no resizing or flattening',
+        use='ARRAY results compose in grouped assignments, compatible routine value arguments, RETURN forwarding, ARRAY_LEN returning the first dimension, and explicit result subscript/field reads',
         references='Bare ARRAY storage keeps caller references; grouped storage and function results create checked independent writable copies with concrete shape, identity and element capacities')
     report['array_value_policy'] = dict(
         source='Grouped whole arrays/subarrays/array fields and compatible ARRAY function results',
@@ -2528,7 +2576,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         protection='Existing POSITION read-only descendants and CONFIG field passing rules remain',
         boundary='Bare function names used directly as receiver roots remain storage; use an explicit call or group; chained ARRAY subscripts remain blocked',
         controller_validated=False)
-    report['bare_function_policy']['arrays'] = 'ARRAY values compose in compatible value contexts, grouping, RETURN and logical-rank-one ARRAY_LEN; explicit calls or grouping allow aggregate access'
+    report['bare_function_policy']['arrays'] = 'ARRAY values compose in compatible value contexts, grouping, RETURN and ARRAY_LEN returning the first dimension; explicit calls or grouping allow aggregate access'
+    report['array_length_policy'] = dict(result='First concrete dimension, like Python len; flat matrices and named nested arrays supported',
+                                       evaluation='Evaluate the array once; no scalar-leaf initialization required',
+                                       boundary='No total-element count, dimension argument, reshape or flattening', controller_validated=False)
+    report['array_routine_policy']['boundary'] = 'No unspecified STRING result-element capacities, anonymous nested ARRAY components, representation/identity erasure, external routines or native ABI/runtime claim'
     report['named_array_policy']['parameters'] = 'Same named type by reference or checked value copy; generic rank-matched ARRAY formals preserve the concrete actual identity'
     for key in ('vector_routine_policy', 'structure_routine_policy', 'positional_routine_policy', 'array_routine_policy'):
         report[key]['boundary'] = (report[key]['boundary'].replace('direct STRING results, ', '').replace(' or direct STRING results', '')
@@ -2537,11 +2589,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
                    'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
                    'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain',
                    'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
-                   'Whole ARRAY reference parameters support')
+                   'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
-    report['limitations'] = [item.replace('ARRAY_LEN on multidimensional arrays and routine calls in multiple subscripts remain blocked pending count/evaluation-order evidence',
-                                         'ARRAY_LEN on multidimensional arrays remains blocked pending dimension-count semantics')
-                             for item in report['limitations']]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     return result
