@@ -669,6 +669,7 @@ class Emitter:
         self.atan2_uses = []
         self.array_return_uses = []
         self.array_result_assignments = []
+        self.bare_function_uses = []
         self.array_shapes = {}
         context_token = Token('NAME', '<array_shapes>', 1, 1)
         if array_shapes is not None:
@@ -922,7 +923,52 @@ class Emitter:
                     routine.local_types[token.value] = self.resolve_spec(definition)
             self.current_routine = None
         self.resolve_using_fields()
+        self.resolve_bare_function_calls()
         self.analyze_routine_effects()
+
+    def resolve_bare_function_calls(self):
+        """Resolve value names before call/effect checks, preserving storage roots."""
+        def resolve(node, storage=False):
+            if isinstance(node, Expr):
+                if node.kind == 'name' and not storage and node.value in self.routines:
+                    shadowed = (self.current_routine and
+                                node.value in (self.current_routine.local_types.keys()
+                                               | self.current_routine.local_constants.keys()))
+                    if not shadowed:
+                        routine = self.routines[node.value]
+                        if routine.parameters:
+                            self.error('E_ARGUMENTS', 'A bare routine name requires a function with no parameters; supply the declared arguments', node.token)
+                        if routine.return_type is None:
+                            self.error('E_TYPE', 'Procedure cannot be used as an expression', node.token)
+                        self.bare_function_uses.append(dict(
+                            body=self.current_routine.name if self.current_routine else self.program.name,
+                            name=node.value, line=node.token.line, column=node.token.column,
+                            result_spec=routine.return_type))
+                        self.features.add('bare zero-argument function call')
+                        return Expr('call', node.token, node.value, [])
+                if node.kind in ('index', 'field'):
+                    node.args = [resolve(node.args[0], storage=True),
+                                 *[resolve(argument) for argument in node.args[1:]]]
+                else:
+                    node.args = [resolve(argument) for argument in node.args]
+            elif isinstance(node, Statement):
+                if node.kind == 'assign':
+                    node.args = [resolve(node.args[0], storage=True), resolve(node.args[1])]
+                else:
+                    node.args = [resolve(argument) for argument in node.args]
+                node.body = resolve(node.body)
+                node.alternate = resolve(node.alternate)
+            elif isinstance(node, list):
+                return [resolve(child) for child in node]
+            elif isinstance(node, tuple):
+                return tuple(resolve(child) for child in node)
+            return node
+
+        self.program.body = resolve(self.program.body)
+        for routine in self.program.routines:
+            self.current_routine = routine
+            routine.body = resolve(routine.body)
+        self.current_routine = None
 
     def resolve_using_fields(self):
         """Resolve lexical field aliases before effect and control-flow analysis."""
@@ -1976,12 +2022,19 @@ def translate(source, *, filename='<input>', array_shapes=None):
                                    narrow_elements='BYTE 0..255 must be known; SHORT -32768..32766 must be initialized; 32767 remains the SHORT uninitialized marker; no whole-array element coercion',
                                    aggregate_elements='Exact named STRUCTURE identity, concrete nested shapes/STRING capacities, CONFIG checks and joint widths retained; POSITION orientation protection retained; no acquired/default robot state',
                                    named_components='Every inner ARRAY component is a prior named fixed type; exact identity, shape and terminal type retained without flattening; terminal STRING arrays remain blocked',
-                                   use='Explicit function() call only, as the complete right side of direct assignment; no grouping of a call, passing to another routine, built-in consumption or direct RETURN forwarding',
+                                   use='Function call only as the complete right side of direct assignment; zero-parameter names and existing explicit calls accepted; no grouping of a call, passing to another routine, built-in consumption or direct RETURN forwarding',
                                    destinations='Existing exact concrete array type/length checks; no resizing, conversion, flattening or copy-back; stable captured element references',
                                    references='Whole ARRAY reference arguments remain supported; whole ARRAY value arguments remain prohibited',
-                                   boundary='Named outer ARRAY types, flat multidimensional result sources/declarations, STRING terminal elements, unknown leaves, bare function-name calls, external routines and native runtime/ABI behavior remain unsupported',
+                                   boundary='Named outer ARRAY types, flat multidimensional result sources/declarations, STRING terminal elements, unknown leaves, external routines and native runtime/ABI behavior remain unsupported',
                                    controller_validated=False),
         array_returns=emitter.array_return_uses, array_result_assignments=emitter.array_result_assignments,
+        bare_function_calls=emitter.bare_function_uses,
+        bare_function_policy=dict(resolution='Unshadowed internal zero-parameter function names in value expressions resolve after USING fields and before call/effect analysis',
+                                  storage='Assignment targets and field/array receiver roots remain storage; local variables, parameters and constants keep their existing binding',
+                                  effects='Same argument passing, potential effects, indexed targets, operators, SELECT, FOR, ABORT and depth/cleanup checks as explicit calls',
+                                  arrays='Complete direct-assignment RHS only; grouped calls, argument consumption and direct RETURN forwarding remain blocked',
+                                  boundary='No external linkage, first-class function values, bare built-in invocation or new namespace/storage-selector rules; existing explicit empty-parenthesis spelling remains accepted',
+                                  controller_validated=False),
         literal_policy=dict(apostrophes='A doubled source apostrophe inside one quoted STRING decodes to one logical apostrophe',
                             source_positions='Raw tokens and physical columns retained; logical lengths/capacities use decoded contents',
                             boundary='ASCII only, one physical token; no backslash escapes or multiline token splicing; quoted WRITE embedded-apostrophe formatting remains blocked',

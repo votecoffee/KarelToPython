@@ -1,0 +1,62 @@
+PROGRAM bare_function_calls
+%NOLOCKGROUP
+TYPE row_t=ARRAY[2] OF INTEGER
+VAR
+  ready_flag: BOOLEAN
+  result,observed,visits: INTEGER
+  values,copied: ARRAY[1] OF row_t
+
+ROUTINE ready: BOOLEAN
+BEGIN
+  RETURN ON
+END ready
+
+ROUTINE answer: INTEGER
+BEGIN
+  RETURN 7
+END answer
+
+ROUTINE doubled: INTEGER
+BEGIN
+  RETURN answer*2
+END doubled
+
+ROUTINE build: ARRAY OF row_t
+VAR items: ARRAY[1] OF row_t
+BEGIN
+  items[1,1]=answer
+  items[1,2]=doubled
+  RETURN items
+END build
+
+ROUTINE copy: ARRAY OF row_t
+BEGIN
+  RETURN values
+END copy
+
+ROUTINE consume(value: INTEGER)
+BEGIN
+  observed=value
+  value=99
+END consume
+
+ROUTINE more: BOOLEAN
+BEGIN
+  visits=visits+1
+  RETURN visits<3
+END more
+
+BEGIN
+  ready_flag=ready
+  IF ready THEN
+    result=doubled
+  ENDIF
+  values=build
+  copied=copy
+  consume(answer)
+  values[1,1]=99
+  visits=0
+  WHILE more DO
+    result=result+1
+  ENDWHILE
+END bare_function_calls

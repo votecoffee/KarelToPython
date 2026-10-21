@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.46.0",
+  "translator_version": "0.47.0",
   "date": "2026-10-21",
   "page_numbering": "One-based PDF pages",
   "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Named outer results, flat multidimensional result sources/declarations, terminal STRING arrays and whole ARRAY value arguments remain blocked. Recursive checked offline policy; no native layout, stack cost, ABI, partial-copy or controller-runtime equivalence claim.",
@@ -18,7 +18,7 @@
       ],
       "documented": "ARRAY is a function return type. Result declarations omit size so returned length can vary. A returned array must match the destination size and data type.",
       "implemented": "Internal unsized ARRAY OF INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior named STRUCTURE, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION or exact-width JOINTPOS1..9. Unsuffixed JOINTPOS means nine axes. Anonymous concrete source storage with one outer dimension retains actual length and exact resolved element type. Prior named fixed ARRAY elements are also supported with one outer dimension and at most three logical dimensions; every inner component retains its exact name and shape.",
-      "restriction": "No named outer ARRAY result types/storage, flat multidimensional result sources/declarations, terminal STRING arrays, fixed/wildcard result sizes, external routines or inferred storage. Explicit function() spelling and prior element-type definitions are required.",
+      "restriction": "No named outer ARRAY result types/storage, flat multidimensional result sources/declarations, terminal STRING arrays, fixed/wildcard result sizes, external routines or inferred storage. Prior element-type definitions are required. A zero-parameter function name or explicit call can supply the complete assignment RHS.",
       "tests": "tests/test_array_results.py: all three scalar types, differing lengths, global/local/formal/field storage, external shapes, recursion, FOR, SELECT and labels; tests/test_narrow_array_results.py: narrow endpoints, formals, fields, shapes and recursion; tests/test_aggregate_array_results.py: record/joint element declarations, ownership and restrictions"
     },
     {
@@ -29,7 +29,7 @@
         312
       ],
       "documented": "An ARRAY-valued function result can be used only in a direct assignment; it cannot be an argument to another routine. The manual shows staging into an array before passing it.",
-      "implemented": "Only a complete explicit function() call as assignment RHS enables ARRAY results. Ordinary destination arrays, supported fields and reference formals use existing exact concrete type/length checks. Staged arrays can then pass by reference.",
+      "implemented": "Only a complete function call (bare zero-parameter name or explicit call) as assignment RHS enables ARRAY results. Ordinary destination arrays, supported fields and reference formals use existing exact concrete type/length checks. Staged arrays can then pass by reference.",
       "restriction": "Grouped result calls, operator/condition/selector/built-in arguments, routine arguments and direct RETURN forwarding fail with E_ARRAY_RESULT_CONTEXT or an earlier existing guard. Whole-array value arguments remain prohibited. Named destination identity is not erased and mismatched sizes/types are not coerced.",
       "tests": "tests/test_array_results.py: context negatives, staging, generic destinations, nominal/length checks, preserved destination and indexed-target effects"
     },
@@ -90,7 +90,7 @@
   "unresolved": [
     "Native ARRAY return lifetime, stack allocation, layout/ABI and partial/uninitialized copy behavior",
     "Named outer ARRAY result types/storage, flat multidimensional result syntax/storage, terminal STRING arrays and external routines",
-    "Bare zero-argument function-name call syntax and broader expression/namespace rules",
+    "Broader function expression/namespace rules; bare internal zero-parameter names follow function_call_semantics.json",
     "POSITION acquisition/orientation defaults, robot/group joint context, kinematics and native task/alarm behavior"
   ],
   "validation": {
@@ -100,5 +100,10 @@
     "controller_executed": false
   },
   "source_reference": "../references.md",
-  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N",
+  "function_call_update": {
+    "version": "0.47.0",
+    "ledger": "function_call_semantics.json",
+    "boundary": "Zero-parameter internal function names resolve before effect analysis; all direct ARRAY assignment and existing call restrictions remain."
+  }
 }

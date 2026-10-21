@@ -1,0 +1,57 @@
+{
+  "translator_version": "0.47.0",
+  "date": "2026-10-21",
+  "page_numbering": "One-based PDF pages",
+  "boundary": "Manual-backed invocation syntax with conservative offline name resolution and the existing checked call path. No native compiler, stack allocation, ABI or controller-runtime equivalence claim.",
+  "current_visual_inspection_pages": [
+    91,
+    92
+  ],
+  "rules": [
+    {
+      "feature": "Zero-parameter function names in expressions",
+      "pdf_pages": [
+        91,
+        92
+      ],
+      "documented": "Routines with no parameters are invoked with only their name. A function call appears as part or all of an expression; the manual demonstrates a bare Boolean function name in an IF condition.",
+      "implemented": "Unshadowed internal zero-parameter function names in value expressions become ordinary call AST nodes before effect analysis. All already supported scalar, record, joint and ARRAY result types use the same call path. Original tokens and source positions are retained and bare_function_calls reports the resolved sites and exact result specifications.",
+      "restriction": "Functions requiring parameters must supply arguments. Procedures cannot be values. Existing explicit empty-parenthesis call spelling remains a compatibility form; no broader native syntax acceptance is inferred.",
+      "tests": "tests/test_bare_function_calls.py: scalar/condition/loop/SELECT expressions, aggregate results, value arguments, source locations and explicit-call compatibility; examples/bare_function_calls.kl"
+    },
+    {
+      "feature": "Scope and storage boundaries",
+      "pdf_pages": [
+        91,
+        92
+      ],
+      "implemented": "USING field resolution runs first. Local variables and parameters keep existing bindings; local CONST/routine-name collisions retain the existing rejection. Assignment targets and receiver roots in field/index selectors remain storage expressions. Index expressions themselves can resolve bare calls and receive the existing index-order checks.",
+      "restriction": "These are conservative prototype namespace boundaries, not new native name-precedence evidence. No first-class function values, bare built-in calls, implicit calls through storage selectors or external linkage. Stage aggregate results before selecting fields/elements.",
+      "tests": "tests/test_bare_function_calls.py: local/parameter shadowing, USING fields, constants, assignment targets, source indexes and field/array receiver negatives"
+    },
+    {
+      "feature": "Effects, ownership and cleanup",
+      "pdf_pages": [
+        92,
+        93
+      ],
+      "implemented": "Normal call nodes enter transitive potential-effect analysis, including recursive edges. Existing argument-value ownership, indexed-target, operator, multi-argument/subscript, Boolean, FOR, depth, ABORT and frame-cleanup guards remain. ARRAY calls are accepted only as the complete direct-assignment RHS, including a bare name; grouping, routine/built-in argument use and direct RETURN forwarding remain blocked.",
+      "restriction": "Full initialization, exact types/shapes and prototype resource bounds remain. No new controller timing, task/alarm, alias, evaluation-order or stack model is supplied.",
+      "tests": "tests/test_bare_function_calls.py: 54 checks including transitive global writes/delay/output/ABORT, independent values, ARRAY contexts, direct/indirect recursion, failure preservation and cleanup"
+    }
+  ],
+  "unresolved": [
+    "Native name precedence where local declarations and USING fields collide with routine names",
+    "External routine linkage and first-class routine values",
+    "Bare built-in invocation and implicit aggregate result receiver syntax",
+    "Native stack limits, ABI and controller task/alarm behavior"
+  ],
+  "validation": {
+    "fresh_compiler_run": false,
+    "corpus_sources_executed": false,
+    "controller_connected": false,
+    "controller_executed": false
+  },
+  "source_reference": "../references.md",
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+}

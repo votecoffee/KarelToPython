@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.46.0",
+  "translator_version": "0.47.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed routine and local-variable rules with a conservative counter-isolation policy. Tests prove offline prototype behavior; no new compiler or controller run, stack-layout authentication, or controller equivalence claim.",
@@ -89,5 +89,10 @@
     "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Named outer results, flat multidimensional result sources/declarations, terminal STRING arrays and whole ARRAY value arguments remain blocked."
   },
   "source_reference": "../references.md",
-  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N",
+  "function_call_update": {
+    "version": "0.47.0",
+    "ledger": "function_call_semantics.json",
+    "boundary": "Bare zero-parameter calls participate in ordinary call/effect analysis; fresh-counter and bound/order checks remain unchanged."
+  }
 }

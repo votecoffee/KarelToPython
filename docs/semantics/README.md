@@ -20,6 +20,7 @@ are kept outside public documentation.
 | Data record | [data_record_semantics.json](data_record_semantics.json) |
 | Delay | [delay_semantics.json](delay_semantics.json) |
 | For routine | [for_routine_semantics.json](for_routine_semantics.json) |
+| Function call | [function_call_semantics.json](function_call_semantics.json) |
 | Joint | [joint_semantics.json](joint_semantics.json) |
 | Literal | [literal_semantics.json](literal_semantics.json) |
 | Local constant | [local_constant_semantics.json](local_constant_semantics.json) |

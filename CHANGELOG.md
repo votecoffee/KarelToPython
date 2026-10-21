@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.47.0 - 2026-10-21
+
+- Resolve unshadowed zero-parameter internal function names as calls in value
+  expressions, including scalar conditions and direct ARRAY result assignments.
+- Resolve after USING fields and before effect analysis. Keep local storage
+  bindings, storage receiver roots and all existing call, argument-order, effect,
+  ARRAY-context, recursion and frame-cleanup checks. Explicit calls remain accepted.
+- Report bare-call source locations and exact result specifications. Add 54
+  regression checks, a runnable authored example and a manual-backed semantic
+  contract. Validation remains offline, without native compiler/controller claims.
+
 ## 0.46.0 - 2026-10-21
 
 - Add prior named fixed ARRAY elements to unsized anonymous ARRAY function

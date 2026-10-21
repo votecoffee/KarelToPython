@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.46.0",
+  "translator_version": "0.47.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Only exact unambiguous nonnegative-coordinate bearings. Manual x/y order and origin-domain evidence support a conservative mathematical contract; no native numeric implementation, signed-zero quadrant, return-range or alarm/task equivalence is authenticated.",

@@ -87,6 +87,12 @@ with `Program(write=messages.append)`, where `messages` is a list. The
 
 ## Limits
 
+`bare_function_calls` records each resolved zero-parameter function-name use with
+its body, original source line/column and exact `result_spec`.
+`bare_function_policy` describes the resolution and effect boundaries. These sites
+use the ordinary checked call path; they do not represent first-class functions
+or external linkage.
+
 ARRAY return reports include the exact resolved `element_spec` and `logical_rank`
 (one through three). Unsized anonymous outer results may contain prior named
 fixed ARRAY components. Calls still require complete direct-assignment use, exact

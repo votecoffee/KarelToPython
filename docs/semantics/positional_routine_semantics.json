@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.46.0",
+  "translator_version": "0.47.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Exact-type internal positional results and writable independent value copies. Offline checked data ownership only; no frame/group/kinematics, native layout/ABI or controller-runtime claim.",

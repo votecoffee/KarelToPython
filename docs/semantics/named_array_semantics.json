@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.46.0",
+  "translator_version": "0.47.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed nominal type policy and checked offline storage/reference behavior. No controller representation, load/save ABI, release-specific compiler acceptance or runtime equivalence is established.",
