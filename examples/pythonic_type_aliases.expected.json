@@ -1,0 +1,6 @@
+{
+  "ITEM": {"QUANTITY": 7, "LABEL": "read"},
+  "VALUES": [3, 4],
+  "TOTAL": 7,
+  "RENDERED": "abcd"
+}

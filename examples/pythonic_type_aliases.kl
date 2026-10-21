@@ -1,0 +1,34 @@
+PROGRAM PYTHONIC_TYPE_ALIASES
+TYPE count_t=INTEGER
+text_t=STRING[4]
+entry_t=STRUCTURE quantity: count_t label: text_t ENDSTRUCTURE
+entry_alias=entry_t
+row_t=ARRAY[2] OF count_t
+row_alias=row_t
+VAR item: entry_alias
+values: row_alias
+total: count_t
+rendered: text_t
+ROUTINE make: row_alias
+VAR local: row_t
+BEGIN
+  local[1]=3
+  local[2]=4
+  RETURN local
+END make
+ROUTINE sum(p: row_alias): count_t
+BEGIN
+  RETURN p[1]+p[2]
+END sum
+ROUTINE show(p: text_t)
+BEGIN
+  rendered=p
+END show
+BEGIN
+  values=make()
+  item.quantity=sum(values)
+  item.label='ready'
+  total=item.quantity
+  show('abcdef')
+  WRITE(item.label,':',total::0,':',rendered,CR)
+END PYTHONIC_TYPE_ALIASES

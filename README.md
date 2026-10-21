@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.60.0**. It is a
+tool are named **karel2py**. The current implementation is **0.61.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -159,12 +159,17 @@ USING supports nested lexical scopes and dotted STRUCTURE selectors. Inner
 fields take precedence, with outer bindings restored afterward. See
 [Pythonic USING](docs/pythonic-using.md) for field, constant and routine lookup.
 
+TYPE aliases provide alternate names for supported types and keep original
+aggregate identities and capacities. Bounded STRING alias parameters accept
+checked references or private value copies. See [TYPE aliases](docs/type-aliases.md).
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
   and `GOTO`, internal routines, `RETURN`, bare `ABORT` and host-backed `DELAY`.
 - Checked `INTEGER`, `BOOLEAN`, Python-float `REAL`, bounded ASCII `STRING`,
-  `BYTE`/`SHORT` storage, fixed and named arrays, named structures and `USING`.
+  `BYTE`/`SHORT` storage, fixed and named arrays, named structures, transparent
+  TYPE aliases and `USING`.
 - Reference/value parameters, bare zero-argument function calls, checked aggregate
   copies, restricted scalar, bounded STRING, record, joint and named-component
   ARRAY functions, selected built-ins, general degree trig, SQRT, EXP and LN.

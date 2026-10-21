@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.61.0 - 2026-10-21
+
+- Support Pythonic transparent TYPE aliases for supported scalars, bounded STRINGs,
+  records, joints and prior named types, including chains and routine interfaces.
+  Preserve original aggregate identities, component types, dimensions, capacities
+  and joint widths; new ARRAY/STRUCTURE definitions remain distinct nominal types.
+- Support bounded STRING alias formals with matching-capacity references or
+  private writable value copies. Validate initialized ASCII input <=254 characters,
+  then truncate to the alias capacity before the routine body; preserve that
+  capacity on later writes and report the actual temporary capacity.
+- Retain source-located forward/self/cyclic/duplicate checks, storage and ownership
+  rules, leaf completeness for aggregate values/results, and BYTE/SHORT element
+  and field restrictions. Keep conservative alias rejections internally for the
+  future strict milestone. Add an alias guide, 76 execution/runtime regressions and an
+  authored example with independent fixtures; no native type ABI/runtime claim.
+
 ## 0.60.0 - 2026-10-21
 
 - Support Pythonic nested USING scopes and dotted named STRUCTURE selectors.

@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.60.0. Acceptance is specific to
+This is the supported prototype subset as of 0.61.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -24,7 +24,8 @@ internally and in the historical semantic notes.
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference/value arguments and named subarrays | Prototype bound of 32767 scalar leaves; value arguments require known initialized leaves; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. No unspecified STRING capacities, resize or flattening. |
-| Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no type aliases or ABI claim. |
+| Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no ABI claim. |
+| TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases, local TYPE or external FROM types. BYTE/SHORT remain element/field-only. |
 | USING | Nested lexical scopes, named STRUCTURE variables and dotted selectors; inner/right-most field priority | Fields shadow constants; calls use call context. No indexed/call/grouped selectors, builtin record selectors, field FOR counters or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
@@ -39,6 +40,8 @@ character equivalents, evaluation order and retained input checks.
 See [Pythonic FOR](pythonic-for.md) for global-counter calls, read-only counter
 arguments, bounds and cleanup on early exits/errors.
 See [Pythonic USING](pythonic-using.md) for nested field paths and namespace choices.
+See [TYPE aliases](type-aliases.md) for transparent names, identity and bounded
+STRING routine interfaces.
 
 ## Zero-argument function calls
 
@@ -102,11 +105,13 @@ dimensions of a three-dimensional result. Each ARRAY component retains its exact
 declared type and fixed shape. See the complete authored
 [named-component example](../examples/named_component_array_functions.kl).
 
-The result declaration still omits brackets and sizes. Flat comma-dimension
-return storage, named outer result types/storage, inline `ARRAY OF ARRAY`, and
-unspecified STRING result-element capacities remain blocked. A named subarray cannot be returned as an
-anonymous outer array. Named STRUCTURE elements may contain supported STRING
-fields and named arrays under the existing recursive copy rules.
+Results can use omitted, fixed, wildcard or mixed outer dimensions and matching
+flat comma-dimension storage. Named outer result types, including transparent
+aliases, require the original nominal identity. Inline `ARRAY OF ARRAY` and
+unspecified STRING result-element capacities remain blocked. A named subarray
+cannot be returned as an anonymous outer array. Named STRUCTURE elements may
+contain supported STRING fields and named arrays under the existing recursive
+copy rules.
 
 For STRING elements, use `ROUTINE make: ARRAY OF STRING[4]` and return an anonymous
 array whose elements have that same physical capacity. The capacity is a constant

@@ -257,11 +257,11 @@ class NamedArrayRejectionTests(unittest.TestCase):
     def test_named_array_function_result_blocked(self):
         self.rejected(routines='ROUTINE work: row_t BEGIN RETURN a END work', code='E_RETURN_TYPE', _translator=legacy_translate)
     def test_type_to_type_alias_remains_blocked(self):
-        self.rejected(types='TYPE row_t=ARRAY[2] OF INTEGER\nother_t=row_t', code='E_TYPE_ALIAS')
+        self.rejected(types='TYPE row_t=ARRAY[2] OF INTEGER\nother_t=row_t', code='E_TYPE_ALIAS', _translator=legacy_translate)
     def test_named_string_alias_remains_blocked(self):
-        self.rejected(types='TYPE text_t=STRING[3]', declarations='a: text_t', code='E_TYPE_ALIAS')
+        self.rejected(types='TYPE text_t=STRING[3]', declarations='a: text_t', code='E_TYPE_ALIAS', _translator=legacy_translate)
     def test_named_scalar_alias_remains_blocked(self):
-        self.rejected(types='TYPE count_t=INTEGER', declarations='a: count_t', code='E_TYPE_ALIAS')
+        self.rejected(types='TYPE count_t=INTEGER', declarations='a: count_t', code='E_TYPE_ALIAS', _translator=legacy_translate)
     def test_forward_structure_element_blocked(self):
         self.rejected(types='TYPE row_t=ARRAY[2] OF later_t\nlater_t=STRUCTURE x: INTEGER ENDSTRUCTURE')
     def test_self_reference_blocked(self):

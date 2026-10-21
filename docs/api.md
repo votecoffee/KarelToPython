@@ -183,3 +183,9 @@ declared dimension mask and nominal identity. Named types and anonymous fixed,
 wildcard or mixed dimensions follow the [result shape contract](array-result-shapes.md).
 `array_length_policy` defines Pythonic ARRAY_LEN as the first concrete dimension;
 it also supports matrices and nested arrays without reading scalar leaves.
+
+`type_aliases` records transparent TYPE declarations with name, immediate target,
+resolved spec and physical source location. `user_types` and `named_array_types`
+retain original aggregate identities. `type_alias_policy` describes resolution
+and boundaries; bounded STRING alias value arguments report the declared alias
+capacity in `string_value_arguments[].temporary_capacity`. See [TYPE aliases](type-aliases.md).

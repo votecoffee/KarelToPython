@@ -244,7 +244,7 @@ class Parser:
                 while self.current.kind == 'NAME' and self.current.value not in RESERVED:
                     key = self.name()
                     self.expect('=')
-                    if self.current.value == 'ARRAY':
+                    if self.current.value == 'ARRAY' or (self.mode == 'pythonic' and self.current.value != 'STRUCTURE'):
                         user_types.append((key, self.type_spec()))
                         self.skip_lines()
                         continue
@@ -721,6 +721,7 @@ class Emitter:
         self.program, self.filename = program, filename
         self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
+        self.type_aliases = []
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
@@ -944,10 +945,17 @@ class Emitter:
         for token, definition in self.program.user_types:
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
             names.add(token.value)
-            if isinstance(definition, tuple) and definition[0] == 'ARRAY':
+            if isinstance(definition, tuple):
                 resolved = self.resolve_spec(definition)
-                self.user_types[token.value] = (*resolved, token.value)
-                self.features.add('named ARRAY definition')
+                if definition[0] == 'ARRAY':
+                    self.user_types[token.value] = (*resolved, token.value)
+                    self.features.add('named ARRAY definition')
+                else:
+                    self.user_types[token.value] = resolved
+                    self.type_aliases.append(dict(name=token.value, line=token.line, column=token.column,
+                                                  target=definition[1].value if definition[0] == 'NAMED' else definition[0],
+                                                  resolved_spec=resolved))
+                    self.features.add('transparent TYPE alias')
                 continue
             resolved = {}
             for member, spec in definition:
@@ -960,9 +968,10 @@ class Emitter:
             if token.value in CONTROLLER_NAMES:
                 self.error('E_CONTROLLER', 'Controller identifiers are not supported', token)
             names.add(token.value)
-            if spec[0] in NARROW_TYPES:
+            resolved = self.resolve_global_spec(token, spec)
+            if resolved[0] in NARROW_TYPES:
                 self.error('E_TYPE', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
-            self.types[token.value] = self.resolve_global_spec(token, spec)
+            self.types[token.value] = resolved
         used_shapes = {row['name'] for row in self.variable_array_uses}
         unused = set(self.array_shapes) - used_shapes
         if unused:
@@ -974,16 +983,22 @@ class Emitter:
             if routine.return_type and routine.return_type[0] == 'STRING':
                 routine.return_type = self.resolve_spec(routine.return_type)
                 self.features.add('STRING function result')
-            if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
             if routine.return_type and routine.return_type[0] == 'NAMED':
                 result_token = routine.return_type[1]
                 definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
                 if definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
                     self.error('E_TYPE', 'Named result types must be declared before the routine', result_token)
                 routine.return_type = self.resolve_spec(routine.return_type)
-                if routine.return_type[0] != 'STRUCTURE' and not (self.mode == 'pythonic' and routine.return_type[0] == 'ARRAY'):
-                    self.error('E_RETURN_TYPE', 'Named ARRAY function results remain blocked; a named result type must be a STRUCTURE', routine.token)
+                allowed_named_results = ('STRUCTURE',)
+                if self.mode == 'pythonic':
+                    allowed_named_results += ('ARRAY', 'STRING', 'INTEGER', 'BOOLEAN', 'REAL', *DATA_RECORD_TYPES, 'JOINTPOS')
+                if routine.return_type[0] not in allowed_named_results:
+                    message = ('BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields' if self.mode == 'pythonic'
+                               else 'Named ARRAY function results remain blocked; a named result type must be a STRUCTURE')
+                    self.error('E_RETURN_TYPE', message, routine.token)
                 self.features.add('named ' + routine.return_type[0] + ' function result')
+                if routine.return_type[0] == 'STRING': self.features.add('STRING function result')
+            if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
             if routine.return_type and routine.return_type[0] == 'ARRAY':
                 element = routine.return_type[2]
                 if element[0] == 'NAMED':
@@ -1013,7 +1028,10 @@ class Emitter:
             for token, spec in routine.parameters:
                 if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in CONTROLLER_NAMES:
                     self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
-                routine.local_types[token.value] = self.resolve_spec(spec)
+                resolved = self.resolve_spec(spec)
+                if resolved[0] in NARROW_TYPES:
+                    self.error('E_PARAMETERS', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
+                routine.local_types[token.value] = resolved
             routine.parameters = [(token, routine.local_types[token.value]) for token, _ in routine.parameters]
             self.current_routine = routine
             for kind, token, definition in routine.local_declarations:
@@ -1031,9 +1049,10 @@ class Emitter:
                     routine.local_constants[token.value] = value
                     self.features.add('routine-local CONST')
                 else:
-                    if definition[0] in NARROW_TYPES:
+                    resolved = self.resolve_spec(definition)
+                    if resolved[0] in NARROW_TYPES:
                         self.error('E_TYPE', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
-                    routine.local_types[token.value] = self.resolve_spec(definition)
+                    routine.local_types[token.value] = resolved
             self.current_routine = None
         self.resolve_using_fields()
         self.resolve_bare_function_calls()
@@ -1669,7 +1688,8 @@ class Emitter:
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
                 is_reference, actual = False, expected
                 self.features.add('INTEGER to REAL value argument')
-            if not rt.parameter_accepts(expected, actual):
+            bounded_string_value = (not is_reference and expected[0] == actual[0] == 'STRING' and expected[1] is not None)
+            if not rt.parameter_accepts(expected, actual) and not bounded_string_value:
                 self.error('E_TYPE', f'{expr.value} parameter expects {expected[0]}, found {actual[0]}', argument.token)
             if is_reference and argument.kind == 'name' and argument.value in self.active_counters:
                 if self.mode == 'strict' or formal.value in routine.parameter_writes:
@@ -1687,13 +1707,14 @@ class Emitter:
             if not is_reference and expected[0] == 'STRING':
                 if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
-                code = f'_rt.string_value_argument({value}, {line})'
+                code = (f'_rt.value_argument({expected!r}, {value}, {line})' if bounded_string_value
+                        else f'_rt.string_value_argument({value}, {line})')
                 self.features.add('writable STRING value argument' if self.mode == 'pythonic' else 'read-only STRING value argument')
                 self.string_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                                    routine=routine.name, parameter=formal.value,
                                                    line=line, column=argument.token.column, expression_kind=argument.kind,
                                                    evaluated_once=True, independent_writable_copy=self.mode == 'pythonic',
-                                                   temporary_capacity=254 if self.mode == 'pythonic' else None))
+                                                   temporary_capacity=(expected[1] if bounded_string_value else 254) if self.mode == 'pythonic' else None))
             if not is_reference and expected[0] == 'STRUCTURE':
                 self.features.add('named STRUCTURE value argument')
                 self.structure_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -2414,6 +2435,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                            boundary='No VEC constructor, unary VECTOR signs, ordered relations, POSITION transforms, frame context or controller validation',
                            controller_validated=False),
         user_types=emitter.user_types,
+        type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
                                 identity='The declared type name is retained in storage, references and whole-copy checks',
                                 parameters='Same named type by reference; anonymous rank-matched ARRAY formals retain concrete caller identity',
@@ -2655,7 +2677,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         controller_validated=False)
     report['string_value_policy'] = dict(
         arguments='Initialized ASCII literals, constants, expressions, function results and grouped scalar storage; input length at most 254',
-        storage='Independent writable temporary with chosen capacity 254; assignment right-truncates and clear sets UNINITIALIZED',
+        storage='Independent writable temporary with capacity 254 for plain STRING formals or the declared bounded alias capacity; assignment right-truncates and clear sets UNINITIALIZED',
         references='Bare ordinary STRING variables/fields/elements preserve caller storage and actual capacity',
         effects='Potential formal writes remain reported; grouping/value passing creates no writeback alias',
         boundary='Chosen Pythonic temporary capacity and evaluation order; existing type and ownership checks remain',
@@ -2688,7 +2710,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
                                        evaluation='Evaluate the array once; no scalar-leaf initialization required',
                                        boundary='No total-element count, dimension argument, reshape or flattening', controller_validated=False)
     report['array_routine_policy']['boundary'] = 'No unspecified STRING result-element capacities, anonymous nested ARRAY components, representation/identity erasure, external routines or native ABI/runtime claim'
-    report['named_array_policy']['parameters'] = 'Same named type by reference or checked value copy; generic rank-matched ARRAY formals preserve the concrete actual identity'
+    report['type_alias_policy'] = dict(
+        resolution='Transparent aliases to supported scalar, bounded STRING, data record, joint and previously defined named types; alias chains resolve eagerly in declaration order',
+        identity='Aliases retain the original ARRAY/STRUCTURE identity; a fresh ARRAY or STRUCTURE definition still creates a distinct nominal type',
+        capacity='Keep declared STRING capacities, ARRAY shapes and joint widths; bounded STRING alias formals require matching reference capacity and use private truncating value temporaries of that capacity',
+        boundary='No forward/self/cyclic aliases, external FROM types, local TYPE sections, wildcard TYPE dimensions or standalone BYTE/SHORT storage/formals/results',
+        controller_validated=False)
+    report['named_array_policy'].update(
+        parameters='Same named type by reference or checked value copy; generic rank-matched ARRAY formals preserve the concrete actual identity',
+        aliases='Transparent aliases preserve the original nominal identity; inline anonymous nested ARRAY syntax remains blocked',
+        results='Named outer ARRAY results preserve exact nominal identity, shape and initialized independent copies')
     for key in ('vector_routine_policy', 'structure_routine_policy', 'positional_routine_policy', 'array_routine_policy'):
         report[key]['boundary'] = (report[key]['boundary'].replace('direct STRING results, ', '').replace(' or direct STRING results', '')
                                    .replace('whole ARRAY value arguments, ', '').replace('whole ARRAY values, ', '').replace(', whole ARRAY values', ''))
@@ -2698,11 +2729,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
                    'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
                    'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays',
                    'INDEX with an empty search', 'SUB_STR beyond the source end',
-                   'FOR-body routine calls and RETURN require', 'USING qualifies fields lexically')
+                   'FOR-body routine calls and RETURN require', 'USING qualifies fields lexically',
+                   'Named arrays/subarrays retain nominal identity')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
     report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and in-loop jumps remain blocked')
     report['limitations'].append('USING supports lexical nesting and dotted named STRUCTURE selectors; indexed/call/grouped selectors, builtin record selectors and field FOR counters remain blocked')
+    report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax, local TYPE sections and external FROM types remain blocked')
     return result

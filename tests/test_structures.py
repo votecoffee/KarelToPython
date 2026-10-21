@@ -320,10 +320,10 @@ class StructureRejectionTests(unittest.TestCase):
         self.rejected(declarations='item: STRUCTURE count: INTEGER ENDSTRUCTURE')
 
     def test_scalar_type_alias_blocked(self):
-        self.rejected(types='TYPE count_t = INTEGER', declarations='item: count_t', code='E_TYPE_ALIAS')
+        self.rejected(types='TYPE count_t = INTEGER', declarations='item: count_t', code='E_TYPE_ALIAS', _translator=legacy_translate)
 
     def test_structure_alias_blocked(self):
-        self.rejected(types=TYPES + 'TYPE copy_t = inner', declarations='item: copy_t', code='E_TYPE_ALIAS')
+        self.rejected(types=TYPES + 'TYPE copy_t = inner', declarations='item: copy_t', code='E_TYPE_ALIAS', _translator=legacy_translate)
 
     def test_array_of_unknown_structure_type_blocked(self):
         self.rejected(declarations='items: ARRAY[2] OF missing_type')

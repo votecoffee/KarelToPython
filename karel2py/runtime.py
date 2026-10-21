@@ -645,6 +645,14 @@ def index_reference(array, index, line=None):
 
 def value_argument(spec, value, line=None):
     # Each expression argument owns independent temporary storage.
+    if spec[0] == 'STRING' and _pythonic():
+        # Bounded alias formals retain their declared capacity for value copies.
+        if len(spec) != 2 or type(spec[1]) is not int or not 1 <= spec[1] <= 254:
+            raise KarelRuntimeError('STRING value capacity must be INTEGER in 1..254', line)
+        value = ascii_string(value, line)
+        if len(value) > 254:
+            raise KarelRuntimeError('STRING value arguments are limited to 254 characters', line)
+        return Reference(spec, {'value': checked(spec, value, line)}, 'value')
     if spec[0] == 'ARRAY' and _pythonic():
         if not isinstance(value, Array) or not parameter_accepts(spec, value.spec):
             raise KarelRuntimeError('ARRAY value argument requires a matching concrete type and shape', line)

@@ -1,0 +1,22 @@
+{
+  "translator_version": "0.61.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Chosen transparent TYPE aliases and bounded STRING alias parameters; offline execution only",
+  "implementation_choices": {
+    "resolution": "Resolve aliases and chains eagerly to supported types already defined in TYPE declaration order; case-insensitive names; no new scalar nominal identity",
+    "aggregate_identity": "Aliases preserve original ARRAY and STRUCTURE identities, nested component identities, shapes, capacities and joint widths; fresh aggregate definitions remain distinct",
+    "interfaces": "Use aliases in globals, locals, fields, elements, parameters and supported results; named result aliases must precede the routine; BYTE/SHORT remain element/field-only",
+    "bounded_string_parameters": "Require exact capacity for bare references; value copies check initialized ASCII input of at most 254 characters, then truncate to the bounded alias capacity; later writes retain that capacity; no copy-back",
+    "storage": "Keep existing initialization, whole-copy, value/result leaf-completeness, numeric, sentinel, ownership, positional context and FOR counter checks",
+    "report": "type_aliases records name, immediate target, resolved spec and physical location; user_types and named_array_types expose resolved identities; type_alias_policy and temporary_capacity describe the current behavior"
+  },
+  "retained_boundaries": [
+    "No forward, self or cyclic aliases, duplicate names or alias declaration collisions",
+    "No external FROM linkage, local TYPE sections, wildcard TYPE dimensions, unsupported type aliases or inline anonymous nested ARRAY definitions",
+    "No standalone BYTE/SHORT variables, parameters or results",
+    "No new native compiler, type-registration, storage ABI or controller runtime claims; conservative tests retained for the future strict milestone"
+  ],
+  "tests": ["tests/test_pythonic_type_aliases.py", "tests/test_named_arrays.py", "tests/test_structures.py", "tests/test_runtime_portability.py", "examples/pythonic_type_aliases.kl"],
+  "controller_validated": false
+}
