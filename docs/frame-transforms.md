@@ -3,7 +3,9 @@
 Since 0.69.0, Pythonic mode supports explicit `XYZWPR : XYZWPR` composition and
 `INV(XYZWPR)` inversion. These are offline rigid transforms using Python floats.
 Since 0.70.0, [FRAME construction](frame-construction.md) also builds an explicit
-XYZWPR frame from three or four point locations.
+XYZWPR frame from three or four point locations. Since 0.72.0,
+[POSITION geometry](position-geometry.md) extends all three operations to POSITION
+and mixed operands, preserving matrix columns when POSITION is involved.
 
 ```karel
 PROGRAM FRAMES
@@ -44,17 +46,20 @@ In READ/WRITE items and formats, group a geometric subexpression, as in
 `WRITE((a:b).x::0::1,CR)`, to keep the relative operator distinct from invalid
 single-colon format syntax.
 
-Both operands must be complete, initialized, exact XYZWPR values, including their
-CONFIG records. Type aliases, variables, record/array fields and internal results
-work. Fields of a grouped result, such as `(a:b).x`, can be read or passed as
+Both operands must be complete, initialized POSITION or XYZWPR values, including
+their CONFIG records. INV preserves representation; colon returns POSITION if
+either input is POSITION, otherwise XYZWPR. POSITION input/output matrices follow
+the [proper-matrix checks](position-geometry.md#validation-evaluation-and-ownership).
+Type aliases, variables, record/array fields and internal results work. Fields
+of a grouped result, such as `(a:b).x` for XYZWPR, can be read or passed as
 private value storage. INV is a fallback: an explicitly declared internal INV
 routine keeps its own signature and effects; ordinary declarations named INV
 remain usable.
 
 ## Output angles and bounds
 
-The resulting rotation is converted to a canonical Euler representation: P is
-in -90..90 degrees, with W and R in `[-180,180)`. Equivalent input angles can
+For XYZWPR results, the rotation is converted to a canonical Euler representation:
+P is in -90..90 degrees, with W and R in `[-180,180)`. Equivalent input angles can
 therefore produce different W/P/R numbers representing the same orientation.
 When `hypot(R00,R10) <= 1e-12`, the chosen gimbal-lock convention sets W to zero
 and places the remaining rotation in R. Near that threshold, orientation is an
@@ -88,13 +93,13 @@ does not duplicate operation entries.
 
 The reviewed [reference edition](references.md), one-based PDF pages 81 and 83-84,
 describes precedence and frame-relative composition/inversion. Page 446 describes
-INV with POSITION input/output and configuration preservation. This implementation
-deliberately supplies an exact XYZWPR result as a portable Pythonic equivalent.
+INV with POSITION input/output and configuration preservation. The implementation
+now supports POSITION and also supplies XYZWPR and mixed-type Pythonic equivalents.
 The Z-Y-X convention, canonical/singular Euler choices and composition's CONFIG
 copy rule are explicit offline policies. Tests compare the geometry against
 independent quaternion calculations; they do not establish native equivalence.
 
-POSITION, XYZWPREXT, JOINTPOS and VECTOR transform operands remain blocked.
-There is no implicit positional conversion, external-axis handling, UFRAME/UTOOL
+XYZWPREXT, JOINTPOS and VECTOR transform operands remain blocked.
+There is no implicit interface conversion, external-axis handling, UFRAME/UTOOL
 discovery, kinematics, controller connection or native configuration claim.
 Strict mode remains a future milestone and retains its earlier internal guards.

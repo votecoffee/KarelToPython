@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.71.0. Acceptance is specific to
+This is the supported prototype subset as of 0.72.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -28,12 +28,12 @@ internally and in the historical semantic notes.
 | TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases, local TYPE or external FROM types. BYTE/SHORT remain element/field-only. |
 | USING | Nested lexical scopes, named STRUCTURE variables and dotted selectors; inner/right-most field priority | Fields shadow constants; calls use call context. No indexed/call/grouped selectors, builtin record selectors, field FOR counters or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
-| POSITION conversion | Whole assignments between XYZWPR and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; exact interfaces and whole-array types; no other positional conversion or automatic geometry operand coercion. |
+| POSITION conversion | Whole assignments between XYZWPR and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; exact interfaces and whole-array types; no other positional or interface conversion. Geometry accepts both exact representations. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
 | VECTOR | VEC construction, unary signs, checked float arithmetic, scaling, left-associated cross/dot products, equality and routine values | Initialized finite components; parentheses override association; explicit internal VEC routines retain precedence. Zero/parallel cross products allowed. No frame transforms or kinematics. |
 | Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
 | CONFIG text | CNV_STR_CONF and CNV_CONF_STR with complete checked CONFIG data, portable flags/turn grammar and canonical text | Omitted values are explicit portable choices; parse failure status 1 preserves CONFIG. No robot/group masks, native error mapping or CNV_CNF_STRG. |
-| Frame transforms | Explicit XYZWPR colon composition, INV inversion and three/four-point FRAME construction; independent CONFIG data and rounded Python geometry | Portable Z-Y-X/canonical Euler choices; FRAME retains 10 mm spacing and optional-origin rules. No other positional/VECTOR operands, external axes, controller frame discovery or kinematics. |
+| Frame transforms | POSITION/XYZWPR colon composition, INV inversion and three/four-point FRAME construction, including mixed operands | INV preserves representation; colon/FRAME return POSITION if any operand is POSITION. Direct proper matrices or portable Z-Y-X/canonical Euler choices; FRAME retains 10 mm bounds. No XYZWPREXT/JOINTPOS/VECTOR operands, external axes, frame discovery or kinematics. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; no explicit FILE/device destinations or aggregate output. |
 | READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; no controller file/device access, binary transfer, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
@@ -58,6 +58,7 @@ See [source directives](source-directives.md) for metadata syntax, placement and
 See [frame transforms](frame-transforms.md) for composition, inversion and portable angle/configuration policies.
 See [frame construction](frame-construction.md) for point-defined axes, spacing and optional origin.
 See [POSITION conversions](position-conversions.md) for whole assignments, matrix checks and orientation protection.
+See [POSITION geometry](position-geometry.md) for mixed operands, result types and direct matrix operations.
 
 ## Zero-argument function calls
 

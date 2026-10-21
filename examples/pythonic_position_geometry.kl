@@ -1,0 +1,15 @@
+PROGRAM POSITION_GEOMETRY
+%ENVIRONMENT SYSTEM
+VAR cfg: CONFIG code: INTEGER p1,p2,p3,frame,world,recovered: POSITION local,pose: XYZWPR
+BEGIN
+  CNV_STR_CONF('N R U T, 0, 0, 0',cfg,code)
+  p1=POS(10,20,30,0,0,0,cfg)
+  p2=POS(10,40,30,0,0,0,cfg)
+  p3=POS(-10,20,30,0,0,0,cfg)
+  frame=FRAME(p1,p2,p3)
+  local=POS(2,3,4,0,0,0,cfg)
+  world=frame:local
+  recovered=INV(frame):world
+  pose=recovered
+  WRITE('recovered=',pose.x::0::1,',',pose.y::0::1,',',pose.z::0::1,CR)
+END POSITION_GEOMETRY

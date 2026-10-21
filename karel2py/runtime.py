@@ -1041,8 +1041,11 @@ def vector_binary(op, left, right, line=None):
 
 
 def _frame_parts(value, line=None):
-    """Validate/detach an explicit XYZWPR using the portable Z-Y-X convention."""
-    pose = positional_value(('XYZWPR',), value, line)
+    """Detach a proper pose; XYZWPR uses the portable Z-Y-X convention."""
+    pose = frame_value(value, line)
+    if pose.spec == ('POSITION',):
+        return (_position_rotation(pose, line), tuple(pose.values['LOCATION'].values[axis] for axis in ('X','Y','Z')),
+                pose.values['CONFIG_DATA'])
 
     def sin_cos(degrees):
         reduced = degrees % 360.0
@@ -1062,7 +1065,15 @@ def _frame_parts(value, line=None):
     return rotation, tuple(pose.values[field] for field in ('X','Y','Z')), pose.values['CONFIG_DATA']
 
 
-def _frame_result(rotation, translation, config, line=None):
+def _frame_result(rotation, translation, config, line=None, *, result_type=('XYZWPR',)):
+    if result_type == ('POSITION',):
+        result = Structure(result_type)
+        for column, name in enumerate(POSITION_READ_ONLY_FIELDS):
+            result.values[name].values.update(zip(('X','Y','Z'), (real(rotation[row][column], line) for row in range(3))))
+        result.values['LOCATION'].values.update(zip(('X','Y','Z'), (real(value, line) for value in translation)))
+        result.values['CONFIG_DATA'] = positional_value(('CONFIG',), config, line)
+        return frame_value(result, line)
+    if result_type != ('XYZWPR',): raise KarelRuntimeError('Unsupported frame result type', line)
     horizontal = math.hypot(rotation[0][0], rotation[1][0])
     pitch = math.atan2(-rotation[2][0], horizontal)
     if horizontal <= 1e-12:
@@ -1084,21 +1095,8 @@ def _frame_result(rotation, translation, config, line=None):
     return result
 
 
-def convert_position(target, value, line=None):
-    """Convert explicit POSITION/XYZWPR assignment values without robot context."""
-    if not _pythonic(): raise KarelRuntimeError('Positional conversions require Pythonic mode', line)
-    if not isinstance(value, Structure): raise KarelRuntimeError('Positional conversion requires a complete pose', line)
-    if target == ('POSITION',) and value.spec == ('XYZWPR',):
-        rotation, location, config = _frame_parts(value, line)
-        result = Structure(('POSITION',))
-        for column, name in enumerate(POSITION_READ_ONLY_FIELDS):
-            result.values[name].values.update(zip(('X','Y','Z'), (real(rotation[row][column], line) for row in range(3))))
-        result.values['LOCATION'].values.update(zip(('X','Y','Z'), location))
-        result.values['CONFIG_DATA'] = positional_value(('CONFIG',), config, line)
-        return result
-    if target != ('XYZWPR',) or value.spec != ('POSITION',):
-        raise KarelRuntimeError('Only POSITION/XYZWPR assignment conversions are supported', line)
-    position = positional_value(('POSITION',), value, line)
+def _position_rotation(position, line=None):
+    """Validate the rotation of an already shape-checked POSITION."""
     columns = [tuple(position.values[name].values[axis] for axis in ('X','Y','Z')) for name in POSITION_READ_ONLY_FIELDS]
     tolerance = 1e-9
     if any(abs(math.hypot(*column)-1.0) > tolerance for column in columns):
@@ -1109,18 +1107,40 @@ def convert_position(target, value, line=None):
     determinant = sum(a[i]*(b[j]*c[k]-b[k]*c[j]) for i,j,k in ((0,1,2),(1,2,0),(2,0,1)))
     if abs(determinant-1.0) > tolerance:
         raise KarelRuntimeError('POSITION orientation requires a right-handed basis', line)
-    return _frame_result(tuple(zip(*columns)), tuple(position.values['LOCATION'].values[axis] for axis in ('X','Y','Z')),
-                         position.values['CONFIG_DATA'], line)
+    return tuple(zip(*columns))
+
+
+def frame_value(value, line=None, *, expected=None):
+    """Snapshot a complete pose and validate POSITION before later operands run."""
+    if not _pythonic(): raise KarelRuntimeError('Frame values require Pythonic mode', line)
+    if not isinstance(value, Structure) or value.spec not in (('XYZWPR',), ('POSITION',)):
+        raise KarelRuntimeError('Frame values require POSITION or XYZWPR', line)
+    if expected is not None and value.spec != expected:
+        raise KarelRuntimeError('Frame value does not match its declared pose type', line)
+    result = positional_value(value.spec, value, line)
+    if result.spec == ('POSITION',): _position_rotation(result, line)
+    return result
+
+
+def convert_position(target, value, line=None):
+    """Convert explicit POSITION/XYZWPR assignment values without robot context."""
+    if not _pythonic(): raise KarelRuntimeError('Positional conversions require Pythonic mode', line)
+    if (not isinstance(value, Structure) or (target, value.spec) not in
+            ((('POSITION',), ('XYZWPR',)), (('XYZWPR',), ('POSITION',)))):
+        raise KarelRuntimeError('Only POSITION/XYZWPR assignment conversions are supported', line)
+    rotation, location, config = _frame_parts(value, line)
+    return _frame_result(rotation, location, config, line, result_type=target)
 
 
 def frame_from_points(arguments, line=None):
-    """Construct a right-handed explicit XYZWPR from three/four complete poses."""
+    """Construct a right-handed frame from three/four complete poses."""
     if not _pythonic(): raise KarelRuntimeError('FRAME requires Pythonic mode', line)
     if type(arguments) not in (list, tuple) or len(arguments) not in (3, 4):
-        raise KarelRuntimeError('FRAME requires three or four XYZWPR points', line)
-    points = [positional_value(('XYZWPR',), value, line) for value in arguments]
+        raise KarelRuntimeError('FRAME requires three or four POSITION/XYZWPR points', line)
+    points = [frame_value(value, line) for value in arguments]
     origin = points[3] if len(points) == 4 else points[0]
-    locations = [tuple(point.values[field] for field in ('X','Y','Z')) for point in points]
+    locations = [tuple((point.values['LOCATION'].values if point.spec == ('POSITION',) else point.values)[field]
+                       for field in ('X','Y','Z')) for point in points]
 
     def difference(point):
         return tuple(real(a-b, line) for a,b in zip(point, locations[0]))
@@ -1139,7 +1159,8 @@ def frame_from_points(arguments, line=None):
     y_axis = unit(cross(z_axis, x_axis), 0.0, 'could not form a finite orthogonal Y axis')
     z_axis = unit(cross(x_axis, y_axis), 0.0, 'could not form a finite orthogonal Z axis')
     rotation = tuple(zip(x_axis, y_axis, z_axis))
-    return _frame_result(rotation, tuple(origin.values[field] for field in ('X','Y','Z')), origin.values['CONFIG_DATA'], line)
+    result_type = ('POSITION',) if any(point.spec == ('POSITION',) for point in points) else ('XYZWPR',)
+    return _frame_result(rotation, locations[3] if len(points) == 4 else locations[0], origin.values['CONFIG_DATA'], line, result_type=result_type)
 
 
 def frame_inverse(value, line=None):
@@ -1148,7 +1169,7 @@ def frame_inverse(value, line=None):
     rotation, translation, config = _frame_parts(value, line)
     inverse = tuple(zip(*rotation))
     location = tuple(real(-sum(row[j]*translation[j] for j in range(3)), line) for row in inverse)
-    return _frame_result(inverse, location, config, line)
+    return _frame_result(inverse, location, config, line, result_type=value.spec)
 
 
 def frame_transform(left, right, line=None):
@@ -1160,7 +1181,8 @@ def frame_transform(left, right, line=None):
                            for j in range(3)) for i in range(3))
     location = tuple(real(translation[i] + sum(rotation[i][j]*other_translation[j] for j in range(3)), line)
                      for i in range(3))
-    return _frame_result(composed, location, other_config, line)
+    result_type = ('POSITION',) if ('POSITION',) in (left.spec, right.spec) else ('XYZWPR',)
+    return _frame_result(composed, location, other_config, line, result_type=result_type)
 
 
 def binary(op, left, right, line=None):

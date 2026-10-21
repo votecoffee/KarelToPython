@@ -1,5 +1,8 @@
 # Semantic notes
 
+Current POSITION geometry follows the [POSITION guide](../position-geometry.md);
+older blanket POSITION geometry exclusions retain the conservative contract.
+
 These JSON notes describe manual rules, conservative prototype contracts, test
 locations and unresolved behavior. They are implementation documentation, not
 native compiler or controller acceptance evidence. See [references](../references.md)
@@ -74,6 +77,7 @@ are kept outside public documentation.
 | XYZWPR frame transforms | [frame_transform_semantics.json](frame_transform_semantics.json) |
 | Point-defined FRAME | [frame_constructor_semantics.json](frame_constructor_semantics.json) |
 | POSITION/XYZWPR conversion | [position_conversion_semantics.json](position_conversion_semantics.json) |
+| POSITION and mixed geometry | [position_geometry_semantics.json](position_geometry_semantics.json) |
 | String | [string_semantics.json](string_semantics.json) |
 | String value | [string_value_semantics.json](string_value_semantics.json) |
 | Structure routine | [structure_routine_semantics.json](structure_routine_semantics.json) |

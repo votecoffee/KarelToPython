@@ -160,7 +160,7 @@ class FrameConstructorGuardTests(unittest.TestCase):
         for args in ('','a','a,b','a,b,c,d,a'):
             with self.subTest(args=args): self.reject('result=FRAME('+args+')','E_ARGUMENTS')
     def test_unsupported_point_types(self):
-        for kind in ('POSITION','XYZWPREXT','VECTOR','JOINTPOS','INTEGER','CONFIG'):
+        for kind in ('XYZWPREXT','VECTOR','JOINTPOS','INTEGER','CONFIG'):
             for position in (0,1,2,3):
                 args=['a','b','c','d']; args[position]='x'
                 with self.subTest(kind=kind,position=position): self.reject('result=FRAME('+','.join(args)+')',declarations=DECLARATIONS+f' x: {kind}')

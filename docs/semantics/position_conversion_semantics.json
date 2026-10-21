@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.71.0",
+  "translator_version": "0.72.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Whole-value POSITION/XYZWPR assignment conversion using explicit checked geometry",
@@ -19,7 +19,7 @@
     "reports": "Source-located position_conversions with source/target type and target kind, plus current position_conversion_policy; exact copies are not conversion sites"
   },
   "retained_boundaries": [
-    "No other positional/ARRAY/interface coercion, cast-call syntax or automatic FRAME/INV/UNPOS/colon operand conversion",
+    "No other positional/ARRAY/interface coercion, cast-call syntax or UNPOS operand conversion; FRAME/INV/colon accept both exact representations under position_geometry_semantics.json",
     "No direct POSITION orientation writes, orientation defaults, controller context, external axes, native kinematics or configuration inference",
     "Strict remains future work; independent quaternion and fixture checks establish offline geometry only"
   ],

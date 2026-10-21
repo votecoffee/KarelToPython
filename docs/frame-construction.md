@@ -2,7 +2,9 @@
 
 Since 0.70.0, `FRAME(a,b,c)` and `FRAME(a,b,c,origin)` construct independent
 XYZWPR frames from explicit XYZWPR points. The result can be composed or inverted
-with the existing [frame operators](frame-transforms.md).
+with the existing [frame operators](frame-transforms.md). Since 0.72.0,
+[POSITION geometry](position-geometry.md) also accepts POSITION and mixed points,
+returning POSITION whenever any argument, including the fourth, is POSITION.
 
 ```karel
 PROGRAM FRAME_POINTS
@@ -45,7 +47,7 @@ The first three locations define the orientation:
 The third point selects the positive half of the XY plane. Its projection along
 X does not affect the perpendicular Y direction. The basis is right-handed.
 The optional fourth point changes origin and CONFIG without changing the
-orientation defined by the first three points. Input W/P/R values do not define
+orientation defined by the first three points. Input orientation values do not define
 the basis.
 
 The first and second locations must be at least **10 mm apart**. The third
@@ -56,16 +58,18 @@ collinear or undersized geometry raises `KarelRuntimeError`.
 
 Norms use `math.hypot`, avoiding unnecessary overflow from squaring large spans.
 Input values, derived differences, cross products and distances must remain
-finite. The result uses the same canonical Z-Y-X Euler and gimbal-lock policy
-as [composition and inversion](frame-transforms.md#output-angles-and-bounds).
+finite. XYZWPR-only results use the same canonical Z-Y-X Euler and gimbal-lock
+policy as [composition and inversion](frame-transforms.md#output-angles-and-bounds).
+POSITION results retain matrix columns directly.
 The constructor does not impose POS coordinate bounds on a copied origin.
 
 ## Types, evaluation and ownership
 
-Every argument must be a complete, initialized, exact XYZWPR value, including
-finite W/P/R and valid CONFIG fields even when those values do not determine
-the result. This complete-value guard is an explicit offline choice. Other
-positional types and VECTOR points remain blocked.
+Every argument must be a complete, initialized POSITION or XYZWPR value, including
+finite orientation and valid CONFIG fields even when those values do not determine
+the result. POSITION matrices must pass the [proper-matrix checks](position-geometry.md).
+This complete-value guard is an explicit offline choice. XYZWPREXT, JOINTPOS and
+VECTOR points remain blocked.
 
 Arguments evaluate once from left to right. Each pose is validated and copied
 before the next expression runs, so later functions cannot change earlier

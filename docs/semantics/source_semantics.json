@@ -1,6 +1,7 @@
 {
-  "translator_version": "0.71.0",
-  "position_conversion_mode_note": "Pythonic whole-value POSITION/XYZWPR assignments follow ../position-conversions.md; older blanket assignment/initialization exclusions below remain for the future strict milestone. Other positional types, exact routine interfaces and geometry operand checks retain their boundaries.",
+  "translator_version": "0.72.0",
+  "position_geometry_mode_note": "Pythonic POSITION/XYZWPR colon, INV and FRAME follow ../position-geometry.md. Older POSITION geometry exclusions below describe the preserved conservative contract; other positional types and exact routine interfaces retain their boundaries.",
+  "position_conversion_mode_note": "Pythonic whole-value POSITION/XYZWPR assignments follow ../position-conversions.md; older blanket assignment/initialization exclusions below remain for the future strict milestone. Other positional types and exact routine interfaces retain their boundaries.",
   "using_mode_note": "Public Pythonic nested USING, dotted selectors and namespace choices follow ../pythonic-using.md; older nesting, field-selector and constant/call-name rejections below remain for the future strict milestone.",
   "for_control_mode_note": "Public Pythonic global-counter calls, read-only counter references and finally cleanup follow ../pythonic-for.md; older fresh-local-only, counter-reference and exceptional-counter observations below remain for the future strict milestone.",
   "string_operation_mode_note": "Public Pythonic SUB_STR clipping, zero counts, bounded results and empty INDEX searches follow ../string-operations.md; older substring/search rejections below remain for the future strict milestone.",

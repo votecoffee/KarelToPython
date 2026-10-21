@@ -82,10 +82,11 @@ aliases and explicitly typed function/geometry results are supported. Whole
 ARRAY assignments retain exact component identities.
 
 Routine parameters and RETURN expressions retain their exact type requirements.
-Use a local assignment to convert before passing or returning a value. FRAME,
-INV, colon geometry and UNPOS retain their existing operand types; assign a
-POSITION to XYZWPR storage before using those XYZWPR operations. There is no
-new POSITION or XYZWPR cast-call syntax.
+Use a local assignment to convert before passing or returning a value. Since
+0.72.0, [FRAME, INV and colon geometry](position-geometry.md) accept both exact
+representations, including mixed operands. UNPOS still requires XYZWPR; assign a
+POSITION to XYZWPR storage before extraction. There is no POSITION or XYZWPR
+cast-call syntax.
 
 The complete source is evaluated and converted once before destination
 expressions run. An invalid conversion skips target-index functions and leaves

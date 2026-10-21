@@ -1,0 +1,232 @@
+{
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": true,
+    "CFG_FRONT": true
+  },
+  "CODE": 0,
+  "P1": {
+    "NORMAL": {
+      "X": 1,
+      "Y": 0,
+      "Z": 0
+    },
+    "ORIENT": {
+      "X": 0,
+      "Y": 1,
+      "Z": 0
+    },
+    "APPROACH": {
+      "X": 0,
+      "Y": 0,
+      "Z": 1
+    },
+    "LOCATION": {
+      "X": 10,
+      "Y": 20,
+      "Z": 30
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "P2": {
+    "NORMAL": {
+      "X": 1,
+      "Y": 0,
+      "Z": 0
+    },
+    "ORIENT": {
+      "X": 0,
+      "Y": 1,
+      "Z": 0
+    },
+    "APPROACH": {
+      "X": 0,
+      "Y": 0,
+      "Z": 1
+    },
+    "LOCATION": {
+      "X": 10,
+      "Y": 40,
+      "Z": 30
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "P3": {
+    "NORMAL": {
+      "X": 1,
+      "Y": 0,
+      "Z": 0
+    },
+    "ORIENT": {
+      "X": 0,
+      "Y": 1,
+      "Z": 0
+    },
+    "APPROACH": {
+      "X": 0,
+      "Y": 0,
+      "Z": 1
+    },
+    "LOCATION": {
+      "X": -10,
+      "Y": 20,
+      "Z": 30
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "FRAME": {
+    "NORMAL": {
+      "X": 0,
+      "Y": 1,
+      "Z": 0
+    },
+    "ORIENT": {
+      "X": -1,
+      "Y": 0,
+      "Z": 0
+    },
+    "APPROACH": {
+      "X": 0,
+      "Y": 0,
+      "Z": 1
+    },
+    "LOCATION": {
+      "X": 10,
+      "Y": 20,
+      "Z": 30
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "WORLD": {
+    "NORMAL": {
+      "X": 0,
+      "Y": 1,
+      "Z": 0
+    },
+    "ORIENT": {
+      "X": -1,
+      "Y": 0,
+      "Z": 0
+    },
+    "APPROACH": {
+      "X": 0,
+      "Y": 0,
+      "Z": 1
+    },
+    "LOCATION": {
+      "X": 7,
+      "Y": 22,
+      "Z": 34
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "RECOVERED": {
+    "NORMAL": {
+      "X": 1,
+      "Y": 0,
+      "Z": 0
+    },
+    "ORIENT": {
+      "X": 0,
+      "Y": 1,
+      "Z": 0
+    },
+    "APPROACH": {
+      "X": 0,
+      "Y": 0,
+      "Z": 1
+    },
+    "LOCATION": {
+      "X": 2,
+      "Y": 3,
+      "Z": 4
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "LOCAL": {
+    "X": 2,
+    "Y": 3,
+    "Z": 4,
+    "W": 0,
+    "P": 0,
+    "R": 0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  },
+  "POSE": {
+    "X": 2,
+    "Y": 3,
+    "Z": 4,
+    "W": 0,
+    "P": 0,
+    "R": 0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": true,
+      "CFG_FRONT": true
+    }
+  }
+}

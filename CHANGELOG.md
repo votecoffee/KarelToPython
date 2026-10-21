@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.72.0 - 2026-10-21
+
+- Add Pythonic POSITION and mixed POSITION/XYZWPR operands to colon, INV and
+  FRAME. INV preserves its operand representation; colon and FRAME return
+  POSITION when any input is POSITION, retaining XYZWPR-only results.
+- Calculate POSITION results directly as checked matrices with protected
+  orientation columns and independent location/CONFIG data. Capture and validate
+  each operand before later effects; retain exact routine interfaces and guards.
+- Add independent quaternion, evaluation-order and ownership checks, a complete
+  authored example, a geometry guide and explicit report policies. These establish
+  offline behavior; strict mode and native/controller acceptance remain future work.
+
 ## 0.71.0 - 2026-10-21
 
 - Add Pythonic whole-value POSITION/XYZWPR assignment conversion, initializing

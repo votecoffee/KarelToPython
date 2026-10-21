@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.72.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Explicit POSITION/XYZWPR composition, inversion and point-defined FRAME",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [81, 83, 84, 398, 446, 481],
+    "documented": "Relative transform precedence and composition; POSITION FRAME points and INV input/output; first/fourth origin and configuration; 10 mm geometry bounds; protected POSITION orientation",
+    "uncertainty": "Native mixed-type overload/result selection, tolerance, Euler/configuration equivalence and compiler/controller behavior remain unverified"
+  },
+  "implementation_choices": {
+    "types": "Exact complete POSITION or XYZWPR operands; INV preserves representation; colon and FRAME return POSITION if any argument is POSITION, otherwise XYZWPR; internal user routines retain precedence",
+    "matrix": "POSITION columns NORMAL/ORIENT/APPROACH with LOCATION XYZ; direct matrix calculations without intermediate Euler extraction; inputs/results require unit column norms, zero pairwise dot products and determinant +1, each within absolute 1e-9; no matrix repair",
+    "xyzwpr": "Existing Z-Y-X rotation convention and canonical/gimbal Euler output retained for XYZWPR-only operations",
+    "frame": "Existing three/four-point axes and inclusive 10 mm bounds; validate complete input orientation even though axes use only locations; copy first or fourth origin/CONFIG",
+    "configuration": "Colon copies right CONFIG; inverse copies input CONFIG; no robot turn or joint inference",
+    "ownership": "Independent result data and recursively read-only POSITION orientation; stable existing destination field references; grouped orientation value arguments detach writable VECTOR storage",
+    "effects": "Evaluate once left-to-right; snapshot and validate each operand before later effects; FRAME distance checks after capture; preserve earlier effects and destination on failure; exact routine interfaces and ordinary FOR/frame cleanup",
+    "reports": "Actual operand_types and result_type in source-located frame_operations; origin_argument for FRAME; frame_policy records result selection, tolerance and remaining boundaries; field inspection does not emit duplicate sites"
+  },
+  "retained_boundaries": [
+    "No XYZWPREXT/JOINTPOS/VECTOR geometry operands, automatic parameter/RETURN coercion or direct POSITION orientation writes",
+    "No controller context, external axes, native kinematics, configuration inference or native acceptance",
+    "Strict remains future work; independent quaternion and fixture checks establish offline geometry only"
+  ],
+  "tests": ["tests/test_position_geometry.py", "tests/test_frame_transforms.py", "tests/test_frame_constructor.py", "tests/test_position_conversions.py", "tests/test_runtime_portability.py", "examples/pythonic_position_geometry.kl"],
+  "controller_validated": false
+}

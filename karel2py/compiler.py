@@ -1422,10 +1422,13 @@ class Emitter:
         if expr.kind == 'call' and expr.value in self.routines and self.routines[expr.value].return_type:
             return self.routines[expr.value].return_type
         if self.mode == 'pythonic' and expr.kind == 'call' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines:
+            if expr.value in ('INV','FRAME'):
+                if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4)):
+                    self.error('E_ARGUMENTS', 'INV requires one pose; FRAME requires three or four poses', expr.token)
+                return self.frame_result_type([self.access_type(argument) for argument in expr.args], expr.token)
             return BUILTIN_SIGNATURES[expr.value][1]
         if self.mode == 'pythonic' and expr.kind == 'binary' and expr.value == ':':
-            if all(self.access_type(argument) == ('XYZWPR',) for argument in expr.args): return ('XYZWPR',)
-            self.error('E_TYPE', 'Relative transforms require XYZWPR operands', expr.token)
+            return self.frame_result_type([self.access_type(argument) for argument in expr.args], expr.token)
         if expr.kind == 'name': return self.symbol_type(expr)
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
@@ -1434,6 +1437,11 @@ class Emitter:
             try: return rt.indexed_type(spec, len(expr.args) - 1)
             except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
         self.error('E_TYPE', 'Expected a variable receiver path', expr.token)
+
+    def frame_result_type(self, specs, token):
+        if not specs or any(spec not in (('XYZWPR',), ('POSITION',)) for spec in specs):
+            self.error('E_TYPE', 'Frame operations require POSITION or XYZWPR operands', token)
+        return ('POSITION',) if ('POSITION',) in specs else ('XYZWPR',)
 
     def is_position_read_only_access(self, expr):
         """Check receiver paths, without mistaking an index expression for a target."""
@@ -1561,12 +1569,12 @@ class Emitter:
             if right_type[0] in NARROW_TYPES: right_type = ('INTEGER',)
             op = expr.value
             if op == ':':
-                valid = self.mode == 'pythonic' and lt == right_type == ('XYZWPR',)
-                result_type = ('XYZWPR',)
+                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',)) for spec in (lt,right_type))
+                result_type = self.frame_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
                 if valid:
                     self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
-                                                          line=line, column=expr.token.column, operand_types=['XYZWPR','XYZWPR'],
-                                                          result_type='XYZWPR', evaluated_once=True, operands_copied=True))
+                                                          line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
+                                                          result_type=result_type[0], evaluated_once=True, operands_copied=True))
             elif 'VECTOR' in (lt[0], right_type[0]):
                 both_vectors = lt == right_type == ('VECTOR',)
                 scaled = (lt == ('VECTOR',) and right_type[0] in ('INTEGER', 'REAL')
@@ -1599,8 +1607,8 @@ class Emitter:
                 if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
                 if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
                 if op == ':':
-                    left = f"_rt.positional_value(('XYZWPR',), {left}, {line})"
-                    right = f"_rt.positional_value(('XYZWPR',), {right}, {line})"
+                    left = f'_rt.frame_value({left}, {line}, expected={lt!r})'
+                    right = f'_rt.frame_value({right}, {line}, expected={right_type!r})'
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
         if expr.kind == 'call':
             if self.active_counters and expr.value in self.routines:
@@ -1656,11 +1664,15 @@ class Emitter:
             if self.mode == 'strict' and len(rt.array_dimensions(spec)) != 1:
                 self.error('E_ARRAY_LEN', 'ARRAY_LEN on multidimensional arrays needs dimension-count semantics; use explicit dimensions', expr.token)
             result_type, codes = ('INTEGER',), [code]
-        elif expr.value == 'FRAME':
-            if len(expr.args) not in (3, 4): self.error('E_ARGUMENTS', 'FRAME requires three or four XYZWPR points', expr.token)
-            codes = [f"_rt.positional_value(('XYZWPR',), {self.require_type(argument, 'XYZWPR')}, {expr.token.line})"
-                     for argument in expr.args]
-            result_type = ('XYZWPR',)
+        elif expr.value in ('INV','FRAME'):
+            if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4)):
+                self.error('E_ARGUMENTS', 'INV requires one pose; FRAME requires three or four poses', expr.token)
+            codes, frame_specs = [], []
+            for argument in expr.args:
+                code, spec = self.expression(argument)
+                self.frame_result_type([spec], argument.token)
+                codes.append(f'_rt.frame_value({code}, {expr.token.line}, expected={spec!r})'); frame_specs.append(spec)
+            result_type = self.frame_result_type(frame_specs, expr.token)
         else:
             signature, result_type = BUILTIN_SIGNATURES[expr.value]
             if len(expr.args) != len(signature):
@@ -1682,12 +1694,12 @@ class Emitter:
                                                  result_type='XYZWPR', independent_value=True, configuration_copied=True))
         if expr.value == 'INV':
             self.frame_operation_uses.append(dict(operation='INV', body=self.current_routine.name if self.current_routine else self.program.name,
-                                                  line=expr.token.line, column=expr.token.column, operand_types=['XYZWPR'],
-                                                  result_type='XYZWPR', evaluated_once=True, operands_copied=True))
+                                                  line=expr.token.line, column=expr.token.column, operand_types=[spec[0] for spec in frame_specs],
+                                                  result_type=result_type[0], evaluated_once=True, operands_copied=True))
         if expr.value == 'FRAME':
             self.frame_operation_uses.append(dict(operation='FRAME', body=self.current_routine.name if self.current_routine else self.program.name,
-                                                  line=expr.token.line, column=expr.token.column, operand_types=['XYZWPR']*len(expr.args),
-                                                  result_type='XYZWPR', evaluated_once=True, operands_copied=True,
+                                                  line=expr.token.line, column=expr.token.column, operand_types=[spec[0] for spec in frame_specs],
+                                                  result_type=result_type[0], evaluated_once=True, operands_copied=True,
                                                   origin_argument=4 if len(expr.args) == 4 else 1))
         if expr.value in rt.UNARY_TRIG_FUNCTIONS:
             self.trig_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
@@ -2861,13 +2873,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         boundary='No POSITION/XYZWPR constructor cast syntax, other positional conversions, external axes, joint kinematics, native tolerance/angle/configuration equivalence or controller context; strict remains future work',
         controller_validated=False)
     report['frame_policy'] = dict(
-        operands='Explicit complete XYZWPR values only; relative : composes left frame with right local pose; INV reverses a pose; FRAME constructs a frame from three or four points as a Pythonic fallback',
+        operands='Explicit complete POSITION or XYZWPR values; relative : composes left frame with right local pose; INV reverses a pose; FRAME constructs a frame from three or four points as a Pythonic fallback',
+        result_type='INV preserves operand type; colon and FRAME return POSITION if any operand is POSITION, otherwise XYZWPR; infer exact types without implicit interface coercion',
+        position_matrix='NORMAL/ORIENT/APPROACH are rotation columns; LOCATION is XYZ; validate complete finite proper matrices within absolute 1e-9 norm/dot/determinant tolerance; direct matrix calculation and checked POSITION results, without Euler round trip or matrix repair',
         rotation='Column vectors with Rz(r) Ry(p) Rx(w), degree angles reduced modulo 360 before trig; rounded Python float arithmetic',
-        orientation='Canonical P in -90..90 and W/R in [-180,180); hypot(R00,R10)<=1e-12 chooses W=0 and places remaining rotation in R',
+        orientation='XYZWPR results: canonical P in -90..90 and W/R in [-180,180); hypot(R00,R10)<=1e-12 chooses W=0 and places remaining rotation in R; POSITION results retain recursively read-only rotation columns',
         configuration='Composition copies right CONFIG; INV copies input CONFIG; FRAME copies first or optional fourth CONFIG as data, without recalculating robot turns or reachability',
         constructor='FRAME: X points from first to second point; third sets positive XY half-plane and right-handed Z; origin is first or optional fourth point; first/second separation and third distance from their line must each be >=10 mm; derived differences/distances finite; ignore input orientations after complete operand validation',
         evaluation='Left-to-right once; snapshot each complete operand before later operand effects; independent result; existing assignment/argument/FOR protections',
-        boundary='No POSITION/XYZWPREXT/JOINTPOS/VECTOR transform operands, coercion, external axes, UFRAME/UTOOL discovery, kinematics or native Euler/configuration equivalence; strict remains future work',
+        boundary='No XYZWPREXT/JOINTPOS/VECTOR transform operands, automatic parameter/RETURN coercion, external axes, UFRAME/UTOOL discovery, kinematics or native type/Euler/configuration equivalence; strict remains future work',
         controller_validated=False)
     report['directive_policy'] = dict(
         allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP'],
@@ -2943,9 +2957,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         argument_order=['x', 'y'], result='math.degrees(math.atan2(y, x)), in -180..180',
         coordinates='Finite floats in all quadrants', origin='Explicit undefined-domain error', controller_validated=False)
     report['data_record_policy']['values'] = 'Finite Python float REAL components; existing CONFIG turn/BOOLEAN checks'
-    report['data_record_policy']['position_initialization'] = 'No orientation defaults; explicit XYZWPR whole-value assignments can initialize POSITION through position_conversion_policy'
-    report['data_record_policy']['boundary'] = 'POSITION/XYZWPR assignment conversion only; no other positional coercion, implicit group/frame context, builtin USING, POSITION geometry operators, record I/O, registers or motion'
-    report['positional_routine_policy']['boundary'] = 'Exact parameter/RETURN types; whole assignments follow position_conversion_policy; no controller ABI, native kinematics or orientation defaults; explicit XYZWPR transforms follow frame_policy'
+    report['data_record_policy']['position_initialization'] = 'No orientation defaults; initialize POSITION through explicit XYZWPR assignments under position_conversion_policy or complete geometry results under frame_policy'
+    report['data_record_policy']['boundary'] = 'POSITION/XYZWPR assignments follow position_conversion_policy and explicit geometry follows frame_policy; no other positional coercion, implicit group/frame context, builtin USING, record I/O, registers or motion'
+    report['positional_routine_policy']['boundary'] = 'Exact parameter/RETURN types; whole assignments follow position_conversion_policy; no controller ABI, native kinematics or orientation defaults; explicit POSITION/XYZWPR transforms follow frame_policy'
     report['vector_routine_policy']['boundary'] = 'VECTOR copying supplies no frame context; VECTOR transforms, implicit positional conversion and native runtime equivalence remain unsupported'
     report['vector_policy'].update(
         scaling='Finite Python floats; division requires nonzero denominators',
@@ -2955,7 +2969,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         constructor_name='VEC is a fallback expression constructor; an explicitly declared internal VEC routine keeps precedence and ordinary signature/effect checks',
         unary='Unary + and - on VECTOR return independent checked component copies',
         precedence='Cross/dot above multiplication/division, above unary signs and addition; same-level products associate left to right; parentheses override',
-        boundary='No ordered VECTOR relations, VECTOR/POSITION transform operands, kinematics or controller validation')
+        boundary='No ordered VECTOR relations, VECTOR transform operands, kinematics or controller validation')
     report['pos_policy'] = dict(
         constructor='POS(x,y,z,w,p,r,c) returns a fresh XYZWPR with independent CONFIG data; explicit internal POS routines keep precedence',
         coordinates='Six finite Python numeric values; INTEGER/BYTE/SHORT promoted to REAL; x/y/z in -10000000..10000000 mm, w/p/r in -180..180 degrees',
