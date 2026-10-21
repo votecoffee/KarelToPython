@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.73.0 - 2026-10-21
+
+- Add Pythonic APPROACH and ORIENT axis queries on POSITION and XYZWPR, returning
+  independent writable VECTOR copies of positive Z and Y. Use POSITION columns
+  directly and the existing portable rotation convention for XYZWPR.
+- Require complete checked poses, retain protected source orientation, capture
+  once before later effects and preserve user routines with the same names. Add
+  source-located query reports, independent quaternion and ownership checks, an
+  authored offset example, a guide and semantic notes. Strict remains future work;
+  these checks establish offline behavior, without native/controller acceptance.
+
 ## 0.72.0 - 2026-10-21
 
 - Add Pythonic POSITION and mixed POSITION/XYZWPR operands to colon, INV and

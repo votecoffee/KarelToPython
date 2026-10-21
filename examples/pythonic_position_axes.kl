@@ -1,0 +1,15 @@
+PROGRAM POSITION_AXES
+%ENVIRONMENT VECTR
+VAR cfg: CONFIG code: INTEGER p,moved: POSITION pose: XYZWPR app,side: VECTOR
+BEGIN
+  CNV_STR_CONF('N R U T, 0, 0, 0',cfg,code)
+  pose=POS(10,20,30,0,90,0,cfg)
+  p=pose
+  app=APPROACH(p)
+  side=ORIENT(pose)
+  moved=p
+  moved.location=moved.location+app*50+side*20
+  app.x=9
+  WRITE('moved=',moved.location.x::0::1,',',moved.location.y::0::1,',',moved.location.z::0::1,CR)
+  WRITE('axes=',APPROACH(moved).x::0::1,',',ORIENT(p).y::0::1,CR)
+END POSITION_AXES

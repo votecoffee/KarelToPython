@@ -45,6 +45,9 @@ read-only orientation protection. Routine interfaces retain exact types.
 Since 0.72.0, [POSITION geometry](position-geometry.md) records actual operand
 and result types: INV preserves its representation; colon and FRAME return
 POSITION when any input is POSITION. XYZWPR-only results retain their layout.
+[Pose axis queries](position-axes.md) add source-located `position_axis_queries`
+and `position_axis_policy` for APPROACH/ORIENT mapping, complete-pose checks and
+independent writable VECTOR results. Internal routines keep their own signatures.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode

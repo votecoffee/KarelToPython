@@ -1,0 +1,27 @@
+{
+  "translator_version": "0.73.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "APPROACH and ORIENT queries on explicit complete POSITION or XYZWPR values",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [311, 312, 470],
+    "documented": "APPROACH returns the positive Z/approach VECTOR of POSITION; ORIENT returns the positive Y/orient VECTOR; direct POSITION field access is an alternative",
+    "uncertainty": "Native XYZWPR overloads, partial-input behavior, tolerances, compiler and controller behavior remain unverified"
+  },
+  "implementation_choices": {
+    "types": "One exact POSITION or XYZWPR argument, transparent aliases included; VECTOR result; preserve internal routine signatures/effects and ordinary variable names",
+    "mapping": "Copy POSITION APPROACH or ORIENT columns directly; XYZWPR uses the third or second column of portable Rz(r) Ry(p) Rx(w); no intermediate POSITION Euler extraction",
+    "validation": "Complete finite exact pose, CONFIG and location; POSITION unit/orthogonal columns and determinant +1 with absolute 1e-9 tolerance under frame_policy; no normalization, repaired matrix or inferred axes",
+    "ownership": "Independent writable VECTOR; source POSITION orientation stays recursively read-only; temporary fields and VECTOR arguments own private writable storage",
+    "effects": "Evaluate operand once, detach axis before later expressions or assignment target effects; failure retains earlier effects, skips later effects and preserves destination; ordinary FOR and local-frame cleanup",
+    "reports": "Source-located position_axis_queries with function, body, actual operand type, result type and ownership/evaluation flags; position_axis_policy records current choices; field lookup does not duplicate sites"
+  },
+  "retained_boundaries": [
+    "No XYZWPREXT/JOINTPOS/VECTOR or scalar operands, missing/default orientation or direct POSITION orientation writes",
+    "No controller acquisition, implicit frame context, external axes, native kinematics or robot configuration inference",
+    "Strict remains future work; authored fixtures and independent quaternion checks establish offline geometry only"
+  ],
+  "tests": ["tests/test_position_axes.py", "tests/test_position_geometry.py", "tests/test_runtime_portability.py", "examples/pythonic_position_axes.kl"],
+  "controller_validated": false
+}

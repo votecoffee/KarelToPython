@@ -78,6 +78,7 @@ are kept outside public documentation.
 | Point-defined FRAME | [frame_constructor_semantics.json](frame_constructor_semantics.json) |
 | POSITION/XYZWPR conversion | [position_conversion_semantics.json](position_conversion_semantics.json) |
 | POSITION and mixed geometry | [position_geometry_semantics.json](position_geometry_semantics.json) |
+| APPROACH/ORIENT axis queries | [position_axis_semantics.json](position_axis_semantics.json) |
 | String | [string_semantics.json](string_semantics.json) |
 | String value | [string_value_semantics.json](string_value_semantics.json) |
 | Structure routine | [structure_routine_semantics.json](structure_routine_semantics.json) |

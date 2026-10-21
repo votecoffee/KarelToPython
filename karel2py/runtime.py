@@ -95,6 +95,7 @@ def joint_spec(name):
 DATA_RECORD_TYPES = ('XYZWPR', 'CONFIG', 'VECTOR', 'POSITION', 'XYZWPREXT')
 POSITIONAL_VALUE_TYPES = tuple(name for name in DATA_RECORD_TYPES if name != 'VECTOR') + ('JOINTPOS',)
 POSITION_READ_ONLY_FIELDS = ('NORMAL', 'ORIENT', 'APPROACH')
+POSITION_AXIS_FUNCTIONS = {'APPROACH': 2, 'ORIENT': 1}
 RECORD_TYPES = ('STRUCTURE', *DATA_RECORD_TYPES)
 DATA_RECORD_FIELDS = {
     'VECTOR': tuple((name, REAL) for name in ('X', 'Y', 'Z')),
@@ -1132,6 +1133,17 @@ def convert_position(target, value, line=None):
     return _frame_result(rotation, location, config, line, result_type=target)
 
 
+def position_axis(name, value, line=None):
+    """Detach a pose's positive Y/Z axis without granting orientation writes."""
+    if not _pythonic(): raise KarelRuntimeError('Position axis queries require Pythonic mode', line)
+    if name not in POSITION_AXIS_FUNCTIONS: raise KarelRuntimeError('Unsupported position axis query', line)
+    rotation, _, _ = _frame_parts(value, line)
+    result = Structure(('VECTOR',))
+    column = POSITION_AXIS_FUNCTIONS[name]
+    result.values.update(zip(('X','Y','Z'), (real(rotation[row][column], line) for row in range(3))))
+    return result
+
+
 def frame_from_points(arguments, line=None):
     """Construct a right-handed frame from three/four complete poses."""
     if not _pythonic(): raise KarelRuntimeError('FRAME requires Pythonic mode', line)
@@ -1291,6 +1303,9 @@ def exact_atan2(x, y, line=None):
 
 
 def builtin(name, arguments, line=None):
+    if name in POSITION_AXIS_FUNCTIONS:
+        if len(arguments) != 1: raise KarelRuntimeError(name+' requires one pose', line)
+        return position_axis(name, arguments[0], line)
     if name == 'FRAME': return frame_from_points(arguments, line)
     if name == 'INV':
         if len(arguments) != 1: raise KarelRuntimeError('INV requires exactly one argument', line)

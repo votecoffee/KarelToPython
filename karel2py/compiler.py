@@ -163,6 +163,8 @@ BUILTIN_SIGNATURES = {
     'POS': (('REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'CONFIG'), ('XYZWPR',)),
     'INV': (('XYZWPR',), ('XYZWPR',)),
     'FRAME': (('XYZWPR', 'XYZWPR', 'XYZWPR'), ('XYZWPR',)),
+    'APPROACH': (('POSITION',), ('VECTOR',)),
+    'ORIENT': (('POSITION',), ('VECTOR',)),
 }
 BUILTIN_PROCEDURES = {'CNV_STR_INT': ('STRING',), 'CNV_INT_STR': ('INTEGER', 'INTEGER', 'INTEGER'),
                       'CNV_STR_REAL': ('STRING',), 'CNV_REAL_STR': ('REAL', 'INTEGER', 'INTEGER')}
@@ -171,9 +173,9 @@ CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'C
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
-# Constructors and frame helpers are Pythonic fallbacks. Preserve internal routines and
+# Constructors, frame helpers and pose queries are Pythonic fallbacks. Preserve internal routines and
 # ordinary declarations with these names.
-PYTHONIC_CONSTRUCTORS = {'VEC', 'POS', 'INV', 'FRAME'}
+PYTHONIC_CONSTRUCTORS = {'VEC', 'POS', 'INV', 'FRAME', *rt.POSITION_AXIS_FUNCTIONS}
 BUILTINS = (set(BUILTIN_SIGNATURES) - PYTHONIC_CONSTRUCTORS) | set(BUILTIN_PROCEDURES) | MULTI_OUTPUT_PROCEDURES | {'UNINIT'}
 CONTROLLER_NAMES = {'DIN', 'DOUT', 'GIN', 'GOUT', 'AIN', 'AOUT', 'RDIN', 'RDOUT',
                     'GET_REG', 'SET_INT_REG', 'SET_REAL_REG',
@@ -819,6 +821,7 @@ class Emitter:
         self.pos_constructor_uses = []
         self.config_text_uses = []
         self.frame_operation_uses = []
+        self.position_axis_uses = []
         self.position_conversion_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
@@ -1426,6 +1429,10 @@ class Emitter:
                 if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4)):
                     self.error('E_ARGUMENTS', 'INV requires one pose; FRAME requires three or four poses', expr.token)
                 return self.frame_result_type([self.access_type(argument) for argument in expr.args], expr.token)
+            if expr.value in rt.POSITION_AXIS_FUNCTIONS:
+                if len(expr.args) != 1: self.error('E_ARGUMENTS', f'{expr.value} requires one pose', expr.token)
+                self.frame_result_type([self.access_type(expr.args[0])], expr.token)
+                return ('VECTOR',)
             return BUILTIN_SIGNATURES[expr.value][1]
         if self.mode == 'pythonic' and expr.kind == 'binary' and expr.value == ':':
             return self.frame_result_type([self.access_type(argument) for argument in expr.args], expr.token)
@@ -1664,6 +1671,12 @@ class Emitter:
             if self.mode == 'strict' and len(rt.array_dimensions(spec)) != 1:
                 self.error('E_ARRAY_LEN', 'ARRAY_LEN on multidimensional arrays needs dimension-count semantics; use explicit dimensions', expr.token)
             result_type, codes = ('INTEGER',), [code]
+        elif expr.value in rt.POSITION_AXIS_FUNCTIONS:
+            if len(expr.args) != 1: self.error('E_ARGUMENTS', f'{expr.value} requires one pose', expr.token)
+            code, axis_spec = self.expression(expr.args[0])
+            self.frame_result_type([axis_spec], expr.args[0].token)
+            codes = [f'_rt.frame_value({code}, {expr.token.line}, expected={axis_spec!r})']
+            result_type = ('VECTOR',)
         elif expr.value in ('INV','FRAME'):
             if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4)):
                 self.error('E_ARGUMENTS', 'INV requires one pose; FRAME requires three or four poses', expr.token)
@@ -1682,6 +1695,10 @@ class Emitter:
             codes = [self.require_type(argument, expected)
                      for argument, expected in zip(expr.args, signature)]
         self.features.add(expr.value)
+        if expr.value in rt.POSITION_AXIS_FUNCTIONS:
+            self.position_axis_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
+                                               line=expr.token.line, column=expr.token.column, operand_type=axis_spec[0],
+                                               result_type='VECTOR', axis=expr.value, evaluated_once=True, independent_value=True))
         if expr.value == 'VEC':
             self.vector_constructor_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                                     line=expr.token.line, column=expr.token.column,
@@ -2715,6 +2732,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         pos_constructors=emitter.pos_constructor_uses,
         config_text_conversions=emitter.config_text_uses,
         frame_operations=emitter.frame_operation_uses,
+        position_axis_queries=emitter.position_axis_uses,
         position_conversions=emitter.position_conversion_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
@@ -2865,6 +2883,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['position_axis_policy'] = dict(
+        functions='APPROACH returns positive Z; ORIENT returns positive Y; exact POSITION and Pythonic XYZWPR operands; internal routines and ordinary names retain precedence',
+        mapping='POSITION APPROACH/ORIENT columns; XYZWPR uses frame_policy Z-Y-X rotation; return independent writable VECTOR without normalizing or repairing input',
+        validation='Require a complete finite structurally exact pose and CONFIG; POSITION uses frame_policy proper-matrix checks with absolute tolerance 1e-9',
+        evaluation='Evaluate once and detach result before later expressions or target effects; unchanged assignment on failure, earlier effects retained; ordinary FOR and frame cleanup',
+        boundary='No XYZWPREXT/JOINTPOS/VECTOR operands, missing/default orientation, controller context, native XYZWPR overload or configuration validity claim; strict remains future work',
+        controller_validated=False)
     report['position_conversion_policy'] = dict(
         scope='Whole-value assignments between exact POSITION and XYZWPR only; variables, fields, elements and compatible explicit RHS results; not automatic parameter/RETURN or whole-array coercion',
         mapping='NORMAL/ORIENT/APPROACH are X/Y/Z rotation columns; LOCATION is XYZ; copy CONFIG independently; use frame_policy Z-Y-X and canonical Euler choices',
