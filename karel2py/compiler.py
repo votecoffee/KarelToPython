@@ -127,7 +127,7 @@ class FlowGraph:
 
 PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
-              '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40}
+              '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
@@ -161,6 +161,7 @@ BUILTIN_SIGNATURES = {
     'ATAN2': (('REAL', 'REAL'), ('REAL',)),
     'VEC': (('REAL', 'REAL', 'REAL'), ('VECTOR',)),
     'POS': (('REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'CONFIG'), ('XYZWPR',)),
+    'INV': (('XYZWPR',), ('XYZWPR',)),
 }
 BUILTIN_PROCEDURES = {'CNV_STR_INT': ('STRING',), 'CNV_INT_STR': ('INTEGER', 'INTEGER', 'INTEGER'),
                       'CNV_STR_REAL': ('STRING',), 'CNV_REAL_STR': ('REAL', 'INTEGER', 'INTEGER')}
@@ -169,9 +170,9 @@ CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'C
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
-# Constructors are Pythonic fallbacks. Preserve existing internal routines and
+# Constructors and frame helpers are Pythonic fallbacks. Preserve internal routines and
 # ordinary declarations with these names.
-PYTHONIC_CONSTRUCTORS = {'VEC', 'POS'}
+PYTHONIC_CONSTRUCTORS = {'VEC', 'POS', 'INV'}
 BUILTINS = (set(BUILTIN_SIGNATURES) - PYTHONIC_CONSTRUCTORS) | set(BUILTIN_PROCEDURES) | MULTI_OUTPUT_PROCEDURES | {'UNINIT'}
 CONTROLLER_NAMES = {'DIN', 'DOUT', 'GIN', 'GOUT', 'AIN', 'AOUT', 'RDIN', 'RDOUT',
                     'GET_REG', 'SET_INT_REG', 'SET_REAL_REG',
@@ -601,11 +602,11 @@ class Parser:
                     targets.append(Expr('read_cr', self.take()))
                     if self.current.value == '::': self.error('E_READ_FORMAT', 'CR does not accept format specifiers')
                 else:
-                    target = self.expression()
+                    target = self.expression(allow_relative=False)
                     formats = []
                     while self.accept('::'):
                         if len(formats) == 2: self.error('E_READ_FORMAT', 'READ accepts at most two INTEGER format expressions')
-                        formats.append(self.expression())
+                        formats.append(self.expression(allow_relative=False))
                     targets.append(Expr('read_item', target.token, args=[target, *formats]) if formats else target)
                 if self.current.value == ':': self.error('E_READ_FORMAT', 'READ format specifiers use double colons')
                 self.skip_newlines()
@@ -688,12 +689,12 @@ class Parser:
                 if self.current.value == '::':
                     self.error('E_WRITE_FORMAT', 'CR does not accept format specifiers')
             else:
-                value = self.expression()
+                value = self.expression(allow_relative=False)
                 formats = []
                 while self.accept('::'):
                     if len(formats) == 2:
                         self.error('E_WRITE_FORMAT', 'WRITE accepts at most two INTEGER format expressions')
-                    formats.append(self.expression())
+                    formats.append(self.expression(allow_relative=False))
                 # Include formats in the tree traversed by routine-effect analysis.
                 item = Expr('write_item', item_token, args=[value, *formats])
             items.append(item)
@@ -733,7 +734,7 @@ class Parser:
                 base = Expr('field', member, member.value, [base])
         return base
 
-    def expression(self, minimum=0):
+    def expression(self, minimum=0, *, allow_relative=True):
         self.skip_lines()
         token = self.take()
         if token.kind == 'INT':
@@ -759,7 +760,7 @@ class Parser:
             left = Expr('predefined', token, token.value)
         elif token.value in ('+', '-', 'NOT'):
             # KAREL unary +/- have the same precedence as addition, below *.
-            left = Expr('unary', token, token.value, [self.expression(50 if token.value == 'NOT' else 21)])
+            left = Expr('unary', token, token.value, [self.expression(50 if token.value == 'NOT' else 21, allow_relative=allow_relative)])
         elif token.value == '(':
             child = self.expression()
             self.expect(')')
@@ -774,14 +775,15 @@ class Parser:
             self.error('E_EXPRESSION', f'Expected expression, found {token.value}', token)
         if self.mode == 'pythonic' and left.kind in ('call', 'group'):
             left = self.access(left)
-        while self.current.value in PRECEDENCE and PRECEDENCE[self.current.value] >= minimum:
+        while (self.current.value in PRECEDENCE and PRECEDENCE[self.current.value] >= minimum
+               and (self.current.value != ':' or self.mode == 'pythonic' and allow_relative)):
             operator = self.take()
             if (self.mode == 'strict' and operator.value in ('#', '@') and left.kind == 'binary'
                     and left.value in ('#', '@')):
                 self.error('E_VECTOR_ASSOCIATIVITY', 'Parenthesize chained #/@ operations; same-level association needs KAREL validation', operator)
             if operator.value == '>=<':
                 self.error('E_OPERATOR', f'{operator.value} requires an unimplemented numeric/geometry mapping', operator)
-            right = self.expression(PRECEDENCE[operator.value] + 1)
+            right = self.expression(PRECEDENCE[operator.value] + 1, allow_relative=allow_relative)
             left = Expr('binary', operator, operator.value, [left, right])
         return left
 
@@ -815,6 +817,7 @@ class Emitter:
         self.vector_constructor_uses = []
         self.pos_constructor_uses = []
         self.config_text_uses = []
+        self.frame_operation_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -1418,6 +1421,9 @@ class Emitter:
             return self.routines[expr.value].return_type
         if self.mode == 'pythonic' and expr.kind == 'call' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines:
             return BUILTIN_SIGNATURES[expr.value][1]
+        if self.mode == 'pythonic' and expr.kind == 'binary' and expr.value == ':':
+            if all(self.access_type(argument) == ('XYZWPR',) for argument in expr.args): return ('XYZWPR',)
+            self.error('E_TYPE', 'Relative transforms require XYZWPR operands', expr.token)
         if expr.kind == 'name': return self.symbol_type(expr)
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
@@ -1552,7 +1558,14 @@ class Emitter:
             if lt[0] in NARROW_TYPES: lt = ('INTEGER',)
             if right_type[0] in NARROW_TYPES: right_type = ('INTEGER',)
             op = expr.value
-            if 'VECTOR' in (lt[0], right_type[0]):
+            if op == ':':
+                valid = self.mode == 'pythonic' and lt == right_type == ('XYZWPR',)
+                result_type = ('XYZWPR',)
+                if valid:
+                    self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
+                                                          line=line, column=expr.token.column, operand_types=['XYZWPR','XYZWPR'],
+                                                          result_type='XYZWPR', evaluated_once=True, operands_copied=True))
+            elif 'VECTOR' in (lt[0], right_type[0]):
                 both_vectors = lt == right_type == ('VECTOR',)
                 scaled = (lt == ('VECTOR',) and right_type[0] in ('INTEGER', 'REAL')
                           or right_type == ('VECTOR',) and lt[0] in ('INTEGER', 'REAL'))
@@ -1583,6 +1596,9 @@ class Emitter:
                 # Capture mutable values before a later operand can change them.
                 if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
                 if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
+                if op == ':':
+                    left = f"_rt.positional_value(('XYZWPR',), {left}, {line})"
+                    right = f"_rt.positional_value(('XYZWPR',), {right}, {line})"
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
         if expr.kind == 'call':
             if self.active_counters and expr.value in self.routines:
@@ -1657,6 +1673,10 @@ class Emitter:
                                                  line=expr.token.line, column=expr.token.column,
                                                  arguments_evaluated_once=True, argument_order=['x','y','z','w','p','r','c'],
                                                  result_type='XYZWPR', independent_value=True, configuration_copied=True))
+        if expr.value == 'INV':
+            self.frame_operation_uses.append(dict(operation='INV', body=self.current_routine.name if self.current_routine else self.program.name,
+                                                  line=expr.token.line, column=expr.token.column, operand_types=['XYZWPR'],
+                                                  result_type='XYZWPR', evaluated_once=True, operands_copied=True))
         if expr.value in rt.UNARY_TRIG_FUNCTIONS:
             self.trig_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, evaluated_once=True,
@@ -2663,6 +2683,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         vector_constructors=emitter.vector_constructor_uses,
         pos_constructors=emitter.pos_constructor_uses,
         config_text_conversions=emitter.config_text_uses,
+        frame_operations=emitter.frame_operation_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -2812,6 +2833,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['frame_policy'] = dict(
+        operands='Explicit complete XYZWPR values only; relative : composes left frame with right local pose; INV returns an XYZWPR inverse as a Pythonic fallback',
+        rotation='Column vectors with Rz(r) Ry(p) Rx(w), degree angles reduced modulo 360 before trig; rounded Python float arithmetic',
+        orientation='Canonical P in -90..90 and W/R in [-180,180); hypot(R00,R10)<=1e-12 chooses W=0 and places remaining rotation in R',
+        configuration='Composition copies right CONFIG; INV copies input CONFIG as data, without recalculating robot turns or reachability',
+        evaluation='Left-to-right once; snapshot each complete operand before later operand effects; independent result; existing assignment/argument/FOR protections',
+        boundary='No POSITION/XYZWPREXT/JOINTPOS/VECTOR transform operands, coercion, external axes, UFRAME/UTOOL discovery, kinematics or native Euler/configuration equivalence; strict remains future work',
+        controller_validated=False)
     report['directive_policy'] = dict(
         allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP'],
         scope='Syntax-checked top-level metadata only; preserve source order, raw text and decoded values; generated Program.source_directives contains immutable normalized pairs',
@@ -2886,6 +2915,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         argument_order=['x', 'y'], result='math.degrees(math.atan2(y, x)), in -180..180',
         coordinates='Finite floats in all quadrants', origin='Explicit undefined-domain error', controller_validated=False)
     report['data_record_policy']['values'] = 'Finite Python float REAL components; existing CONFIG turn/BOOLEAN checks'
+    report['positional_routine_policy']['boundary'] = 'No controller ABI, native kinematics, implicit positional conversion or orientation defaults; explicit XYZWPR transforms follow frame_policy'
+    report['vector_routine_policy']['boundary'] = 'VECTOR copying supplies no frame context; VECTOR transforms, implicit positional conversion and native runtime equivalence remain unsupported'
     report['vector_policy'].update(
         scaling='Finite Python floats; division requires nonzero denominators',
         products='Cross/dot products allow rounded intermediates and zero/parallel cross products',
@@ -2894,7 +2925,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         constructor_name='VEC is a fallback expression constructor; an explicitly declared internal VEC routine keeps precedence and ordinary signature/effect checks',
         unary='Unary + and - on VECTOR return independent checked component copies',
         precedence='Cross/dot above multiplication/division, above unary signs and addition; same-level products associate left to right; parentheses override',
-        boundary='No ordered VECTOR relations, POSITION/frame transforms, kinematics or controller validation')
+        boundary='No ordered VECTOR relations, VECTOR/POSITION transform operands, kinematics or controller validation')
     report['pos_policy'] = dict(
         constructor='POS(x,y,z,w,p,r,c) returns a fresh XYZWPR with independent CONFIG data; explicit internal POS routines keep precedence',
         coordinates='Six finite Python numeric values; INTEGER/BYTE/SHORT promoted to REAL; x/y/z in -10000000..10000000 mm, w/p/r in -180..180 degrees',

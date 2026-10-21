@@ -71,6 +71,7 @@ are kept outside public documentation.
 | Select | [select_semantics.json](select_semantics.json) |
 | Source | [source_semantics.json](source_semantics.json) |
 | Source directive metadata | [directive_semantics.json](directive_semantics.json) |
+| XYZWPR frame transforms | [frame_transform_semantics.json](frame_transform_semantics.json) |
 | String | [string_semantics.json](string_semantics.json) |
 | String value | [string_value_semantics.json](string_value_semantics.json) |
 | Structure routine | [structure_routine_semantics.json](structure_routine_semantics.json) |

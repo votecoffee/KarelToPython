@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.69.0 - 2026-10-21
+
+- Add Pythonic XYZWPR colon composition and INV inversion using explicit portable
+  Z-Y-X rigid transforms, canonical Euler angles and a bounded gimbal-lock policy.
+  Copy right CONFIG on composition and input CONFIG on inversion without solving
+  robot configuration. Retain internal INV routines and ordinary declarations.
+- Capture complete operands once in source order; preserve independent results,
+  stable destination storage, field/array/value/RETURN composition, FOR effect
+  checks, failure preservation and cleanup. Add source-located frame reports.
+- Add 53 regressions, independent quaternion checks, an authored round-trip example,
+  runtime-only portability and a transform guide. Other positional/VECTOR operands,
+  external axes, implicit frame discovery and kinematics remain blocked. Strict
+  remains future work; no native Euler/configuration or controller claim.
+
 ## 0.68.0 - 2026-10-21
 
 - Accept Pythonic ENVIRONMENT, COMMENT and ALPHABETIZE as syntax-checked metadata,

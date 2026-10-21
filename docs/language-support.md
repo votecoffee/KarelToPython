@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.68.0. Acceptance is specific to
+This is the supported prototype subset as of 0.69.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -32,6 +32,7 @@ internally and in the historical semantic notes.
 | VECTOR | VEC construction, unary signs, checked float arithmetic, scaling, left-associated cross/dot products, equality and routine values | Initialized finite components; parentheses override association; explicit internal VEC routines retain precedence. Zero/parallel cross products allowed. No frame transforms or kinematics. |
 | Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
 | CONFIG text | CNV_STR_CONF and CNV_CONF_STR with complete checked CONFIG data, portable flags/turn grammar and canonical text | Omitted values are explicit portable choices; parse failure status 1 preserves CONFIG. No robot/group masks, native error mapping or CNV_CNF_STRG. |
+| Frame transforms | Explicit XYZWPR colon composition and INV inversion, independent CONFIG data and rounded Python geometry | Portable Z-Y-X/canonical Euler choices; composition copies right CONFIG. No other positional/VECTOR transform operands, external axes, controller frame discovery or kinematics. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; no explicit FILE/device destinations or aggregate output. |
 | READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; no controller file/device access, binary transfer, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
@@ -53,6 +54,7 @@ See [READ formats](read-formats.md) for widths, bases, quoting and dynamic expre
 See [POS construction](pos-construction.md) for Cartesian values, CONFIG copies and bounds.
 See [CONFIG text](config-text.md) for portable parsing, formatting, status and capacity rules.
 See [source directives](source-directives.md) for metadata syntax, placement and environment boundaries.
+See [frame transforms](frame-transforms.md) for composition, inversion and portable angle/configuration policies.
 
 ## Zero-argument function calls
 

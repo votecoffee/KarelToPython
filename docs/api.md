@@ -34,6 +34,10 @@ independent CONFIG data and source-located `pos_constructors` report entries.
 These are recorded requirements and attributes; they do not load definitions or
 enable additional source symbols or calls.
 
+[Frame transforms](frame-transforms.md) expose `frame_operations` for explicit
+XYZWPR composition/inversion and `frame_policy` for Euler conventions,
+configuration handling, capture order and retained controller boundaries.
+
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
 is embedded in `Program.translation_mode`, the report translation context and

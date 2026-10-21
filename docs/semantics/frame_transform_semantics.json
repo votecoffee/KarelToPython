@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.69.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Explicit XYZWPR relative composition and INV inversion with portable rigid geometry",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [81, 83, 84, 446],
+    "documented": "Relative frame transformation is order dependent; colon shares precedence with vector products; INV reverses a POSITION frame and preserves its configuration",
+    "uncertainty": "Native XYZWPR overload/result conversion, exact Euler/singular conventions and composition configuration propagation are not authenticated"
+  },
+  "implementation_choices": {
+    "types": "Complete initialized exact XYZWPR operands/results only; INV is a fallback preserving internal routines and ordinary names",
+    "rotation": "Degree Rz(r) Ry(p) Rx(w) on column vectors; reduce angles modulo 360 before trig; retain exact quarter turns and otherwise use rounded Python floats",
+    "composition": "R=Ra Rb and t=ta+Ra tb; left-associated colon chains at vector-product precedence; copy right CONFIG without solving robot configuration; group geometry inside READ/WRITE items and formats to retain format diagnostics",
+    "inverse": "R=transpose(Ra), t=-transpose(Ra) ta; preserve independent input CONFIG data",
+    "canonical": "P in -90..90, W/R in [-180,180); hypot(R00,R10)<=1e-12 chooses W=0 and remaining rotation in R",
+    "guards": "Validate nominal shapes, all scalar leaves, finite components and CONFIG bounds; finite output translations without imposing POS constructor coordinate limits",
+    "effects": "Evaluate/copy each operand once before later operands; independent output; unchanged assignment target on operation failure, prior effects retained; ordinary FOR and frame cleanup",
+    "reports": "Source-located frame_operations and current frame_policy without duplicate receiver lookup entries"
+  },
+  "retained_boundaries": [
+    "No POSITION/XYZWPREXT/JOINTPOS/VECTOR transform operands or implicit conversion",
+    "No external axes, controller UFRAME/UTOOL discovery, kinematics, reachability, robot turns or native configuration equivalence",
+    "Strict remains future work; independent quaternion and authored fixture checks establish offline geometry only"
+  ],
+  "tests": ["tests/test_frame_transforms.py", "tests/test_pos_constructor.py", "tests/test_runtime_portability.py", "examples/pythonic_frames.kl"],
+  "controller_validated": false
+}

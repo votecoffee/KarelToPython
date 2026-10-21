@@ -1040,9 +1040,75 @@ def vector_binary(op, left, right, line=None):
     return result
 
 
+def _frame_parts(value, line=None):
+    """Validate/detach an explicit XYZWPR using the portable Z-Y-X convention."""
+    pose = positional_value(('XYZWPR',), value, line)
+
+    def sin_cos(degrees):
+        reduced = degrees % 360.0
+        exact = {0.0: (0.0, 1.0), 90.0: (1.0, 0.0),
+                 180.0: (0.0, -1.0), 270.0: (-1.0, 0.0)}
+        if reduced in exact: return exact[reduced]
+        angle = math.radians(reduced)
+        return math.sin(angle), math.cos(angle)
+
+    sw, cw = sin_cos(pose.values['W'])
+    sp, cp = sin_cos(pose.values['P'])
+    sr, cr = sin_cos(pose.values['R'])
+    # Column vectors: Rz(r) Ry(p) Rx(w), then translation in the parent frame.
+    rotation = ((cr*cp, cr*sp*sw-sr*cw, cr*sp*cw+sr*sw),
+                (sr*cp, sr*sp*sw+cr*cw, sr*sp*cw-cr*sw),
+                (-sp, cp*sw, cp*cw))
+    return rotation, tuple(pose.values[field] for field in ('X','Y','Z')), pose.values['CONFIG_DATA']
+
+
+def _frame_result(rotation, translation, config, line=None):
+    horizontal = math.hypot(rotation[0][0], rotation[1][0])
+    pitch = math.atan2(-rotation[2][0], horizontal)
+    if horizontal <= 1e-12:
+        # Choose W=0 at either gimbal lock; the remaining rotation goes into R.
+        roll, yaw = 0.0, math.atan2(-rotation[0][1], rotation[1][1])
+    else:
+        roll = math.atan2(rotation[2][1], rotation[2][2])
+        yaw = math.atan2(rotation[1][0], rotation[0][0])
+
+    def canonical(angle):
+        degrees = math.degrees(angle)
+        if degrees >= 180.0: degrees -= 360.0
+        return 0.0 if degrees == 0.0 else degrees
+
+    components = [real(component, line) for component in (*translation, canonical(roll), math.degrees(pitch), canonical(yaw))]
+    result = Structure(('XYZWPR',))
+    result.values.update(zip(('X','Y','Z','W','P','R'), components))
+    result.values['CONFIG_DATA'] = positional_value(('CONFIG',), config, line)
+    return result
+
+
+def frame_inverse(value, line=None):
+    """Invert an explicit pose; no controller/frame discovery."""
+    if not _pythonic(): raise KarelRuntimeError('Frame transforms require Pythonic mode', line)
+    rotation, translation, config = _frame_parts(value, line)
+    inverse = tuple(zip(*rotation))
+    location = tuple(real(-sum(row[j]*translation[j] for j in range(3)), line) for row in inverse)
+    return _frame_result(inverse, location, config, line)
+
+
+def frame_transform(left, right, line=None):
+    """Compose two explicit poses without controller/frame discovery."""
+    if not _pythonic(): raise KarelRuntimeError('Frame transforms require Pythonic mode', line)
+    rotation, translation, _ = _frame_parts(left, line)
+    other_rotation, other_translation, other_config = _frame_parts(right, line)
+    composed = tuple(tuple(sum(rotation[i][k]*other_rotation[k][j] for k in range(3))
+                           for j in range(3)) for i in range(3))
+    location = tuple(real(translation[i] + sum(rotation[i][j]*other_translation[j] for j in range(3)), line)
+                     for i in range(3))
+    return _frame_result(composed, location, other_config, line)
+
+
 def binary(op, left, right, line=None):
     require(left, line)
     require(right, line)
+    if op == ':': return frame_transform(left, right, line)
     if op in ('#', '@') or any(isinstance(value, Structure) and value.spec == ('VECTOR',) for value in (left, right)):
         return vector_binary(op, left, right, line)
     if op in ('=', '<>', '<', '<=', '>', '>='):
@@ -1145,6 +1211,9 @@ def exact_atan2(x, y, line=None):
 
 
 def builtin(name, arguments, line=None):
+    if name == 'INV':
+        if len(arguments) != 1: raise KarelRuntimeError('INV requires exactly one argument', line)
+        return frame_inverse(arguments[0], line)
     if name == 'POS' and _pythonic():
         if len(arguments) != 7: raise KarelRuntimeError('POS requires exactly seven arguments', line)
         components = [real(value, line) for value in arguments[:6]]
