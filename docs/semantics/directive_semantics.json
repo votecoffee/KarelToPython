@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.68.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Syntax-checked source metadata without implicit runtime facilities",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [310, 343, 344, 387, 388],
+    "documented": "ALPHABETIZE creates/displays static variables alphabetically; COMMENT is a quoted program attribute up to 16 characters before CONST/TYPE/VAR; ENVIRONMENT selects translator definition files",
+    "uncertainty": "No authenticated native duplicate precedence, full environment-path grammar or environment visibility emulation"
+  },
+  "implementation_choices": {
+    "allowed": ["%ENVIRONMENT", "%COMMENT", "%ALPHABETIZE", "%NOLOCKGROUP"],
+    "environment": "Record bare ASCII letter-starting names of 1..36 characters in uppercase; repeated/custom names preserved; no file or module loading, definitions or implicit built-ins",
+    "comment": "One decoded ASCII literal up to 16 characters before all declaration sections and routines; empty text allowed; duplicate attributes rejected",
+    "scanning": "Recognize doubled apostrophes and quote boundaries before stripping a real trailing comment or detecting unsupported continuation; raw token text retained",
+    "alphabetize": "Record display request without reordering offline storage, snapshots or declarations",
+    "placement": "Line-ending top-level directives after PROGRAM and before BEGIN; ENVIRONMENT and ALPHABETIZE also allowed between declaration sections; no routine-local or executable directives",
+    "reports": "Raw directives plus source-located directive_metadata and current directive_policy; deduplicated required_environments in first-use order",
+    "generated": "Immutable normalized name/argument tuple pairs in Program.source_directives, independent of mutable report dictionaries"
+  },
+  "retained_boundaries": [
+    "Unknown/runtime directives, INCLUDE, persistence, scheduling, task/group and device-default mappings remain blocked",
+    "Every source symbol, call and type checked independently; no environment-based grants or native visibility/default-file emulation",
+    "No controller attribute writes or native/compiler/controller acceptance claim; strict remains future work"
+  ],
+  "tests": ["tests/test_directives.py", "tests/test_source_continuations.py", "tests/test_runtime_portability.py", "examples/pythonic_directives.kl"],
+  "controller_validated": false
+}

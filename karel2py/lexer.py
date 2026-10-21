@@ -31,6 +31,23 @@ PATTERN = re.compile(
 )
 
 
+def directive_content(value):
+    """Find a directive's real trailing comment and unquoted continuation marker."""
+    quoted, continued, index = False, False, 0
+    while index < len(value):
+        char = value[index]
+        if char == "'":
+            if quoted and index + 1 < len(value) and value[index + 1] == "'":
+                index += 2
+                continue
+            quoted = not quoted
+        elif not quoted:
+            if value.startswith('--', index): return value[:index].strip(), continued
+            if char == '&': continued = True
+        index += 1
+    return value.strip(), continued
+
+
 def tokenize(source, filename, *, continuations=None):
     raw, line, column = [], 1, 1
     # utf-8-sig is used by the CLI; support direct API callers too.
@@ -40,7 +57,7 @@ def tokenize(source, filename, *, continuations=None):
         token = Token(kind, value.upper() if kind == 'NAME' else value, line, column)
         if kind == 'BAD':
             raise TranslationError('E_LEX', f"Unsupported character {value!r}", token, filename)
-        if kind == 'DIRECTIVE' and '&' in value.split('--', 1)[0]:
+        if kind == 'DIRECTIVE' and directive_content(value)[1]:
             raise TranslationError('E_CONTINUATION_DIRECTIVE',
                                    'Continued translator directives are not supported', token, filename)
         raw.append(token)

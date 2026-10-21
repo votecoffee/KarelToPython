@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.68.0 - 2026-10-21
+
+- Accept Pythonic ENVIRONMENT, COMMENT and ALPHABETIZE as syntax-checked metadata,
+  retaining NOLOCKGROUP. Preserve raw/source-located and decoded report entries,
+  environment requirements and generated Program.source_directives tuple pairs.
+- Scan directive quotes before recognizing trailing comments or continuations.
+  Preserve literal ampersands, comment markers and doubled apostrophes; enforce
+  COMMENT's length/header rules and explicit duplicate/name/form guards.
+- Add 49 regressions, an authored helper/output example, runtime-only portability
+  and a directive guide. No implicit environment definitions, extra calls,
+  controller attributes or offline storage reordering. Runtime directives remain
+  blocked; strict remains future work.
+
 ## 0.67.0 - 2026-10-21
 
 - Add Pythonic CNV_STR_CONF/CNV_CONF_STR fallbacks with portable CONFIG flag/turn

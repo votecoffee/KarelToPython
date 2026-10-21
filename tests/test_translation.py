@@ -162,7 +162,7 @@ class RejectionTests(unittest.TestCase):
             with self.subTest(statement=statement): self.reject(statement, 'E_ABORT_TARGET' if statement.startswith('ABORT') else 'E_UNSUPPORTED')
 
     def test_directives_fail_closed(self):
-        for directive in ('%CMOSVARS', '%INCLUDE ABC', '%ENVIRONMENT REGOPE', '%DEFGROUP=1'):
+        for directive in ('%CMOSVARS', '%INCLUDE ABC', '%DEFGROUP=1'):
             with self.subTest(directive=directive): self.reject('x = 1', 'E_DIRECTIVE', extra=directive)
 
     def test_unsupported_types(self):

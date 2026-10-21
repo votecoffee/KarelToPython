@@ -46,7 +46,7 @@ def main():
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
                                       for name in ['__init__.py', 'compiler.py', 'lexer.py', 'runtime.py']},
                   counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
-                  boundary='Unchanged full original V8.33 conversion sources. Translation acceptance is separate from procedure outcomes. Geometry declarations and environment directives remain blockers. No corpus execution, compiler invocation or controller validation.')
+                  boundary='Unchanged full original V8.33 conversion sources. Translation acceptance is separate from procedure outcomes. Unsupported geometry remains a blocker; ENVIRONMENT records requirements without enabling extra symbols or calls. No corpus execution, compiler invocation or controller validation.')
     if args.baseline:
         old = json.loads(args.baseline.read_text(encoding='utf-8'))
         prior = {row['relative_source']: row for row in old['cases']}

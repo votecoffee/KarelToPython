@@ -8,7 +8,7 @@ import hashlib
 import json
 import re
 
-from .lexer import Token, TranslationError, tokenize
+from .lexer import Token, TranslationError, tokenize, directive_content
 from . import runtime as rt
 from . import __version__
 
@@ -61,6 +61,7 @@ class Program:
     body: list
     directives: list
     user_types: list = field(default_factory=list)
+    directive_metadata: list = field(default_factory=list)
 
 
 @dataclass
@@ -189,6 +190,7 @@ class Parser:
         self.continuations = []
         self.escaped_string_literals = []
         self.predefined_uses = []
+        self.directive_metadata = []
         self.tokens = tokenize(source, filename, continuations=self.continuations)
         self.position = 0
         self.filename = filename
@@ -227,19 +229,51 @@ class Parser:
             self.error('E_NAME', 'Expected a non-reserved identifier')
         return self.take()
 
+    def metadata_directive(self, token, declarations_started):
+        content, _ = directive_content(token.value)
+        head = re.match(r'%[A-Za-z][A-Za-z_0-9]*', content)
+        name = head[0].upper() if head else ''
+        argument = None
+        disposition = 'Offline metadata only; no task/group ownership'
+        if content.upper() == '%NOLOCKGROUP': name = '%NOLOCKGROUP'
+        elif self.mode != 'pythonic' or name not in ('%ENVIRONMENT', '%COMMENT', '%ALPHABETIZE'):
+            self.error('E_DIRECTIVE', 'Directive has no implemented runtime mapping', token)
+        elif name == '%ENVIRONMENT':
+            match = re.fullmatch(r'%ENVIRONMENT\s+([A-Za-z][A-Za-z_0-9]{0,35})', content, re.I)
+            if not match: self.error('E_DIRECTIVE_SYNTAX', 'ENVIRONMENT requires one bare ASCII name of 1..36 characters; no paths or file loading', token)
+            argument = match[1].upper()
+            disposition = 'Recorded environment requirement only; no definitions, files, modules or controller facilities loaded'
+        elif name == '%COMMENT':
+            if declarations_started: self.error('E_DIRECTIVE_POSITION', 'COMMENT must precede CONST/TYPE/VAR sections and routines', token)
+            if any(row['name'] == name for row in self.directive_metadata):
+                self.error('E_DIRECTIVE_DUPLICATE', 'Multiple COMMENT attributes require a precedence policy', token)
+            match = re.fullmatch(r"%COMMENT\s*=\s*'((?:[^']|'')*)'", content, re.I)
+            if not match: self.error('E_DIRECTIVE_SYNTAX', 'COMMENT requires one single-quoted literal after =', token)
+            argument = match[1].replace("''", "'")
+            if not argument.isascii() or len(argument) > 16:
+                self.error('E_DIRECTIVE_VALUE', 'COMMENT requires at most 16 decoded ASCII characters', token)
+            disposition = 'Recorded program comment only; no controller attribute write'
+        elif content.upper() != '%ALPHABETIZE':
+            self.error('E_DIRECTIVE_SYNTAX', 'ALPHABETIZE accepts no arguments', token)
+        else:
+            disposition = 'Recorded display-order request; offline storage and snapshots retain declaration order'
+        self.directive_metadata.append(dict(name=name, argument=argument, line=token.line,
+                                            column=token.column, disposition=disposition))
+
     def parse(self):
         self.skip_lines()
         self.expect('PROGRAM')
         name = self.name().value
         constants, declarations, routines, directives, user_types = [], [], [], [], []
+        declarations_started = False
         while True:
             self.skip_lines()
             token = self.current
             if token.kind == 'DIRECTIVE':
-                if token.value.split('--', 1)[0].strip().upper() != '%NOLOCKGROUP':
-                    self.error('E_DIRECTIVE', 'Directive has no implemented runtime mapping', token)
+                self.metadata_directive(token, declarations_started)
                 directives.append(self.take())
             elif self.accept('CONST'):
+                declarations_started = True
                 self.skip_lines()
                 while self.current.kind == 'NAME' and self.current.value not in RESERVED:
                     key = self.name()
@@ -247,6 +281,7 @@ class Parser:
                     constants.append((key, self.expression()))
                     self.skip_lines()
             elif self.accept('TYPE'):
+                declarations_started = True
                 self.skip_lines()
                 while self.current.kind == 'NAME' and self.current.value not in RESERVED:
                     key = self.name()
@@ -269,6 +304,7 @@ class Parser:
                     user_types.append((key, fields))
                     self.skip_lines()
             elif self.accept('VAR'):
+                declarations_started = True
                 self.skip_lines()
                 while self.current.kind == 'NAME' and self.current.value not in RESERVED:
                     names = [self.name()]
@@ -278,6 +314,7 @@ class Parser:
                     declarations.extend((key, spec) for key in names)
                     self.skip_lines()
             elif self.current.value == 'ROUTINE':
+                declarations_started = True
                 routines.append(self.routine())
             elif self.accept('BEGIN'):
                 body = self.block({'END'})
@@ -285,7 +322,7 @@ class Parser:
                 self.expect(name)
                 self.skip_lines()
                 self.expect('<EOF>')
-                return Program(name, constants, declarations, routines, body, directives, user_types)
+                return Program(name, constants, declarations, routines, body, directives, user_types, self.directive_metadata)
             else:
                 self.error('E_DECLARATION', 'Expected CONST, TYPE, VAR, ROUTINE or BEGIN; external declarations and controller types are not implemented')
 
@@ -2337,6 +2374,7 @@ class Emitter:
         self.indent = 1
         self.line(f'source_program = {self.program.name!r}')
         self.line(f'translation_mode = {self.mode!r}')
+        self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
         self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None):')
@@ -2718,7 +2756,9 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                                                      else ['reference'] if spec[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS') else ['reference', 'value']))
                                                  for t, spec in r.parameters])
                          for r in program.routines},
-        directives=[dict(text=t.value, line=t.line, disposition='Offline metadata only; no task/group ownership') for t in program.directives],
+        directives=[dict(text=t.value, line=t.line, disposition=metadata['disposition'])
+                    for t, metadata in zip(program.directives, program.directive_metadata)],
+        directive_metadata=[dict(row) for row in program.directive_metadata],
         limitations=['Offline subset; no controller behavior validation',
                      'WRITE accepts one STRING with checked literal formats or one unformatted BOOLEAN/nonnegative INTEGER with exactly one leading blank; BOOLEAN/INTEGER formats, negative INTEGER/REAL output, direct BYTE/SHORT items, quoted truncation/fallback/apostrophes, signed widths, device/stdout mapping, buffering, CR and IO_STATUS remain blocked',
                      'DELAY uses checked host time.sleep or an injected synchronous sleeper; controller timing, motion, pause and abort behavior remain unverified; step budget is not a wall-clock limit',
@@ -2772,6 +2812,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['directive_policy'] = dict(
+        allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP'],
+        scope='Syntax-checked top-level metadata only; preserve source order, raw text and decoded values; generated Program.source_directives contains immutable normalized pairs',
+        environment='One bare ASCII letter-starting name, 1..36 characters, normalized uppercase; record requirements without loading definitions, files, modules or controller facilities; source symbols/calls still checked individually',
+        comment='One decoded ASCII literal of at most 16 characters before CONST/TYPE/VAR/routines; preserve literal comment/ampersand characters and doubled apostrophes; duplicate attributes rejected',
+        alphabetize='Record display-order request; offline storage/snapshot order remains declaration order',
+        required_environments=list(dict.fromkeys(row['argument'] for row in report['directive_metadata'] if row['name'] == '%ENVIRONMENT')),
+        boundary='No unknown/runtime directives, includes, binary environment loading, implicit built-ins, task/group ownership, persistence, scheduler or device-default mapping; strict remains future work',
+        controller_validated=False)
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
                                scope='Practical Python numeric, typed input, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')
     report['read_policy'] = dict(

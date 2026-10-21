@@ -1,0 +1,19 @@
+PROGRAM PYTHONIC_DIRECTIVES
+%COMMENT = 'Can''t -- &sort' -- a real trailing comment
+%ENVIRONMENT STRNG
+%ENVIRONMENT SYSTEM
+%ALPHABETIZE
+%NOLOCKGROUP
+VAR z,a,total: INTEGER text: STRING[16]
+ROUTINE add(n: INTEGER)
+BEGIN
+  total=total+n
+END add
+BEGIN
+  CNV_STR_INT('7',z)
+  a=3
+  total=z
+  add(a)
+  text='metadata'
+  WRITE(text,':',total::0,CR)
+END PYTHONIC_DIRECTIVES

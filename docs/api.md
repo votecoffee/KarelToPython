@@ -29,6 +29,11 @@ independent CONFIG data and source-located `pos_constructors` report entries.
 [CONFIG text conversions](config-text.md) expose `config_text_conversions` and
 `config_text_policy`, including portable grammar, output guards and status behavior.
 
+[Source directives](source-directives.md) retain raw `directives`, decoded
+`directive_metadata` and a `directive_policy` with `required_environments`.
+These are recorded requirements and attributes; they do not load definitions or
+enable additional source symbols or calls.
+
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
 is embedded in `Program.translation_mode`, the report translation context and
@@ -71,6 +76,10 @@ A generated module defines `Program(*, sleep=None, write=None, read=None, joint_
 Call `Program().run(max_steps=100_000)` to execute explicitly and receive a
 snapshot of global variables. Only the generated module's entry point runs it
 automatically; importing a module defines its class.
+
+`Program.source_directives` contains immutable normalized `(name, argument)` pairs
+in source order, with `None` for directives without arguments. It is empty when
+no supported directives occur. It is available without the compiler installed.
 
 `snapshot()` returns the current global state. Names are normalized to uppercase.
 Uninitialized scalar values are represented as `{"uninitialized": true}` and

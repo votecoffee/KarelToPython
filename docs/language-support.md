@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.67.0. Acceptance is specific to
+This is the supported prototype subset as of 0.68.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -11,7 +11,7 @@ internally and in the historical semantic notes.
 
 | Area | Supported subset | Limits |
 | --- | --- | --- |
-| Source | Case-insensitive ASCII identifiers, comments, supported metadata directives, bounded complete-token continuations, doubled apostrophes | No arbitrary directives, token fusion, backslash escapes or multiline string literals. |
+| Source | Case-insensitive ASCII identifiers, comments, ENVIRONMENT/COMMENT/ALPHABETIZE/NOLOCKGROUP metadata, bounded complete-token continuations, doubled apostrophes | Environment requirements do not load definitions or grant extra calls. No arbitrary/runtime directives, token fusion, backslash escapes or multiline string literals. |
 | Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR calls must protect active counters through transitive write checks; read-only counter references allowed; initialized counters clear on all scope exits. Formal/nonlocal counters in parameterized routines require fresh locals. SELECT uses first matching case and errors without a match/ELSE. |
 | Labels | Restricted labels and unconditional GOTO | Jumps within the same block or to an ancestor; no arbitrary entry into nested control blocks. |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; existing FOR rules; no external routine linkage or local TYPE sections. |
@@ -52,6 +52,7 @@ See [text input](text-input.md) for ASCII parsing, CR, cursor and --read-text.
 See [READ formats](read-formats.md) for widths, bases, quoting and dynamic expressions.
 See [POS construction](pos-construction.md) for Cartesian values, CONFIG copies and bounds.
 See [CONFIG text](config-text.md) for portable parsing, formatting, status and capacity rules.
+See [source directives](source-directives.md) for metadata syntax, placement and environment boundaries.
 
 ## Zero-argument function calls
 

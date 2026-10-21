@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.67.0",
+  "translator_version": "0.68.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "POS fallback construction of independent checked XYZWPR values",

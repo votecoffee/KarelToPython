@@ -70,6 +70,7 @@ are kept outside public documentation.
 | Predefined | [predefined_semantics.json](predefined_semantics.json) |
 | Select | [select_semantics.json](select_semantics.json) |
 | Source | [source_semantics.json](source_semantics.json) |
+| Source directive metadata | [directive_semantics.json](directive_semantics.json) |
 | String | [string_semantics.json](string_semantics.json) |
 | String value | [string_value_semantics.json](string_value_semantics.json) |
 | Structure routine | [structure_routine_semantics.json](structure_routine_semantics.json) |
