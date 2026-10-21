@@ -2,6 +2,8 @@
 
 Since 0.66.0, `POS(x,y,z,w,p,r,c)` constructs a fresh XYZWPR value from six
 numeric components and an explicitly initialized CONFIG.
+Since 0.67.0, [CONFIG text conversion](config-text.md) offers a shorter way to
+initialize all CONFIG fields using a documented portable grammar.
 
 ```karel
 PROGRAM CARTESIAN

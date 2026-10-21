@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.67.0 - 2026-10-21
+
+- Add Pythonic CNV_STR_CONF/CNV_CONF_STR fallbacks with portable CONFIG flag/turn
+  grammar and complete canonical text. Preserve explicit user routines, source
+  order, concrete capacities, stable aggregate storage and both output effects.
+- Parse success writes status zero; portable invalid-text status one preserves
+  CONFIG. Guard failures raise before conversion writes. Formatting snapshots
+  initialized CONFIG before target effects and rejects insufficient capacity
+  without truncation. Retain overlap, FOR, type, field and cleanup protections.
+- Add 60 regressions, an authored CONFIG/POS example, runtime-only portability,
+  reports and a grammar/status guide. Omitted values and nonzero status are
+  explicit offline choices; no robot/group mask, native error or controller
+  validity is inferred. Strict and group-specific CNV_CNF_STRG remain future work.
+
 ## 0.66.0 - 2026-10-21
 
 - Add Pythonic POS(x,y,z,w,p,r,c) construction of fresh XYZWPR values with six

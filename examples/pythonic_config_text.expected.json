@@ -1,0 +1,12 @@
+{
+  "CFG": {"CFG_TURN_NO1": -1, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 2,
+    "CFG_FLIP": true, "CFG_LEFT": false, "CFG_UP": true, "CFG_FRONT": true},
+  "SAVED": {"CFG_TURN_NO1": -1, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 2,
+    "CFG_FLIP": true, "CFG_LEFT": false, "CFG_UP": true, "CFG_FRONT": true},
+  "POSE": {"X": 1.25, "Y": -2.0, "Z": 0.5, "W": 10.0, "P": 20.0, "R": 30.0,
+    "CONFIG_DATA": {"CFG_TURN_NO1": -1, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 2,
+      "CFG_FLIP": true, "CFG_LEFT": false, "CFG_UP": true, "CFG_FRONT": true}},
+  "TEXT": "F R U T, -1, 0, 2",
+  "CODE": 0,
+  "FAIL_CODE": 1
+}

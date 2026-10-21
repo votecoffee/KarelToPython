@@ -695,6 +695,67 @@ def _store_conversion_text(name, target, text, line):
     target.set(text, line)
 
 
+CONFIG_TEXT_FLAGS = (('CFG_FLIP', 'N', 'F'), ('CFG_LEFT', 'R', 'L'),
+                     ('CFG_UP', 'D', 'U'), ('CFG_FRONT', 'B', 'T'))
+CONFIG_TEXT_INVALID = 1  # Portable parse failure, not a native controller code.
+
+
+def _parse_config_text(source, line=None):
+    text = ascii_string(source, line)
+    if len(text) > 254: raise KarelRuntimeError('CONFIG text input is limited to 254 characters', line)
+    parts = text.upper().split(',')
+    if len(parts) not in (1, 4): return None
+    flags = re.sub(r'\s+', '', parts[0])
+    if not flags: return None
+    values = {field: False for field, _, _ in CONFIG_TEXT_FLAGS}
+    choices = {letter: (field, enabled) for field, off, on in CONFIG_TEXT_FLAGS
+               for letter, enabled in ((off, False), (on, True))}
+    seen = set()
+    for letter in flags:
+        if letter not in choices: return None
+        field, value = choices[letter]
+        if field in seen: return None
+        seen.add(field); values[field] = value
+    try: turns = [int(part, 10) for part in parts[1:]] if len(parts) == 4 else [0, 0, 0]
+    except ValueError: return None
+    if any(not -8 <= value <= 7 for value in turns): return None
+    values.update(zip(('CFG_TURN_NO1','CFG_TURN_NO2','CFG_TURN_NO3'), turns))
+    result = Structure(('CONFIG',)); result.values.update(values)
+    return positional_value(('CONFIG',), result, line)
+
+
+def config_text_conversion(name, source, target, status=None, *, line=None):
+    """Portable CONFIG text conversions; no robot mask or native error mapping."""
+    if not _pythonic() or name not in ('CNV_CONF_STR', 'CNV_STR_CONF'):
+        raise KarelRuntimeError('Unsupported CONFIG text conversion', line)
+    if type(target) is not Reference: raise KarelRuntimeError('CONFIG conversion requires ordinary writable output storage', line)
+    if name == 'CNV_CONF_STR':
+        spec = target.spec
+        if (status is not None or type(spec) is not tuple or len(spec) != 2 or spec[0] != 'STRING'
+                or type(spec[1]) is not int or not 1 <= spec[1] <= 254):
+            raise KarelRuntimeError('CNV_CONF_STR requires a concrete STRING output and no status', line)
+        config = positional_value(('CONFIG',), source, line)
+        text = ' '.join(on if config.values[field] else off for field, off, on in CONFIG_TEXT_FLAGS)
+        text += ', ' + ', '.join(str(config.values[field]) for field in ('CFG_TURN_NO1','CFG_TURN_NO2','CFG_TURN_NO3'))
+        if len(text) > spec[1]: raise KarelRuntimeError('CNV_CONF_STR output capacity is too small for complete CONFIG text', line)
+        target.set(text, line)
+        return
+    if target.spec != ('CONFIG',) or type(status) is not Reference or status.spec != INTEGER:
+        raise KarelRuntimeError('CNV_STR_CONF requires CONFIG and INTEGER output references', line)
+    current = target.raw(); fields = dict(record_fields(('CONFIG',)))
+    if current is not UNINITIALIZED and (not isinstance(current, Structure) or current.spec != ('CONFIG',)
+            or current.types != fields or type(current.values) is not dict or set(current.values) != set(fields)):
+        raise KarelRuntimeError('CNV_STR_CONF CONFIG destination has malformed storage', line)
+    if _reference_cells(target) & _reference_cells(status):
+        raise KarelRuntimeError('CNV_STR_CONF outputs must not overlap', line)
+    value = _parse_config_text(source, line)
+    if value is None:
+        status.set(CONFIG_TEXT_INVALID, line)
+        return
+    target.set(value, line)
+    status.set(0, line)
+
+
 def conversion_procedure(name, source, *arguments, line=None):
     """Bounded pure-data conversions with one checked caller output reference."""
     output_types = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'CNV_STR_REAL': 'REAL',

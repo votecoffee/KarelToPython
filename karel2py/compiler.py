@@ -166,6 +166,7 @@ BUILTIN_PROCEDURES = {'CNV_STR_INT': ('STRING',), 'CNV_INT_STR': ('INTEGER', 'IN
 CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'CNV_STR_REAL': 'REAL',
                            'CNV_REAL_STR': 'STRING'}
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
+CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
 # Constructors are Pythonic fallbacks. Preserve existing internal routines and
 # ordinary declarations with these names.
@@ -776,6 +777,7 @@ class Emitter:
         self.vector_value_uses = []
         self.vector_constructor_uses = []
         self.pos_constructor_uses = []
+        self.config_text_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -1259,6 +1261,12 @@ class Emitter:
                             if name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
                             if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
+                    if self.mode == 'pythonic' and call.value in CONFIG_TEXT_PROCEDURES and call.value not in self.routines:
+                        for output in call.args[1:]:
+                            name = self.root_name(output)
+                            if name not in local_names: routine.side_effecting = True
+                            if name in parameter_names: routine.parameter_writes.add(name)
+                            if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                     if call.value in BUILTIN_PROCEDURES and call.args:
                         name = self.root_name(call.args[-1])
                         if name not in local_names:
@@ -1542,7 +1550,8 @@ class Emitter:
         if expr.kind == 'call':
             if self.active_counters and expr.value in self.routines:
                 self.check_for_call(expr.token, self.routines[expr.value])
-            if expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES:
+            if (expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES
+                    or self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES and expr.value not in self.routines):
                 self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
             if expr.value in BUILTINS or (self.mode == 'pythonic' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines):
                 return self.builtin_call(expr)
@@ -1645,6 +1654,32 @@ class Emitter:
         self.features.add(expr.value)
         self.features.add('conversion output by reference')
         return f'_rt.conversion_procedure({expr.value!r}, {", ".join(codes)}, {reference}, line={expr.token.line})'
+
+    def config_text_conversion(self, expr):
+        parsing = expr.value == 'CNV_STR_CONF'
+        count = 3 if parsing else 2
+        if len(expr.args) != count: self.error('E_ARGUMENTS', f'{expr.value} requires {count} arguments', expr.token)
+        self.check_for_call(expr.token)
+        source = self.require_type(expr.args[0], 'STRING' if parsing else 'CONFIG')
+        if not parsing: source = f'_rt.positional_value(("CONFIG",), {source}, {expr.args[0].token.line})'
+        outputs = []
+        for argument, expected in zip(expr.args[1:], ('CONFIG','INTEGER') if parsing else ('STRING',)):
+            base = argument
+            while base.kind in ('field', 'index'): base = base.args[0]
+            if argument.kind not in ('name', 'field', 'index') or base.kind != 'name' or base.value in self.visible_constants():
+                self.error('E_OUTPUT_ARGUMENT', 'CONFIG conversion outputs require storage rooted in a variable', argument.token)
+            if base.value in self.active_counters: self.error('E_FOR_COUNTER', 'CONFIG conversion cannot write an active FOR counter', argument.token)
+            if self.is_position_read_only_access(argument): self.error('E_POSITION_READ_ONLY', 'CONFIG conversion output is read-only', argument.token)
+            if self.is_config_subfield(argument): self.error('E_CONFIG_OUTPUT', 'CONFIG subfields cannot be conversion output aliases', argument.token)
+            code, spec = self.reference(argument)
+            if spec[0] != expected: self.error('E_TYPE', f'{expr.value} output requires {expected}', argument.token)
+            outputs.append(code)
+        self.features.add(expr.value)
+        self.config_text_uses.append(dict(name=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
+                                         line=expr.token.line, column=expr.token.column, arguments_evaluated_once=True,
+                                         argument_order=['source','target','status'] if parsing else ['source','target'],
+                                         outputs=2 if parsing else 1, source_copied=not parsing))
+        return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line})'
 
     def joint_conversion(self, expr):
         if len(expr.args) != 3:
@@ -2218,6 +2253,9 @@ class Emitter:
             self.indent -= 2
         elif kind == 'call':
             expr = stmt.args[0]
+            if self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES and expr.value not in self.routines:
+                self.line(self.config_text_conversion(expr), token)
+                return
             if expr.value in JOINT_PROCEDURES:
                 self.line(self.joint_conversion(expr), token)
                 return
@@ -2586,6 +2624,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                            controller_validated=False),
         vector_constructors=emitter.vector_constructor_uses,
         pos_constructors=emitter.pos_constructor_uses,
+        config_text_conversions=emitter.config_text_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -2813,6 +2852,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         configuration='Exact complete CONFIG shape, initialized checked fields and existing turn range -8..7; copied without robot-specific validity inference',
         evaluation='Evaluate arguments once left to right before constructor-specific bounds/config checks; ordinary expression failures stop later expressions; no destination write on failure',
         boundary='No implicit CONFIG, group/frame/robot context, POSITION/XYZWPREXT coercion, orientation conversion, kinematics, native pause/status or controller validity claim',
+        controller_validated=False)
+    report['config_text_policy'] = dict(
+        procedures=sorted(CONFIG_TEXT_PROCEDURES),
+        grammar='ASCII case-insensitive N/F, R/L, D/U, B/T flag pairs, at most one per pair in any order; optional three comma-separated decimal turns -8..7; omitted flags false and omitted turns zero as portable values',
+        canonical='Wrist, shoulder, elbow, front flags separated by spaces, followed by three comma-separated turns; include every field',
+        status='CNV_STR_CONF: 0 success; portable 1 invalid text/range, retaining CONFIG; not a native controller code; malformed storage/type/ASCII/length raises without output writes',
+        formatting='CNV_CONF_STR snapshots complete initialized CONFIG before target capture; insufficient STRING capacity raises without truncation or mutation',
+        evaluation='Source then target then status once; preflight output types/shape/disjointness before writes; preserve captured aggregate storage, prior effects and ordinary cleanup',
+        names='Fallback procedures; explicit internal routines of the same name retain their signatures and effects',
+        boundary='No robot validity, group masks/defaults, CNV_CNF_STRG, native status/alarm mapping or controller contact; strict remains future work',
         controller_validated=False)
     report['unpos_policy']['input'] = 'XYZWPR storage; initialized finite REAL components and bounded CONFIG'
     report['unpos_policy']['boundary'] = 'No POSITION/XYZWPREXT/JOINTPOS coercion, frame/kinematic conversion, controller config-validity, status or alarm mapping; UNPOS still requires captured source storage'

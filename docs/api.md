@@ -26,6 +26,8 @@ hashes, features, effect analysis and feature-specific policies.
 
 Pythonic [POS construction](pos-construction.md) supplies checked XYZWPR values,
 independent CONFIG data and source-located `pos_constructors` report entries.
+[CONFIG text conversions](config-text.md) expose `config_text_conversions` and
+`config_text_policy`, including portable grammar, output guards and status behavior.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode

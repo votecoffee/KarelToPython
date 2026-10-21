@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.67.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Portable CNV_STR_CONF and CNV_CONF_STR with checked outputs and explicit grammar",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [145, 146, 338, 341, 347],
+    "documented": "CONFIG flag categories and fields, conversion signatures, successful status zero and sufficient STRING capacity; native strings require robot validity",
+    "uncertainty": "No authenticated robot/group masks, full native grammar, invalid-input output state or native error codes"
+  },
+  "implementation_choices": {
+    "grammar": "ASCII case-insensitive flag letters, at most one per N/F, R/L, D/U, B/T pair in any order; optional three comma-separated Python decimal turns -8..7; omitted flags false and omitted turns zero as portable data",
+    "canonical": "Emit all flags in wrist/shoulder/elbow/front order with spaces, followed by three comma-space-separated decimal turns; retain every field without a robot mask",
+    "parse_status": "Success 0; portable CONFIG_TEXT_INVALID=1 for malformed grammar/ranges, preserving CONFIG; type/storage/ASCII/length guard failures raise before output writes",
+    "format": "Complete initialized CONFIG snapshot before target capture; require sufficient concrete STRING capacity; no truncation or output mutation on guard failure",
+    "outputs": "CONFIG and exact INTEGER ordinary writable references, disjoint storage footprints, preserved aggregate storage and captured aliases; CONFIG scalar status aliases stay blocked",
+    "effects": "Source/target/status once in source order; both outputs participate in transitive write/FOR checks; prior effects remain and ordinary cleanup applies",
+    "names": "Fallback procedures, preserving explicitly declared internal routines with the same names and strict-mode unsupported-call behavior",
+    "reports": "Source-located config_text_conversions and current config_text_policy"
+  },
+  "retained_boundaries": [
+    "No native robot/group masks, inferred controller defaults, CNV_CNF_STRG or configuration validity claim",
+    "No native error/status/alarm mapping, controller contact, binary I/O or kinematics",
+    "Existing nominal types, initialization, capacities, reference protections and resource checks; strict remains future work"
+  ],
+  "tests": ["tests/test_config_text.py", "tests/test_pos_constructor.py", "tests/test_data_records.py", "tests/test_runtime_portability.py", "examples/pythonic_config_text.kl"],
+  "controller_validated": false
+}

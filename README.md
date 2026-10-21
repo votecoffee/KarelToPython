@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.66.0**. It is a
+tool are named **karel2py**. The current implementation is **0.67.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -169,6 +169,8 @@ and left-associated cross/dot chains support composed calculations such as
 
 `POS(x,y,z,w,p,r,c)` constructs an independent XYZWPR with explicit CONFIG data
 and checked coordinate/angle bounds. See [POS construction](docs/pos-construction.md).
+CONFIG text parsing and complete formatting use an explicit offline grammar and
+portable failure status. See [CONFIG text](docs/config-text.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with
@@ -188,6 +190,7 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
   ARRAY functions, selected built-ins, general degree trig, SQRT, EXP and LN.
 - Positional data records, POS/XYZWPR construction, opaque joint values,
   VECTOR construction/signs/products and explicit-context offline conversion subsets.
+- CONFIG text parsing/formatting, with checked complete outputs and portable status.
 - Rounded fixed/scientific REAL text formatting with precision -254..254,
   minimum-width padding and caller-capacity overflow markers.
 - Signed INTEGER text formatting in bases 2..16, with checked output references
