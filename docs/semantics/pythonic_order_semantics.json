@@ -1,0 +1,23 @@
+{
+  "translator_version": "0.54.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "evidence": "Chosen Pythonic policy, authored execution tests and independent complete example fixtures; no inferred native KAREL order.",
+  "operands": "Evaluate once left to right; checked independent VECTOR operands capture contents before subsequent calls.",
+  "boolean": "BOOLEAN AND/OR short circuit using Python. INTEGER AND/OR remain eager bitwise operations. Skipped expressions remain statically checked.",
+  "actuals": "Evaluate once in source order. Bare storage captures live references; grouping, expressions and function results capture independent supported values. Later actuals can change earlier referenced storage.",
+  "assignment": "Evaluate and capture RHS before resolving the target. Aggregate RHS uses a checked independent copy; target effects follow capture. Storage/type/shape/capacity/protection checks remain.",
+  "subscripts": "Evaluate the base then all subscripts once left to right; bounds checks follow. Indexed references keep the selected cell.",
+  "conversions": "Evaluate arguments and references in source order before entering a conversion. Bare aggregate source storage remains live through argument evaluation. Existing UNPOS overlap, output type and explicit joint-context checks remain.",
+  "for": "Evaluate initial once and store counter, then final once. Capture resulting counter and inclusive stop for iteration. Normal exit clears counter. Existing fresh-local body-call rules remain.",
+  "failure": "First runtime error or ABORT stops later evaluation, retains prior effects and unwinds frames. Earlier nested output remains visible.",
+  "compatibility": "Before 0.54.0 Boolean operands were eager and target references resolved before RHS. Conservative order rejections remain internally tested for the future strict milestone.",
+  "boundaries": [
+    "Existing source/type/initialization/ownership/domain/shape/overlap and FOR guards remain",
+    "Whole ARRAY value arguments and ARRAY results outside direct assignment remain unsupported",
+    "No controller scheduling, native call ABI or native order equivalence claim",
+    "Public strict mode remains a future milestone"
+  ],
+  "tests": ["tests/test_pythonic_order.py", "tests/test_runtime_portability.py", "examples/pythonic_order.kl"],
+  "controller_validated": false
+}

@@ -2,6 +2,7 @@
 import ast
 import unittest
 from karel2py import translate,runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from tests.test_data_records import init_config,init_pose
 
@@ -10,9 +11,9 @@ POSE=dict(X=1.,Y=2.,Z=3.,W=0.,P=90.,R=180.,CONFIG_DATA=CONFIG)
 POSE_FACTORY='ROUTINE make: XYZWPR VAR p: XYZWPR BEGIN '+init_pose()+' RETURN p END make'
 NEW_TYPES=('CONFIG','XYZWPR','XYZWPREXT','POSITION','JOINTPOS3')
 
-def compile_program(body='',*,declarations='p,q: XYZWPR c,d: CONFIG n: INTEGER',routines='',prefix='',joint_axes=None,labelled=False):
+def compile_program(body='',*,declarations='p,q: XYZWPR c,d: CONFIG n: INTEGER',routines='',prefix='',joint_axes=None,labelled=False, _translator=translate):
     label='entry::\n' if labelled else ''
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{label}{body}\nEND T',filename='positional_routines.kl')
+    result=_translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{label}{body}\nEND T',filename='positional_routines.kl')
     ast.parse(result.python_source,feature_version=(3,11))
     namespace={'__name__':'positional_routine_test'}; exec(result.python_source,namespace)
     return namespace['Program'](joint_axes=joint_axes),result
@@ -170,11 +171,11 @@ class PositionalRoutineGuardTests(unittest.TestCase):
     def test_named_array_result_and_whole_array_value_stay_blocked(self):
         self.reject('E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[2] OF REAL',routines='ROUTINE get: row_t BEGIN END get')
         self.reject('E_ARRAY_VALUE','work((a))',declarations='a: ARRAY[2] OF XYZWPR',routines='ROUTINE work(v: ARRAY OF XYZWPR) BEGIN END work')
-    def test_multiple_arguments_containing_result_call_stay_blocked(self): self.reject('E_EVALUATION_ORDER','work(make(),p)',routines=POSE_FACTORY+'\nROUTINE work(v,w: XYZWPR) BEGIN END work')
-    def test_effectful_indexed_result_stays_blocked(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='p: XYZWPR items: ARRAY[1] OF XYZWPR n: INTEGER',routines='ROUTINE get: XYZWPR BEGIN n=7 RETURN p END get')
+    def test_multiple_arguments_containing_result_call_stay_blocked(self): self.reject('E_EVALUATION_ORDER','work(make(),p)',routines=POSE_FACTORY+'\nROUTINE work(v,w: XYZWPR) BEGIN END work', _translator=legacy_translate)
+    def test_effectful_indexed_result_stays_blocked(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='p: XYZWPR items: ARRAY[1] OF XYZWPR n: INTEGER',routines='ROUTINE get: XYZWPR BEGIN n=7 RETURN p END get', _translator=legacy_translate)
     def test_delay_output_abort_effects_stay_transitive(self):
         for effect in ('DELAY 0',"WRITE('pose')",'IF FALSE THEN ABORT ENDIF'):
-            with self.subTest(effect=effect): self.reject('E_EVALUATION_ORDER','items[1]=outer()',declarations='p: XYZWPR items: ARRAY[1] OF XYZWPR',routines=f'ROUTINE inner: XYZWPR BEGIN {effect} RETURN p END inner\nROUTINE outer: XYZWPR BEGIN RETURN inner() END outer')
+            with self.subTest(effect=effect): self.reject('E_EVALUATION_ORDER','items[1]=outer()',declarations='p: XYZWPR items: ARRAY[1] OF XYZWPR',routines=f'ROUTINE inner: XYZWPR BEGIN {effect} RETURN p END inner\nROUTINE outer: XYZWPR BEGIN RETURN inner() END outer', _translator=legacy_translate)
     def test_fallthrough_and_frame_cleanup(self):
         program,_=compile_program('q=get()',routines='ROUTINE get: XYZWPR BEGIN END get')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'without RETURN'): program.run()

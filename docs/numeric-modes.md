@@ -66,3 +66,7 @@ priority before implementing and validating a public strict contract.
 The older numeric/trig/conversion/vector semantic ledgers record that conservative
 research contract. Their exactness restrictions do not describe the public
 Pythonic mode; this document and the generated report describe its current rules.
+
+Pythonic mode also defines [evaluation order](evaluation-order.md), including
+function composition, Boolean short circuiting and assignment value capture.
+Older ordering rejections are retained internally for the strict milestone.

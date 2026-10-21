@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.53.0",
+  "translator_version": "0.54.0",
+  "evaluation_mode_note": "Public Pythonic mode uses the chosen order in ../evaluation-order.md; older ordering rejections below are retained only for the future strict milestone.",
   "contract_scope": "Historical conservative WRITE subset. Current public Pythonic output is described in pythonic_write_semantics.json and ../pythonic-output.md.",
   "numeric_mode_note": "Public translation is Pythonic. Exact REAL restrictions below preserve the legacy contract for a future strict milestone; see ../numeric-modes.md.",
   "date": "2026-10-13",

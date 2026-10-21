@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError
 
@@ -152,7 +153,7 @@ class PositiveTests(unittest.TestCase):
 class RejectionTests(unittest.TestCase):
     def reject(self, body, code, **kwargs):
         with self.assertRaises(TranslationError) as caught:
-            translate(source(body, **kwargs), filename='negative.kl')
+            kwargs.pop('_translator', translate)(source(body, **kwargs), filename='negative.kl')
         self.assertEqual(caught.exception.code, code, str(caught.exception))
         self.assertGreater(caught.exception.token.line, 0)
 
@@ -220,7 +221,7 @@ class RejectionTests(unittest.TestCase):
         self.assertEqual(run('SELECT 1 OF CASE(1): x = 0 CASE(1): x = 9 ENDSELECT')['X'], 0)
 
     def test_boolean_side_effect_order_blocked(self):
-        self.reject('b = TRUE OR f()', 'E_EVALUATION_ORDER', extra='ROUTINE f: BOOLEAN BEGIN RETURN TRUE END f')
+        self.reject('b = TRUE OR f()', 'E_EVALUATION_ORDER', extra='ROUTINE f: BOOLEAN BEGIN RETURN TRUE END f', _translator=legacy_translate)
 
     def test_unknown_character_cannot_be_python_injection(self):
         self.reject('x = __import__("os")', 'E_LEX')

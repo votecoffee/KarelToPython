@@ -1,0 +1,11 @@
+{
+  "TRACE": "nnnin",
+  "TEXT": "[seed]!",
+  "N": 4,
+  "RESULT": 12,
+  "SELECTED": 3,
+  "TOTAL": 10,
+  "I": {"uninitialized": true},
+  "SKIPPED": true,
+  "VALUES": [{"uninitialized": true}, 3]
+}

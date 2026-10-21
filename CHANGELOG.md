@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.54.0 - 2026-10-21
+
+- Enable Pythonic function composition in operators, multi-argument calls,
+  comma-separated subscripts, assignment targets, conversions and FOR bounds.
+  Evaluate ordinary operands and actuals once from left to right; bare actuals
+  keep live references while value actuals capture independent copies.
+- Change BOOLEAN AND/OR to Python short circuiting. Capture assignment values
+  before resolving targets, including checked independent aggregate copies.
+  Capture VECTOR operands before later calls can mutate their source storage.
+  These chosen rules can change behavior when retranslating older programs.
+- Preserve earlier effects and frame cleanup on errors/ABORT, along with type,
+  initialization, shape, ownership, output-overlap and FOR-body counter checks.
+  Document conversion input/reference evaluation and one-time FOR bounds.
+- Add the evaluation policy report, 80 execution regressions, an authored example
+  and compatibility guide. Retain conservative ordering tests internally for
+  the future strict milestone; no native evaluation-order equivalence claim.
+
 ## 0.53.0 - 2026-10-21
 
 - Add Pythonic internal STRING function results: plain `STRING` chooses capacity

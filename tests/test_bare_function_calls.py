@@ -4,6 +4,7 @@ import json
 import unittest
 
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from tests.test_structure_routines import initialized_host
 
@@ -14,9 +15,9 @@ ARRAY = 'ROUTINE build: ARRAY OF INTEGER VAR p: ARRAY[2] OF INTEGER BEGIN p[1]=7
 
 
 def compile_program(body='x=answer', *, routines=ANSWER, declarations='x,y,n,i: INTEGER flag: BOOLEAN a: ARRAY[2] OF INTEGER',
-                    types='', **context):
+                    types='', _translator=translate, **context):
     source = f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T'
-    result = translate(source, filename='bare_functions.kl')
+    result = _translator(source, filename='bare_functions.kl')
     ast.parse(result.python_source, feature_version=(3, 11))
     json.dumps(result.report)
     namespace = {'__name__': 'bare_function_test'}
@@ -184,43 +185,43 @@ class BareFunctionRejectionTests(unittest.TestCase):
         self.reject('E_SYMBOL', 'x=build[1]', routines=ARRAY)
 
     def test_assignment_target_subscript_call_rejected(self):
-        self.reject('E_EVALUATION_ORDER', 'a[answer]=1')
+        self.reject('E_EVALUATION_ORDER', 'a[answer]=1', _translator=legacy_translate)
 
     def test_effectful_operator_operand_rejected(self):
-        self.reject('E_EVALUATION_ORDER', 'x=answer+1', routines=EFFECT)
+        self.reject('E_EVALUATION_ORDER', 'x=answer+1', routines=EFFECT, _translator=legacy_translate)
 
     def test_transitive_effectful_operator_operand_rejected(self):
         routine = EFFECT + '\nROUTINE outer: INTEGER BEGIN RETURN answer END outer'
-        self.reject('E_EVALUATION_ORDER', 'x=outer+1', routines=routine)
+        self.reject('E_EVALUATION_ORDER', 'x=outer+1', routines=routine, _translator=legacy_translate)
 
     def test_boolean_operator_call_rejected_even_when_pure(self):
         routine = 'ROUTINE ready: BOOLEAN BEGIN RETURN ON END ready'
-        self.reject('E_EVALUATION_ORDER', 'flag=ready AND ON', routines=routine)
+        self.reject('E_EVALUATION_ORDER', 'flag=ready AND ON', routines=routine, _translator=legacy_translate)
 
     def test_multiple_argument_order_guards_see_bare_calls(self):
         routine = ANSWER + '\nROUTINE use(first,second: INTEGER) BEGIN END use'
-        self.reject('E_EVALUATION_ORDER', 'use(answer,1)', routines=routine)
+        self.reject('E_EVALUATION_ORDER', 'use(answer,1)', routines=routine, _translator=legacy_translate)
 
     def test_multi_argument_builtin_order_guard_sees_bare_calls(self):
-        self.reject('E_EVALUATION_ORDER', 'x=ATAN2(answer,1)')
+        self.reject('E_EVALUATION_ORDER', 'x=ATAN2(answer,1)', _translator=legacy_translate)
 
     def test_multiple_subscript_guard_sees_bare_calls(self):
-        self.reject('E_EVALUATION_ORDER', 'x=a[answer,1]', declarations='x: INTEGER a: ARRAY[7,1] OF INTEGER')
+        self.reject('E_EVALUATION_ORDER', 'x=a[answer,1]', declarations='x: INTEGER a: ARRAY[7,1] OF INTEGER', _translator=legacy_translate)
 
     def test_for_bounds_guard_sees_bare_calls(self):
-        self.reject('E_EVALUATION_ORDER', 'FOR i=1 TO answer DO x=1 ENDFOR')
+        self.reject('E_EVALUATION_ORDER', 'FOR i=1 TO answer DO x=1 ENDFOR', _translator=legacy_translate)
 
     def test_for_global_counter_call_guard_sees_bare_calls(self):
         self.reject('E_FOR_COUNTER', 'FOR i=1 TO 2 DO x=answer ENDFOR')
 
     def test_effectful_rhs_to_indexed_target_rejected(self):
-        self.reject('E_EVALUATION_ORDER', 'a[1]=answer', routines=EFFECT)
+        self.reject('E_EVALUATION_ORDER', 'a[1]=answer', routines=EFFECT, _translator=legacy_translate)
 
     def test_transitive_delay_and_output_are_not_hidden(self):
         for statement in ('DELAY 1', "WRITE('x')", 'ABORT'):
             with self.subTest(statement=statement):
                 routine = f'ROUTINE answer: INTEGER BEGIN {statement} RETURN 7 END answer\nROUTINE outer: INTEGER BEGIN RETURN answer END outer'
-                self.reject('E_EVALUATION_ORDER', 'x=outer+1', routines=routine)
+                self.reject('E_EVALUATION_ORDER', 'x=outer+1', routines=routine, _translator=legacy_translate)
 
     def test_array_context_rules_apply_to_bare_calls(self):
         for body in ('a=(build)', 'a=build+1', 'x=ARRAY_LEN(build)', 'IF build THEN x=1 ENDIF'):

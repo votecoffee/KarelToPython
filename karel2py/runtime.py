@@ -335,6 +335,13 @@ def checked(spec, value, line=None):
     raise KarelRuntimeError(f'Unsupported type {spec[0]}', line)
 
 
+def assignment_value(value, line=None):
+    """Capture a Pythonic RHS before evaluating a possibly effectful target."""
+    if isinstance(value, (Array, Structure, JointPosition)):
+        return checked(value.spec, value, line)
+    return require(value, line)
+
+
 def scalar_leaf_count(spec, limit=32767):
     """Bound allocation accounting, including nested structure/array contents."""
     if spec[0] == 'JOINTPOS': return joint_width(spec)

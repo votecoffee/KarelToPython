@@ -4,13 +4,14 @@ import unittest
 from unittest.mock import patch
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
 
-def compile_program(body, routines='', prefix='', declarations='x,y,result,i: INTEGER\nflag: BOOLEAN\na: ARRAY[2] OF INTEGER'):
+def compile_program(body, routines='', prefix='', declarations='x,y,result,i: INTEGER\nflag: BOOLEAN\na: ARRAY[2] OF INTEGER', *, _translator=translate):
     source = f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T'
-    generated = translate(source, filename='delays.kl')
+    generated = _translator(source, filename='delays.kl')
     ast.parse(generated.python_source, feature_version=(3, 11))
     namespace = {'__name__': 'delay_test'}
     exec(generated.python_source, namespace)
@@ -293,31 +294,31 @@ class DelayRejectionTests(unittest.TestCase):
     def test_task_targeted_abort_remains_blocked(self): self.reject('ABORT PROGRAM[1]', 'E_ABORT_TARGET')
 
     def test_delay_function_inside_operator_blocked(self):
-        self.reject('x=1+wait_value()', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value')
+        self.reject('x=1+wait_value()', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value', _translator=legacy_translate)
 
     def test_transitive_delay_function_inside_operator_blocked(self):
         routines = 'ROUTINE sleeper BEGIN DELAY 125 END sleeper\nROUTINE wait_value: INTEGER BEGIN sleeper RETURN 7 END wait_value'
-        self.reject('x=1+wait_value()', 'E_EVALUATION_ORDER', routines=routines)
+        self.reject('x=1+wait_value()', 'E_EVALUATION_ORDER', routines=routines, _translator=legacy_translate)
 
     def test_recursive_effect_propagation(self):
         routines = 'ROUTINE first(n: INTEGER): INTEGER BEGIN IF n=0 THEN DELAY 125 RETURN 7 ENDIF RETURN second(n-1) END first\nROUTINE second(n: INTEGER): INTEGER BEGIN RETURN first(n) END second'
-        self.reject('x=1+second(3)', 'E_EVALUATION_ORDER', routines=routines)
+        self.reject('x=1+second(3)', 'E_EVALUATION_ORDER', routines=routines, _translator=legacy_translate)
 
     def test_delay_function_inside_comparison_blocked(self):
-        self.reject('flag=wait_value()>0', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value')
+        self.reject('flag=wait_value()>0', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value', _translator=legacy_translate)
 
     def test_delay_function_to_indexed_target_blocked(self):
-        self.reject('a[1]=wait_value()', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value')
+        self.reject('a[1]=wait_value()', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value', _translator=legacy_translate)
 
     def test_delaying_duration_function_inside_operator_blocked(self):
-        self.reject('DELAY wait_value()+1', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value')
+        self.reject('DELAY wait_value()+1', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value', _translator=legacy_translate)
 
     def test_delay_function_in_global_for_remains_blocked(self):
         self.reject('FOR i=1 TO 2 DO DELAY duration() ENDFOR', 'E_FOR_COUNTER', routines='ROUTINE duration: INTEGER BEGIN RETURN 125 END duration')
 
     def test_multiple_arguments_with_delaying_call_remain_blocked(self):
         routines = 'ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value\nROUTINE use(p,q: INTEGER) BEGIN END use'
-        self.reject('use(wait_value(),1)', 'E_EVALUATION_ORDER', routines=routines)
+        self.reject('use(wait_value(),1)', 'E_EVALUATION_ORDER', routines=routines, _translator=legacy_translate)
 
 
 if __name__ == '__main__': unittest.main()

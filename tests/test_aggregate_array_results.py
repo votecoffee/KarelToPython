@@ -4,6 +4,7 @@ import json
 import unittest
 
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from tests.test_structure_routines import initialized_host
 from tests.test_data_records import init_config, init_pose
@@ -32,8 +33,8 @@ VECTOR_FACTORY = 'ROUTINE make: ARRAY OF VECTOR VAR p: ARRAY[1] OF VECTOR BEGIN 
 
 
 def compile_program(body='a=make()', *, declarations='a,b: ARRAY[1] OF item_t n: INTEGER',
-                    routines=FACTORY, types=TYPES, shapes=None, **context):
-    result = translate(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',
+                    routines=FACTORY, types=TYPES, shapes=None, _translator=translate, **context):
+    result = _translator(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',
                        filename='aggregate_array_results.kl', array_shapes=shapes)
     ast.parse(result.python_source, feature_version=(3, 11))
     json.dumps(result.report)
@@ -204,7 +205,7 @@ class AggregateArrayRejectionTests(unittest.TestCase):
         self.reject('E_ARRAY_RESULT_CONTEXT',routines=FACTORY+'\nROUTINE outer: ARRAY OF item_t BEGIN RETURN make() END outer')
 
     def test_effectful_call_to_indexed_destination_remains_blocked(self):
-        self.reject('E_EVALUATION_ORDER',body='boxes[1].values=make()',types=TYPES+'\nbox_t=STRUCTURE values: ARRAY[1] OF item_t ENDSTRUCTURE',declarations='boxes: ARRAY[1] OF box_t n: INTEGER',routines=FACTORY.replace('BEGIN p[1].id','BEGIN n=7 p[1].id'))
+        self.reject('E_EVALUATION_ORDER',body='boxes[1].values=make()',types=TYPES+'\nbox_t=STRUCTURE values: ARRAY[1] OF item_t ENDSTRUCTURE',declarations='boxes: ARRAY[1] OF box_t n: INTEGER',routines=FACTORY.replace('BEGIN p[1].id','BEGIN n=7 p[1].id'), _translator=legacy_translate)
 
 
 class AggregateArrayFailureTests(unittest.TestCase):

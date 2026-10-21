@@ -2,6 +2,7 @@
 import ast
 import unittest
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 UNKNOWN={'uninitialized':True}
@@ -15,10 +16,10 @@ def fill(name='a',values=(1,2,3)):
 
 def vec(x=1,y=2,z=3): return dict(X=float(x),Y=float(y),Z=float(z))
 
-def compile_program(body='',*,declarations='a,b,c: VECTOR r: REAL flag: BOOLEAN',types='',routines='',labelled=False):
+def compile_program(body='',*,declarations='a,b,c: VECTOR r: REAL flag: BOOLEAN',types='',routines='',labelled=False, _translator=translate):
     label='entry::\n' if labelled else ''
     source=f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{label}{body}\nEND T'
-    result=translate(source,filename='vector_routines.kl')
+    result=_translator(source,filename='vector_routines.kl')
     ast.parse(result.python_source,feature_version=(3,11))
     namespace={'__name__':'vector_routine_test'}
     exec(result.python_source,namespace)
@@ -140,13 +141,13 @@ class VectorRoutineGuardTests(unittest.TestCase):
         self.reject('E_RETURN_TYPE',routines='ROUTINE get: ARRAY[2] OF INTEGER BEGIN END get')
     def test_whole_record_array_values_remain_blocked(self): self.reject('E_ARRAY_VALUE','work((items))',declarations='items: ARRAY[2] OF XYZWPR',routines='ROUTINE work(v: ARRAY OF XYZWPR) BEGIN END work')
     def test_bare_protected_argument_remains_blocked(self): self.reject('E_POSITION_READ_ONLY_ARG','change(pose.normal)',declarations='pose: POSITION',routines=CHANGE)
-    def test_effectful_vector_result_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN r=1 RETURN a END get')
-    def test_effectful_vector_result_for_indexed_target_blocked(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='items: ARRAY[1] OF VECTOR a: VECTOR r: REAL',routines='ROUTINE get: VECTOR BEGIN r=1 RETURN a END get')
-    def test_delay_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN DELAY 0 RETURN a END get')
-    def test_output_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines="ROUTINE get: VECTOR BEGIN WRITE('value') RETURN a END get")
-    def test_abort_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN IF FALSE THEN ABORT ENDIF RETURN a END get')
-    def test_transitive_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE inner: VECTOR BEGIN r=1 RETURN a END inner\nROUTINE get: VECTOR BEGIN RETURN inner() END get')
-    def test_multiple_arguments_containing_function_calls_blocked(self): self.reject('E_EVALUATION_ORDER','work(make(1,2,3),a)',routines=FACTORY+'\nROUTINE work(p,q: VECTOR) BEGIN END work')
+    def test_effectful_vector_result_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN r=1 RETURN a END get', _translator=legacy_translate)
+    def test_effectful_vector_result_for_indexed_target_blocked(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='items: ARRAY[1] OF VECTOR a: VECTOR r: REAL',routines='ROUTINE get: VECTOR BEGIN r=1 RETURN a END get', _translator=legacy_translate)
+    def test_delay_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN DELAY 0 RETURN a END get', _translator=legacy_translate)
+    def test_output_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines="ROUTINE get: VECTOR BEGIN WRITE('value') RETURN a END get", _translator=legacy_translate)
+    def test_abort_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN IF FALSE THEN ABORT ENDIF RETURN a END get', _translator=legacy_translate)
+    def test_transitive_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE inner: VECTOR BEGIN r=1 RETURN a END inner\nROUTINE get: VECTOR BEGIN RETURN inner() END get', _translator=legacy_translate)
+    def test_multiple_arguments_containing_function_calls_blocked(self): self.reject('E_EVALUATION_ORDER','work(make(1,2,3),a)',routines=FACTORY+'\nROUTINE work(p,q: VECTOR) BEGIN END work', _translator=legacy_translate)
     def test_uninitialized_return_preserves_destination_and_cleans_frames(self):
         program,_=compile_program(fill('b')+' b=get()',routines='ROUTINE get: VECTOR VAR v: VECTOR BEGIN v.x=1 v.y=2 RETURN v END get')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()

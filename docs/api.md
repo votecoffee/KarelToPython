@@ -139,3 +139,8 @@ The runtime uses Pythonic numeric equivalents and checked range, shape, initiali
 checks. Successful translation does not guarantee successful execution for all
 inputs. The [language support guide](language-support.md) and [semantic notes](semantics/README.md)
 describe the supported input domains and unresolved behavior.
+
+`evaluation_policy` records the chosen Pythonic order, Boolean short circuiting,
+assignment value capture, live reference actuals, conversions, FOR bounds and
+failure behavior. See the [evaluation order guide](evaluation-order.md) for
+examples and the compatibility changes introduced in 0.54.0.

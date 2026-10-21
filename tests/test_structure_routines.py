@@ -2,6 +2,7 @@
 import ast
 import unittest
 from karel2py import translate,runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 TYPES='''TYPE child_t=STRUCTURE count: INTEGER label: STRING[3] ENDSTRUCTURE
@@ -20,9 +21,9 @@ def packet(number=1): return dict(CHILD=dict(COUNT=number,LABEL='abc'),VALUES=[n
 def initialize(name='a',number=1):
     return f"{name}.child.count={number} {name}.child.label='abc' {name}.values[1]={number} {name}.values[2]={number+1} {name}.enabled=ON"
 
-def compile_program(body='',*,types=TYPES,declarations='a,b: packet_t n: INTEGER flag: BOOLEAN',routines='',labelled=False):
+def compile_program(body='',*,types=TYPES,declarations='a,b: packet_t n: INTEGER flag: BOOLEAN',routines='',labelled=False, _translator=translate):
     label='entry::\n' if labelled else ''
-    result=translate(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{label}{body}\nEND T',filename='structure_routines.kl')
+    result=_translator(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{label}{body}\nEND T',filename='structure_routines.kl')
     ast.parse(result.python_source,feature_version=(3,11))
     namespace={'__name__':'structure_value_test'}; exec(result.python_source,namespace)
     return namespace['Program'](),result
@@ -151,11 +152,11 @@ class StructureRoutineGuardTests(unittest.TestCase):
     def test_aggregate_uninit_remains_blocked(self): self.reject('E_TYPE','flag=UNINIT(a)')
     def test_structure_comparison_remains_blocked(self): self.reject('E_TYPE','flag=a=b')
     def test_function_used_as_statement(self): self.reject('E_CALL','build(1)',routines=FACTORY)
-    def test_multiple_arguments_with_function_results(self): self.reject('E_EVALUATION_ORDER','work(build(1),a)',routines=FACTORY+'\nROUTINE work(p,q: packet_t) BEGIN END work')
-    def test_effectful_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t n: INTEGER',routines='ROUTINE get: packet_t BEGIN n=1 RETURN a END get')
-    def test_delay_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines='ROUTINE get: packet_t BEGIN DELAY 0 RETURN a END get')
-    def test_output_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines="ROUTINE get: packet_t BEGIN WRITE('record') RETURN a END get")
-    def test_abort_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines='ROUTINE get: packet_t BEGIN IF FALSE THEN ABORT ENDIF RETURN a END get')
+    def test_multiple_arguments_with_function_results(self): self.reject('E_EVALUATION_ORDER','work(build(1),a)',routines=FACTORY+'\nROUTINE work(p,q: packet_t) BEGIN END work', _translator=legacy_translate)
+    def test_effectful_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t n: INTEGER',routines='ROUTINE get: packet_t BEGIN n=1 RETURN a END get', _translator=legacy_translate)
+    def test_delay_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines='ROUTINE get: packet_t BEGIN DELAY 0 RETURN a END get', _translator=legacy_translate)
+    def test_output_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines="ROUTINE get: packet_t BEGIN WRITE('record') RETURN a END get", _translator=legacy_translate)
+    def test_abort_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines='ROUTINE get: packet_t BEGIN IF FALSE THEN ABORT ENDIF RETURN a END get', _translator=legacy_translate)
     def test_uninitialized_nested_leaf_fails_before_callee_effect(self):
         program,_=compile_program(initialize()+' n=0 change((b))',routines='ROUTINE change(p: packet_t) BEGIN n=1 END change')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()

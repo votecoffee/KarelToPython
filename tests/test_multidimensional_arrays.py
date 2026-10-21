@@ -2,6 +2,7 @@
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
@@ -19,9 +20,9 @@ measurement: REAL
 UNINIT = {'uninitialized': True}
 
 
-def compile_program(body='', routines='', declarations=DECLARATIONS, types='', constants=''):
+def compile_program(body='', routines='', declarations=DECLARATIONS, types='', constants='', *, _translator=translate):
     source = f'PROGRAM T\n{constants}\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T'
-    result = translate(source, filename='multidimensional.kl')
+    result = _translator(source, filename='multidimensional.kl')
     namespace = {'__name__': 'array_tests'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -326,10 +327,10 @@ class BoundaryTests(unittest.TestCase):
     def test_routine_calls_in_multi_indexes_remain_blocked(self):
         routine = 'ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index'
         for body in ('result = a[next_index(),1]', 'a[1,next_index()] = 7', 'flag = UNINIT(a[next_index(),1])'):
-            with self.subTest(body=body): self.rejected(body, routine, code='E_EVALUATION_ORDER')
+            with self.subTest(body=body): self.rejected(body, routine, code='E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_effectful_indexed_result_remains_blocked(self):
-        self.rejected('a[row,column] = update()', 'ROUTINE update: INTEGER BEGIN row = 2 RETURN 7 END update', code='E_EVALUATION_ORDER')
+        self.rejected('a[row,column] = update()', 'ROUTINE update: INTEGER BEGIN row = 2 RETURN 7 END update', code='E_EVALUATION_ORDER', _translator=legacy_translate)
 
 
 class RuntimeGuards(unittest.TestCase):

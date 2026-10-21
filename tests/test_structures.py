@@ -2,6 +2,7 @@
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
@@ -42,8 +43,8 @@ src.slots[2] = 20
 '''
 
 
-def compile_program(body, routines='', types=TYPES, declarations=DECLARATIONS):
-    result = translate(f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='structures.kl')
+def compile_program(body, routines='', types=TYPES, declarations=DECLARATIONS, *, _translator=translate):
+    result = _translator(f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='structures.kl')
     namespace = {'__name__': 'structure_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -349,20 +350,20 @@ class StructureRejectionTests(unittest.TestCase):
         self.rejected('USING src.child DO count = 7 ENDUSING', code='E_USING_TARGET')
 
     def test_field_index_with_routine_call_blocked_in_assignment(self):
-        self.rejected('src.slots(next_index()) = 7', 'ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', 'E_SYNTAX')
-        self.rejected('src.slots[next_index()] = 7', 'ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', 'E_EVALUATION_ORDER')
+        self.rejected('src.slots(next_index()) = 7', 'ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', 'E_SYNTAX', _translator=legacy_translate)
+        self.rejected('src.slots[next_index()] = 7', 'ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_global_structure_field_writes_mark_function_effectful(self):
-        self.rejected('result = update() + 1', 'ROUTINE update: INTEGER BEGIN item.count = 7 RETURN 1 END update', 'E_EVALUATION_ORDER')
+        self.rejected('result = update() + 1', 'ROUTINE update: INTEGER BEGIN item.count = 7 RETURN 1 END update', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_parameter_structure_field_writes_mark_function_effectful(self):
-        self.rejected('result = update(item) + 1', 'ROUTINE update(p: inner): INTEGER BEGIN p.count = 7 RETURN 1 END update', 'E_EVALUATION_ORDER')
+        self.rejected('result = update(item) + 1', 'ROUTINE update(p: inner): INTEGER BEGIN p.count = 7 RETURN 1 END update', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_effectful_result_assignment_to_indexed_field_blocked(self):
-        self.rejected('src.slots[slot_index] = update()', 'ROUTINE update: INTEGER BEGIN slot_index = 2 RETURN 7 END update', 'E_EVALUATION_ORDER')
+        self.rejected('src.slots[slot_index] = update()', 'ROUTINE update: INTEGER BEGIN slot_index = 2 RETURN 7 END update', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_effectful_result_assignment_to_plain_array_blocked(self):
-        self.rejected('plain[slot_index] = update()', 'ROUTINE update: INTEGER BEGIN slot_index = 2 RETURN 7 END update', 'E_EVALUATION_ORDER', declarations=DECLARATIONS + 'plain: ARRAY[2] OF INTEGER')
+        self.rejected('plain[slot_index] = update()', 'ROUTINE update: INTEGER BEGIN slot_index = 2 RETURN 7 END update', 'E_EVALUATION_ORDER', declarations=DECLARATIONS + 'plain: ARRAY[2] OF INTEGER', _translator=legacy_translate)
 
 
 class RuntimeStructureGuards(unittest.TestCase):

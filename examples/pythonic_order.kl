@@ -1,0 +1,47 @@
+PROGRAM pythonic_order
+VAR
+  trace: STRING[32]
+  text: STRING[16]
+  n,result,selected,total,i: INTEGER
+  skipped: BOOLEAN
+  values: ARRAY[2] OF INTEGER
+
+ROUTINE next_value: INTEGER
+BEGIN
+  n=n+1
+  trace=trace+'n'
+  RETURN n
+END next_value
+
+ROUTINE decorate(value: STRING): STRING
+BEGIN
+  value='['+value+']'
+  RETURN value
+END decorate
+
+ROUTINE choose: INTEGER
+BEGIN
+  trace=trace+'i'
+  RETURN 2
+END choose
+
+ROUTINE probe_ready: BOOLEAN
+BEGIN
+  trace=trace+'?'
+  RETURN TRUE
+END probe_ready
+
+BEGIN
+  trace=''
+  n=0
+  result=next_value*10+next_value
+  selected=INDEX(decorate('seed'),'e')
+  values[choose()]=next_value
+  skipped=TRUE OR probe_ready
+  total=0
+  FOR i=1 TO next_value DO
+    total=total+i
+  ENDFOR
+  text=decorate('seed')+'!'
+  WRITE('result=',result,', text=',text,CR)
+END pythonic_order

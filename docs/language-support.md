@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.53.0. Acceptance is specific to
+This is the supported prototype subset as of 0.54.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -14,12 +14,12 @@ internally and in the historical semantic notes.
 | Source | Case-insensitive ASCII identifiers, comments, supported metadata directives, bounded complete-token continuations, doubled apostrophes | No arbitrary directives, token fusion, backslash escapes or multiline string literals. |
 | Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | Fresh local counters are required for calls/early returns within FOR; SELECT uses first matching case and errors without a match/ELSE. |
 | Labels | Restricted labels and unconditional GOTO | Jumps within the same block or to an ancestor; no arbitrary entry into nested control blocks. |
-| Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64, conservative effects/order guards, no external routine linkage or local TYPE sections. |
+| Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; existing FOR rules; no external routine linkage or local TYPE sections. |
 | INTEGER | Checked signed 32-bit expressions, bit operators, DIV and signed MOD | MAXINT excluded from normal storage; DIV truncates toward zero; MOD follows Python remainder. |
 | BOOLEAN | Strict Boolean storage, operators and comparisons | Numeric values are not implicitly Booleans. |
 | REAL | Python float, rounded arithmetic, promotion, ROUND/TRUNC, SQRT, EXP and LN | Finite values required; existing checked INTEGER results. ROUND uses ties to even. |
 | Trig | General degree SIN/COS/TAN/ASIN/ACOS and ATAN2 | Inverse/domain checks remain. ATAN2 uses KAREL `(x,y)` order, all quadrants and Python -180..180 degree output. |
-| STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison and selected built-ins | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. Existing effect/order and substring/search guards remain. |
+| STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison and selected built-ins | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. Existing substring/search guards remain. |
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference formals and named subarrays | Prototype bound of 32767 scalar leaves; whole-array value arguments prohibited; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
@@ -35,6 +35,13 @@ internally and in the historical semantic notes.
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
 
 ## Zero-argument function calls
+
+Pythonic mode supports function composition with a chosen deterministic
+[evaluation order](evaluation-order.md): ordinary operands and arguments run
+left to right, BOOLEAN AND/OR short circuit, and assignments capture their values
+before resolving targets. Function calls are accepted in multiple arguments,
+subscripts, conversion arguments and FOR bounds. Existing type, initialization,
+copy/alias, domain, output-overlap and FOR-body counter checks remain.
 
 An unshadowed internal function with no parameters can be invoked by its name:
 `IF ready THEN ... ENDIF`, `value=answer`, or `values=build`. Existing explicit

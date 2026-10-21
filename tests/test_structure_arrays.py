@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
@@ -54,8 +55,8 @@ UNKNOWN_ITEM = dict(COUNT={'uninitialized': True}, LABEL={'uninitialized': True}
                     SLOTS=[{'uninitialized': True}, {'uninitialized': True}])
 
 
-def compile_program(body, routines='', types=TYPES, declarations=DECLARATIONS):
-    result = translate(f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='structure_arrays.kl')
+def compile_program(body, routines='', types=TYPES, declarations=DECLARATIONS, *, _translator=translate):
+    result = _translator(f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='structure_arrays.kl')
     namespace = {'__name__': 'structure_array_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -261,7 +262,7 @@ BEGIN dst = src result = p p = 99 END copy_and_change'''
 
     def test_unknown_formal_shape_mismatch_keeps_destination(self):
         routine = 'ROUTINE copy(dst,src: ARRAY OF item_t) BEGIN dst = src END copy'
-        program, _ = compile_program(INITIALIZE + 'copy(items,small)', routine, declarations='items: ARRAY[2] OF item_t\nsmall: ARRAY[1] OF item_t')
+        program, _ = compile_program(INITIALIZE + 'small[1]=items[1] copy(items,small)', routine, declarations='items: ARRAY[2] OF item_t\nsmall: ARRAY[1] OF item_t')
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
         self.assertEqual(program._state.snapshot()['ITEMS'], EXPECTED)
 
@@ -300,13 +301,13 @@ class StructureArrayBoundaryTests(unittest.TestCase):
         self.rejected('result = grid[1][1].count', code='E_ARRAY_RANK')
 
     def test_routine_call_in_target_index_remains_blocked(self):
-        self.rejected('items[next_index()].count = 7', code='E_EVALUATION_ORDER', routines='ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index')
+        self.rejected('items[next_index()].count = 7', code='E_EVALUATION_ORDER', routines='ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', _translator=legacy_translate)
 
     def test_effectful_field_destination_order_remains_blocked(self):
-        self.rejected('items[index_value].count = update()', code='E_EVALUATION_ORDER', routines='ROUTINE update: INTEGER BEGIN index_value = 2 RETURN 7 END update')
+        self.rejected('items[index_value].count = update()', code='E_EVALUATION_ORDER', routines='ROUTINE update: INTEGER BEGIN index_value = 2 RETURN 7 END update', _translator=legacy_translate)
 
     def test_multi_subscript_call_order_remains_blocked(self):
-        self.rejected('result = grid[next_index(),1].count', code='E_EVALUATION_ORDER', routines='ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index')
+        self.rejected('result = grid[next_index(),1].count', code='E_EVALUATION_ORDER', routines='ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', _translator=legacy_translate)
 
     def test_structure_array_return_remains_blocked(self):
         self.rejected(routines='ROUTINE make: ARRAY[2] OF item_t BEGIN RETURN items END make', code='E_RETURN_TYPE')

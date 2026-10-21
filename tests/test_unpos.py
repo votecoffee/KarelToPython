@@ -1,6 +1,7 @@
 """XYZWPR extraction, seven output effects, alias guards and no partial updates."""
 import unittest
 from karel2py import translate,runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 FIELDS=('X','Y','Z','W','P','R')
@@ -11,8 +12,8 @@ def initialize(name='pose'):
     text=' '.join(f'{name}.{field}={value}' for field,value in zip(FIELDS,VALUES))
     return text+' '+' '.join(f'{name}.config_data.{field}='+(('ON' if value else 'OFF') if type(value)is bool else str(value)) for field,value in CONFIG.items())
 
-def compile_program(body='',*,declarations='pose: XYZWPR\nx,y,z,w,p,r: REAL\ncfg: CONFIG',prefix='',routines=''):
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='unpos.kl')
+def compile_program(body='',*,declarations='pose: XYZWPR\nx,y,z,w,p,r: REAL\ncfg: CONFIG',prefix='',routines='', _translator=translate):
+    result=_translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='unpos.kl')
     namespace={'__name__':'unpos_test'}
     exec(result.python_source,namespace)
     return namespace['Program'](),result
@@ -209,7 +210,7 @@ class UnposTranslationGuardTests(unittest.TestCase):
         self.assertEqual(self.reject(CALL.replace(',x,',',frame.normal.x,'),declarations='pose: XYZWPR\nframe: POSITION\nx,y,z,w,p,r: REAL\ncfg: CONFIG'),'E_POSITION_READ_ONLY')
     def test_config_scalar_output_blocked(self): self.assertEqual(self.reject(CALL.replace(',x,',',cfg.cfg_turn_no1,')),'E_CONFIG_OUTPUT')
     def test_function_argument_blocked(self):
-        self.assertEqual(self.reject(CALL.replace(',x,',',values[index_fn()],'),declarations='pose: XYZWPR\nvalues: ARRAY[6] OF REAL\ny,z,w,p,r: REAL\ncfg: CONFIG',routines='ROUTINE index_fn: INTEGER BEGIN RETURN 1 END index_fn'),'E_EVALUATION_ORDER')
+        self.assertEqual(self.reject(CALL.replace(',x,',',values[index_fn()],'),declarations='pose: XYZWPR\nvalues: ARRAY[6] OF REAL\ny,z,w,p,r: REAL\ncfg: CONFIG',routines='ROUTINE index_fn: INTEGER BEGIN RETURN 1 END index_fn', _translator=legacy_translate),'E_EVALUATION_ORDER')
     def test_procedure_result_blocked(self): self.assertEqual(self.reject('x='+CALL),'E_PROCEDURE_RESULT')
     def test_global_for_call_blocked(self):
         self.assertEqual(self.reject('FOR i=1 TO 2 DO '+CALL+' ENDFOR',declarations='pose: XYZWPR\nx,y,z,w,p,r: REAL\ncfg: CONFIG\ni: INTEGER'),'E_FOR_COUNTER')
@@ -223,7 +224,7 @@ class UnposTranslationGuardTests(unittest.TestCase):
         self.assertEqual(result.report['routine_effects']['RELAY']['potential_parameter_writes'],['A','B','C','CFG_OUT','D','E','F'])
     def test_effectful_function_in_operator_blocked(self):
         routines='ROUTINE extract: REAL BEGIN '+CALL+' RETURN x END extract'
-        self.assertEqual(self.reject('x=extract()+1',routines=routines),'E_EVALUATION_ORDER')
+        self.assertEqual(self.reject('x=extract()+1',routines=routines, _translator=legacy_translate),'E_EVALUATION_ORDER')
     def test_pos_constructor_remains_blocked(self): self.reject('pose=POS(1,2,3,0,90,180,cfg)')
 
 

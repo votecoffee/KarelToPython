@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.53.0",
+  "translator_version": "0.54.0",
+  "evaluation_mode_note": "Public Pythonic mode uses the chosen order in ../evaluation-order.md; older ordering rejections below are retained only for the future strict milestone.",
   "date": "2026-10-21",
   "mode": "pythonic",
   "manual": "MARRC75KR07091E Rev N",

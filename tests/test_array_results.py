@@ -1,11 +1,12 @@
 """Unsized 1D scalar ARRAY results, assignment-only use and concrete ownership."""
 import ast,unittest
 from karel2py import translate,runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 FACTORY='ROUTINE make: ARRAY OF INTEGER VAR values: ARRAY[3] OF INTEGER BEGIN values[1]=1 values[2]=2 values[3]=3 RETURN values END make'
-def compile_program(body='',routines=FACTORY,declarations='a,b: ARRAY[3] OF INTEGER n: INTEGER',prefix='',context=None):
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='array_results.kl',**(context or {}))
+def compile_program(body='',routines=FACTORY,declarations='a,b: ARRAY[3] OF INTEGER n: INTEGER',prefix='',context=None, *, _translator=translate):
+    result=_translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='array_results.kl',**(context or {}))
     namespace={'__name__':'array_result_test'}; exec(result.python_source,namespace)
     return namespace['Program'](),result
 def execute(body='',**kwargs): return compile_program(body,**kwargs)[0].run()
@@ -96,7 +97,7 @@ class ArrayResultFailureTests(unittest.TestCase):
     def test_whole_array_value_arguments_remain_blocked(self):
         self.rejected('use((a))','E_ARRAY_VALUE',routines='ROUTINE use(p: ARRAY OF INTEGER) BEGIN END use')
     def test_effectful_result_to_indexed_target_is_blocked(self):
-        self.rejected('boxes[1].values=make()','E_EVALUATION_ORDER',prefix='TYPE box_t=STRUCTURE values: ARRAY[3] OF INTEGER ENDSTRUCTURE',declarations='boxes: ARRAY[1] OF box_t n: INTEGER',routines=FACTORY.replace('BEGIN values[1]','BEGIN n=7 values[1]'))
+        self.rejected('boxes[1].values=make()','E_EVALUATION_ORDER',prefix='TYPE box_t=STRUCTURE values: ARRAY[3] OF INTEGER ENDSTRUCTURE',declarations='boxes: ARRAY[1] OF box_t n: INTEGER',routines=FACTORY.replace('BEGIN values[1]','BEGIN n=7 values[1]'), _translator=legacy_translate)
     def test_length_failure_retains_destination_and_effects(self):
         program,_=compile_program('a[1]=99 a[2]=88 n=0 a=make()',declarations='a: ARRAY[2] OF INTEGER n: INTEGER',routines=FACTORY.replace('BEGIN values[1]','BEGIN n=n+1 values[1]'))
         with self.assertRaisesRegex(rt.KarelRuntimeError,'identical type and size'): program.run()

@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError
 
@@ -19,8 +20,8 @@ flag: BOOLEAN
 '''
 
 
-def compile_program(body, routines='', declarations=DECLARATIONS, constants=''):
-    result = translate(f'PROGRAM T\n{constants}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T')
+def compile_program(body, routines='', declarations=DECLARATIONS, constants='', *, _translator=translate):
+    result = _translator(f'PROGRAM T\n{constants}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T')
     namespace = {'__name__': 'aggregate_parameter_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -229,7 +230,7 @@ class AggregateRejectionTests(unittest.TestCase):
         self.assertEqual(state['LARGE'], 'abc')
 
     def test_aggregate_function_effects_guard_remains_active(self):
-        self.rejected('result = other + f(a)', 'ROUTINE f(p: ARRAY OF INTEGER): INTEGER BEGIN p[1] = 7 RETURN 1 END f', 'E_EVALUATION_ORDER')
+        self.rejected('result = other + f(a)', 'ROUTINE f(p: ARRAY OF INTEGER): INTEGER BEGIN p[1] = 7 RETURN 1 END f', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_array_argument_effect_report_includes_element_type(self):
         _, result = compile_program('fill(a)', 'ROUTINE fill(p: ARRAY OF INTEGER) BEGIN p[1] = 7 END fill')

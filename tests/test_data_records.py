@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,8 +21,8 @@ def init_pose(name='p'):
     return ' '.join(f'{name}.{field}={value}' for field,value in zip(('x','y','z','w','p','r'),(1,2,3,0,90,180))) + ' ' + init_config(name+'.config_data')
 
 
-def compile_program(body='', *, declarations='v,w: VECTOR\np,q: XYZWPR\nc,d: CONFIG\nresult: REAL\nflag: BOOLEAN', prefix='', routines=''):
-    result = translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='data_records.kl')
+def compile_program(body='', *, declarations='v,w: VECTOR\np,q: XYZWPR\nc,d: CONFIG\nresult: REAL\nflag: BOOLEAN', prefix='', routines='', _translator=translate):
+    result = _translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='data_records.kl')
     namespace = {'__name__':'data_records_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -223,7 +224,7 @@ class DataRecordGuardTests(unittest.TestCase):
     def test_copy_bound_prevents_large_record_array(self): self.reject(declarations='items: ARRAY[3000] OF XYZWPR',code='E_ARRAY_CAPACITY')
     def test_cross_type_formal_conversion_blocked(self): self.reject('change(v)',routines='ROUTINE change(x: XYZWPR) BEGIN END change')
     def test_record_write_blocked(self): self.reject('WRITE(p)')
-    def test_config_effects_remain_conservative(self): self.reject('result=f()+1',code='E_EVALUATION_ORDER',routines='ROUTINE f: REAL BEGIN c.cfg_flip=ON RETURN 1 END f')
+    def test_config_effects_remain_conservative(self): self.reject('result=f()+1',code='E_EVALUATION_ORDER',routines='ROUTINE f: REAL BEGIN c.cfg_flip=ON RETURN 1 END f', _translator=legacy_translate)
 
 
 class DataRecordRuntimeTests(unittest.TestCase):

@@ -4,6 +4,7 @@ import json
 import unittest
 
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 
@@ -13,9 +14,9 @@ TYPES = 'TYPE row_t=ARRAY[2] OF STRING[3]\nplane_t=ARRAY[2] OF row_t'
 
 
 def compile_program(body='a=make', *, declarations='a,b: ARRAY[2] OF STRING[3] n: INTEGER',
-                    routines=FACTORY, types='', constants='', shapes=None):
+                    routines=FACTORY, types='', constants='', shapes=None, _translator=translate):
     source = f'PROGRAM T\n{constants}\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T'
-    result = translate(source, filename='string_array_results.kl', array_shapes=shapes)
+    result = _translator(source, filename='string_array_results.kl', array_shapes=shapes)
     ast.parse(result.python_source, feature_version=(3, 11))
     json.dumps(result.report)
     namespace = {'__name__': 'string_array_result_test'}
@@ -172,7 +173,7 @@ class StringArrayRejectionTests(unittest.TestCase):
     def test_effectful_array_result_to_indexed_target_still_blocked(self):
         types = 'TYPE box_t=STRUCTURE words: ARRAY[2] OF STRING[3] ENDSTRUCTURE'
         self.reject('E_EVALUATION_ORDER', body='boxes[1].words=make', types=types,
-                    declarations='boxes: ARRAY[1] OF box_t n: INTEGER', routines=FACTORY.replace("BEGIN p[1]", "BEGIN n=7 p[1]"))
+                    declarations='boxes: ARRAY[1] OF box_t n: INTEGER', routines=FACTORY.replace("BEGIN p[1]", "BEGIN n=7 p[1]"), _translator=legacy_translate)
 
 
 class StringArrayFailureTests(unittest.TestCase):

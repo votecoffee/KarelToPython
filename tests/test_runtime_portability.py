@@ -35,7 +35,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('boolean_write_requests', 'CHECKS', 5),
                     ('pythonic_numeric', 'ROUNDED', 2),
                     ('pythonic_output', 'COUNT', -42),
-                    ('pythonic_strings', 'DECORATED', '[seed]')]
+                    ('pythonic_strings', 'DECORATED', '[seed]'),
+                    ('pythonic_order', 'RESULT', 12)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

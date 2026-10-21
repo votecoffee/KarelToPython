@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.53.0**. It is a
+tool are named **karel2py**. The current implementation is **0.54.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -128,6 +128,12 @@ results default to 254 characters; `STRING[n]` results truncate at the declared
 capacity. Parenthesized STRING arguments use private storage. See the
 [STRING guide](docs/pythonic-strings.md).
 
+Functions compose in operators, argument lists, array subscripts, conversions
+and FOR bounds. Pythonic mode evaluates ordinary operands and arguments left
+to right, short circuits BOOLEAN `AND`/`OR`, and captures assignment values before
+resolving targets. See the [evaluation order guide](docs/evaluation-order.md)
+for reference aliasing and compatibility changes.
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -160,7 +166,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 53 authored runnable examples, checks complete
+The example runner translates the 54 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.

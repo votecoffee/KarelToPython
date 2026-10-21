@@ -220,11 +220,11 @@ class PythonicWriteEffectsTests(unittest.TestCase):
         self.assertTrue(result.report['routine_effects']['OUTER']['potential_output_requests'])
         self.assertEqual(program.run()['X'], {'uninitialized': True})
 
-    def test_existing_ambiguous_operator_effect_is_blocked(self):
+    def test_output_functions_in_operator_run_once_in_order(self):
         routine = "ROUTINE emit: INTEGER BEGIN WRITE(1,CR) RETURN 1 END emit"
-        with self.assertRaises(TranslationError) as caught:
-            compile_program('x=emit()+emit()', routines=routine)
-        self.assertEqual(caught.exception.code, 'E_EVALUATION_ORDER')
+        program, _ = compile_program('x=emit()+emit()', routines=routine)
+        self.assertEqual(program.run()['X'], 2)
+        self.assertEqual([row['text'] for row in program.write_requests], [' 1\n', ' 1\n'])
 
     def test_newline_output_during_local_loop(self):
         routine = 'ROUTINE emit VAR i: INTEGER BEGIN FOR i=1 TO 2 DO WRITE(i,CR) ENDFOR END emit'

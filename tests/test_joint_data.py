@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from karel2py import translate,runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -14,8 +15,8 @@ FILL='a[1]=1.25 a[2]=-2.5 a[3]=3'
 LOAD='CNV_REL_JPOS(a,j,s)'
 
 
-def compile_program(body='',*,declarations='a,b: ARRAY[3] OF REAL\nj,k: JOINTPOS3\ns: INTEGER\nflag: BOOLEAN',prefix='',routines='',joint_axes=3):
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='joint_data.kl')
+def compile_program(body='',*,declarations='a,b: ARRAY[3] OF REAL\nj,k: JOINTPOS3\ns: INTEGER\nflag: BOOLEAN',prefix='',routines='',joint_axes=3, _translator=translate):
+    result=_translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='joint_data.kl')
     namespace={'__name__':'joint_test'}
     exec(result.python_source,namespace)
     return namespace['Program'](joint_axes=joint_axes),result
@@ -142,11 +143,11 @@ class JointGuardTests(unittest.TestCase):
     def test_grouped_source_blocked(self): self.reject('CNV_REL_JPOS((a),j,s)',code='E_JOINT_ARGUMENT')
     def test_constant_output_blocked(self): self.reject('CNV_REL_JPOS(a,j,C)',code='E_JOINT_ARGUMENT',prefix='CONST C=0')
     def test_wrong_argument_count(self): self.reject('CNV_REL_JPOS(a,j)',code='E_ARGUMENTS')
-    def test_function_call_in_arguments_blocked(self): self.reject('CNV_REL_JPOS(a,items[indexer()],s)',code='E_EVALUATION_ORDER',declarations='a: ARRAY[3] OF REAL\nitems: ARRAY[1] OF JOINTPOS3\ns: INTEGER',routines='ROUTINE indexer: INTEGER BEGIN RETURN 1 END indexer')
+    def test_function_call_in_arguments_blocked(self): self.reject('CNV_REL_JPOS(a,items[indexer()],s)',code='E_EVALUATION_ORDER',declarations='a: ARRAY[3] OF REAL\nitems: ARRAY[1] OF JOINTPOS3\ns: INTEGER',routines='ROUTINE indexer: INTEGER BEGIN RETURN 1 END indexer', _translator=legacy_translate)
     def test_conversion_is_not_function(self):
         with self.assertRaises(TranslationError): compile_program('s=CNV_REL_JPOS(a,j,s)')
     def test_active_counter_status_blocked(self): self.reject('FOR s=1 TO 2 DO CNV_REL_JPOS(a,j,s) ENDFOR',code='E_FOR_COUNTER')
-    def test_conversion_effectful_function_in_operator_blocked(self): self.reject('s=f()+1',code='E_EVALUATION_ORDER',routines='ROUTINE f: INTEGER BEGIN CNV_REL_JPOS(a,j,s) RETURN 1 END f')
+    def test_conversion_effectful_function_in_operator_blocked(self): self.reject('s=f()+1',code='E_EVALUATION_ORDER',routines='ROUTINE f: INTEGER BEGIN CNV_REL_JPOS(a,j,s) RETURN 1 END f', _translator=legacy_translate)
     def test_missing_context_before_mutation(self):
         program,_=compile_program(FILL+' s=17 '+LOAD,joint_axes=None)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'explicit Program'): program.run()

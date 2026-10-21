@@ -2,6 +2,7 @@
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
@@ -26,8 +27,8 @@ UNINIT = {'uninitialized': True}
 INITIALIZE_ITEM = 'item.code = 7 item.count = 12 item.payload[1] = 10 item.payload[2] = 20 '
 
 
-def compile_program(body='', routines='', declarations=DECLARATIONS, types=TYPES):
-    result = translate(f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='narrow.kl')
+def compile_program(body='', routines='', declarations=DECLARATIONS, types=TYPES, *, _translator=translate):
+    result = _translator(f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='narrow.kl')
     namespace = {'__name__': 'narrow_tests'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -309,7 +310,7 @@ class BoundaryTests(unittest.TestCase):
         self.rejected('FOR item.code = 1 TO 3 DO ENDFOR', code='E_SYNTAX')
 
     def test_effectful_indexed_result_guard_still_applies(self):
-        self.rejected('bytes[index_value] = update()', 'ROUTINE update: INTEGER BEGIN index_value = 2 RETURN 7 END update', code='E_EVALUATION_ORDER')
+        self.rejected('bytes[index_value] = update()', 'ROUTINE update: INTEGER BEGIN index_value = 2 RETURN 7 END update', code='E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_narrow_array_formal_shape_failure_unwinds_frames(self):
         p, _ = compile_program('work(bytes)', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN p[4] = 7 END work')

@@ -3,6 +3,7 @@ import ast
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
@@ -12,10 +13,10 @@ DECLARATIONS = 'row,other_row: row_t\nplane,other_plane: plane_t\ncube,other_cub
 U = {'uninitialized': True}
 
 
-def compile_program(body='', *, types=TYPES, declarations=DECLARATIONS, routines='', labelled=False):
+def compile_program(body='', *, types=TYPES, declarations=DECLARATIONS, routines='', labelled=False, _translator=translate):
     marker = 'unused_marker::\n' if labelled else ''
     source = f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{marker}{body}\nEND T'
-    result = translate(source, filename='subarrays.kl')
+    result = _translator(source, filename='subarrays.kl')
     ast.parse(result.python_source, feature_version=(3, 11))
     namespace = {'__name__': 'subarray_test'}
     exec(result.python_source, namespace)
@@ -211,10 +212,10 @@ class SubarrayRejectionTests(unittest.TestCase):
     def test_parenthesized_subarray_value_remains_blocked(self): self.rejected('work((plane[1]))', routines='ROUTINE work(p: row_t) BEGIN END work', code='E_ARRAY_VALUE')
     def test_nested_array_len_is_logically_multidimensional(self): self.rejected('x=ARRAY_LEN(plane)', code='E_ARRAY_LEN')
     def test_subarray_array_len_is_logically_multidimensional(self): self.rejected('x=ARRAY_LEN(cube[1])', code='E_ARRAY_LEN')
-    def test_multiple_indexes_with_user_calls_remain_blocked(self): self.rejected('x=plane[choose(),1]', routines='ROUTINE choose: INTEGER BEGIN RETURN 1 END choose', code='E_EVALUATION_ORDER')
-    def test_effectful_indexed_result_guard_preserved(self): self.rejected('plane[1]=choose()', routines='ROUTINE choose: INTEGER BEGIN x=7 RETURN 1 END choose', code='E_EVALUATION_ORDER')
-    def test_subarray_assignment_target_user_call_guard(self): self.rejected('plane[choose()]=row', routines='ROUTINE choose: INTEGER BEGIN RETURN 1 END choose', code='E_EVALUATION_ORDER')
-    def test_transitive_subarray_reference_effect_guard(self): self.rejected('x=change(plane[1])+1', routines='ROUTINE change(p: row_t): INTEGER BEGIN p[1]=7 RETURN 1 END change', code='E_EVALUATION_ORDER')
+    def test_multiple_indexes_with_user_calls_remain_blocked(self): self.rejected('x=plane[choose(),1]', routines='ROUTINE choose: INTEGER BEGIN RETURN 1 END choose', code='E_EVALUATION_ORDER', _translator=legacy_translate)
+    def test_effectful_indexed_result_guard_preserved(self): self.rejected('plane[1]=choose()', routines='ROUTINE choose: INTEGER BEGIN x=7 RETURN 1 END choose', code='E_EVALUATION_ORDER', _translator=legacy_translate)
+    def test_subarray_assignment_target_user_call_guard(self): self.rejected('plane[choose()]=row', routines='ROUTINE choose: INTEGER BEGIN RETURN 1 END choose', code='E_EVALUATION_ORDER', _translator=legacy_translate)
+    def test_transitive_subarray_reference_effect_guard(self): self.rejected('x=change(plane[1])+1', routines='ROUTINE change(p: row_t): INTEGER BEGIN p[1]=7 RETURN 1 END change', code='E_EVALUATION_ORDER', _translator=legacy_translate)
     def test_inline_anonymous_nested_syntax_remains_blocked(self): self.rejected(declarations='a: ARRAY[2] OF ARRAY[2] OF INTEGER')
     def test_aggregate_uninit_remains_blocked(self): self.rejected('x=UNINIT(plane[1])')
 

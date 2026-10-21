@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
@@ -28,8 +29,8 @@ child: child_t
 '''
 
 
-def compile_program(body, routines='', types=TYPES, declarations=DECLARATIONS, constants=''):
-    result = translate(f'PROGRAM T\n{constants}\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='using.kl')
+def compile_program(body, routines='', types=TYPES, declarations=DECLARATIONS, constants='', *, _translator=translate):
+    result = _translator(f'PROGRAM T\n{constants}\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='using.kl')
     namespace = {'__name__': 'using_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -272,24 +273,24 @@ class UsingBoundaryTests(unittest.TestCase):
 
     def test_effect_analysis_sees_rewritten_global_field_writes(self):
         routine = 'ROUTINE change: INTEGER BEGIN USING left DO count = 7 RETURN count ENDUSING END change'
-        self.rejected('result = change() + 1', 'E_EVALUATION_ORDER', routines=routine)
+        self.rejected('result = change() + 1', 'E_EVALUATION_ORDER', routines=routine, _translator=legacy_translate)
 
     def test_effect_analysis_sees_rewritten_reference_field_writes(self):
         routine = 'ROUTINE change(p: left_t): INTEGER BEGIN USING p DO count = 7 RETURN count ENDUSING END change'
-        self.rejected('result = change(left) + 1', 'E_EVALUATION_ORDER', routines=routine)
+        self.rejected('result = change(left) + 1', 'E_EVALUATION_ORDER', routines=routine, _translator=legacy_translate)
 
     def test_transitive_effect_guard_survives_using_resolution(self):
         routines = '''ROUTINE change: INTEGER BEGIN USING left DO count = 7 RETURN count ENDUSING END change
 ROUTINE relay: INTEGER BEGIN RETURN change() END relay'''
-        self.rejected('result = relay() + 1', 'E_EVALUATION_ORDER', routines=routines)
+        self.rejected('result = relay() + 1', 'E_EVALUATION_ORDER', routines=routines, _translator=legacy_translate)
 
     def test_indexed_alias_effectful_result_stays_blocked(self):
         routine = 'ROUTINE change: INTEGER BEGIN index_value = 2 RETURN 7 END change'
-        self.rejected('USING left DO slots[index_value] = change() ENDUSING', 'E_EVALUATION_ORDER', routines=routine)
+        self.rejected('USING left DO slots[index_value] = change() ENDUSING', 'E_EVALUATION_ORDER', routines=routine, _translator=legacy_translate)
 
     def test_multi_argument_call_order_guard_stays_blocked(self):
         routines = 'ROUTINE f: INTEGER BEGIN RETURN 1 END f\nROUTINE put(p,q: INTEGER) BEGIN END put'
-        self.rejected('USING left DO put(count,f()) ENDUSING', 'E_EVALUATION_ORDER', routines=routines)
+        self.rejected('USING left DO put(count,f()) ENDUSING', 'E_EVALUATION_ORDER', routines=routines, _translator=legacy_translate)
 
     def test_jump_into_using_is_rejected(self):
         self.rejected('GO TO inside USING left DO inside:: count = 7 ENDUSING', 'E_GOTO_ENTRY')

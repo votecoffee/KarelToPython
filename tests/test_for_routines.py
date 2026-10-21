@@ -2,6 +2,7 @@
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError
 
@@ -15,8 +16,8 @@ words: ARRAY[2] OF STRING[3]
 '''
 
 
-def compile_program(body, routines, declarations=DECLARATIONS):
-    result = translate(f'PROGRAM T\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='for_routines.kl')
+def compile_program(body, routines, declarations=DECLARATIONS, *, _translator=translate):
+    result = _translator(f'PROGRAM T\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T', filename='for_routines.kl')
     namespace = {'__name__': 'for_routine_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -239,13 +240,13 @@ class ForSafetyBoundaryTests(unittest.TestCase):
         self.rejected('work', 'ROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO FOR k = 1 TO 2 DO ENDFOR ENDFOR END work')
 
     def test_routine_calls_in_for_bounds_still_blocked(self):
-        self.rejected('work', 'ROUTINE bound: INTEGER BEGIN RETURN 2 END bound\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO bound() DO ENDFOR END work', 'E_EVALUATION_ORDER')
+        self.rejected('work', 'ROUTINE bound: INTEGER BEGIN RETURN 2 END bound\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO bound() DO ENDFOR END work', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_effectful_function_in_binary_expression_still_blocked(self):
-        self.rejected('work', 'ROUTINE helper: INTEGER BEGIN visits = 7 RETURN 1 END helper\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO total = total + helper() ENDFOR END work', 'E_EVALUATION_ORDER')
+        self.rejected('work', 'ROUTINE helper: INTEGER BEGIN visits = 7 RETURN 1 END helper\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO total = total + helper() ENDFOR END work', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_multiple_arguments_containing_routine_calls_still_blocked(self):
-        self.rejected('work', 'ROUTINE first: INTEGER BEGIN RETURN 1 END first\nROUTINE helper(p,q: INTEGER) BEGIN END helper\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO helper(first(),(k)) ENDFOR END work', 'E_EVALUATION_ORDER')
+        self.rejected('work', 'ROUTINE first: INTEGER BEGIN RETURN 1 END first\nROUTINE helper(p,q: INTEGER) BEGIN END helper\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO helper(first(),(k)) ENDFOR END work', 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_return_wrong_scalar_type_still_blocked(self):
         self.rejected('result = work()', 'ROUTINE work: INTEGER VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO RETURN TRUE ENDFOR RETURN 0 END work', 'E_RETURN')

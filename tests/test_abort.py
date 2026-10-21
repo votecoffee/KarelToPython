@@ -3,12 +3,13 @@ import json
 from pathlib import Path
 import subprocess,sys,tempfile,unittest
 from karel2py import translate,runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 ROOT=Path(__file__).resolve().parents[1]
 
-def compile_program(body='ABORT',*,declarations='value: INTEGER\nfinished: BOOLEAN',routines='',prefix='',**context):
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='abort.kl')
+def compile_program(body='ABORT',*,declarations='value: INTEGER\nfinished: BOOLEAN',routines='',prefix='',_translator=translate, **context):
+    result=_translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='abort.kl')
     namespace={'__name__':'abort_test'}
     exec(result.python_source,namespace)
     return namespace['Program'](**context),result
@@ -142,11 +143,11 @@ class AbortTranslationTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program('loop_stop(value)',routines='ROUTINE loop_stop(count: INTEGER) BEGIN FOR count=1 TO 3 DO ABORT ENDFOR END loop_stop')
         self.assertEqual(caught.exception.code,'E_FOR_COUNTER')
     def test_direct_abort_effect_in_operator_blocked(self):
-        with self.assertRaises(TranslationError) as caught: compile_program('value=stop_value()+1',routines='ROUTINE stop_value: INTEGER BEGIN ABORT RETURN 9 END stop_value')
+        with self.assertRaises(TranslationError) as caught: compile_program('value=stop_value()+1',routines='ROUTINE stop_value: INTEGER BEGIN ABORT RETURN 9 END stop_value', _translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_EVALUATION_ORDER')
     def test_transitive_abort_effect_in_indexed_assignment_blocked(self):
         routines='ROUTINE stop_now BEGIN ABORT END stop_now\nROUTINE stop_value: INTEGER BEGIN stop_now RETURN 9 END stop_value'
-        with self.assertRaises(TranslationError) as caught: compile_program('items[1]=stop_value()',declarations='items: ARRAY[1] OF INTEGER',routines=routines)
+        with self.assertRaises(TranslationError) as caught: compile_program('items[1]=stop_value()',declarations='items: ARRAY[1] OF INTEGER',routines=routines, _translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_EVALUATION_ORDER')
     def test_effects_propagate_even_on_skipped_path(self):
         routines='ROUTINE inner BEGIN IF OFF THEN ABORT ENDIF END inner\nROUTINE outer BEGIN inner END outer'

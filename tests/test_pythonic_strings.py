@@ -315,15 +315,14 @@ class StringResultValidationTests(unittest.TestCase):
         with self.assertRaises(TranslationError):
             compile_program('x=f()', "ROUTINE f: STRING BEGIN RETURN 'abc' END f")
 
-    def test_existing_effect_guard_remains(self):
+    def test_effectful_string_function_composes(self):
         routine = "ROUTINE f: STRING BEGIN x=x+1 RETURN 'abc' END f"
-        with self.assertRaises(TranslationError) as caught: compile_program("out=f()+'!'", routine)
-        self.assertEqual(caught.exception.code, 'E_EVALUATION_ORDER')
+        state = execute("x=0 out=f()+'!'", routine)
+        self.assertEqual((state['OUT'], state['X']), ('abc!', 1))
 
-    def test_multi_argument_nested_call_guard_remains(self):
+    def test_string_function_in_multiple_builtin_arguments(self):
         routine = "ROUTINE f: STRING BEGIN RETURN 'abc' END f"
-        with self.assertRaises(TranslationError) as caught: compile_program("x=INDEX(f(),'b')", routine)
-        self.assertEqual(caught.exception.code, 'E_EVALUATION_ORDER')
+        self.assertEqual(execute("x=INDEX(f(),'b')", routine)['X'], 2)
 
     def test_call_depth_failure_unwinds_string_frames(self):
         routine = 'ROUTINE f(n: INTEGER): STRING BEGIN RETURN f(n+1) END f'

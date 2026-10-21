@@ -43,9 +43,9 @@ An empty result is initialized, and no padding is added.
 
 Results support explicit calls and existing bare zero-argument function names.
 They can be assigned, concatenated or compared, written, returned by another
-function, or consumed by compatible built-ins and STRING parameters. Existing
-effect/order checks still apply: stage results when multi-argument calls or
-effectful operators require it. Missing RETURN, wrong result types, non-ASCII
+function, or consumed by compatible built-ins and STRING parameters. Functions
+compose using the chosen [Pythonic evaluation order](evaluation-order.md),
+including multiple arguments and effectful operators. Missing RETURN, wrong result types, non-ASCII
 contents and uninitialized values fail before destination assignment and unwind
 the routine frame. Earlier effects remain visible.
 

@@ -3,13 +3,14 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError
 
 
-def compile_program(body, routines, declarations='x,y,result: INTEGER\nflag: BOOLEAN\na,z: ARRAY[3] OF INTEGER', constants=''):
+def compile_program(body, routines, declarations='x,y,result: INTEGER\nflag: BOOLEAN\na,z: ARRAY[3] OF INTEGER', constants='', *, _translator=translate):
     source = f'PROGRAM T\n{constants}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T'
-    generated = translate(source)
+    generated = _translator(source)
     namespace = {'__name__': 'generated_parameter_test'}
     exec(generated.python_source, namespace)
     return namespace['Program'](), generated
@@ -208,7 +209,7 @@ class ParameterRejectionTests(unittest.TestCase):
 
     def test_multiargument_side_effect_order_remains_blocked(self):
         routines = 'ROUTINE f: INTEGER BEGIN x = x + 1 RETURN x END f\nROUTINE r(p,q: INTEGER) BEGIN END r'
-        self.rejected('x = 1 r(x,f())', routines, 'E_EVALUATION_ORDER')
+        self.rejected('x = 1 r(x,f())', routines, 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_double_parenthesis_uninit_not_treated_as_reference(self):
         self.rejected('flag = UNINIT((x))', '', 'E_ARGUMENTS')
@@ -226,15 +227,15 @@ class ParameterRejectionTests(unittest.TestCase):
 
     def test_side_effect_function_in_binary_expression_blocked(self):
         routine = 'ROUTINE f(p: INTEGER): INTEGER BEGIN p = p + 1 RETURN p END f'
-        self.rejected('x = 1 result = x + f(x)', routine, 'E_EVALUATION_ORDER')
+        self.rejected('x = 1 result = x + f(x)', routine, 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_indirect_side_effects_propagate(self):
         routines = 'ROUTINE change BEGIN x = x + 1 END change\nROUTINE f: INTEGER BEGIN change RETURN x END f'
-        self.rejected('x = 1 result = x + f()', routines, 'E_EVALUATION_ORDER')
+        self.rejected('x = 1 result = x + f()', routines, 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
     def test_assignment_index_routine_call_blocked(self):
         routine = 'ROUTINE idx: INTEGER BEGIN RETURN 1 END idx'
-        self.rejected('a[idx()] = 5', routine, 'E_EVALUATION_ORDER')
+        self.rejected('a[idx()] = 5', routine, 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
 
 if __name__ == '__main__': unittest.main()

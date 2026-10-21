@@ -3,14 +3,15 @@ import ast
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
 
-def compile_program(body='', *, types='TYPE row_t=ARRAY[2] OF INTEGER', declarations='a,b: row_t\nx: INTEGER', routines='', labelled=False):
+def compile_program(body='', *, types='TYPE row_t=ARRAY[2] OF INTEGER', declarations='a,b: row_t\nx: INTEGER', routines='', labelled=False, _translator=translate):
     marker = 'unused_marker::\n' if labelled else ''
     source = f'PROGRAM T\n{types}\nVAR\n{declarations}\n{routines}\nBEGIN\n{marker}{body}\nEND T'
-    result = translate(source, filename='named_arrays.kl')
+    result = _translator(source, filename='named_arrays.kl')
     ast.parse(result.python_source, feature_version=(3, 11))
     namespace = {'__name__': 'named_array_test'}
     exec(result.python_source, namespace)
@@ -207,7 +208,7 @@ class NamedArrayReferenceTests(unittest.TestCase):
 
     def test_named_array_effect_analysis(self):
         routine = 'ROUTINE change(p: row_t): INTEGER BEGIN p[1]=7 RETURN 1 END change'
-        with self.assertRaises(TranslationError) as caught: compile_program('x=change(a)+1', routines=routine)
+        with self.assertRaises(TranslationError) as caught: compile_program('x=change(a)+1', routines=routine, _translator=legacy_translate)
         self.assertEqual(caught.exception.code, 'E_EVALUATION_ORDER')
 
     def test_conversion_output_in_named_array(self):

@@ -1252,7 +1252,7 @@ class Emitter:
             self.error('E_ARRAY_RANK', 'Chained ARRAY indexes need grammar validation; use comma-separated subscripts', expr.token)
         try: selected = rt.indexed_type(spec, len(indexes))
         except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
-        if len(indexes) > 1 and any(self.has_routine_call(index) for index in indexes):
+        if self.mode == 'strict' and len(indexes) > 1 and any(self.has_routine_call(index) for index in indexes):
             self.error('E_EVALUATION_ORDER', 'Multiple ARRAY subscripts containing routine calls need evaluation-order validation', expr.token)
         codes = [self.require_type(index, 'INTEGER') for index in indexes]
         if len(indexes) > 1: self.features.add('multidimensional ARRAY indexing')
@@ -1339,7 +1339,7 @@ class Emitter:
             self.features.add('unary ' + expr.value)
             return f'_rt.unary({expr.value!r}, {value}, {line})', spec
         if expr.kind == 'binary':
-            if self.has_external_effect_call(expr):
+            if self.mode == 'strict' and self.has_external_effect_call(expr):
                 self.error('E_EVALUATION_ORDER', 'Function calls that may write globals/reference parameters, delay, request output or abort are blocked inside operator expressions', expr.token)
             left, lt = self.expression(expr.args[0])
             right, right_type = self.expression(expr.args[1])
@@ -1361,7 +1361,7 @@ class Emitter:
             elif op in ('AND', 'OR'):
                 valid = lt[0] == right_type[0] and lt[0] in ('INTEGER', 'BOOLEAN')
                 result_type = lt
-                if lt[0] == 'BOOLEAN' and any(self.has_routine_call(x) for x in expr.args):
+                if self.mode == 'strict' and lt[0] == 'BOOLEAN' and any(self.has_routine_call(x) for x in expr.args):
                     self.error('E_EVALUATION_ORDER', 'Boolean expressions containing routine calls are not implemented', expr.token)
             else:
                 numeric = lt[0] in ('INTEGER', 'REAL') and right_type[0] in ('INTEGER', 'REAL')
@@ -1371,6 +1371,12 @@ class Emitter:
                 result_type = ('REAL',) if numeric and (op == '/' or 'REAL' in (lt[0], right_type[0])) else lt
             if not valid: self.error('E_TYPE', f'Unsupported {lt[0]} {op} {right_type[0]}', expr.token)
             self.features.add('operator ' + op)
+            if self.mode == 'pythonic':
+                if lt[0] == 'BOOLEAN' and op in ('AND', 'OR'):
+                    return f'(_rt.boolean({left}, {line}) {op.lower()} _rt.boolean({right}, {line}))', result_type
+                # Capture mutable values before a later operand can change them.
+                if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
+                if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
         if expr.kind == 'call':
             if self.active_counters and expr.value in self.routines:
@@ -1423,7 +1429,7 @@ class Emitter:
             signature, result_type = BUILTIN_SIGNATURES[expr.value]
             if len(expr.args) != len(signature):
                 self.error('E_ARGUMENTS', f'{expr.value} requires {len(signature)} arguments', expr.token)
-            if len(expr.args) > 1 and any(self.has_routine_call(arg) for arg in expr.args):
+            if self.mode == 'strict' and len(expr.args) > 1 and any(self.has_routine_call(arg) for arg in expr.args):
                 self.error('E_EVALUATION_ORDER', 'Multiple built-in arguments containing routine calls need evaluation-order validation', expr.token)
             codes = [self.require_type(argument, expected)
                      for argument, expected in zip(expr.args, signature)]
@@ -1442,7 +1448,7 @@ class Emitter:
         inputs = BUILTIN_PROCEDURES[expr.value]
         if len(expr.args) != len(inputs) + 1:
             self.error('E_ARGUMENTS', f'{expr.value} requires {len(inputs) + 1} arguments', expr.token)
-        if any(self.has_routine_call(argument) for argument in expr.args):
+        if self.mode == 'strict' and any(self.has_routine_call(argument) for argument in expr.args):
             self.error('E_EVALUATION_ORDER', 'Conversion arguments containing user routine calls need evaluation-order validation', expr.token)
         self.check_for_call(expr.token)
         destination = expr.args[-1]
@@ -1466,7 +1472,7 @@ class Emitter:
     def joint_conversion(self, expr):
         if len(expr.args) != 3:
             self.error('E_ARGUMENTS', f'{expr.value} requires exactly three arguments', expr.token)
-        if any(self.has_routine_call(argument) for argument in expr.args):
+        if self.mode == 'strict' and any(self.has_routine_call(argument) for argument in expr.args):
             self.error('E_EVALUATION_ORDER', 'Joint conversion arguments containing routine calls need order validation', expr.token)
         self.check_for_call(expr.token)
         for argument in expr.args:
@@ -1505,7 +1511,7 @@ class Emitter:
     def unpos_procedure(self, expr):
         if len(expr.args) != 8:
             self.error('E_ARGUMENTS', 'UNPOS requires XYZWPR input, six REAL outputs and one CONFIG output', expr.token)
-        if any(self.has_routine_call(argument) for argument in expr.args):
+        if self.mode == 'strict' and any(self.has_routine_call(argument) for argument in expr.args):
             self.error('E_EVALUATION_ORDER', 'UNPOS arguments containing routine calls need order validation', expr.token)
         self.check_for_call(expr.token)
         codes = []
@@ -1535,7 +1541,7 @@ class Emitter:
         routine = self.routines[expr.value]
         if len(expr.args) != len(routine.parameters):
             self.error('E_ARGUMENTS', f'{expr.value} expects {len(routine.parameters)} arguments, received {len(expr.args)}', expr.token)
-        if len(expr.args) > 1 and any(self.has_routine_call(arg) for arg in expr.args):
+        if self.mode == 'strict' and len(expr.args) > 1 and any(self.has_routine_call(arg) for arg in expr.args):
             self.error('E_EVALUATION_ORDER', 'Multiple arguments containing routine calls need evaluation-order validation', expr.token)
         arguments = []
         for argument, (formal, expected) in zip(expr.args, routine.parameters):
@@ -1758,9 +1764,9 @@ class Emitter:
             root = self.root_name(target)
             if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'Cannot assign to CONST', target.token)
             if root in self.active_counters: self.error('E_FOR_COUNTER', 'FOR counter writes inside its loop are blocked', target.token)
-            if self.has_routine_call(target):
+            if self.mode == 'strict' and self.has_routine_call(target):
                 self.error('E_EVALUATION_ORDER', 'Routine calls in assignment target indexes need evaluation-order validation', target.token)
-            if any(isinstance(node, Expr) and node.kind == 'index' for node in self.walk_nodes(target)) and self.has_external_effect_call(expr):
+            if self.mode == 'strict' and any(isinstance(node, Expr) and node.kind == 'index' for node in self.walk_nodes(target)) and self.has_external_effect_call(expr):
                 self.error('E_EVALUATION_ORDER', 'Effectful function results assigned to indexed targets need target/value evaluation-order validation', target.token)
             if self.is_position_read_only_access(target):
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
@@ -1776,6 +1782,10 @@ class Emitter:
                                                           evaluated_once=True, runtime_exact_type_and_size=True))
             if target_type[0] == 'STRUCTURE': self.features.add('whole STRUCTURE assignment')
             if target_type[0] in DATA_RECORD_TYPES: self.features.add('whole ' + target_type[0] + ' data copy')
+            if self.mode == 'pythonic':
+                temporary = self.fresh()
+                self.line(f'{temporary} = _rt.assignment_value({value}, {line})', token)
+                value = temporary
             self.line(f'{reference}.set({value}, {line})', token)
         elif kind == 'using':
             self.block(stmt.body)  # Qualified fields need no dynamic runtime scope.
@@ -1903,7 +1913,7 @@ class Emitter:
                 self.error('E_FOR_COUNTER', 'Nested loops cannot share the same FOR counter', counter)
             first = self.require_type(initial, 'INTEGER')
             last = self.require_type(final, 'INTEGER')
-            if self.has_routine_call(initial) or self.has_routine_call(final):
+            if self.mode == 'strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
                 self.error('E_EVALUATION_ORDER', 'FOR bounds with routine calls are blocked', token)
             stop, item = self.fresh(), self.fresh()
             # Manual: initialize count before final is evaluated (final may read count).
@@ -2404,7 +2414,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
-                               scope='Practical Python numeric, text output and STRING behavior; checked source forms, types, initialization, ownership and effects')
+                               scope='Practical Python numeric, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')
+    report['evaluation_policy'] = dict(
+        operands='Evaluate once left to right; VECTOR values captured before the next operand',
+        boolean='BOOLEAN AND/OR short circuit using Python; INTEGER AND/OR remain eager bitwise operations',
+        arguments='Evaluate actuals once left to right; bare storage captures a live reference, grouped/expression actuals capture independent values',
+        subscripts='Evaluate the array base, then subscripts once left to right; bounds/storage checks follow subscript evaluation',
+        assignment='Evaluate and capture RHS first, then resolve target base/subscripts and assign; aggregates captured by checked independent copy',
+        conversions='Evaluate inputs and output references in source order before conversion; bare aggregate inputs remain live storage; existing overlap/type/context checks remain',
+        for_bounds='Evaluate initial once and assign counter, then evaluate final once; capture resulting counter and inclusive stop for iteration',
+        failure='Stop on the first runtime error or ABORT; retain earlier effects, skip later evaluations and unwind routine frames',
+        controller_validated=False)
     report['numeric_policy'] = dict(
         mode=mode, real_model='python_float', arithmetic='Python float +, -, *, /; finite results required',
         sqrt='math.sqrt for nonnegative finite inputs', exp='math.exp', ln='math.log for positive finite inputs',
@@ -2454,20 +2474,28 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         capacity='STRING defaults to 254; explicit global constant capacity in 1..254',
         returned_value='Initialized ASCII Python string; evaluate once and right-truncate to the result capacity before routine cleanup',
         use='Assignments, string expressions/comparisons, built-ins, WRITE, RETURN forwarding and STRING value arguments',
-        boundary='Existing type, effect/order, FOR and call-depth guards remain; no native controller STRING ABI claim',
+        boundary='Existing type, FOR and call-depth guards remain; chosen Pythonic evaluation order; no native controller STRING ABI claim',
         controller_validated=False)
     report['string_value_policy'] = dict(
         arguments='Initialized ASCII literals, constants, expressions, function results and grouped scalar storage; input length at most 254',
         storage='Independent writable temporary with chosen capacity 254; assignment right-truncates and clear sets UNINITIALIZED',
         references='Bare ordinary STRING variables/fields/elements preserve caller storage and actual capacity',
         effects='Potential formal writes remain reported; grouping/value passing creates no writeback alias',
-        boundary='Chosen Pythonic temporary capacity; existing multi-argument and side-effect ordering guards remain',
+        boundary='Chosen Pythonic temporary capacity and evaluation order; existing type and ownership checks remain',
         controller_validated=False)
+    for key in ('delay_policy', 'write_policy', 'vector_routine_policy', 'structure_routine_policy', 'positional_routine_policy'):
+        report[key]['effects'] = 'Potential effects propagate through routine calls; Pythonic evaluation order determines when they occur'
+    report['local_constant_policy']['arguments'] = 'Scalar constants pass as independent value temporaries; STRING temporaries are writable with capacity 254'
+    report['data_record_policy']['parameters'] = 'Bare exact-type records keep references; grouped storage and function results use checked independent value copies; CONFIG scalar subfields pass by value'
     for key in ('vector_routine_policy', 'structure_routine_policy', 'positional_routine_policy', 'array_routine_policy'):
         report[key]['boundary'] = report[key]['boundary'].replace('direct STRING results, ', '').replace(' or direct STRING results', '')
     strict_only = ('REAL uses exact binary32', 'Underflow follows the manual', 'Signed MOD with negative',
                    'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
-                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain')
+                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain',
+                   'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
+    report['limitations'] = [item.replace('ARRAY_LEN on multidimensional arrays and routine calls in multiple subscripts remain blocked pending count/evaluation-order evidence',
+                                         'ARRAY_LEN on multidimensional arrays remains blocked pending dimension-count semantics')
+                             for item in report['limitations']]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     return result

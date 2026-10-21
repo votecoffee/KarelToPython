@@ -3,6 +3,7 @@ from fractions import Fraction
 import unittest
 
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError, tokenize
 
 
@@ -10,8 +11,8 @@ def fill(name, values):
     return ' '.join(f'{name}.{field}={value}' for field, value in zip(('x','y','z'), values))
 
 
-def compile_program(body, *, declarations='a,b,c: VECTOR\nr: REAL\nflag: BOOLEAN', prefix='', routines=''):
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='vector_ops.kl')
+def compile_program(body, *, declarations='a,b,c: VECTOR\nr: REAL\nflag: BOOLEAN', prefix='', routines='', _translator=translate):
+    result=_translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='vector_ops.kl')
     namespace={'__name__':'vector_test'}
     exec(result.python_source,namespace)
     return namespace['Program'](),result
@@ -116,7 +117,7 @@ class VectorGuardTests(unittest.TestCase):
     def test_read_only_destination_still_blocked(self):
         with self.assertRaises(TranslationError): compile_program('p.normal=a+b',declarations='a,b: VECTOR\np: POSITION')
     def test_effectful_dot_operand_blocked(self):
-        with self.assertRaises(TranslationError) as caught: compile_program('r=(a@b)*effect()',routines='ROUTINE effect: REAL BEGIN r=1 RETURN 2 END effect')
+        with self.assertRaises(TranslationError) as caught: compile_program('r=(a@b)*effect()',routines='ROUTINE effect: REAL BEGIN r=1 RETURN 2 END effect', _translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_EVALUATION_ORDER')
     def test_pure_function_scaling(self):
         program,_=compile_program(fill('a',(1,2,3))+' c=a*factor()',routines='ROUTINE factor: REAL BEGIN RETURN 2 END factor')

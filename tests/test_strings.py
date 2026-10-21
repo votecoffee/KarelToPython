@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError
 
@@ -18,8 +19,8 @@ flag: BOOLEAN
 '''
 
 
-def compile_program(body, routines='', declarations=DECLARATIONS):
-    result = translate(f'PROGRAM T\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T')
+def compile_program(body, routines='', declarations=DECLARATIONS, *, _translator=translate):
+    result = _translator(f'PROGRAM T\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T')
     namespace = {'__name__': 'string_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -237,8 +238,8 @@ class CharacterTests(unittest.TestCase):
 
 
 class StringRejectionTests(unittest.TestCase):
-    def rejected(self, body, code, routines=''):
-        with self.assertRaises(TranslationError) as caught: compile_program(body, routines)
+    def rejected(self, body, code, routines='', *, _translator=translate):
+        with self.assertRaises(TranslationError) as caught: compile_program(body, routines, _translator=_translator)
         self.assertEqual(caught.exception.code, code, str(caught.exception))
 
     def test_builtin_arities(self):
@@ -264,11 +265,11 @@ class StringRejectionTests(unittest.TestCase):
 
     def test_builtin_with_routine_argument_order_remains_blocked(self):
         routine = 'ROUTINE f: INTEGER BEGIN x = 2 RETURN 1 END f'
-        self.rejected("x = ORD('abc',f())", 'E_EVALUATION_ORDER', routine)
+        self.rejected("x = ORD('abc',f())", 'E_EVALUATION_ORDER', routine, _translator=legacy_translate)
 
     def test_pure_routine_argument_order_remains_blocked(self):
         routine = 'ROUTINE f: INTEGER BEGIN RETURN 1 END f'
-        self.rejected("s = SUB_STR('abc',f(),1)", 'E_EVALUATION_ORDER', routine)
+        self.rejected("s = SUB_STR('abc',f(),1)", 'E_EVALUATION_ORDER', routine, _translator=legacy_translate)
 
     def test_single_argument_routine_in_chr_is_supported(self):
         self.assertEqual(execute('s = CHR(f())', 'ROUTINE f: INTEGER BEGIN RETURN 65 END f')['S'], 'A')

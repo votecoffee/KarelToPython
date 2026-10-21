@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError
 
@@ -10,9 +11,9 @@ from karel2py.runtime import KarelRuntimeError
 DECLARATIONS = 'x,y,i,total,visits,result: INTEGER\nb,flag: BOOLEAN\na: ARRAY[2] OF INTEGER'
 
 
-def compile_program(body, routines='', declarations=DECLARATIONS, extra=''):
+def compile_program(body, routines='', declarations=DECLARATIONS, extra='', *, _translator=translate):
     source = f'PROGRAM T\n{extra}\nVAR\n{declarations}\n{routines}\nBEGIN\n{body}\nEND T'
-    result = translate(source, filename='branches.kl')
+    result = _translator(source, filename='branches.kl')
     namespace = {'__name__': 'branch_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -166,7 +167,7 @@ class RoutineBranchTests(unittest.TestCase):
 
     def test_labelled_function_global_effect_analysis_retained(self):
         routine = 'ROUTINE update: INTEGER BEGIN GOTO work work:: x = 7 RETURN 1 END update'
-        with self.assertRaises(TranslationError) as caught: compile_program('result = update() + 1', routine)
+        with self.assertRaises(TranslationError) as caught: compile_program('result = update() + 1', routine, _translator=legacy_translate)
         self.assertEqual(caught.exception.code, 'E_EVALUATION_ORDER')
 
 
