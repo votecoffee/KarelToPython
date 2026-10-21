@@ -4,6 +4,7 @@ import json
 import unittest
 
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from tests.test_structure_routines import initialized_host
 
@@ -18,8 +19,8 @@ MATRIX = [[1, 2], [3, 4]]
 
 
 def compile_program(body='a=make()', *, types=TYPES, declarations='a,b: ARRAY[2] OF row_t n: INTEGER',
-                    routines=FACTORY, shapes=None):
-    result = translate(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',
+                    routines=FACTORY, shapes=None, _translator=translate):
+    result = _translator(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',
                        filename='named_component_results.kl', array_shapes=shapes)
     ast.parse(result.python_source, feature_version=(3, 11))
     json.dumps(result.report)
@@ -219,14 +220,14 @@ class NamedComponentArrayRejectionTests(unittest.TestCase):
 
     def test_only_complete_direct_assignment_accepts_result(self):
         for body in ('a=(make())', 'a=make()+1', 'n=ARRAY_LEN(make())', 'IF make() THEN n=1 ENDIF'):
-            with self.subTest(body=body): self.reject('E_ARRAY_RESULT_CONTEXT', body=body)
+            with self.subTest(body=body): self.reject('E_ARRAY_RESULT_CONTEXT', body=body, _translator=legacy_translate)
 
     def test_direct_result_forwarding_rejected(self):
-        self.reject('E_ARRAY_RESULT_CONTEXT', body='', routines=FACTORY + '\nROUTINE copy: ARRAY OF row_t BEGIN RETURN make() END copy')
+        self.reject('E_ARRAY_RESULT_CONTEXT', body='', routines=FACTORY + '\nROUTINE copy: ARRAY OF row_t BEGIN RETURN make() END copy', _translator=legacy_translate)
 
     def test_whole_array_value_argument_remains_blocked(self):
         routine = 'ROUTINE copy(p: ARRAY OF row_t) BEGIN END copy'
-        self.reject('E_ARRAY_VALUE', body='copy((a))', routines=routine)
+        self.reject('E_ARRAY_VALUE', body='copy((a))', routines=routine, _translator=legacy_translate)
 
 
 class NamedComponentArrayRuntimeTests(unittest.TestCase):

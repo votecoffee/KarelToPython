@@ -74,13 +74,13 @@ class ArrayResultFailureTests(unittest.TestCase):
     def rejected(self,body='',code='E_ARRAY_RESULT_CONTEXT',**kwargs):
         with self.assertRaises(TranslationError) as caught: compile_program(body,**kwargs)
         self.assertEqual(caught.exception.code,code,str(caught.exception))
-    def test_grouped_result_is_not_direct_assignment(self): self.rejected('a=(make())')
-    def test_result_cannot_be_routine_argument(self): self.rejected('use(make())',routines=FACTORY+'\nROUTINE use(p: ARRAY OF INTEGER) BEGIN END use')
-    def test_result_cannot_be_builtin_argument(self): self.rejected('n=ARRAY_LEN(make())')
-    def test_result_cannot_be_directly_returned(self): self.rejected('a=outer()',routines=FACTORY+'\nROUTINE outer: ARRAY OF INTEGER BEGIN RETURN make() END outer')
-    def test_result_cannot_be_operator_operand(self): self.rejected('a=make()+a')
-    def test_result_cannot_be_condition(self): self.rejected('IF make() THEN ENDIF')
-    def test_result_cannot_be_select_selector(self): self.rejected('SELECT make() OF CASE(1): ENDSELECT')
+    def test_grouped_result_is_not_direct_assignment(self): self.rejected('a=(make())', _translator=legacy_translate)
+    def test_result_cannot_be_routine_argument(self): self.rejected('use(make())',routines=FACTORY+'\nROUTINE use(p: ARRAY OF INTEGER) BEGIN END use', _translator=legacy_translate)
+    def test_result_cannot_be_builtin_argument(self): self.rejected('n=ARRAY_LEN(make())', _translator=legacy_translate)
+    def test_result_cannot_be_directly_returned(self): self.rejected('a=outer()',routines=FACTORY+'\nROUTINE outer: ARRAY OF INTEGER BEGIN RETURN make() END outer', _translator=legacy_translate)
+    def test_result_cannot_be_operator_operand(self): self.rejected('a=make()+a', _translator=legacy_translate)
+    def test_result_cannot_be_condition(self): self.rejected('IF make() THEN ENDIF', _translator=legacy_translate)
+    def test_result_cannot_be_select_selector(self): self.rejected('SELECT make() OF CASE(1): ENDSELECT', _translator=legacy_translate)
     def test_wrong_element_type_in_assignment(self): self.rejected('a=make()','E_TYPE',declarations='a: ARRAY[3] OF REAL')
     def test_wrong_element_type_in_return(self): self.rejected('','E_RETURN',routines='ROUTINE make: ARRAY OF REAL VAR p: ARRAY[1] OF INTEGER BEGIN p[1]=1 RETURN p END make')
     def test_array_result_return_requires_value(self): self.rejected('','E_RETURN',routines='ROUTINE make: ARRAY OF INTEGER BEGIN RETURN END make')
@@ -95,7 +95,7 @@ class ArrayResultFailureTests(unittest.TestCase):
     def test_multidimensional_return_source_blocked(self):
         self.rejected('','E_RETURN',routines='ROUTINE make: ARRAY OF INTEGER VAR p: ARRAY[2,2] OF INTEGER BEGIN RETURN p END make')
     def test_whole_array_value_arguments_remain_blocked(self):
-        self.rejected('use((a))','E_ARRAY_VALUE',routines='ROUTINE use(p: ARRAY OF INTEGER) BEGIN END use')
+        self.rejected('use((a))','E_ARRAY_VALUE',routines='ROUTINE use(p: ARRAY OF INTEGER) BEGIN END use', _translator=legacy_translate)
     def test_effectful_result_to_indexed_target_is_blocked(self):
         self.rejected('boxes[1].values=make()','E_EVALUATION_ORDER',prefix='TYPE box_t=STRUCTURE values: ARRAY[3] OF INTEGER ENDSTRUCTURE',declarations='boxes: ARRAY[1] OF box_t n: INTEGER',routines=FACTORY.replace('BEGIN values[1]','BEGIN n=7 values[1]'), _translator=legacy_translate)
     def test_length_failure_retains_destination_and_effects(self):

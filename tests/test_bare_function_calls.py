@@ -225,15 +225,15 @@ class BareFunctionRejectionTests(unittest.TestCase):
 
     def test_array_context_rules_apply_to_bare_calls(self):
         for body in ('a=(build)', 'a=build+1', 'x=ARRAY_LEN(build)', 'IF build THEN x=1 ENDIF'):
-            with self.subTest(body=body): self.reject('E_ARRAY_RESULT_CONTEXT', body, routines=ARRAY)
+            with self.subTest(body=body): self.reject('E_ARRAY_RESULT_CONTEXT', body, routines=ARRAY, _translator=legacy_translate)
 
     def test_array_result_forwarding_still_rejected(self):
         routine = ARRAY + '\nROUTINE copy: ARRAY OF INTEGER BEGIN RETURN build END copy'
-        self.reject('E_ARRAY_RESULT_CONTEXT', 'a=copy', routines=routine)
+        self.reject('E_ARRAY_RESULT_CONTEXT', 'a=copy', routines=routine, _translator=legacy_translate)
 
     def test_array_result_as_argument_still_rejected(self):
         routine = ARRAY + '\nROUTINE use(p: ARRAY OF INTEGER) BEGIN END use'
-        self.reject('E_ARRAY_RESULT_CONTEXT', 'use(build)', routines=routine)
+        self.reject('E_ARRAY_RESULT_CONTEXT', 'use(build)', routines=routine, _translator=legacy_translate)
 
     def test_uninit_does_not_consume_a_function_value(self):
         self.reject('E_ARGUMENTS', 'flag=UNINIT(answer)')

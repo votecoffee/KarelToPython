@@ -199,10 +199,10 @@ class AggregateArrayRejectionTests(unittest.TestCase):
     def test_array_results_still_require_direct_assignment(self):
         for body in ('a=(make())','use(make())','n=ARRAY_LEN(make())'):
             with self.subTest(body=body):
-                self.reject('E_ARRAY_RESULT_CONTEXT',body=body,routines=FACTORY+'\nROUTINE use(p: ARRAY OF item_t) BEGIN END use')
+                self.reject('E_ARRAY_RESULT_CONTEXT',body=body,routines=FACTORY+'\nROUTINE use(p: ARRAY OF item_t) BEGIN END use', _translator=legacy_translate)
 
     def test_result_cannot_be_forwarded_directly_by_return(self):
-        self.reject('E_ARRAY_RESULT_CONTEXT',routines=FACTORY+'\nROUTINE outer: ARRAY OF item_t BEGIN RETURN make() END outer')
+        self.reject('E_ARRAY_RESULT_CONTEXT',routines=FACTORY+'\nROUTINE outer: ARRAY OF item_t BEGIN RETURN make() END outer', _translator=legacy_translate)
 
     def test_effectful_call_to_indexed_destination_remains_blocked(self):
         self.reject('E_EVALUATION_ORDER',body='boxes[1].values=make()',types=TYPES+'\nbox_t=STRUCTURE values: ARRAY[1] OF item_t ENDSTRUCTURE',declarations='boxes: ARRAY[1] OF box_t n: INTEGER',routines=FACTORY.replace('BEGIN p[1].id','BEGIN n=7 p[1].id'), _translator=legacy_translate)

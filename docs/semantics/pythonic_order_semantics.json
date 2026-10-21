@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.54.0",
+  "translator_version": "0.55.0",
+  "array_mode_note": "Public Pythonic ARRAY value/result composition follows ../pythonic-arrays.md; older assignment-only and whole-value rejections below are retained for the future strict milestone.",
   "date": "2026-10-21",
   "mode": "pythonic",
   "evidence": "Chosen Pythonic policy, authored execution tests and independent complete example fixtures; no inferred native KAREL order.",
@@ -14,7 +15,7 @@
   "compatibility": "Before 0.54.0 Boolean operands were eager and target references resolved before RHS. Conservative order rejections remain internally tested for the future strict milestone.",
   "boundaries": [
     "Existing source/type/initialization/ownership/domain/shape/overlap and FOR guards remain",
-    "Whole ARRAY value arguments and ARRAY results outside direct assignment remain unsupported",
+    "ARRAY value/result composition follows ../pythonic-arrays.md; existing type/shape/ownership and declaration boundaries remain",
     "No controller scheduling, native call ABI or native order equivalence claim",
     "Public strict mode remains a future milestone"
   ],

@@ -121,8 +121,9 @@ ARRAY return reports include the exact resolved `element_spec` and `logical_rank
 fixed ARRAY components. Bounded STRING elements carry their exact physical
 capacity in `element_spec`; generic source-formal capacities are checked at
 runtime, and result copying never truncates to match a different capacity.
-Calls still require complete direct-assignment use, exact
-destination types/shapes and known initialized leaves. The
+Results also support grouping, compatible user-routine value arguments,
+direct RETURN forwarding, logical-rank-one ARRAY_LEN and aggregate access.
+Copies retain exact types/shapes and known initialized leaves. The
 [ARRAY result contract](language-support.md#array-function-results) describes the
 supported forms and remaining restrictions.
 
@@ -144,3 +145,10 @@ describe the supported input domains and unresolved behavior.
 assignment value capture, live reference actuals, conversions, FOR bounds and
 failure behavior. See the [evaluation order guide](evaluation-order.md) for
 examples and the compatibility changes introduced in 0.54.0.
+
+`array_value_arguments` records private ARRAY copy sites with formal and source
+type specs. `array_function_uses` records ARRAY-valued expression calls.
+`array_value_policy` describes checked ownership and `aggregate_access_policy`
+describes subscripts/fields on explicit calls and groups. ARRAY formal
+`passing_modes` includes reference and value; see the
+[ARRAY values guide](pythonic-arrays.md).

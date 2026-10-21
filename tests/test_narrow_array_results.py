@@ -3,6 +3,7 @@ import ast
 import unittest
 from pathlib import Path
 from karel2py import translate, runtime as rt
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 
 
@@ -11,10 +12,10 @@ def factory(kind='BYTE', values=(0,255)):
     return f'ROUTINE make: ARRAY OF {kind} VAR p: ARRAY[{len(values)}] OF {kind} BEGIN {assignments} RETURN p END make'
 
 
-def compile_program(body='a=make()',kind='BYTE',routines=None,declarations=None,types='',context=None):
+def compile_program(body='a=make()',kind='BYTE',routines=None,declarations=None,types='',context=None, *, _translator=translate):
     if routines is None: routines=factory(kind,(0,255) if kind=='BYTE' else (-32768,32766))
     if declarations is None: declarations=f'a,b: ARRAY[2] OF {kind} n: INTEGER'
-    result=translate(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN {body}\nEND T',filename='narrow_array_results.kl',**(context or {}))
+    result=_translator(f'PROGRAM T\n{types}\nVAR {declarations}\n{routines}\nBEGIN {body}\nEND T',filename='narrow_array_results.kl',**(context or {}))
     namespace={'__name__':'narrow_array_results_test'}
     exec(result.python_source,namespace)
     return namespace['Program'](),result
@@ -145,7 +146,7 @@ class NarrowArrayFailureTests(unittest.TestCase):
         for kind in ('BYTE','SHORT'):
             for body in ('a=(make())','n=ARRAY_LEN(make())','use(make())'):
                 with self.subTest(kind=kind,body=body):
-                    self.rejected('E_ARRAY_RESULT_CONTEXT',kind=kind,body=body,routines=factory(kind)+f'\nROUTINE use(p: ARRAY OF {kind}) BEGIN END use')
+                    self.rejected('E_ARRAY_RESULT_CONTEXT',kind=kind,body=body,routines=factory(kind)+f'\nROUTINE use(p: ARRAY OF {kind}) BEGIN END use', _translator=legacy_translate)
 
     def test_direct_scalar_narrow_results_remain_blocked(self):
         for kind in ('BYTE','SHORT'):
@@ -158,7 +159,7 @@ class NarrowArrayFailureTests(unittest.TestCase):
         self.assertEqual(execute(kind='SHORT',routines=routine)['A'],[-32768,32766])
 
     def test_whole_array_value_argument_remains_blocked(self):
-        self.rejected('E_ARRAY_VALUE',body='use((a))',routines='ROUTINE use(p: ARRAY OF BYTE) BEGIN END use')
+        self.rejected('E_ARRAY_VALUE',body='use((a))',routines='ROUTINE use(p: ARRAY OF BYTE) BEGIN END use', _translator=legacy_translate)
 
     def test_named_array_source_is_not_erased(self):
         self.rejected('E_ARRAY_RETURN_SOURCE',body='',types='TYPE row_t=ARRAY[2] OF BYTE',routines='ROUTINE make: ARRAY OF BYTE VAR p: row_t BEGIN RETURN p END make')

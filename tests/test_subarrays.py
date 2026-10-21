@@ -209,7 +209,7 @@ class SubarrayRejectionTests(unittest.TestCase):
     def test_flat_generic_rank_mismatch(self): self.rejected('work(cube)', routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN END work')
     def test_flat_generic_does_not_expose_unproven_boundary(self): self.rejected(routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN row=p[1] END work', code='E_ARRAY_RANK')
     def test_chained_subscript_syntax_remains_blocked(self): self.rejected('x=plane[1][2]', code='E_ARRAY_RANK')
-    def test_parenthesized_subarray_value_remains_blocked(self): self.rejected('work((plane[1]))', routines='ROUTINE work(p: row_t) BEGIN END work', code='E_ARRAY_VALUE')
+    def test_parenthesized_subarray_value_remains_blocked(self): self.rejected('work((plane[1]))', routines='ROUTINE work(p: row_t) BEGIN END work', code='E_ARRAY_VALUE', _translator=legacy_translate)
     def test_nested_array_len_is_logically_multidimensional(self): self.rejected('x=ARRAY_LEN(plane)', code='E_ARRAY_LEN')
     def test_subarray_array_len_is_logically_multidimensional(self): self.rejected('x=ARRAY_LEN(cube[1])', code='E_ARRAY_LEN')
     def test_multiple_indexes_with_user_calls_remain_blocked(self): self.rejected('x=plane[choose(),1]', routines='ROUTINE choose: INTEGER BEGIN RETURN 1 END choose', code='E_EVALUATION_ORDER', _translator=legacy_translate)

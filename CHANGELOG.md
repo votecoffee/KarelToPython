@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.55.0 - 2026-10-21
+
+- Add Pythonic ARRAY value arguments as checked independent writable copies.
+  Grouped whole arrays, array fields, named subarrays and ARRAY function results
+  retain concrete shape, nominal identity, element capacities and protection.
+  Require every scalar leaf known/initialized; preserve the 32767-leaf bound.
+  Bare actuals remain references, with no copy-back from value temporaries.
+- Compose ARRAY results in grouping, compatible user-routine arguments, direct
+  RETURN forwarding, logical-rank-one ARRAY_LEN and aggregate access. Accept
+  subscripts/fields after explicit calls or grouped aggregate expressions.
+  Preserve one-time left-to-right evaluation and detached result ownership.
+- Add copy/call-site metadata and report policies, 88 execution/runtime
+  regressions and an authored example with independent fixtures. Preserve
+  conservative rejection tests internally for the future strict milestone.
+  ARRAY declaration forms, nominal identity, initialization, POSITION protection,
+  conversion argument and FOR-counter boundaries remain; no native ABI claim.
+
 ## 0.54.0 - 2026-10-21
 
 - Enable Pythonic function composition in operators, multi-argument calls,

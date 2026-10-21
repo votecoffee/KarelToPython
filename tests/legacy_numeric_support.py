@@ -1,6 +1,6 @@
 """Preserve the pre-Pythonic conservative contract without publishing strict mode.
 
-These tests exercise frozen numeric, WRITE, STRING and ordering guards for the
+These tests exercise frozen numeric, WRITE, STRING, ARRAY and ordering guards for the
 future strict milestone. Mixed suites explicitly select this compiler only for
 the retained conservative cases; their other tests use the public translator.
 Public API/CLI behavior is exercised separately through karel2py.translate.

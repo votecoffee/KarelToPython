@@ -304,7 +304,7 @@ class BoundaryTests(unittest.TestCase):
         self.rejected('work(shorts)', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN END work')
 
     def test_whole_narrow_array_value_passing_remains_blocked(self):
-        self.rejected('work((bytes))', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN END work', code='E_ARRAY_VALUE')
+        self.rejected('work((bytes))', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN END work', code='E_ARRAY_VALUE', _translator=legacy_translate)
 
     def test_narrow_field_cannot_be_for_counter(self):
         self.rejected('FOR item.code = 1 TO 3 DO ENDFOR', code='E_SYNTAX')

@@ -692,6 +692,8 @@ class Parser:
             else: left = self.access(Expr('name', token, token.value))
         else:
             self.error('E_EXPRESSION', f'Expected expression, found {token.value}', token)
+        if self.mode == 'pythonic' and left.kind in ('call', 'group'):
+            left = self.access(left)
         while self.current.value in PRECEDENCE and PRECEDENCE[self.current.value] >= minimum:
             operator = self.take()
             if (operator.value in ('#', '@') and left.kind == 'binary'
@@ -736,6 +738,8 @@ class Emitter:
         self.atan2_uses = []
         self.array_return_uses = []
         self.array_result_assignments = []
+        self.array_function_uses = []
+        self.array_value_uses = []
         self.bare_function_uses = []
         self.array_shapes = {}
         context_token = Token('NAME', '<array_shapes>', 1, 1)
@@ -1198,7 +1202,7 @@ class Emitter:
 
     @staticmethod
     def root_name(expr):
-        while expr.kind in ('index', 'field'): expr = expr.args[0]
+        while expr.kind in ('index', 'field', 'group'): expr = expr.args[0]
         return expr.value
 
     def member_type(self, spec, expr):
@@ -1215,6 +1219,9 @@ class Emitter:
 
     def access_type(self, expr):
         """Inspect receiver types without emitting calls or duplicate call-site reports."""
+        if expr.kind == 'group': return self.access_type(expr.args[0])
+        if expr.kind == 'call' and expr.value in self.routines and self.routines[expr.value].return_type:
+            return self.routines[expr.value].return_type
         if expr.kind == 'name': return self.symbol_type(expr)
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
@@ -1232,6 +1239,7 @@ class Emitter:
                 if parent_type[0] == 'POSITION' and expr.value in rt.POSITION_READ_ONLY_FIELDS:
                     return True
             expr = expr.args[0]
+            while expr.kind == 'group': expr = expr.args[0]
         return False
 
     def reference(self, expr):
@@ -1390,8 +1398,12 @@ class Emitter:
                 self.error(code, f'Unknown or unsupported call {expr.value}', expr.token)
             routine = self.routines[expr.value]
             if not routine.return_type: self.error('E_TYPE', 'Procedure cannot be used as an expression', expr.token)
-            if routine.return_type[0] == 'ARRAY' and not allow_array_result:
+            if self.mode == 'strict' and routine.return_type[0] == 'ARRAY' and not allow_array_result:
                 self.error('E_ARRAY_RESULT_CONTEXT', 'An ARRAY-valued function call is supported only as the complete value of a direct assignment', expr.token)
+            if routine.return_type[0] == 'ARRAY':
+                self.array_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                     routine=expr.value, line=line, column=expr.token.column,
+                                                     result_spec=routine.return_type, evaluated_once=True, independent_copy=True))
             self.features.add('routine function call')
             return self.routine_call(expr), routine.return_type
         self.error('E_INTERNAL', 'Unexpected expression node', expr.token)
@@ -1580,7 +1592,14 @@ class Emitter:
             if is_reference and argument.kind == 'name' and argument.value in self.active_counters:
                 self.error('E_FOR_COUNTER', 'An active FOR counter cannot be passed by reference; use parentheses for a value argument', argument.token)
             if not is_reference and expected[0] == 'ARRAY':
-                self.error('E_ARRAY_VALUE', 'Whole ARRAY arguments cannot be passed by value', argument.token)
+                if self.mode == 'strict':
+                    self.error('E_ARRAY_VALUE', 'Whole ARRAY arguments cannot be passed by value', argument.token)
+                self.features.add('writable ARRAY value argument')
+                self.array_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                  routine=routine.name, parameter=formal.value, formal_spec=expected,
+                                                  source_spec=actual, line=line, column=argument.token.column,
+                                                  expression_kind=argument.kind, evaluated_once=True,
+                                                  independent_writable_copy=True, initialized_elements_required=True))
             if not is_reference and expected[0] == 'STRING':
                 if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
@@ -1774,10 +1793,13 @@ class Emitter:
             value, value_type = self.expression(expr, allow_array_result=True)
             if not self.compatible(target_type, value_type):
                 self.error('E_TYPE', f'Cannot assign {value_type} to {target_type}', token)
-            if expr.kind == 'call' and value_type[0] == 'ARRAY':
+            result_expr = expr
+            if self.mode == 'pythonic':
+                while result_expr.kind == 'group': result_expr = result_expr.args[0]
+            if result_expr.kind == 'call' and value_type[0] == 'ARRAY':
                 self.features.add('direct ARRAY result assignment')
                 self.array_result_assignments.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                          routine=expr.value, line=line, column=token.column,
+                                                          routine=result_expr.value, line=line, column=token.column,
                                                           target_kind=target.kind, target_type=target_type,
                                                           evaluated_once=True, runtime_exact_type_and_size=True))
             if target_type[0] == 'STRUCTURE': self.features.add('whole STRUCTURE assignment')
@@ -1983,7 +2005,8 @@ class Emitter:
                 if spec[0] == 'ARRAY':
                     source = expr
                     while source.kind == 'group': source = source.args[0]
-                    if (source.kind not in ('name','field','index') or value_type[0] != 'ARRAY'
+                    sources = ('name', 'field', 'index', 'call') if self.mode == 'pythonic' else ('name', 'field', 'index')
+                    if (source.kind not in sources or value_type[0] != 'ARRAY'
                             or rt.array_identity(value_type) is not None or len(rt.array_shape(value_type)) != 1
                             or (value_type[2] != spec[2] and not
                                 (spec[2][0] == 'STRING' and value_type[2] == ('STRING', None)))):
@@ -2172,6 +2195,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                    boundary='Named outer ARRAY types, flat multidimensional result sources/declarations, unspecified STRING result-element capacities, direct STRING results, unknown leaves, external routines and native runtime/ABI behavior remain unsupported',
                                    controller_validated=False),
         array_returns=emitter.array_return_uses, array_result_assignments=emitter.array_result_assignments,
+        array_function_uses=emitter.array_function_uses, array_value_arguments=emitter.array_value_uses,
         bare_function_calls=emitter.bare_function_uses,
         bare_function_policy=dict(resolution='Unshadowed internal zero-parameter function names in value expressions resolve after USING fields and before call/effect analysis',
                                   storage='Assignment targets and field/array receiver roots remain storage; local variables, parameters and constants keep their existing binding',
@@ -2353,7 +2377,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                      potential_aborts=r.may_abort,
                                      potential_parameter_writes=sorted(r.parameter_writes),
                                      parameters=[dict(name=t.value, type=spec[0], type_spec=spec,
-                                                      passing_modes=(['reference', 'value'] if spec[0] == 'STRING' and mode == 'pythonic'
+                                                      passing_modes=(['reference', 'value'] if spec[0] in ('STRING', 'ARRAY') and mode == 'pythonic'
                                                                      else ['reference', 'value_read_only'] if spec[0] == 'STRING' and t.value not in r.parameter_writes
                                                                      else ['reference', 'value'] if spec[0] in (*RECORD_TYPES, 'JOINTPOS')
                                                                      else ['reference'] if spec[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS') else ['reference', 'value']))
@@ -2487,15 +2511,37 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         report[key]['effects'] = 'Potential effects propagate through routine calls; Pythonic evaluation order determines when they occur'
     report['local_constant_policy']['arguments'] = 'Scalar constants pass as independent value temporaries; STRING temporaries are writable with capacity 254'
     report['data_record_policy']['parameters'] = 'Bare exact-type records keep references; grouped storage and function results use checked independent value copies; CONFIG scalar subfields pass by value'
+    report['array_routine_policy'].update(
+        use='ARRAY results compose in grouped assignments, compatible routine value arguments, RETURN forwarding, ARRAY_LEN on logical rank one, and explicit result subscript/field reads',
+        references='Bare ARRAY storage keeps caller references; grouped storage and function results create checked independent writable copies with concrete shape, identity and element capacities')
+    report['array_value_policy'] = dict(
+        source='Grouped whole arrays/subarrays/array fields and compatible ARRAY function results',
+        storage='Checked deep copy with every scalar leaf known and initialized; preserve concrete shape, nominal identities and STRING capacities',
+        binding='Ordinary writable private reference; bare forwarding shares the private storage, grouping again copies it; no copy-back on completion, error or ABORT',
+        evaluation='Capture once at the actual argument position in left-to-right evaluation; later actuals cannot mutate an earlier private copy',
+        limits='Existing prototype bound of 32767 scalar leaves; exact formal rank/type checks; no resizing, coercion, partial copies or acquired robot context',
+        controller_validated=False)
+    report['aggregate_access_policy'] = dict(
+        source='Subscripts and fields after explicit function calls or grouped aggregate expressions',
+        evaluation='Evaluate the aggregate once before subscripts; existing comma-separated subscript and field type checks apply',
+        ownership='Returned aggregates remain detached; references into a returned temporary keep only its private storage alive',
+        protection='Existing POSITION read-only descendants and CONFIG field passing rules remain',
+        boundary='Bare function names used directly as receiver roots remain storage; use an explicit call or group; chained ARRAY subscripts remain blocked',
+        controller_validated=False)
+    report['bare_function_policy']['arrays'] = 'ARRAY values compose in compatible value contexts, grouping, RETURN and logical-rank-one ARRAY_LEN; explicit calls or grouping allow aggregate access'
+    report['named_array_policy']['parameters'] = 'Same named type by reference or checked value copy; generic rank-matched ARRAY formals preserve the concrete actual identity'
     for key in ('vector_routine_policy', 'structure_routine_policy', 'positional_routine_policy', 'array_routine_policy'):
-        report[key]['boundary'] = report[key]['boundary'].replace('direct STRING results, ', '').replace(' or direct STRING results', '')
+        report[key]['boundary'] = (report[key]['boundary'].replace('direct STRING results, ', '').replace(' or direct STRING results', '')
+                                   .replace('whole ARRAY value arguments, ', '').replace('whole ARRAY values, ', '').replace(', whole ARRAY values', ''))
     strict_only = ('REAL uses exact binary32', 'Underflow follows the manual', 'Signed MOD with negative',
                    'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
                    'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain',
-                   'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument')
+                   'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
+                   'Whole ARRAY reference parameters support')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'] = [item.replace('ARRAY_LEN on multidimensional arrays and routine calls in multiple subscripts remain blocked pending count/evaluation-order evidence',
                                          'ARRAY_LEN on multidimensional arrays remains blocked pending dimension-count semantics')
                              for item in report['limitations']]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
+    report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     return result

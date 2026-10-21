@@ -283,7 +283,7 @@ class StructureArrayBoundaryTests(unittest.TestCase):
         self.rejected('put(items)', routines='ROUTINE put(p: ARRAY[*,*] OF item_t) BEGIN END put')
 
     def test_parenthesized_array_value_remains_blocked(self):
-        self.rejected('put((items))', code='E_ARRAY_VALUE', routines='ROUTINE put(p: ARRAY OF item_t) BEGIN END put')
+        self.rejected('put((items))', code='E_ARRAY_VALUE', routines='ROUTINE put(p: ARRAY OF item_t) BEGIN END put', _translator=legacy_translate)
 
     def test_parenthesized_structure_element_requires_initialized_contents(self):
         program,_=compile_program('put((items[1]))',routines='ROUTINE put(p: item_t) BEGIN END put')

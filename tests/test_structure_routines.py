@@ -148,7 +148,7 @@ class StructureRoutineGuardTests(unittest.TestCase):
     def test_named_array_return_remains_blocked(self): self.reject('E_RETURN_TYPE',routines='ROUTINE get: row_t BEGIN END get')
     def test_sized_array_result_remains_blocked(self):
         self.reject('E_RETURN_TYPE',routines='ROUTINE get: ARRAY[2] OF INTEGER BEGIN END get')
-    def test_whole_array_value_remains_blocked(self): self.reject('E_ARRAY_VALUE','fill((a.values))',routines='ROUTINE fill(p: ARRAY OF INTEGER) BEGIN END fill')
+    def test_whole_array_value_remains_blocked(self): self.reject('E_ARRAY_VALUE','fill((a.values))',routines='ROUTINE fill(p: ARRAY OF INTEGER) BEGIN END fill', _translator=legacy_translate)
     def test_aggregate_uninit_remains_blocked(self): self.reject('E_TYPE','flag=UNINIT(a)')
     def test_structure_comparison_remains_blocked(self): self.reject('E_TYPE','flag=a=b')
     def test_function_used_as_statement(self): self.reject('E_CALL','build(1)',routines=FACTORY)

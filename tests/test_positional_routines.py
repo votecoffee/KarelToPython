@@ -169,8 +169,8 @@ class PositionalRoutineGuardTests(unittest.TestCase):
     def test_bare_orientation_argument_stays_blocked(self): self.reject('E_POSITION_READ_ONLY_ARG','work(pose.normal)',declarations='pose: POSITION',routines='ROUTINE work(v: VECTOR) BEGIN END work')
     def test_position_geometry_stays_blocked(self): self.reject('E_TYPE','flag=p=q',declarations='p,q: POSITION flag: BOOLEAN')
     def test_named_array_result_and_whole_array_value_stay_blocked(self):
-        self.reject('E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[2] OF REAL',routines='ROUTINE get: row_t BEGIN END get')
-        self.reject('E_ARRAY_VALUE','work((a))',declarations='a: ARRAY[2] OF XYZWPR',routines='ROUTINE work(v: ARRAY OF XYZWPR) BEGIN END work')
+        self.reject('E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[2] OF REAL',routines='ROUTINE get: row_t BEGIN END get', _translator=legacy_translate)
+        self.reject('E_ARRAY_VALUE','work((a))',declarations='a: ARRAY[2] OF XYZWPR',routines='ROUTINE work(v: ARRAY OF XYZWPR) BEGIN END work', _translator=legacy_translate)
     def test_multiple_arguments_containing_result_call_stay_blocked(self): self.reject('E_EVALUATION_ORDER','work(make(),p)',routines=POSE_FACTORY+'\nROUTINE work(v,w: XYZWPR) BEGIN END work', _translator=legacy_translate)
     def test_effectful_indexed_result_stays_blocked(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='p: XYZWPR items: ARRAY[1] OF XYZWPR n: INTEGER',routines='ROUTINE get: XYZWPR BEGIN n=7 RETURN p END get', _translator=legacy_translate)
     def test_delay_output_abort_effects_stay_transitive(self):

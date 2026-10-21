@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.54.0. Acceptance is specific to
+This is the supported prototype subset as of 0.55.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -21,9 +21,9 @@ internally and in the historical semantic notes.
 | Trig | General degree SIN/COS/TAN/ASIN/ACOS and ATAN2 | Inverse/domain checks remain. ATAN2 uses KAREL `(x,y)` order, all quadrants and Python -180..180 degree output. |
 | STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison and selected built-ins | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. Existing substring/search guards remain. |
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
-| Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference formals and named subarrays | Prototype bound of 32767 scalar leaves; whole-array value arguments prohibited; nominal identity and exact shape are retained. |
+| Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference/value arguments and named subarrays | Prototype bound of 32767 scalar leaves; value arguments require known initialized leaves; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
-| ARRAY results | Unsized anonymous outer ARRAY with scalar, explicitly bounded STRING, prior named STRUCTURE, built-in record, exact-width JOINTPOS or prior named ARRAY elements; logical rank up to three | Every scalar leaf known/initialized; call only as complete direct-assignment RHS. One outer dimension; exact inner component names/shapes and STRING capacities. Named outer results, flat multidimensional sources and unspecified STRING result capacities remain blocked. |
+| ARRAY results | Unsized anonymous outer ARRAY with scalar, explicitly bounded STRING, prior named STRUCTURE, built-in record, exact-width JOINTPOS or prior named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized. One anonymous outer dimension; exact inner component names/shapes and STRING capacities; logical rank up to three. Named outer results, flat multidimensional sources and unspecified STRING result capacities remain blocked. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no type aliases or ABI claim. |
 | USING | Restricted bare structure selectors and field priority | Lexical scope; no complex selector expressions or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
@@ -52,12 +52,13 @@ Name resolution runs after `USING` field resolution and before effect analysis.
 Routine-local variables and parameters keep their storage bindings. Local CONST
 collisions retain the existing rejection. Assignment targets and field/array
 receiver roots remain storage expressions: `build[1]` does not implicitly invoke
-a function. Stage aggregate results before selecting their fields or elements.
+a function. Use an explicit call or a group to access returned fields or elements,
+such as `build()[1]` or `(build)[1]`.
 
 Bare calls use the same type, ownership, argument-order, effect, FOR, recursion
-and cleanup rules as explicit calls. ARRAY results still require a complete
-direct-assignment right side; `(build)`, `use(build)` and `RETURN build` cannot
-consume or forward an ARRAY function result. See the authored
+and cleanup rules as explicit calls. ARRAY results support grouping, compatible
+user-routine arguments, direct RETURN forwarding and logical-rank-one ARRAY_LEN.
+See the [ARRAY values guide](pythonic-arrays.md), the authored
 [bare-call example](../examples/bare_function_calls.kl) and
 [function-call contract](semantics/function_call_semantics.json).
 
@@ -120,14 +121,16 @@ scalar leaves must be initialized and known; this is a conservative prototype
 guard. The 32767 scalar-leaf limit includes nested fields and joint axes.
 Failure leaves the destination intact while retaining earlier independent effects.
 
-Use the result only as the complete right side of a direct assignment, with a bare
-zero-argument function name or an explicit call. Stage it
-in a concrete array before passing it onward. Destination type and length must
+Use a bare zero-argument function name or an explicit call. Results compose in
+grouping, compatible user-routine arguments, direct RETURN forwarding and
+logical-rank-one ARRAY_LEN. Explicit calls or groups support returned aggregate
+subscripts and fields. Destination type and length must
 match exactly; no element coercion, resizing or nominal identity erasure occurs.
 POSITION orientation remains protected, with no source acquisition or default
 values. Exact joint copying needs no axis context; conversion procedures retain
 their existing explicit-context requirements. The full contract and unresolved
-native behavior are in [array_routine_semantics.json](semantics/array_routine_semantics.json).
+native behavior are separated in the [Pythonic ARRAY contract](pythonic-arrays.md)
+and retained [conservative ledger](semantics/array_routine_semantics.json).
 
 ## INTEGER base formatting
 

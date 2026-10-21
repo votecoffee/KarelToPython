@@ -645,6 +645,11 @@ def index_reference(array, index, line=None):
 
 def value_argument(spec, value, line=None):
     # Each expression argument owns independent temporary storage.
+    if spec[0] == 'ARRAY' and _pythonic():
+        if not isinstance(value, Array) or not parameter_accepts(spec, value.spec):
+            raise KarelRuntimeError('ARRAY value argument requires a matching concrete type and shape', line)
+        copied = _aggregate_value(value.spec, value, line)
+        return Reference(copied.spec, {'value': copied}, 'value')
     if spec == ('VECTOR',):
         return Reference(spec, {'value': vector_value(value, line)}, 'value')
     if spec[0] == 'STRUCTURE':

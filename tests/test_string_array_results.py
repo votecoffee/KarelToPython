@@ -162,13 +162,13 @@ class StringArrayRejectionTests(unittest.TestCase):
 
     def test_result_contexts_remain_restricted(self):
         for body in ('a=(make)', 'n=STR_LEN(make)', 'a=make+make', 'IF make THEN n=1 ENDIF'):
-            with self.subTest(body=body): self.reject('E_ARRAY_RESULT_CONTEXT', body=body)
+            with self.subTest(body=body): self.reject('E_ARRAY_RESULT_CONTEXT', body=body, _translator=legacy_translate)
 
     def test_direct_result_forwarding_still_blocked(self):
-        self.reject('E_ARRAY_RESULT_CONTEXT', body='', routines=FACTORY+'\nROUTINE copy: ARRAY OF STRING[3] BEGIN RETURN make END copy')
+        self.reject('E_ARRAY_RESULT_CONTEXT', body='', routines=FACTORY+'\nROUTINE copy: ARRAY OF STRING[3] BEGIN RETURN make END copy', _translator=legacy_translate)
 
     def test_whole_array_value_argument_still_blocked(self):
-        self.reject('E_ARRAY_VALUE', body='b=copy((a))', routines=COPY)
+        self.reject('E_ARRAY_VALUE', body='b=copy((a))', routines=COPY, _translator=legacy_translate)
 
     def test_effectful_array_result_to_indexed_target_still_blocked(self):
         types = 'TYPE box_t=STRUCTURE words: ARRAY[2] OF STRING[3] ENDSTRUCTURE'

@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.54.0**. It is a
+tool are named **karel2py**. The current implementation is **0.55.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -134,6 +134,10 @@ to right, short circuits BOOLEAN `AND`/`OR`, and captures assignment values befo
 resolving targets. See the [evaluation order guide](docs/evaluation-order.md)
 for reference aliasing and compatibility changes.
 
+Whole ARRAY value arguments use private checked copies. ARRAY results can be
+passed onward, forwarded by RETURN, or read directly with `make()[1]`.
+See the [ARRAY values guide](docs/pythonic-arrays.md) for ownership and limits.
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -166,7 +170,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 54 authored runnable examples, checks complete
+The example runner translates the 55 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.

@@ -219,7 +219,7 @@ class NamedArrayReferenceTests(unittest.TestCase):
         _, result = compile_program('fill(a)', routines='ROUTINE fill(p: row_t) BEGIN END fill')
         formal = result.report['routine_effects']['FILL']['parameters'][0]
         self.assertEqual(formal['type_spec'], ('ARRAY', 2, ('INTEGER',), 'ROW_T'))
-        self.assertEqual(formal['passing_modes'], ['reference'])
+        self.assertEqual(formal['passing_modes'], ['reference', 'value'])
         self.assertFalse(result.report['named_array_policy']['controller_validated'])
 
 
@@ -238,7 +238,7 @@ class NamedArrayRejectionTests(unittest.TestCase):
     def test_anonymous_actual_to_named_formal_rejected(self):
         self.rejected('work(a)', declarations='a: ARRAY[2] OF INTEGER', routines='ROUTINE work(p: row_t) BEGIN END work')
     def test_parenthesized_named_array_value_rejected(self):
-        self.rejected('work((a))', code='E_ARRAY_VALUE', routines='ROUTINE work(p: row_t) BEGIN END work')
+        self.rejected('work((a))', code='E_ARRAY_VALUE', routines='ROUTINE work(p: row_t) BEGIN END work', _translator=legacy_translate)
     def test_generic_forwarding_to_named_formal_remains_blocked(self):
         routines = 'ROUTINE named(p: row_t) BEGIN END named\nROUTINE generic(p: ARRAY OF INTEGER) BEGIN named(p) END generic'
         self.rejected('generic(a)', routines=routines)

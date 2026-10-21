@@ -1,0 +1,46 @@
+PROGRAM pythonic_arrays
+TYPE item_t=STRUCTURE id: INTEGER ENDSTRUCTURE
+VAR
+  source,edited,generated: ARRAY[3] OF INTEGER
+  calls,first,array_length,record_id: INTEGER
+
+ROUTINE make(seed: INTEGER): ARRAY OF INTEGER
+VAR values: ARRAY[3] OF INTEGER
+BEGIN
+  calls=calls+1
+  values[1]=seed
+  values[2]=seed+1
+  values[3]=seed+2
+  RETURN values
+END make
+
+ROUTINE edit(values: ARRAY OF INTEGER): ARRAY OF INTEGER
+BEGIN
+  values[1]=values[1]*10
+  RETURN values
+END edit
+
+ROUTINE forward(seed: INTEGER): ARRAY OF INTEGER
+BEGIN
+  RETURN edit(make(seed))
+END forward
+
+ROUTINE make_record: item_t
+VAR value: item_t
+BEGIN
+  value.id=42
+  RETURN value
+END make_record
+
+BEGIN
+  calls=0
+  source[1]=1
+  source[2]=2
+  source[3]=3
+  edited=edit((source))
+  generated=forward(4)
+  first=make(7)[2]
+  array_length=ARRAY_LEN(make(9))
+  record_id=make_record().id
+  WRITE('source=',source[1],', edited=',edited[1],', first=',first,', count=',array_length,CR)
+END pythonic_arrays

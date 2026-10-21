@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.54.0",
+  "translator_version": "0.55.0",
+  "array_mode_note": "Public Pythonic ARRAY value/result composition follows ../pythonic-arrays.md; older assignment-only and whole-value rejections below are retained for the future strict milestone.",
   "evaluation_mode_note": "Public Pythonic mode uses the chosen order in ../evaluation-order.md; older ordering rejections below are retained only for the future strict milestone.",
   "numeric_mode_note": "Public translation is Pythonic. Exact REAL restrictions below preserve the legacy contract for a future strict milestone; see ../numeric-modes.md.",
   "date": "2026-10-13",

@@ -181,11 +181,11 @@ class ReferenceTests(unittest.TestCase):
         self.assertEqual(p._state.snapshot()['A'][1][2], 7)
         self.assertEqual((p._state.local_frames, p._state.call_depth), ([], 0))
 
-    def test_report_keeps_formal_rank_and_reference_only_mode(self):
+    def test_report_keeps_formal_rank_and_passing_modes(self):
         _, result = compile_program('put(a)', 'ROUTINE put(p: ARRAY[*,*] OF INTEGER) BEGIN END put')
         parameter = result.report['routine_effects']['PUT']['parameters'][0]
         self.assertEqual(parameter['type_spec'], ('ARRAY', (None, None), ('INTEGER',)))
-        self.assertEqual(parameter['passing_modes'], ['reference'])
+        self.assertEqual(parameter['passing_modes'], ['reference', 'value'])
 
 
 class CopyTests(unittest.TestCase):
@@ -296,7 +296,7 @@ class BoundaryTests(unittest.TestCase):
             with self.subTest(spec=spec): self.rejected(routines=f'ROUTINE put(p: {spec}) BEGIN END put', code='E_PARAMETERS')
 
     def test_parenthesized_whole_array_value_remains_blocked(self):
-        self.rejected('put((a))', 'ROUTINE put(p: ARRAY[*,*] OF INTEGER) BEGIN END put', code='E_ARRAY_VALUE')
+        self.rejected('put((a))', 'ROUTINE put(p: ARRAY[*,*] OF INTEGER) BEGIN END put', code='E_ARRAY_VALUE', _translator=legacy_translate)
 
     def test_aggregate_uninit_remains_blocked(self):
         self.rejected('flag = UNINIT(a)', code='E_TYPE')

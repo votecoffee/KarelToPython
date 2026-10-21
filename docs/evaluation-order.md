@@ -53,7 +53,8 @@ an actual captures an independent value before the next argument:
 
 An indexed reference keeps the selected cell even if a later actual changes the
 index variable. Existing aggregate copy, nominal type, initialization and STRING
-capacity rules remain. Whole ARRAY value arguments remain unsupported.
+capacity rules remain. Whole ARRAY value arguments use
+[checked independent copies](pythonic-arrays.md).
 
 ## Assignments and subscripts
 

@@ -1,0 +1,22 @@
+{
+  "translator_version": "0.55.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "evidence": "Chosen Pythonic ownership and composition policy, authored regression tests and independent complete example fixtures; no native call ABI claim.",
+  "values": "Grouped arrays, array fields, named subarrays and ARRAY function results create checked independent writable copies. Bare array storage remains a live caller reference.",
+  "copy_contract": "Retain concrete dimensions, nominal identities, STRING capacities, narrow element types, joint widths and POSITION protection. Every leaf known, initialized and valid; at most 32767 scalar leaves. No resize, coercion or copy-back.",
+  "evaluation": "Capture once at the actual argument position in left-to-right evaluation. Later actuals cannot change earlier private copies. Bare forwarding shares the private array; grouping again copies it.",
+  "results": "ARRAY results compose in grouping, compatible user-routine value arguments, direct RETURN forwarding, logical-rank-one ARRAY_LEN and aggregate access. RETURN still checks and detaches before frame cleanup.",
+  "access": "Subscripts and fields follow explicit calls or grouped aggregate expressions. Evaluate aggregate once before subscripts. Bare direct receiver names remain storage. Use comma-separated subscripts for nested arrays; chained indexes remain blocked.",
+  "failure": "Copy validation fails before entering the callee or evaluating later actuals. Errors and ABORT retain earlier effects and unwind frames; private changes never copy back.",
+  "boundaries": [
+    "Existing ARRAY function declarations retain anonymous unsized single outer dimension and exact named inner components",
+    "Named outer results, flat multidimensional result sources and unspecified STRING result capacities remain unsupported",
+    "ARRAY_LEN with logical rank greater than one, ARRAY arithmetic/Boolean/WRITE use and incompatible types remain blocked",
+    "Existing conversion argument forms, FOR-counter rules, POSITION protection and explicit robot-context requirements remain",
+    "No native controller evaluation, call ABI, persistence or storage acquisition claim; public strict mode is a future milestone"
+  ],
+  "reports": ["array_value_arguments", "array_function_uses", "array_returns", "array_result_assignments", "array_value_policy", "aggregate_access_policy"],
+  "tests": ["tests/test_pythonic_arrays.py", "tests/test_runtime_portability.py", "examples/pythonic_arrays.kl"],
+  "controller_validated": false
+}

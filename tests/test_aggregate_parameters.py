@@ -204,11 +204,11 @@ class AggregateRejectionTests(unittest.TestCase):
     def test_parenthesized_whole_arrays_rejected(self):
         for argument in ('(a)', '((a))'):
             with self.subTest(argument=argument):
-                self.rejected(f'fill({argument})', 'ROUTINE fill(p: ARRAY OF INTEGER) BEGIN END fill', 'E_ARRAY_VALUE')
+                self.rejected(f'fill({argument})', 'ROUTINE fill(p: ARRAY OF INTEGER) BEGIN END fill', 'E_ARRAY_VALUE', _translator=legacy_translate)
 
     def test_forwarding_array_by_value_rejected(self):
         routines = 'ROUTINE fill(p: ARRAY OF INTEGER) BEGIN END fill\nROUTINE forward(q: ARRAY OF INTEGER) BEGIN fill((q)) END forward'
-        self.rejected('forward(a)', routines, 'E_ARRAY_VALUE')
+        self.rejected('forward(a)', routines, 'E_ARRAY_VALUE', _translator=legacy_translate)
 
     def test_wrong_array_element_type_rejected(self):
         self.rejected('fill(flags)', 'ROUTINE fill(p: ARRAY OF INTEGER) BEGIN END fill', 'E_TYPE')
@@ -236,7 +236,7 @@ class AggregateRejectionTests(unittest.TestCase):
         _, result = compile_program('fill(a)', 'ROUTINE fill(p: ARRAY OF INTEGER) BEGIN p[1] = 7 END fill')
         parameter = result.report['routine_effects']['FILL']['parameters'][0]
         self.assertEqual(parameter['type_spec'], ('ARRAY', None, ('INTEGER',)))
-        self.assertEqual(parameter['passing_modes'], ['reference'])
+        self.assertEqual(parameter['passing_modes'], ['reference', 'value'])
         self.assertTrue(result.report['routine_effects']['FILL']['potential_external_writes'])
 
     def test_aggregate_example(self):

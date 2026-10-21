@@ -257,7 +257,7 @@ class StringRejectionTests(unittest.TestCase):
         self.rejected('fill(numbers)', 'E_TYPE', 'ROUTINE fill(p: ARRAY OF STRING) BEGIN END fill')
 
     def test_string_array_whole_value_passing_remains_prohibited(self):
-        self.rejected('fill((words))', 'E_ARRAY_VALUE', 'ROUTINE fill(p: ARRAY OF STRING) BEGIN END fill')
+        self.rejected('fill((words))', 'E_ARRAY_VALUE', 'ROUTINE fill(p: ARRAY OF STRING) BEGIN END fill', _translator=legacy_translate)
 
     def test_string_element_value_to_writer_preserves_source(self):
         state = execute("words[1]='abc' label((words[1]))", "ROUTINE label(p: STRING) BEGIN p='changed' END label")
