@@ -784,7 +784,7 @@ class Parser:
             if (self.mode == 'strict' and operator.value in ('#', '@') and left.kind == 'binary'
                     and left.value in ('#', '@')):
                 self.error('E_VECTOR_ASSOCIATIVITY', 'Parenthesize chained #/@ operations; same-level association needs KAREL validation', operator)
-            if operator.value == '>=<':
+            if self.mode == 'strict' and operator.value == '>=<':
                 self.error('E_OPERATOR', f'{operator.value} requires an unimplemented numeric/geometry mapping', operator)
             right = self.expression(PRECEDENCE[operator.value] + 1, allow_relative=allow_relative)
             left = Expr('binary', operator, operator.value, [left, right])
@@ -822,6 +822,7 @@ class Emitter:
         self.config_text_uses = []
         self.frame_operation_uses = []
         self.position_axis_uses = []
+        self.position_comparison_uses = []
         self.position_conversion_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
@@ -1575,7 +1576,14 @@ class Emitter:
             if lt[0] in NARROW_TYPES: lt = ('INTEGER',)
             if right_type[0] in NARROW_TYPES: right_type = ('INTEGER',)
             op = expr.value
-            if op == ':':
+            if op == '>=<':
+                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',)) for spec in (lt,right_type))
+                result_type = ('BOOLEAN',)
+                if valid:
+                    self.position_comparison_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                              line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
+                                                              result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
+            elif op == ':':
                 valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',)) for spec in (lt,right_type))
                 result_type = self.frame_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
                 if valid:
@@ -1613,9 +1621,11 @@ class Emitter:
                 # Capture mutable values before a later operand can change them.
                 if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
                 if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
-                if op == ':':
+                if op in (':','>=<'):
                     left = f'_rt.frame_value({left}, {line}, expected={lt!r})'
                     right = f'_rt.frame_value({right}, {line}, expected={right_type!r})'
+                if op == '>=<':
+                    return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line})', result_type
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
         if expr.kind == 'call':
             if self.active_counters and expr.value in self.routines:
@@ -2445,9 +2455,15 @@ class Emitter:
         self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None):')
+        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None):')
         self.indent = 2
-        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes)')
+        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def pose_tolerance(self):')
+        self.indent = 2
+        self.line('return self._state.pose_tolerance')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2505,16 +2521,31 @@ class Emitter:
         self.line()
         self.line('if __name__ == "__main__":')
         self.indent = 1
-        if self.features & JOINT_PROCEDURES or 'read' in self.features:
+        if self.features & JOINT_PROCEDURES or 'read' in self.features or 'operator >=<' in self.features:
             self.line('import argparse as _argparse')
             self.line('_parser = _argparse.ArgumentParser(description="Explicit offline execution context; no controller connection")')
             if self.features & JOINT_PROCEDURES:
                 self.line('_parser.add_argument("--joint-axes", type=int, choices=range(1, 10), required=True)')
+            if 'operator >=<' in self.features:
+                self.line('_parser.add_argument("--location-tolerance-mm", type=float, required=True)')
+                self.line('_parser.add_argument("--orientation-tolerance-deg", type=float, required=True)')
+                self.line('_config = _parser.add_mutually_exclusive_group(required=True)')
+                self.line('_config.add_argument("--check-config", dest="check_config", action="store_true")')
+                self.line('_config.add_argument("--ignore-config", dest="check_config", action="store_false")')
             if 'read' in self.features:
                 self.line('_input = _parser.add_mutually_exclusive_group(required=True)')
                 self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
                 self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
             self.line('_args = _parser.parse_args()')
+            if 'operator >=<' in self.features:
+                self.line('try:')
+                self.indent += 1
+                self.line('_pose_tolerance = _rt.checked_pose_tolerance((_args.location_tolerance_mm, _args.orientation_tolerance_deg, _args.check_config))')
+                self.indent -= 1
+                self.line('except ValueError as _error:')
+                self.indent += 1
+                self.line('_parser.error(str(_error))')
+                self.indent -= 1
             if 'read' in self.features:
                 self.line('import json as _json')
                 self.line('try:')
@@ -2535,6 +2566,7 @@ class Emitter:
                 self.indent -= 1
             context = []
             if self.features & JOINT_PROCEDURES: context.append('joint_axes=_args.joint_axes')
+            if 'operator >=<' in self.features: context.append('pose_tolerance=_pose_tolerance')
             if 'read' in self.features: context.append('read=_responses')
             self.line(f'print(Program({", ".join(context)}).run())')
         else:
@@ -2733,6 +2765,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         config_text_conversions=emitter.config_text_uses,
         frame_operations=emitter.frame_operation_uses,
         position_axis_queries=emitter.position_axis_uses,
+        position_comparisons=emitter.position_comparison_uses,
         position_conversions=emitter.position_conversion_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
@@ -2883,6 +2916,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['position_comparison_policy'] = dict(
+        operator='>=< on complete POSITION or XYZWPR, including mixed operands; BOOLEAN result',
+        context='Explicit Program(pose_tolerance=(location_mm, orientation_deg, check_config)) required when executed; finite nonnegative location bound, orientation in 0..180 and exact BOOLEAN; immutable per-instance copy, no defaults or controller discovery',
+        metric='Inclusive Euclidean location distance and shortest rotation angle in degrees; relative matrix transpose(Ra)*Rb, atan2 of half skew norm and clamped half(trace-1); no relative tolerance; rounded Python floats',
+        configuration='If check_config is true, require every CONFIG field to match; otherwise ignore differences after complete validation',
+        evaluation='Evaluate and validate each operand once left-to-right before later effects; check both complete proper poses even when another comparison would be false; preserve prior effects and destination on failure',
+        boundary='No scalar/VECTOR/XYZWPREXT/JOINTPOS comparisons, source system-variable access, frame discovery, native tolerance/configuration metric equivalence or controller acceptance; strict remains future work',
+        controller_validated=False)
     report['position_axis_policy'] = dict(
         functions='APPROACH returns positive Z; ORIENT returns positive Y; exact POSITION and Pythonic XYZWPR operands; internal routines and ordinary names retain precedence',
         mapping='POSITION APPROACH/ORIENT columns; XYZWPR uses frame_policy Z-Y-X rotation; return independent writable VECTOR without normalizing or repairing input',

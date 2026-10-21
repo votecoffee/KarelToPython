@@ -55,7 +55,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_frame_constructor', 'CODE', 0),
                     ('pythonic_position_conversions', 'CODE', 0),
                     ('pythonic_position_geometry', 'CODE', 0),
-                    ('pythonic_position_axes', 'CODE', 0)]
+                    ('pythonic_position_axes', 'CODE', 0),
+                    ('pythonic_position_comparisons', 'NEAR', True)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
@@ -73,6 +74,9 @@ class RuntimePortabilityTests(unittest.TestCase):
                 if text_file.exists():
                     setup=f'from karel2py.runtime import TextInput\nresponses=TextInput({text_file.read_text()!r})\n'
                     adapter='read=responses'
+                context_file=ROOT/f'examples/{example}.context.expected.json'
+                context=json.loads(context_file.read_text()) if context_file.exists() else {}
+                adapter+=(', ' if adapter else '')+f'**{context!r}'
                 (target / 'check.py').write_text('import json\nfrom converted import Program\n'
                                                +setup+f'print(json.dumps(Program({adapter}).run()))\n')
                 process = subprocess.run([sys.executable, 'check.py'], cwd=target, capture_output=True, text=True)

@@ -1,0 +1,19 @@
+PROGRAM POSITION_COMPARISONS
+%ENVIRONMENT SYSTEM
+VAR cfg: CONFIG code: INTEGER p: POSITION origin,nearby,far: XYZWPR near,far_ok,same_rotation,config_ok: BOOLEAN
+BEGIN
+  CNV_STR_CONF('N R U T, 0, 0, 0',cfg,code)
+  origin=POS(10,20,30,0,0,0,cfg)
+  p=origin
+  nearby=POS(10.03,20.04,30,0,0,0.25,cfg)
+  near=p>=<nearby
+  far=POS(10.2,20,30,0,0,0,cfg)
+  far_ok=origin>=<far
+  far=origin
+  far.r=360
+  same_rotation=origin>=<far
+  far.config_data.cfg_left=TRUE
+  config_ok=origin>=<far
+  WRITE('near=',near,', far=',far_ok,CR)
+  WRITE('rotation=',same_rotation,', config=',config_ok,CR)
+END POSITION_COMPARISONS

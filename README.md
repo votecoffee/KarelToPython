@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.73.0**. It is a
+tool are named **karel2py**. The current implementation is **0.74.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -182,6 +182,8 @@ operands, with direct matrix results whenever POSITION is involved.
 See [POSITION geometry](docs/position-geometry.md).
 APPROACH and ORIENT return independent VECTOR copies of a pose's positive Z and
 Y axes. See [pose axis queries](docs/position-axes.md).
+Approximate position comparison (`>=<`) uses explicit host-supplied distance,
+angle and CONFIG tolerances. See [position comparisons](docs/position-comparisons.md).
 
 ENVIRONMENT, COMMENT and ALPHABETIZE directives are retained as checked metadata
 alongside NOLOCKGROUP. Environment requirements are recorded without loading
@@ -211,6 +213,7 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 - POSITION/XYZWPR assignment conversion with checked orientation matrices.
 - POSITION and mixed POSITION/XYZWPR geometry, preserving protected matrix columns.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
+- Approximate POSITION/XYZWPR comparison with explicit per-instance tolerances.
 - Source directive metadata for environment requirements, comments and display order.
 - Rounded fixed/scientific REAL text formatting with precision -254..254,
   minimum-width padding and caller-capacity overflow markers.

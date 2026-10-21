@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.73.0",
+  "translator_version": "0.74.0",
   "position_matrix_note": "POSITION input/output proper matrix checks and direct protected columns follow position_geometry_semantics.json; the geometric axes/origin rules below apply to both representations",
   "date": "2026-10-21",
   "mode": "pythonic",

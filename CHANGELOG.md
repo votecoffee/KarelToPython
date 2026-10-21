@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.74.0 - 2026-10-21
+
+- Add Pythonic approximate POSITION/XYZWPR comparison (`>=<`) with explicit
+  per-instance location/angle tolerances and CONFIG checking. Use Euclidean
+  distance and shortest rotation angle with stable behavior near zero/180 degrees.
+- Add required context flags to generated scripts and a read-only defensive
+  tolerance tuple. Capture complete operands before later effects, retain existing
+  failure/FOR protections and keep exact/ordered pose relations blocked.
+- Add independent quaternion, context, effect and CLI checks, an authored example,
+  documentation and report policies. Strict remains future work; native tolerance
+  metrics and controller acceptance remain unverified.
+
 ## 0.73.0 - 2026-10-21
 
 - Add Pythonic APPROACH and ORIENT axis queries on POSITION and XYZWPR, returning

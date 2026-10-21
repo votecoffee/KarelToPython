@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.73.0. Acceptance is specific to
+This is the supported prototype subset as of 0.74.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -35,6 +35,7 @@ internally and in the historical semantic notes.
 | CONFIG text | CNV_STR_CONF and CNV_CONF_STR with complete checked CONFIG data, portable flags/turn grammar and canonical text | Omitted values are explicit portable choices; parse failure status 1 preserves CONFIG. No robot/group masks, native error mapping or CNV_CNF_STRG. |
 | Frame transforms | POSITION/XYZWPR colon composition, INV inversion and three/four-point FRAME construction, including mixed operands | INV preserves representation; colon/FRAME return POSITION if any operand is POSITION. Direct proper matrices or portable Z-Y-X/canonical Euler choices; FRAME retains 10 mm bounds. No XYZWPREXT/JOINTPOS/VECTOR operands, external axes, frame discovery or kinematics. |
 | Pose axis queries | APPROACH and ORIENT on POSITION/XYZWPR return independent writable VECTOR values for positive Z/Y | Complete finite poses, checked CONFIG and proper POSITION matrices; no normalization, defaults, other positional operands or controller acquisition. |
+| Position comparison | Approximate >=< on POSITION/XYZWPR, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; no explicit FILE/device destinations or aggregate output. |
 | READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; no controller file/device access, binary transfer, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
@@ -61,6 +62,7 @@ See [frame construction](frame-construction.md) for point-defined axes, spacing 
 See [POSITION conversions](position-conversions.md) for whole assignments, matrix checks and orientation protection.
 See [POSITION geometry](position-geometry.md) for mixed operands, result types and direct matrix operations.
 See [pose axis queries](position-axes.md) for APPROACH/ORIENT mapping and writable VECTOR results.
+See [position comparisons](position-comparisons.md) for >=< metrics and explicit execution context.
 
 ## Zero-argument function calls
 

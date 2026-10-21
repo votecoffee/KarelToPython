@@ -48,6 +48,9 @@ POSITION when any input is POSITION. XYZWPR-only results retain their layout.
 [Pose axis queries](position-axes.md) add source-located `position_axis_queries`
 and `position_axis_policy` for APPROACH/ORIENT mapping, complete-pose checks and
 independent writable VECTOR results. Internal routines keep their own signatures.
+[Position comparisons](position-comparisons.md) add `position_comparisons` and
+`position_comparison_policy` for `>=<`. Execution requires explicit
+`Program(pose_tolerance=(location_mm, orientation_deg, check_config))` context.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
@@ -127,6 +130,10 @@ not rolled back by failures or ABORT.
 - `joint_axes=n` supplies an explicit offline axis count for the restricted
   degree-valued joint conversion subset. It is not robot discovery or group
   configuration. Copying exact joint values does not infer a controller context.
+- `pose_tolerance=(location_mm, orientation_deg, check_config)` supplies explicit
+  approximate-position comparison limits and CONFIG checking. The copied immutable
+  tuple is exposed as `Program.pose_tolerance`. See [position comparisons](position-comparisons.md)
+  for bounds, missing-context behavior and generated-script flags.
 
 For example, a generated program using supported WRITE requests can be exercised
 with `Program(write=messages.append)`, where `messages` is a list. The

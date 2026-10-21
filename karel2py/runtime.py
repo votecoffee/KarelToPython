@@ -1197,6 +1197,37 @@ def frame_transform(left, right, line=None):
     return _frame_result(composed, location, other_config, line, result_type=result_type)
 
 
+def checked_pose_tolerance(value):
+    """Copy explicit host comparison context without inferring controller settings."""
+    if value is None: return None
+    message = 'pose_tolerance requires (finite location_mm >= 0, orientation_deg in 0..180, BOOLEAN check_config)'
+    if type(value) not in (tuple,list) or len(value) != 3 or type(value[2]) is not bool:
+        raise ValueError(message)
+    if any(type(component) not in (int,float) for component in value[:2]): raise ValueError(message)
+    try: location, orientation = map(float,value[:2])
+    except (OverflowError,ValueError): raise ValueError(message) from None
+    if not math.isfinite(location) or location < 0 or not math.isfinite(orientation) or not 0 <= orientation <= 180:
+        raise ValueError(message)
+    return location,orientation,value[2]
+
+
+def positions_close(left, right, tolerance, line=None):
+    """Compare explicit poses with supplied distance, rotation and CONFIG rules."""
+    if not _pythonic(): raise KarelRuntimeError('Position comparison requires Pythonic mode', line)
+    rotation, location, config = _frame_parts(left, line)
+    other_rotation, other_location, other_config = _frame_parts(right, line)
+    try: context = checked_pose_tolerance(tolerance)
+    except ValueError as exc: raise KarelRuntimeError(str(exc),line) from None
+    if context is None: raise KarelRuntimeError('Position comparison requires explicit Program(pose_tolerance=(location_mm, orientation_deg, check_config)) context',line)
+    distance = real(math.dist(location,other_location),line)
+    relative = tuple(tuple(sum(rotation[k][i]*other_rotation[k][j] for k in range(3)) for j in range(3)) for i in range(3))
+    sine = math.hypot(*(relative[j][i]-relative[i][j] for i,j in ((1,2),(2,0),(0,1))))/2
+    cosine = max(-1.0,min(1.0,(sum(relative[i][i] for i in range(3))-1)/2))
+    # atan2 retains small deviations near both zero and 180 degrees.
+    angle = real(math.degrees(math.atan2(sine,cosine)),line)
+    return distance <= context[0] and angle <= context[1] and (not context[2] or config.values == other_config.values)
+
+
 def binary(op, left, right, line=None):
     require(left, line)
     require(right, line)
@@ -1687,7 +1718,7 @@ class TextInput:
 
 
 class State:
-    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None):
+    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None):
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
         if sleep is not None and not callable(sleep):
@@ -1700,6 +1731,7 @@ class State:
         self._write = write
         self._read = read
         self.joint_axes = joint_axes
+        self.pose_tolerance = checked_pose_tolerance(pose_tolerance)
         self.write_requests = []
         self.read_requests = []
         self.types = declarations
