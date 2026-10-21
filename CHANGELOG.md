@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.59.0 - 2026-10-21
+
+- Permit Pythonic global-counter FOR bodies to call helpers when transitive
+  potential global writes exclude active counters. Track global roots through
+  recursive calls, writable formal actuals, assignments, FOR initialization and
+  built-in outputs; preserve local shadowing and conservative dead-branch checks.
+- Permit bare active-counter references to transitively read-only formals.
+  Keep writable references blocked; grouped/expression actuals and INTEGER-to-REAL
+  forwarding remain independent values. Formal/nonlocal counters in parameterized
+  routines still require fresh locals; direct writes and loop jumps remain blocked.
+- Clear initialized FOR counters with finally on normal/empty completion,
+  RETURN, ABORT, final-bound/body errors, callback failure/interruption and resource
+  exhaustion. Capture checked return values first; keep prior non-counter effects.
+  Initial-expression/initial-store failures retain prior counter state/effects.
+- Add global-write report metadata, current FOR policies, 72 execution/runtime
+  regressions, an authored example with independent fixtures and a FOR guide.
+  Preserve conservative rejection/error-state tests internally for the future
+  strict milestone; no native counter-state, scheduling or runtime-equivalence claim.
+
 ## 0.58.0 - 2026-10-21
 
 - Define Pythonic SUB_STR with positive one-based starts, nonnegative counts,

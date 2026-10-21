@@ -197,7 +197,7 @@ ROUTINE emit BEGIN WRITE(42::width()) END emit'''
         self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))
 
     def test_format_call_preserves_for_counter_guards(self):
-        routine = 'ROUTINE width: INTEGER BEGIN RETURN 6 END width'
+        routine = 'ROUTINE width: INTEGER BEGIN x=99 RETURN 6 END width'
         with self.assertRaises(TranslationError) as caught:
             compile_program('FOR x=1 TO 2 DO WRITE(42::width()) ENDFOR', routines=routine)
         self.assertEqual(caught.exception.code, 'E_FOR_COUNTER')

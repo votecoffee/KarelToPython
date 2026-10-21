@@ -314,7 +314,7 @@ class DelayRejectionTests(unittest.TestCase):
         self.reject('DELAY wait_value()+1', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value', _translator=legacy_translate)
 
     def test_delay_function_in_global_for_remains_blocked(self):
-        self.reject('FOR i=1 TO 2 DO DELAY duration() ENDFOR', 'E_FOR_COUNTER', routines='ROUTINE duration: INTEGER BEGIN RETURN 125 END duration')
+        self.reject('FOR i=1 TO 2 DO DELAY duration() ENDFOR', 'E_FOR_COUNTER', routines='ROUTINE duration: INTEGER BEGIN RETURN 125 END duration', _translator=legacy_translate)
 
     def test_multiple_arguments_with_delaying_call_remain_blocked(self):
         routines = 'ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value\nROUTINE use(p,q: INTEGER) BEGIN END use'

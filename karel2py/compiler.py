@@ -45,6 +45,7 @@ class Routine:
     local_constants: dict = field(default_factory=dict)
     may_delay: bool = False
     parameter_writes: set = field(default_factory=set)
+    global_writes: set = field(default_factory=set)
     may_write: bool = False
     may_abort: bool = False
     string_result_defaulted: bool = False
@@ -1157,6 +1158,7 @@ class Emitter:
                     name = node.args[0].value if node.kind == 'for' else self.root_name(node.args[0])
                     if name not in local_names: routine.side_effecting = True
                     if name in parameter_names: routine.parameter_writes.add(name)
+                    if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                 if isinstance(node, Statement) and node.kind == 'call':
                     call = node.args[0]
                     if call.value in MULTI_OUTPUT_PROCEDURES:
@@ -1164,11 +1166,13 @@ class Emitter:
                             name = self.root_name(output)
                             if name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
+                            if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                     if call.value in BUILTIN_PROCEDURES and call.args:
                         name = self.root_name(call.args[-1])
                         if name not in local_names:
                             routine.side_effecting = True
                         if name in parameter_names: routine.parameter_writes.add(name)
+                        if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                 if isinstance(node, Expr) and node.kind == 'call' and node.value in self.routines:
                     calls.add(node.value)
                     call_nodes.append(node)
@@ -1191,16 +1195,29 @@ class Emitter:
                     routine.may_abort = True
                     changed = True
                 parameter_names = {token.value for token, _ in routine.parameters}
+                local_names = {token.value for token, _ in routine.declarations}
                 for call in calls_by_routine[routine.name]:
                     callee = self.routines[call.value]
-                    for argument, (formal, _) in zip(call.args, callee.parameters):
+                    inherited = callee.global_writes - routine.global_writes
+                    if inherited:
+                        routine.global_writes.update(inherited)
+                        changed = True
+                    for argument, (formal, expected) in zip(call.args, callee.parameters):
                         # Only bare storage lets a callee write back to a formal.
                         # Grouping makes a temporary copy instead.
                         if formal.value not in callee.parameter_writes or argument.kind not in ('name', 'index', 'field'):
                             continue
                         name = self.root_name(argument)
+                        actual = routine.local_types.get(name, self.types.get(name))
+                        if (self.mode == 'pythonic' and argument.kind == 'name' and expected == ('REAL',)
+                                and actual == ('INTEGER',)):
+                            continue  # INTEGER-to-REAL actuals are independent values.
                         if name in parameter_names and name not in routine.parameter_writes:
                             routine.parameter_writes.add(name)
+                            changed = True
+                        if (name in self.types and name not in local_names | parameter_names
+                                and name not in routine.global_writes):
+                            routine.global_writes.add(name)
                             changed = True
 
     def has_external_effect_call(self, expr):
@@ -1213,11 +1230,17 @@ class Emitter:
         locals_only = {token.value for token, _ in self.current_routine.declarations}
         return self.active_counters <= locals_only
 
-    def check_for_call(self, token):
+    def check_for_call(self, token, routine=None):
         if self.active_counters:
-            if not self.has_fresh_active_counters():
+            if self.mode == 'strict' and not self.has_fresh_active_counters():
                 self.error('E_FOR_COUNTER', 'Routine calls inside FOR require every active counter to be a fresh routine-local variable', token)
-            self.features.add('routine call inside FOR with fresh local counters')
+            if self.mode == 'pythonic' and routine is not None:
+                locals_only = {t.value for t, _ in self.current_routine.declarations} if self.current_routine else set()
+                conflict = (self.active_counters - locals_only) & routine.global_writes
+                if conflict:
+                    self.error('E_FOR_COUNTER', 'Routine may write active global FOR counter(s): ' + ', '.join(sorted(conflict)), token)
+            if self.has_fresh_active_counters(): self.features.add('routine call inside FOR with fresh local counters')
+            if self.mode == 'pythonic': self.features.add('routine call inside FOR with checked counter effects')
 
     def symbol_type(self, expr):
         if self.current_routine and expr.value in self.current_routine.local_types:
@@ -1418,7 +1441,7 @@ class Emitter:
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
         if expr.kind == 'call':
             if self.active_counters and expr.value in self.routines:
-                self.check_for_call(expr.token)
+                self.check_for_call(expr.token, self.routines[expr.value])
             if expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES:
                 self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
             if expr.value in BUILTINS:
@@ -1620,7 +1643,9 @@ class Emitter:
             if not rt.parameter_accepts(expected, actual):
                 self.error('E_TYPE', f'{expr.value} parameter expects {expected[0]}, found {actual[0]}', argument.token)
             if is_reference and argument.kind == 'name' and argument.value in self.active_counters:
-                self.error('E_FOR_COUNTER', 'An active FOR counter cannot be passed by reference; use parentheses for a value argument', argument.token)
+                if self.mode == 'strict' or formal.value in routine.parameter_writes:
+                    self.error('E_FOR_COUNTER', 'An active FOR counter cannot be passed to a potentially writable formal; use parentheses for a value argument', argument.token)
+                self.features.add('read-only active FOR counter reference')
             if not is_reference and expected[0] == 'ARRAY':
                 if self.mode == 'strict':
                     self.error('E_ARRAY_VALUE', 'Whole ARRAY arguments cannot be passed by value', argument.token)
@@ -1851,7 +1876,7 @@ class Emitter:
         elif kind == 'using':
             self.block(stmt.body)  # Qualified fields need no dynamic runtime scope.
         elif kind == 'abort':
-            if self.active_counters and not self.has_fresh_active_counters():
+            if self.mode == 'strict' and self.active_counters and not self.has_fresh_active_counters():
                 self.error('E_FOR_COUNTER', 'ABORT inside FOR requires fresh routine-local counters; observable counter state on abort is unvalidated', token)
             self.line(f'self._state.abort({line})', token)
             self.features.add('ABORT')
@@ -1986,6 +2011,9 @@ class Emitter:
             stop, item = self.fresh(), self.fresh()
             # Manual: initialize count before final is evaluated (final may read count).
             self.line(f'self._state.set({counter.value!r}, {first}, {line})')
+            if self.mode == 'pythonic':
+                self.line('try:')
+                self.indent += 1
             self.line(f'{stop} = {last}')
             adjustment, step = (1, 1) if direction == 'TO' else (-1, -1)
             self.line(f'for {item} in range(self._state.get({counter.value!r}), {stop} + ({adjustment}), {step}):')
@@ -1996,7 +2024,14 @@ class Emitter:
             self.block(stmt.body)
             self.active_counters.remove(counter.value)
             self.indent -= 1
-            self.line(f'self._state.clear({counter.value!r})')
+            if self.mode == 'pythonic':
+                self.indent -= 1
+                self.line('finally:')
+                self.indent += 1
+                self.line(f'self._state.clear({counter.value!r})')
+                self.indent -= 1
+            else:
+                self.line(f'self._state.clear({counter.value!r})')
         elif kind == 'select':
             _, cases = stmt.args
             temporary = self.fresh()
@@ -2030,16 +2065,17 @@ class Emitter:
                 self.error('E_CALL', f'Unknown or unsupported procedure {expr.value}', token)
             if self.routines[expr.value].return_type:
                 self.error('E_CALL', 'Statement calls require procedures', token)
-            self.check_for_call(token)
+            self.check_for_call(token, self.routines[expr.value])
             self.line(self.routine_call(expr), token)
         elif kind == 'return':
             expr = stmt.args[0]
             if self.current_routine is None:
                 self.error('E_RETURN', 'RETURN is only implemented inside routines', token)
             if self.active_counters:
-                if not self.has_fresh_active_counters():
+                if self.mode == 'strict' and not self.has_fresh_active_counters():
                     self.error('E_FOR_COUNTER', 'RETURN inside FOR requires every active counter to be a fresh routine-local variable', token)
-                self.features.add('RETURN from FOR with fresh local counters')
+                if self.has_fresh_active_counters(): self.features.add('RETURN from FOR with fresh local counters')
+                if self.mode == 'pythonic': self.features.add('RETURN from FOR with counter cleanup')
             spec = self.current_routine.return_type
             if spec is None:
                 if expr: self.error('E_RETURN', 'Procedure RETURN cannot return a value', token)
@@ -2427,6 +2463,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                    scalar_arguments='Always value copies to INTEGER/REAL formals',
                                    controller_validated=False),
         routine_effects={r.name: dict(potential_external_writes=r.side_effecting,
+                                     potential_global_writes=sorted(r.global_writes),
                                      potential_host_delays=r.may_delay,
                                      potential_output_requests=r.may_write,
                                      potential_aborts=r.may_abort,
@@ -2504,6 +2541,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         for_bounds='Evaluate initial once and assign counter, then evaluate final once; capture resulting counter and inclusive stop for iteration',
         failure='Stop on the first runtime error or ABORT; retain earlier effects, skip later evaluations and unwind routine frames',
         controller_validated=False)
+    report['for_policy'] = dict(
+        counters='INTEGER globals in the program or parameter-free routines; fresh routine-local INTEGER variables; parameterized routines still require fresh local counters',
+        routine_calls='Allowed when transitive potential global writes exclude active global counters; fresh local counters are separate storage',
+        counter_arguments='Bare references allowed only to transitively read-only formals; expressions/grouping and INTEGER-to-REAL promotion pass independent values',
+        write_proof='Flow-insensitive fixed point over recursive calls, direct assignments, FOR initialization and built-in outputs; map writable formal actuals back to caller globals/formals; do not infer dead branches',
+        return_from_for='Evaluate and check RETURN value before clearing counters and leaving the routine frame; parameter-free routines may use global counters',
+        bounds='Evaluate initial and assign counter, then final once; capture resulting counter/start and inclusive final; existing chosen Pythonic bound order',
+        cleanup='After successful initial assignment, finally clear each counter on normal/empty completion, RETURN, ABORT, final-bound failure, body error, callback failure/interruption and step/call-depth exhaustion',
+        initial_failure='If the initial expression or checked initial assignment fails, do not clear that counter; previous storage and earlier effects remain',
+        global_or_formal_counter_calls_and_returns='Global counters follow write proof and cleanup; formal counters and nonlocal counters in parameterized routines remain blocked',
+        jumps_and_labels_inside_for='blocked', controller_validated=False)
+    report['abort_policy']['for_boundary'] = 'Pythonic FOR scopes clear initialized counters during ABORT unwinding; prior non-counter effects remain'
     report['numeric_policy'] = dict(
         mode=mode, real_model='python_float', arithmetic='Python float +, -, *, /; finite results required',
         sqrt='math.sqrt for nonnegative finite inputs', exp='math.exp', ln='math.log for positive finite inputs',
@@ -2609,9 +2658,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
                    'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain',
                    'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
                    'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays',
-                   'INDEX with an empty search', 'SUB_STR beyond the source end')
+                   'INDEX with an empty search', 'SUB_STR beyond the source end',
+                   'FOR-body routine calls and RETURN require')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
+    report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and in-loop jumps remain blocked')
     return result

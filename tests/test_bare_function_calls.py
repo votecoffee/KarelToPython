@@ -212,7 +212,7 @@ class BareFunctionRejectionTests(unittest.TestCase):
         self.reject('E_EVALUATION_ORDER', 'FOR i=1 TO answer DO x=1 ENDFOR', _translator=legacy_translate)
 
     def test_for_global_counter_call_guard_sees_bare_calls(self):
-        self.reject('E_FOR_COUNTER', 'FOR i=1 TO 2 DO x=answer ENDFOR')
+        self.reject('E_FOR_COUNTER', 'FOR i=1 TO 2 DO x=answer ENDFOR', _translator=legacy_translate)
 
     def test_effectful_rhs_to_indexed_target_rejected(self):
         self.reject('E_EVALUATION_ORDER', 'a[1]=answer', routines=EFFECT, _translator=legacy_translate)

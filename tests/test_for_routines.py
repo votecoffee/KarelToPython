@@ -204,34 +204,34 @@ class ForSafetyBoundaryTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, code, str(caught.exception))
 
     def test_global_counter_calls_remain_blocked(self):
-        self.rejected('FOR i = 1 TO 3 DO helper ENDFOR', 'ROUTINE helper BEGIN END helper')
+        self.rejected('FOR i = 1 TO 3 DO helper ENDFOR', 'ROUTINE helper BEGIN END helper', _translator=legacy_translate)
 
     def test_global_counter_function_calls_remain_blocked(self):
-        self.rejected('FOR i = 1 TO 3 DO result = helper() ENDFOR', 'ROUTINE helper: INTEGER BEGIN RETURN 7 END helper')
+        self.rejected('FOR i = 1 TO 3 DO result = helper() ENDFOR', 'ROUTINE helper: INTEGER BEGIN RETURN 7 END helper', _translator=legacy_translate)
 
     def test_nonparameter_routine_global_counter_call_blocked(self):
-        self.rejected('work', 'ROUTINE helper BEGIN END helper\nROUTINE work BEGIN FOR i = 1 TO 3 DO helper ENDFOR END work')
+        self.rejected('work', 'ROUTINE helper BEGIN END helper\nROUTINE work BEGIN FOR i = 1 TO 3 DO helper ENDFOR END work', _translator=legacy_translate)
 
     def test_nonparameter_routine_global_counter_return_blocked(self):
-        self.rejected('result = work()', 'ROUTINE work: INTEGER BEGIN FOR i = 1 TO 3 DO RETURN i ENDFOR RETURN 0 END work')
+        self.rejected('result = work()', 'ROUTINE work: INTEGER BEGIN FOR i = 1 TO 3 DO RETURN i ENDFOR RETURN 0 END work', _translator=legacy_translate)
 
     def test_parameter_counter_still_cannot_own_for(self):
         self.rejected('work(i)', 'ROUTINE work(p: INTEGER) BEGIN FOR p = 1 TO 3 DO RETURN ENDFOR END work')
 
     def test_direct_counter_reference_blocked_even_readonly_helper(self):
-        self.rejected('work', 'ROUTINE inspect(p: INTEGER) BEGIN seen = p END inspect\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 3 DO inspect(k) ENDFOR END work')
+        self.rejected('work', 'ROUTINE inspect(p: INTEGER) BEGIN seen = p END inspect\nROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 3 DO inspect(k) ENDFOR END work', _translator=legacy_translate)
 
     def test_counter_reference_to_function_blocked(self):
-        self.rejected('result = work()', 'ROUTINE inspect(p: INTEGER): INTEGER BEGIN RETURN p END inspect\nROUTINE work: INTEGER VAR k: INTEGER BEGIN FOR k = 1 TO 3 DO RETURN inspect(k) ENDFOR RETURN 0 END work')
+        self.rejected('result = work()', 'ROUTINE inspect(p: INTEGER): INTEGER BEGIN RETURN p END inspect\nROUTINE work: INTEGER VAR k: INTEGER BEGIN FOR k = 1 TO 3 DO RETURN inspect(k) ENDFOR RETURN 0 END work', _translator=legacy_translate)
 
     def test_outer_counter_reference_inside_nested_for_blocked(self):
         self.rejected('work', 'ROUTINE change(p: INTEGER) BEGIN p = 99 END change\nROUTINE work VAR first_k,second_k: INTEGER BEGIN FOR first_k = 1 TO 2 DO FOR second_k = 1 TO 2 DO change(first_k) ENDFOR ENDFOR END work')
 
     def test_global_outer_local_inner_call_blocked(self):
-        self.rejected('work', 'ROUTINE helper BEGIN END helper\nROUTINE work VAR k: INTEGER BEGIN FOR i = 1 TO 2 DO FOR k = 1 TO 2 DO helper ENDFOR ENDFOR END work')
+        self.rejected('work', 'ROUTINE helper BEGIN END helper\nROUTINE work VAR k: INTEGER BEGIN FOR i = 1 TO 2 DO FOR k = 1 TO 2 DO helper ENDFOR ENDFOR END work', _translator=legacy_translate)
 
     def test_global_outer_local_inner_return_blocked(self):
-        self.rejected('result = work()', 'ROUTINE work: INTEGER VAR k: INTEGER BEGIN FOR i = 1 TO 2 DO FOR k = 1 TO 2 DO RETURN k ENDFOR ENDFOR RETURN 0 END work')
+        self.rejected('result = work()', 'ROUTINE work: INTEGER VAR k: INTEGER BEGIN FOR i = 1 TO 2 DO FOR k = 1 TO 2 DO RETURN k ENDFOR ENDFOR RETURN 0 END work', _translator=legacy_translate)
 
     def test_local_counter_direct_write_still_blocked(self):
         self.rejected('work', 'ROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO k = 99 ENDFOR END work')

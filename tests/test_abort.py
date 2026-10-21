@@ -137,7 +137,7 @@ class AbortTranslationTests(unittest.TestCase):
     def test_noabort_directive_blocked(self):
         with self.assertRaises(TranslationError): compile_program(prefix='%NOABORT=ERROR')
     def test_global_for_abort_blocked(self):
-        with self.assertRaises(TranslationError) as caught: compile_program('FOR value=1 TO 3 DO ABORT ENDFOR')
+        with self.assertRaises(TranslationError) as caught: compile_program('FOR value=1 TO 3 DO ABORT ENDFOR', _translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_FOR_COUNTER')
     def test_reference_for_abort_blocked(self):
         with self.assertRaises(TranslationError) as caught: compile_program('loop_stop(value)',routines='ROUTINE loop_stop(count: INTEGER) BEGIN FOR count=1 TO 3 DO ABORT ENDFOR END loop_stop')

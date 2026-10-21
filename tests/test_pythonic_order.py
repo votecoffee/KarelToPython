@@ -400,11 +400,11 @@ class ConversionAndLoopOrderTests(unittest.TestCase):
         state=execute('total=0 FOR i=mark(3) TO mark(1) DO total=9 ENDFOR')
         self.assertEqual((state['TOTAL'], state['TRACE'], state['I']), (0, 'CA', {'uninitialized': True}))
 
-    def test_for_final_failure_retains_counter_initialization(self):
+    def test_for_final_failure_clears_initialized_counter(self):
         routine='ROUTINE last: INTEGER BEGIN RETURN 1 DIV 0 END last'
         program, _=compile_program('FOR i=2 TO last() DO ENDFOR', routine)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
-        self.assertEqual(program.snapshot()['I'], 2)
+        self.assertEqual(program.snapshot()['I'], {'uninitialized': True})
         self.assertEqual((program._state.local_frames, program._state.call_depth), ([], 0))
 
     def test_for_initial_failure_skips_final_call(self):
@@ -417,9 +417,9 @@ class ConversionAndLoopOrderTests(unittest.TestCase):
         state=execute('work', routine)
         self.assertEqual((state['X'], state['TRACE']), (3, 'ABAB'))
 
-    def test_global_for_body_call_guard_remains(self):
-        with self.assertRaises(TranslationError) as caught: compile_program('FOR i=1 TO 2 DO x=mark(1) ENDFOR')
-        self.assertEqual(caught.exception.code, 'E_FOR_COUNTER')
+    def test_global_for_body_calls_keep_chosen_order(self):
+        state=execute('FOR i=1 TO 2 DO x=mark(1) ENDFOR')
+        self.assertEqual((state['X'],state['TRACE'],state['I']), (1,'AA',{'uninitialized': True}))
 
 
 class FailureAndReportTests(unittest.TestCase):

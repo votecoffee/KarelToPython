@@ -215,7 +215,7 @@ class RejectionTests(unittest.TestCase):
     def test_for_counter_writes_or_side_effects_blocked(self):
         self.reject('FOR i = 1 TO 2 DO i = 8 ENDFOR', 'E_FOR_COUNTER')
         self.reject('FOR i = 1 TO 2 DO FOR i = 1 TO 3 DO ENDFOR ENDFOR', 'E_FOR_COUNTER')
-        self.reject('FOR i = 1 TO 2 DO x = f() ENDFOR', 'E_FOR_COUNTER', extra='ROUTINE f: INTEGER BEGIN RETURN 3 END f')
+        self.reject('FOR i = 1 TO 2 DO x = f() ENDFOR', 'E_FOR_COUNTER', extra='ROUTINE f: INTEGER BEGIN RETURN 3 END f', _translator=legacy_translate)
 
     def test_duplicate_select_cases(self):
         self.assertEqual(run('SELECT 1 OF CASE(1): x = 0 CASE(1): x = 9 ENDSELECT')['X'], 0)

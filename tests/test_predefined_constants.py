@@ -3,13 +3,14 @@ from pathlib import Path
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 
 
-def compile_program(body, declarations='x,y: INTEGER a: ARRAY[2] OF INTEGER b,c: BOOLEAN r: REAL', routines='', constants='', types=''):
+def compile_program(body, declarations='x,y: INTEGER a: ARRAY[2] OF INTEGER b,c: BOOLEAN r: REAL', routines='', constants='', types='', *, _translator=translate):
     source = f'PROGRAM test\n{constants}\n{types}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND test'
-    result = translate(source, filename='predefined.kl')
+    result = _translator(source, filename='predefined.kl')
     namespace = {'__name__': 'predefined_test'}
     exec(result.python_source, namespace)
     return namespace['Program'](), result
@@ -184,7 +185,7 @@ class IntegerStorageBoundaryTests(unittest.TestCase):
         self.assertEqual(execute('x = -2147483647 - 1')['X'], -2147483648)
 
     def test_maxint_final_for_bound_preserves_prior_body_writes_on_error(self):
-        program = self.fail_storage('y = 0 FOR x = MAXINT - 1 TO MAXINT DO y = y + 1 ENDFOR')
+        program = self.fail_storage('y = 0 FOR x = MAXINT - 1 TO MAXINT DO y = y + 1 ENDFOR', _translator=legacy_translate)
         self.assertEqual((program._state.snapshot()['X'], program._state.snapshot()['Y']), (2147483646, 1))
 
     def test_direct_runtime_boundary_guard(self):

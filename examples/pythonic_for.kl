@@ -1,0 +1,27 @@
+PROGRAM pythonic_loops
+VAR
+  i,j,total,first,readonly_calls: INTEGER
+  counters_cleared: BOOLEAN
+
+ROUTINE add(value: INTEGER)
+BEGIN
+  total=total+value
+  readonly_calls=readonly_calls+1
+END add
+
+ROUTINE find_first: INTEGER
+BEGIN
+  FOR j=1 TO 3 DO
+    IF j=2 THEN RETURN j ENDIF
+  ENDFOR
+  RETURN 0
+END find_first
+
+BEGIN
+  total=0
+  readonly_calls=0
+  FOR i=1 TO 3 DO add(i) ENDFOR
+  first=find_first()
+  counters_cleared=UNINIT(i) AND UNINIT(j)
+  WRITE('total=',total,', first=',first,', calls=',readonly_calls,CR)
+END pythonic_loops

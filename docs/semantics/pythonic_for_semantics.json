@@ -1,0 +1,26 @@
+{
+  "translator_version": "0.59.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Chosen checked FOR calls, read-only counter references and deterministic cleanup; no new native counter-state claim",
+  "implementation_choices": {
+    "calls": "Global counters in the program or parameter-free routines may call helpers when transitive potential global writes exclude active global counters; fresh local counters have separate storage",
+    "proof": "Flow-insensitive fixed point over recursive calls; assignments, FOR initialization and built-in outputs count; writable formals map actual roots to caller global/formal writes; local shadowing is separate; dead branches remain potential writes",
+    "references": "Bare active counters may bind only to transitively read-only formals; grouped/expression actuals and INTEGER-to-REAL promotion are independent values",
+    "bounds": "Evaluate and store initial once, evaluate final once, capture resulting counter/start and inclusive stop; final-bound effects may change current start but cannot write active outer counters",
+    "cleanup": "After successful initial assignment, finally clear each initialized counter on normal/empty completion, RETURN, ABORT, final-bound errors, body errors, callback failure/interruption or resource-limit failures",
+    "initial_failure": "Do not clear a counter whose initial expression or checked initial assignment fails; retain earlier storage/effects",
+    "return": "Evaluate and validate the result before finally cleanup and frame exit; returned aggregate copies remain independent",
+    "failure": "Clear initialized active counters while retaining all other prior effects and nested output; ABORT remains sticky; no callback retry or rollback",
+    "report": "routine_effects potential_global_writes and potential_parameter_writes expose the proof; for_policy describes current limits and cleanup"
+  },
+  "retained_boundaries": [
+    "INTEGER counters; no direct body writes or nested counter reuse",
+    "No formal counters or nonlocal counters in parameterized routines; use fresh local variables",
+    "No potentially writable active-counter reference actuals or helper global-counter writes",
+    "No labels/jumps inside FOR bodies; existing type, initialization, storage, output and resource-limit checks",
+    "Conservative tests remain internal for the future strict milestone; host callbacks are external effects, without native scheduling/runtime equivalence"
+  ],
+  "tests": ["tests/test_pythonic_for.py", "tests/test_for_routines.py", "tests/test_pythonic_order.py", "tests/test_runtime_portability.py", "examples/pythonic_for.kl"],
+  "controller_validated": false
+}

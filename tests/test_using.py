@@ -212,7 +212,7 @@ ROUTINE work VAR p: left_t k: INTEGER BEGIN FOR k = 1 TO 2 DO USING p DO put(slo
 
     def test_using_inside_global_for_does_not_bypass_call_guard(self):
         routine = 'ROUTINE put(p: INTEGER) BEGIN p = 7 END put'
-        with self.assertRaises(TranslationError) as caught: compile_program('FOR index_value = 1 TO 2 DO USING left DO put(count) ENDUSING ENDFOR', routine)
+        with self.assertRaises(TranslationError) as caught: compile_program('FOR index_value = 1 TO 2 DO USING left DO put(count) ENDUSING ENDFOR', routine, _translator=legacy_translate)
         self.assertEqual(caught.exception.code, 'E_FOR_COUNTER')
 
     def test_backward_jump_within_using(self):

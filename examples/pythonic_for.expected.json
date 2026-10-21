@@ -1,0 +1,8 @@
+{
+  "I": {"uninitialized": true},
+  "J": {"uninitialized": true},
+  "TOTAL": 6,
+  "FIRST": 2,
+  "READONLY_CALLS": 3,
+  "COUNTERS_CLEARED": true
+}

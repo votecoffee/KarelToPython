@@ -103,6 +103,12 @@ bound before consumption, zero counts, one-based starts and INDEX empty-search
 results. It also records STR_LEN/CHR/ORD domains, argument evaluation order and
 retained checks. See [STRING operations](string-operations.md).
 
+`routine_effects[].potential_global_writes` reports transitive global roots.
+Together with `potential_parameter_writes`, it supports checked global-counter
+FOR calls and read-only counter references. `for_policy` records cleanup after
+successful initial assignment, including early exits and failures. See
+[Pythonic FOR](pythonic-for.md) for proof boundaries and compatibility changes.
+
 ## Limits
 
 `conversion_policy.format` includes signed `CNV_INT_STR` bases 2..16, with base 0

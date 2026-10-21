@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.58.0**. It is a
+tool are named **karel2py**. The current implementation is **0.59.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -150,6 +150,11 @@ SUB_STR clips at the source end and permits zero counts; INDEX accepts empty
 searches. See [STRING operations](docs/string-operations.md) for bounded slicing,
 one-based positions and character checks.
 
+Global-counter FOR loops can call helpers when transitive write checks protect
+the counters. Read-only counter references are supported, and initialized
+counters clear on RETURN, ABORT and errors. See [Pythonic FOR](docs/pythonic-for.md)
+for cleanup, argument passing and remaining restrictions.
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -166,8 +171,7 @@ one-based positions and character checks.
 - Signed INTEGER text formatting in bases 2..16, with checked output references
   and capacities.
 - Mixed scalar `WRITE` lists, CR newlines, dynamic formats and quoted STRING
-  truncation/escaping through a
-  recorder or supplied callback.
+  truncation/escaping through a recorder or supplied callback.
 
 Each item has type and context restrictions. External routines,
 motion, controller files/registers/I/O and native task behavior remain unsupported.
@@ -183,7 +187,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 58 authored runnable examples, checks complete
+The example runner translates the 59 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.

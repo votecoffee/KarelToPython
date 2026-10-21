@@ -82,8 +82,10 @@ FOR evaluates the initial expression once, stores it in the counter, then
 evaluates the final expression once. The final expression can read the initialized
 counter. The resulting counter value and inclusive stop are captured for Python
 iteration; changes to the counter during final-expression evaluation therefore
-affect the first iteration. Normal exit clears the counter. Existing fresh-local
-counter requirements for routine calls in a FOR body remain in place.
+affect the first iteration. After successful initial assignment, normal and
+exceptional scope exits clear the counter. Global-counter helper calls use
+transitive write checks; bare counter actuals require read-only formals. See
+[Pythonic FOR](pythonic-for.md) for cleanup and remaining counter restrictions.
 
 ## Failures and compatibility
 

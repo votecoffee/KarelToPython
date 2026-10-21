@@ -213,7 +213,7 @@ class UnposTranslationGuardTests(unittest.TestCase):
         self.assertEqual(self.reject(CALL.replace(',x,',',values[index_fn()],'),declarations='pose: XYZWPR\nvalues: ARRAY[6] OF REAL\ny,z,w,p,r: REAL\ncfg: CONFIG',routines='ROUTINE index_fn: INTEGER BEGIN RETURN 1 END index_fn', _translator=legacy_translate),'E_EVALUATION_ORDER')
     def test_procedure_result_blocked(self): self.assertEqual(self.reject('x='+CALL),'E_PROCEDURE_RESULT')
     def test_global_for_call_blocked(self):
-        self.assertEqual(self.reject('FOR i=1 TO 2 DO '+CALL+' ENDFOR',declarations='pose: XYZWPR\nx,y,z,w,p,r: REAL\ncfg: CONFIG\ni: INTEGER'),'E_FOR_COUNTER')
+        self.assertEqual(self.reject('FOR i=1 TO 2 DO '+CALL+' ENDFOR',declarations='pose: XYZWPR\nx,y,z,w,p,r: REAL\ncfg: CONFIG\ni: INTEGER', _translator=legacy_translate),'E_FOR_COUNTER')
     def test_all_seven_output_effects(self):
         routines='ROUTINE extract(src: XYZWPR; a,b,c,d,e,f: REAL; cfg_out: CONFIG) BEGIN UNPOS(src,a,b,c,d,e,f,cfg_out) END extract'
         _,result=compile_program('',routines=routines)

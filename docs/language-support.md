@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.58.0. Acceptance is specific to
+This is the supported prototype subset as of 0.59.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -12,7 +12,7 @@ internally and in the historical semantic notes.
 | Area | Supported subset | Limits |
 | --- | --- | --- |
 | Source | Case-insensitive ASCII identifiers, comments, supported metadata directives, bounded complete-token continuations, doubled apostrophes | No arbitrary directives, token fusion, backslash escapes or multiline string literals. |
-| Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | Fresh local counters are required for calls/early returns within FOR; SELECT uses first matching case and errors without a match/ELSE. |
+| Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR calls must protect active counters through transitive write checks; read-only counter references allowed; initialized counters clear on all scope exits. Formal/nonlocal counters in parameterized routines require fresh locals. SELECT uses first matching case and errors without a match/ELSE. |
 | Labels | Restricted labels and unconditional GOTO | Jumps within the same block or to an ancestor; no arbitrary entry into nested control blocks. |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; existing FOR rules; no external routine linkage or local TYPE sections. |
 | INTEGER | Checked signed 32-bit expressions, bit operators, DIV and signed MOD | MAXINT excluded from normal storage; DIV truncates toward zero; MOD follows Python remainder. |
@@ -36,6 +36,8 @@ internally and in the historical semantic notes.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.
+See [Pythonic FOR](pythonic-for.md) for global-counter calls, read-only counter
+arguments, bounds and cleanup on early exits/errors.
 
 ## Zero-argument function calls
 

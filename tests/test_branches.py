@@ -300,7 +300,7 @@ class BranchRejectionTests(unittest.TestCase):
 
     def test_for_counter_write_guard_retained(self): self.rejected('unused:: FOR i = 1 TO 2 DO i = 7 ENDFOR', 'E_FOR_COUNTER')
 
-    def test_return_in_for_guard_retained(self): self.rejected('work', 'E_FOR_COUNTER', routines='ROUTINE work: INTEGER BEGIN unused:: FOR i = 1 TO 2 DO RETURN 7 ENDFOR RETURN 9 END work')
+    def test_return_in_for_guard_retained(self): self.rejected('work', 'E_FOR_COUNTER', routines='ROUTINE work: INTEGER BEGIN unused:: FOR i = 1 TO 2 DO RETURN 7 ENDFOR RETURN 9 END work', _translator=legacy_translate)
 
     def test_unreachable_unsupported_source_still_rejected(self): self.rejected('GOTO finished MOVE TO x finished::', 'E_UNSUPPORTED')
 
