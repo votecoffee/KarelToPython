@@ -1918,6 +1918,18 @@ class State:
         if result is not None:
             raise KarelRuntimeError('Host DELAY sleeper must return None', line)
 
+    def wait_poll(self, line=None):
+        """Yield after a false budgeted WAIT check; do not infer controller timing."""
+        if not _pythonic(): raise KarelRuntimeError('WAIT requires Pythonic mode', line)
+        if self._aborted: raise KarelAbort(self._abort_line)
+        try:
+            result = self._sleep(0.0)
+        except Exception as exc:
+            if self._aborted: raise KarelAbort(self._abort_line) from exc
+            raise KarelRuntimeError(f'Host WAIT sleeper failed: {exc}', line) from exc
+        if self._aborted: raise KarelAbort(self._abort_line)
+        if result is not None: raise KarelRuntimeError('Host WAIT sleeper must return None', line)
+
     def enter_routine(self, declarations, line=None, arguments=None):
         if self.call_depth >= 64:
             raise KarelRuntimeError('Prototype routine call-depth limit exceeded (64)', line)

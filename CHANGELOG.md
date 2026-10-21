@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.75.0 - 2026-10-21
+
+- Add Pythonic WAIT FOR on supported BOOLEAN expressions, including internal
+  function results and ordinary short-circuit operators. Recheck until true,
+  yield through the existing sleeper with zero seconds after false checks and
+  apply the normal step budget even to a constant-false wait.
+- Preserve condition/callback effects, transitive host-delay reports, source
+  diagnostics, FOR protections, sticky ABORT and frame cleanup. Add polling,
+  typed-input, error and ownership regressions, an authored example and a guide.
+  Native event/handler syntax and controller scheduling remain unsupported;
+  strict remains future work.
+
 ## 0.74.0 - 2026-10-21
 
 - Add Pythonic approximate POSITION/XYZWPR comparison (`>=<`) with explicit

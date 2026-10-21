@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.74.0. Acceptance is specific to
+This is the supported prototype subset as of 0.75.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -37,6 +37,7 @@ internally and in the historical semantic notes.
 | Pose axis queries | APPROACH and ORIENT on POSITION/XYZWPR return independent writable VECTOR values for positive Z/Y | Complete finite poses, checked CONFIG and proper POSITION matrices; no normalization, defaults, other positional operands or controller acquisition. |
 | Position comparison | Approximate >=< on POSITION/XYZWPR, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
+| WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; no native event/handler syntax, hardware acquisition or controller timing. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; no explicit FILE/device destinations or aggregate output. |
 | READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; no controller file/device access, binary transfer, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
@@ -63,6 +64,7 @@ See [POSITION conversions](position-conversions.md) for whole assignments, matri
 See [POSITION geometry](position-geometry.md) for mixed operands, result types and direct matrix operations.
 See [pose axis queries](position-axes.md) for APPROACH/ORIENT mapping and writable VECTOR results.
 See [position comparisons](position-comparisons.md) for >=< metrics and explicit execution context.
+See [Boolean waits](boolean-waits.md) for repeated condition checks, host yields and budget limits.
 
 ## Zero-argument function calls
 

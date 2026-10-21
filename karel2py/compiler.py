@@ -586,6 +586,9 @@ class Parser:
             return Statement('return', token, [result])
         if name == 'DELAY':
             return Statement('delay', token, [self.expression()])
+        if name == 'WAIT' and self.mode == 'pythonic':
+            self.expect('FOR')
+            return Statement('wait', token, [self.expression()])
         if name == 'ABORT':
             if self.current.value in ('PROGRAM', '(', '[', '.', '='):
                 self.error('E_ABORT_TARGET', 'Only bare ABORT of the current offline execution is supported; task qualifiers and arguments remain blocked', self.current)
@@ -806,6 +809,7 @@ class Emitter:
         self.select_scopes = []
         self.subarray_uses = []
         self.delay_uses = []
+        self.wait_uses = []
         self.string_value_uses = []
         self.string_return_uses = []
         self.write_uses = []
@@ -1279,7 +1283,7 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
-                if isinstance(node, Statement) and node.kind == 'delay':
+                if isinstance(node, Statement) and node.kind in ('delay','wait'):
                     routine.may_delay = True
                 if isinstance(node, Statement) and node.kind in ('write', 'write_items'):
                     routine.may_write = True
@@ -2153,6 +2157,17 @@ class Emitter:
             self.delay_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                         line=token.line, column=token.column, duration_type='INTEGER',
                                         evaluated='once; runtime range check'))
+        elif kind == 'wait':
+            condition = self.require_type(stmt.args[0], 'BOOLEAN')
+            self.line(f'while not self._state.test({condition}, {line}):', token)
+            self.indent += 1
+            self.line(f'self._state.wait_poll({line})', token)
+            self.indent -= 1
+            self.features.add('WAIT FOR')
+            self.wait_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                      line=line, column=token.column, condition_kind=stmt.args[0].kind,
+                                      condition_type='BOOLEAN', evaluation='once per check until true',
+                                      yield_seconds=0.0, step_budgeted=True))
         elif kind == 'write_items':
             pieces, items = [], []
             for item in stmt.args:
@@ -2766,6 +2781,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         frame_operations=emitter.frame_operation_uses,
         position_axis_queries=emitter.position_axis_uses,
         position_comparisons=emitter.position_comparison_uses,
+        waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
@@ -2916,6 +2932,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['wait_policy'] = dict(
+        syntax='WAIT FOR one supported BOOLEAN expression; existing AND/OR short-circuit rules and ordinary expression/routine effects',
+        evaluation='Evaluate once per check until true; no yield after a true check; after each false check call the existing synchronous sleep callback with 0.0 seconds',
+        execution='Every condition test uses the normal execution step budget, including repeated false checks; function statements also count; this is not a wall-clock timeout',
+        effects='WAIT propagates potential host-delay effects through routines; retain condition/callback effects and ordinary FOR protections, ABORT and frame cleanup; callback failures are source-located and not retried',
+        boundary='Pythonic polling only; no native condition-event syntax, handlers, hardware I/O, motion conditions, controller scheduling, timing or external task acceptance; strict remains future work',
+        controller_validated=False)
     report['position_comparison_policy'] = dict(
         operator='>=< on complete POSITION or XYZWPR, including mixed operands; BOOLEAN result',
         context='Explicit Program(pose_tolerance=(location_mm, orientation_deg, check_config)) required when executed; finite nonnegative location bound, orientation in 0..180 and exact BOOLEAN; immutable per-instance copy, no defaults or controller discovery',

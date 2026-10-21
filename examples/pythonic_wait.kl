@@ -1,0 +1,17 @@
+PROGRAM PYTHONIC_WAIT
+%ENVIRONMENT SYSTEM
+VAR checks,after_wait: INTEGER ready: BOOLEAN
+ROUTINE ready_now: BOOLEAN
+BEGIN
+  checks=checks+1
+  ready=checks>=3
+  RETURN ready
+END ready_now
+BEGIN
+  checks=0
+  ready=FALSE
+  WAIT FOR ready_now()
+  after_wait=checks
+  WAIT FOR ready
+  WRITE('checks=',after_wait::0,', ready=',ready,CR)
+END PYTHONIC_WAIT

@@ -158,7 +158,7 @@ class RejectionTests(unittest.TestCase):
         self.assertGreater(caught.exception.token.line, 0)
 
     def test_unsupported_controller_constructs(self):
-        for statement in ('MOVE TO x', 'ABORT PROGRAM[1]', 'STOP', 'CONDITION[1]:', 'PAUSE', 'WAIT FOR b'):
+        for statement in ('MOVE TO x', 'ABORT PROGRAM[1]', 'STOP', 'CONDITION[1]:', 'PAUSE'):
             with self.subTest(statement=statement): self.reject(statement, 'E_ABORT_TARGET' if statement.startswith('ABORT') else 'E_UNSUPPORTED')
 
     def test_directives_fail_closed(self):

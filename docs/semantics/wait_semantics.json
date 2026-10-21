@@ -1,0 +1,27 @@
+{
+  "translator_version": "0.75.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "WAIT FOR on one supported BOOLEAN expression with bounded cooperative polling",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [621, 778],
+    "documented": "WAIT FOR delays continuation until its conditions are satisfied; syntax permits AND/OR global conditions",
+    "uncertainty": "Native condition scanning, routine-call restrictions, scheduling, polling period and event/task interaction remain unverified"
+  },
+  "implementation_choices": {
+    "syntax": "WAIT FOR one supported BOOLEAN expression; ordinary aliases, fields/elements, internal functions and AND/OR short-circuit rules; native event/handler syntax remains blocked",
+    "evaluation": "Re-evaluate the condition once per check until true; condition effects precede each ordinary State.test budget check, matching WHILE; no yield after a true result",
+    "yield": "After a false budgeted check, call the existing synchronous sleep callback with 0.0 seconds; require None; default host time.sleep; DELAY 0 still makes no callback",
+    "bounds": "Every condition check and ordinary predicate-function statement uses the normal step budget; plain FALSE waits are bounded; no wall-clock timeout or callback-duration bound",
+    "effects": "WAIT marks routines as potentially host-delaying and propagates that effect; preserve earlier condition/callback effects, FOR write protections, active-counter cleanup and routine frames; source-located callback failures without retry; sticky current-instance ABORT stops further checks",
+    "reports": "One source-located waits entry per statement with body, condition kind/type, repeated evaluation, zero-second yield and step-budget flag; wait_policy records current choices"
+  },
+  "retained_boundaries": [
+    "No native event/global-condition syntax, condition handlers, hardware I/O or motion conditions",
+    "No inferred device reads, controller/task coordination, native scheduling/timing or compiler acceptance",
+    "Strict remains future work; authored examples and synthetic callbacks establish offline behavior only"
+  ],
+  "tests": ["tests/test_waits.py", "tests/test_delays.py", "tests/test_abort.py", "tests/test_runtime_portability.py", "examples/pythonic_wait.kl"],
+  "controller_validated": false
+}

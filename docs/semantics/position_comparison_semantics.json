@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.74.0",
+  "translator_version": "0.75.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Approximate >=< comparison on explicit POSITION/XYZWPR with host-supplied tolerance context",

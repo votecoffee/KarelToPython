@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.74.0",
+  "translator_version": "0.75.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "APPROACH and ORIENT queries on explicit complete POSITION or XYZWPR values",

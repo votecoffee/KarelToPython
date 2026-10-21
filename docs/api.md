@@ -51,6 +51,8 @@ independent writable VECTOR results. Internal routines keep their own signatures
 [Position comparisons](position-comparisons.md) add `position_comparisons` and
 `position_comparison_policy` for `>=<`. Execution requires explicit
 `Program(pose_tolerance=(location_mm, orientation_deg, check_config))` context.
+[Boolean waits](boolean-waits.md) add `waits` and `wait_policy` for repeated
+BOOLEAN checks, zero-second host yields and the normal execution step budget.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
@@ -113,7 +115,9 @@ not rolled back by failures or ABORT.
 ## Host callbacks and context
 
 - `sleep(seconds)` handles supported `DELAY`. The default is the host sleeper.
-  Tests can inject a recorder. Zero delay makes no callback.
+  Tests can inject a recorder. Zero delay makes no callback. Boolean WAIT FOR
+  calls the same sleeper with `0.0` after a false condition check; true checks do
+  not yield. See [Boolean waits](boolean-waits.md).
 - `write(text)` handles supported text `WRITE` requests. Without it, requests
   are recorded in `write_requests`; this is not controller output. A callback
   receives one complete statement and must return `None` synchronously.
