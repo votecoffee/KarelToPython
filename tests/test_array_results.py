@@ -64,7 +64,7 @@ class ArrayFunctionTests(unittest.TestCase):
         self.assertEqual(execute('a=make()',routines=routine)['A'],[1,2,3])
     def test_external_shape_context_produces_concrete_result(self):
         program,result=compile_program('a[1]=7 a[2]=8 b=get()',routines='ROUTINE get: ARRAY OF INTEGER BEGIN RETURN a END get',declarations='a,b: ARRAY[*] OF INTEGER',context={'array_shapes':{'a':[2],'b':[2]}})
-        self.assertEqual(program.run()['B'],[7,8]); self.assertEqual(result.report['array_routine_policy']['results'].split(';')[0],'Internal unsized ARRAY OF INTEGER/BOOLEAN/REAL/BYTE/SHORT')
+        self.assertEqual(program.run()['B'],[7,8]); self.assertIn('INTEGER/BOOLEAN/REAL/BYTE/SHORT',result.report['array_routine_policy']['results'])
     def test_same_source_and_destination(self):
         routines=FACTORY+'\nROUTINE duplicate(p: ARRAY OF INTEGER): ARRAY OF INTEGER BEGIN p[1]=7 RETURN p END duplicate'
         self.assertEqual(execute('a=make() a=duplicate(a)',routines=routines)['A'],[7,2,3])
@@ -87,7 +87,7 @@ class ArrayResultFailureTests(unittest.TestCase):
         for dimensions in ('[1]','[*]','[*,*]'):
             self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY{dimensions} OF INTEGER BEGIN END make')
     def test_other_array_element_result_types_are_blocked(self):
-        for element in ('STRING','VECTOR','XYZWPR','JOINTPOS3'):
+        for element in ('STRING','FILE','PATH','ARRAY'):
             self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY OF {element} BEGIN END make')
     def test_named_array_result_declaration_remains_blocked(self):
         self.rejected('','E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[3] OF INTEGER',routines='ROUTINE make: row_t BEGIN END make')

@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.44.0",
+  "translator_version": "0.45.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed storage contexts, ranges, SHORT sentinel and scalar argument passing. Unknown BYTE contents and checked INTEGER expression promotion are explicit offline policies. No controller initialization/layout/alias/exception observations or fresh compiler run.",
@@ -74,9 +74,9 @@
     "controller_executed": false
   },
   "array_routine_update": {
-    "version": "0.44.0",
+    "version": "0.45.0",
     "ledger": "array_routine_semantics.json",
-    "boundary": "Internal unsized 1D BYTE/SHORT results are independent full checked copies, with exact concrete destinations and direct assignment context only. Initial BYTE contents stay unknown; SHORT 32767 remains uninitialized. No whole-array promotion or direct scalar narrow results."
+    "boundary": "Internal unsized anonymous 1D scalar, prior named STRUCTURE, built-in record and exact-width joint ARRAY results use independent recursively checked copies and direct assignment only. All scalar leaves must be known/initialized. Named outer arrays, multidimensional results, STRING/named-ARRAY elements and whole ARRAY value arguments remain blocked."
   },
   "source_reference": "../references.md",
   "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"

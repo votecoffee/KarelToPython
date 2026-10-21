@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.44.0. Acceptance is specific to
+This is the supported prototype subset as of 0.45.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -19,7 +19,7 @@ rules, implemented restrictions and unresolved native behavior.
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference formals and named subarrays | Prototype bound of 32767 scalar leaves; whole-array value arguments prohibited; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
-| ARRAY results | Unsized anonymous 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results, checked independent copies | All elements known/initialized; explicit call only as complete direct-assignment RHS. No named, multidimensional, STRING, record or joint ARRAY results. |
+| ARRAY results | Unsized anonymous 1D scalar, prior named STRUCTURE, built-in record and exact-width JOINTPOS results; independent recursive copies | Every scalar leaf known/initialized; explicit call only as complete direct-assignment RHS. Named outer ARRAYs, multidimensional results and STRING/named-ARRAY elements remain blocked. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no type aliases or ABI claim. |
 | USING | Restricted bare structure selectors and field priority | Lexical scope; no complex selector expressions or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
@@ -29,6 +29,43 @@ rules, implemented restrictions and unresolved native behavior.
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Restricted single STRING, BOOLEAN or nonnegative INTEGER request | Recorder/callback only; restricted literal STRING formats; no FILE destinations, multi-item, general REAL/negative INTEGER output or READ. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
+
+## ARRAY function results
+
+Internal functions may return arrays of INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior
+named STRUCTURE types, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION, or JOINTPOS1..9.
+Unsuffixed JOINTPOS means nine axes. The outer result is anonymous and unsized;
+its actual one-dimensional length comes from the returned storage.
+
+```karel
+PROGRAM ARRAY_RECORDS
+TYPE entry_t=STRUCTURE id: INTEGER label: STRING[4] ENDSTRUCTURE
+VAR entries: ARRAY[1] OF entry_t
+ROUTINE make: ARRAY OF entry_t
+VAR values: ARRAY[1] OF entry_t
+BEGIN
+  values[1].id=42
+  values[1].label='ready'
+  RETURN values
+END make
+BEGIN
+  entries=make()
+END ARRAY_RECORDS
+```
+
+Return copies complete before local frames unwind and retain record names,
+nested array identities/shapes, STRING field capacities and joint widths. All
+scalar leaves must be initialized and known; this is a conservative prototype
+guard. The 32767 scalar-leaf limit includes nested fields and joint axes.
+Failure leaves the destination intact while retaining earlier independent effects.
+
+Use the result only as the complete right side of a direct assignment. Stage it
+in a concrete array before passing it onward. Destination type and length must
+match exactly; no element coercion, resizing or nominal identity erasure occurs.
+POSITION orientation remains protected, with no source acquisition or default
+values. Exact joint copying needs no axis context; conversion procedures retain
+their existing explicit-context requirements. The full contract and unresolved
+native behavior are in [array_routine_semantics.json](semantics/array_routine_semantics.json).
 
 ## Examples
 

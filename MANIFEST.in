@@ -1,4 +1,4 @@
-include LICENSE README.md CONTRIBUTING.md AGENTS.md
+include LICENSE README.md CONTRIBUTING.md AGENTS.md CHANGELOG.md
 recursive-include docs *.md *.json
 recursive-include examples *.kl *.json
 recursive-include tests *.py

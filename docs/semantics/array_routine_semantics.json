@@ -1,11 +1,14 @@
 {
-  "translator_version": "0.44.0",
-  "date": "2026-10-15",
+  "translator_version": "0.45.0",
+  "date": "2026-10-21",
   "page_numbering": "One-based PDF pages",
-  "boundary": "Internal unsized one-dimensional scalar ARRAY results used only in direct assignments. Checked offline ownership/initialization/type/length policy; no native layout, stack cost, ABI, partial-copy or controller-runtime equivalence claim.",
+  "boundary": "Internal unsized one-dimensional scalar/record/joint ARRAY results used only in direct assignments. Recursive checked offline ownership/type/shape policy; no native layout, stack cost, ABI, partial-copy or controller-runtime equivalence claim.",
   "current_visual_inspection_pages": [
-    321,
-    558
+    71,
+    93,
+    312,
+    449,
+    564
   ],
   "rules": [
     {
@@ -15,9 +18,9 @@
         312
       ],
       "documented": "ARRAY is a function return type. Result declarations omit size so returned length can vary. A returned array must match the destination size and data type.",
-      "implemented": "ROUTINE f(...): ARRAY OF INTEGER, BOOLEAN, REAL, BYTE or SHORT. Internal functions return anonymous concrete 1D array storage. Length and exact element type are retained from source storage, including reference formals and explicit global shape specialization.",
-      "restriction": "Prototype subset only: no named/multidimensional/STRING/record/joint result declarations or values, fixed/wildcard result dimensions, external routines or inferred shape/capacity. Explicit f() calls are required; bare zero-argument function-name spelling remains unsupported.",
-      "tests": "tests/test_array_results.py: all three scalar types, differing lengths, global/local/formal/field storage, external shapes, recursion, FOR, SELECT and labels; tests/test_narrow_array_results.py: narrow endpoints, formals, fields, shapes and recursion"
+      "implemented": "Internal unsized ARRAY OF INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior named STRUCTURE, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION or exact-width JOINTPOS1..9. Unsuffixed JOINTPOS means nine axes. Anonymous concrete one-dimensional source storage retains actual length and exact resolved element type.",
+      "restriction": "No named outer ARRAY result types, multidimensional result sources/declarations, STRING or named-ARRAY result elements, fixed/wildcard result sizes, external routines or inferred storage. Explicit function() spelling is required. Named STRUCTURE elements must be defined before the routine.",
+      "tests": "tests/test_array_results.py: all three scalar types, differing lengths, global/local/formal/field storage, external shapes, recursion, FOR, SELECT and labels; tests/test_narrow_array_results.py: narrow endpoints, formals, fields, shapes and recursion; tests/test_aggregate_array_results.py: record/joint element declarations, ownership and restrictions"
     },
     {
       "feature": "Direct assignment context only",
@@ -40,7 +43,7 @@
         312,
         313
       ],
-      "implemented": "RETURN validates every INTEGER/BOOLEAN/REAL/BYTE/SHORT element and concrete storage shape, then clones before local-frame cleanup. All elements must be initialized. Copies are independent and bounded to 32767 elements by the existing prototype allocation guard. Captured element references remain attached when a destination is replaced in place.",
+      "implemented": "RETURN validates all recursive scalar leaves, nominal record identities, concrete nested shapes, STRING capacities, CONFIG contents and joint widths before copying. The copy completes before frame cleanup. All leaves must be initialized/known. The prototype bound is 32767 scalar leaves, including joint axes. Captured nested references survive in-place destination replacement.",
       "restriction": "Full initialization is a conservative prototype restriction, not a native rule established here. Unknown data, malformed host storage and rounded/invalid numeric contents fail before any returned value or assignment is exposed. Existing side effects are retained; errors/ABORT/depth failures unwind frames.",
       "tests": "tests/test_array_results.py: independence, source/destination aliasing, stable element references, full-init/type/range/shape guards, maximum length, errors/ABORT/depth cleanup"
     },
@@ -56,13 +59,27 @@
       "implemented": "Reuse checked array-result copies: known BYTE 0..255 and initialized SHORT -32768..32766 retain exact element type and concrete length. The SHORT marker, unknown initial BYTE contents and malformed host leaves fail before exposing a result or changing the destination. Earlier effects persist and frames unwind. Scalar narrow arguments to INTEGER/REAL remain independent promoted temporaries.",
       "restriction": "Full known initialization is a conservative prototype guard, not a native BYTE or partial-copy claim. No whole-array element promotion, direct scalar BYTE/SHORT results, guessed BYTE defaults, BYTE initialization queries, native layout/ABI, native alarms or controller-runtime equivalence.",
       "tests": "tests/test_narrow_array_results.py: 34 checks; all 256 BYTE values, SHORT bounds/marker, ownership, exact type/length, promotion, effects, cleanup and blocked contexts; examples/narrow_array_functions.kl"
+    },
+    {
+      "feature": "Record and joint ARRAY result elements",
+      "pdf_pages": [
+        71,
+        93,
+        312,
+        449,
+        564
+      ],
+      "documented": "The ARRAY entry permits aggregate element types and requires the returned size/data type to match the destination. User-defined records retain type identity. JOINTPOS declares its axis width, defaulting to nine. The function rule requires unsized ARRAY results and direct assignment use.",
+      "implemented": "Prior named STRUCTURE, all five supported built-in data records and exact-width joints reuse recursive checked value copies. Nested arrays retain named identity and shape; STRING fields retain capacity. POSITION orientation children keep their read-only protection and start unknown unless explicit initialized host data is supplied. Exact joint copies need no conversion context; existing conversion procedures still require their explicit axis context.",
+      "restriction": "Full known initialization is a conservative prototype restriction. No source orientation acquisition/defaults, geometry/kinematics, cross-type/width coercion, native layout/ABI, alarms, partial-copy or controller execution equivalence is inferred. Whole ARRAY value arguments and direct result forwarding remain blocked.",
+      "tests": "tests/test_aggregate_array_results.py: 46 controls for recursive ownership, all built-in records and joint widths, exact nominal/width/shape checks, unknown/corrupt leaves, stable nested references, POSITION protection, errors and cleanup; examples/aggregate_array_functions.kl"
     }
   ],
   "unresolved": [
     "Native ARRAY return lifetime, stack allocation, layout/ABI and partial/uninitialized copy behavior",
-    "Named, multidimensional, STRING/record/joint and external ARRAY result forms",
+    "Named outer ARRAY result types, multidimensional results, STRING or named-ARRAY elements and external routines",
     "Bare zero-argument function-name call syntax and broader expression/namespace rules",
-    "Native task/alarm behavior on length/type/copy failure and controller runtime equivalence"
+    "POSITION acquisition/orientation defaults, robot/group joint context, kinematics and native task/alarm behavior"
   ],
   "validation": {
     "fresh_compiler_run": false,

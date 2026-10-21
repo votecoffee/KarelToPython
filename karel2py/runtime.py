@@ -728,13 +728,22 @@ def positional_value(spec, value, line=None):
 
 
 def array_result(spec, value, line=None):
-    """Detach a concrete anonymous 1D scalar array before its routine frame ends."""
+    """Detach concrete anonymous 1D storage with recursively checked owned leaves."""
     if (not isinstance(spec, tuple) or len(spec) != 3 or spec[:2] != ('ARRAY', None)
-            or spec[2] not in (INTEGER, BOOLEAN, REAL, BYTE, SHORT)):
-        raise KarelRuntimeError('ARRAY results require unsized 1D INTEGER, BOOLEAN, REAL, BYTE or SHORT declarations', line)
+            or not isinstance(spec[2], tuple) or not spec[2]):
+        raise KarelRuntimeError('ARRAY results require an unsized 1D supported element declaration', line)
+    element = spec[2]
+    if element[0] == 'STRUCTURE':
+        valid = len(element) == 3 and type(element[1]) is str and type(element[2]) is tuple
+    elif element[0] == 'JOINTPOS':
+        valid = len(element) == 2 and type(element[1]) is int and 1 <= element[1] <= 9
+    else:
+        valid = element in (INTEGER, BOOLEAN, REAL, BYTE, SHORT, *((kind,) for kind in DATA_RECORD_TYPES))
+    if not valid:
+        raise KarelRuntimeError('ARRAY results require supported scalar, record or exact-width joint elements', line)
     if (not isinstance(value, Array) or not isinstance(value.spec, tuple) or len(value.spec) != 3
             or value.spec[0] != 'ARRAY' or value.spec[2] != spec[2]):
-        raise KarelRuntimeError('ARRAY result requires matching anonymous 1D scalar storage', line)
+        raise KarelRuntimeError('ARRAY result requires matching anonymous 1D storage', line)
     shape = array_shape(value.spec)
     if len(shape) != 1 or type(shape[0]) is not int or not 1 <= shape[0] <= 32767:
         raise KarelRuntimeError('ARRAY result requires a concrete 1D size in 1..32767', line)

@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.44.0",
+  "translator_version": "0.45.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Documented named-component access and parameter syntax, with tested prototype copying/reference policies. No controller memory layout, compiler-release acceptance or runtime equivalence is established.",
@@ -22,7 +22,7 @@
         75
       ],
       "implemented": "Comma-separated indexes select a full element or stop exactly before a separately named ARRAY component. Omitting trailing subscripts is accepted only at such a boundary. Selected subarrays retain their named type and can be copied, assigned or bound by reference. Index values are captured once, checked as one-based INTEGER values and never recomputed after callee writes. Reports include scope, location, logical rank, prefix length and selected type.",
-      "restriction": "Prefixes inside one unnamed dimension group, chained brackets, aggregate UNINIT, whole ARRAY value arguments and broader ARRAY-valued function results remain blocked; the restricted scalar subset uses array_routine_semantics.json. Multiple subscripts containing user routine calls and assignment-target routine calls retain the existing evaluation-order guards.",
+      "restriction": "Prefixes inside one unnamed dimension group, chained brackets, aggregate UNINIT, whole ARRAY value arguments and broader ARRAY-valued function results remain blocked; the restricted scalar/record/joint subset uses array_routine_semantics.json. Multiple subscripts containing user routine calls and assignment-target routine calls retain the existing evaluation-order guards.",
       "tests": "tests/test_subarrays.py: SubarrayStorageTests, SubarrayReferenceTests and SubarrayRejectionTests"
     },
     {
@@ -76,9 +76,9 @@
     "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
   },
   "array_routine_update": {
-    "version": "0.44.0",
+    "version": "0.45.0",
     "ledger": "array_routine_semantics.json",
-    "boundary": "Unsized 1D INTEGER/BOOLEAN/REAL/BYTE/SHORT results in direct assignment only, full initialized/known checked copies before cleanup and exact concrete destinations. BYTE/SHORT scalar arguments to INTEGER/REAL remain independent value copies. Broader ARRAY results and whole ARRAY value arguments remain blocked."
+    "boundary": "Internal unsized anonymous 1D scalar, prior named STRUCTURE, built-in record and exact-width joint ARRAY results use independent recursively checked copies and direct assignment only. All scalar leaves must be known/initialized. Named outer arrays, multidimensional results, STRING/named-ARRAY elements and whole ARRAY value arguments remain blocked."
   },
   "source_reference": "../references.md",
   "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"

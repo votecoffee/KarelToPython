@@ -1,0 +1,97 @@
+PROGRAM aggregate_array_functions
+%NOLOCKGROUP
+TYPE
+  samples_t=ARRAY[2] OF INTEGER
+  item_t=STRUCTURE
+    id: INTEGER
+    label: STRING[4]
+    samples: samples_t
+    payload: ARRAY[2] OF BYTE
+    direction: VECTOR
+  ENDSTRUCTURE
+VAR
+  records,copied,staged: ARRAY[2] OF item_t
+  vectors,vector_copy: ARRAY[2] OF VECTOR
+  joints,joint_copy: ARRAY[1] OF JOINTPOS3
+  observed: INTEGER
+
+ROUTINE build(seed: INTEGER): ARRAY OF item_t
+VAR
+  items: ARRAY[2] OF item_t
+  i: INTEGER
+BEGIN
+  FOR i=1 TO 2 DO
+    items[i].id=seed+i-1
+    items[i].label='data-long'
+    items[i].samples[1]=items[i].id*10
+    items[i].samples[2]=items[i].id*10+1
+    items[i].payload[1]=i
+    items[i].payload[2]=255
+    items[i].direction.x=i
+    items[i].direction.y=0
+    items[i].direction.z=1
+  ENDFOR
+  RETURN items
+END build
+
+ROUTINE duplicate(items: ARRAY OF item_t): ARRAY OF item_t
+BEGIN
+  RETURN items
+END duplicate
+
+ROUTINE replace(items: ARRAY OF item_t; captured: INTEGER)
+BEGIN
+  items=build(10)
+  captured=-7
+END replace
+
+ROUTINE directions: ARRAY OF VECTOR
+VAR items: ARRAY[2] OF VECTOR
+BEGIN
+  items[1].x=1
+  items[1].y=0
+  items[1].z=0
+  items[2].x=0
+  items[2].y=1
+  items[2].z=0
+  RETURN items
+END directions
+
+ROUTINE duplicate_vectors(items: ARRAY OF VECTOR): ARRAY OF VECTOR
+BEGIN
+  RETURN items
+END duplicate_vectors
+
+ROUTINE joint_factory(offset: INTEGER): ARRAY OF JOINTPOS3
+VAR
+  items: ARRAY[1] OF JOINTPOS3
+  coordinates: ARRAY[3] OF REAL
+  status: INTEGER
+BEGIN
+  coordinates[1]=offset+1
+  coordinates[2]=offset+2
+  coordinates[3]=offset+3
+  CNV_REL_JPOS(coordinates,items[1],status)
+  RETURN items
+END joint_factory
+
+ROUTINE duplicate_joints(items: ARRAY OF JOINTPOS3): ARRAY OF JOINTPOS3
+BEGIN
+  RETURN items
+END duplicate_joints
+
+BEGIN
+  records=build(3)
+  copied=duplicate(records)
+  records[1].payload[1]=99
+  replace(records,records[2].samples[1])
+  staged=duplicate(copied)
+  copied[1].label='edit'
+  vectors=directions()
+  vector_copy=duplicate_vectors(vectors)
+  vectors[1].x=9
+  joints=joint_factory(0)
+  joint_copy=duplicate_joints(joints)
+  joints=joint_factory(4)
+  observed=records[2].samples[1]+staged[2].id+ROUND(vector_copy[1].x)
+END aggregate_array_functions

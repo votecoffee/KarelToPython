@@ -7,7 +7,7 @@ offline runtime. Unsupported syntax and uncertain behavior produce explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.44.0**. It is a
+tool are named **karel2py**. The current implementation is **0.45.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -110,8 +110,8 @@ for translation options, runtime callbacks, diagnostics and execution limits.
   and `GOTO`, internal routines, `RETURN`, bare `ABORT` and host-backed `DELAY`.
 - Checked `INTEGER`, `BOOLEAN`, exact-subset `REAL`, bounded ASCII `STRING`,
   `BYTE`/`SHORT` storage, fixed and named arrays, named structures and `USING`.
-- Reference/value parameters, checked aggregate copies, restricted array
-  function results, selected string/numeric built-ins and exact trig cases.
+- Reference/value parameters, checked aggregate copies, restricted scalar,
+  record and joint ARRAY functions, selected built-ins and exact trig cases.
 - Positional data records, opaque joint values, selected VECTOR operations and
   explicit-context offline conversion subsets.
 - Restricted text `WRITE` requests through a recorder or supplied callback.
@@ -131,10 +131,15 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 44 authored runnable examples, checks complete
+The example runner translates the 45 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
+
+The aggregate ARRAY example covers named records with nested arrays and STRING
+fields, VECTOR arrays, exact-width joint arrays and stable captured references.
+Its joint conversion uses the explicit offline axis context in its fixture.
+See the [changelog](CHANGELOG.md) for implementation milestones.
 
 Public tests create any corpus fixtures they need in temporary directories.
 Optional [corpus audit tools](tools/README.md) accept an explicitly supplied corpus;
