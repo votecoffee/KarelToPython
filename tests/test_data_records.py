@@ -202,7 +202,9 @@ class DataRecordGuardTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 program,_=compile_program('change((x))',declarations=f'x: {kind}',routines=f'ROUTINE change(p: {kind}) BEGIN END change')
                 with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-    def test_direct_string_results_remain_blocked(self): self.reject(code='E_RETURN_TYPE',routines='ROUTINE f: STRING[3] BEGIN END f')
+    def test_direct_string_results_are_supported(self):
+        program,_=compile_program('text=f()',declarations='text: STRING[3]',routines="ROUTINE f: STRING[3] BEGIN RETURN 'abc' END f")
+        self.assertEqual(program.run()['TEXT'],'abc')
     def test_aggregate_uninit_blocked(self):
         for name in ('v','p','c'):
             with self.subTest(name=name): self.reject(f'flag=UNINIT({name})')

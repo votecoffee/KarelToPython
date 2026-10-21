@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.52.0**. It is a
+tool are named **karel2py**. The current implementation is **0.53.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -123,6 +123,11 @@ Pythonic `WRITE` supports mixed text, signed numbers, REAL formatting and `CR`
 newlines, for example `WRITE('value=',value::0::3,CR)`. Requests are recorded or
 sent to a supplied callback. See the [text output guide](docs/pythonic-output.md).
 
+STRING functions and writable value arguments are supported too. `STRING`
+results default to 254 characters; `STRING[n]` results truncate at the declared
+capacity. Parenthesized STRING arguments use private storage. See the
+[STRING guide](docs/pythonic-strings.md).
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -141,8 +146,7 @@ sent to a supplied callback. See the [text output guide](docs/pythonic-output.md
 - Mixed scalar `WRITE` lists, CR newlines and numeric formatting through a
   recorder or supplied callback.
 
-Each item has type and context restrictions. Direct STRING function results,
-broad ARRAY result forms, external routines,
+Each item has type and context restrictions. Broad ARRAY result forms, external routines,
 motion, controller files/registers/I/O and native task behavior remain unsupported.
 Read the [support table and limitations](docs/language-support.md) before using a feature.
 
@@ -156,7 +160,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 52 authored runnable examples, checks complete
+The example runner translates the 53 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.

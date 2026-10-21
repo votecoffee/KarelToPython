@@ -1,4 +1,4 @@
-"""Bounded STRING leaves in owned ARRAY results; no direct STRING return policy."""
+"""Bounded STRING leaves in owned ARRAY results and scalar result assignments."""
 import ast
 import json
 import unittest
@@ -141,8 +141,9 @@ class StringArrayRejectionTests(unittest.TestCase):
     def test_destination_capacity_mismatch_is_not_truncated(self):
         self.reject('E_TYPE', declarations='a: ARRAY[2] OF STRING[4]')
 
-    def test_direct_string_result_remains_blocked(self):
-        self.reject('E_RETURN_TYPE', body='', routines="ROUTINE make: STRING[3] BEGIN RETURN 'abc' END make")
+    def test_direct_string_result_assigns_to_array_element(self):
+        program,_=compile_program(body='a[1]=make',routines="ROUTINE make: STRING[3] BEGIN RETURN 'abc' END make")
+        self.assertEqual(program.run()['A'][0],'abc')
 
     def test_named_outer_source_still_blocked(self):
         self.reject('E_ARRAY_RETURN_SOURCE', types='TYPE words_t=ARRAY[2] OF STRING[3]', body='',

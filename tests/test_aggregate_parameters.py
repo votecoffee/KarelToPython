@@ -193,10 +193,12 @@ class AggregateRejectionTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body, routine, **kwargs)
         self.assertEqual(caught.exception.code, code, str(caught.exception))
 
-    def test_string_value_arguments_to_writers_remain_blocked(self):
+    def test_string_value_arguments_to_writers_are_independent(self):
         for argument in ("'abc'", 'small + large', '(small)', '((small))', '(words[1])', 'C'):
             with self.subTest(argument=argument):
-                self.rejected(f'label({argument})', "ROUTINE label(p: STRING) BEGIN p='changed' END label", 'E_STRING_VALUE', constants="CONST C = 'abc'")
+                state = execute(f"small='ab' large='cd' words[1]='ef' label({argument})",
+                                "ROUTINE label(p: STRING) BEGIN p='changed' END label", constants="CONST C = 'abc'")
+                self.assertEqual((state['SMALL'], state['LARGE'], state['WORDS'][0]), ('ab', 'cd', 'ef'))
 
     def test_parenthesized_whole_arrays_rejected(self):
         for argument in ('(a)', '((a))'):
@@ -222,8 +224,9 @@ class AggregateRejectionTests(unittest.TestCase):
     def test_whole_array_uninit_remains_blocked(self):
         self.rejected('fill(a)', 'ROUTINE fill(p: ARRAY OF INTEGER) BEGIN flag = UNINIT(p) END fill', 'E_TYPE')
 
-    def test_string_function_result_remains_blocked(self):
-        self.rejected('', 'ROUTINE text: STRING[3] BEGIN RETURN \'abc\' END text', 'E_RETURN_TYPE')
+    def test_string_function_result_uses_declared_capacity(self):
+        state = execute('large=text()', "ROUTINE text: STRING[3] BEGIN RETURN 'abcdef' END text")
+        self.assertEqual(state['LARGE'], 'abc')
 
     def test_aggregate_function_effects_guard_remains_active(self):
         self.rejected('result = other + f(a)', 'ROUTINE f(p: ARRAY OF INTEGER): INTEGER BEGIN p[1] = 7 RETURN 1 END f', 'E_EVALUATION_ORDER')

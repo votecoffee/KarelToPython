@@ -145,9 +145,8 @@ class StructureRoutineGuardTests(unittest.TestCase):
             translate('PROGRAM T ROUTINE get: later_t BEGIN END get TYPE later_t=STRUCTURE n: INTEGER ENDSTRUCTURE BEGIN END T')
         self.assertEqual(caught.exception.code,'E_TYPE')
     def test_named_array_return_remains_blocked(self): self.reject('E_RETURN_TYPE',routines='ROUTINE get: row_t BEGIN END get')
-    def test_direct_string_and_array_results_remain_blocked(self):
-        for kind in ('STRING[4]','ARRAY[2] OF INTEGER'):
-            with self.subTest(kind=kind): self.reject('E_RETURN_TYPE',routines=f'ROUTINE get: {kind} BEGIN END get')
+    def test_sized_array_result_remains_blocked(self):
+        self.reject('E_RETURN_TYPE',routines='ROUTINE get: ARRAY[2] OF INTEGER BEGIN END get')
     def test_whole_array_value_remains_blocked(self): self.reject('E_ARRAY_VALUE','fill((a.values))',routines='ROUTINE fill(p: ARRAY OF INTEGER) BEGIN END fill')
     def test_aggregate_uninit_remains_blocked(self): self.reject('E_TYPE','flag=UNINIT(a)')
     def test_structure_comparison_remains_blocked(self): self.reject('E_TYPE','flag=a=b')

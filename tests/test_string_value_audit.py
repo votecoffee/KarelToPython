@@ -86,12 +86,12 @@ class StringValueAuditTests(unittest.TestCase):
     def test_missing_selected_source_fails(self):
         (self.root/'KL/V8.33'/audit.SELECTED[0]).unlink()
         self.assertNotEqual(self.invoke()[0].returncode,0)
-    def test_string_return_control_retains_rejection(self):
+    def test_string_return_control_translates_without_execution(self):
         path = self.root/'KL/V8.33'/audit.SELECTED[-1]
         path.write_text("PROGRAM p ROUTINE f: STRING[8] BEGIN RETURN 'abc' END f BEGIN END p")
         process,report = self.invoke()
         self.assertEqual(process.returncode,0,process.stderr)
-        self.assertEqual(report['cases'][-1]['diagnostic']['code'],'E_RETURN_TYPE')
+        self.assertEqual(report['cases'][-1]['status'],'translated')
 
 
 if __name__ == '__main__': unittest.main()

@@ -136,9 +136,8 @@ class VectorRoutineGuardTests(unittest.TestCase):
     def test_wrong_return_type(self): self.reject('E_RETURN',routines='ROUTINE get: VECTOR BEGIN RETURN 1 END get')
     def test_missing_return_expression(self): self.reject('E_RETURN',routines='ROUTINE get: VECTOR BEGIN RETURN END get')
     def test_function_not_allowed_as_statement(self): self.reject('E_CALL','get()',routines='ROUTINE get: VECTOR BEGIN RETURN a END get')
-    def test_other_aggregate_results_remain_blocked(self):
-        for kind in ('STRING[4]','ARRAY[2] OF INTEGER'):
-            with self.subTest(kind=kind): self.reject('E_RETURN_TYPE',routines=f'ROUTINE get: {kind} BEGIN END get')
+    def test_sized_array_result_remains_blocked(self):
+        self.reject('E_RETURN_TYPE',routines='ROUTINE get: ARRAY[2] OF INTEGER BEGIN END get')
     def test_whole_record_array_values_remain_blocked(self): self.reject('E_ARRAY_VALUE','work((items))',declarations='items: ARRAY[2] OF XYZWPR',routines='ROUTINE work(v: ARRAY OF XYZWPR) BEGIN END work')
     def test_bare_protected_argument_remains_blocked(self): self.reject('E_POSITION_READ_ONLY_ARG','change(pose.normal)',declarations='pose: POSITION',routines=CHANGE)
     def test_effectful_vector_result_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN r=1 RETURN a END get')

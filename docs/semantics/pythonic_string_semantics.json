@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.53.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "manual": "MARRC75KR07091E Rev N",
+  "page_numbering": "One-based PDF pages",
+  "reviewed_pages": [85, 563],
+  "source_conflict": "Page 85 describes ROUTINE name(parameter_list): STRING, while page 563 prohibits STRING function values. Pythonic mode chooses support without claiming native acceptance.",
+  "result_contract": {
+    "declarations": "Internal STRING defaults to 254; STRING[capacity] requires a global INTEGER constant expression in 1..254.",
+    "return": "Evaluate once, require initialized ASCII contents, right-truncate to result capacity before local-frame cleanup. No padding; an empty string is initialized.",
+    "use": "Normal scalar STRING value with existing explicit/bare calls, assignment, expressions, built-ins, WRITE, RETURN forwarding and value arguments; existing effect/order guards remain.",
+    "errors": "Wrong result types reject during translation. Invalid runtime contents or missing RETURN preserve the assignment destination, retain prior effects and unwind frames."
+  },
+  "argument_contract": {
+    "references": "Bare ordinary STRING storage retains caller identity and physical capacity.",
+    "values": "Literals, constants, expressions, function results and grouped storage create independent writable capacity-254 temporaries, accepting initialized ASCII inputs of length <=254.",
+    "mutation": "Assignments truncate to temporary capacity; supported conversion outputs can write/clear it. No copy-back to the original, including on failure or ABORT.",
+    "forwarding": "Bare forwarding retains the private reference; regrouping creates another independent copy. Formal-write effects remain reported."
+  },
+  "boundaries": [
+    "Chosen bounded Pythonic policy; no inferred native temporary capacity or controller STRING ABI",
+    "Existing array identity, type, initialization, effect/order, FOR and call-depth checks remain",
+    "No dynamic result capacity, external routine linkage or non-ASCII strings",
+    "Public strict mode remains a future milestone; previous conservative STRING tests are retained"
+  ],
+  "tests": ["tests/test_pythonic_strings.py", "tests/test_runtime_portability.py", "examples/pythonic_strings.kl"],
+  "controller_validated": false
+}

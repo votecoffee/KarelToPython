@@ -14,7 +14,7 @@ import struct
 import time
 
 
-# Keep the previous numeric contract available for its regression tests. Public
+# Keep the previous conservative contracts available for regression tests. Public
 # translation selects Pythonic behavior explicitly; strict mode is not released.
 _numeric_mode = ContextVar('karel2py_numeric_mode', default='strict')
 
@@ -562,6 +562,11 @@ class StringValueReference(Reference):
 
 
 def string_value_argument(value, line=None):
+    if _pythonic():
+        value = ascii_string(value, line)
+        if len(value) > 254:
+            raise KarelRuntimeError('STRING value arguments are limited to 254 characters', line)
+        return Reference(('STRING', 254), {'value': value}, 'value')
     return StringValueReference(value, line)
 
 

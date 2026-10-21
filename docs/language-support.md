@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.52.0. Acceptance is specific to
+This is the supported prototype subset as of 0.53.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -19,7 +19,7 @@ internally and in the historical semantic notes.
 | BOOLEAN | Strict Boolean storage, operators and comparisons | Numeric values are not implicitly Booleans. |
 | REAL | Python float, rounded arithmetic, promotion, ROUND/TRUNC, SQRT, EXP and LN | Finite values required; existing checked INTEGER results. ROUND uses ties to even. |
 | Trig | General degree SIN/COS/TAN/ASIN/ACOS and ATAN2 | Inverse/domain checks remain. ATAN2 uses KAREL `(x,y)` order, all quadrants and Python -180..180 degree output. |
-| STRING | Bounded ASCII storage, right truncation, concatenation/comparison, STR_LEN, restricted SUB_STR/INDEX/CHR/ORD | Direct STRING function results and unresolved substring/search boundaries remain blocked. Read-only value inputs have restricted temporary handling. |
+| STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison and selected built-ins | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. Existing effect/order and substring/search guards remain. |
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference formals and named subarrays | Prototype bound of 32767 scalar leaves; whole-array value arguments prohibited; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
@@ -103,7 +103,7 @@ to source storage still apply the existing right-truncation rule.
 Empty initialized elements are valid. Uninitialized, non-ASCII or malformed
 oversized host values fail before result assignment. See the authored
 [STRING ARRAY example](../examples/string_array_functions.kl). Direct STRING
-function results retain their existing rejection; this ARRAY subset is an offline
+results follow the [Pythonic STRING contract](pythonic-strings.md); this ARRAY subset is an offline
 composition of the documented array and bounded-string rules, without native
 compiler or controller validation.
 

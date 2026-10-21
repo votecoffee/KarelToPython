@@ -3,6 +3,8 @@
 Since 0.51.0, public translation defaults to **Pythonic mode**. It uses practical
 Python numeric equivalents, accepting reasonable differences from KAREL. Existing
 source/type, initialization, array shape, ownership and effect checks still apply.
+The profile also includes [mixed text output](pythonic-output.md) and
+[STRING functions with writable value copies](pythonic-strings.md).
 
 ```sh
 python -m karel2py examples/pythonic_numeric.kl --mode pythonic --check

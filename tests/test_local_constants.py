@@ -328,8 +328,9 @@ class LocalConstantRejectionTests(unittest.TestCase):
     def test_using_field_constant_collision(self):
         self.reject('ROUTINE work CONST count=7 VAR record: item_t BEGIN USING record DO result=count ENDUSING END work', 'E_USING_CONST_SHADOW', prefix='TYPE item_t=STRUCTURE count: INTEGER ENDSTRUCTURE')
 
-    def test_string_constant_value_argument_remains_blocked(self):
-        self.reject("ROUTINE label(p: STRING) BEGIN p='changed' END label\nROUTINE work CONST name='abc' BEGIN label(name) END work", 'E_STRING_VALUE')
+    def test_string_constant_value_argument_preserves_constant(self):
+        state = execute("ROUTINE label(p: STRING) BEGIN p='changed' END label\nROUTINE work CONST name='abc' BEGIN label(name) text=name END work")
+        self.assertEqual(state['TEXT'], 'abc')
 
     def test_unreachable_invalid_constant_still_rejected(self):
         self.reject('ROUTINE work CONST a=1 DIV 0 BEGIN END work', 'E_CONSTANT', body='x=7')

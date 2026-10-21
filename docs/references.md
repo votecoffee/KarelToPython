@@ -10,7 +10,9 @@ Obtain the applicable manual through authorized FANUC documentation channels.
 No manual PDFs or extracted manual corpus are distributed in this repository.
 Controller-release differences and conflicting manual statements remain explicit
 limits rather than implied support. In particular, the general routines material
-and the STRING type entry disagree on STRING results; that form stays blocked.
+and the STRING type entry disagree on STRING results. Pythonic mode deliberately
+supports them with an explicit bounded [STRING policy](pythonic-strings.md);
+the conflicting statements remain relevant to the future strict milestone.
 
 The [semantic ledger index](semantics/README.md) links the public implementation
 contracts, manual page references, prototype restrictions and test locations.

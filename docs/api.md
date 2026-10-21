@@ -126,6 +126,15 @@ destination types/shapes and known initialized leaves. The
 [ARRAY result contract](language-support.md#array-function-results) describes the
 supported forms and remaining restrictions.
 
+Internal STRING functions support `STRING` (default capacity 254) and
+`STRING[n]` (global constant capacity 1..254). RETURN validates initialized ASCII
+and right-truncates before frame cleanup. Literals, expressions, function results
+and grouped STRING actuals receive independent writable capacity-254 storage;
+bare storage keeps caller identity and capacity. Input values remain bounded to
+254 characters, and private mutations are never copied back. See the
+[STRING contract](pythonic-strings.md) and report fields
+`string_routine_declarations`, `string_returns`, and `string_value_arguments`.
+
 The runtime uses Pythonic numeric equivalents and checked range, shape, initialization and alias
 checks. Successful translation does not guarantee successful execution for all
 inputs. The [language support guide](language-support.md) and [semantic notes](semantics/README.md)

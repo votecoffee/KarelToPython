@@ -258,8 +258,9 @@ class StringRejectionTests(unittest.TestCase):
     def test_string_array_whole_value_passing_remains_prohibited(self):
         self.rejected('fill((words))', 'E_ARRAY_VALUE', 'ROUTINE fill(p: ARRAY OF STRING) BEGIN END fill')
 
-    def test_string_element_value_to_writer_remains_blocked(self):
-        self.rejected('label((words[1]))', 'E_STRING_VALUE', "ROUTINE label(p: STRING) BEGIN p='changed' END label")
+    def test_string_element_value_to_writer_preserves_source(self):
+        state = execute("words[1]='abc' label((words[1]))", "ROUTINE label(p: STRING) BEGIN p='changed' END label")
+        self.assertEqual(state['WORDS'][0], 'abc')
 
     def test_builtin_with_routine_argument_order_remains_blocked(self):
         routine = 'ROUTINE f: INTEGER BEGIN x = 2 RETURN 1 END f'

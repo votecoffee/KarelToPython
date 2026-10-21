@@ -137,12 +137,12 @@ class LiteralApostropheSourceTests(unittest.TestCase):
         program,_=compile_program("WRITE('can''t'::12::2)")
         with self.assertRaisesRegex(rt.KarelRuntimeError,'embedded apostrophes'): program.run()
         self.assertEqual(program.write_requests,())
-    def test_string_function_result_remains_blocked(self):
-        with self.assertRaises(TranslationError) as caught: compile_program('',routines="ROUTINE label: STRING[8] BEGIN RETURN 'can''t' END label")
-        self.assertEqual(caught.exception.code,'E_RETURN_TYPE')
-    def test_writable_string_value_argument_remains_blocked(self):
-        with self.assertRaises(TranslationError) as caught: compile_program("change('can''t')",routines="ROUTINE change(value: STRING) BEGIN value='new' END change")
-        self.assertEqual(caught.exception.code,'E_STRING_VALUE')
+    def test_string_function_result_preserves_apostrophe(self):
+        program,_=compile_program('text=label()',routines="ROUTINE label: STRING[8] BEGIN RETURN 'can''t' END label")
+        self.assertEqual(program.run()['TEXT'], "can't")
+    def test_writable_string_value_argument_preserves_caller(self):
+        program,_=compile_program("text='can''t' change((text))",routines="ROUTINE change(value: STRING) BEGIN value='new' END change")
+        self.assertEqual(program.run()['TEXT'], "can't")
     def test_reports_do_not_leak_between_translations(self):
         compile_program("text='can''t'")
         _,result=compile_program("text='plain'")

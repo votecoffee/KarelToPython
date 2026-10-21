@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.53.0 - 2026-10-21
+
+- Add Pythonic internal STRING function results: plain `STRING` chooses capacity
+  254, while `STRING[n]` accepts a global constant capacity in 1..254. RETURN
+  validates initialized ASCII and right-truncates before routine-frame cleanup.
+  Results compose as ordinary string values under existing type/effect guards.
+- Allow writable STRING value arguments using independent capacity-254
+  temporaries. Bare ordinary storage retains caller identity and capacity;
+  grouping, literals, constants, expressions and function results use private
+  copies. Preserve input bounds, normal assignment truncation and conversion
+  output behavior, with no copy-back after completion or failure.
+- Add result/copy metadata, 59 regression tests and a complete authored example.
+  Document the chosen policy and conflicting manual statements. Preserve the
+  previous conservative STRING tests for the future strict milestone; no native
+  controller acceptance or STRING ABI claim.
+
 ## 0.52.0 - 2026-10-21
 
 - Extend Pythonic `WRITE` to mixed STRING, BOOLEAN, signed INTEGER, BYTE, SHORT

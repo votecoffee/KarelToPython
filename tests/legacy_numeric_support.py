@@ -1,6 +1,6 @@
 """Preserve the pre-Pythonic conservative contract without publishing strict mode.
 
-These tests exercise frozen numeric and WRITE guards for the future strict milestone.
+These tests exercise frozen numeric, WRITE and STRING guards for the future strict milestone.
 Public API/CLI behavior is exercised separately through karel2py.translate.
 """
 from karel2py import runtime

@@ -47,6 +47,7 @@ class Routine:
     parameter_writes: set = field(default_factory=set)
     may_write: bool = False
     may_abort: bool = False
+    string_result_defaulted: bool = False
 
 
 @dataclass
@@ -332,6 +333,7 @@ class Parser:
                     self.expect(';')
                     self.skip_newlines()
         return_type = None
+        string_result_defaulted = False
         if self.accept(':'):
             if self.current.value == 'ARRAY':
                 array_token = self.take()
@@ -355,8 +357,19 @@ class Parser:
                 if self.current.value == 'IN':
                     self.error('E_POSITION_GROUP', 'Group-qualified ARRAY result elements are not implemented', element)
                 return_type = ('ARRAY', None, element_spec)
+            elif self.mode == 'pythonic' and self.current.value == 'STRING':
+                string_token = self.take()
+                if self.accept('['):
+                    capacity = self.expression()
+                    self.expect(']')
+                else:
+                    capacity = Expr('literal', string_token, 254)
+                    string_result_defaulted = True
+                return_type = ('STRING', capacity)
             else: return_type = self.type_spec()
-        if return_type and return_type[0] not in ('INTEGER', 'BOOLEAN', 'REAL', *DATA_RECORD_TYPES, 'JOINTPOS', 'NAMED', 'ARRAY'):
+        allowed_results = ('INTEGER', 'BOOLEAN', 'REAL', *DATA_RECORD_TYPES, 'JOINTPOS', 'NAMED', 'ARRAY')
+        if self.mode == 'pythonic': allowed_results += ('STRING',)
+        if return_type and return_type[0] not in allowed_results:
             self.error('E_RETURN_TYPE', 'Routine results require a supported scalar, exact data record/joint type or named STRUCTURE', token)
         self.skip_lines()
         declarations, local_declarations = [], []
@@ -384,7 +397,7 @@ class Parser:
         self.expect('END')
         self.expect(name)
         return Routine(name, token, return_type, body, declarations, parameters=parameters,
-                       local_declarations=local_declarations)
+                       local_declarations=local_declarations, string_result_defaulted=string_result_defaulted)
 
     def parameter_type(self):
         token = self.take()
@@ -706,6 +719,7 @@ class Emitter:
         self.subarray_uses = []
         self.delay_uses = []
         self.string_value_uses = []
+        self.string_return_uses = []
         self.write_uses = []
         self.config_value_uses = []
         self.joint_conversion_uses = []
@@ -919,6 +933,9 @@ class Emitter:
             if routine.name in names: self.error('E_DUPLICATE', 'Duplicate declaration', routine.token)
             names.add(routine.name)
             self.routines[routine.name] = routine
+            if routine.return_type and routine.return_type[0] == 'STRING':
+                routine.return_type = self.resolve_spec(routine.return_type)
+                self.features.add('STRING function result')
             if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
             if routine.return_type and routine.return_type[0] == 'ARRAY':
                 element = routine.return_type[2]
@@ -1559,14 +1576,15 @@ class Emitter:
             if not is_reference and expected[0] == 'ARRAY':
                 self.error('E_ARRAY_VALUE', 'Whole ARRAY arguments cannot be passed by value', argument.token)
             if not is_reference and expected[0] == 'STRING':
-                if formal.value in routine.parameter_writes:
+                if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
                 code = f'_rt.string_value_argument({value}, {line})'
-                self.features.add('read-only STRING value argument')
+                self.features.add('writable STRING value argument' if self.mode == 'pythonic' else 'read-only STRING value argument')
                 self.string_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                                    routine=routine.name, parameter=formal.value,
                                                    line=line, column=argument.token.column, expression_kind=argument.kind,
-                                                   evaluated_once=True))
+                                                   evaluated_once=True, independent_writable_copy=self.mode == 'pythonic',
+                                                   temporary_capacity=254 if self.mode == 'pythonic' else None))
             if not is_reference and expected[0] == 'STRUCTURE':
                 self.features.add('named STRUCTURE value argument')
                 self.structure_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -1965,6 +1983,12 @@ class Emitter:
                                                        logical_rank=len(rt.array_dimensions(spec)),
                                                        independent_copy=True, initialized_elements_required=True))
                     self.line(f'return _rt.array_result({spec!r}, {value}, {line})', token)
+                elif spec[0] == 'STRING':
+                    self.string_return_uses.append(dict(routine=self.current_routine.name, capacity=spec[1],
+                                                       capacity_defaulted=self.current_routine.string_result_defaulted,
+                                                       line=line, column=token.column, expression_kind=expr.kind,
+                                                       evaluated_once=True, right_truncation=True))
+                    self.line(f'return _rt.checked({spec!r}, {value}, {line})', token)
                 elif spec == ('VECTOR',):
                     self.vector_return_uses.append(dict(routine=self.current_routine.name, line=line, column=token.column,
                                                        expression_kind=expr.kind, independent_writable_copy=True))
@@ -2167,6 +2191,10 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                  rejection='E_STRING_VALUE when the target formal may be written; STRING function results remain blocked',
                                  controller_validated=False),
         string_value_arguments=emitter.string_value_uses,
+        string_returns=emitter.string_return_uses,
+        string_routine_declarations=[dict(routine=r.name, capacity=r.return_type[1],
+                                          capacity_defaulted=r.string_result_defaulted, line=r.token.line)
+                                    for r in program.routines if r.return_type and r.return_type[0] == 'STRING'],
         delay_policy=dict(duration='INTEGER milliseconds evaluated once; checked range 0..86400000',
                           zero='No host sleeper call',
                           host='Default time.sleep(milliseconds / 1000.0); Program(sleep=...) injects a synchronous sleeper accepting seconds and returning None',
@@ -2315,7 +2343,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                      potential_aborts=r.may_abort,
                                      potential_parameter_writes=sorted(r.parameter_writes),
                                      parameters=[dict(name=t.value, type=spec[0], type_spec=spec,
-                                                      passing_modes=(['reference', 'value_read_only'] if spec[0] == 'STRING' and t.value not in r.parameter_writes
+                                                      passing_modes=(['reference', 'value'] if spec[0] == 'STRING' and mode == 'pythonic'
+                                                                     else ['reference', 'value_read_only'] if spec[0] == 'STRING' and t.value not in r.parameter_writes
                                                                      else ['reference', 'value'] if spec[0] in (*RECORD_TYPES, 'JOINTPOS')
                                                                      else ['reference'] if spec[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS') else ['reference', 'value']))
                                                  for t, spec in r.parameters])
@@ -2375,7 +2404,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
-                               scope='Python numeric equivalents; existing source, type, initialization, ownership and effect checks remain')
+                               scope='Practical Python numeric, text output and STRING behavior; checked source forms, types, initialization, ownership and effects')
     report['numeric_policy'] = dict(
         mode=mode, real_model='python_float', arithmetic='Python float +, -, *, /; finite results required',
         sqrt='math.sqrt for nonnegative finite inputs', exp='math.exp', ln='math.log for positive finite inputs',
@@ -2420,9 +2449,25 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         trace='Copied text/line/adapter_outcome records; failures retain prior expression/output effects and unwind routine frames',
         boundary='No explicit file/device access, binary transfer, READ, aggregate output, dynamic format expressions or controller IO_STATUS; existing quoted STRING restrictions remain',
         controller_validated=False)
+    report['string_result_policy'] = dict(
+        source='Internal STRING or STRING[capacity] function results; explicit calls and bare zero-argument function names',
+        capacity='STRING defaults to 254; explicit global constant capacity in 1..254',
+        returned_value='Initialized ASCII Python string; evaluate once and right-truncate to the result capacity before routine cleanup',
+        use='Assignments, string expressions/comparisons, built-ins, WRITE, RETURN forwarding and STRING value arguments',
+        boundary='Existing type, effect/order, FOR and call-depth guards remain; no native controller STRING ABI claim',
+        controller_validated=False)
+    report['string_value_policy'] = dict(
+        arguments='Initialized ASCII literals, constants, expressions, function results and grouped scalar storage; input length at most 254',
+        storage='Independent writable temporary with chosen capacity 254; assignment right-truncates and clear sets UNINITIALIZED',
+        references='Bare ordinary STRING variables/fields/elements preserve caller storage and actual capacity',
+        effects='Potential formal writes remain reported; grouping/value passing creates no writeback alias',
+        boundary='Chosen Pythonic temporary capacity; existing multi-argument and side-effect ordering guards remain',
+        controller_validated=False)
+    for key in ('vector_routine_policy', 'structure_routine_policy', 'positional_routine_policy', 'array_routine_policy'):
+        report[key]['boundary'] = report[key]['boundary'].replace('direct STRING results, ', '').replace(' or direct STRING results', '')
     strict_only = ('REAL uses exact binary32', 'Underflow follows the manual', 'Signed MOD with negative',
                    'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
-                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts')
+                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     return result
