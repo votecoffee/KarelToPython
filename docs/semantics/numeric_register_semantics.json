@@ -1,0 +1,31 @@
+{
+  "translator_version": "0.78.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "GET_REG, SET_INT_REG and SET_REAL_REG on an explicit in-memory NumericRegisters context",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [413, 540, 551],
+    "documented": "Procedure signatures, BOOLEAN real flag and selected INTEGER/REAL GET output, INTEGER/REAL setters and status zero on success",
+    "uncertainty": "Native counts, initialization, unused-output state, error/status mapping, persistence, concurrent controller updates and real communication are not authenticated"
+  },
+  "implementation_choices": {
+    "context": "Explicit NumericRegisters(count, initial=None), count 1..32767 and copied integer-keyed int/float values; absent entries stay absent; no implicit zeros or discovery",
+    "types": "Distinct int/float kinds, INTEGER checked storage and finite Pythonic REAL; SET_REAL_REG promotes numeric input to float; setter replaces prior kind",
+    "read": "GET_REG writes flag, selected exact numeric output and status zero; preserve unused numeric output including unknown state",
+    "status": "Portable REGISTER_UNINITIALIZED=1 for absent reads and REGISTER_OUT_OF_RANGE=2 outside explicit count; status-only failure writes; no native code mapping",
+    "guards": "Exact ordinary writable output types and pairwise disjoint references checked before bank access; initialization/type/context/overlap failures raise without operation writes",
+    "effects": "Arguments once left-to-right, captured input values before later output-index effects; prior effects remain; direct/transitive FOR guards, CONFIG/POSITION protection and routine cleanup",
+    "ownership": "Explicit bank shared across runs/programs, detached snapshots, read-only count; earlier completed writes survive later errors/ABORT; no automatic persistence/reset/rollback",
+    "cli": "Generated script --registers requires UTF-8 JSON with exact count/values structure and canonical decimal string keys; seed detached memory without rewriting input files",
+    "reports": "Source-located register_operations, register_policy, transitive potential_register_reads/writes and defensive value-free Program.register_requests reset at run start",
+    "names": "Pythonic fallbacks preserve internal routines and ordinary declarations; other controller names remain blocked and strict retains older unsupported calls"
+  },
+  "retained_boundaries": [
+    "No controller backend, robot communication, arbitrary external adapters, native register initialization/count/status/persistence or controller acceptance claim",
+    "No remote/group, position/string/comment registers, R[] syntax or native concurrent-update model",
+    "Existing initialization, scalar ranges, references, FOR, step/frame/resource limits and sticky ABORT remain; strict is future work"
+  ],
+  "tests": ["tests/test_numeric_registers.py", "tests/test_runtime_portability.py", "examples/pythonic_numeric_registers.kl"],
+  "controller_validated": false
+}

@@ -1,0 +1,8 @@
+{
+  "CODE": 2,
+  "MISSING": 1,
+  "INVALID": 2,
+  "VALUE": 42,
+  "REAL_FLAG": true,
+  "REAL_VALUE": 1.25
+}

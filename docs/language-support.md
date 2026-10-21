@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.77.0. Acceptance is specific to
+This is the supported prototype subset as of 0.78.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -35,6 +35,7 @@ internally and in the historical semantic notes.
 | CONFIG text | CNV_STR_CONF and CNV_CONF_STR with complete checked CONFIG data, portable flags/turn grammar and canonical text | Omitted values are explicit portable choices; parse failure status 1 preserves CONFIG. No robot/group masks, native error mapping or CNV_CNF_STRG. |
 | Time text | CNV_STR_TIME and CNV_TIME_STR on supplied packed date/time values | Gregorian 1980..2107, fixed English text, two-second precision and signed bit patterns; complete STRING capacity required; no clock/timezone access or native equivalence. |
 | Microsecond timers | GET_USEC_TIM host monotonic sampling and GET_USEC_SUB elapsed subtraction, with optional clock injection | Portable two-minute ring, one clock and intervals shorter than two minutes; no native encoding/tick precision or calendar clock access. |
+| Offline numeric registers | GET_REG, SET_INT_REG and SET_REAL_REG on an explicit in-memory NumericRegisters bank | Explicit count/initial values, exact checked outputs and portable missing/range statuses; no controller backend, native status/count or persistence claim. |
 | Frame transforms | POSITION/XYZWPR colon composition, INV inversion and three/four-point FRAME construction, including mixed operands | INV preserves representation; colon/FRAME return POSITION if any operand is POSITION. Direct proper matrices or portable Z-Y-X/canonical Euler choices; FRAME retains 10 mm bounds. No XYZWPREXT/JOINTPOS/VECTOR operands, external axes, frame discovery or kinematics. |
 | Pose axis queries | APPROACH and ORIENT on POSITION/XYZWPR return independent writable VECTOR values for positive Z/Y | Complete finite poses, checked CONFIG and proper POSITION matrices; no normalization, defaults, other positional operands or controller acquisition. |
 | Position comparison | Approximate >=< on POSITION/XYZWPR, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
@@ -69,6 +70,7 @@ See [position comparisons](position-comparisons.md) for >=< metrics and explicit
 See [Boolean waits](boolean-waits.md) for repeated condition checks, host yields and budget limits.
 See [time text](time-text.md) for calendar validation, packed bits and complete formatting.
 See [microsecond timers](microsecond-timers.md) for host clocks, rollover and deterministic adapters.
+See [numeric registers](numeric-registers.md) for explicit banks, output checks and script context.
 
 ## Zero-argument function calls
 

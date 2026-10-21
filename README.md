@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.77.0**. It is a
+tool are named **karel2py**. The current implementation is **0.78.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -195,6 +195,10 @@ GET_USEC_TIM and GET_USEC_SUB measure short elapsed intervals using a host
 monotonic clock or an injected test clock. See [microsecond timers](docs/microsecond-timers.md)
 for the portable rollover model and repeatable execution.
 
+GET_REG, SET_INT_REG and SET_REAL_REG operate on an explicit in-memory numeric
+register bank. See [offline numeric registers](docs/numeric-registers.md) for
+initial state, portable statuses and the generated script's JSON context.
+
 ENVIRONMENT, COMMENT and ALPHABETIZE directives are retained as checked metadata
 alongside NOLOCKGROUP. Environment requirements are recorded without loading
 definitions or enabling extra facilities. See [source directives](docs/source-directives.md).
@@ -227,6 +231,7 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Packed date/time text conversion with checked calendars and complete outputs.
 - Host microsecond sampling and elapsed-time subtraction with an injectable clock.
+- Numeric register reads/writes on an explicit in-memory bank with checked outputs.
 - Source directive metadata for environment requirements, comments and display order.
 - Rounded fixed/scientific REAL text formatting with precision -254..254,
   minimum-width padding and caller-capacity overflow markers.

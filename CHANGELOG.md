@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.78.0 - 2026-10-21
+
+- Add Pythonic GET_REG, SET_INT_REG and SET_REAL_REG on an explicit in-memory
+  NumericRegisters bank. Preserve INTEGER/REAL kinds, selected-output behavior,
+  unused output state, shared bank ownership and portable missing/range statuses.
+- Add generated-script JSON context, defensive value-free operation records,
+  transitive read/write effects and source-located reports. Check all output types
+  and aliases before bank access, retain source order, prior effects, FOR guards
+  and cleanup, and preserve user routines. Add an authored example, guide and
+  bank/ownership/CLI regressions. Real controller access and native status/count
+  equivalence remain unsupported; strict is future work.
+
 ## 0.77.0 - 2026-10-21
 
 - Add Pythonic GET_USEC_TIM and GET_USEC_SUB for host elapsed time, with a

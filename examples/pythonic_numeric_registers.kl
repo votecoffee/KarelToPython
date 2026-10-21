@@ -1,0 +1,14 @@
+PROGRAM PYTHONIC_NUMERIC_REGISTERS
+%ENVIRONMENT REGOPE
+VAR code,missing,invalid,value: INTEGER real_flag: BOOLEAN real_value: REAL
+BEGIN
+  SET_INT_REG(1,42,code)
+  GET_REG(1,real_flag,value,real_value,code)
+  SET_REAL_REG(2,1.25,code)
+  GET_REG(2,real_flag,value,real_value,code)
+  GET_REG(3,real_flag,value,real_value,code)
+  missing=code
+  GET_REG(4,real_flag,value,real_value,code)
+  invalid=code
+  WRITE('int=',value::0,', real=',real_value::0::2,CR)
+END PYTHONIC_NUMERIC_REGISTERS

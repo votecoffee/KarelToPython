@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.77.0",
+  "translator_version": "0.78.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Chosen lexical nested USING, dotted named STRUCTURE selectors and namespace rules; no new native alias-lifetime or controller claim",

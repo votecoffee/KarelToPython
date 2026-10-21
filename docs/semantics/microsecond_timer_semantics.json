@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.77.0",
+  "translator_version": "0.78.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Host elapsed microseconds with GET_USEC_TIM and pure GET_USEC_SUB",

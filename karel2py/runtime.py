@@ -1772,8 +1772,55 @@ class TextInput:
         return values
 
 
+REGISTER_UNINITIALIZED = 1
+REGISTER_OUT_OF_RANGE = 2
+
+
+class NumericRegisters:
+    """Explicit bounded in-memory numeric registers; no controller or persistence."""
+    def __init__(self, count, initial=None):
+        if type(count) is not int or not 1 <= count <= 32767:
+            raise ValueError('NumericRegisters count must be an integer in 1..32767')
+        if initial is not None and type(initial) is not dict:
+            raise TypeError('NumericRegisters initial values must be a dict of integer register numbers to int/float values')
+        self._count, self._values = count, {}
+        for number, value in (initial or {}).items():
+            if self.write(number,value) != 0: raise ValueError('Initial register number is outside the explicit register count')
+
+    @property
+    def count(self): return self._count
+
+    def snapshot(self): return self._values.copy()
+
+    @classmethod
+    def from_config(cls, config):
+        if type(config) is not dict or set(config) != {'count','values'} or type(config['values']) is not dict:
+            raise ValueError('Register configuration requires exactly count and values, with values an object')
+        values = {}
+        for number, value in config['values'].items():
+            if type(number) is not str or not re.fullmatch(r'[1-9][0-9]{0,4}',number):
+                raise ValueError('Register configuration keys must be canonical positive decimal numbers up to 32767')
+            values[int(number)] = value
+        return cls(config['count'],values)
+
+    def read(self, number, line=None):
+        number = integer(number,line)
+        if not 1 <= number <= self.count: return REGISTER_OUT_OF_RANGE, None
+        if number not in self._values: return REGISTER_UNINITIALIZED, None
+        return 0, self._values[number]
+
+    def write(self, number, value, line=None):
+        number = integer(number,line)
+        if type(value) not in (int,float): raise KarelRuntimeError('Numeric register values require int or float',line)
+        with _numeric_scope('pythonic'):
+            value = checked(INTEGER if type(value) is int else REAL,value,line)
+        if not 1 <= number <= self.count: return REGISTER_OUT_OF_RANGE
+        self._values[number] = value
+        return 0
+
+
 class State:
-    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None):
+    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None):
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
         if sleep is not None and not callable(sleep):
@@ -1784,15 +1831,19 @@ class State:
             raise TypeError('read must be a synchronous callable accepting a request, or None')
         if clock_us is not None and not callable(clock_us):
             raise TypeError('clock_us must be a synchronous callable returning nonnegative integer microseconds, or None')
+        if registers is not None and type(registers) is not NumericRegisters:
+            raise TypeError('registers must be an explicit NumericRegisters instance, or None')
         self._sleep = time.sleep if sleep is None else sleep
         self._write = write
         self._read = read
         self._clock_us = clock_us
+        self.registers = registers
         self.joint_axes = joint_axes
         self.pose_tolerance = checked_pose_tolerance(pose_tolerance)
         self.write_requests = []
         self.read_requests = []
         self.clock_reads = []
+        self.register_requests = []
         self.types = declarations
         self.constants = constants
         self.values = {name: initial_value(spec) for name, spec in declarations.items()}
@@ -1850,6 +1901,40 @@ class State:
             for i in range(min(length, count)): array.set(i + 1, axes[i], line)
         status.set(0, line)  # Offline success only; no controller status/alarm mapping.
 
+    def numeric_register(self, name, number, *arguments, line=None):
+        """Checked GET/SET operations on the explicitly supplied memory bank."""
+        if not _pythonic(): raise KarelRuntimeError('Numeric registers require Pythonic mode',line)
+        if type(self.registers) is not NumericRegisters:
+            raise KarelRuntimeError('Numeric register operations require explicit Program(registers=NumericRegisters(...)) context',line)
+        reading = name == 'GET_REG'
+        if name not in ('GET_REG','SET_INT_REG','SET_REAL_REG') or len(arguments) != (4 if reading else 2):
+            raise KarelRuntimeError('Unsupported numeric register procedure or argument count',line)
+        number = integer(number,line)
+        outputs = arguments if reading else arguments[1:]
+        specs = (BOOLEAN,INTEGER,REAL,INTEGER) if reading else (INTEGER,)
+        occupied = set()
+        for output, spec in zip(outputs,specs):
+            if type(output) is not Reference or output.spec != spec:
+                raise KarelRuntimeError('Numeric register outputs require ordinary exact-type writable references',line)
+            cells = _reference_cells(output)
+            if occupied & cells: raise KarelRuntimeError('Numeric register outputs must not overlap',line)
+            occupied.update(cells)
+        if reading:
+            code, value = self.registers.read(number,line)
+            if code == 0:
+                flag, int_value, real_value, _ = outputs
+                is_real = type(value) is float
+                # Check the selected value before changing any program output.
+                value = checked(REAL if is_real else INTEGER,value,line)
+                (real_value if is_real else int_value).set(value,line)
+                flag.set(is_real,line)
+        else:
+            value = integer(arguments[0],line) if name == 'SET_INT_REG' else real(arguments[0],line)
+            code = self.registers.write(number,value,line)
+        outputs[-1].set(code,line)
+        self.register_requests.append(dict(procedure=name,register_no=number,line=line,operation='read' if reading else 'write',
+                                           status=code,adapter_outcome='completed' if code == 0 else 'uninitialized' if code == REGISTER_UNINITIALIZED else 'out_of_range'))
+
     def tick(self, line=None):
         if self._aborted: raise KarelAbort(self._abort_line)
         self.steps += 1
@@ -1864,6 +1949,7 @@ class State:
         self.write_requests.clear()
         self.read_requests.clear()
         self.clock_reads.clear()
+        self.register_requests.clear()
 
     def read_observations(self):
         return tuple(deepcopy(self.read_requests))

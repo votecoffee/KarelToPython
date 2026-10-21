@@ -50,6 +50,8 @@ class Routine:
     may_read: bool = False
     may_abort: bool = False
     may_clock: bool = False
+    may_read_registers: bool = False
+    may_write_registers: bool = False
     string_result_defaulted: bool = False
 
 
@@ -175,6 +177,7 @@ JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
 TIME_TEXT_PROCEDURES = {'CNV_STR_TIME', 'CNV_TIME_STR'}
 TIMER_FUNCTIONS = {'GET_USEC_TIM', 'GET_USEC_SUB'}
+REGISTER_PROCEDURES = {'GET_REG','SET_INT_REG','SET_REAL_REG'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
 # Constructors, frame helpers and pose queries are Pythonic fallbacks. Preserve internal routines and
 # ordinary declarations with these names.
@@ -190,6 +193,10 @@ DATA_RECORD_TYPES = rt.DATA_RECORD_TYPES
 POSITIONAL_VALUE_TYPES = rt.POSITIONAL_VALUE_TYPES
 RECORD_TYPES = rt.RECORD_TYPES
 ARRAY_ELEMENTS = (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS')
+
+
+def blocked_controller_names(mode):
+    return CONTROLLER_NAMES - REGISTER_PROCEDURES if mode == 'pythonic' else CONTROLLER_NAMES
 
 
 class Parser:
@@ -718,7 +725,7 @@ class Parser:
         return Statement('write_items', token, items)
 
     def check_label_name(self, token):
-        if (token.kind != 'NAME' or token.value in RESERVED | BUILTINS | CONTROLLER_NAMES | PREDEFINED_CONSTANTS.keys()
+        if (token.kind != 'NAME' or token.value in RESERVED | BUILTINS | blocked_controller_names(self.mode) | PREDEFINED_CONSTANTS.keys()
                 or not token.value[0].isalpha() or len(token.value) > 36):
             self.error('E_LABEL_NAME', 'Labels require a non-reserved letter-starting identifier of at most 36 characters', token)
 
@@ -829,6 +836,7 @@ class Emitter:
         self.config_text_uses = []
         self.time_text_uses = []
         self.microsecond_timer_uses = []
+        self.register_uses = []
         self.frame_operation_uses = []
         self.position_axis_uses = []
         self.position_comparison_uses = []
@@ -1057,7 +1065,7 @@ class Emitter:
             self.features.add('named STRUCTURE definition')
         for token, spec in self.program.declarations:
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
-            if token.value in CONTROLLER_NAMES:
+            if token.value in blocked_controller_names(self.mode):
                 self.error('E_CONTROLLER', 'Controller identifiers are not supported', token)
             names.add(token.value)
             resolved = self.resolve_global_spec(token, spec)
@@ -1118,7 +1126,7 @@ class Emitter:
             # Parameters are resolved before local declarations: local constants
             # cannot alter the routine's interface or a global type definition.
             for token, spec in routine.parameters:
-                if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in CONTROLLER_NAMES:
+                if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in blocked_controller_names(self.mode):
                     self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
                 resolved = self.resolve_spec(spec)
                 if resolved[0] in NARROW_TYPES:
@@ -1129,7 +1137,7 @@ class Emitter:
             for kind, token, definition in routine.local_declarations:
                 if (token.value in routine.local_types or token.value in routine.local_constants
                         or token.value in self.constants or token.value in self.user_types
-                        or token.value in CONTROLLER_NAMES):
+                        or token.value in blocked_controller_names(self.mode)):
                     self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
                 if kind == 'CONST':
                     if token.value in names or token.value == self.program.name:
@@ -1331,6 +1339,14 @@ class Emitter:
                             if name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
                             if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
+                    if self.mode == 'pythonic' and call.value in REGISTER_PROCEDURES and call.value not in self.routines:
+                        if call.value == 'GET_REG': routine.may_read_registers = True
+                        else: routine.may_write_registers = True
+                        for output in call.args[1:] if call.value == 'GET_REG' else call.args[2:]:
+                            name = self.root_name(output)
+                            if name not in local_names: routine.side_effecting = True
+                            if name in parameter_names: routine.parameter_writes.add(name)
+                            if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                     if call.value in BUILTIN_PROCEDURES and call.args:
                         name = self.root_name(call.args[-1])
                         if name not in local_names:
@@ -1364,6 +1380,10 @@ class Emitter:
                 if not routine.may_clock and any(self.routines[name].may_clock for name in edges[routine.name]):
                     routine.may_clock = True
                     changed = True
+                for effect in ('may_read_registers','may_write_registers'):
+                    if not getattr(routine,effect) and any(getattr(self.routines[name],effect) for name in edges[routine.name]):
+                        setattr(routine,effect,True)
+                        changed = True
                 parameter_names = {token.value for token, _ in routine.parameters}
                 local_names = {token.value for token, _ in routine.declarations}
                 for call in calls_by_routine[routine.name]:
@@ -1394,7 +1414,8 @@ class Emitter:
         return any(isinstance(node, Expr) and node.kind == 'call' and node.value in self.routines
                    and (self.routines[node.value].side_effecting or self.routines[node.value].may_delay
                         or self.routines[node.value].may_write or self.routines[node.value].may_read or self.routines[node.value].may_abort
-                        or self.routines[node.value].may_clock)
+                        or self.routines[node.value].may_clock or self.routines[node.value].may_read_registers
+                        or self.routines[node.value].may_write_registers)
                    for node in self.walk_nodes(expr))
 
     def has_fresh_active_counters(self):
@@ -1655,7 +1676,7 @@ class Emitter:
             if self.mode == 'pythonic' and expr.value in TIMER_FUNCTIONS and expr.value not in self.routines:
                 return self.microsecond_timer(expr), ('INTEGER',)
             if (expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES
-                    or self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES and expr.value not in self.routines):
+                    or self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES | REGISTER_PROCEDURES and expr.value not in self.routines):
                 self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
             if expr.value in BUILTINS or (self.mode == 'pythonic' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines):
                 return self.builtin_call(expr)
@@ -1812,6 +1833,33 @@ class Emitter:
                                          argument_order=['source','target','status'] if parsing else ['source','target'],
                                          outputs=2 if parsing else 1, source_copied=not parsing))
         return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line})'
+
+    def numeric_register(self, expr):
+        reading = expr.value == 'GET_REG'
+        if len(expr.args) != (5 if reading else 3):
+            self.error('E_ARGUMENTS', f'{expr.value} requires {5 if reading else 3} arguments',expr.token)
+        self.check_for_call(expr.token)
+        codes = [self.require_type(expr.args[0],'INTEGER')]
+        if not reading: codes.append(self.require_type(expr.args[1],'INTEGER' if expr.value == 'SET_INT_REG' else 'REAL'))
+        targets = expr.args[1:] if reading else expr.args[2:]
+        specs = ('BOOLEAN','INTEGER','REAL','INTEGER') if reading else ('INTEGER',)
+        for target, required in zip(targets,specs):
+            base = target
+            while base.kind in ('field','index'): base = base.args[0]
+            if target.kind not in ('name','field','index') or base.kind != 'name' or base.value in self.visible_constants():
+                self.error('E_OUTPUT_ARGUMENT','Numeric register outputs require storage rooted in a variable',target.token)
+            if base.value in self.active_counters: self.error('E_FOR_COUNTER','Numeric register output cannot write an active FOR counter',target.token)
+            if self.is_position_read_only_access(target): self.error('E_POSITION_READ_ONLY','Numeric register output is read-only',target.token)
+            if self.is_config_subfield(target): self.error('E_CONFIG_OUTPUT','CONFIG subfields cannot be numeric register output aliases',target.token)
+            code, spec = self.reference(target)
+            if spec != (required,): self.error('E_TYPE',f'{expr.value} output requires exact {required} storage',target.token)
+            codes.append(code)
+        self.features.add(expr.value)
+        self.register_uses.append(dict(procedure=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                                       line=expr.token.line,column=expr.token.column,operation='read' if reading else 'write',
+                                       argument_order=['register_no','real_flag','int_value','real_value','status'] if reading else ['register_no','value','status'],
+                                       arguments_evaluated_once=True,output_parameters=[2,3,4,5] if reading else [3]))
+        return f'self._state.numeric_register({expr.value!r}, {", ".join(codes)}, line={expr.token.line})'
 
     def microsecond_timer(self, expr):
         reading = expr.value == 'GET_USEC_TIM'
@@ -2438,6 +2486,9 @@ class Emitter:
             self.indent -= 2
         elif kind == 'call':
             expr = stmt.args[0]
+            if self.mode == 'pythonic' and expr.value in REGISTER_PROCEDURES and expr.value not in self.routines:
+                self.line(self.numeric_register(expr), token)
+                return
             if self.mode == 'pythonic' and expr.value in TIME_TEXT_PROCEDURES and expr.value not in self.routines:
                 self.line(self.time_text_conversion(expr), token)
                 return
@@ -2528,9 +2579,9 @@ class Emitter:
         self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None):')
+        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None):')
         self.indent = 2
-        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, clock_us=clock_us)')
+        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, clock_us=clock_us, registers=registers)')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2555,6 +2606,12 @@ class Emitter:
         self.line('def clock_reads(self):')
         self.indent = 2
         self.line('return tuple(observation.copy() for observation in self._state.clock_reads)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def register_requests(self):')
+        self.indent = 2
+        self.line('return tuple(request.copy() for request in self._state.register_requests)')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2600,11 +2657,13 @@ class Emitter:
         self.line()
         self.line('if __name__ == "__main__":')
         self.indent = 1
-        if self.features & JOINT_PROCEDURES or 'read' in self.features or 'operator >=<' in self.features:
+        if self.features & (JOINT_PROCEDURES | REGISTER_PROCEDURES) or 'read' in self.features or 'operator >=<' in self.features:
             self.line('import argparse as _argparse')
             self.line('_parser = _argparse.ArgumentParser(description="Explicit offline execution context; no controller connection")')
             if self.features & JOINT_PROCEDURES:
                 self.line('_parser.add_argument("--joint-axes", type=int, choices=range(1, 10), required=True)')
+            if self.features & REGISTER_PROCEDURES:
+                self.line('_parser.add_argument("--registers", required=True, help="UTF-8 JSON with explicit count and initial numeric register values")')
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--location-tolerance-mm", type=float, required=True)')
                 self.line('_parser.add_argument("--orientation-tolerance-deg", type=float, required=True)')
@@ -2616,6 +2675,18 @@ class Emitter:
                 self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
                 self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
             self.line('_args = _parser.parse_args()')
+            if self.features & REGISTER_PROCEDURES:
+                self.line('import json as _json')
+                self.line('try:')
+                self.indent += 1
+                self.line('with open(_args.registers, encoding="utf-8-sig") as _stream:')
+                self.indent += 1
+                self.line('_registers = _rt.NumericRegisters.from_config(_json.load(_stream))')
+                self.indent -= 2
+                self.line('except (OSError, TypeError, ValueError, _rt.KarelRuntimeError) as _error:')
+                self.indent += 1
+                self.line('_parser.error("Unable to load numeric registers: " + str(_error))')
+                self.indent -= 1
             if 'operator >=<' in self.features:
                 self.line('try:')
                 self.indent += 1
@@ -2644,6 +2715,7 @@ class Emitter:
                 self.line('_responses = lambda request: next(_batches)')
                 self.indent -= 1
             context = []
+            if self.features & REGISTER_PROCEDURES: context.append('registers=_registers')
             if self.features & JOINT_PROCEDURES: context.append('joint_axes=_args.joint_axes')
             if 'operator >=<' in self.features: context.append('pose_tolerance=_pose_tolerance')
             if 'read' in self.features: context.append('read=_responses')
@@ -2844,6 +2916,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         config_text_conversions=emitter.config_text_uses,
         time_text_conversions=emitter.time_text_uses,
         microsecond_timers=emitter.microsecond_timer_uses,
+        register_operations=emitter.register_uses,
         frame_operations=emitter.frame_operation_uses,
         position_axis_queries=emitter.position_axis_uses,
         position_comparisons=emitter.position_comparison_uses,
@@ -2932,6 +3005,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                      potential_global_writes=sorted(r.global_writes),
                                      potential_host_delays=r.may_delay,
                                      potential_host_clock_reads=r.may_clock,
+                                     potential_register_reads=r.may_read_registers,
+                                     potential_register_writes=r.may_write_registers,
                                      potential_output_requests=r.may_write,
                                      potential_input_requests=r.may_read,
                                      potential_aborts=r.may_abort,
@@ -2999,6 +3074,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['register_policy'] = dict(
+        procedures=sorted(REGISTER_PROCEDURES),
+        context='Explicit Program(registers=NumericRegisters(count, initial)) memory bank, count 1..32767 and optional INTEGER/REAL values; no default register count, implicit zeros, controller backend, persistence or file writes',
+        status='Portable codes: 0 success, REGISTER_UNINITIALIZED=1 for absent value, REGISTER_OUT_OF_RANGE=2 outside explicit count; type/storage/initialization/overlap/context failures raise before operation writes; no native alarm mapping',
+        read='GET_REG writes real_flag, only the selected exact INTEGER/REAL value output and status; preserve unused numeric output; missing/out-of-range reads write status only',
+        write='SET_INT_REG stores INTEGER, SET_REAL_REG stores Python float with ordinary numeric promotion; successful writes persist in the explicit bank across runs/shared programs; out-of-range writes preserve the bank',
+        evaluation='Inputs then exact writable outputs once left-to-right; outputs disjoint before bank access; prior effects retained on error; normal FOR/CONFIG/POSITION guards and frame cleanup',
+        observations='Program.register_requests returns defensive procedure/register number/line/operation/status/outcome records reset at run start; values omitted',
+        names='Pythonic fallback procedures preserve internal routines and ordinary declarations; other controller identifiers remain blocked; strict future work',
+        boundary='Explicit offline memory model only, no robot communication, remote/group registers, R[] syntax, comments, native count/error/persistence/initial-value or controller acceptance claim',
+        controller_validated=False)
     report['bare_function_policy']['microsecond_clock'] = 'In Pythonic mode an unshadowed GET_USEC_TIM value name resolves as a zero-argument clock function; internal routines and local/global variables/constants retain precedence'
     report['microsecond_timer_policy'] = dict(
         functions=sorted(TIMER_FUNCTIONS),

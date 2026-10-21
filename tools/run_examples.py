@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from karel2py import translate
 from karel2py.lexer import TranslationError
-from karel2py.runtime import KarelAbort, TextInput
+from karel2py.runtime import KarelAbort, TextInput, NumericRegisters
 
 
 def read_json(path):
@@ -36,9 +36,11 @@ def run_example(source, *, inject_write=False):
         return text_input(request) if text_input is not None else next(responses)
     context_file = fixture / f'{name}.context.expected.json'
     context = read_json(context_file) if context_file.exists() else {}
+    registers_file = fixture / f'{name}.registers.initial.json'
+    registers = NumericRegisters.from_config(read_json(registers_file)) if registers_file.exists() else None
     program = namespace['Program'](sleep=delays.append,
                                   read=reader if input_file.exists() or text_input is not None else None,
-                                  write=texts.append if inject_write else None, **context)
+                                  write=texts.append if inject_write else None, registers=registers, **context)
     termination_file = fixture / f'{name}.termination.expected.json'
     try:
         snapshot = program.run()
@@ -51,6 +53,11 @@ def run_example(source, *, inject_write=False):
         assert not termination_file.exists(), name + ': expected ABORT'
         assert program.abort_info is None, name + ': unexpected termination state'
     assert snapshot == read_json(fixture / f'{name}.expected.json'), name + ': snapshot'
+    registers_expected = fixture / f'{name}.registers.expected.json'
+    if registers is not None:
+        assert {str(key):value for key,value in registers.snapshot().items()} == read_json(registers_expected), name + ': register state'
+    else:
+        assert not registers_expected.exists(), name + ': register expectation requires explicit initial context'
     assert program._state.local_frames == [] and program._state.call_depth == 0, name + ': frames'
     sleep_file = fixture / f'{name}.sleep.expected.json'
     assert delays == (read_json(sleep_file) if sleep_file.exists() else []), name + ': delays'
@@ -86,7 +93,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 77, 'Update the expected example count when adding examples'
+    assert count == 78, 'Update the expected example count when adding examples'
     print(f'{count} examples passed; unsupported motion rejected; no generated files written')
     return 0
 

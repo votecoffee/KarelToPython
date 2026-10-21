@@ -57,6 +57,8 @@ BOOLEAN checks, zero-second host yields and the normal execution step budget.
 supplied packed dates, exact output types, complete formatting and capture order.
 [Microsecond timers](microsecond-timers.md) add `microsecond_timers`,
 `microsecond_timer_policy` and transitive `potential_host_clock_reads` routine effects.
+[Numeric registers](numeric-registers.md) add `register_operations`,
+`register_policy` and transitive `potential_register_reads` / `potential_register_writes`.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
@@ -96,7 +98,7 @@ and report paths must differ. Their parent directories must already exist.
 
 ## Generated Program
 
-A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None)`.
+A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None)`.
 Call `Program().run(max_steps=100_000)` to execute explicitly and receive a
 snapshot of global variables. Only the generated module's entry point runs it
 automatically; importing a module defines its class.
@@ -118,6 +120,11 @@ not rolled back by failures or ABORT.
 
 ## Host callbacks and context
 
+- `registers=NumericRegisters(count, initial=None)` supplies explicit in-memory
+  INTEGER/REAL register state. GET_REG and numeric setters require this context.
+  `Program.register_requests` returns copied value-free records, reset at run
+  start; the bank retains writes. Generated scripts use `--registers` with JSON.
+  See [numeric registers](numeric-registers.md) for types and portable statuses.
 - `clock_us()` optionally supplies nonnegative Python integer microseconds for
   GET_USEC_TIM. The default uses host monotonic nanoseconds floored to microseconds;
   counter values wrap at 120,000,000 in the portable model. `Program.clock_reads`

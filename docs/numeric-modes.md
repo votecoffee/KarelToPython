@@ -43,6 +43,7 @@ policy even after errors, and independent threads do not share mutable mode stat
 | `CNV_INT_STR` | Positional integer formatting | Signed bases 2..16, uppercase A..F, no prefix; base 0 selects decimal. Leading blank and minimum width 1..254. |
 | `CNV_STR_TIME`, `CNV_TIME_STR` | Gregorian calendar validation and packed bit fields | Fixed English text, 1980..2107, two-second precision and signed 32-bit patterns; see [time text](time-text.md). |
 | `GET_USEC_TIM`, `GET_USEC_SUB` | Host monotonic microseconds and modular subtraction | Explicit two-minute ring and optional test clock; one clock and intervals shorter than two minutes; see [microsecond timers](microsecond-timers.md). |
+| `GET_REG`, `SET_INT_REG`, `SET_REAL_REG` | Explicit bounded dictionary-backed numeric register bank | Distinct int/float kinds, checked outputs and portable status codes; see [numeric registers](numeric-registers.md). |
 | VECTOR math, REAL record fields and joint data | Checked float components | Rounded intermediates/results; zero and parallel cross products allowed. Structural identity and explicit joint context remain required. |
 | Numeric WRITE items | Python integer/float formatting | Mixed scalar lists, INTEGER expressions for width/base/precision, CR mapped to LF and one complete output request; see [text output](pythonic-output.md). |
 

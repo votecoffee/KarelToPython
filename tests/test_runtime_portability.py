@@ -59,7 +59,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_position_comparisons', 'NEAR', True),
                     ('pythonic_wait', 'AFTER_WAIT', 3),
                     ('pythonic_time_text', 'ENCODED', 1482515548),
-                    ('pythonic_microseconds', 'ELAPSED', 35)]
+                    ('pythonic_microseconds', 'ELAPSED', 35),
+                    ('pythonic_numeric_registers', 'VALUE', 42)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
@@ -79,6 +80,10 @@ class RuntimePortabilityTests(unittest.TestCase):
                     adapter='read=responses'
                 context_file=ROOT/f'examples/{example}.context.expected.json'
                 context=json.loads(context_file.read_text()) if context_file.exists() else {}
+                registers_file=ROOT/f'examples/{example}.registers.initial.json'
+                if registers_file.exists():
+                    setup+='from karel2py.runtime import NumericRegisters\n'
+                    adapter+=(', ' if adapter else '')+f'registers=NumericRegisters.from_config({json.loads(registers_file.read_text())!r})'
                 adapter+=(', ' if adapter else '')+f'**{context!r}'
                 (target / 'check.py').write_text('import json\nfrom converted import Program\n'
                                                +setup+f'print(json.dumps(Program({adapter}).run()))\n')

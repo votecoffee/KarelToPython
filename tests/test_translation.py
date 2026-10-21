@@ -176,7 +176,7 @@ class RejectionTests(unittest.TestCase):
     def test_unknown_symbols_and_calls(self):
         self.reject('x = missing', 'E_SYMBOL')
         self.reject('x = UNKNOWN(1)', 'E_CALL')
-        self.reject('GET_REG(1, x)', 'E_CALL')
+        self.reject('GET_POS_REG(1, x)', 'E_CALL')
         self.reject('b = DIN[1]', 'E_CONTROLLER')
 
     def test_no_partial_translation_on_later_failure(self):

@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.77.0",
+  "translator_version": "0.78.0",
   "position_comparison_mode_note": "Pythonic POSITION/XYZWPR >=< follows ../position-comparisons.md with explicit runtime tolerances; older approximate-operator exclusions below remain for the conservative contract. VECTOR approximate comparison stays unsupported.",
   "position_geometry_mode_note": "Pythonic POSITION/XYZWPR colon, INV and FRAME follow ../position-geometry.md. Older POSITION geometry exclusions below describe the preserved conservative contract; other positional types and exact routine interfaces retain their boundaries.",
   "frame_transform_mode_note": "Explicit Pythonic XYZWPR colon composition, INV and FRAME follow ../frame-transforms.md and ../frame-construction.md; earlier blanket frame exclusions below remain for the future strict milestone. Other transform operand types, implicit positional conversion and controller context remain unsupported.",
