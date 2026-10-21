@@ -785,6 +785,11 @@ def uninit(value):
 
 
 def unary(op, value, line=None):
+    if _pythonic() and op in ('+', '-') and isinstance(value, Structure) and value.spec == ('VECTOR',):
+        result = vector_value(value, line)
+        if op == '-':
+            result.values = {name: real(-component, line) for name, component in result.values.items()}
+        return result
     if op == 'NOT':
         if type(value) is bool:
             return not value
@@ -1077,6 +1082,12 @@ def exact_atan2(x, y, line=None):
 
 
 def builtin(name, arguments, line=None):
+    if name == 'VEC' and _pythonic():
+        if len(arguments) != 3: raise KarelRuntimeError('VEC requires exactly three arguments', line)
+        components = [real(value, line) for value in arguments]
+        result = Structure(('VECTOR',))
+        result.values.update(zip(('X', 'Y', 'Z'), components))
+        return result
     if name == 'ATAN2':
         if len(arguments) != 2: raise KarelRuntimeError('ATAN2 requires exactly two arguments', line)
         return exact_atan2(arguments[0], arguments[1], line)

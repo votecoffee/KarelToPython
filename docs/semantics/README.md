@@ -24,6 +24,8 @@ Earlier USING nesting, dotted-selector and namespace rejections are qualified
 by [Pythonic USING](../pythonic-using.md).
 Earlier scalar/STRING/type-to-type alias rejections are qualified by
 [Pythonic TYPE aliases](../type-aliases.md).
+Earlier VEC, unary VECTOR sign and same-level product-chain rejections are
+qualified by [Pythonic vector expressions](../pythonic-vectors.md).
 
 Each ledger is relative to this directory. Test paths inside its text are relative
 to the repository root. Private corpus reports and machine-specific provenance
@@ -58,6 +60,7 @@ are kept outside public documentation.
 | Pythonic FOR | [pythonic_for_semantics.json](pythonic_for_semantics.json) |
 | Pythonic USING | [pythonic_using_semantics.json](pythonic_using_semantics.json) |
 | Pythonic TYPE aliases | [type_alias_semantics.json](type_alias_semantics.json) |
+| Pythonic VECTOR expressions | [pythonic_vector_expression_semantics.json](pythonic_vector_expression_semantics.json) |
 | Positional routine | [positional_routine_semantics.json](positional_routine_semantics.json) |
 | Predefined | [predefined_semantics.json](predefined_semantics.json) |
 | Select | [select_semantics.json](select_semantics.json) |

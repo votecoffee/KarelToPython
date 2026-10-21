@@ -189,3 +189,9 @@ resolved spec and physical source location. `user_types` and `named_array_types`
 retain original aggregate identities. `type_alias_policy` describes resolution
 and boundaries; bounded STRING alias value arguments report the declared alias
 capacity in `string_value_arguments[].temporary_capacity`. See [TYPE aliases](type-aliases.md).
+
+`vector_constructors` records fallback VEC construction sites with body,
+physical line/column, X/Y/Z argument order, one-time evaluation and independent
+value flags. `vector_policy` records constructor/internal-routine name priority,
+unary VECTOR signs, product association and numeric boundaries. See
+[Pythonic vector expressions](pythonic-vectors.md).

@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.62.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Chosen offline VEC constructor interpretation, VECTOR unary signs and left-associated cross/dot expression composition",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [81, 85, 600],
+    "visual_inspection": true,
+    "documented": "Arithmetic examples use three-component VEC notation; VECTOR comprises X/Y/Z REAL fields; cross/dot precede multiplication and unary/addition",
+    "uncertainty": "These pages provide no independent controller observation of constructor ABI, unary VECTOR signs, same-level product association or native rounding"
+  },
+  "implementation_choices": {
+    "constructor": "VEC(x,y,z) accepts initialized finite INTEGER/REAL values, with existing numeric promotions, and creates a fresh writable VECTOR",
+    "name_priority": "Explicit internal VEC routines retain precedence, signatures and effect checks; existing ordinary VEC declaration names remain allowed; fallback calls require all three arguments",
+    "signs": "Unary plus and minus return independent checked VECTOR copies; every component known, initialized and finite",
+    "products": "Cross/dot chains associate left to right, retaining existing precedence and checked intermediate types; parentheses override; VECTOR values captured before later operand effects",
+    "composition": "Constructors compose in assignments, field/element storage, function results, private value arguments and explicit component access; SQRT(v@v) computes an ordinary unscaled float length expression",
+    "failure": "Existing left-to-right evaluation, finite checks, destination preservation, prior effects, frame cleanup, ownership, POSITION protection and active FOR-counter checks remain",
+    "reports": "vector_constructors records source locations, argument order and independent-value flags; vector_policy states the current contract"
+  },
+  "retained_boundaries": [
+    "No POS constructor, frame transforms, geometry defaults, kinematics or aggregate CONST values",
+    "No ordered VECTOR relations or VECTOR-by-VECTOR multiplication/division",
+    "No new native compiler/controller/runtime acceptance; strict mode remains a future milestone with internal conservative guards"
+  ],
+  "tests": ["tests/test_pythonic_vectors.py", "tests/test_vector_operations.py", "tests/test_runtime_portability.py", "examples/pythonic_vectors.kl"],
+  "controller_validated": false
+}

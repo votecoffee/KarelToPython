@@ -90,7 +90,7 @@ class VectorSourceTests(unittest.TestCase):
 class VectorGuardTests(unittest.TestCase):
     def test_ungrouped_same_level_product_chains_blocked(self):
         for expression in ('a#b#a','a#b@a','a@b#a','a@b@a'):
-            with self.subTest(expression=expression),self.assertRaises(TranslationError) as caught: compile_program('c='+expression)
+            with self.subTest(expression=expression),self.assertRaises(TranslationError) as caught: compile_program('c='+expression, _translator=legacy_translate)
             self.assertEqual(caught.exception.code,'E_VECTOR_ASSOCIATIVITY')
     def test_parenthesized_cross_association_is_explicit(self):
         program,_=compile_program(fill('a',(1,2,3))+' '+fill('b',(4,5,6))+' '+fill('c',(7,8,10))+' d=a#(b#c) c=(a#b)#c',
@@ -103,7 +103,7 @@ class VectorGuardTests(unittest.TestCase):
             with self.subTest(expression=expression),self.assertRaises(TranslationError): compile_program('c='+expression)
     def test_unary_vector_signs_blocked(self):
         for expression in ('-a','+a','-(a#b)'):
-            with self.subTest(expression=expression),self.assertRaises(TranslationError): compile_program('c='+expression)
+            with self.subTest(expression=expression),self.assertRaises(TranslationError): compile_program('c='+expression, _translator=legacy_translate)
     def test_value_vector_parameter_requires_initialized_components(self):
         program,_=compile_program('inspect(a+b)',routines='ROUTINE inspect(v: VECTOR) BEGIN END inspect')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
@@ -111,7 +111,7 @@ class VectorGuardTests(unittest.TestCase):
         program,_=compile_program('c=create()',routines='ROUTINE create: VECTOR BEGIN RETURN a END create')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
     def test_constructor_still_blocked(self):
-        with self.assertRaises(TranslationError): compile_program('a=VEC(1,2,3)')
+        with self.assertRaises(TranslationError): compile_program('a=VEC(1,2,3)', _translator=legacy_translate)
     def test_position_transform_still_blocked(self):
         with self.assertRaises(TranslationError): compile_program('a=p:a',declarations='a: VECTOR\np: POSITION')
     def test_read_only_destination_still_blocked(self):

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.62.0 - 2026-10-21
+
+- Interpret VEC(x,y,z) as a Pythonic expression constructor for fresh checked
+  VECTOR values. Support numeric components, function/value composition and
+  explicit component access. Preserve existing internal VEC routines and
+  ordinary declaration names; explicit internal routines keep precedence.
+- Support unary VECTOR plus/minus as independent checked values and same-level
+  cross/dot chains with chosen left association and existing precedence.
+  Preserve rounded arithmetic, captured operands, initialized finite components,
+  intermediate type checks, storage ownership and POSITION protections.
+- Add constructor report metadata, current vector policies, 71 execution/runtime
+  regressions, an authored example with independent fixtures and a vector guide.
+  Preserve conservative constructor/sign/chain guards internally for the future
+  strict milestone; no frame transforms, kinematics or native constructor ABI claim.
+
 ## 0.61.0 - 2026-10-21
 
 - Support Pythonic transparent TYPE aliases for supported scalars, bounded STRINGs,

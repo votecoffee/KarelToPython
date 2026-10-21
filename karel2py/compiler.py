@@ -157,6 +157,7 @@ BUILTIN_SIGNATURES = {
     'LN': (('REAL',), ('REAL',)),
     **{name: (('REAL',), ('REAL',)) for name in rt.UNARY_TRIG_FUNCTIONS},
     'ATAN2': (('REAL', 'REAL'), ('REAL',)),
+    'VEC': (('REAL', 'REAL', 'REAL'), ('VECTOR',)),
 }
 BUILTIN_PROCEDURES = {'CNV_STR_INT': ('STRING',), 'CNV_INT_STR': ('INTEGER', 'INTEGER', 'INTEGER'),
                       'CNV_STR_REAL': ('STRING',), 'CNV_REAL_STR': ('REAL', 'INTEGER', 'INTEGER')}
@@ -164,7 +165,9 @@ CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'C
                            'CNV_REAL_STR': 'STRING'}
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
-BUILTINS = set(BUILTIN_SIGNATURES) | set(BUILTIN_PROCEDURES) | MULTI_OUTPUT_PROCEDURES | {'UNINIT'}
+# VEC is a Pythonic fallback for the manual's constructor notation. Preserve
+# existing user routines and declarations with that name.
+BUILTINS = (set(BUILTIN_SIGNATURES) - {'VEC'}) | set(BUILTIN_PROCEDURES) | MULTI_OUTPUT_PROCEDURES | {'UNINIT'}
 CONTROLLER_NAMES = {'DIN', 'DOUT', 'GIN', 'GOUT', 'AIN', 'AOUT', 'RDIN', 'RDOUT',
                     'GET_REG', 'SET_INT_REG', 'SET_REAL_REG',
                     'GET_POS_REG', 'SET_POS_REG', 'GET_VAR', 'SET_VAR'}
@@ -706,7 +709,7 @@ class Parser:
             left = self.access(left)
         while self.current.value in PRECEDENCE and PRECEDENCE[self.current.value] >= minimum:
             operator = self.take()
-            if (operator.value in ('#', '@') and left.kind == 'binary'
+            if (self.mode == 'strict' and operator.value in ('#', '@') and left.kind == 'binary'
                     and left.value in ('#', '@')):
                 self.error('E_VECTOR_ASSOCIATIVITY', 'Parenthesize chained #/@ operations; same-level association needs KAREL validation', operator)
             if operator.value == '>=<':
@@ -741,6 +744,7 @@ class Emitter:
         self.variable_array_uses = []
         self.vector_return_uses = []
         self.vector_value_uses = []
+        self.vector_constructor_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -1323,6 +1327,8 @@ class Emitter:
         if expr.kind == 'group': return self.access_type(expr.args[0])
         if expr.kind == 'call' and expr.value in self.routines and self.routines[expr.value].return_type:
             return self.routines[expr.value].return_type
+        if self.mode == 'pythonic' and expr.kind == 'call' and expr.value == 'VEC' and expr.value not in self.routines:
+            return ('VECTOR',)
         if expr.kind == 'name': return self.symbol_type(expr)
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
@@ -1444,6 +1450,8 @@ class Emitter:
             value, spec = self.expression(expr.args[0])
             if spec[0] in NARROW_TYPES: spec = ('INTEGER',)
             allowed = ('BOOLEAN', 'INTEGER') if expr.value == 'NOT' else ('INTEGER', 'REAL')
+            if self.mode == 'pythonic' and expr.value in ('+', '-'):
+                allowed += ('VECTOR',)
             if spec[0] not in allowed: self.error('E_TYPE', 'Invalid unary operand type', expr.token)
             self.features.add('unary ' + expr.value)
             return f'_rt.unary({expr.value!r}, {value}, {line})', spec
@@ -1492,7 +1500,7 @@ class Emitter:
                 self.check_for_call(expr.token, self.routines[expr.value])
             if expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES:
                 self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
-            if expr.value in BUILTINS:
+            if expr.value in BUILTINS or (self.mode == 'pythonic' and expr.value == 'VEC' and expr.value not in self.routines):
                 return self.builtin_call(expr)
             if expr.value not in self.routines:
                 code = 'E_CONTROLLER' if expr.value in CONTROLLER_NAMES else 'E_CALL'
@@ -1510,6 +1518,8 @@ class Emitter:
         self.error('E_INTERNAL', 'Unexpected expression node', expr.token)
 
     def builtin_call(self, expr):
+        if expr.value == 'VEC' and self.mode == 'strict':
+            self.error('E_CALL', 'VEC construction is outside the preserved conservative subset', expr.token)
         if expr.value == 'UNINIT':
             if len(expr.args) != 1:
                 self.error('E_ARGUMENTS', 'UNINIT requires exactly one argument', expr.token)
@@ -1547,6 +1557,11 @@ class Emitter:
             codes = [self.require_type(argument, expected)
                      for argument, expected in zip(expr.args, signature)]
         self.features.add(expr.value)
+        if expr.value == 'VEC':
+            self.vector_constructor_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                    line=expr.token.line, column=expr.token.column,
+                                                    arguments_evaluated_once=True, argument_order=['x','y','z'],
+                                                    independent_value=True))
         if expr.value in rt.UNARY_TRIG_FUNCTIONS:
             self.trig_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, evaluated_once=True,
@@ -2434,6 +2449,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                            ownership='Fresh result vectors; assignment preserves existing destination field aliases',
                            boundary='No VEC constructor, unary VECTOR signs, ordered relations, POSITION transforms, frame context or controller validation',
                            controller_validated=False),
+        vector_constructors=emitter.vector_constructor_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -2634,7 +2650,12 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     report['vector_policy'].update(
         scaling='Finite Python floats; division requires nonzero denominators',
         products='Cross/dot products allow rounded intermediates and zero/parallel cross products',
-        numeric='Initialized finite float components; rounded products and finite results')
+        numeric='Initialized finite float components; rounded products and finite results',
+        constructor='VEC(x,y,z): three INTEGER/REAL numeric values, promoted and checked as finite Python floats in a fresh VECTOR',
+        constructor_name='VEC is a fallback expression constructor; an explicitly declared internal VEC routine keeps precedence and ordinary signature/effect checks',
+        unary='Unary + and - on VECTOR return independent checked component copies',
+        precedence='Cross/dot above multiplication/division, above unary signs and addition; same-level products associate left to right; parentheses override',
+        boundary='No POS constructor, ordered VECTOR relations, POSITION/frame transforms, kinematics or controller validation')
     report['unpos_policy']['input'] = 'XYZWPR storage; initialized finite REAL components and bounded CONFIG'
     report['conversion_policy'].update(
         parse='Python int(text, 10); invalid numeric text clears output; checked INTEGER storage',

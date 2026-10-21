@@ -1,0 +1,27 @@
+PROGRAM PYTHONIC_VECTORS
+TYPE vector_t=VECTOR
+VAR offset,axis,crossed,opposite: vector_t
+length,triple,captured: REAL
+calls: INTEGER
+ROUTINE component(n: INTEGER): REAL
+BEGIN
+  calls=calls+1
+  RETURN n
+END component
+ROUTINE measure(v: VECTOR; first: REAL)
+BEGIN
+  v=VEC(9,9,9)
+  captured=first
+  first=12
+END measure
+BEGIN
+  calls=0
+  offset=VEC(component(3),component(4),0)
+  axis=VEC(0,0,2)
+  crossed=offset#axis
+  opposite=-crossed
+  length=SQRT(offset@offset)
+  triple=offset#axis@VEC(1,2,0)
+  measure(VEC(1,2,3),VEC(7,8,9).x)
+  WRITE('length=',length::0::1,', triple=',triple::0::1,CR)
+END PYTHONIC_VECTORS

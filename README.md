@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.61.0**. It is a
+tool are named **karel2py**. The current implementation is **0.62.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -163,6 +163,10 @@ TYPE aliases provide alternate names for supported types and keep original
 aggregate identities and capacities. Bounded STRING alias parameters accept
 checked references or private value copies. See [TYPE aliases](docs/type-aliases.md).
 
+VEC constructs independent VECTOR values from numeric components. Unary signs
+and left-associated cross/dot chains support composed calculations such as
+`SQRT(v@v)`. See [Pythonic vector expressions](docs/pythonic-vectors.md).
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -173,7 +177,7 @@ checked references or private value copies. See [TYPE aliases](docs/type-aliases
 - Reference/value parameters, bare zero-argument function calls, checked aggregate
   copies, restricted scalar, bounded STRING, record, joint and named-component
   ARRAY functions, selected built-ins, general degree trig, SQRT, EXP and LN.
-- Positional data records, opaque joint values, selected VECTOR operations and
+- Positional data records, opaque joint values, VECTOR construction/signs/products and
   explicit-context offline conversion subsets.
 - Rounded fixed/scientific REAL text formatting with precision -254..254,
   minimum-width padding and caller-capacity overflow markers.

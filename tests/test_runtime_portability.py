@@ -43,7 +43,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_string_operations', 'PAYLOAD', 'robot'),
                     ('pythonic_for', 'TOTAL', 6),
                     ('pythonic_using', 'RESULT', 49),
-                    ('pythonic_type_aliases', 'TOTAL', 7)]
+                    ('pythonic_type_aliases', 'TOTAL', 7),
+                    ('pythonic_vectors', 'LENGTH', 5.0)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

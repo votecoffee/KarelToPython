@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.61.0",
+  "translator_version": "0.62.0",
   "type_alias_mode_note": "Public Pythonic transparent aliases and bounded STRING formal capacities follow ../type-aliases.md; older alias rejections below remain internal for the future strict milestone.",
   "using_mode_note": "Public Pythonic nested USING, dotted selectors and namespace choices follow ../pythonic-using.md; older nesting, field-selector and constant/call-name rejections below remain for the future strict milestone.",
   "for_control_mode_note": "Public Pythonic global-counter calls, read-only counter references and finally cleanup follow ../pythonic-for.md; older fresh-local-only, counter-reference and exceptional-counter observations below remain for the future strict milestone.",
