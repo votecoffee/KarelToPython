@@ -1,0 +1,20 @@
+PROGRAM PYTHONIC_POS
+VAR cfg,out_cfg: CONFIG
+first,second: XYZWPR
+x,y,z,w,p,r: REAL
+shift: REAL
+ROUTINE moved: XYZWPR
+BEGIN
+  RETURN POS(shift,.2,.3,10,-20,30,cfg)
+END moved
+BEGIN
+  cfg.cfg_turn_no1=0 cfg.cfg_turn_no2=-1 cfg.cfg_turn_no3=2
+  cfg.cfg_flip=OFF cfg.cfg_left=ON cfg.cfg_up=OFF cfg.cfg_front=ON
+  shift=1.5
+  first=moved
+  cfg.cfg_flip=ON
+  second=POS(-2,3,4,-180,0,180,cfg)
+  UNPOS(first,x,y,z,w,p,r,out_cfg)
+  first.x=99
+  WRITE('x=',x::0::1,', turn=',out_cfg.cfg_turn_no2::0,CR)
+END PYTHONIC_POS

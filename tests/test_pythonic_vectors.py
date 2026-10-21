@@ -163,7 +163,7 @@ class ConstructorNamespaceAndGuardTests(unittest.TestCase):
         for expression in ('a@b#c', 'a@b@c'):
             with self.subTest(expression=expression): self.reject('r='+expression)
     def test_wrong_constructor_field(self): self.reject('r=VEC(1,2,3).w', 'E_FIELD')
-    def test_unsupported_pos_constructor(self): self.reject('a=POS(1,2,3)', 'E_CALL')
+    def test_pos_constructor_arity(self): self.reject('a=POS(1,2,3)', 'E_ARGUMENTS')
     def test_unary_not_vector(self): self.reject('a=NOT VEC(1,2,3)')
     def test_position_orientation_writes_stay_blocked(self):
         self.reject('pose.normal=VEC(1,2,3)', 'E_POSITION_READ_ONLY', declarations=DECLARATIONS+' pose: POSITION')

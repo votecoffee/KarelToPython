@@ -24,6 +24,9 @@ does not run the program. The returned object exposes generated `python_source`
 and a JSON-serializable `report` with program/version information, source maps,
 hashes, features, effect analysis and feature-specific policies.
 
+Pythonic [POS construction](pos-construction.md) supplies checked XYZWPR values,
+independent CONFIG data and source-located `pos_constructors` report entries.
+
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
 is embedded in `Program.translation_mode`, the report translation context and

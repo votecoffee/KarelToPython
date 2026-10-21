@@ -225,7 +225,7 @@ class UnposTranslationGuardTests(unittest.TestCase):
     def test_effectful_function_in_operator_blocked(self):
         routines='ROUTINE extract: REAL BEGIN '+CALL+' RETURN x END extract'
         self.assertEqual(self.reject('x=extract()+1',routines=routines, _translator=legacy_translate),'E_EVALUATION_ORDER')
-    def test_pos_constructor_remains_blocked(self): self.reject('pose=POS(1,2,3,0,90,180,cfg)')
+    def test_legacy_pos_constructor_remains_blocked(self): self.reject('pose=POS(1,2,3,0,90,180,cfg)',_translator=legacy_translate)
 
 
 if __name__=='__main__': unittest.main()

@@ -147,7 +147,7 @@ class PositionGuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.token.line,11)
     def test_group_qualifier_still_blocked(self): self.reject(code='E_POSITION_GROUP',declarations='p: POSITION IN GROUP[1]')
     def test_cross_type_conversion_still_blocked(self): self.reject('p=ext',code='E_TYPE')
-    def test_position_constructor_not_synthesized(self): self.reject('p=POS(0,0,0,0,0,0,ext.config_data)',code='E_CALL')
+    def test_position_constructor_not_synthesized(self): self.reject('p=POS(0,0,0,0,0,0,ext.config_data)',code='E_TYPE')
     def test_whole_uninit_still_blocked(self): self.reject('flag=UNINIT(p)',code='E_TYPE')
     def test_position_using_still_blocked(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE')
     def test_partial_position_copy_guard_preserves_destination(self):

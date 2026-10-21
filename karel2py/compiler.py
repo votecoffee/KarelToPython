@@ -159,6 +159,7 @@ BUILTIN_SIGNATURES = {
     **{name: (('REAL',), ('REAL',)) for name in rt.UNARY_TRIG_FUNCTIONS},
     'ATAN2': (('REAL', 'REAL'), ('REAL',)),
     'VEC': (('REAL', 'REAL', 'REAL'), ('VECTOR',)),
+    'POS': (('REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'CONFIG'), ('XYZWPR',)),
 }
 BUILTIN_PROCEDURES = {'CNV_STR_INT': ('STRING',), 'CNV_INT_STR': ('INTEGER', 'INTEGER', 'INTEGER'),
                       'CNV_STR_REAL': ('STRING',), 'CNV_REAL_STR': ('REAL', 'INTEGER', 'INTEGER')}
@@ -166,9 +167,10 @@ CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'C
                            'CNV_REAL_STR': 'STRING'}
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
-# VEC is a Pythonic fallback for the manual's constructor notation. Preserve
-# existing user routines and declarations with that name.
-BUILTINS = (set(BUILTIN_SIGNATURES) - {'VEC'}) | set(BUILTIN_PROCEDURES) | MULTI_OUTPUT_PROCEDURES | {'UNINIT'}
+# Constructors are Pythonic fallbacks. Preserve existing internal routines and
+# ordinary declarations with these names.
+PYTHONIC_CONSTRUCTORS = {'VEC', 'POS'}
+BUILTINS = (set(BUILTIN_SIGNATURES) - PYTHONIC_CONSTRUCTORS) | set(BUILTIN_PROCEDURES) | MULTI_OUTPUT_PROCEDURES | {'UNINIT'}
 CONTROLLER_NAMES = {'DIN', 'DOUT', 'GIN', 'GOUT', 'AIN', 'AOUT', 'RDIN', 'RDOUT',
                     'GET_REG', 'SET_INT_REG', 'SET_REAL_REG',
                     'GET_POS_REG', 'SET_POS_REG', 'GET_VAR', 'SET_VAR'}
@@ -773,6 +775,7 @@ class Emitter:
         self.vector_return_uses = []
         self.vector_value_uses = []
         self.vector_constructor_uses = []
+        self.pos_constructor_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -1368,8 +1371,8 @@ class Emitter:
         if expr.kind == 'group': return self.access_type(expr.args[0])
         if expr.kind == 'call' and expr.value in self.routines and self.routines[expr.value].return_type:
             return self.routines[expr.value].return_type
-        if self.mode == 'pythonic' and expr.kind == 'call' and expr.value == 'VEC' and expr.value not in self.routines:
-            return ('VECTOR',)
+        if self.mode == 'pythonic' and expr.kind == 'call' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines:
+            return BUILTIN_SIGNATURES[expr.value][1]
         if expr.kind == 'name': return self.symbol_type(expr)
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
@@ -1541,7 +1544,7 @@ class Emitter:
                 self.check_for_call(expr.token, self.routines[expr.value])
             if expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES:
                 self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
-            if expr.value in BUILTINS or (self.mode == 'pythonic' and expr.value == 'VEC' and expr.value not in self.routines):
+            if expr.value in BUILTINS or (self.mode == 'pythonic' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines):
                 return self.builtin_call(expr)
             if expr.value not in self.routines:
                 code = 'E_CONTROLLER' if expr.value in CONTROLLER_NAMES else 'E_CALL'
@@ -1559,8 +1562,8 @@ class Emitter:
         self.error('E_INTERNAL', 'Unexpected expression node', expr.token)
 
     def builtin_call(self, expr):
-        if expr.value == 'VEC' and self.mode == 'strict':
-            self.error('E_CALL', 'VEC construction is outside the preserved conservative subset', expr.token)
+        if expr.value in PYTHONIC_CONSTRUCTORS and self.mode == 'strict':
+            self.error('E_CALL', f'{expr.value} construction is outside the preserved conservative subset', expr.token)
         if expr.value == 'UNINIT':
             if len(expr.args) != 1:
                 self.error('E_ARGUMENTS', 'UNINIT requires exactly one argument', expr.token)
@@ -1603,6 +1606,11 @@ class Emitter:
                                                     line=expr.token.line, column=expr.token.column,
                                                     arguments_evaluated_once=True, argument_order=['x','y','z'],
                                                     independent_value=True))
+        if expr.value == 'POS':
+            self.pos_constructor_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                 line=expr.token.line, column=expr.token.column,
+                                                 arguments_evaluated_once=True, argument_order=['x','y','z','w','p','r','c'],
+                                                 result_type='XYZWPR', independent_value=True, configuration_copied=True))
         if expr.value in rt.UNARY_TRIG_FUNCTIONS:
             self.trig_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, evaluated_once=True,
@@ -2577,6 +2585,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                            boundary='No VEC constructor, unary VECTOR signs, ordered relations, POSITION transforms, frame context or controller validation',
                            controller_validated=False),
         vector_constructors=emitter.vector_constructor_uses,
+        pos_constructors=emitter.pos_constructor_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -2797,8 +2806,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         constructor_name='VEC is a fallback expression constructor; an explicitly declared internal VEC routine keeps precedence and ordinary signature/effect checks',
         unary='Unary + and - on VECTOR return independent checked component copies',
         precedence='Cross/dot above multiplication/division, above unary signs and addition; same-level products associate left to right; parentheses override',
-        boundary='No POS constructor, ordered VECTOR relations, POSITION/frame transforms, kinematics or controller validation')
+        boundary='No ordered VECTOR relations, POSITION/frame transforms, kinematics or controller validation')
+    report['pos_policy'] = dict(
+        constructor='POS(x,y,z,w,p,r,c) returns a fresh XYZWPR with independent CONFIG data; explicit internal POS routines keep precedence',
+        coordinates='Six finite Python numeric values; INTEGER/BYTE/SHORT promoted to REAL; x/y/z in -10000000..10000000 mm, w/p/r in -180..180 degrees',
+        configuration='Exact complete CONFIG shape, initialized checked fields and existing turn range -8..7; copied without robot-specific validity inference',
+        evaluation='Evaluate arguments once left to right before constructor-specific bounds/config checks; ordinary expression failures stop later expressions; no destination write on failure',
+        boundary='No implicit CONFIG, group/frame/robot context, POSITION/XYZWPREXT coercion, orientation conversion, kinematics, native pause/status or controller validity claim',
+        controller_validated=False)
     report['unpos_policy']['input'] = 'XYZWPR storage; initialized finite REAL components and bounded CONFIG'
+    report['unpos_policy']['boundary'] = 'No POSITION/XYZWPREXT/JOINTPOS coercion, frame/kinematic conversion, controller config-validity, status or alarm mapping; UNPOS still requires captured source storage'
     report['conversion_policy'].update(
         parse='Python int(text, 10); invalid numeric text clears output; checked INTEGER storage',
         real_parse='Python float(text), including whitespace and lowercase exponents; finite result required; invalid numeric text clears output',

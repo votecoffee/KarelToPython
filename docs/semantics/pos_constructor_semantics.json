@@ -1,0 +1,27 @@
+{
+  "translator_version": "0.66.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "POS fallback construction of independent checked XYZWPR values",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [478],
+    "documented": "POS(x,y,z,w,p,r,c) returns XYZWPR; Cartesian components bounded to plus/minus 10000000 mm, orientation components to plus/minus 180 degrees; CONFIG must be valid for the robot",
+    "uncertainty": "Robot-specific CONFIG validity, native pause/alarm behavior and release-specific runtime acceptance are unverified"
+  },
+  "implementation_choices": {
+    "numbers": "Finite Python float components, with integral promotion and inclusive documented bounds; no normalization or orientation conversion",
+    "configuration": "Require exact complete initialized CONFIG shape and checked fields, retaining prototype turns -8..7; copy without inferring robot validity",
+    "order": "Arguments once left to right, followed by bounds/config checks; ordinary expression failures stop later arguments; retain prior effects and destination on failure",
+    "composition": "Exact XYZWPR storage, aliases, record/array fields, internal results/value arguments and temporary field access; preserve copy/capture/effect/FOR protections",
+    "name": "Fallback without an explicit internal POS routine; preserve ordinary POS declarations and user signature/effect behavior",
+    "observations": "Source-located pos_constructors and current pos_policy; user routines are not constructor sites"
+  },
+  "retained_boundaries": [
+    "No default CONFIG, implicit POSITION/XYZWPREXT/JOINTPOS conversion, frame/group context or kinematics",
+    "UNPOS still requires ordinary captured source storage and disjoint outputs",
+    "POSITION orientation remains protected; strict is future work; no controller validity or native runtime claim"
+  ],
+  "tests": ["tests/test_pos_constructor.py", "tests/test_pythonic_vectors.py", "tests/test_unpos.py", "tests/test_runtime_portability.py", "examples/pythonic_pos.kl"],
+  "controller_validated": false
+}

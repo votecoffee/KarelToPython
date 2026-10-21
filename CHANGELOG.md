@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.66.0 - 2026-10-21
+
+- Add Pythonic POS(x,y,z,w,p,r,c) construction of fresh XYZWPR values with six
+  finite numeric components and a copied complete CONFIG. Retain documented
+  coordinate/angle bounds, existing CONFIG checks and explicit robot-validity
+  limits. Preserve internal POS routines and ordinary declarations of that name.
+- Support routine results/value arguments, arrays, structures and constructor
+  fields with chosen left-to-right evaluation, checked copies and failure
+  cleanup. Extend constructor receiver type lookup without duplicate call reports;
+  preserve POSITION protections and UNPOS's source/output constraints.
+- Add source-located constructor reports, current policies, 54 regressions, an
+  authored POS/UNPOS example, runtime-only portability and a construction guide.
+  Strict remains future work; no implicit geometry, group/frame context or
+  robot configuration validity is inferred.
+
 ## 0.65.0 - 2026-10-21
 
 - Add Pythonic READ widths, integral bases and quoted STRING input, with up to
