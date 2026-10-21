@@ -1,7 +1,8 @@
 """Exact unambiguous KAREL (x,y) bearings and fail-closed branch/order guards."""
 import ast,math,unittest
 from unittest.mock import patch
-from karel2py import translate,runtime as rt
+from karel2py import runtime as rt
+from tests.legacy_numeric_support import translate
 from karel2py.lexer import TranslationError
 from tests.test_reals import compile_program,execute
 

@@ -5,6 +5,11 @@ locations and unresolved behavior. They are implementation documentation, not
 native compiler or controller acceptance evidence. See [references](../references.md)
 for the manual edition and page numbering.
 
+Since 0.51.0, public translation uses [Pythonic numeric behavior](../numeric-modes.md).
+Exact REAL, trig, conversion and VECTOR restrictions in the older ledgers describe
+the preserved conservative research contract. They do not limit the current
+Pythonic mode. A public strict mode remains a future milestone.
+
 Each ledger is relative to this directory. Test paths inside its text are relative
 to the repository root. Private corpus reports and machine-specific provenance
 are kept outside public documentation.

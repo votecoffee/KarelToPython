@@ -305,11 +305,13 @@ class LocalConstantRejectionTests(unittest.TestCase):
     def test_integer_overflow_constant(self):
         self.reject('ROUTINE work CONST a=MAXINT+1 BEGIN END work', 'E_CONSTANT')
 
-    def test_inexact_real_constant(self):
-        self.reject('ROUTINE work CONST a=0.1 BEGIN END work', 'E_CONSTANT')
+    def test_pythonic_real_constant(self):
+        state = execute('ROUTINE work CONST a=0.1 BEGIN real_value=a END work')
+        self.assertEqual(state['REAL_VALUE'], .1)
 
-    def test_negative_mod_constant_still_blocked(self):
-        self.reject('ROUTINE work CONST a=(-7) MOD 3 BEGIN END work', 'E_CONSTANT')
+    def test_pythonic_negative_mod_constant(self):
+        state = execute('ROUTINE work CONST a=(-7) MOD 3 BEGIN result=a END work')
+        self.assertEqual(state['RESULT'], (-7) % 3)
 
     def test_minimum_literal_rule_still_applies(self):
         self.reject('ROUTINE work CONST a=-2147483648 BEGIN END work', 'E_MININT_LITERAL')

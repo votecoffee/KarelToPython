@@ -101,10 +101,9 @@ class FieldTests(unittest.TestCase):
     def test_integer_to_real_field_promotion(self):
         self.assertEqual(execute('src.measurement = 3')['SRC']['MEASUREMENT'], 3.0)
 
-    def test_real_field_rounding_guard(self):
+    def test_pythonic_real_field_allows_rounding(self):
         p, _ = compile_program('src.measurement = 1.0 / 3.0')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'rounding'): p.run()
-        self.assertEqual(p._state.snapshot()['SRC']['MEASUREMENT'], {'uninitialized': True})
+        self.assertEqual(p.run()['SRC']['MEASUREMENT'], 1/3)
 
     def test_builtins_on_fields(self):
         state = execute(INITIALIZE + 'result = STR_LEN(src.child.label) + ARRAY_LEN(src.slots)')

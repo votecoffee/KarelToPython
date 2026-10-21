@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.50.0",
+  "translator_version": "0.51.0",
+  "numeric_mode_note": "Public translation is Pythonic. Exact REAL restrictions below preserve the legacy contract for a future strict milestone; see ../numeric-modes.md.",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Documented named-component access and parameter syntax, with tested prototype copying/reference policies. No controller memory layout, compiler-release acceptance or runtime equivalence is established.",

@@ -1,7 +1,8 @@
 """Independent exact degree identities, domain limits and translation integration."""
 import ast,math,unittest
 from unittest.mock import patch
-from karel2py import translate,runtime as rt
+from karel2py import runtime as rt
+from tests.legacy_numeric_support import translate
 from karel2py.lexer import TranslationError
 from tests.test_reals import compile_program,execute
 
@@ -99,7 +100,7 @@ class DegreeGuardTests(unittest.TestCase):
             for args in ([],[0,0]):
                 with self.assertRaisesRegex(rt.KarelRuntimeError,'exactly one'): rt.builtin(name,args,7)
     def test_unknown_math_names_remain_blocked(self):
-        for name in ('EXP','LN','VEC'):
+        for name in ('LOG10','ATAN','VEC'):
             with self.assertRaises(TranslationError): translate(f'PROGRAM T VAR r: REAL BEGIN r={name}(0) END T')
 
 class DegreeSourceTests(unittest.TestCase):

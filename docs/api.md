@@ -18,11 +18,18 @@ else:
     report = result.report
 ```
 
-`translate(source, *, filename="<input>", array_shapes=None)` accepts a KAREL
+`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic")` accepts a KAREL
 source string. `filename` labels diagnostics and source locations. Translation
 does not run the program. The returned object exposes generated `python_source`
 and a JSON-serializable `report` with program/version information, source maps,
 hashes, features, effect analysis and feature-specific policies.
+
+`mode="pythonic"` is the default and currently the only released mode. It uses
+ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
+is embedded in `Program.translation_mode`, the report translation context and
+its hash. `mode="strict"` returns `E_MODE`: strict is a future milestone, with
+the prior exactness implementation retained internally. See the
+[numeric equivalence matrix](numeric-modes.md) for the complete chosen conventions.
 
 `TranslationError.as_dict()` contains `code`, `message`, `file`, `line` and
 `column`. Unsupported source is an error, rather than a partial best-effort module.
@@ -38,6 +45,7 @@ translation. They do not query or resize controller storage.
 python -m karel2py input.kl --check
 python -m karel2py input.kl -o converted.py --report translation.json
 python -m karel2py input.kl -o converted.py --array-shape READINGS=3
+python -m karel2py input.kl --mode pythonic --check
 python -m karel2py --version
 ```
 
@@ -87,15 +95,15 @@ with `Program(write=messages.append)`, where `messages` is a list. The
 
 ## Limits
 
-`conversion_policy.format` includes nonnegative `CNV_INT_STR` bases 2..9 alongside
-signed decimal bases 0/10, with length 1. `nondecimal_format` records the numeric
-digit rule and remaining negative/alphabetic-digit restrictions. No wider field
-padding or controller representation is inferred.
+`conversion_policy.format` includes signed `CNV_INT_STR` bases 2..16, with base 0
+selecting decimal. Digits use uppercase A..F and no prefix; minimum widths in
+1..254 add left padding. These are chosen Pythonic conventions.
 
-`conversion_policy` reports exact `CNV_REAL_STR` fixed precision in 0..254.
-That bound limits prototype formatting work. Rounding, scientific notation and
-extra minimum-width padding still reject before output mutation; the existing
-caller-capacity blank/asterisk overflow rule remains.
+`conversion_policy` reports rounded Python `CNV_REAL_STR` fixed precision in
+0..254, with minimum widths in 1..254. Those bounds limit formatting work.
+Scientific output remains unsupported; caller-capacity blank/asterisk overflow
+and checked output references remain. Input conversions use Python int/float
+text grammar, bounded ASCII text and finite/range checks.
 
 `bare_function_calls` records each resolved zero-parameter function-name use with
 its body, original source line/column and exact `result_spec`.
@@ -113,7 +121,7 @@ destination types/shapes and known initialized leaves. The
 [ARRAY result contract](language-support.md#array-function-results) describes the
 supported forms and remaining restrictions.
 
-The runtime uses conservative exactness, range, shape, initialization and alias
+The runtime uses Pythonic numeric equivalents and checked range, shape, initialization and alias
 checks. Successful translation does not guarantee successful execution for all
 inputs. The [language support guide](language-support.md) and [semantic notes](semantics/README.md)
 describe the supported input domains and unresolved behavior.

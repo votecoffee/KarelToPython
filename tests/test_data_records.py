@@ -216,8 +216,8 @@ class DataRecordGuardTests(unittest.TestCase):
                 program,_=compile_program(f'c.cfg_turn_no1=0 c.cfg_turn_no1={value}')
                 with self.assertRaisesRegex(rt.KarelRuntimeError,'-8..7'): program.run()
                 self.assertEqual(program._state.snapshot()['C']['CFG_TURN_NO1'],0)
-    def test_inexact_real_field_rejected(self):
-        with self.assertRaises(TranslationError): compile_program('v.x=0.1')
+    def test_pythonic_real_field_accepts_decimal(self):
+        self.assertEqual(compile_program('v.x=0.1')[0].run()['V']['X'], .1)
     def test_copy_bound_prevents_large_record_array(self): self.reject(declarations='items: ARRAY[3000] OF XYZWPR',code='E_ARRAY_CAPACITY')
     def test_cross_type_formal_conversion_blocked(self): self.reject('change(v)',routines='ROUTINE change(x: XYZWPR) BEGIN END change')
     def test_record_write_blocked(self): self.reject('WRITE(p)')

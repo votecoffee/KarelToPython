@@ -208,13 +208,13 @@ class VariableArrayEvidenceTests(unittest.TestCase):
         program,result=compile_program(shapes=shapes)
         shapes['a'][0]=9
         self.assertEqual(program.external_array_shapes,(('A',(2,)),))
-        self.assertEqual(result.report['translation_context'],{'array_shapes':{'A':[2]}})
+        self.assertEqual(result.report['translation_context'],{'mode':'pythonic','array_shapes':{'A':[2]}})
         self.assertEqual(len(program.run()['A']),2)
 
     def test_fixed_and_formal_arrays_need_no_context(self):
         _,result=compile_program(declarations='a: ARRAY[2] OF INTEGER',routines='ROUTINE f(p: ARRAY[*] OF INTEGER) BEGIN END f')
         self.assertEqual(result.report['variable_array_declarations'],[])
-        self.assertEqual(result.report['translation_context'],{'array_shapes':{}})
+        self.assertEqual(result.report['translation_context'],{'mode':'pythonic','array_shapes':{}})
 
     def test_missing_shape_diagnostic_has_original_variable_location(self):
         with self.assertRaises(TranslationError) as caught: compile_program()
@@ -239,7 +239,7 @@ class VariableArrayCLITests(unittest.TestCase):
             self.assertEqual(result.returncode,0,result.stderr)
             self.assertEqual(source.read_bytes(),raw)
             data=json.loads(report.read_text())
-            self.assertEqual(data['translation_context'],{'array_shapes':{'A':[2,3]}})
+            self.assertEqual(data['translation_context'],{'mode':'pythonic','array_shapes':{'A':[2,3]}})
             namespace={'__name__':'cli_test'}; exec(output.read_text(),namespace)
             self.assertEqual(namespace['Program']().run()['A'][1][2],7)
             self.assertEqual(self.run_cli(source,'--check','--array-shape','A=2,3').returncode,0)

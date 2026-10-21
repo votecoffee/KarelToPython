@@ -73,10 +73,9 @@ class ElementTests(unittest.TestCase):
         state = execute('measures[1,2] = 2.5 measures[2,1] = 3 measurement = measures[1,2] / 2')
         self.assertEqual((state['MEASURES'], state['MEASUREMENT']), ([[UNINIT, 2.5], [3.0, UNINIT]], 1.25))
 
-    def test_rounded_real_result_does_not_modify_element(self):
+    def test_pythonic_rounded_real_result_updates_element(self):
         p, _ = compile_program('measures[2,2] = 7.0 measures[2,2] = 1.0 / 3.0')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'rounding'): p.run()
-        self.assertEqual(p._state.snapshot()['MEASURES'][1][1], 7.0)
+        self.assertEqual(p.run()['MEASURES'][1][1], 1/3)
 
     def test_nested_for_fills_entire_rectangle(self):
         state = execute('FOR row = 1 TO 2 DO FOR column = 1 TO 3 DO a[row,column] = row * 10 + column ENDFOR ENDFOR')

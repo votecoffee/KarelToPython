@@ -151,6 +151,8 @@ BUILTIN_SIGNATURES = {
     'ROUND': (('REAL',), ('INTEGER',)),
     'TRUNC': (('REAL',), ('INTEGER',)),
     'SQRT': (('REAL',), ('REAL',)),
+    'EXP': (('REAL',), ('REAL',)),
+    'LN': (('REAL',), ('REAL',)),
     **{name: (('REAL',), ('REAL',)) for name in rt.UNARY_TRIG_FUNCTIONS},
     'ATAN2': (('REAL', 'REAL'), ('REAL',)),
 }
@@ -645,8 +647,9 @@ class Parser:
 
 
 class Emitter:
-    def __init__(self, program, filename, array_shapes=None):
+    def __init__(self, program, filename, array_shapes=None, mode='strict'):
         self.program, self.filename = program, filename
+        self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
@@ -1228,7 +1231,7 @@ class Emitter:
         if expr.kind == 'real_literal':
             try: rt.real_literal(expr.value, line)
             except rt.KarelRuntimeError as exc: self.error('E_REAL_LITERAL', str(exc), expr.token)
-            self.features.add('exact REAL literal')
+            self.features.add('REAL literal' if self.mode == 'pythonic' else 'exact REAL literal')
             return f'_rt.real_literal({expr.value!r}, {line})', ('REAL',)
         if expr.kind == 'predefined':
             value = PREDEFINED_CONSTANTS[expr.value]
@@ -1366,11 +1369,11 @@ class Emitter:
         if expr.value in rt.UNARY_TRIG_FUNCTIONS:
             self.trig_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, evaluated_once=True,
-                                       runtime_exact_subset_guard=True, result_type='REAL'))
+                                       runtime_exact_subset_guard=self.mode == 'strict', result_type='REAL'))
         if expr.value == 'ATAN2':
             self.atan2_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, argument_order=['x','y'],
-                                       arguments_evaluated_once=True, runtime_exact_subset_guard=True, result_type='REAL'))
+                                       arguments_evaluated_once=True, runtime_exact_subset_guard=self.mode == 'strict', result_type='REAL'))
         return f'_rt.builtin({expr.value!r}, [{", ".join(codes)}], {expr.token.line})', result_type
 
     def conversion_procedure(self, expr):
@@ -1892,7 +1895,9 @@ class Emitter:
         self.line('class Program:')
         self.indent = 1
         self.line(f'source_program = {self.program.name!r}')
+        self.line(f'translation_mode = {self.mode!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
+        self.line(f'@_rt._with_numeric_mode({self.mode!r})')
         self.line('def __init__(self, *, sleep=None, write=None, joint_axes=None):')
         self.indent = 2
         self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, joint_axes=joint_axes)')
@@ -1919,6 +1924,7 @@ class Emitter:
             self.line()
             argument_names = [f'_argument_{i}' for i in range(len(routine.parameters))]
             signature = ', '.join(['self'] + argument_names)
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
             self.line(f'def _routine_{routine.name}({signature}):', routine.token)
             self.indent = 2
             self.line(f'self._state.tick({routine.token.line})')
@@ -1936,6 +1942,7 @@ class Emitter:
             self.indent = 1
         self.current_routine = None
         self.line()
+        self.line(f'@_rt._with_numeric_mode({self.mode!r})')
         self.line('def run(self, *, max_steps=100000):')
         self.indent = 2
         self.line('self._state.begin(max_steps)')
@@ -1957,10 +1964,10 @@ class Emitter:
         return result
 
 
-def translate(source, *, filename='<input>', array_shapes=None):
+def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
     parser = Parser(source, filename)
     program = parser.parse()
-    emitter = Emitter(program, filename, array_shapes)
+    emitter = Emitter(program, filename, array_shapes, mode)
     if parser.continuations:
         emitter.features.add('physical line continuation')
     if parser.escaped_string_literals:
@@ -1970,8 +1977,8 @@ def translate(source, *, filename='<input>', array_shapes=None):
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         program=program.name, source_sha256=hashlib.sha256(source.encode('utf-8')).hexdigest(),
-        translation_context=dict(array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}),
-        translation_context_sha256=hashlib.sha256(json.dumps(dict(array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}), sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest(),
+        translation_context=dict(mode=mode, array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}),
+        translation_context_sha256=hashlib.sha256(json.dumps(dict(mode=mode, array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}), sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest(),
         variable_array_policy=dict(declarations='Direct global VAR ARRAY dimensions containing *; one to three outer/logical dimensions, each positive and explicit',
                                    context='translate(array_shapes={name: dimensions}) supplies all outer dimensions, including fixed ones which must agree; case-insensitive names, no unused entries',
                                    specialization='Validated dimensions are embedded as concrete generated storage and immutable Program.external_array_shapes metadata; a different shape requires retranslation',
@@ -2262,3 +2269,53 @@ def translate(source, *, filename='<input>', array_shapes=None):
                      'FOR-body routine calls and RETURN require fresh routine-local counters; active-counter reference arguments remain blocked',
                      'Uninitialized variables, checked signed 32-bit integers, ASCII-only strings'],
     ))
+
+
+def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic'):
+    """Translate using the public Pythonic contract; strict is a future milestone."""
+    if type(mode) is not str or mode != 'pythonic':
+        message = ('Strict mode is a future milestone; use mode="pythonic"'
+                   if mode == 'strict' else 'Supported translation mode: pythonic')
+        raise TranslationError('E_MODE', message, Token('NAME', '', 1, 1), filename)
+    with rt._numeric_scope(mode):
+        result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
+    report = result.report
+    report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
+                               scope='Python numeric equivalents; existing source, type, initialization, ownership and effect checks remain')
+    report['numeric_policy'] = dict(
+        mode=mode, real_model='python_float', arithmetic='Python float +, -, *, /; finite results required',
+        sqrt='math.sqrt for nonnegative finite inputs', exp='math.exp', ln='math.log for positive finite inputs',
+        round='Python round to INTEGER; ties to even', trunc='math.trunc toward zero',
+        mod='Python remainder; result has divisor sign', integer='Existing checked signed-32-bit storage, excluding MAXINT',
+        rounding_dependent_values='Accepted using Python floating-point rounding',
+        underflow_threshold='Host float underflow and subnormals', signed_zero='Preserved by scalar float operations',
+        controller_validated=False)
+    report['trig_policy'] = dict(
+        functions=list(rt.UNARY_TRIG_FUNCTIONS), angle_units='degrees',
+        input_policy='Finite Python floats; inverse arguments in -1..1',
+        runtime='Exact identity tables where available; otherwise Python math with degree/radian conversion; forward angles reduced by period',
+        tan_odd_right_angles='Explicit domain rejection', controller_validated=False)
+    report['atan2_policy'] = dict(
+        argument_order=['x', 'y'], result='math.degrees(math.atan2(y, x)), in -180..180',
+        coordinates='Finite floats in all quadrants', origin='Explicit undefined-domain error', controller_validated=False)
+    report['data_record_policy']['values'] = 'Finite Python float REAL components; existing CONFIG turn/BOOLEAN checks'
+    report['vector_policy'].update(
+        scaling='Finite Python floats; division requires nonzero denominators',
+        products='Cross/dot products allow rounded intermediates and zero/parallel cross products',
+        numeric='Initialized finite float components; rounded products and finite results')
+    report['unpos_policy']['input'] = 'XYZWPR storage; initialized finite REAL components and bounded CONFIG'
+    report['conversion_policy'].update(
+        parse='Python int(text, 10); invalid numeric text clears output; checked INTEGER storage',
+        real_parse='Python float(text), including whitespace and lowercase exponents; finite result required; invalid numeric text clears output',
+        real_format='Python fixed-point formatting, 0..254 fractional digits; leading blank; minimum width in 1..254; capacity overflow marker',
+        real_format_guard='Python decimal rounding allowed; scientific output and precision/width outside prototype bounds remain blocked',
+        format='Signed bases 2..16, with base 0 selecting decimal; leading blank; minimum width 1..254; capacity overflow marker',
+        nondecimal_format='Minimal digits 0..9/A..F, optional minus, no prefix; Pythonic formatting convention',
+        invalid_base='Outside 0 or 2..16 clears output after width/input checks',
+        other_formats='Input follows Python int/float grammar; output fixed-point or integer bases only')
+    strict_only = ('REAL uses exact binary32', 'Underflow follows the manual', 'Signed MOD with negative',
+                   'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
+                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts')
+    report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
+    report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
+    return result

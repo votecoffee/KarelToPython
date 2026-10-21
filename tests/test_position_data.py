@@ -250,8 +250,8 @@ class ExtendedPositionTests(unittest.TestCase):
     def test_extended_leaf_count(self): self.assertEqual(rt.scalar_leaf_count(('XYZWPREXT',)),16)
     def test_extended_wrong_field_type(self):
         with self.assertRaises(TranslationError): compile_program('ext.ext1=ON')
-    def test_extended_inexact_real_guard(self):
-        with self.assertRaises(TranslationError): compile_program('ext.ext1=0.1')
+    def test_extended_pythonic_real_field(self):
+        self.assertEqual(compile_program('ext.ext1=0.1')[0].run()['EXT']['EXT1'], .1)
     def test_extended_group_still_blocked(self):
         with self.assertRaises(TranslationError) as caught: compile_program(declarations='ext: XYZWPREXT IN GROUP[1]')
         self.assertEqual(caught.exception.code,'E_POSITION_GROUP')

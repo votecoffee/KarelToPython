@@ -13,7 +13,7 @@
   "INVALID": {
     "uninitialized": true
   },
-  "UNDERFLOW": 0.0,
+  "UNDERFLOW": 1e-40,
   "PURE_RESULT": 3.5,
   "INVALID_DETECTED": true,
   "PACKET": {

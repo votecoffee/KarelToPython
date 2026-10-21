@@ -1,13 +1,13 @@
 # KarelToPython
 
-Fail-closed KAREL source to Python translator prototype
+KAREL source to Python translator with a checked offline runtime
 
 Translate a supported subset of FANUC KAREL into Python modules with a checked
-offline runtime. Unsupported syntax and uncertain behavior produce explicit
+offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.50.0**. It is a
+tool are named **karel2py**. The current implementation is **0.51.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -104,25 +104,40 @@ assert snapshot["TOTAL"] == 200
 Generated Python needs `karel2py` on its import path. See the [API guide](docs/api.md)
 for translation options, runtime callbacks, diagnostics and execution limits.
 
+### Translation mode
+
+**Pythonic mode is the default.** Ordinary decimals, rounded arithmetic and
+Python math functions work without the former exact binary32 restriction.
+For an explicit choice, use `translate(source, mode="pythonic")` or:
+
+```sh
+python -m karel2py examples/pythonic_numeric.kl --mode pythonic --check
+```
+
+`ROUND` uses Python's ties-to-even rule, so `ROUND(2.5)` returns 2. REAL values
+use Python `float`; structural and initialization checks remain. **Strict mode
+is a future milestone**; its previous exactness work is preserved internally.
+See the [equivalence matrix and mode roadmap](docs/numeric-modes.md).
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
   and `GOTO`, internal routines, `RETURN`, bare `ABORT` and host-backed `DELAY`.
-- Checked `INTEGER`, `BOOLEAN`, exact-subset `REAL`, bounded ASCII `STRING`,
+- Checked `INTEGER`, `BOOLEAN`, Python-float `REAL`, bounded ASCII `STRING`,
   `BYTE`/`SHORT` storage, fixed and named arrays, named structures and `USING`.
 - Reference/value parameters, bare zero-argument function calls, checked aggregate
   copies, restricted scalar, bounded STRING, record, joint and named-component
-  ARRAY functions, selected built-ins and exact trig cases.
+  ARRAY functions, selected built-ins, general degree trig, SQRT, EXP and LN.
 - Positional data records, opaque joint values, selected VECTOR operations and
   explicit-context offline conversion subsets.
-- Exact fixed-decimal REAL text formatting with 0..254 fractional digits and
-  caller-capacity overflow markers.
-- INTEGER text formatting in decimal and nonnegative bases 2..9, with checked
-  output references and capacities.
+- Rounded fixed-decimal REAL text formatting with 0..254 fractional digits,
+  minimum-width padding and caller-capacity overflow markers.
+- Signed INTEGER text formatting in bases 2..16, with checked output references
+  and capacities.
 - Restricted text `WRITE` requests through a recorder or supplied callback.
 
-Each item has type and context restrictions. General floating-point rounding,
-direct STRING function results, broad ARRAY result forms, external routines,
+Each item has type and context restrictions. Direct STRING function results,
+broad ARRAY result forms, external routines,
 motion, controller files/registers/I/O and native task behavior remain unsupported.
 Read the [support table and limitations](docs/language-support.md) before using a feature.
 
@@ -136,7 +151,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 45 authored runnable examples, checks complete
+The example runner translates the 51 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
@@ -169,7 +184,7 @@ maintained alongside example sources.
 ## API
 
 The main entry point is
-`translate(source, *, filename="<input>", array_shapes=None)`. It returns a
+`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic")`. It returns a
 translation containing `python_source` and `report`, or raises
 `karel2py.lexer.TranslationError`. See [docs/api.md](docs/api.md).
 

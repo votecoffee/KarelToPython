@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.50.0",
+  "translator_version": "0.51.0",
+  "numeric_mode_note": "Public translation is Pythonic. Exact REAL restrictions below preserve the legacy contract for a future strict milestone; see ../numeric-modes.md.",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Bare ABORT models termination of one offline Python execution only. Exceptions and host snapshots do not implement controller task, motion, handler, restart or persistence semantics.",

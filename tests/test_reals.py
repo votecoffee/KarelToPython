@@ -5,7 +5,7 @@ from pathlib import Path
 import struct
 import unittest
 
-from karel2py import translate
+from tests.legacy_numeric_support import translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError, real, real_literal
 

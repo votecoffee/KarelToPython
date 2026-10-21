@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.50.0",
+  "translator_version": "0.51.0",
+  "numeric_mode_note": "Public translation is Pythonic. Exact REAL restrictions below preserve the legacy contract for a future strict milestone; see ../numeric-modes.md.",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual rules support named types, field access and reference binding. Tests establish the offline prototype only. Copy guards and storage preservation are explicit implementation policies, not authenticated controller observations.",

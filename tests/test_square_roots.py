@@ -5,7 +5,7 @@ import math
 import struct
 import unittest
 
-from karel2py import translate
+from tests.legacy_numeric_support import translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError, builtin
 
@@ -225,7 +225,7 @@ ROUTINE consume(p,q: REAL) BEGIN END consume'''
         self.rejected('a[i,1] = SQRT(next_value())', 'E_EVALUATION_ORDER', routines=routine)
 
     def test_unsupported_math_names_stay_explicit(self):
-        self.rejected('r = EXP(0.0)', 'E_CALL')
+        self.rejected('r = LOG10(0.0)', 'E_CALL')
 
 
 if __name__ == '__main__': unittest.main()

@@ -1,9 +1,13 @@
 # Language support
 
-This is the supported prototype subset as of 0.50.0. Acceptance is specific to
+This is the supported prototype subset as of 0.51.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
+
+Public translation uses [Pythonic numeric equivalents](numeric-modes.md).
+Strict mode is a future milestone; older exactness contracts are preserved
+internally and in the historical semantic notes.
 
 | Area | Supported subset | Limits |
 | --- | --- | --- |
@@ -11,10 +15,10 @@ rules, implemented restrictions and unresolved native behavior.
 | Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | Fresh local counters are required for calls/early returns within FOR; SELECT uses first matching case and errors without a match/ELSE. |
 | Labels | Restricted labels and unconditional GOTO | Jumps within the same block or to an ancestor; no arbitrary entry into nested control blocks. |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64, conservative effects/order guards, no external routine linkage or local TYPE sections. |
-| INTEGER | Checked signed 32-bit expressions, bit operators, DIV, restricted MOD | MAXINT excluded from normal storage; division truncates toward zero; signed MOD cases remain restricted. |
+| INTEGER | Checked signed 32-bit expressions, bit operators, DIV and signed MOD | MAXINT excluded from normal storage; DIV truncates toward zero; MOD follows Python remainder. |
 | BOOLEAN | Strict Boolean storage, operators and comparisons | Numeric values are not implicitly Booleans. |
-| REAL | Exact normal-or-zero binary32 subset, checked promotion, ROUND/TRUNC and exact SQRT | No general controller rounding model; inexact operations can fail. |
-| Trig | Exact degree cases for SIN/COS/TAN/ASIN/ACOS; restricted ATAN2 | Finite tables only. ATAN2 uses KAREL `(x,y)` order and nonnegative axes/positive equal diagonal; general bearings, EXP and LN are blocked. |
+| REAL | Python float, rounded arithmetic, promotion, ROUND/TRUNC, SQRT, EXP and LN | Finite values required; existing checked INTEGER results. ROUND uses ties to even. |
+| Trig | General degree SIN/COS/TAN/ASIN/ACOS and ATAN2 | Inverse/domain checks remain. ATAN2 uses KAREL `(x,y)` order, all quadrants and Python -180..180 degree output. |
 | STRING | Bounded ASCII storage, right truncation, concatenation/comparison, STR_LEN, restricted SUB_STR/INDEX/CHR/ORD | Direct STRING function results and unresolved substring/search boundaries remain blocked. Read-only value inputs have restricted temporary handling. |
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference formals and named subarrays | Prototype bound of 32767 scalar leaves; whole-array value arguments prohibited; nominal identity and exact shape are retained. |
@@ -24,8 +28,8 @@ rules, implemented restrictions and unresolved native behavior.
 | USING | Restricted bare structure selectors and field priority | Lexical scope; no complex selector expressions or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
-| VECTOR | Checked exact arithmetic, scaling, cross/dot products, equality and routine values | Group ambiguous products, initialize components, preserve exact intermediates; degenerate cases remain restricted. |
-| Conversion | Selected INTEGER/REAL text conversions, nonnegative INTEGER output in bases 2..9, exact fixed-decimal REAL formatting with 0..254 fractional digits, exact XYZWPR extraction via UNPOS | Decimal INTEGER output also supports signed values. Length/precision guards, canonical formats, exactness and disjoint output requirements remain. No inferred native status/rounding behavior. |
+| VECTOR | Checked float arithmetic, scaling, cross/dot products, equality and routine values | Group ambiguous products and initialize finite components. Zero/parallel cross products allowed. |
+| Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed-decimal REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Restricted single STRING, BOOLEAN or nonnegative INTEGER request | Recorder/callback only; restricted literal STRING formats; no FILE destinations, multi-item, general REAL/negative INTEGER output or READ. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
@@ -120,30 +124,29 @@ native behavior are in [array_routine_semantics.json](semantics/array_routine_se
 
 ## INTEGER base formatting
 
-`CNV_INT_STR(source,1,base,target)` formats nonnegative INTEGER values in bases
-2..9. For example, source 42 produces ` 101010` in base 2 and ` 52` in base 8.
-Output has exactly one leading blank, no prefix and the minimal numeric digits;
-zero produces ` 0`. Decimal bases 0 and 10 retain signed-value support.
+`CNV_INT_STR(source,length,base,target)` formats signed INTEGER values in bases
+2..16. Base 0 selects decimal; alphabetic digits are uppercase A..F. For example,
+source -42 produces ` -101010` in base 2 and ` -2A` in base 16. Natural output
+has one leading blank, no prefix and minimal digits; zero produces ` 0`.
 
-Only length 1 is supported. Other widths, negative nondecimal values and valid
-bases 11..16 remain blocked pending representation, padding and digit-case
-evidence. An invalid base outside 0 or 2..16 retains the existing uninitialized
-output rule after input and length checks. Capacity overflow produces one blank
+Minimum lengths in 1..254 are supported, adding left padding when needed.
+An invalid base outside 0 or 2..16 clears output after input and length checks.
+Capacity overflow produces one blank
 followed by asterisks filling the caller's declared capacity. Guard failures keep
 the destination intact. These are bounded offline formatting rules, without
 native compiler or controller validation. See the authored
 [base-formatting example](../examples/integer_base_formatting.kl).
 
-## Exact decimal formatting
+## Decimal formatting
 
 `CNV_REAL_STR(source,length,num_digits,target)` supports fixed precision in
 0..254. For example, `CNV_REAL_STR(1.125,1,3,text)` produces ` 1.125`, including
 its leading blank. Requested trailing zeros are retained; zero fractional digits
-suppress the decimal point. The source and decimal result must pass the existing
-exact REAL checks. A value requiring decimal rounding raises before output changes.
+suppress the decimal point. Python fixed-point formatting supplies decimal
+rounding; ordinary decimal inputs and rounded results are accepted.
 
-`length` must be positive and no greater than the natural result length, so extra
-padding remains blocked. If the result exceeds the caller's declared STRING
+`length` is a minimum width in 1..254; extra width adds left padding.
+If the result exceeds the caller's declared STRING
 capacity, output is one blank followed by asterisks filling that capacity. This
 also applies when supported precision produces more than 254 characters. The
 0..254 precision bound limits prototype work; it is not a claimed controller

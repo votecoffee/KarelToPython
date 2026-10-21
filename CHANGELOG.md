@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.51.0 - 2026-10-21
+
+- Make Pythonic numeric behavior the public default, selectable through
+  `translate(..., mode="pythonic")` and `--mode pythonic`. Embed the selected mode
+  in generated programs and hashed report context. Strict mode is reserved for a
+  future milestone; preserve the previous exactness runtime and regression tests.
+- Accept ordinary finite floats, rounded arithmetic, general SQRT and degree
+  trigonometry, all ATAN2 quadrants, EXP and LN. ROUND now uses Python ties to even;
+  signed MOD follows Python remainder. Retain checked INTEGER storage and domain,
+  initialization, shape, ownership and effect guards.
+- Use Python numeric text parsing, rounded fixed-decimal output, signed integer
+  bases 2..16 and bounded minimum-width padding. Preserve output capacities,
+  overflow markers and failure-before-assignment checks.
+- Add public numeric mode documentation, a runnable Pythonic example and API/CLI,
+  storage, math-domain and nested/threaded-policy tests. Update existing example
+  fixtures for changed ROUND and underflow results. Validation remains offline.
+
 ## 0.50.0 - 2026-10-21
 
 - Extend `CNV_INT_STR` length-1 output to nonnegative values in bases 2..9, using

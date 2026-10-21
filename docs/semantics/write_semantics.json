@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.50.0",
+  "translator_version": "0.51.0",
+  "numeric_mode_note": "Public translation is Pythonic. Exact REAL restrictions below preserve the legacy contract for a future strict milestone; see ../numeric-modes.md.",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "One STRING item with checked formats, or one unformatted BOOLEAN or nonnegative INTEGER item, creates an offline output request. The callback/recorder contract does not model controller I/O.",

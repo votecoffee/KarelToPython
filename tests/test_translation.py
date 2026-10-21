@@ -244,7 +244,7 @@ class RuntimeTests(unittest.TestCase):
     def test_integer_overflow(self): self.fail('x = 2147483647 + 1', 'overflow')
     def test_abs_minimum_overflow(self): self.fail('x = ABS(MININT)', 'overflow')
     def test_zero_divisor(self): self.fail('x = 10 DIV 0', 'Division by zero')
-    def test_signed_mod_blocked(self): self.fail('x = (-11) MOD 2', 'Signed MOD')
+    def test_pythonic_signed_mod(self): self.assertEqual(run('x = (-11) MOD 2')['X'], 1)
 
     def test_array_bounds_fail_instead_of_python_negative_index(self):
         for index in (0, -1, 3):

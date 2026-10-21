@@ -5,10 +5,43 @@ Only the generated module needs this file on a target interpreter.
 """
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import wraps
 import math
 import re
 import struct
 import time
+
+
+# Keep the previous numeric contract available for its regression tests. Public
+# translation selects Pythonic behavior explicitly; strict mode is not released.
+_numeric_mode = ContextVar('karel2py_numeric_mode', default='strict')
+
+
+@contextmanager
+def _numeric_scope(mode):
+    if mode not in ('pythonic', 'strict'):
+        raise ValueError('Unknown numeric mode')
+    token = _numeric_mode.set(mode)
+    try:
+        yield
+    finally:
+        _numeric_mode.reset(token)
+
+
+def _with_numeric_mode(mode):
+    def decorate(function):
+        @wraps(function)
+        def call(*args, **kwargs):
+            with _numeric_scope(mode):
+                return function(*args, **kwargs)
+        return call
+    return decorate
+
+
+def _pythonic():
+    return _numeric_mode.get() == 'pythonic'
 
 
 class KarelRuntimeError(Exception):
@@ -128,7 +161,12 @@ def boolean(value, line=None):
 
 
 def _real_fraction(value, line=None):
-    """Check the exact result; never silently adopt host floating-point rounding."""
+    """Convert a rational result under the active generated-program policy."""
+    if _pythonic():
+        try:
+            return real(float(value), line)
+        except OverflowError:
+            raise KarelRuntimeError('REAL overflow', line) from None
     magnitude = abs(value)
     if magnitude > _REAL_MANUAL_MAX:
         raise KarelRuntimeError('REAL overflow', line)
@@ -151,10 +189,18 @@ def real(value, line=None):
         value = integer(value, line)
     elif type(value) is not float or not math.isfinite(value):
         raise KarelRuntimeError('Expected finite REAL or INTEGER', line)
+    if _pythonic(): return float(value)
     return _real_fraction(Fraction(value), line)
 
 
 def real_literal(text, line=None):
+    if _pythonic():
+        try:
+            value = float(text)
+        except (ValueError, OverflowError):
+            raise KarelRuntimeError('Invalid REAL literal', line) from None
+        if not math.isfinite(value): raise KarelRuntimeError('REAL overflow', line)
+        return value
     try:
         value = Decimal(text)
     except InvalidOperation:
@@ -637,6 +683,14 @@ def conversion_procedure(name, source, *arguments, line=None):
         text = ascii_string(source, line)
         if len(text) > 254:
             raise KarelRuntimeError(f'{name} input longer than the supported 254 characters', line)
+        if _pythonic():
+            try:
+                value = int(text, 10) if name == 'CNV_STR_INT' else float(text)
+            except ValueError:
+                target.clear()
+                return
+            target.set(value, line)
+            return
         pattern = r'[+-]?[0-9]+' if name == 'CNV_STR_INT' else r'[+-]?[0-9]+\.[0-9]+(?:E[+-][0-9]+)?'
         if re.fullmatch(pattern, text):
             # Check an explicit grammar before exact decimal parsing or integer conversion.
@@ -652,19 +706,27 @@ def conversion_procedure(name, source, *arguments, line=None):
         length, num_digits = (integer(argument, line) for argument in arguments[:-1])
         if not 0 <= num_digits <= 254:
             raise KarelRuntimeError('CNV_REAL_STR supports fixed fractional digits in 0..254; scientific/out-of-bound precision rules need validation', line)
-        scaled = Fraction(value) * 10 ** num_digits
-        if scaled.denominator != 1:
-            raise KarelRuntimeError('CNV_REAL_STR decimal rounding is not validated; exact formatting only', line)
-        digits = str(abs(scaled.numerator)).rjust(num_digits + 1, '0')
-        body = digits if num_digits == 0 else digits[:-num_digits] + '.' + digits[-num_digits:]
-        text = ' ' + ('-' if value < 0 else '') + body
-        if not 1 <= length <= len(text):
+        if _pythonic():
+            text = ' ' + format(value, f'.{num_digits}f')
+            if not 1 <= length <= 254:
+                raise KarelRuntimeError('CNV_REAL_STR minimum length must be in 1..254', line)
+            text = text.rjust(length)
+        else:
+            scaled = Fraction(value) * 10 ** num_digits
+            if scaled.denominator != 1:
+                raise KarelRuntimeError('CNV_REAL_STR decimal rounding is not validated; exact formatting only', line)
+            digits = str(abs(scaled.numerator)).rjust(num_digits + 1, '0')
+            body = digits if num_digits == 0 else digits[:-num_digits] + '.' + digits[-num_digits:]
+            text = ' ' + ('-' if value < 0 else '') + body
+        if not _pythonic() and not 1 <= length <= len(text):
             raise KarelRuntimeError('CNV_REAL_STR requires a positive minimum length no greater than the natural result; padding/invalid-length rules need validation', line)
         _store_conversion_text(name, target, text, line)
         return
     value = integer(source, line)
     length, base = (integer(argument, line) for argument in arguments[:-1])
-    if length != 1:
+    if _pythonic() and not 1 <= length <= 254:
+        raise KarelRuntimeError('CNV_INT_STR minimum length must be in 1..254', line)
+    if not _pythonic() and length != 1:
         raise KarelRuntimeError('CNV_INT_STR currently requires length 1; other width/validity rules need validation', line)
     if base != 0 and not 2 <= base <= 16:
         target.clear()
@@ -672,16 +734,17 @@ def conversion_procedure(name, source, *arguments, line=None):
     if base in (0, 10):
         text = ' ' + str(value)
     else:
-        if base > 10:
+        if not _pythonic() and base > 10:
             raise KarelRuntimeError('CNV_INT_STR bases 11..16 need validated alphabetic digit case', line)
-        if value < 0:
+        if not _pythonic() and value < 0:
             raise KarelRuntimeError('CNV_INT_STR negative nondecimal representation needs validation', line)
         # Nonnegative signed-32-bit values need at most 31 divisions in base 2.
-        digits, remaining = [], value
+        digits, remaining = [], abs(value)
         while remaining:
             remaining, digit = divmod(remaining, base)
-            digits.append(str(digit))
-        text = ' ' + (''.join(reversed(digits)) or '0')
+            digits.append('0123456789ABCDEF'[digit])
+        text = ' ' + ('-' if value < 0 else '') + (''.join(reversed(digits)) or '0')
+    if _pythonic(): text = text.rjust(length)
     _store_conversion_text(name, target, text, line)
 
 
@@ -811,7 +874,7 @@ def _aggregate_value(spec, value, line=None):
 
 
 def vector_binary(op, left, right, line=None):
-    """Manual vector algebra restricted to exact, initialized binary32 values."""
+    """Checked vector algebra using the active numeric policy."""
     left_vector = isinstance(left, Structure) and left.spec == ('VECTOR',)
     right_vector = isinstance(right, Structure) and right.spec == ('VECTOR',)
     both = left_vector and right_vector
@@ -820,8 +883,12 @@ def vector_binary(op, left, right, line=None):
         raise KarelRuntimeError('Unsupported VECTOR operand types/operator', line)
     a = vector_components(left, line) if left_vector else Fraction(real(left, line))
     b = vector_components(right, line) if right_vector else Fraction(real(right, line))
+    if _pythonic():
+        a = tuple(map(float, a)) if left_vector else float(a)
+        b = tuple(map(float, b)) if right_vector else float(b)
 
     def intermediate(value):
+        if _pythonic(): return real(value, line)
         checked_value = _real_fraction(value, line)
         if Fraction(checked_value) != value:
             raise KarelRuntimeError('VECTOR intermediate underflow needs controller validation', line)
@@ -833,12 +900,13 @@ def vector_binary(op, left, right, line=None):
         products = [intermediate(x * y) for x, y in zip(a, b)]
         # The manual does not specify sum association. Validate all three possible
         # first pairs, rejecting cancellation that could hide rounding/overflow.
-        for i, j in ((0, 1), (0, 2), (1, 2)): intermediate(products[i] + products[j])
-        return _real_fraction(sum(products), line)
+        if not _pythonic():
+            for i, j in ((0, 1), (0, 2), (1, 2)): intermediate(products[i] + products[j])
+        return real(sum(products), line) if _pythonic() else _real_fraction(sum(products), line)
     if op == '#':
         values = [intermediate(a[j] * b[k]) - intermediate(a[k] * b[j])
                   for j, k in ((1, 2), (2, 0), (0, 1))]
-        if not any(values):
+        if not _pythonic() and not any(values):
             raise KarelRuntimeError('VECTOR cross product requires nonzero, nonparallel operands', line)
     elif op == '+': values = [x + y for x, y in zip(a, b)]
     elif op == '-': values = [x - y for x, y in zip(a, b)]
@@ -850,9 +918,9 @@ def vector_binary(op, left, right, line=None):
         if any(y == 0 for y in b): raise KarelRuntimeError('Division by zero', line)
         # Also guard the manual's reciprocal-then-multiply description, rather
         # than silently choosing a more permissive host division implementation.
-        values = [a * intermediate(1 / y) for y in b]
-    components = [_real_fraction(value, line) for value in values]
-    if op == '#' and any(value != 0 and component == 0 for value, component in zip(values, components)):
+        values = [a / y for y in b] if _pythonic() else [a * intermediate(1 / y) for y in b]
+    components = [real(value, line) if _pythonic() else _real_fraction(value, line) for value in values]
+    if not _pythonic() and op == '#' and any(value != 0 and component == 0 for value, component in zip(values, components)):
         raise KarelRuntimeError('VECTOR cross-product underflow needs controller validation', line)
     result = Structure(('VECTOR',))
     result.values.update(zip(('X', 'Y', 'Z'), components))
@@ -885,14 +953,15 @@ def binary(op, left, right, line=None):
     if op == '+' and type(left) is str and type(right) is str:
         return ascii_string(left, line) + ascii_string(right, line)
     if op in ('+', '-', '*', '/') and (op == '/' or float in (type(left), type(right))):
-        left, right = Fraction(real(left, line)), Fraction(real(right, line))
+        left, right = real(left, line), real(right, line)
+        if not _pythonic(): left, right = Fraction(left), Fraction(right)
         if op == '+': result = left + right
         elif op == '-': result = left - right
         elif op == '*': result = left * right
         else:
             if right == 0: raise KarelRuntimeError('Division by zero', line)
             result = left / right
-        return _real_fraction(result, line)
+        return real(result, line) if _pythonic() else _real_fraction(result, line)
     integer(left, line)
     integer(right, line)
     if op == '+': return integer(left + right, line)
@@ -902,7 +971,7 @@ def binary(op, left, right, line=None):
         if right == 0:
             raise KarelRuntimeError('Division by zero', line)
         if op == 'MOD':
-            if left < 0 or right < 0:
+            if not _pythonic() and (left < 0 or right < 0):
                 raise KarelRuntimeError('Signed MOD is not yet validated; negative operands are blocked', line)
             return left % right
         quotient = abs(left) // abs(right)
@@ -919,6 +988,9 @@ def exact_trig(name, value, line=None):
         inverse = ({-1: -90, Fraction(-1, 2): -30, 0: 0, Fraction(1, 2): 30, 1: 90}
                    if name == 'ASIN' else
                    {-1: 180, Fraction(-1, 2): 120, 0: 90, Fraction(1, 2): 60, 1: 0})
+        if value not in inverse and _pythonic():
+            function = math.asin if name == 'ASIN' else math.acos
+            return real(math.degrees(function(float(value))), line)
         if value not in inverse:
             raise KarelRuntimeError(f'{name} rounding is not validated; inputs limited to -1, -0.5, 0, 0.5, 1', line)
         return float(inverse[value])
@@ -926,7 +998,7 @@ def exact_trig(name, value, line=None):
         raise KarelRuntimeError('Unsupported exact trigonometric function', line)
     # Check the documented input range before reducing periods; a large angle
     # cannot become valid just because its reduced value is small or zero.
-    if not -18000 <= value <= 18000:
+    if not _pythonic() and not -18000 <= value <= 18000:
         raise KarelRuntimeError(f'{name} angle must be in -18000..18000 degrees', line)
     reduced = value % (180 if name == 'TAN' else 360)
     if name == 'TAN' and reduced == 90:
@@ -935,6 +1007,9 @@ def exact_trig(name, value, line=None):
              if name == 'SIN' else
              {0: 1., 60: .5, 90: 0., 120: -.5, 180: -1., 240: -.5, 270: 0., 300: .5}
              if name == 'COS' else {0: 0., 45: 1., 135: -1.})
+    if reduced not in exact and _pythonic():
+        function = {'SIN': math.sin, 'COS': math.cos, 'TAN': math.tan}[name]
+        return real(function(math.radians(float(reduced))), line)
     if reduced not in exact:
         raise KarelRuntimeError(f'{name} rounding is not validated; angle outside the exact degree subset', line)
     return exact[reduced]
@@ -945,6 +1020,7 @@ def exact_atan2(x, y, line=None):
     x, y = real(x, line), real(y, line)
     if x == 0 and y == 0:
         raise KarelRuntimeError('ATAN2 is undefined at the origin', line)
+    if _pythonic(): return real(math.degrees(math.atan2(y, x)), line)
     if x < 0 or y < 0:
         raise KarelRuntimeError('ATAN2 negative-coordinate return range needs validation; nonnegative coordinates only', line)
     # No division, squares or host trig: axis and positive diagonal identities
@@ -966,9 +1042,11 @@ def builtin(name, arguments, line=None):
         value = arguments[0]
         return real(abs(real(value, line)), line) if type(value) is float else integer(abs(integer(value, line)), line)
     if name == 'SQRT':
-        value = Fraction(real(arguments[0], line))
+        value = real(arguments[0], line)
         if value < 0:
             raise KarelRuntimeError('SQRT argument must not be negative', line)
+        if _pythonic(): return real(math.sqrt(value), line)
+        value = Fraction(value)
         numerator = math.isqrt(value.numerator)
         denominator = math.isqrt(value.denominator)
         # A reduced rational has a rational square root exactly when both
@@ -976,7 +1054,21 @@ def builtin(name, arguments, line=None):
         if numerator * numerator != value.numerator or denominator * denominator != value.denominator:
             raise KarelRuntimeError('SQRT rounding is not validated; exact rational roots only', line)
         return _real_fraction(Fraction(numerator, denominator), line)
+    if name in ('EXP', 'LN'):
+        if not _pythonic():
+            raise KarelRuntimeError(f'{name} is available only in Pythonic mode', line)
+        value = real(arguments[0], line)
+        if name == 'LN' and value <= 0:
+            raise KarelRuntimeError('LN argument must be positive', line)
+        try:
+            return real(math.exp(value) if name == 'EXP' else math.log(value), line)
+        except OverflowError:
+            raise KarelRuntimeError(f'{name} REAL overflow', line) from None
     if name in ('ROUND', 'TRUNC'):
+        if _pythonic():
+            value = real(arguments[0], line)
+            converted = round(value) if name == 'ROUND' else math.trunc(value)
+            return checked(INTEGER, converted, line)
         value = Fraction(real(arguments[0], line))
         maximum = 2147483646 if name == 'ROUND' else 2147483583
         if not -2147483648 <= value <= maximum:

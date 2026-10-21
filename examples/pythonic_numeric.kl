@@ -1,0 +1,29 @@
+PROGRAM pythonic_numeric
+CONST decimal_step=0.1
+VAR
+  samples: ARRAY[2] OF REAL
+  mean,root,sine,bearing,logarithm,exponential,tiny: REAL
+  rounded,truncated,remainder: INTEGER
+  text,hex_text: STRING[16]
+
+ROUTINE average(values: ARRAY[*] OF REAL): REAL
+BEGIN
+  RETURN (values[1]+values[2])/2
+END average
+
+BEGIN
+  samples[1]=decimal_step
+  samples[2]=0.2
+  mean=average(samples)
+  root=SQRT(2)
+  sine=SIN(10)
+  bearing=ATAN2(-1,1)
+  logarithm=LN(0.1)
+  exponential=EXP(1)
+  tiny=1E-40
+  rounded=ROUND(2.5)
+  truncated=TRUNC(-2.9)
+  remainder=(-11) MOD 2
+  CNV_REAL_STR(root,1,2,text)
+  CNV_INT_STR(-42,1,16,hex_text)
+END pythonic_numeric
