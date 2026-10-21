@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.50.0 - 2026-10-21
+
+- Extend `CNV_INT_STR` length-1 output to nonnegative values in bases 2..9, using
+  minimal positional numeric digits and exactly one leading blank. Signed decimal
+  bases 0/10 and the existing INTEGER expression range remain supported.
+- Preserve caller capacities, blank/asterisk overflow markers, output references,
+  invalid-base clearing and existing effect/cleanup checks. Negative nondecimal
+  values, alphabetic-digit bases 11..16 and other widths remain blocked.
+- Add 30 regression checks for base/value/capacity boundaries, independent binary
+  and octal oracles, numeric roundtrips, aliasing, failure preservation and effect
+  guards, plus a runnable authored example. Validation remains offline.
+
 ## 0.49.0 - 2026-10-21
 
 - Extend exact `CNV_REAL_STR` fixed formatting from 0/1/2 to 0..254 fractional

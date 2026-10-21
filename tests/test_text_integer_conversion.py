@@ -184,10 +184,10 @@ class ConversionRuntimeBoundaryTests(unittest.TestCase):
             with self.subTest(width=width):
                 self.assertEqual(self.failure(f"text='keep' CNV_INT_STR(12,{width},10,text)", 'requires length 1')._state.snapshot()['TEXT'], 'keep')
 
-    def test_valid_nondecimal_bases_preserve_output(self):
-        for base in (2, 8, 16):
+    def test_alphabetic_digit_bases_preserve_output(self):
+        for base in (11, 12, 16):
             with self.subTest(base=base):
-                self.assertEqual(self.failure(f"text='keep' CNV_INT_STR(12,1,{base},text)", 'decimal bases')._state.snapshot()['TEXT'], 'keep')
+                self.assertEqual(self.failure(f"text='keep' CNV_INT_STR(12,1,{base},text)", 'alphabetic digit case')._state.snapshot()['TEXT'], 'keep')
 
     def test_uninitialized_source_does_not_clear_output(self):
         self.assertEqual(self.failure('n=7 CNV_STR_INT(text,n)', 'uninitialized')._state.snapshot()['N'], 7)

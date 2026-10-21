@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.49.0. Acceptance is specific to
+This is the supported prototype subset as of 0.50.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -25,7 +25,7 @@ rules, implemented restrictions and unresolved native behavior.
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
 | VECTOR | Checked exact arithmetic, scaling, cross/dot products, equality and routine values | Group ambiguous products, initialize components, preserve exact intermediates; degenerate cases remain restricted. |
-| Conversion | Selected INTEGER/REAL text conversions, exact fixed-decimal REAL formatting with 0..254 fractional digits, exact XYZWPR extraction via UNPOS | Precision bound is a prototype limit; canonical formats, exactness and disjoint output requirements. No inferred native status/rounding behavior. |
+| Conversion | Selected INTEGER/REAL text conversions, nonnegative INTEGER output in bases 2..9, exact fixed-decimal REAL formatting with 0..254 fractional digits, exact XYZWPR extraction via UNPOS | Decimal INTEGER output also supports signed values. Length/precision guards, canonical formats, exactness and disjoint output requirements remain. No inferred native status/rounding behavior. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Restricted single STRING, BOOLEAN or nonnegative INTEGER request | Recorder/callback only; restricted literal STRING formats; no FILE destinations, multi-item, general REAL/negative INTEGER output or READ. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
@@ -117,6 +117,22 @@ POSITION orientation remains protected, with no source acquisition or default
 values. Exact joint copying needs no axis context; conversion procedures retain
 their existing explicit-context requirements. The full contract and unresolved
 native behavior are in [array_routine_semantics.json](semantics/array_routine_semantics.json).
+
+## INTEGER base formatting
+
+`CNV_INT_STR(source,1,base,target)` formats nonnegative INTEGER values in bases
+2..9. For example, source 42 produces ` 101010` in base 2 and ` 52` in base 8.
+Output has exactly one leading blank, no prefix and the minimal numeric digits;
+zero produces ` 0`. Decimal bases 0 and 10 retain signed-value support.
+
+Only length 1 is supported. Other widths, negative nondecimal values and valid
+bases 11..16 remain blocked pending representation, padding and digit-case
+evidence. An invalid base outside 0 or 2..16 retains the existing uninitialized
+output rule after input and length checks. Capacity overflow produces one blank
+followed by asterisks filling the caller's declared capacity. Guard failures keep
+the destination intact. These are bounded offline formatting rules, without
+native compiler or controller validation. See the authored
+[base-formatting example](../examples/integer_base_formatting.kl).
 
 ## Exact decimal formatting
 

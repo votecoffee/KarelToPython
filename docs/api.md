@@ -87,6 +87,11 @@ with `Program(write=messages.append)`, where `messages` is a list. The
 
 ## Limits
 
+`conversion_policy.format` includes nonnegative `CNV_INT_STR` bases 2..9 alongside
+signed decimal bases 0/10, with length 1. `nondecimal_format` records the numeric
+digit rule and remaining negative/alphabetic-digit restrictions. No wider field
+padding or controller representation is inferred.
+
 `conversion_policy` reports exact `CNV_REAL_STR` fixed precision in 0..254.
 That bound limits prototype formatting work. Rounding, scientific notation and
 extra minimum-width padding still reject before output mutation; the existing

@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.49.0",
+  "translator_version": "0.50.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Restricted pure-data conversion procedures with checked caller output references. Accepted source, successful conversion, Python tests and controller behavior are separate evidence. General conversion grammar, widths, bases and alarms are not authenticated.",
@@ -26,9 +26,9 @@
         667
       ],
       "documented": "INTEGER expression source; INTEGER length/base expressions; STRING output. The result holds source and at least one leading blank. Base may be 0 or 2..16, with 0 meaning decimal. Invalid length/base clears the output. Insufficient target capacity produces one blank followed by asterisks filling its declared capacity. PDF pages 422/557 use length 1 and base 10; page 667 uses length 1 and base 0 followed by SUB_STR starting at 2 to omit the leading blank.",
-      "implemented": "Length 1, matching documented manual usage; decimal bases 0/10. One leading blank followed by signed decimal digits. Capacity overflow uses a blank and asterisks instead of right truncation. A base outside 0 or 2..16 clears the output only after the supported length rule is satisfied. MAXINT may be formatted as an expression value.",
-      "restriction": "Other width/alignment/length-validity rules and valid nondecimal bases remain blocked. Signed nondecimal representation and digit case are not inferred. Input evaluation/fault ordering and PBCORE controller environment behavior remain unverified.",
-      "tests": "tests/test_text_integer_conversion.py: decimal formatting, invalid-base, capacity threshold and format guard tests"
+      "implemented": "Length 1, matching documented manual usage. Decimal bases 0/10 retain signed output. Nonnegative values in bases 2..9 produce minimal positional numeric digits with no prefix or extra zero padding. Zero has one digit. Every result starts with one blank; caller-capacity overflow produces a blank and asterisks rather than truncation. Values use the existing INTEGER expression guard, including numeric MAXINT expression formatting. At most 31 divisions are needed. Invalid bases outside 0 or 2..16 retain output clearing after the source and length checks.",
+      "restriction": "Other width/alignment/length-validity rules, negative nondecimal values and bases 11..16 remain blocked. No alphabetic digit case, negative nondecimal representation or new padding rule is inferred. This is a bounded offline interpretation of the documented base/minimum-length rules, without fresh compiler or controller formatting observations; native MAXINT special-state behavior and PBCORE setup remain unverified.",
+      "tests": "tests/test_text_integer_conversion.py; tests/test_integer_base_formatting.py: 30 checks covering every numeric-digit base, exhaustive values 0..255, powers and INTEGER expression limits, independent binary/octal formatting oracles, canonical numeric roundtrips, exact capacity markers, source/reference/effect guards and failure cleanup; examples/integer_base_formatting.kl"
     },
     {
       "feature": "CNV_STR_REAL",
@@ -73,7 +73,7 @@
   ],
   "unresolved": [
     "CNV_STR_INT whitespace, prefixes, partial parsing and general invalid/range behavior",
-    "CNV_INT_STR other widths, valid nondecimal bases, negative nondecimal representation and digit case",
+    "CNV_INT_STR other widths, valid bases 11..16, negative nondecimal representation and alphabetic digit case",
     "Special-state MAXINT conversion/storage and controller alarm behavior",
     "Argument fault/evaluation order, controller output alias rules and environment setup",
     "CNV_STR_REAL broader decimal grammar, rounding, special-state and controller fault behavior",
@@ -86,7 +86,7 @@
   "source_reference": "../references.md",
   "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N",
   "current_visual_inspection_pages": [
-    339,
-    340
+    338,
+    339
   ]
 }

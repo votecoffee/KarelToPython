@@ -1,0 +1,28 @@
+PROGRAM integer_base_formatting
+%NOLOCKGROUP
+VAR
+  numeric_bases: ARRAY[8] OF STRING[40]
+  binary: STRING[40]
+  octal,signed_decimal: STRING[16]
+  small: STRING[4]
+  observed: INTEGER
+
+ROUTINE build: ARRAY OF STRING[40]
+VAR
+  values: ARRAY[8] OF STRING[40]
+  radix: INTEGER
+BEGIN
+  FOR radix=2 TO 9 DO
+    CNV_INT_STR(42,1,radix,values[radix-1])
+  ENDFOR
+  RETURN values
+END build
+
+BEGIN
+  numeric_bases=build
+  CNV_INT_STR(42,1,2,binary)
+  CNV_INT_STR(42,1,8,octal)
+  CNV_INT_STR(-42,1,10,signed_decimal)
+  CNV_INT_STR(42,1,2,small)
+  observed=STR_LEN(numeric_bases[1])+STR_LEN(numeric_bases[8])
+END integer_base_formatting

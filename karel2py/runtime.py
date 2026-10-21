@@ -669,9 +669,19 @@ def conversion_procedure(name, source, *arguments, line=None):
     if base != 0 and not 2 <= base <= 16:
         target.clear()
         return
-    if base not in (0, 10):
-        raise KarelRuntimeError('CNV_INT_STR currently supports decimal bases 0 and 10 only', line)
-    text = ' ' + str(value)
+    if base in (0, 10):
+        text = ' ' + str(value)
+    else:
+        if base > 10:
+            raise KarelRuntimeError('CNV_INT_STR bases 11..16 need validated alphabetic digit case', line)
+        if value < 0:
+            raise KarelRuntimeError('CNV_INT_STR negative nondecimal representation needs validation', line)
+        # Nonnegative signed-32-bit values need at most 31 divisions in base 2.
+        digits, remaining = [], value
+        while remaining:
+            remaining, digit = divmod(remaining, base)
+            digits.append(str(digit))
+        text = ' ' + (''.join(reversed(digits)) or '0')
     _store_conversion_text(name, target, text, line)
 
 

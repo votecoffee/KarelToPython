@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.49.0",
+  "translator_version": "0.50.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Internal named STRUCTURE results and writable value temporaries with exact nominal identity. This is a checked offline data-copy contract, not native ABI, layout or controller-runtime authentication.",

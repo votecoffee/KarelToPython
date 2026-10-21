@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.49.0",
+  "translator_version": "0.50.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed storage contexts, ranges, SHORT sentinel and scalar argument passing. Unknown BYTE contents and checked INTEGER expression promotion are explicit offline policies. No controller initialization/layout/alias/exception observations or fresh compiler run.",
