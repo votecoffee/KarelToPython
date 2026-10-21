@@ -1,0 +1,26 @@
+PROGRAM text_formats
+VAR
+  width, digits, base, alignment, calls: INTEGER
+  label: STRING[16]
+  scientific: STRING[32]
+
+ROUTINE next_width: INTEGER
+BEGIN
+  calls=calls+1
+  RETURN width
+END next_width
+
+BEGIN
+  width=12
+  digits=-3
+  base=16
+  alignment=3
+  calls=0
+  label='O''Brien'
+  CNV_REAL_STR(123.456,width,digits,scientific)
+  WRITE('scientific=',scientific,CR)
+  WRITE('value=',123.456::next_width()::digits,', hex=',-42::8::base,CR)
+  WRITE(label::width::alignment,CR)
+  WRITE('truncated=',label::6::2,CR)
+  WRITE('natural=',label::0::2,CR)
+END text_formats
