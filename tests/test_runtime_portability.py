@@ -57,7 +57,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_position_geometry', 'CODE', 0),
                     ('pythonic_position_axes', 'CODE', 0),
                     ('pythonic_position_comparisons', 'NEAR', True),
-                    ('pythonic_wait', 'AFTER_WAIT', 3)]
+                    ('pythonic_wait', 'AFTER_WAIT', 3),
+                    ('pythonic_time_text', 'ENCODED', 1482515548)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

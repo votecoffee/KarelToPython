@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
 from copy import deepcopy
+from datetime import datetime
 import inspect
 import math
 import re
@@ -755,6 +756,50 @@ def config_text_conversion(name, source, target, status=None, *, line=None):
         return
     target.set(value, line)
     status.set(0, line)
+
+
+TIME_MONTHS = ('JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC')
+
+
+def _parse_time_text(source, line=None):
+    text = ascii_string(source, line)
+    if len(text) > 254: raise KarelRuntimeError('Time input exceeds 254 characters', line)
+    match = re.fullmatch(r'([0-9]{2})-([A-Za-z]{3})-([0-9]{4}) ([0-9]{2}):([0-9]{2})(?::([0-9]{2}))?',text.strip())
+    if not match: return 0
+    day, month, year, hour, minute, second = match.groups()
+    if month.upper() not in TIME_MONTHS: return 0
+    year, month = int(year),TIME_MONTHS.index(month.upper())+1
+    if not 1980 <= year <= 2107: return 0
+    try: stamp = datetime(year,month,int(day),int(hour),int(minute),int(second or 0))
+    except ValueError: return 0
+    packed = ((stamp.year-1980)<<25 | stamp.month<<21 | stamp.day<<16 |
+              stamp.hour<<11 | stamp.minute<<5 | stamp.second//2)
+    return packed if packed < 2**31 else packed-2**32
+
+
+def _format_time_text(source, line=None):
+    packed = integer(source,line) & 0xffffffff
+    year, month, day = 1980+(packed>>25), (packed>>21)&15, (packed>>16)&31
+    hour, minute, second = (packed>>11)&31, (packed>>5)&63, (packed&31)*2
+    try: datetime(year,month,day,hour,minute,second)
+    except ValueError: raise KarelRuntimeError('Packed time contains an invalid calendar date or clock field',line) from None
+    return f'{day:02d}-{TIME_MONTHS[month-1]}-{year:04d} {hour:02d}:{minute:02d}:{second:02d}'
+
+
+def time_text_conversion(name, source, target, line=None):
+    """Convert explicit packed time data without acquiring or setting any clock."""
+    if not _pythonic(): raise KarelRuntimeError('Time text conversion requires Pythonic mode',line)
+    if name not in ('CNV_STR_TIME','CNV_TIME_STR') or type(target) is not Reference:
+        raise KarelRuntimeError('Time conversion requires a supported procedure and ordinary writable output',line)
+    if name == 'CNV_STR_TIME':
+        if target.spec != INTEGER: raise KarelRuntimeError('CNV_STR_TIME requires INTEGER output',line)
+        target.set(_parse_time_text(source,line),line)
+    else:
+        spec = target.spec
+        if (type(spec) is not tuple or len(spec) != 2 or spec[0] != 'STRING'
+                or type(spec[1]) is not int or not 20 <= spec[1] <= 254):
+            raise KarelRuntimeError('CNV_TIME_STR requires STRING output capacity in 20..254 for complete text',line)
+        target.set(_format_time_text(source,line),line)
 
 
 def conversion_procedure(name, source, *arguments, line=None):

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.76.0 - 2026-10-21
+
+- Add Pythonic CNV_STR_TIME and CNV_TIME_STR for supplied packed date/time data,
+  using documented bit fields, Gregorian calendar checks, two-second precision
+  and signed 32-bit patterns. Parse optional seconds and write zero for invalid
+  text; emit complete fixed English text with checked output capacity.
+- Preserve argument order, prior effects, output state on errors, internal routine
+  precedence, transitive FOR protections and frame cleanup. Add independent bit
+  pattern checks, an authored example, a guide and explicit report policies.
+  Clock access and native equivalence remain unsupported; strict is future work.
+
 ## 0.75.0 - 2026-10-21
 
 - Add Pythonic WAIT FOR on supported BOOLEAN expressions, including internal

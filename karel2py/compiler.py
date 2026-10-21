@@ -172,6 +172,7 @@ CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'C
                            'CNV_REAL_STR': 'STRING'}
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
+TIME_TEXT_PROCEDURES = {'CNV_STR_TIME', 'CNV_TIME_STR'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
 # Constructors, frame helpers and pose queries are Pythonic fallbacks. Preserve internal routines and
 # ordinary declarations with these names.
@@ -824,6 +825,7 @@ class Emitter:
         self.vector_constructor_uses = []
         self.pos_constructor_uses = []
         self.config_text_uses = []
+        self.time_text_uses = []
         self.frame_operation_uses = []
         self.position_axis_uses = []
         self.position_comparison_uses = []
@@ -1311,7 +1313,7 @@ class Emitter:
                             if name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
                             if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
-                    if self.mode == 'pythonic' and call.value in CONFIG_TEXT_PROCEDURES and call.value not in self.routines:
+                    if self.mode == 'pythonic' and call.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES and call.value not in self.routines:
                         for output in call.args[1:]:
                             name = self.root_name(output)
                             if name not in local_names: routine.side_effecting = True
@@ -1635,7 +1637,7 @@ class Emitter:
             if self.active_counters and expr.value in self.routines:
                 self.check_for_call(expr.token, self.routines[expr.value])
             if (expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES
-                    or self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES and expr.value not in self.routines):
+                    or self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES and expr.value not in self.routines):
                 self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
             if expr.value in BUILTINS or (self.mode == 'pythonic' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines):
                 return self.builtin_call(expr)
@@ -1792,6 +1794,28 @@ class Emitter:
                                          argument_order=['source','target','status'] if parsing else ['source','target'],
                                          outputs=2 if parsing else 1, source_copied=not parsing))
         return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line})'
+
+    def time_text_conversion(self, expr):
+        if len(expr.args) != 2: self.error('E_ARGUMENTS', f'{expr.value} requires two arguments',expr.token)
+        self.check_for_call(expr.token)
+        parsing = expr.value == 'CNV_STR_TIME'
+        source = self.require_type(expr.args[0], 'STRING' if parsing else 'INTEGER')
+        destination = expr.args[1]
+        base = destination
+        while base.kind in ('field','index'): base = base.args[0]
+        if destination.kind not in ('name','field','index') or base.kind != 'name' or base.value in self.visible_constants():
+            self.error('E_OUTPUT_ARGUMENT','Time conversion output requires storage rooted in a variable',destination.token)
+        if base.value in self.active_counters: self.error('E_FOR_COUNTER','Time conversion cannot write an active FOR counter',destination.token)
+        if self.is_position_read_only_access(destination): self.error('E_POSITION_READ_ONLY','POSITION orientation cannot be a time conversion output',destination.token)
+        if self.is_config_subfield(destination): self.error('E_CONFIG_OUTPUT','CONFIG subfields cannot be time conversion output aliases',destination.token)
+        target, spec = self.reference(destination)
+        expected = 'INTEGER' if parsing else 'STRING'
+        if spec[0] != expected: self.error('E_TYPE',f'{expr.value} output requires {expected}',destination.token)
+        self.features.add(expr.value)
+        self.time_text_uses.append(dict(name=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                                       line=expr.token.line,column=expr.token.column,argument_order=['source','target'],
+                                       arguments_evaluated_once=True,output_type=expected))
+        return f'_rt.time_text_conversion({expr.value!r}, {source}, {target}, line={expr.token.line})'
 
     def joint_conversion(self, expr):
         if len(expr.args) != 3:
@@ -2383,6 +2407,9 @@ class Emitter:
             self.indent -= 2
         elif kind == 'call':
             expr = stmt.args[0]
+            if self.mode == 'pythonic' and expr.value in TIME_TEXT_PROCEDURES and expr.value not in self.routines:
+                self.line(self.time_text_conversion(expr), token)
+                return
             if self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES and expr.value not in self.routines:
                 self.line(self.config_text_conversion(expr), token)
                 return
@@ -2778,6 +2805,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         vector_constructors=emitter.vector_constructor_uses,
         pos_constructors=emitter.pos_constructor_uses,
         config_text_conversions=emitter.config_text_uses,
+        time_text_conversions=emitter.time_text_uses,
         frame_operations=emitter.frame_operation_uses,
         position_axis_queries=emitter.position_axis_uses,
         position_comparisons=emitter.position_comparison_uses,
@@ -2932,6 +2960,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['time_text_policy'] = dict(
+        procedures=sorted(TIME_TEXT_PROCEDURES),
+        grammar='ASCII DD-MMM-YYYY HH:MM[:SS], fixed English months case-insensitive, outer whitespace allowed; omitted seconds zero; Gregorian dates in 1980..2107; invalid text writes INTEGER zero',
+        packing='GET_TIME table: year since 1980 in bits 31..25, month 24..21, day 20..16, hour 15..11, minute 10..5, two-second increments 4..0; floor odd seconds; signed 32-bit bit-pattern representation',
+        formatting='Canonical 20-character DD-MMM-YYYY HH:MM:SS, uppercase English months independent of locale; reject invalid packed fields and output capacity below 20 before writing',
+        evaluation='Capture source then writable target once left-to-right; convert after argument capture; retain prior effects on errors; ordinary initialization, FOR, CONFIG/POSITION and frame protections',
+        names='Pythonic fallback procedures; explicit internal routines retain signatures/effects and ordinary variables remain usable',
+        boundary='Pure data only; no GET_TIME/SET_TIME, timezone, host/controller clock access, native odd-second/format/invalid-packed equivalence or controller acceptance; strict remains future work',
+        controller_validated=False)
     report['wait_policy'] = dict(
         syntax='WAIT FOR one supported BOOLEAN expression; existing AND/OR short-circuit rules and ordinary expression/routine effects',
         evaluation='Evaluate once per check until true; no yield after a true check; after each false check call the existing synchronous sleep callback with 0.0 seconds',

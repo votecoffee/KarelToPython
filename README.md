@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.75.0**. It is a
+tool are named **karel2py**. The current implementation is **0.76.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -187,6 +187,10 @@ angle and CONFIG tolerances. See [position comparisons](docs/position-comparison
 Boolean `WAIT FOR` rechecks its condition with host yields and the ordinary
 execution step budget. See [Boolean waits](docs/boolean-waits.md).
 
+CNV_STR_TIME and CNV_TIME_STR convert supplied packed date/time values and
+complete English text, with checked calendars and two-second precision.
+See [time text](docs/time-text.md) for the format and signed bit representation.
+
 ENVIRONMENT, COMMENT and ALPHABETIZE directives are retained as checked metadata
 alongside NOLOCKGROUP. Environment requirements are recorded without loading
 definitions or enabling extra facilities. See [source directives](docs/source-directives.md).
@@ -217,6 +221,7 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
 - Approximate POSITION/XYZWPR comparison with explicit per-instance tolerances.
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
+- Packed date/time text conversion with checked calendars and complete outputs.
 - Source directive metadata for environment requirements, comments and display order.
 - Rounded fixed/scientific REAL text formatting with precision -254..254,
   minimum-width padding and caller-capacity overflow markers.

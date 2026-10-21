@@ -1,0 +1,12 @@
+PROGRAM PYTHONIC_TIME_TEXT
+%ENVIRONMENT TIM
+VAR encoded,bad,epoch: INTEGER text,epoch_text: STRING[20]
+BEGIN
+  CNV_STR_TIME('29-FEB-2024 12:34:57',encoded)
+  CNV_TIME_STR(encoded,text)
+  CNV_STR_TIME('01-JAN-1980 00:00',epoch)
+  CNV_TIME_STR(epoch,epoch_text)
+  CNV_STR_TIME('31-APR-2024 00:00:00',bad)
+  WRITE(text,CR)
+  WRITE('epoch=',epoch_text,', invalid=',bad::0,CR)
+END PYTHONIC_TIME_TEXT

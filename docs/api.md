@@ -53,6 +53,8 @@ independent writable VECTOR results. Internal routines keep their own signatures
 `Program(pose_tolerance=(location_mm, orientation_deg, check_config))` context.
 [Boolean waits](boolean-waits.md) add `waits` and `wait_policy` for repeated
 BOOLEAN checks, zero-second host yields and the normal execution step budget.
+[Time text](time-text.md) adds `time_text_conversions` and `time_text_policy` for
+supplied packed dates, exact output types, complete formatting and capture order.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode

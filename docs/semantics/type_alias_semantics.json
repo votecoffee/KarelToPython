@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.75.0",
+  "translator_version": "0.76.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Chosen transparent TYPE aliases and bounded STRING alias parameters; offline execution only",

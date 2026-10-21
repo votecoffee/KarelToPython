@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.76.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Pure CNV_STR_TIME and CNV_TIME_STR on supplied packed date/time data",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [342, 343, 415, 552, 553],
+    "documented": "Conversion signatures, optional seconds defaulting to zero, invalid text writing zero, and GET_TIME table fields with year since 1980 and two-second increments",
+    "uncertainty": "Printed year width and CNV_TIME_STR format are inconsistent; SET_TIME detail ranges disagree with its table; native odd-second, locale, whitespace and invalid-packed behavior are unauthenticated"
+  },
+  "implementation_choices": {
+    "grammar": "ASCII DD-MMM-YYYY HH:MM[:SS], exact digit widths, case-insensitive English months, outer whitespace, Gregorian dates in 1980..2107; invalid text writes zero",
+    "packing": "GET_TIME table: year since 1980 bits 31..25, month 24..21, day 20..16, hour 15..11, minute 10..5, second/2 rounded down 4..0",
+    "integer": "Reinterpret the packed 32-bit word as signed INTEGER; negative patterns for 2044 onward; signed numeric ordering across that boundary is not chronological",
+    "format": "Complete 20-character DD-MMM-YYYY HH:MM:SS with uppercase English months independent of locale; no timezone or epoch conversion",
+    "outputs": "Exact INTEGER or ordinary writable STRING with concrete capacity 20..254; validate before writing; no truncation or overflow marker; invalid decoded fields raise",
+    "effects": "Capture source value then target reference once; convert after captures; retain prior effects on error; direct/transitive FOR protection and ordinary frame cleanup",
+    "names": "Pythonic fallback procedures preserve internal routines, results/effects and ordinary declarations; legacy internal mode retains unsupported calls",
+    "reports": "Source-located time_text_conversions and explicit time_text_policy"
+  },
+  "retained_boundaries": [
+    "No GET_TIME, SET_TIME, host/controller clock access, timezone, locale discovery or native chronological ordering claim",
+    "No controller contact, native format/odd-second/invalid-packed equivalence or runtime acceptance",
+    "Ordinary initialization, signed integer ranges, ASCII/capacities, CONFIG/POSITION reference checks and resource limits; strict remains future work"
+  ],
+  "tests": ["tests/test_time_text.py", "tests/test_runtime_portability.py", "examples/pythonic_time_text.kl"],
+  "controller_validated": false
+}

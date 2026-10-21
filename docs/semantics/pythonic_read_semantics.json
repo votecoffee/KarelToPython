@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.75.0",
+  "translator_version": "0.76.0",
   "read_format_mode_note": "Current widths, bases, quoted STRINGs and dynamic formats follow ../read-formats.md; earlier format exclusions below describe the preceding typed/text adapter boundaries.",
   "text_input_mode_note": "Current TextInput parsing, CR and --read-text follow ../text-input.md; earlier CR/text exclusions below describe the 0.63 typed-adapter boundary.",
   "date": "2026-10-21",
