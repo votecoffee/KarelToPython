@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.70.0. Acceptance is specific to
+This is the supported prototype subset as of 0.71.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -27,7 +27,8 @@ internally and in the historical semantic notes.
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no ABI claim. |
 | TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases, local TYPE or external FROM types. BYTE/SHORT remain element/field-only. |
 | USING | Nested lexical scopes, named STRUCTURE variables and dotted selectors; inner/right-most field priority | Fields shadow constants; calls use call context. No indexed/call/grouped selectors, builtin record selectors, field FOR counters or dynamic caller scope. |
-| Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown and remains recursively read-only; no implicit orientation conversion or robot defaults. |
+| Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
+| POSITION conversion | Whole assignments between XYZWPR and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; exact interfaces and whole-array types; no other positional conversion or automatic geometry operand coercion. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
 | VECTOR | VEC construction, unary signs, checked float arithmetic, scaling, left-associated cross/dot products, equality and routine values | Initialized finite components; parentheses override association; explicit internal VEC routines retain precedence. Zero/parallel cross products allowed. No frame transforms or kinematics. |
 | Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
@@ -56,6 +57,7 @@ See [CONFIG text](config-text.md) for portable parsing, formatting, status and c
 See [source directives](source-directives.md) for metadata syntax, placement and environment boundaries.
 See [frame transforms](frame-transforms.md) for composition, inversion and portable angle/configuration policies.
 See [frame construction](frame-construction.md) for point-defined axes, spacing and optional origin.
+See [POSITION conversions](position-conversions.md) for whole assignments, matrix checks and orientation protection.
 
 ## Zero-argument function calls
 

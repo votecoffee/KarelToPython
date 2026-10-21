@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.70.0",
+  "translator_version": "0.71.0",
+  "position_conversion_mode_note": "Pythonic whole-value POSITION/XYZWPR assignments follow ../position-conversions.md; older blanket assignment/initialization exclusions below remain for the future strict milestone. Other positional types, exact routine interfaces and geometry operand checks retain their boundaries.",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "POS fallback construction of independent checked XYZWPR values",

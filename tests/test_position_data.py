@@ -1,7 +1,7 @@
-"""POSITION access protection and XYZWPREXT data, without frame conversions.
+"""POSITION access protection and XYZWPREXT data.
 
 Seeded orientation tests use an explicit synthetic host fixture solely to check
-protection/copy behavior. No source constructor or controller data is inferred.
+protection/copy behavior. Source assignment conversion has separate coverage.
 """
 import json
 from pathlib import Path
@@ -12,13 +12,14 @@ import unittest
 
 from karel2py import translate,runtime as rt
 from karel2py.lexer import TranslationError
+from tests.legacy_numeric_support import translate as legacy_translate
 from tests.test_data_records import init_config,init_pose
 
 ROOT=Path(__file__).resolve().parents[1]
 
 
-def compile_program(body='',*,declarations='p,q: POSITION\next,other: XYZWPREXT\nv: VECTOR\nresult: REAL\nflag: BOOLEAN',prefix='',routines=''):
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='position_data.kl')
+def compile_program(body='',*,declarations='p,q: POSITION\next,other: XYZWPREXT\nv: VECTOR\nresult: REAL\nflag: BOOLEAN',prefix='',routines='',translator=translate):
+    result=translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='position_data.kl')
     namespace={'__name__':'position_test'}
     exec(result.python_source,namespace)
     return namespace['Program'](),result
@@ -147,7 +148,7 @@ class PositionGuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.token.line,11)
     def test_group_qualifier_still_blocked(self): self.reject(code='E_POSITION_GROUP',declarations='p: POSITION IN GROUP[1]')
     def test_cross_type_conversion_still_blocked(self): self.reject('p=ext',code='E_TYPE')
-    def test_position_constructor_not_synthesized(self): self.reject('p=POS(0,0,0,0,0,0,ext.config_data)',code='E_TYPE')
+    def test_legacy_position_conversion_stays_blocked(self): self.reject('p=x',code='E_TYPE',declarations='p: POSITION x: XYZWPR',translator=legacy_translate)
     def test_whole_uninit_still_blocked(self): self.reject('flag=UNINIT(p)',code='E_TYPE')
     def test_position_using_still_blocked(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE')
     def test_partial_position_copy_guard_preserves_destination(self):

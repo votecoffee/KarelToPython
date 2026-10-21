@@ -1,0 +1,28 @@
+{
+  "translator_version": "0.71.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Whole-value POSITION/XYZWPR assignment conversion using explicit checked geometry",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [79, 481],
+    "documented": "Positional types can be assigned across representations; POSITION contains read-only NORMAL/ORIENT/APPROACH vectors and writable LOCATION/CONFIG data",
+    "uncertainty": "Native conversion arithmetic, matrix tolerances, Euler conventions and other positional/group/kinematic mappings remain unverified"
+  },
+  "implementation_choices": {
+    "assignment": "Only exact POSITION/XYZWPR whole-value pairs, including aliases, fields/elements and explicitly typed RHS results; parameters, RETURN and whole arrays keep exact type requirements",
+    "mapping": "NORMAL/ORIENT/APPROACH are X/Y/Z rotation columns under the portable Rz(r) Ry(p) Rx(w) convention; LOCATION is XYZ; copy CONFIG independently",
+    "matrix": "Complete finite POSITION; column norms within 1e-9 of one, pairwise dot products within 1e-9 of zero and determinant within 1e-9 of +1; no inferred columns or matrix repair",
+    "angles": "Reverse conversion uses frame_transform_semantics.json canonical/gimbal Euler policy; finite locations without POS constructor coordinate bounds",
+    "protection": "POSITION orientation starts unknown; explicit conversion initializes it while retaining recursive read-only fields; detached VECTOR copies remain writable",
+    "effects": "Evaluate and convert once before target expressions; preserve source effects and destination on conversion failure; stable existing destination storage and ordinary FOR/frame cleanup",
+    "reports": "Source-located position_conversions with source/target type and target kind, plus current position_conversion_policy; exact copies are not conversion sites"
+  },
+  "retained_boundaries": [
+    "No other positional/ARRAY/interface coercion, cast-call syntax or automatic FRAME/INV/UNPOS/colon operand conversion",
+    "No direct POSITION orientation writes, orientation defaults, controller context, external axes, native kinematics or configuration inference",
+    "Strict remains future work; independent quaternion and fixture checks establish offline geometry only"
+  ],
+  "tests": ["tests/test_position_conversions.py", "tests/test_position_data.py", "tests/test_runtime_portability.py", "examples/pythonic_position_conversions.kl"],
+  "controller_validated": false
+}

@@ -73,6 +73,7 @@ are kept outside public documentation.
 | Source directive metadata | [directive_semantics.json](directive_semantics.json) |
 | XYZWPR frame transforms | [frame_transform_semantics.json](frame_transform_semantics.json) |
 | Point-defined FRAME | [frame_constructor_semantics.json](frame_constructor_semantics.json) |
+| POSITION/XYZWPR conversion | [position_conversion_semantics.json](position_conversion_semantics.json) |
 | String | [string_semantics.json](string_semantics.json) |
 | String value | [string_value_semantics.json](string_value_semantics.json) |
 | Structure routine | [structure_routine_semantics.json](structure_routine_semantics.json) |

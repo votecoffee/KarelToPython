@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.71.0 - 2026-10-21
+
+- Add Pythonic whole-value POSITION/XYZWPR assignment conversion, initializing
+  protected matrix columns from explicit XYZWPR and extracting canonical Euler
+  values from complete proper POSITION matrices. Copy location/CONFIG data and
+  retain read-only orientation, independent values and stable target storage.
+- Validate finite complete shapes, unit/orthogonal columns and determinant +1
+  with an explicit 1e-9 tolerance. Convert before destination evaluation; retain
+  prior effects, skip target effects on failure and preserve FOR/frame cleanup.
+  Add source-located conversion entries and a current conversion policy.
+- Add 47 regressions, independent quaternion checks, an authored conversion/copy
+  example, runtime-only portability and a representation guide. Routine interfaces,
+  whole arrays, geometry operands and other positional types retain their checks.
+  Strict remains future work; no native/controller or kinematic equivalence claim.
+
 ## 0.70.0 - 2026-10-21
 
 - Add Pythonic FRAME with three or four complete XYZWPR points, right-handed

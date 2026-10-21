@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.70.0**. It is a
+tool are named **karel2py**. The current implementation is **0.71.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -175,6 +175,8 @@ Explicit XYZWPR poses also support `a:b` composition and `INV(a)` inversion
 with a documented offline angle convention. See [frame transforms](docs/frame-transforms.md).
 `FRAME` builds a right-handed XYZWPR frame from three or four explicit points.
 See [frame construction](docs/frame-construction.md) for spacing and origin rules.
+Whole assignments convert between XYZWPR and POSITION, initializing protected
+orientation vectors from explicit poses. See [POSITION conversions](docs/position-conversions.md).
 
 ENVIRONMENT, COMMENT and ALPHABETIZE directives are retained as checked metadata
 alongside NOLOCKGROUP. Environment requirements are recorded without loading
@@ -201,6 +203,7 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 - CONFIG text parsing/formatting, with checked complete outputs and portable status.
 - Explicit XYZWPR frame composition and inversion, with independent CONFIG copies.
 - Three/four-point FRAME construction with checked geometry and an optional origin.
+- POSITION/XYZWPR assignment conversion with checked orientation matrices.
 - Source directive metadata for environment requirements, comments and display order.
 - Rounded fixed/scientific REAL text formatting with precision -254..254,
   minimum-width padding and caller-capacity overflow markers.

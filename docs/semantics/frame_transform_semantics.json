@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.70.0",
+  "translator_version": "0.71.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Explicit XYZWPR relative composition and INV inversion with portable rigid geometry",

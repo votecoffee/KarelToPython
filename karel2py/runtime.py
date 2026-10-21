@@ -1084,6 +1084,35 @@ def _frame_result(rotation, translation, config, line=None):
     return result
 
 
+def convert_position(target, value, line=None):
+    """Convert explicit POSITION/XYZWPR assignment values without robot context."""
+    if not _pythonic(): raise KarelRuntimeError('Positional conversions require Pythonic mode', line)
+    if not isinstance(value, Structure): raise KarelRuntimeError('Positional conversion requires a complete pose', line)
+    if target == ('POSITION',) and value.spec == ('XYZWPR',):
+        rotation, location, config = _frame_parts(value, line)
+        result = Structure(('POSITION',))
+        for column, name in enumerate(POSITION_READ_ONLY_FIELDS):
+            result.values[name].values.update(zip(('X','Y','Z'), (real(rotation[row][column], line) for row in range(3))))
+        result.values['LOCATION'].values.update(zip(('X','Y','Z'), location))
+        result.values['CONFIG_DATA'] = positional_value(('CONFIG',), config, line)
+        return result
+    if target != ('XYZWPR',) or value.spec != ('POSITION',):
+        raise KarelRuntimeError('Only POSITION/XYZWPR assignment conversions are supported', line)
+    position = positional_value(('POSITION',), value, line)
+    columns = [tuple(position.values[name].values[axis] for axis in ('X','Y','Z')) for name in POSITION_READ_ONLY_FIELDS]
+    tolerance = 1e-9
+    if any(abs(math.hypot(*column)-1.0) > tolerance for column in columns):
+        raise KarelRuntimeError('POSITION orientation requires unit columns', line)
+    if any(abs(sum(a*b for a,b in zip(columns[i],columns[j]))) > tolerance for i,j in ((0,1),(0,2),(1,2))):
+        raise KarelRuntimeError('POSITION orientation requires orthogonal columns', line)
+    a,b,c = columns
+    determinant = sum(a[i]*(b[j]*c[k]-b[k]*c[j]) for i,j,k in ((0,1,2),(1,2,0),(2,0,1)))
+    if abs(determinant-1.0) > tolerance:
+        raise KarelRuntimeError('POSITION orientation requires a right-handed basis', line)
+    return _frame_result(tuple(zip(*columns)), tuple(position.values['LOCATION'].values[axis] for axis in ('X','Y','Z')),
+                         position.values['CONFIG_DATA'], line)
+
+
 def frame_from_points(arguments, line=None):
     """Construct a right-handed explicit XYZWPR from three/four complete poses."""
     if not _pythonic(): raise KarelRuntimeError('FRAME requires Pythonic mode', line)

@@ -819,6 +819,7 @@ class Emitter:
         self.pos_constructor_uses = []
         self.config_text_uses = []
         self.frame_operation_uses = []
+        self.position_conversion_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -2072,7 +2073,14 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
-            if not self.compatible(target_type, value_type):
+            if (self.mode == 'pythonic' and (target_type, value_type) in
+                    ((('POSITION',), ('XYZWPR',)), (('XYZWPR',), ('POSITION',)))):
+                value = f'_rt.convert_position({target_type!r}, {value}, {line})'
+                self.features.add('POSITION/XYZWPR assignment conversion')
+                self.position_conversion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                          line=line, column=token.column, source_type=value_type[0], target_type=target_type[0],
+                                                          target_kind=target.kind, evaluated_once=True, independent_value=True))
+            elif not self.compatible(target_type, value_type):
                 self.error('E_TYPE', f'Cannot assign {value_type} to {target_type}', token)
             result_expr = expr
             if self.mode == 'pythonic':
@@ -2695,6 +2703,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         pos_constructors=emitter.pos_constructor_uses,
         config_text_conversions=emitter.config_text_uses,
         frame_operations=emitter.frame_operation_uses,
+        position_conversions=emitter.position_conversion_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -2844,6 +2853,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['position_conversion_policy'] = dict(
+        scope='Whole-value assignments between exact POSITION and XYZWPR only; variables, fields, elements and compatible explicit RHS results; not automatic parameter/RETURN or whole-array coercion',
+        mapping='NORMAL/ORIENT/APPROACH are X/Y/Z rotation columns; LOCATION is XYZ; copy CONFIG independently; use frame_policy Z-Y-X and canonical Euler choices',
+        matrix='Require complete finite POSITION with unit column norms, pairwise orthogonal columns and determinant +1, each within absolute tolerance 1e-9; no inferred axes or matrix repair',
+        ownership='Compute/copy complete conversion before target evaluation; stable destination storage and recursively read-only POSITION orientation; prior effects retained and no assignment on conversion failure',
+        boundary='No POSITION/XYZWPR constructor cast syntax, other positional conversions, external axes, joint kinematics, native tolerance/angle/configuration equivalence or controller context; strict remains future work',
+        controller_validated=False)
     report['frame_policy'] = dict(
         operands='Explicit complete XYZWPR values only; relative : composes left frame with right local pose; INV reverses a pose; FRAME constructs a frame from three or four points as a Pythonic fallback',
         rotation='Column vectors with Rz(r) Ry(p) Rx(w), degree angles reduced modulo 360 before trig; rounded Python float arithmetic',
@@ -2927,7 +2943,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         argument_order=['x', 'y'], result='math.degrees(math.atan2(y, x)), in -180..180',
         coordinates='Finite floats in all quadrants', origin='Explicit undefined-domain error', controller_validated=False)
     report['data_record_policy']['values'] = 'Finite Python float REAL components; existing CONFIG turn/BOOLEAN checks'
-    report['positional_routine_policy']['boundary'] = 'No controller ABI, native kinematics, implicit positional conversion or orientation defaults; explicit XYZWPR transforms follow frame_policy'
+    report['data_record_policy']['position_initialization'] = 'No orientation defaults; explicit XYZWPR whole-value assignments can initialize POSITION through position_conversion_policy'
+    report['data_record_policy']['boundary'] = 'POSITION/XYZWPR assignment conversion only; no other positional coercion, implicit group/frame context, builtin USING, POSITION geometry operators, record I/O, registers or motion'
+    report['positional_routine_policy']['boundary'] = 'Exact parameter/RETURN types; whole assignments follow position_conversion_policy; no controller ABI, native kinematics or orientation defaults; explicit XYZWPR transforms follow frame_policy'
     report['vector_routine_policy']['boundary'] = 'VECTOR copying supplies no frame context; VECTOR transforms, implicit positional conversion and native runtime equivalence remain unsupported'
     report['vector_policy'].update(
         scaling='Finite Python floats; division requires nonzero denominators',
@@ -2943,7 +2961,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         coordinates='Six finite Python numeric values; INTEGER/BYTE/SHORT promoted to REAL; x/y/z in -10000000..10000000 mm, w/p/r in -180..180 degrees',
         configuration='Exact complete CONFIG shape, initialized checked fields and existing turn range -8..7; copied without robot-specific validity inference',
         evaluation='Evaluate arguments once left to right before constructor-specific bounds/config checks; ordinary expression failures stop later expressions; no destination write on failure',
-        boundary='No implicit CONFIG, group/frame/robot context, POSITION/XYZWPREXT coercion, orientation conversion, kinematics, native pause/status or controller validity claim',
+        boundary='POS returns exact XYZWPR; subsequent whole assignments follow position_conversion_policy; no implicit CONFIG, group/frame/robot context, XYZWPREXT coercion, kinematics, native pause/status or controller validity claim',
         controller_validated=False)
     report['config_text_policy'] = dict(
         procedures=sorted(CONFIG_TEXT_PROCEDURES),

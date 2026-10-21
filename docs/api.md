@@ -39,6 +39,9 @@ XYZWPR composition/inversion and `frame_policy` for Euler conventions,
 configuration handling, capture order and retained controller boundaries.
 FRAME construction also records one-based `origin_argument` and three/four operand
 types in those entries. See [frame construction](frame-construction.md).
+[POSITION conversions](position-conversions.md) add `position_conversions` entries
+and `position_conversion_policy` for whole assignments, matrix tolerance and
+read-only orientation protection. Routine interfaces retain exact types.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode

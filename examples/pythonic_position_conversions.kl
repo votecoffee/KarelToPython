@@ -1,0 +1,15 @@
+PROGRAM PYTHONIC_POSITION_CONVERSIONS
+%ENVIRONMENT SYSTEM
+VAR cfg: CONFIG code: INTEGER pose,restored: XYZWPR
+p: POSITION normal: VECTOR
+BEGIN
+  CNV_STR_CONF('N R U T, 0, 0, 0',cfg,code)
+  pose=POS(10,20,30,0,0,90,cfg)
+  p=pose
+  p.location.x=12
+  p.config_data.cfg_left=TRUE
+  normal=p.normal
+  restored=p
+  WRITE('normal=',normal.x::0::1,',',normal.y::0::1,CR)
+  WRITE('restored=',restored.x::0::1,CR)
+END PYTHONIC_POSITION_CONVERSIONS
