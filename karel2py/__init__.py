@@ -1,6 +1,6 @@
 """KAREL source conversion prototype; no robot connection is created."""
 
-__version__ = "0.45.0"
+__version__ = "0.46.0"
 
 
 def translate(source, *, filename="<input>", array_shapes=None):

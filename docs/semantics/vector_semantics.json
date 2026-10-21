@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.45.0",
+  "translator_version": "0.46.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Initialized VECTOR algebra in the exact binary32 subset. These rules do not establish controller numeric rounding, frame transforms, units, kinematics or runtime equivalence.",

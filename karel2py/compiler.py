@@ -872,12 +872,16 @@ class Emitter:
                     result_token = element[1]
                     definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
                     if definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
-                        self.error('E_TYPE', 'Named STRUCTURE result elements must be declared before the routine', result_token)
+                        self.error('E_TYPE', 'Named result element types must be declared before the routine', result_token)
                 routine.return_type = self.resolve_spec(routine.return_type)
                 element = routine.return_type[2]
-                if element[0] not in (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS') or element[0] == 'STRING':
-                    self.error('E_RETURN_TYPE', 'ARRAY result elements cannot be named ARRAYs, STRINGs or unsupported types', routine.token)
-                self.features.add('1D aggregate ARRAY function result' if element[0] in (*RECORD_TYPES, 'JOINTPOS') else '1D scalar ARRAY function result')
+                leaf = rt.array_leaf_spec(element) if element[0] == 'ARRAY' else element
+                if leaf[0] not in (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS') or leaf[0] == 'STRING':
+                    self.error('E_RETURN_TYPE', 'ARRAY result terminal elements require supported scalars, records or exact-width joints; STRING elements remain blocked', routine.token)
+                if element[0] == 'ARRAY':
+                    self.features.add('named-component ARRAY function result')
+                else:
+                    self.features.add('1D aggregate ARRAY function result' if element[0] in (*RECORD_TYPES, 'JOINTPOS') else '1D scalar ARRAY function result')
             if routine.return_type and routine.return_type[0] in POSITIONAL_VALUE_TYPES:
                 self.features.add('exact positional function result')
             if routine.return_type and routine.return_type[0] == 'NAMED':
@@ -1802,10 +1806,12 @@ class Emitter:
                     source = expr
                     while source.kind == 'group': source = source.args[0]
                     if (source.kind not in ('name','field','index') or value_type[0] != 'ARRAY'
-                            or rt.array_identity(value_type) is not None or len(rt.array_dimensions(value_type)) != 1):
-                        self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires anonymous one-dimensional array storage; function results and named arrays remain blocked', expr.token)
+                            or rt.array_identity(value_type) is not None or len(rt.array_shape(value_type)) != 1
+                            or value_type[2] != spec[2]):
+                        self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires anonymous storage with one outer dimension and the declared exact element type; named outer arrays and flat multidimensional storage remain blocked', expr.token)
                     self.array_return_uses.append(dict(routine=self.current_routine.name, element_type=spec[2][0], element_spec=spec[2], line=line,
                                                        column=token.column, expression_kind=expr.kind,
+                                                       logical_rank=len(rt.array_dimensions(spec)),
                                                        independent_copy=True, initialized_elements_required=True))
                     self.line(f'return _rt.array_result({spec!r}, {value}, {line})', token)
                 elif spec == ('VECTOR',):
@@ -1965,14 +1971,15 @@ def translate(source, *, filename='<input>', array_shapes=None):
                           boundary='No general ATAN2 range/rounding, signed-zero quadrant inference, frame/pose construction, robot context or controller numeric/alarm equivalence',
                           controller_validated=False),
         atan2_uses=emitter.atan2_uses,
-        array_routine_policy=dict(results='Internal unsized ARRAY OF INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior named STRUCTURE, data record or exact-width JOINTPOS; one-dimensional anonymous concrete source storage only',
+        array_routine_policy=dict(results='Internal unsized anonymous outer ARRAY with INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior named STRUCTURE, data record, exact-width JOINTPOS or prior named ARRAY elements; one outer dimension and at most three logical dimensions',
                                    returns='Every scalar leaf initialized/checked; independent recursive copy before frame cleanup; 32767 prototype scalar-leaf limit',
                                    narrow_elements='BYTE 0..255 must be known; SHORT -32768..32766 must be initialized; 32767 remains the SHORT uninitialized marker; no whole-array element coercion',
                                    aggregate_elements='Exact named STRUCTURE identity, concrete nested shapes/STRING capacities, CONFIG checks and joint widths retained; POSITION orientation protection retained; no acquired/default robot state',
+                                   named_components='Every inner ARRAY component is a prior named fixed type; exact identity, shape and terminal type retained without flattening; terminal STRING arrays remain blocked',
                                    use='Explicit function() call only, as the complete right side of direct assignment; no grouping of a call, passing to another routine, built-in consumption or direct RETURN forwarding',
                                    destinations='Existing exact concrete array type/length checks; no resizing, conversion, flattening or copy-back; stable captured element references',
                                    references='Whole ARRAY reference arguments remain supported; whole ARRAY value arguments remain prohibited',
-                                   boundary='Named outer ARRAY types, multidimensional results, STRING or named-ARRAY elements, unknown leaves, bare function-name calls, external routines and native runtime/ABI behavior remain unsupported',
+                                   boundary='Named outer ARRAY types, flat multidimensional result sources/declarations, STRING terminal elements, unknown leaves, bare function-name calls, external routines and native runtime/ABI behavior remain unsupported',
                                    controller_validated=False),
         array_returns=emitter.array_return_uses, array_result_assignments=emitter.array_result_assignments,
         literal_policy=dict(apostrophes='A doubled source apostrophe inside one quoted STRING decodes to one logical apostrophe',
@@ -2067,7 +2074,7 @@ def translate(source, *, filename='<input>', array_shapes=None):
                                 parameters='Same named type by reference; anonymous rank-matched ARRAY formals retain concrete caller identity',
                                 assignment='Same named type; unknown generic formal identities are checked before copying at runtime',
                                 aliases='Scalar aliases, aliases to existing type names and inline anonymous nested ARRAY syntax remain blocked',
-                                results='Named ARRAY function results remain blocked', controller_validated=False),
+                                results='Named outer ARRAY function result types remain blocked; named inner ARRAY elements are supported in unsized anonymous results', controller_validated=False),
         named_array_types={name: spec for name, spec in emitter.user_types.items() if spec[0] == 'ARRAY'},
         subarray_policy=dict(selection='Comma-separated prefix ending at a separately named ARRAY type boundary',
                              total_logical_rank=3, ownership='Captured references into stable existing storage; copies are independent',
@@ -2153,7 +2160,7 @@ def translate(source, *, filename='<input>', array_shapes=None):
         limitations=['Offline subset; no controller behavior validation',
                      'WRITE accepts one STRING with checked literal formats or one unformatted BOOLEAN/nonnegative INTEGER with exactly one leading blank; BOOLEAN/INTEGER formats, negative INTEGER/REAL output, direct BYTE/SHORT items, quoted truncation/fallback/apostrophes, signed widths, device/stdout mapping, buffering, CR and IO_STATUS remain blocked',
                      'DELAY uses checked host time.sleep or an injected synchronous sleeper; controller timing, motion, pause and abort behavior remain unverified; step budget is not a wall-clock limit',
-                     'Named arrays/subarrays retain nominal identity and at most three logical dimensions; scalar/type aliases, anonymous inline nested ARRAY syntax and named ARRAY function results remain blocked',
+                     'Named arrays/subarrays retain nominal identity and at most three logical dimensions, including named inner ARRAY result elements; scalar/type aliases, anonymous inline nested ARRAY syntax and named outer ARRAY function results remain blocked',
                      'CNV_STR_INT accepts canonical signed decimal or alphabetic-only invalid text; other grammar/range cases are blocked',
                      'CNV_INT_STR accepts decimal base 0/10 with length 1; valid other bases/widths are blocked and invalid bases clear output',
                      'Conversion outputs require exact writable INTEGER/STRING storage; argument user calls and active counter writes are blocked',

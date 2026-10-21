@@ -173,8 +173,8 @@ class AggregateArrayRejectionTests(unittest.TestCase):
             translate('PROGRAM T ROUTINE make: ARRAY OF later_t BEGIN END make TYPE later_t=STRUCTURE n: INTEGER ENDSTRUCTURE BEGIN END T')
         self.assertEqual(caught.exception.code,'E_TYPE')
 
-    def test_named_array_elements_remain_blocked(self):
-        self.reject('E_RETURN_TYPE',routines='ROUTINE make: ARRAY OF row_t BEGIN END make')
+    def test_named_array_result_type_remains_blocked(self):
+        self.reject('E_RETURN_TYPE',routines='ROUTINE make: row_t BEGIN END make')
 
     def test_fixed_and_wildcard_result_sizes_remain_blocked(self):
         for dimensions in ('[1]','[*]','[*,*]'):

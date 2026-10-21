@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.45.0. Acceptance is specific to
+This is the supported prototype subset as of 0.46.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -19,7 +19,7 @@ rules, implemented restrictions and unresolved native behavior.
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
 | Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference formals and named subarrays | Prototype bound of 32767 scalar leaves; whole-array value arguments prohibited; nominal identity and exact shape are retained. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
-| ARRAY results | Unsized anonymous 1D scalar, prior named STRUCTURE, built-in record and exact-width JOINTPOS results; independent recursive copies | Every scalar leaf known/initialized; explicit call only as complete direct-assignment RHS. Named outer ARRAYs, multidimensional results and STRING/named-ARRAY elements remain blocked. |
+| ARRAY results | Unsized anonymous outer ARRAY with scalar, prior named STRUCTURE, built-in record, exact-width JOINTPOS or prior named ARRAY elements; logical rank up to three | Every scalar leaf known/initialized; explicit call only as complete direct-assignment RHS. One outer dimension; exact inner component names/shapes. Named outer results, flat multidimensional sources and terminal STRING arrays remain blocked. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no type aliases or ABI claim. |
 | USING | Restricted bare structure selectors and field priority | Lexical scope; no complex selector expressions or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
@@ -34,8 +34,9 @@ rules, implemented restrictions and unresolved native behavior.
 
 Internal functions may return arrays of INTEGER/BOOLEAN/REAL/BYTE/SHORT, prior
 named STRUCTURE types, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION, or JOINTPOS1..9.
-Unsuffixed JOINTPOS means nine axes. The outer result is anonymous and unsized;
-its actual one-dimensional length comes from the returned storage.
+Unsuffixed JOINTPOS means nine axes. Elements may also be prior named fixed ARRAY
+types, with at most three logical dimensions across the result. The outer result
+is anonymous and unsized; its single outer length comes from the returned storage.
 
 ```karel
 PROGRAM ARRAY_RECORDS
@@ -52,6 +53,19 @@ BEGIN
   entries=make()
 END ARRAY_RECORDS
 ```
+
+For a matrix, declare `TYPE row_t=ARRAY[2] OF INTEGER`, then use
+`ROUTINE make: ARRAY OF row_t` and return local storage declared
+`values: ARRAY[2] OF row_t`. A prior named plane type can supply the inner two
+dimensions of a three-dimensional result. Each ARRAY component retains its exact
+declared type and fixed shape. See the complete authored
+[named-component example](../examples/named_component_array_functions.kl).
+
+The result declaration still omits brackets and sizes. Flat comma-dimension
+return storage, named outer result types/storage, inline `ARRAY OF ARRAY`, and
+terminal STRING arrays remain blocked. A named subarray cannot be returned as an
+anonymous outer array. Named STRUCTURE elements may contain supported STRING
+fields and named arrays under the existing recursive copy rules.
 
 Return copies complete before local frames unwind and retain record names,
 nested array identities/shapes, STRING field capacities and joint widths. All

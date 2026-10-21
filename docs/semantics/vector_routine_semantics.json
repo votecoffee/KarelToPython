@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.45.0",
+  "translator_version": "0.46.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Internal exact-type VECTOR returned values and value arguments only. Runtime evidence is offline; other aggregate results/value forms and controller execution remain unverified.",
@@ -64,9 +64,9 @@
     "boundary": "Exact initialized CONFIG/XYZWPR/XYZWPREXT/POSITION and exact-width JOINTPOS results/writable value copies are supported. POSITION protection, CONFIG scalar value-only passing, effects and conversion-context guards remain; no frame, kinematic or controller behavior is supplied."
   },
   "array_routine_update": {
-    "version": "0.45.0",
+    "version": "0.46.0",
     "ledger": "array_routine_semantics.json",
-    "boundary": "Internal unsized anonymous 1D scalar, prior named STRUCTURE, built-in record and exact-width joint ARRAY results use independent recursively checked copies and direct assignment only. All scalar leaves must be known/initialized. Named outer arrays, multidimensional results, STRING/named-ARRAY elements and whole ARRAY value arguments remain blocked."
+    "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Named outer results, flat multidimensional result sources/declarations, terminal STRING arrays and whole ARRAY value arguments remain blocked."
   },
   "source_reference": "../references.md",
   "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"

@@ -69,7 +69,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 45, 'Update the expected example count when adding examples'
+    assert count == 46, 'Update the expected example count when adding examples'
     print(f'{count} examples passed; unsupported motion rejected; no generated files written')
     return 0
 

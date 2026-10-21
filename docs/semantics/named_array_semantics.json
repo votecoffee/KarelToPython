@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.45.0",
+  "translator_version": "0.46.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual-backed nominal type policy and checked offline storage/reference behavior. No controller representation, load/save ABI, release-specific compiler acceptance or runtime equivalence is established.",
@@ -52,7 +52,7 @@
         96
       ],
       "implemented": "Full one-based subscripts and named-component prefixes, STRING capacities, narrow-integer rules, exact REAL checks, ARRAY_LEN for one logical dimension, USING field qualification, routine effect analysis and stable captured aliases apply to named arrays. Nested named arrays with STRUCTURE leaves retain complete-initialization and allocation guards.",
-      "restriction": "Prefixes within unnamed dimension groups, chained brackets and inline anonymous ARRAY OF ARRAY syntax remain blocked. Named ARRAY function returns remain blocked with E_RETURN_TYPE. Stable nested aliases and generic interface interoperability are tested prototype policies without compiler/controller observation.",
+      "restriction": "Prefixes within unnamed dimension groups, chained brackets and inline anonymous ARRAY OF ARRAY syntax remain blocked. Named outer ARRAY function returns remain blocked with E_RETURN_TYPE; named inner components are supported by the unsized anonymous result contract in array_routine_semantics.json. Stable nested aliases and generic interface interoperability are tested prototype policies without compiler/controller observation.",
       "tests": "tests/test_named_arrays.py; tests/test_subarrays.py; existing array, structure, USING, numeric and branch tests"
     }
   ],
@@ -83,9 +83,9 @@
     "boundary": "Prior exact named STRUCTURE results and independent writable value copies are supported with full recursive initialization/type/capacity guards. Whole ARRAY values and controller behavior remain blocked; restricted results use array_routine_semantics.json; exact positional copies are covered in positional_routine_semantics.json."
   },
   "array_routine_update": {
-    "version": "0.45.0",
+    "version": "0.46.0",
     "ledger": "array_routine_semantics.json",
-    "boundary": "Internal unsized anonymous 1D scalar, prior named STRUCTURE, built-in record and exact-width joint ARRAY results use independent recursively checked copies and direct assignment only. All scalar leaves must be known/initialized. Named outer arrays, multidimensional results, STRING/named-ARRAY elements and whole ARRAY value arguments remain blocked."
+    "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Named outer results, flat multidimensional result sources/declarations, terminal STRING arrays and whole ARRAY value arguments remain blocked."
   },
   "source_reference": "../references.md",
   "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"

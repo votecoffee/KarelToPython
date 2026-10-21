@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.45.0",
+  "translator_version": "0.46.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Restricted pure-data conversion procedures with checked caller output references. Accepted source, successful conversion, Python tests and controller behavior are separate evidence. General conversion grammar, widths, bases and alarms are not authenticated.",

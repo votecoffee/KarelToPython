@@ -7,7 +7,7 @@ offline runtime. Unsupported syntax and uncertain behavior produce explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.45.0**. It is a
+tool are named **karel2py**. The current implementation is **0.46.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -111,7 +111,8 @@ for translation options, runtime callbacks, diagnostics and execution limits.
 - Checked `INTEGER`, `BOOLEAN`, exact-subset `REAL`, bounded ASCII `STRING`,
   `BYTE`/`SHORT` storage, fixed and named arrays, named structures and `USING`.
 - Reference/value parameters, checked aggregate copies, restricted scalar,
-  record and joint ARRAY functions, selected built-ins and exact trig cases.
+  record, joint and named-component ARRAY functions, selected built-ins and
+  exact trig cases.
 - Positional data records, opaque joint values, selected VECTOR operations and
   explicit-context offline conversion subsets.
 - Restricted text `WRITE` requests through a recorder or supplied callback.

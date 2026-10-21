@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.46.0 - 2026-10-21
+
+- Add prior named fixed ARRAY elements to unsized anonymous ARRAY function
+  results, supporting two or three logical dimensions with one outer dimension.
+- Preserve each component's declared identity, shape and terminal element type
+  through recursive checked copies and stable destination references. Return
+  reports include logical rank and the exact resolved element specification.
+- Keep direct-assignment-only use, full known initialization, scalar-leaf limits
+  and existing effect/cleanup guards. Named outer results, flat multidimensional
+  sources, terminal STRING arrays and whole ARRAY value arguments remain blocked.
+- Add 40 regression checks and an authored named-component ARRAY example.
+  Validation remains offline, without native compiler or controller claims.
+
 ## 0.45.0 - 2026-10-21
 
 - Add unsized anonymous one-dimensional ARRAY function results with prior named

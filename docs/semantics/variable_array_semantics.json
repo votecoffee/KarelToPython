@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.45.0",
+  "translator_version": "0.46.0",
   "date": "2026-10-15",
   "page_numbering": "One-based PDF pages",
   "boundary": "Explicit positive dimensions specialize direct static global ARRAY declarations during offline translation. This does not reproduce controller variable loading, preexisting values or dynamic storage.",

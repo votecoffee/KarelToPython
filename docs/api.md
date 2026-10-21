@@ -87,6 +87,13 @@ with `Program(write=messages.append)`, where `messages` is a list. The
 
 ## Limits
 
+ARRAY return reports include the exact resolved `element_spec` and `logical_rank`
+(one through three). Unsized anonymous outer results may contain prior named
+fixed ARRAY components. Calls still require complete direct-assignment use, exact
+destination types/shapes and known initialized leaves. The
+[ARRAY result contract](language-support.md#array-function-results) describes the
+supported forms and remaining restrictions.
+
 The runtime uses conservative exactness, range, shape, initialization and alias
 checks. Successful translation does not guarantee successful execution for all
 inputs. The [language support guide](language-support.md) and [semantic notes](semantics/README.md)

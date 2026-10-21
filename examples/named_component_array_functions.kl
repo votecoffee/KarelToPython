@@ -1,0 +1,61 @@
+PROGRAM named_component_array_functions
+%NOLOCKGROUP
+TYPE
+  row_t=ARRAY[2] OF INTEGER
+  plane_t=ARRAY[2] OF row_t
+VAR
+  matrix,copied: ARRAY[2] OF row_t
+  cube,cube_copy: ARRAY[1] OF plane_t
+  observed: INTEGER
+
+ROUTINE build(seed: INTEGER): ARRAY OF row_t
+VAR
+  values: ARRAY[2] OF row_t
+  i,j: INTEGER
+BEGIN
+  FOR i=1 TO 2 DO
+    FOR j=1 TO 2 DO
+      values[i,j]=seed+i*10+j
+    ENDFOR
+  ENDFOR
+  RETURN values
+END build
+
+ROUTINE duplicate(values: ARRAY OF row_t): ARRAY OF row_t
+BEGIN
+  RETURN values
+END duplicate
+
+ROUTINE replace(values: ARRAY OF row_t; captured: row_t)
+BEGIN
+  values=build(100)
+  captured[2]=-7
+END replace
+
+ROUTINE build_cube: ARRAY OF plane_t
+VAR
+  values: ARRAY[1] OF plane_t
+  i,j: INTEGER
+BEGIN
+  FOR i=1 TO 2 DO
+    FOR j=1 TO 2 DO
+      values[1,i,j]=200+i*10+j
+    ENDFOR
+  ENDFOR
+  RETURN values
+END build_cube
+
+ROUTINE duplicate_cube(values: ARRAY OF plane_t): ARRAY OF plane_t
+BEGIN
+  RETURN values
+END duplicate_cube
+
+BEGIN
+  matrix=build(0)
+  copied=duplicate(matrix)
+  replace(matrix,matrix[2])
+  cube=build_cube()
+  cube_copy=duplicate_cube(cube)
+  cube[1,1,1]=999
+  observed=matrix[2,2]+copied[2,2]+cube_copy[1,1,1]
+END named_component_array_functions
