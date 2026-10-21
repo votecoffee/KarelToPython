@@ -5,6 +5,10 @@ Results are immutable Python strings with a bounded ASCII contract. A STRING
 value argument has independent writable storage, so a routine can edit its own
 copy without changing the caller's string.
 
+Built-in substring, search, length and character behavior follows the
+[Pythonic STRING operations](string-operations.md), including clipped SUB_STR
+results, zero counts and empty INDEX searches.
+
 ```karel
 PROGRAM string_demo
 VAR original,decorated: STRING[16]

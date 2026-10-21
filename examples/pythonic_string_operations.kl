@@ -1,0 +1,25 @@
+PROGRAM string_operations
+VAR
+  original, payload, empty: STRING[16]
+  preview: STRING[3]
+  separator, empty_match, missing, size: INTEGER
+
+ROUTINE after_colon(text: STRING): STRING[16]
+VAR marker: INTEGER
+BEGIN
+  marker=INDEX(text,':')
+  RETURN SUB_STR(text,marker+1,MAXINT)
+END after_colon
+
+BEGIN
+  original='part:robot'
+  separator=INDEX(original,':')
+  payload=after_colon(original)
+  preview=SUB_STR(original,separator+1,MAXINT)
+  empty=SUB_STR(original,1,0)
+  empty_match=INDEX('','')
+  missing=INDEX(original,'absent')
+  size=STR_LEN(payload)
+  WRITE('payload=',payload,', short=',preview,', size=',size,CR)
+  WRITE('empty=',empty::3::2,', match=',empty_match,', missing=',missing,CR)
+END string_operations

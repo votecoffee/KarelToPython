@@ -1,0 +1,10 @@
+{
+  "ORIGINAL": "part:robot",
+  "PAYLOAD": "robot",
+  "EMPTY": "",
+  "PREVIEW": "rob",
+  "SEPARATOR": 5,
+  "EMPTY_MATCH": 1,
+  "MISSING": 0,
+  "SIZE": 5
+}

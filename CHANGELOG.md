@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.58.0 - 2026-10-21
+
+- Define Pythonic SUB_STR with positive one-based starts, nonnegative counts,
+  clipping at the source end and a 254-character result cap before consumption.
+  Accept zero counts as initialized empty strings; bound slicing before allocation
+  even for MAXINT counts. Smaller destination/result capacities still truncate.
+- Define INDEX empty search as position 1, including an empty source, using
+  Python find plus the existing one-based offset. Preserve exact case-sensitive
+  first matches, zero for absence, ASCII, initialization and character-domain checks.
+- Add STRING operation policy metadata and remove superseded public limitations.
+  Preserve one-time argument order, earlier effects and assignment destinations
+  on failures, and routine cleanup. Retain conservative guards internally for
+  the future strict milestone; no native substring/search edge-behavior claim.
+- Add 56 execution/runtime regressions, an authored example with independent
+  fixtures, runtime portability coverage and a STRING operation guide.
+
 ## 0.57.0 - 2026-10-21
 
 - Accept bounded KAREL INTEGER expressions for WRITE widths, alignment, base and

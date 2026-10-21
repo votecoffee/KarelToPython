@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.57.0",
+  "translator_version": "0.58.0",
+  "string_operation_mode_note": "Public Pythonic SUB_STR clipping, zero counts, bounded results and empty INDEX searches follow ../string-operations.md; older substring/search rejections below remain for the future strict milestone.",
   "text_format_mode_note": "Public Pythonic dynamic WRITE, quoted fields and scientific conversion follow ../text-formats.md; earlier literal-only, quoted-content and scientific-format rejections below are retained for the future strict milestone.",
   "array_shape_mode_note": "Public Pythonic result declarations and first-dimension ARRAY_LEN follow ../array-result-shapes.md; older result-form and multidimensional-length rejections below are retained for the future strict milestone.",
   "array_mode_note": "Public Pythonic ARRAY value/result composition follows ../pythonic-arrays.md; older assignment-only and whole-value rejections below are retained for the future strict milestone.",

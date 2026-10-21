@@ -98,6 +98,11 @@ Numeric width/base/precision specifiers follow the chosen
 the combined ASCII output is limited to 254 characters. Rendering/length failure
 creates no outer request while preserving earlier effects and nested requests.
 
+`string_operation_policy` describes SUB_STR clipping, its 254-character result
+bound before consumption, zero counts, one-based starts and INDEX empty-search
+results. It also records STR_LEN/CHR/ORD domains, argument evaluation order and
+retained checks. See [STRING operations](string-operations.md).
+
 ## Limits
 
 `conversion_policy.format` includes signed `CNV_INT_STR` bases 2..16, with base 0

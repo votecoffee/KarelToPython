@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.58.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Chosen practical substring and search edges, with existing ASCII and character-domain checks; no new native behavior claim",
+  "implementation_choices": {
+    "substring": "source[start-1:start-1+min(count,254)]; positive one-based start, nonnegative INTEGER count; clip at source end; zero count and starts past end produce initialized empty STRING",
+    "substring_capacity": "Return at most 254 logical characters before consumption; bound the slice before allocation, including a MAXINT count; source expressions may exceed 254 characters; destination/routine result may truncate further",
+    "index": "Python str.find(search)+1; first exact case-sensitive match, zero when absent, one for an empty search including an empty source",
+    "length_and_characters": "STR_LEN counts logical ASCII characters; CHR accepts INTEGER codes 0..127; ORD requires a one-based INTEGER index inside current contents",
+    "evaluation": "Actuals evaluated once left to right before operation validation; immutable STRING values captured before later argument effects; evaluation errors skip later actuals",
+    "failure": "No destination assignment on operation error; preserve earlier effects/nested requests including argument mutations of that destination; unwind routine frames on error or ABORT",
+    "report": "string_operation_policy records chosen equivalents, capacity, evaluation order, failures and controller_validated=false"
+  },
+  "retained_boundaries": [
+    "Initialized ASCII STRING inputs even for empty results/searches; exact INTEGER types and existing signed-32-bit expression checks",
+    "Positive one-based SUB_STR starts; nonnegative counts; CHR and ORD domains",
+    "Existing destination/result capacities, ownership, call-depth, step and FOR-counter guards",
+    "Combined rendered WRITE output <=254 characters; no native string ABI or controller runtime claim",
+    "Conservative substring/search guards remain internal for the future strict milestone"
+  ],
+  "tests": [
+    "tests/test_pythonic_string_operations.py",
+    "tests/test_strings.py",
+    "tests/test_runtime_portability.py",
+    "examples/pythonic_string_operations.kl"
+  ],
+  "controller_validated": false
+}

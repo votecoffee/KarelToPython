@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.57.0",
+  "translator_version": "0.58.0",
+  "string_operation_mode_note": "Public Pythonic SUB_STR clipping, zero counts, bounded results and empty INDEX searches follow ../string-operations.md; older substring/search rejections below remain for the future strict milestone.",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Chosen bounded Python equivalents for dynamic WRITE formats, quoted STRING fields and scientific CNV_REAL_STR; no new native behavior claim",

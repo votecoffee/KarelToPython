@@ -2557,6 +2557,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         use='Assignments, string expressions/comparisons, built-ins, WRITE, RETURN forwarding and STRING value arguments',
         boundary='Existing type, FOR and call-depth guards remain; chosen Pythonic evaluation order; no native controller STRING ABI claim',
         controller_validated=False)
+    report['string_operation_policy'] = dict(
+        substring='SUB_STR(source,start,count) uses source[start-1:start-1+min(count,254)]; positive one-based start, nonnegative count; clip at source end; zero count or start past end returns empty',
+        substring_capacity='At most 254 characters before consumption; destination or routine result may truncate further; source expressions may be longer',
+        search='INDEX(source,search) uses source.find(search)+1; first exact case-sensitive match, zero when absent, one for an empty search including an empty source',
+        characters='STR_LEN counts ASCII characters; CHR accepts codes 0..127; ORD requires a one-based index inside current contents',
+        evaluation='Evaluate actuals once left to right before validating the operation; capture immutable STRING values before later argument effects; skip later expressions after an evaluation error',
+        failures='Type, initialization, ASCII and INTEGER range checks remain; no destination assignment on operation error; earlier argument effects remain, including destination mutations; unwind routine frames',
+        controller_validated=False)
     report['string_value_policy'] = dict(
         arguments='Initialized ASCII literals, constants, expressions, function results and grouped scalar storage; input length at most 254',
         storage='Independent writable temporary with chosen capacity 254; assignment right-truncates and clear sets UNINITIALIZED',
@@ -2600,8 +2608,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
                    'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
                    'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts', 'STRING reference parameters retain',
                    'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
-                   'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays')
+                   'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays',
+                   'INDEX with an empty search', 'SUB_STR beyond the source end')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
+    report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
     return result

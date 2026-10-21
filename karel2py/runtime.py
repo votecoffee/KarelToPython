@@ -1128,6 +1128,11 @@ def builtin(name, arguments, line=None):
     if name == 'SUB_STR':
         source = ascii_string(arguments[0], line)
         start, count = (integer(x, line) for x in arguments[1:])
+        if _pythonic():
+            if start < 1 or count < 0:
+                raise KarelRuntimeError('SUB_STR start must be positive and length nonnegative', line)
+            # Bound the slice before allocating it, including a MAXINT count.
+            return source[start - 1:start - 1 + min(count, 254)]
         if start < 1 or count < 1:
             raise KarelRuntimeError('SUB_STR start and length must be positive', line)
         if start > len(source): return ''
@@ -1138,7 +1143,7 @@ def builtin(name, arguments, line=None):
         return source[start - 1:start - 1 + count]
     if name == 'INDEX':
         source, search = (ascii_string(x, line) for x in arguments)
-        if search == '':
+        if search == '' and not _pythonic():
             raise KarelRuntimeError('INDEX empty search string needs runtime validation', line)
         return source.find(search) + 1
     if name == 'CHR':

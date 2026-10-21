@@ -95,8 +95,8 @@ class StringArrayTests(unittest.TestCase):
 
 
 class SubstringTests(unittest.TestCase):
-    def runtime_error(self, body, message):
-        p, _ = compile_program(body)
+    def runtime_error(self, body, message, *, _translator=translate):
+        p, _ = compile_program(body, _translator=_translator)
         with self.assertRaisesRegex(KarelRuntimeError, message): p.run()
 
     def test_substring_uses_one_based_start(self):
@@ -123,13 +123,13 @@ class SubstringTests(unittest.TestCase):
 
     def test_nonpositive_length_rejected_even_past_source(self):
         for count in (0, -1):
-            with self.subTest(count=count): self.runtime_error(f"s = SUB_STR('abc',4,{count})", 'positive')
+            with self.subTest(count=count): self.runtime_error(f"s = SUB_STR('abc',4,{count})", 'positive', _translator=legacy_translate)
 
     def test_request_crossing_source_end_remains_blocked(self):
-        self.runtime_error("s = SUB_STR('abc',2,3)", 'extending beyond source')
+        self.runtime_error("s = SUB_STR('abc',2,3)", 'extending beyond source', _translator=legacy_translate)
 
     def test_long_result_capacity_remains_blocked(self):
-        self.runtime_error("s = SUB_STR('" + 'a' * 255 + "',1,255)", 'return-capacity validation')
+        self.runtime_error("s = SUB_STR('" + 'a' * 255 + "',1,255)", 'return-capacity validation', _translator=legacy_translate)
 
     def test_maximum_supported_result_length(self):
         state = execute("s = SUB_STR('" + 'a' * 254 + "',1,254) x = STR_LEN(s)",
@@ -180,7 +180,7 @@ class IndexTests(unittest.TestCase):
     def test_empty_search_remains_blocked(self):
         for source in ('abc', ''):
             with self.subTest(source=source):
-                p, _ = compile_program(f"x = INDEX('{source}','')")
+                p, _ = compile_program(f"x = INDEX('{source}','')", _translator=legacy_translate)
                 with self.assertRaisesRegex(KarelRuntimeError, 'empty search'): p.run()
 
     def test_nested_builtin_arguments(self):
