@@ -1275,6 +1275,115 @@ def format_write_item(kind, value, formats=(), line=None):
     return text.rjust(width or 0)
 
 
+def _read_scalar_spec(spec, line=None):
+    scalar = spec in (INTEGER, REAL, ('BOOLEAN',), ('BYTE',), ('SHORT',))
+    string = (type(spec) is tuple and len(spec) == 2 and spec[0] == 'STRING'
+              and type(spec[1]) is int and 1 <= spec[1] <= 254)
+    if not scalar and not string:
+        raise KarelRuntimeError('READ requires supported concrete scalar types and STRING capacities', line)
+    return spec
+
+
+def _read_line_breaks(count, positions, line=None):
+    if type(positions) not in (list, tuple) or not 1 <= count + len(positions) <= 1024:
+        raise KarelRuntimeError('READ requires 1..1024 scalar destinations or CR markers', line)
+    previous = 0
+    for position in positions:
+        if type(position) is not int or not previous <= position <= count:
+            raise KarelRuntimeError('READ CR positions must be ordered destination offsets', line)
+        previous = position
+    return tuple(positions)
+
+
+class TextInput:
+    """Explicit ASCII text adapter for Pythonic READ, with a persistent cursor."""
+    def __init__(self, text):
+        if type(text) is not str or not text.isascii():
+            raise ValueError('TextInput requires an ASCII string')
+        self._terminated = bool(text) and text[-1] in '\r\n'
+        self._lines = re.split(r'\r\n|\r|\n', text)
+        if not text or self._terminated: self._lines.pop()
+        self._row, self._column, self._after_field = 0, 0, False
+
+    @property
+    def position(self):
+        if self._row >= len(self._lines):
+            row = len(self._lines) if self._lines and not self._terminated else len(self._lines) + 1
+            column = len(self._lines[-1]) + 1 if self._lines and not self._terminated else 1
+            return dict(line=row, column=column, eof=True)
+        eof = (self._row == len(self._lines) - 1 and not self._terminated
+               and self._column == len(self._lines[self._row]))
+        return dict(line=self._row + 1, column=self._column + 1, eof=eof)
+
+    def _next_line(self):
+        self._row += 1
+        self._column, self._after_field = 0, False
+
+    def _require_line(self):
+        if self._row >= len(self._lines):
+            position = self.position
+            raise KarelRuntimeError(f'TextInput reached end of input at input line {position["line"]}, column {position["column"]}')
+
+    def _token(self):
+        while True:
+            self._require_line()
+            line = self._lines[self._row]
+            while self._column < len(line) and line[self._column].isspace(): self._column += 1
+            if self._column < len(line): break
+            self._next_line()
+        start = self._column
+        while self._column < len(line) and not line[self._column].isspace(): self._column += 1
+        self._after_field = True
+        return line[start:self._column], self._row + 1, start + 1
+
+    def _string(self):
+        self._require_line()
+        if self._after_field and self._column == len(self._lines[self._row]):
+            self._next_line()
+            self._require_line()
+        row, column = self._row + 1, self._column + 1
+        value = self._lines[self._row][self._column:]
+        self._column, self._after_field = len(self._lines[self._row]), True
+        return value, row, column
+
+    def __call__(self, request):
+        if type(request) is not dict or type(request.get('targets')) not in (list, tuple):
+            raise KarelRuntimeError('TextInput requires READ target metadata')
+        targets = request['targets']
+        breaks = _read_line_breaks(len(targets), request.get('line_breaks', ()))
+        specs = []
+        for target in targets:
+            if type(target) is not dict or type(target.get('type_spec')) not in (list, tuple):
+                raise KarelRuntimeError('TextInput requires concrete READ target type specs')
+            spec = _read_scalar_spec(tuple(target['type_spec']))
+            if target.get('type') != spec[0]: raise KarelRuntimeError('TextInput target type metadata disagrees')
+            specs.append(spec)
+        values, marker = [], 0
+        for index in range(len(specs) + 1):
+            while marker < len(breaks) and breaks[marker] == index:
+                self._require_line()
+                self._next_line()
+                marker += 1
+            if index == len(specs): break
+            spec = specs[index]
+            token, row, column = self._string() if spec[0] == 'STRING' else self._token()
+            try:
+                if spec[0] == 'STRING':
+                    value = token
+                    if len(value) > 254: raise ValueError('STRING input exceeds 254 characters before truncation')
+                elif spec[0] == 'REAL': value = float(token)
+                elif spec[0] == 'BOOLEAN':
+                    name = token.upper()
+                    if name not in ('TRUE','FALSE','ON','OFF','T','F','1','0'): raise ValueError('Invalid BOOLEAN token')
+                    value = name in ('TRUE','ON','T','1')
+                else: value = int(token, 10)
+                with _numeric_scope('pythonic'): checked(spec, value)
+            except (ValueError, OverflowError, KarelRuntimeError) as exc:
+                raise KarelRuntimeError(f'TextInput invalid {spec[0]} at input line {row}, column {column}') from exc
+            values.append(value)
+        return values
+
+
 class State:
     def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None):
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
@@ -1365,20 +1474,17 @@ class State:
     def read_observations(self):
         return tuple(deepcopy(self.read_requests))
 
-    def read_items(self, targets, line=None):
+    def read_items(self, targets, line=None, *, line_breaks=()):
         """Receive typed offline input; validate the complete response before writes."""
-        if type(targets) not in (list, tuple) or not 1 <= len(targets) <= 1024:
-            raise KarelRuntimeError('READ requires 1..1024 scalar destinations', line)
+        if type(targets) not in (list, tuple):
+            raise KarelRuntimeError('READ requires scalar destination references', line)
+        line_breaks = _read_line_breaks(len(targets), line_breaks, line)
         for target in targets:
             if type(target) is not Reference:
                 raise KarelRuntimeError('READ requires ordinary writable scalar references', line)
-            spec = target.spec
-            scalar = spec in (INTEGER, REAL, ('BOOLEAN',), ('BYTE',), ('SHORT',))
-            string = (type(spec) is tuple and len(spec) == 2 and spec[0] == 'STRING'
-                      and type(spec[1]) is int and 1 <= spec[1] <= 254)
-            if not scalar and not string:
-                raise KarelRuntimeError('READ requires supported concrete scalar types and STRING capacities', line)
+            _read_scalar_spec(target.spec, line)
         metadata = dict(line=line, targets=[dict(type=ref.spec[0], type_spec=ref.spec) for ref in targets])
+        if line_breaks: metadata['line_breaks'] = list(line_breaks)
         request = dict(deepcopy(metadata), adapter_outcome='missing_adapter')
         self.read_requests.append(request)
         if self._read is None:

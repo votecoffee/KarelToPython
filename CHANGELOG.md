@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.64.0 - 2026-10-21
+
+- Add runtime.TextInput for explicit ASCII input with persistent line/column/EOF
+  observations. Parse checked Python decimal integers/floats, documented BOOLEAN
+  tokens and STRING line remainders; preserve storage ranges and capacity limits.
+- Support leading/repeated/CR-only READ markers, with optional line_breaks
+  metadata and no extra response values. Keep scalar metadata compatible and
+  bound the combined scalar/marker count to 1024. Retain target capture, complete
+  response validation, prior effects and FOR/frame cleanup.
+- Add mutually exclusive generated-script --read-text/--read-values adapters,
+  explicit UTF-8 paths with optional BOM and joint-axis context composition.
+  Add 62 text/CR regressions, an authored text example with independent fixtures,
+  runtime-only portability and a text-input guide. Native parser/status/device
+  semantics remain outside this Pythonic contract; strict is future work.
+
 ## 0.63.0 - 2026-10-21
 
 - Support Pythonic omitted-file scalar READ through an explicit synchronous

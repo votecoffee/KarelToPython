@@ -2,6 +2,8 @@
 
 Since 0.63.0, Pythonic mode supports scalar READ through an explicit synchronous
 host callback. The callback supplies typed Python values for offline execution.
+Since 0.64.0, [TextInput and CR](text-input.md) also support explicit text and
+line control through the same callback interface.
 
 ```karel
 PROGRAM INPUTS
@@ -33,7 +35,8 @@ batches, including two function-local reads in a FOR loop. Its
 
 ## Destinations and values
 
-Use `READ(destination,...)` with 1..1024 scalar destinations rooted in ordinary
+Use `READ(destination,...)` with 1..1024 total scalar destinations and CR markers.
+CR-only requests are allowed. Scalar destinations are rooted in ordinary
 variable storage: INTEGER, BOOLEAN, REAL, bounded STRING and BYTE/SHORT aggregate
 leaves, including TYPE aliases. Each destination may be a variable, field or
 ARRAY element. Aggregates, grouped/computed targets, fields of returned
@@ -112,6 +115,8 @@ python converted.py --read-values examples/pythonic_read.read.values.json
 ```
 
 Programs also using joint conversions retain their required `--joint-axes`.
+Alternatively, choose `--read-text` for explicit ASCII text; the options are
+mutually exclusive. CR adds no batch values, and a CR-only batch is `[]`.
 Unused batches are allowed by the script adapter; the example runner checks that
 each fixture consumes all its batches. Translation with `--check` requires no
 adapter and executes no READ.
@@ -120,8 +125,8 @@ adapter and executes no READ.
 
 The reviewed [reference edition](references.md), PDF pages 127 and 496-497,
 describes READ destinations and native file/device, format, CR and error rules.
-Typed host values and complete-response validation are chosen Pythonic behavior.
-Native text/binary tokenization, CR line skipping, buffering, EOF, file/window
+Typed host values, text/CR adapter rules and complete-response validation are
+chosen Pythonic behavior. Native text/binary tokenization, buffering, EOF, file/window
 error clearing or re-prompting, IO_STATUS and default TPDISPLAY/INPUT behavior
 remain outside this contract. The conservative READ rejection is retained for
 the future strict milestone. No controller input or native runtime acceptance

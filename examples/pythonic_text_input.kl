@@ -1,0 +1,20 @@
+PROGRAM PYTHONIC_TEXT_INPUT
+VAR count: INTEGER flag: BOOLEAN ratio: REAL label: STRING[8]
+values: ARRAY[2] OF INTEGER
+total,i: INTEGER
+ROUTINE next_value: INTEGER
+VAR item: INTEGER
+BEGIN
+  READ(item,CR)
+  RETURN item
+END next_value
+BEGIN
+  READ(count,flag,ratio,CR)
+  READ(label,CR)
+  total=count
+  FOR i=1 TO 2 DO
+    values[i]=next_value()
+    total=total+values[i]
+  ENDFOR
+  WRITE(label,':',total::0,CR)
+END PYTHONIC_TEXT_INPUT

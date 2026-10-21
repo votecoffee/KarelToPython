@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.63.0",
+  "translator_version": "0.64.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Chosen offline VEC constructor interpretation, VECTOR unary signs and left-associated cross/dot expression composition",

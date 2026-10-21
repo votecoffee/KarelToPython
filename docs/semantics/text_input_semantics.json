@@ -1,0 +1,28 @@
+{
+  "translator_version": "0.64.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Explicit ASCII TextInput adapter, READ CR controls and generated-script text input",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [127, 496, 497],
+    "documented": "READ lists destinations and CR may discard a line remainder before the next item",
+    "uncertainty": "Python numeric/BOOLEAN token grammar, STRING boundary advancement and complete-response stores are chosen offline policies, without native runtime observations"
+  },
+  "implementation_choices": {
+    "source": "Explicit in-memory ASCII str, with CR/LF/CRLF physical lines and a persistent defensive position; no implicit input device",
+    "tokens": "Whitespace-delimited Python int(token,10)/float(token); BOOLEAN TRUE/FALSE/ON/OFF/T/F/1/0; validate storage domains per field before consuming later fields",
+    "strings": "Preserve current line remainder and blanks; a subsequent STRING advances a completed field boundary; fresh empty lines are real empty strings; enforce 254 characters before destination truncation",
+    "cr": "Leading/repeated/CR-only READ markers discard one current remainder each; markers follow STRING without skipping its next line; may finish an unterminated final record; no phantom EOF lines",
+    "metadata": "Optional line_breaks offsets count preceding scalar destinations; duplicates allowed; no extra callback values for CR; total scalar/marker count 1..1024; old scalar request shape retained",
+    "failures": "Reject malformed metadata before consumption; consume a bad token then stop with input line/column; no rewind or response stores after callback failure; retain earlier effects and ordinary cleanup",
+    "cli": "Mutually exclusive --read-text and --read-values, explicit UTF-8 paths with optional BOM; text remains ASCII; compose with joint-axis context"
+  },
+  "retained_boundaries": [
+    "No controller FILE/device input, implicit stdin, binary transfer or format specifiers",
+    "Existing destination, ownership, numeric, initialization, POSITION, CONFIG and FOR protections",
+    "No native parser/status/error-clearing/controller acceptance claim; strict remains future work with internal READ rejection"
+  ],
+  "tests": ["tests/test_text_input.py", "tests/test_pythonic_read.py", "tests/test_runtime_portability.py", "examples/pythonic_text_input.kl"],
+  "controller_validated": false
+}

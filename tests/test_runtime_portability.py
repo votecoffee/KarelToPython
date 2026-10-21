@@ -45,7 +45,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_using', 'RESULT', 49),
                     ('pythonic_type_aliases', 'TOTAL', 7),
                     ('pythonic_vectors', 'LENGTH', 5.0),
-                    ('pythonic_read', 'TOTAL', 30)]
+                    ('pythonic_read', 'TOTAL', 30),
+                    ('pythonic_text_input', 'TOTAL', 35)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
@@ -58,8 +59,13 @@ class RuntimePortabilityTests(unittest.TestCase):
                 input_file=ROOT/f'examples/{example}.read.values.json'
                 batches=json.loads(input_file.read_text()) if input_file.exists() else []
                 adapter='read=lambda request: next(responses)' if input_file.exists() else ''
+                setup=f'responses=iter({batches!r})\n'
+                text_file=ROOT/f'examples/{example}.input.txt'
+                if text_file.exists():
+                    setup=f'from karel2py.runtime import TextInput\nresponses=TextInput({text_file.read_text()!r})\n'
+                    adapter='read=responses'
                 (target / 'check.py').write_text('import json\nfrom converted import Program\n'
-                                               +f'responses=iter({batches!r})\nprint(json.dumps(Program({adapter}).run()))\n')
+                                               +setup+f'print(json.dumps(Program({adapter}).run()))\n')
                 process = subprocess.run([sys.executable, 'check.py'], cwd=target, capture_output=True, text=True)
                 self.assertEqual(process.returncode, 0, process.stderr)
                 self.assertEqual(json.loads(process.stdout)[key], expected)

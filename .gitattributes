@@ -5,4 +5,5 @@
 *.toml text eol=lf
 *.yml text eol=lf
 *.kl -text
+*.input.txt text eol=lf
 /LICENSE -text

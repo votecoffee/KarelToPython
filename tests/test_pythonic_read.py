@@ -281,7 +281,7 @@ class ReadSourceGuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.filename,'pythonic_read.kl')
     def test_explicit_device_is_blocked(self): self.reject('READ INPUT(x)','E_READ_TARGET')
     def test_empty_input_list(self): self.reject('READ()','E_READ_ITEM')
-    def test_cr_is_blocked(self): self.reject('READ(x,CR)','E_READ_ITEM')
+    def test_legacy_cr_is_blocked(self): self.reject('READ(x,CR)','E_UNSUPPORTED',translator=legacy_translate)
     def test_formats_are_blocked(self): self.reject('READ(x::4)','E_READ_FORMAT')
     def test_expression_destination(self): self.reject('READ(x+1)','E_READ_ITEM')
     def test_grouped_destination(self): self.reject('READ((x))','E_READ_ITEM')

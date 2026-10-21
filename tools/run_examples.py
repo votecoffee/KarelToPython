@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from karel2py import translate
 from karel2py.lexer import TranslationError
-from karel2py.runtime import KarelAbort
+from karel2py.runtime import KarelAbort, TextInput
 
 
 def read_json(path):
@@ -27,14 +27,17 @@ def run_example(source, *, inject_write=False):
     delays, texts, inputs = [], [], []
     input_file = fixture / f'{name}.read.values.json'
     batches = read_json(input_file) if input_file.exists() else []
+    text_file = fixture / f'{name}.input.txt'
+    assert not (input_file.exists() and text_file.exists()), name + ': ambiguous input fixture'
+    text_input = TextInput(text_file.read_text(encoding='utf-8')) if text_file.exists() else None
     responses = iter(batches)
     def reader(request):
         inputs.append(request)
-        return next(responses)
+        return text_input(request) if text_input is not None else next(responses)
     context_file = fixture / f'{name}.context.expected.json'
     context = read_json(context_file) if context_file.exists() else {}
     program = namespace['Program'](sleep=delays.append,
-                                  read=reader if input_file.exists() else None,
+                                  read=reader if input_file.exists() or text_input is not None else None,
                                   write=texts.append if inject_write else None, **context)
     termination_file = fixture / f'{name}.termination.expected.json'
     try:
@@ -60,7 +63,10 @@ def run_example(source, *, inject_write=False):
     read_file = fixture / f'{name}.read.expected.json'
     expected_reads = read_json(read_file) if read_file.exists() else []
     assert json.loads(json.dumps(program.read_requests)) == expected_reads, name + ': READ records'
-    assert len(inputs) == len(batches), name + ': consumed input batches'
+    if text_input is not None:
+        assert text_input.position == read_json(fixture / f'{name}.input.expected.json'), name + ': text cursor'
+    else:
+        assert len(inputs) == len(batches), name + ': consumed input batches'
     return result
 
 
@@ -80,7 +86,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 63, 'Update the expected example count when adding examples'
+    assert count == 64, 'Update the expected example count when adding examples'
     print(f'{count} examples passed; unsupported motion rejected; no generated files written')
     return 0
 

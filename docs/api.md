@@ -90,6 +90,9 @@ not rolled back by failures or ABORT.
   executes. `read_requests` records defensive metadata and outcomes; generated
   scripts can load JSON response batches with `--read-values`. See
   [Pythonic input](pythonic-read.md).
+  `runtime.TextInput(text)` supplies explicit ASCII text with a persistent cursor
+  and CR line control; generated scripts can choose `--read-text` instead.
+  Optional `line_breaks` metadata describes CR positions. See [text input](text-input.md).
 - `joint_axes=n` supplies an explicit offline axis count for the restricted
   degree-valued joint conversion subset. It is not robot discovery or group
   configuration. Copying exact joint values does not infer a controller context.

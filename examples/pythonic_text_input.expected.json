@@ -1,0 +1,9 @@
+{
+  "COUNT": 5,
+  "FLAG": true,
+  "RATIO": 0.25,
+  "LABEL": "widget",
+  "VALUES": [10, 20],
+  "TOTAL": 35,
+  "I": {"uninitialized": true}
+}

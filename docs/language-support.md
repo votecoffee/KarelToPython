@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.63.0. Acceptance is specific to
+This is the supported prototype subset as of 0.64.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -33,7 +33,7 @@ internally and in the historical semantic notes.
 | Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; no explicit FILE/device destinations or aggregate output. |
-| READ | Scalar variables, fields/elements and narrow aggregate leaves through an explicit typed callback; JSON batch adapter for generated scripts | Capture targets once before callback; complete-response validation before assignment. No file/device access, native parsing, CR, formats, aggregate targets, CONFIG subfields or POSITION orientation writes. |
+| READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or explicit TextInput; CR line discard | Capture targets once; complete-response validation before assignment. Chosen text token/boundary rules; no controller file/device access, native parser claim, formats, aggregate targets, CONFIG subfields or POSITION orientation writes. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
 
 See [STRING operations](string-operations.md) for substring, search, length and
@@ -47,6 +47,7 @@ See [Pythonic vector expressions](pythonic-vectors.md) for construction, signs,
 product association and composed length calculations.
 See [Pythonic input](pythonic-read.md) for typed READ callbacks, input batches,
 observations and error behavior.
+See [text input](text-input.md) for ASCII parsing, CR, cursor and --read-text.
 
 ## Zero-argument function calls
 

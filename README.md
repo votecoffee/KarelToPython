@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.63.0**. It is a
+tool are named **karel2py**. The current implementation is **0.64.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -168,7 +168,8 @@ and left-associated cross/dot chains support composed calculations such as
 `SQRT(v@v)`. See [Pythonic vector expressions](docs/pythonic-vectors.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
-scripts can use JSON response batches with `--read-values`. See
+scripts can use JSON response batches with `--read-values` or ASCII text with
+`--read-text` and explicit CR line control. See [text input](docs/text-input.md) and
 [Pythonic input](docs/pythonic-read.md) for capture order, validation and failure behavior.
 
 ## Supported Features
@@ -189,7 +190,7 @@ scripts can use JSON response batches with `--read-values`. See
   and capacities.
 - Mixed scalar `WRITE` lists, CR newlines, dynamic formats and quoted STRING
   truncation/escaping through a recorder or supplied callback.
-- Scalar `READ` destinations through a typed callback or explicit JSON batches,
+- Scalar `READ` destinations through a typed callback, JSON batches or text/CR input,
   with complete-response checks and input-request observations.
 
 Each item has type and context restrictions. External routines,

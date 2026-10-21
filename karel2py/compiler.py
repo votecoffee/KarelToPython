@@ -552,11 +552,11 @@ class Parser:
             targets = []
             self.skip_newlines()
             while True:
-                if self.current.value in (')', ',', 'CR'):
-                    self.error('E_READ_ITEM', 'READ requires scalar destinations; empty items and CR are outside the typed input contract')
+                if self.current.value in (')', ','):
+                    self.error('E_READ_ITEM', 'READ requires scalar destinations or CR; empty items are outside the input contract')
                 if len(targets) >= 1024:
-                    self.error('E_READ_LIMIT', 'READ supports at most 1024 scalar destinations')
-                targets.append(self.expression())
+                    self.error('E_READ_LIMIT', 'READ supports at most 1024 scalar destinations or CR markers')
+                targets.append(Expr('read_cr', self.take()) if self.current.value == 'CR' else self.expression())
                 if self.current.value in (':', '::'):
                     self.error('E_READ_FORMAT', 'READ format specifiers are outside the typed input contract')
                 self.skip_newlines()
@@ -1226,6 +1226,7 @@ class Emitter:
                 if isinstance(node, Statement) and node.kind == 'read':
                     routine.may_read = True
                     for target in node.args:
+                        if target.kind == 'read_cr': continue
                         name = self.root_name(target)
                         if name not in local_names: routine.side_effecting = True
                         if name in parameter_names: routine.parameter_writes.add(name)
@@ -2071,8 +2072,11 @@ class Emitter:
                                         width_policy=('contents_length' if width == 0 or (width is not None and width > 254)
                                                       else 'fixed' if formats else 'unformatted')))
         elif kind == 'read':
-            references, destinations = [], []
+            references, destinations, line_breaks = [], [], []
             for target in stmt.args:
+                if target.kind == 'read_cr':
+                    line_breaks.append(len(references))
+                    continue
                 base = target
                 while base.kind in ('field', 'index'): base = base.args[0]
                 if target.kind not in ('name', 'field', 'index') or base.kind != 'name':
@@ -2090,10 +2094,12 @@ class Emitter:
                 references.append(reference)
                 destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
                                          line=target.token.line, column=target.token.column))
-            self.line(f'self._state.read_items([{", ".join(references)}], {line})', token)
+            controls = f', line_breaks={tuple(line_breaks)!r}' if line_breaks else ''
+            self.line(f'self._state.read_items([{", ".join(references)}], {line}{controls})', token)
             self.read_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=line, column=token.column, destinations=destinations,
                                        targets_evaluated_once=True, response_validated_before_assignment=True))
+            if line_breaks: self.read_uses[-1]['line_breaks'] = line_breaks
         elif kind in ('if', 'while'):
             condition = self.require_type(stmt.args[0], 'BOOLEAN')
             self.line(f'{kind} self._state.test({condition}, {line}):', token)
@@ -2320,25 +2326,31 @@ class Emitter:
             if self.features & JOINT_PROCEDURES:
                 self.line('_parser.add_argument("--joint-axes", type=int, choices=range(1, 10), required=True)')
             if 'read' in self.features:
-                self.line('_parser.add_argument("--read-values", required=True, help="UTF-8 JSON list of typed response batches, one per READ")')
+                self.line('_input = _parser.add_mutually_exclusive_group(required=True)')
+                self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
+                self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
             self.line('_args = _parser.parse_args()')
             if 'read' in self.features:
                 self.line('import json as _json')
                 self.line('try:')
                 self.indent += 1
-                self.line('with open(_args.read_values, encoding="utf-8") as _stream:')
+                self.line('with open(_args.read_values if _args.read_values is not None else _args.read_text, encoding="utf-8-sig", newline="") as _stream:')
                 self.indent += 1
-                self.line('_responses = _json.load(_stream)')
+                self.line('_responses = _json.load(_stream) if _args.read_values is not None else _rt.TextInput(_stream.read())')
                 self.indent -= 2
                 self.line('except (OSError, ValueError) as _error:')
                 self.indent += 1
-                self.line('_parser.error("Unable to load READ batches: " + str(_error))')
+                self.line('_parser.error("Unable to load READ input: " + str(_error))')
                 self.indent -= 1
+                self.line('if _args.read_values is not None:')
+                self.indent += 1
                 self.line('if type(_responses) is not list: _parser.error("READ batches must be a JSON list")')
-                self.line('_responses = iter(_responses)')
+                self.line('_batches = iter(_responses)')
+                self.line('_responses = lambda request: next(_batches)')
+                self.indent -= 1
             context = []
             if self.features & JOINT_PROCEDURES: context.append('joint_axes=_args.joint_axes')
-            if 'read' in self.features: context.append('read=lambda request: next(_responses)')
+            if 'read' in self.features: context.append('read=_responses')
             self.line(f'print(Program({", ".join(context)}).run())')
         else:
             self.line('print(Program().run())')
@@ -2682,13 +2694,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
                                scope='Practical Python numeric, typed input, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')
     report['read_policy'] = dict(
-        destinations='Omitted-file READ with 1..1024 INTEGER/BOOLEAN/REAL/STRING variables, scalar fields/elements and BYTE/SHORT aggregate leaves',
+        destinations='Omitted-file READ with 1..1024 scalar destinations or CR markers; INTEGER/BOOLEAN/REAL/STRING variables, fields/elements and BYTE/SHORT leaves',
         capture='Resolve writable destinations once left to right before one input callback; retain concrete capacities and captured storage',
         callback='Explicit synchronous Program(read=...) receives defensive line/type metadata; returns an exact list/tuple with one typed value per target; no automatic retry',
         validation='Validate the entire response before assigning in destination order; repeated aliases use the last value; STRING input at most 254 ASCII characters before destination truncation',
         failures='No response assignment on callback/result failure; earlier target/callback effects remain; callback interruptions propagate; ordinary routine and FOR cleanup applies',
         observations='Program.read_requests returns defensive metadata/outcome copies, reset at run start; input values are not retained in these observations',
-        boundary='No implicit stdin, file/device access, CR, formats, text/binary tokenization, EOF/alarm/status mapping, aggregate destinations, CONFIG subfields or POSITION orientation writes',
+        line_control='CR positions are optional line_breaks offsets in callback metadata and translation reads; repeated/leading/CR-only requests supported; markers consume no response values',
+        text_adapter='runtime.TextInput: explicit ASCII text, Python decimal int/float tokens, case-insensitive BOOLEAN tokens and STRING line remainders; persistent defensive cursor; CR discards current remainder',
+        scripts='Choose --read-values JSON batches or --read-text UTF-8 ASCII text, with optional BOM; explicit paths and mutually exclusive adapters',
+        boundary='No implicit stdin, controller file/device access, formats, binary transfer, native EOF/alarm/status mapping, aggregate destinations, CONFIG subfields or POSITION orientation writes',
         controller_validated=False)
     report['evaluation_policy'] = dict(
         operands='Evaluate once left to right; VECTOR values captured before the next operand',
