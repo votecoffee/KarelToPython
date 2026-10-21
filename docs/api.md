@@ -93,6 +93,8 @@ not rolled back by failures or ABORT.
   `runtime.TextInput(text)` supplies explicit ASCII text with a persistent cursor
   and CR line control; generated scripts can choose `--read-text` instead.
   Optional `line_breaks` metadata describes CR positions. See [text input](text-input.md).
+  [READ formats](read-formats.md) add optional per-target `format_specifiers`
+  metadata and ordered dynamic expressions for widths, bases and STRING quoting.
 - `joint_axes=n` supplies an explicit offline axis count for the restricted
   degree-valued joint conversion subset. It is not robot discovery or group
   configuration. Copying exact joint values does not infer a controller context.

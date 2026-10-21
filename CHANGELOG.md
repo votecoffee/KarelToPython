@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.65.0 - 2026-10-21
+
+- Add Pythonic READ widths, integral bases and quoted STRING input, with up to
+  two ordered dynamic INTEGER format expressions per scalar. Capture each target
+  once before its formats, validate before later captures and retain concrete
+  storage/capacities, nested requests, transitive effects and FOR protections.
+- Extend TextInput with exact single-line fields, Python numeric whitespace and
+  base grammar, documented BOOLEAN abbreviations and doubled-apostrophe decoding.
+  Keep short/malformed fields consumed without later input or response stores;
+  preserve metadata preflight, complete-response checks and ordinary cleanup.
+- Add optional per-target format metadata without changing plain scalar requests.
+  Typed host/JSON responses remain already decoded. Fix multiline CR list items,
+  add 59 format regressions, an authored example and a format guide; remove the
+  stale example count from the root README. Strict remains future work.
+
 ## 0.64.0 - 2026-10-21
 
 - Add runtime.TextInput for explicit ASCII input with persistent line/column/EOF

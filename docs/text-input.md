@@ -47,7 +47,11 @@ and blank lines, then consume one whitespace-delimited token.
 | INTEGER, BYTE, SHORT | Python `int(token,10)`, including signs and underscores; prefixes such as `0x10` are rejected |
 | REAL | Python `float(token)`, including decimal, exponent and underscore forms; finite values required |
 | BOOLEAN | Case-insensitive TRUE/FALSE, ON/OFF, T/F and 1/0 |
-| STRING | Remaining characters on the current line, including separating/leading blanks; no quote unescaping or token splitting |
+| STRING | Unformatted: remaining characters on the current line, including separating/leading blanks; no token splitting |
+
+Since 0.65.0, [READ formats](read-formats.md) add positive fixed widths, nondecimal
+bases and quoted STRINGs with apostrophe escaping. BOOLEAN input also accepts
+TRU/TR and FALS/FAL/FA/OF abbreviations. The table describes unformatted defaults.
 
 Existing storage checks apply to each parsed value before reading the next
 field: INTEGER ranges/MAXINT, narrow ranges/SHORT sentinel, finite REALs and
@@ -113,6 +117,6 @@ The reviewed [reference edition](references.md), PDF pages 127 and 496-497,
 describes CR line skipping and READ input. This adapter chooses explicit Python
 token grammars, STRING boundary behavior and complete-response assignment for
 offline use. It establishes no native parser, file/window re-prompt, error
-clearing, EOF/status/alarm or controller-input equivalence. Formats, binary
+clearing, EOF/status/alarm or controller-input equivalence. Binary
 transfer and controller FILE/device access remain outside this subset. Strict
 mode remains a future milestone with its internal READ rejection retained.

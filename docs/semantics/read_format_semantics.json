@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.65.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Scalar READ widths, integral bases, quoted STRING fields and ordered dynamic formats",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [129, 130, 131, 132, 133, 134, 135],
+    "documented": "Input widths, integral bases 2..16, ignored REAL/BOOLEAN second formats and STRING quote mode 0/2",
+    "uncertainty": "The quoted-STRING example and prose leave wrapper retention unclear; dynamic expressions, zero defaults, whitespace and escape rules are chosen Pythonic policies"
+  },
+  "implementation_choices": {
+    "formats": "At most two INTEGER expressions: width 0..254; integral base 0 or 2..16; STRING mode 0/2; REAL/BOOLEAN second value evaluated and ignored",
+    "order": "For each item capture the target, evaluate width then second format once, validate formats, then continue; retain concrete references/capacities; all captures precede the outer callback",
+    "fields": "Width zero retains token/remainder rules; positive widths consume exact characters on one physical line with no cross-line fill; short fields consume the available remainder and fail",
+    "numbers": "Python int(field,base)/float(field), with surrounding whitespace allowed; documented BOOLEAN abbreviations plus existing 1/0; preserve checked storage domains",
+    "quotes": "STRING mode 2 strips wrappers, decodes doubled apostrophes, preserves interior blanks and allows empty contents; width zero stops at closing quote, fixed widths require whitespace suffix; decoded contents bounded to 254 before truncation",
+    "metadata": "Optional concrete per-target format_specifiers tuples; plain targets retain prior shape; source reports include literal formats or dynamic expression positions; formats participate in effects and FOR checks",
+    "typed_adapters": "Host/JSON values are already decoded; widths, bases and quoting are metadata, while ordinary storage/response validation remains",
+    "failures": "Validate metadata before consumption, formats before later target effects, each decoded field before later input and the complete response before stores; no rewind; ordinary cleanup"
+  },
+  "retained_boundaries": [
+    "No FILE/device, binary input, native buffering/status/window-error behavior or implicit stdin",
+    "Existing active-counter, initialization, ownership, POSITION, CONFIG, numeric and capacity protections",
+    "Strict remains future work; no native compiler/controller execution claim"
+  ],
+  "tests": ["tests/test_read_formats.py", "tests/test_pythonic_read.py", "tests/test_text_input.py", "tests/test_runtime_portability.py", "examples/pythonic_read_formats.kl"],
+  "controller_validated": false
+}

@@ -4,6 +4,8 @@ Since 0.63.0, Pythonic mode supports scalar READ through an explicit synchronous
 host callback. The callback supplies typed Python values for offline execution.
 Since 0.64.0, [TextInput and CR](text-input.md) also support explicit text and
 line control through the same callback interface.
+Since 0.65.0, [READ formats](read-formats.md) add widths, bases and STRING quoting,
+including ordered dynamic expressions.
 
 ```karel
 PROGRAM INPUTS

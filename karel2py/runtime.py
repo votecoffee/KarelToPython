@@ -1295,6 +1295,28 @@ def _read_line_breaks(count, positions, line=None):
     return tuple(positions)
 
 
+def read_formats(spec, formats, line=None):
+    """Check concrete Pythonic input formats without consuming input."""
+    _read_scalar_spec(spec, line)
+    if type(formats) not in (list, tuple) or len(formats) > 2:
+        raise KarelRuntimeError('READ requires at most two INTEGER format specifiers', line)
+    formats = tuple(integer(value, line) for value in formats)
+    if formats and not 0 <= formats[0] <= 254:
+        raise KarelRuntimeError('READ width must be in 0..254', line)
+    if len(formats) == 2:
+        second = formats[1]
+        valid = (spec[0] in ('REAL', 'BOOLEAN') or spec[0] == 'STRING' and second in (0, 2)
+                 or spec[0] in ('INTEGER', 'BYTE', 'SHORT') and second in (0, *range(2, 17)))
+        if not valid: raise KarelRuntimeError(f'Invalid {spec[0]} READ second format specifier', line)
+    return formats
+
+
+def capture_read_target(target, formats, line=None):
+    if type(target) is not Reference:
+        raise KarelRuntimeError('READ requires ordinary writable scalar references', line)
+    return target, read_formats(target.spec, formats, line)
+
+
 class TextInput:
     """Explicit ASCII text adapter for Pythonic READ, with a persistent cursor."""
     def __init__(self, text):
@@ -1336,28 +1358,65 @@ class TextInput:
         self._after_field = True
         return line[start:self._column], self._row + 1, start + 1
 
-    def _string(self):
+    def _field_line(self):
         self._require_line()
         if self._after_field and self._column == len(self._lines[self._row]):
             self._next_line()
             self._require_line()
+        return self._lines[self._row]
+
+    def _string(self, width=0):
+        line = self._field_line()
         row, column = self._row + 1, self._column + 1
-        value = self._lines[self._row][self._column:]
-        self._column, self._after_field = len(self._lines[self._row]), True
+        value = line[self._column:self._column + width] if width else line[self._column:]
+        self._column, self._after_field = self._column + len(value), True
+        if width and len(value) != width:
+            raise KarelRuntimeError(f'TextInput incomplete field at input line {row}, column {column}; expected {width} characters')
         return value, row, column
+
+    def _quoted(self, width):
+        if width:
+            field, row, column = self._string(width)
+        else:
+            line = self._field_line()
+            row, column = self._row + 1, self._column + 1
+            field = line[self._column:]
+        offset = 0
+        while offset < len(field) and field[offset].isspace(): offset += 1
+        contents = []
+        if offset < len(field) and field[offset] == "'":
+            offset += 1
+            while offset < len(field):
+                char = field[offset]; offset += 1
+                if char == "'":
+                    if offset < len(field) and field[offset] == "'":
+                        contents.append("'"); offset += 1
+                        continue
+                    if not width:
+                        self._column += offset
+                        self._after_field = True
+                    if not width or not field[offset:].strip():
+                        return ''.join(contents), row, column
+                    break
+                contents.append(char)
+        if not width:
+            self._column += len(field)
+            self._after_field = True
+        raise KarelRuntimeError(f'TextInput invalid quoted STRING at input line {row}, column {column}')
 
     def __call__(self, request):
         if type(request) is not dict or type(request.get('targets')) not in (list, tuple):
             raise KarelRuntimeError('TextInput requires READ target metadata')
         targets = request['targets']
         breaks = _read_line_breaks(len(targets), request.get('line_breaks', ()))
-        specs = []
+        specs, formats = [], []
         for target in targets:
             if type(target) is not dict or type(target.get('type_spec')) not in (list, tuple):
                 raise KarelRuntimeError('TextInput requires concrete READ target type specs')
             spec = _read_scalar_spec(tuple(target['type_spec']))
             if target.get('type') != spec[0]: raise KarelRuntimeError('TextInput target type metadata disagrees')
             specs.append(spec)
+            formats.append(read_formats(spec, target.get('format_specifiers', ())))
         values, marker = [], 0
         for index in range(len(specs) + 1):
             while marker < len(breaks) and breaks[marker] == index:
@@ -1366,7 +1425,12 @@ class TextInput:
                 marker += 1
             if index == len(specs): break
             spec = specs[index]
-            token, row, column = self._string() if spec[0] == 'STRING' else self._token()
+            controls = formats[index]
+            width = controls[0] if controls else 0
+            second = controls[1] if len(controls) == 2 else 0
+            if spec[0] == 'STRING' and second == 2: token, row, column = self._quoted(width)
+            elif width or spec[0] == 'STRING': token, row, column = self._string(width)
+            else: token, row, column = self._token()
             try:
                 if spec[0] == 'STRING':
                     value = token
@@ -1374,9 +1438,10 @@ class TextInput:
                 elif spec[0] == 'REAL': value = float(token)
                 elif spec[0] == 'BOOLEAN':
                     name = token.upper()
-                    if name not in ('TRUE','FALSE','ON','OFF','T','F','1','0'): raise ValueError('Invalid BOOLEAN token')
-                    value = name in ('TRUE','ON','T','1')
-                else: value = int(token, 10)
+                    name = name.strip()
+                    if name not in ('TRUE','TRU','TR','T','ON','1','FALSE','FALS','FAL','FA','F','OFF','OF','0'): raise ValueError('Invalid BOOLEAN token')
+                    value = name in ('TRUE','TRU','TR','T','ON','1')
+                else: value = int(token, second or 10)
                 with _numeric_scope('pythonic'): checked(spec, value)
             except (ValueError, OverflowError, KarelRuntimeError) as exc:
                 raise KarelRuntimeError(f'TextInput invalid {spec[0]} at input line {row}, column {column}') from exc
@@ -1474,7 +1539,7 @@ class State:
     def read_observations(self):
         return tuple(deepcopy(self.read_requests))
 
-    def read_items(self, targets, line=None, *, line_breaks=()):
+    def read_items(self, targets, line=None, *, line_breaks=(), formats=None):
         """Receive typed offline input; validate the complete response before writes."""
         if type(targets) not in (list, tuple):
             raise KarelRuntimeError('READ requires scalar destination references', line)
@@ -1483,7 +1548,13 @@ class State:
             if type(target) is not Reference:
                 raise KarelRuntimeError('READ requires ordinary writable scalar references', line)
             _read_scalar_spec(target.spec, line)
+        if formats is None: formats = [()] * len(targets)
+        if type(formats) not in (list, tuple) or len(formats) != len(targets):
+            raise KarelRuntimeError('READ requires one format list per scalar destination', line)
+        formats = [read_formats(target.spec, item, line) for target, item in zip(targets, formats)]
         metadata = dict(line=line, targets=[dict(type=ref.spec[0], type_spec=ref.spec) for ref in targets])
+        for target, item in zip(metadata['targets'], formats):
+            if item: target['format_specifiers'] = item
         if line_breaks: metadata['line_breaks'] = list(line_breaks)
         request = dict(deepcopy(metadata), adapter_outcome='missing_adapter')
         self.read_requests.append(request)

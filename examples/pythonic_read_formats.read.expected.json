@@ -1,0 +1,10 @@
+[
+  {"line": 11, "targets": [
+    {"type": "INTEGER", "type_spec": ["INTEGER"], "format_specifiers": [2, 16]},
+    {"type": "REAL", "type_spec": ["REAL"], "format_specifiers": [5]},
+    {"type": "BOOLEAN", "type_spec": ["BOOLEAN"], "format_specifiers": [2]}
+  ], "line_breaks": [3], "adapter_outcome": "callback_completed"},
+  {"line": 12, "targets": [
+    {"type": "STRING", "type_spec": ["STRING", 12], "format_specifiers": [0, 2]}
+  ], "line_breaks": [1], "adapter_outcome": "callback_completed"}
+]

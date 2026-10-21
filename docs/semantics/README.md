@@ -33,6 +33,7 @@ are kept outside public documentation.
 
 | Topic | Ledger |
 | --- | --- |
+| Pythonic READ formats | [read_format_semantics.json](read_format_semantics.json) |
 | Abort | [abort_semantics.json](abort_semantics.json) |
 | Array routine | [array_routine_semantics.json](array_routine_semantics.json) |
 | Array | [array_semantics.json](array_semantics.json) |

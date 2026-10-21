@@ -1,0 +1,15 @@
+PROGRAM PYTHONIC_READ_FORMATS
+VAR count,width,radix,total: INTEGER
+label: STRING[12] enabled: BOOLEAN measure: REAL
+ROUTINE field_width: INTEGER
+BEGIN
+  total=total+1
+  RETURN width
+END field_width
+BEGIN
+  width=2 radix=16 total=0
+  READ(count::field_width::radix,measure::5,enabled::2,CR)
+  READ(label::0::2,CR)
+  total=total+count+TRUNC(measure)
+  WRITE(label,':',total::0,CR)
+END PYTHONIC_READ_FORMATS

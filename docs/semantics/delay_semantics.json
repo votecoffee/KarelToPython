@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.64.0",
+  "translator_version": "0.65.0",
   "using_mode_note": "Public Pythonic nested USING, dotted selectors and namespace choices follow ../pythonic-using.md; older nesting, field-selector and constant/call-name rejections below remain for the future strict milestone.",
   "for_control_mode_note": "Public Pythonic global-counter calls, read-only counter references and finally cleanup follow ../pythonic-for.md; older fresh-local-only, counter-reference and exceptional-counter observations below remain for the future strict milestone.",
   "string_operation_mode_note": "Public Pythonic SUB_STR clipping, zero counts, bounded results and empty INDEX searches follow ../string-operations.md; older substring/search rejections below remain for the future strict milestone.",

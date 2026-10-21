@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.64.0**. It is a
+tool are named **karel2py**. The current implementation is **0.65.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -169,7 +169,8 @@ and left-associated cross/dot chains support composed calculations such as
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with
-`--read-text` and explicit CR line control. See [text input](docs/text-input.md) and
+`--read-text`, field widths/bases/quotes and explicit CR line control. See
+[READ formats](docs/read-formats.md), [text input](docs/text-input.md) and
 [Pythonic input](docs/pythonic-read.md) for capture order, validation and failure behavior.
 
 ## Supported Features
@@ -207,7 +208,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 60 authored runnable examples, checks complete
+The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.

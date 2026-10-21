@@ -552,13 +552,22 @@ class Parser:
             targets = []
             self.skip_newlines()
             while True:
+                self.skip_newlines()
                 if self.current.value in (')', ','):
                     self.error('E_READ_ITEM', 'READ requires scalar destinations or CR; empty items are outside the input contract')
                 if len(targets) >= 1024:
                     self.error('E_READ_LIMIT', 'READ supports at most 1024 scalar destinations or CR markers')
-                targets.append(Expr('read_cr', self.take()) if self.current.value == 'CR' else self.expression())
-                if self.current.value in (':', '::'):
-                    self.error('E_READ_FORMAT', 'READ format specifiers are outside the typed input contract')
+                if self.current.value == 'CR':
+                    targets.append(Expr('read_cr', self.take()))
+                    if self.current.value == '::': self.error('E_READ_FORMAT', 'CR does not accept format specifiers')
+                else:
+                    target = self.expression()
+                    formats = []
+                    while self.accept('::'):
+                        if len(formats) == 2: self.error('E_READ_FORMAT', 'READ accepts at most two INTEGER format expressions')
+                        formats.append(self.expression())
+                    targets.append(Expr('read_item', target.token, args=[target, *formats]) if formats else target)
+                if self.current.value == ':': self.error('E_READ_FORMAT', 'READ format specifiers use double colons')
                 self.skip_newlines()
                 if not self.accept(','): break
             self.expect(')')
@@ -1101,7 +1110,7 @@ class Emitter:
                             result_spec=routine.return_type))
                         self.features.add('bare zero-argument function call')
                         return Expr('call', node.token, node.value, [])
-                if node.kind in ('index', 'field'):
+                if node.kind in ('index', 'field', 'read_item'):
                     node.args = [resolve(node.args[0], storage=True),
                                  *[resolve(argument) for argument in node.args[1:]]]
                 else:
@@ -1227,6 +1236,7 @@ class Emitter:
                     routine.may_read = True
                     for target in node.args:
                         if target.kind == 'read_cr': continue
+                        if target.kind == 'read_item': target = target.args[0]
                         name = self.root_name(target)
                         if name not in local_names: routine.side_effecting = True
                         if name in parameter_names: routine.parameter_writes.add(name)
@@ -1793,7 +1803,7 @@ class Emitter:
         return code
 
     @staticmethod
-    def write_format_literal(expr):
+    def format_literal(expr):
         """Recognize signed/grouped literals without folding runtime expressions."""
         sign = 1
         while expr.kind == 'group' or expr.kind == 'unary' and expr.value in ('+', '-'):
@@ -1999,7 +2009,7 @@ class Emitter:
                     self.error('E_TYPE', f'WRITE requires scalar data, found {data_type}', item.token)
                 format_exprs = item.args[1:]
                 format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
-                literals = [self.write_format_literal(expr) for expr in format_exprs]
+                literals = [self.format_literal(expr) for expr in format_exprs]
                 formats = [literal if literal is not None else dict(expression=True, line=expr.token.line,
                             column=expr.token.column) for literal, expr in zip(literals, format_exprs)]
                 width = literals[0] if literals else None
@@ -2073,10 +2083,13 @@ class Emitter:
                                                       else 'fixed' if formats else 'unformatted')))
         elif kind == 'read':
             references, destinations, line_breaks = [], [], []
-            for target in stmt.args:
-                if target.kind == 'read_cr':
+            formatted = any(item.kind == 'read_item' for item in stmt.args)
+            for item in stmt.args:
+                if item.kind == 'read_cr':
                     line_breaks.append(len(references))
                     continue
+                target = item.args[0] if item.kind == 'read_item' else item
+                format_exprs = item.args[1:] if item.kind == 'read_item' else []
                 base = target
                 while base.kind in ('field', 'index'): base = base.args[0]
                 if target.kind not in ('name', 'field', 'index') or base.kind != 'name':
@@ -2091,11 +2104,31 @@ class Emitter:
                 reference, spec = self.reference(target)
                 if spec[0] not in (*INTEGRAL_TYPES, 'BOOLEAN', 'REAL', 'STRING'):
                     self.error('E_READ_TYPE', 'READ supports INTEGER/BOOLEAN/REAL/STRING and narrow scalar elements/fields', target.token)
-                references.append(reference)
+                format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
+                literals = [self.format_literal(expr) for expr in format_exprs]
+                if literals and literals[0] is not None and not 0 <= literals[0] <= 254:
+                    self.error('E_READ_FORMAT', 'READ width must be in 0..254', format_exprs[0].token)
+                if len(literals) == 2 and literals[1] is not None:
+                    second = literals[1]
+                    valid = (spec[0] in ('BOOLEAN', 'REAL') or spec[0] == 'STRING' and second in (0, 2)
+                             or spec[0] in INTEGRAL_TYPES and second in (0, *range(2, 17)))
+                    if not valid: self.error('E_READ_FORMAT', f'Invalid {spec[0]} READ second format specifier', format_exprs[1].token)
+                references.append(f'_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})'
+                                  if formatted else reference)
                 destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
                                          line=target.token.line, column=target.token.column))
+                if format_exprs:
+                    destinations[-1].update(format_specifiers=[literal if literal is not None else dict(expression=True,
+                        line=expr.token.line, column=expr.token.column) for literal, expr in zip(literals, format_exprs)],
+                        dynamic_formats=any(value is None for value in literals))
+                    self.features.add(f'READ {spec[0]} formatting')
             controls = f', line_breaks={tuple(line_breaks)!r}' if line_breaks else ''
-            self.line(f'self._state.read_items([{", ".join(references)}], {line}{controls})', token)
+            if formatted:
+                captured = self.fresh()
+                self.line(f'{captured} = [{", ".join(references)}]', token)
+                self.line(f'self._state.read_items([item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
+            else:
+                self.line(f'self._state.read_items([{", ".join(references)}], {line}{controls})', token)
             self.read_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=line, column=token.column, destinations=destinations,
                                        targets_evaluated_once=True, response_validated_before_assignment=True))
@@ -2701,9 +2734,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         failures='No response assignment on callback/result failure; earlier target/callback effects remain; callback interruptions propagate; ordinary routine and FOR cleanup applies',
         observations='Program.read_requests returns defensive metadata/outcome copies, reset at run start; input values are not retained in these observations',
         line_control='CR positions are optional line_breaks offsets in callback metadata and translation reads; repeated/leading/CR-only requests supported; markers consume no response values',
-        text_adapter='runtime.TextInput: explicit ASCII text, Python decimal int/float tokens, case-insensitive BOOLEAN tokens and STRING line remainders; persistent defensive cursor; CR discards current remainder',
+        formatting='At most two INTEGER expressions per scalar: width 0..254 (zero default), integral base 0 or 2..16, STRING quote mode 0/2; REAL/BOOLEAN second format evaluated and ignored; concrete optional per-target format_specifiers metadata',
+        format_order='Capture each destination, then its width and second format once; validate formats before the next destination; callback runs after all captures; typed responses are already decoded',
+        text_adapter='runtime.TextInput: explicit ASCII text, Python int/float fields, case-insensitive BOOLEAN tokens, STRING remainders or quoted fields with doubled-apostrophe escapes; exact positive widths stay on one physical line; persistent defensive cursor; CR discards current remainder',
         scripts='Choose --read-values JSON batches or --read-text UTF-8 ASCII text, with optional BOM; explicit paths and mutually exclusive adapters',
-        boundary='No implicit stdin, controller file/device access, formats, binary transfer, native EOF/alarm/status mapping, aggregate destinations, CONFIG subfields or POSITION orientation writes',
+        boundary='No implicit stdin, controller file/device access, binary transfer, native EOF/alarm/status mapping, aggregate destinations, CONFIG subfields or POSITION orientation writes',
         controller_validated=False)
     report['evaluation_policy'] = dict(
         operands='Evaluate once left to right; VECTOR values captured before the next operand',
