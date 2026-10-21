@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.63.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Explicit synchronous typed host input for omitted-file scalar READ; offline execution only",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [127, 496, 497],
+    "visual_inspection": true,
+    "documented": "READ lists destinations and optional files/devices, formats and CR; ARRAY data uses subscripts; native error handling depends on input device",
+    "uncertainty": "Typed values and complete-response validation are chosen Pythonic behavior; native parsing, clearing, buffering, re-prompting and IO_STATUS are not modeled"
+  },
+  "implementation_choices": {
+    "destinations": "1..1024 scalar INTEGER/BOOLEAN/REAL/STRING destinations, including narrow aggregate leaves and ordinary variable storage roots",
+    "capture": "Capture references once left to right before one callback; later input stores do not change captured indices; preserve nested request order",
+    "callback": "Explicit Program(read=...) receives defensive line/type metadata and returns an exact list/tuple of typed values; no implicit stdin or retry",
+    "validation": "Check every value before ordered assignments; preserve numeric/storage checks, STRING ASCII/254 input bound then capacity truncation, and SHORT sentinel; repeated scalar aliases use the last value",
+    "failures": "No response stores on callback/result rejection; retain earlier effects; propagate interruptions and ordinary cleanup; no rollback of consumed input or earlier stores on a later assignment failure",
+    "observations": "Defensive read_requests metadata/outcome copies without response values, reset per run; source-located reads/read_policy; transitive input requests and global/formal writes",
+    "script": "Generated scripts containing READ require --read-values with a JSON list of response batches; joint-axis context composes independently"
+  },
+  "retained_boundaries": [
+    "No native file/device input, formats, CR, text/binary parsing, buffering, EOF, status/alarm or window-input behavior",
+    "No aggregate/temporary/constant destinations, CONFIG subfields, POSITION orientation or active FOR-counter writes",
+    "No controller connection or new native acceptance claim; strict remains a future milestone with internal READ rejection"
+  ],
+  "tests": ["tests/test_pythonic_read.py", "tests/test_runtime_portability.py", "examples/pythonic_read.kl", "tools/run_examples.py"],
+  "controller_validated": false
+}

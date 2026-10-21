@@ -47,6 +47,7 @@ class Routine:
     parameter_writes: set = field(default_factory=set)
     global_writes: set = field(default_factory=set)
     may_write: bool = False
+    may_read: bool = False
     may_abort: bool = False
     string_result_defaulted: bool = False
 
@@ -545,6 +546,23 @@ class Parser:
             if self.current.value in ('PROGRAM', '(', '[', '.', '='):
                 self.error('E_ABORT_TARGET', 'Only bare ABORT of the current offline execution is supported; task qualifiers and arguments remain blocked', self.current)
             return Statement('abort', token)
+        if name == 'READ' and self.mode == 'pythonic':
+            if not self.accept('('):
+                self.error('E_READ_TARGET', 'READ supports the omitted-file parenthesized form', token)
+            targets = []
+            self.skip_newlines()
+            while True:
+                if self.current.value in (')', ',', 'CR'):
+                    self.error('E_READ_ITEM', 'READ requires scalar destinations; empty items and CR are outside the typed input contract')
+                if len(targets) >= 1024:
+                    self.error('E_READ_LIMIT', 'READ supports at most 1024 scalar destinations')
+                targets.append(self.expression())
+                if self.current.value in (':', '::'):
+                    self.error('E_READ_FORMAT', 'READ format specifiers are outside the typed input contract')
+                self.skip_newlines()
+                if not self.accept(','): break
+            self.expect(')')
+            return Statement('read', token, targets)
         if name == 'WRITE':
             if self.mode == 'pythonic': return self.pythonic_write(token)
             if not self.accept('('):
@@ -737,6 +755,7 @@ class Emitter:
         self.string_value_uses = []
         self.string_return_uses = []
         self.write_uses = []
+        self.read_uses = []
         self.config_value_uses = []
         self.joint_conversion_uses = []
         self.abort_uses = []
@@ -1090,7 +1109,7 @@ class Emitter:
             elif isinstance(node, Statement):
                 if node.kind == 'assign':
                     node.args = [resolve(node.args[0], storage=True), resolve(node.args[1])]
-                elif node.kind == 'using':
+                elif node.kind in ('using', 'read'):
                     node.args = [resolve(argument, storage=True) for argument in node.args]
                 else:
                     node.args = [resolve(argument) for argument in node.args]
@@ -1204,6 +1223,13 @@ class Emitter:
                     routine.may_delay = True
                 if isinstance(node, Statement) and node.kind in ('write', 'write_items'):
                     routine.may_write = True
+                if isinstance(node, Statement) and node.kind == 'read':
+                    routine.may_read = True
+                    for target in node.args:
+                        name = self.root_name(target)
+                        if name not in local_names: routine.side_effecting = True
+                        if name in parameter_names: routine.parameter_writes.add(name)
+                        if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                 if isinstance(node, Statement) and node.kind == 'abort':
                     routine.may_abort = True
                 if isinstance(node, Statement) and node.kind in ('assign', 'for'):
@@ -1243,6 +1269,9 @@ class Emitter:
                 if not routine.may_write and any(self.routines[name].may_write for name in edges[routine.name]):
                     routine.may_write = True
                     changed = True
+                if not routine.may_read and any(self.routines[name].may_read for name in edges[routine.name]):
+                    routine.may_read = True
+                    changed = True
                 if not routine.may_abort and any(self.routines[name].may_abort for name in edges[routine.name]):
                     routine.may_abort = True
                     changed = True
@@ -1274,7 +1303,8 @@ class Emitter:
 
     def has_external_effect_call(self, expr):
         return any(isinstance(node, Expr) and node.kind == 'call' and node.value in self.routines
-                   and (self.routines[node.value].side_effecting or self.routines[node.value].may_delay or self.routines[node.value].may_write or self.routines[node.value].may_abort)
+                   and (self.routines[node.value].side_effecting or self.routines[node.value].may_delay
+                        or self.routines[node.value].may_write or self.routines[node.value].may_read or self.routines[node.value].may_abort)
                    for node in self.walk_nodes(expr))
 
     def has_fresh_active_counters(self):
@@ -2040,6 +2070,30 @@ class Emitter:
                                         quoted=alignment in (2, 3),
                                         width_policy=('contents_length' if width == 0 or (width is not None and width > 254)
                                                       else 'fixed' if formats else 'unformatted')))
+        elif kind == 'read':
+            references, destinations = [], []
+            for target in stmt.args:
+                base = target
+                while base.kind in ('field', 'index'): base = base.args[0]
+                if target.kind not in ('name', 'field', 'index') or base.kind != 'name':
+                    self.error('E_READ_ITEM', 'READ requires scalar storage rooted in a variable', target.token)
+                root = self.root_name(target)
+                if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'READ cannot write CONST', target.token)
+                if root in self.active_counters: self.error('E_FOR_COUNTER', 'READ cannot write an active FOR counter', target.token)
+                if self.is_position_read_only_access(target):
+                    self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
+                if self.is_config_subfield(target):
+                    self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
+                reference, spec = self.reference(target)
+                if spec[0] not in (*INTEGRAL_TYPES, 'BOOLEAN', 'REAL', 'STRING'):
+                    self.error('E_READ_TYPE', 'READ supports INTEGER/BOOLEAN/REAL/STRING and narrow scalar elements/fields', target.token)
+                references.append(reference)
+                destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
+                                         line=target.token.line, column=target.token.column))
+            self.line(f'self._state.read_items([{", ".join(references)}], {line})', token)
+            self.read_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                       line=line, column=token.column, destinations=destinations,
+                                       targets_evaluated_once=True, response_validated_before_assignment=True))
         elif kind in ('if', 'while'):
             condition = self.require_type(stmt.args[0], 'BOOLEAN')
             self.line(f'{kind} self._state.test({condition}, {line}):', token)
@@ -2200,15 +2254,21 @@ class Emitter:
         self.line(f'translation_mode = {self.mode!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def __init__(self, *, sleep=None, write=None, joint_axes=None):')
+        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None):')
         self.indent = 2
-        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, joint_axes=joint_axes)')
+        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes)')
         self.indent = 1
         self.line()
         self.line('@property')
         self.line('def write_requests(self):')
         self.indent = 2
         self.line('return tuple(request.copy() for request in self._state.write_requests)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def read_requests(self):')
+        self.indent = 2
+        self.line('return self._state.read_observations()')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2254,11 +2314,32 @@ class Emitter:
         self.line()
         self.line('if __name__ == "__main__":')
         self.indent = 1
-        if self.features & JOINT_PROCEDURES:
+        if self.features & JOINT_PROCEDURES or 'read' in self.features:
             self.line('import argparse as _argparse')
-            self.line('_parser = _argparse.ArgumentParser(description="Offline joint-axis context; no controller connection")')
-            self.line('_parser.add_argument("--joint-axes", type=int, choices=range(1, 10), required=True)')
-            self.line('print(Program(joint_axes=_parser.parse_args().joint_axes).run())')
+            self.line('_parser = _argparse.ArgumentParser(description="Explicit offline execution context; no controller connection")')
+            if self.features & JOINT_PROCEDURES:
+                self.line('_parser.add_argument("--joint-axes", type=int, choices=range(1, 10), required=True)')
+            if 'read' in self.features:
+                self.line('_parser.add_argument("--read-values", required=True, help="UTF-8 JSON list of typed response batches, one per READ")')
+            self.line('_args = _parser.parse_args()')
+            if 'read' in self.features:
+                self.line('import json as _json')
+                self.line('try:')
+                self.indent += 1
+                self.line('with open(_args.read_values, encoding="utf-8") as _stream:')
+                self.indent += 1
+                self.line('_responses = _json.load(_stream)')
+                self.indent -= 2
+                self.line('except (OSError, ValueError) as _error:')
+                self.indent += 1
+                self.line('_parser.error("Unable to load READ batches: " + str(_error))')
+                self.indent -= 1
+                self.line('if type(_responses) is not list: _parser.error("READ batches must be a JSON list")')
+                self.line('_responses = iter(_responses)')
+            context = []
+            if self.features & JOINT_PROCEDURES: context.append('joint_axes=_args.joint_axes')
+            if 'read' in self.features: context.append('read=lambda request: next(_responses)')
+            self.line(f'print(Program({", ".join(context)}).run())')
         else:
             self.line('print(Program().run())')
         result = '\n'.join(self.lines) + '\n'
@@ -2411,6 +2492,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                           boundary='Source default is TPDISPLAY; BOOLEAN/INTEGER formatting, negative INTEGER output, REAL output, quoted truncation/fallback/apostrophes, signed widths, file/device/buffering/transmission, CR and IO_STATUS remain unmodeled',
                           controller_validated=False),
         writes=emitter.write_uses,
+        reads=emitter.read_uses,
         data_record_policy=dict(types=list(DATA_RECORD_TYPES),
                                 fields={name: dict(rt.record_fields((name,))) for name in DATA_RECORD_TYPES},
                                 values='REAL components use the existing exact binary32 checks; CONFIG has three INTEGER turns and four BOOLEAN fields',
@@ -2533,6 +2615,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
                                      potential_global_writes=sorted(r.global_writes),
                                      potential_host_delays=r.may_delay,
                                      potential_output_requests=r.may_write,
+                                     potential_input_requests=r.may_read,
                                      potential_aborts=r.may_abort,
                                      potential_parameter_writes=sorted(r.parameter_writes),
                                      parameters=[dict(name=t.value, type=spec[0], type_spec=spec,
@@ -2597,7 +2680,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
-                               scope='Practical Python numeric, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')
+                               scope='Practical Python numeric, typed input, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')
+    report['read_policy'] = dict(
+        destinations='Omitted-file READ with 1..1024 INTEGER/BOOLEAN/REAL/STRING variables, scalar fields/elements and BYTE/SHORT aggregate leaves',
+        capture='Resolve writable destinations once left to right before one input callback; retain concrete capacities and captured storage',
+        callback='Explicit synchronous Program(read=...) receives defensive line/type metadata; returns an exact list/tuple with one typed value per target; no automatic retry',
+        validation='Validate the entire response before assigning in destination order; repeated aliases use the last value; STRING input at most 254 ASCII characters before destination truncation',
+        failures='No response assignment on callback/result failure; earlier target/callback effects remain; callback interruptions propagate; ordinary routine and FOR cleanup applies',
+        observations='Program.read_requests returns defensive metadata/outcome copies, reset at run start; input values are not retained in these observations',
+        boundary='No implicit stdin, file/device access, CR, formats, text/binary tokenization, EOF/alarm/status mapping, aggregate destinations, CONFIG subfields or POSITION orientation writes',
+        controller_validated=False)
     report['evaluation_policy'] = dict(
         operands='Evaluate once left to right; VECTOR values captured before the next operand',
         boolean='BOOLEAN AND/OR short circuit using Python; INTEGER AND/OR remain eager bitwise operations',
@@ -2679,7 +2771,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         newline='CR renders one LF character; no automatic newline appended',
         adapter='Default per-run request recorder; Program(write=...) receives one complete statement as a synchronous text callback returning None',
         trace='Copied text/line/adapter_outcome records; failures retain prior expression/output effects and unwind routine frames',
-        boundary='No explicit file/device access, binary transfer, READ, aggregate output or controller IO_STATUS; existing type, initialization, ASCII and bounded output checks remain',
+        boundary='No explicit file/device access, binary transfer, aggregate output or controller IO_STATUS; existing type, initialization, ASCII and bounded output checks remain',
         controller_validated=False)
     report['string_result_policy'] = dict(
         source='Internal STRING or STRING[capacity] function results; explicit calls and bare zero-argument function names',

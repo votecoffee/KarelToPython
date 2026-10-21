@@ -24,10 +24,17 @@ def run_example(source, *, inject_write=False):
                        filename=source.relative_to(ROOT).as_posix(), **translation_context)
     namespace = {'__name__': 'checked_example'}
     exec(compile(result.python_source, name + '.generated.py', 'exec'), namespace)
-    delays, texts = [], []
+    delays, texts, inputs = [], [], []
+    input_file = fixture / f'{name}.read.values.json'
+    batches = read_json(input_file) if input_file.exists() else []
+    responses = iter(batches)
+    def reader(request):
+        inputs.append(request)
+        return next(responses)
     context_file = fixture / f'{name}.context.expected.json'
     context = read_json(context_file) if context_file.exists() else {}
     program = namespace['Program'](sleep=delays.append,
+                                  read=reader if input_file.exists() else None,
                                   write=texts.append if inject_write else None, **context)
     termination_file = fixture / f'{name}.termination.expected.json'
     try:
@@ -50,6 +57,10 @@ def run_example(source, *, inject_write=False):
     outcome = 'callback_completed' if inject_write else 'recorded'
     assert all(row['adapter_outcome'] == outcome for row in program.write_requests), name + ': WRITE outcomes'
     assert texts == (expected_texts if inject_write else []), name + ': WRITE callback'
+    read_file = fixture / f'{name}.read.expected.json'
+    expected_reads = read_json(read_file) if read_file.exists() else []
+    assert json.loads(json.dumps(program.read_requests)) == expected_reads, name + ': READ records'
+    assert len(inputs) == len(batches), name + ': consumed input batches'
     return result
 
 
@@ -69,7 +80,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 62, 'Update the expected example count when adding examples'
+    assert count == 63, 'Update the expected example count when adding examples'
     print(f'{count} examples passed; unsupported motion rejected; no generated files written')
     return 0
 

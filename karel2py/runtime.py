@@ -8,6 +8,8 @@ from fractions import Fraction
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
+from copy import deepcopy
+import inspect
 import math
 import re
 import struct
@@ -1274,17 +1276,21 @@ def format_write_item(kind, value, formats=(), line=None):
 
 
 class State:
-    def __init__(self, declarations, constants, *, sleep=None, write=None, joint_axes=None):
+    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None):
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
         if sleep is not None and not callable(sleep):
             raise TypeError('sleep must be a synchronous callable accepting seconds, or None')
         if write is not None and not callable(write):
             raise TypeError('write must be a synchronous callable accepting text, or None')
+        if read is not None and not callable(read):
+            raise TypeError('read must be a synchronous callable accepting a request, or None')
         self._sleep = time.sleep if sleep is None else sleep
         self._write = write
+        self._read = read
         self.joint_axes = joint_axes
         self.write_requests = []
+        self.read_requests = []
         self.types = declarations
         self.constants = constants
         self.values = {name: initial_value(spec) for name, spec in declarations.items()}
@@ -1354,6 +1360,58 @@ class State:
             raise ValueError('max_steps must be a positive integer')
         self.max_steps, self.steps = max_steps, 0
         self.write_requests.clear()
+        self.read_requests.clear()
+
+    def read_observations(self):
+        return tuple(deepcopy(self.read_requests))
+
+    def read_items(self, targets, line=None):
+        """Receive typed offline input; validate the complete response before writes."""
+        if type(targets) not in (list, tuple) or not 1 <= len(targets) <= 1024:
+            raise KarelRuntimeError('READ requires 1..1024 scalar destinations', line)
+        for target in targets:
+            if type(target) is not Reference:
+                raise KarelRuntimeError('READ requires ordinary writable scalar references', line)
+            spec = target.spec
+            scalar = spec in (INTEGER, REAL, ('BOOLEAN',), ('BYTE',), ('SHORT',))
+            string = (type(spec) is tuple and len(spec) == 2 and spec[0] == 'STRING'
+                      and type(spec[1]) is int and 1 <= spec[1] <= 254)
+            if not scalar and not string:
+                raise KarelRuntimeError('READ requires supported concrete scalar types and STRING capacities', line)
+        metadata = dict(line=line, targets=[dict(type=ref.spec[0], type_spec=ref.spec) for ref in targets])
+        request = dict(deepcopy(metadata), adapter_outcome='missing_adapter')
+        self.read_requests.append(request)
+        if self._read is None:
+            raise KarelRuntimeError('READ requires an explicit Program(read=...) input callback', line)
+        request['adapter_outcome'] = 'callback_started'
+        try:
+            response = self._read(deepcopy(metadata))
+        except Exception as exc:
+            request['adapter_outcome'] = 'callback_failed'
+            raise KarelRuntimeError(f'READ input callback failed: {exc}', line) from exc
+        except BaseException:
+            request['adapter_outcome'] = 'callback_interrupted'
+            raise
+        try:
+            if type(response) not in (list, tuple) or len(response) != len(targets):
+                if inspect.iscoroutine(response): response.close()
+                raise KarelRuntimeError('READ input callback must return a list/tuple with one typed value per destination', line)
+            values = list(response)
+            for target, value in zip(targets, values):
+                if target.spec[0] == 'STRING':
+                    if len(ascii_string(value, line)) > 254:
+                        raise KarelRuntimeError('READ STRING input is limited to 254 characters before truncation', line)
+                checked(target.spec, value, line)
+        except Exception:
+            request['adapter_outcome'] = 'callback_result_rejected'
+            raise
+        request['adapter_outcome'] = 'response_validated'
+        try:
+            for target, value in zip(targets, values): target.set(value, line)
+        except BaseException:
+            request['adapter_outcome'] = 'assignment_failed'
+            raise
+        request['adapter_outcome'] = 'callback_completed'
 
     def write_string(self, text, line=None, *, width=None, alignment=0):
         """Record an offline request or call a supplied text sink; not device I/O."""

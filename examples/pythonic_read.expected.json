@@ -1,0 +1,8 @@
+{
+  "PART": {"ID": 7, "LABEL": "widge"},
+  "ENABLED": true,
+  "RATIO": 0.25,
+  "READINGS": [10, 20],
+  "TOTAL": 30,
+  "I": {"uninitialized": true}
+}

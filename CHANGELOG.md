@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.63.0 - 2026-10-21
+
+- Support Pythonic omitted-file scalar READ through an explicit synchronous
+  typed host callback. Capture writable targets once in source order, validate
+  the complete response, then assign in destination order; preserve ordinary
+  scalar/STRING/narrow checks, captured storage, prior effects and cleanup.
+- Add defensive input metadata/outcome observations, source-located input sites
+  and transitive input-request/global/formal-write effects. Keep active FOR
+  counters, constants, temporary/aggregate targets, CONFIG subfields and
+  POSITION orientation writes protected. No implicit stdin or callback retry.
+- Add JSON response batches through generated-script --read-values, composing
+  with explicit joint-axis context. Add 77 input/CLI regressions, runtime-only
+  portability coverage, an authored example with input/trace/output fixtures and
+  an input guide. Native file/device parsing, CR, formats, status/error clearing
+  and controller input remain outside this offline contract; strict is future work.
+
 ## 0.62.0 - 2026-10-21
 
 - Interpret VEC(x,y,z) as a Pythonic expression constructor for fresh checked

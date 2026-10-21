@@ -62,7 +62,7 @@ and report paths must differ. Their parent directories must already exist.
 
 ## Generated Program
 
-A generated module defines `Program(*, sleep=None, write=None, joint_axes=None)`.
+A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None)`.
 Call `Program().run(max_steps=100_000)` to execute explicitly and receive a
 snapshot of global variables. Only the generated module's entry point runs it
 automatically; importing a module defines its class.
@@ -85,6 +85,11 @@ not rolled back by failures or ABORT.
 - `write(text)` handles supported text `WRITE` requests. Without it, requests
   are recorded in `write_requests`; this is not controller output. A callback
   receives one complete statement and must return `None` synchronously.
+- `read(request)` supplies typed scalar `READ` values as a list/tuple matching
+  defensive line/type metadata. An explicit callback is required when READ
+  executes. `read_requests` records defensive metadata and outcomes; generated
+  scripts can load JSON response batches with `--read-values`. See
+  [Pythonic input](pythonic-read.md).
 - `joint_axes=n` supplies an explicit offline axis count for the restricted
   degree-valued joint conversion subset. It is not robot discovery or group
   configuration. Copying exact joint values does not infer a controller context.

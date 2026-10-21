@@ -61,6 +61,7 @@ are kept outside public documentation.
 | Pythonic USING | [pythonic_using_semantics.json](pythonic_using_semantics.json) |
 | Pythonic TYPE aliases | [type_alias_semantics.json](type_alias_semantics.json) |
 | Pythonic VECTOR expressions | [pythonic_vector_expression_semantics.json](pythonic_vector_expression_semantics.json) |
+| Pythonic typed READ | [pythonic_read_semantics.json](pythonic_read_semantics.json) |
 | Positional routine | [positional_routine_semantics.json](positional_routine_semantics.json) |
 | Predefined | [predefined_semantics.json](predefined_semantics.json) |
 | Select | [select_semantics.json](select_semantics.json) |

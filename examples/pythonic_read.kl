@@ -1,0 +1,22 @@
+PROGRAM PYTHONIC_READ
+TYPE part_t=STRUCTURE id: INTEGER label: STRING[5] ENDSTRUCTURE
+VAR part: part_t
+enabled: BOOLEAN
+ratio: REAL
+readings: ARRAY[2] OF INTEGER
+total,i: INTEGER
+ROUTINE next_value: INTEGER
+VAR value: INTEGER
+BEGIN
+  READ(value)
+  RETURN value
+END next_value
+BEGIN
+  READ(part.id,part.label,enabled,ratio)
+  total=0
+  FOR i=1 TO 2 DO
+    readings[i]=next_value()
+    total=total+readings[i]
+  ENDFOR
+  WRITE(part.label,':',total::0,CR)
+END PYTHONIC_READ
