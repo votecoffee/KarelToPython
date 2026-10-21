@@ -1,0 +1,23 @@
+{
+  "CFG": {"CFG_TURN_NO1": 0, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false, "CFG_LEFT": true, "CFG_UP": true, "CFG_FRONT": true},
+  "CODE": 0,
+  "A": {"X": 10.0, "Y": 20.0, "Z": 30.0, "W": 0.0, "P": 0.0, "R": 0.0,
+    "CONFIG_DATA": {"CFG_TURN_NO1": 0, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false, "CFG_LEFT": false, "CFG_UP": true, "CFG_FRONT": true}},
+  "B": {"X": 10.0, "Y": 40.0, "Z": 30.0, "W": 0.0, "P": 0.0, "R": 0.0,
+    "CONFIG_DATA": {"CFG_TURN_NO1": 0, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false, "CFG_LEFT": false, "CFG_UP": true, "CFG_FRONT": true}},
+  "C": {"X": -10.0, "Y": 20.0, "Z": 30.0, "W": 0.0, "P": 0.0, "R": 0.0,
+    "CONFIG_DATA": {"CFG_TURN_NO1": 0, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false, "CFG_LEFT": false, "CFG_UP": true, "CFG_FRONT": true}},
+  "BUILT": {"X": 10.0, "Y": 20.0, "Z": 30.0, "W": 0.0, "P": 0.0, "R": 90.0,
+    "CONFIG_DATA": {"CFG_TURN_NO1": 0, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false, "CFG_LEFT": false, "CFG_UP": true, "CFG_FRONT": true}},
+  "RELOCATED": {"X": 100.0, "Y": 200.0, "Z": 300.0, "W": 0.0, "P": 0.0, "R": 90.0,
+    "CONFIG_DATA": {"CFG_TURN_NO1": 0, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false, "CFG_LEFT": true, "CFG_UP": true, "CFG_FRONT": true}},
+  "WORLD": {"X": 97.0, "Y": 202.0, "Z": 304.0, "W": 0.0, "P": 0.0, "R": 90.0,
+    "CONFIG_DATA": {"CFG_TURN_NO1": 0, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false, "CFG_LEFT": true, "CFG_UP": true, "CFG_FRONT": true}}
+}

@@ -37,6 +37,8 @@ enable additional source symbols or calls.
 [Frame transforms](frame-transforms.md) expose `frame_operations` for explicit
 XYZWPR composition/inversion and `frame_policy` for Euler conventions,
 configuration handling, capture order and retained controller boundaries.
+FRAME construction also records one-based `origin_argument` and three/four operand
+types in those entries. See [frame construction](frame-construction.md).
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode

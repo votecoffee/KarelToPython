@@ -162,6 +162,7 @@ BUILTIN_SIGNATURES = {
     'VEC': (('REAL', 'REAL', 'REAL'), ('VECTOR',)),
     'POS': (('REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'REAL', 'CONFIG'), ('XYZWPR',)),
     'INV': (('XYZWPR',), ('XYZWPR',)),
+    'FRAME': (('XYZWPR', 'XYZWPR', 'XYZWPR'), ('XYZWPR',)),
 }
 BUILTIN_PROCEDURES = {'CNV_STR_INT': ('STRING',), 'CNV_INT_STR': ('INTEGER', 'INTEGER', 'INTEGER'),
                       'CNV_STR_REAL': ('STRING',), 'CNV_REAL_STR': ('REAL', 'INTEGER', 'INTEGER')}
@@ -172,7 +173,7 @@ CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
 # Constructors and frame helpers are Pythonic fallbacks. Preserve internal routines and
 # ordinary declarations with these names.
-PYTHONIC_CONSTRUCTORS = {'VEC', 'POS', 'INV'}
+PYTHONIC_CONSTRUCTORS = {'VEC', 'POS', 'INV', 'FRAME'}
 BUILTINS = (set(BUILTIN_SIGNATURES) - PYTHONIC_CONSTRUCTORS) | set(BUILTIN_PROCEDURES) | MULTI_OUTPUT_PROCEDURES | {'UNINIT'}
 CONTROLLER_NAMES = {'DIN', 'DOUT', 'GIN', 'GOUT', 'AIN', 'AOUT', 'RDIN', 'RDOUT',
                     'GET_REG', 'SET_INT_REG', 'SET_REAL_REG',
@@ -1654,6 +1655,11 @@ class Emitter:
             if self.mode == 'strict' and len(rt.array_dimensions(spec)) != 1:
                 self.error('E_ARRAY_LEN', 'ARRAY_LEN on multidimensional arrays needs dimension-count semantics; use explicit dimensions', expr.token)
             result_type, codes = ('INTEGER',), [code]
+        elif expr.value == 'FRAME':
+            if len(expr.args) not in (3, 4): self.error('E_ARGUMENTS', 'FRAME requires three or four XYZWPR points', expr.token)
+            codes = [f"_rt.positional_value(('XYZWPR',), {self.require_type(argument, 'XYZWPR')}, {expr.token.line})"
+                     for argument in expr.args]
+            result_type = ('XYZWPR',)
         else:
             signature, result_type = BUILTIN_SIGNATURES[expr.value]
             if len(expr.args) != len(signature):
@@ -1677,6 +1683,11 @@ class Emitter:
             self.frame_operation_uses.append(dict(operation='INV', body=self.current_routine.name if self.current_routine else self.program.name,
                                                   line=expr.token.line, column=expr.token.column, operand_types=['XYZWPR'],
                                                   result_type='XYZWPR', evaluated_once=True, operands_copied=True))
+        if expr.value == 'FRAME':
+            self.frame_operation_uses.append(dict(operation='FRAME', body=self.current_routine.name if self.current_routine else self.program.name,
+                                                  line=expr.token.line, column=expr.token.column, operand_types=['XYZWPR']*len(expr.args),
+                                                  result_type='XYZWPR', evaluated_once=True, operands_copied=True,
+                                                  origin_argument=4 if len(expr.args) == 4 else 1))
         if expr.value in rt.UNARY_TRIG_FUNCTIONS:
             self.trig_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, evaluated_once=True,
@@ -2834,10 +2845,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
     report['frame_policy'] = dict(
-        operands='Explicit complete XYZWPR values only; relative : composes left frame with right local pose; INV returns an XYZWPR inverse as a Pythonic fallback',
+        operands='Explicit complete XYZWPR values only; relative : composes left frame with right local pose; INV reverses a pose; FRAME constructs a frame from three or four points as a Pythonic fallback',
         rotation='Column vectors with Rz(r) Ry(p) Rx(w), degree angles reduced modulo 360 before trig; rounded Python float arithmetic',
         orientation='Canonical P in -90..90 and W/R in [-180,180); hypot(R00,R10)<=1e-12 chooses W=0 and places remaining rotation in R',
-        configuration='Composition copies right CONFIG; INV copies input CONFIG as data, without recalculating robot turns or reachability',
+        configuration='Composition copies right CONFIG; INV copies input CONFIG; FRAME copies first or optional fourth CONFIG as data, without recalculating robot turns or reachability',
+        constructor='FRAME: X points from first to second point; third sets positive XY half-plane and right-handed Z; origin is first or optional fourth point; first/second separation and third distance from their line must each be >=10 mm; derived differences/distances finite; ignore input orientations after complete operand validation',
         evaluation='Left-to-right once; snapshot each complete operand before later operand effects; independent result; existing assignment/argument/FOR protections',
         boundary='No POSITION/XYZWPREXT/JOINTPOS/VECTOR transform operands, coercion, external axes, UFRAME/UTOOL discovery, kinematics or native Euler/configuration equivalence; strict remains future work',
         controller_validated=False)

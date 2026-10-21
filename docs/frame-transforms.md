@@ -2,6 +2,8 @@
 
 Since 0.69.0, Pythonic mode supports explicit `XYZWPR : XYZWPR` composition and
 `INV(XYZWPR)` inversion. These are offline rigid transforms using Python floats.
+Since 0.70.0, [FRAME construction](frame-construction.md) also builds an explicit
+XYZWPR frame from three or four point locations.
 
 ```karel
 PROGRAM FRAMES

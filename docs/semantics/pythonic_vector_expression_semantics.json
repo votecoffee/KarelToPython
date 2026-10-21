@@ -1,6 +1,6 @@
 {
-  "translator_version": "0.69.0",
-  "frame_transform_mode_note": "Explicit Pythonic XYZWPR colon composition and INV follow ../frame-transforms.md; earlier blanket frame exclusions below remain for the future strict milestone. Other transform operand types, implicit positional conversion and controller context remain unsupported.",
+  "translator_version": "0.70.0",
+  "frame_transform_mode_note": "Explicit Pythonic XYZWPR colon composition, INV and FRAME follow ../frame-transforms.md and ../frame-construction.md; earlier blanket frame exclusions below remain for the future strict milestone. Other transform operand types, implicit positional conversion and controller context remain unsupported.",
   "pos_constructor_mode_note": "Public Pythonic POS/XYZWPR construction follows ../pos-construction.md; older constructor exclusions below remain for the future strict milestone. Robot-specific CONFIG validity and implicit POSITION conversion remain unverified.",
   "date": "2026-10-21",
   "mode": "pythonic",

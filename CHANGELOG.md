@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.70.0 - 2026-10-21
+
+- Add Pythonic FRAME with three or four complete XYZWPR points, right-handed
+  orthogonal axes, checked 10 mm spacing and optional fourth origin/CONFIG.
+  Use stable norms and the existing portable Euler convention; reject degenerate
+  or non-finite geometry with source-located offline errors.
+- Capture each complete argument before later effects and copy result CONFIG.
+  Preserve internal FRAME routines, ordinary names, private result fields,
+  arrays/structures, RETURN, stable references and FOR/cleanup protections.
+  Extend frame reports with constructor arity and selected origin.
+- Add 45 regressions, independent quaternion basis checks, an authored
+  construction/transform example, runtime-only portability and a construction
+  guide. Other positional/VECTOR inputs and native/controller behavior remain
+  unsupported; strict remains future work.
+
 ## 0.69.0 - 2026-10-21
 
 - Add Pythonic XYZWPR colon composition and INV inversion using explicit portable

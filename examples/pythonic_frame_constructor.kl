@@ -1,0 +1,15 @@
+PROGRAM PYTHONIC_FRAME_CONSTRUCTOR
+%ENVIRONMENT SYSTEM
+VAR cfg: CONFIG code: INTEGER
+a,b,c,built,relocated,world: XYZWPR
+BEGIN
+  CNV_STR_CONF('N R U T, 0, 0, 0',cfg,code)
+  a=POS(10,20,30,0,0,0,cfg)
+  b=POS(10,40,30,0,0,0,cfg)
+  c=POS(-10,20,30,0,0,0,cfg)
+  built=FRAME(a,b,c)
+  cfg.cfg_left=TRUE
+  relocated=FRAME(a,b,c,POS(100,200,300,0,0,0,cfg))
+  world=relocated:POS(2,3,4,0,0,0,cfg)
+  WRITE('world=',world.x::0::1,',',world.y::0::1,',',world.z::0::1,CR)
+END PYTHONIC_FRAME_CONSTRUCTOR

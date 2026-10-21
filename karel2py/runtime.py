@@ -1084,6 +1084,35 @@ def _frame_result(rotation, translation, config, line=None):
     return result
 
 
+def frame_from_points(arguments, line=None):
+    """Construct a right-handed explicit XYZWPR from three/four complete poses."""
+    if not _pythonic(): raise KarelRuntimeError('FRAME requires Pythonic mode', line)
+    if type(arguments) not in (list, tuple) or len(arguments) not in (3, 4):
+        raise KarelRuntimeError('FRAME requires three or four XYZWPR points', line)
+    points = [positional_value(('XYZWPR',), value, line) for value in arguments]
+    origin = points[3] if len(points) == 4 else points[0]
+    locations = [tuple(point.values[field] for field in ('X','Y','Z')) for point in points]
+
+    def difference(point):
+        return tuple(real(a-b, line) for a,b in zip(point, locations[0]))
+
+    def cross(a, b):
+        return tuple(real(a[j]*b[k]-a[k]*b[j], line) for j,k in ((1,2),(2,0),(0,1)))
+
+    def unit(values, minimum, description):
+        length = real(math.hypot(*values), line)
+        if length == 0 or length < minimum:
+            raise KarelRuntimeError('FRAME '+description, line)
+        return tuple(real(value/length, line) for value in values)
+
+    x_axis = unit(difference(locations[1]), 10.0, 'first and second points must be at least 10 mm apart')
+    z_axis = unit(cross(x_axis, difference(locations[2])), 10.0, 'third point must be at least 10 mm from the first/second line')
+    y_axis = unit(cross(z_axis, x_axis), 0.0, 'could not form a finite orthogonal Y axis')
+    z_axis = unit(cross(x_axis, y_axis), 0.0, 'could not form a finite orthogonal Z axis')
+    rotation = tuple(zip(x_axis, y_axis, z_axis))
+    return _frame_result(rotation, tuple(origin.values[field] for field in ('X','Y','Z')), origin.values['CONFIG_DATA'], line)
+
+
 def frame_inverse(value, line=None):
     """Invert an explicit pose; no controller/frame discovery."""
     if not _pythonic(): raise KarelRuntimeError('Frame transforms require Pythonic mode', line)
@@ -1211,6 +1240,7 @@ def exact_atan2(x, y, line=None):
 
 
 def builtin(name, arguments, line=None):
+    if name == 'FRAME': return frame_from_points(arguments, line)
     if name == 'INV':
         if len(arguments) != 1: raise KarelRuntimeError('INV requires exactly one argument', line)
         return frame_inverse(arguments[0], line)

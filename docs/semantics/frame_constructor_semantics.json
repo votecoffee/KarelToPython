@@ -1,0 +1,28 @@
+{
+  "translator_version": "0.70.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Three/four-point FRAME fallback using explicit complete XYZWPR values",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [398],
+    "documented": "FRAME uses first-to-second X direction, a third point in the positive XY half-plane, right-handed Z, first or optional fourth origin/configuration, and minimum 10 mm first/second and third-to-line distances",
+    "uncertainty": "Native POSITION overload/result conversion, pause/error numbers, arithmetic rounding and Euler conventions remain unvalidated"
+  },
+  "implementation_choices": {
+    "types": "Exactly three or four complete initialized XYZWPR values; fallback preserves internal FRAME routines and ordinary names; no implicit positional conversion",
+    "basis": "Normalize first-to-second X; Z is normalized X cross first-to-third; normalize Z cross X for Y and reconstruct normalized X cross Y for Z",
+    "origin_configuration": "Independent copy of first location/CONFIG, or fourth when supplied; fourth has no separation requirement and does not affect basis",
+    "geometry": "Inclusive 10 mm first/second separation and third distance to their infinite line; Python float hypot norms; require finite differences, cross products and distances",
+    "orientation": "Input W/P/R does not determine basis but remains completely validated; output follows frame_transform_semantics.json canonical Z-Y-X and singular-angle policy",
+    "effects": "Evaluate and snapshot every complete argument once before later arguments; geometry checked after captures; preserve earlier effects and destination on failure; independent outputs and ordinary FOR/reference/cleanup checks",
+    "reports": "FRAME entries in frame_operations with source locations, operand types and one-based origin_argument; current frame_policy"
+  },
+  "retained_boundaries": [
+    "No POSITION/XYZWPREXT/JOINTPOS/VECTOR point operands, implicit coercion or unknown input leaves",
+    "No controller frame discovery, task pause/error emulation, external axes, kinematics, reachability or robot configuration inference",
+    "Strict remains future work; authored fixtures and independent quaternion checks establish offline geometry only"
+  ],
+  "tests": ["tests/test_frame_constructor.py", "tests/test_frame_transforms.py", "tests/test_runtime_portability.py", "examples/pythonic_frame_constructor.kl"],
+  "controller_validated": false
+}
