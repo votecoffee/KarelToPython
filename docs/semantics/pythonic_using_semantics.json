@@ -1,0 +1,24 @@
+{
+  "translator_version": "0.60.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Chosen lexical nested USING, dotted named STRUCTURE selectors and namespace rules; no new native alias-lifetime or controller claim",
+  "implementation_choices": {
+    "selectors": "Named user STRUCTURE variables and dotted field paths, resolved against enclosing aliases only; selector lists do not use fields introduced by earlier selectors in the same list",
+    "priority": "Inner fields override matching outer fields; right-most matching selector wins within a list; unmatched outer aliases remain; restore enclosing bindings on exit; do not fall back past an uninitialized matching field",
+    "namespace": "Fields shadow global/local constants in bare expressions and targets; explicit function-call expressions and procedure call statements use call context; bare function names yield to matching fields; CASE labels still require compile-time constants",
+    "normalization": "Insert copied absolute field paths before type/call/effect/flow analysis; never resolve inserted roots again; selectors have no dynamic evaluation effects",
+    "storage": "Existing structure storage and stable whole-copy semantics; ordinary reference/value rules and callee lexical isolation; no structure copy introduced by USING",
+    "effects": "Transitive global/formal writes retain their original storage root; no counter-write bypass; ordinary routine/error/ABORT cleanup and prior effects",
+    "report": "using_scopes id/parent/depth, original source selectors, resolved selector paths, inherited field bindings and source-located resolved uses; using_policy describes the current contract"
+  },
+  "retained_boundaries": [
+    "No indexed, grouped, function-result or call selectors; named user STRUCTURE types only",
+    "No implicit recursive field search or field-owned FOR counters",
+    "Existing type, initialization, ASCII, capacity, ownership and POSITION protection checks",
+    "No jumps into nested/sibling scopes or labels/jumps inside FOR bodies",
+    "Conservative tests remain internal for the future strict milestone; no native namespace or dynamic caller-scope claim"
+  ],
+  "tests": ["tests/test_pythonic_using.py", "tests/test_using.py", "tests/test_structures.py", "tests/test_local_constants.py", "tests/test_runtime_portability.py", "examples/pythonic_using.kl"],
+  "controller_validated": false
+}

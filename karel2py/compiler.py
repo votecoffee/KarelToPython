@@ -577,9 +577,15 @@ class Parser:
             variables = []
             while True:
                 variable = self.name()
+                selector = Expr('name', variable, variable.value)
+                if self.mode == 'pythonic':
+                    while self.accept('.'):
+                        member = self.name()
+                        selector = Expr('field', member, member.value, [selector])
                 if self.current.value in ('[', '.', '('):
-                    self.error('E_USING_TARGET', 'USING currently requires bare named STRUCTURE variables', variable)
-                variables.append(variable)
+                    self.error('E_USING_TARGET', 'USING supports named STRUCTURE variables and dotted field paths; indexed/call selectors remain blocked'
+                               if self.mode == 'pythonic' else 'USING currently requires bare named STRUCTURE variables', variable)
+                variables.append(selector if self.mode == 'pythonic' else variable)
                 if not self.accept(','): break
             self.expect('DO')
             body = self.block({'ENDUSING'})
@@ -1061,6 +1067,8 @@ class Emitter:
             elif isinstance(node, Statement):
                 if node.kind == 'assign':
                     node.args = [resolve(node.args[0], storage=True), resolve(node.args[1])]
+                elif node.kind == 'using':
+                    node.args = [resolve(argument, storage=True) for argument in node.args]
                 else:
                     node.args = [resolve(argument) for argument in node.args]
                 node.body = resolve(node.body)
@@ -1079,37 +1087,58 @@ class Emitter:
 
     def resolve_using_fields(self):
         """Resolve lexical field aliases before effect and control-flow analysis."""
+        def path_text(expr):
+            return path_text(expr.args[0]) + '.' + expr.value if expr.kind == 'field' else expr.value
+
+        def copy_path(expr, token):
+            # Insert absolute paths without revisiting their roots as aliases.
+            return Expr(expr.kind, token, expr.value, [copy_path(child, token) for child in expr.args])
+
         def resolve(node, bindings=None, scope=None):
             if isinstance(node, Expr):
                 if bindings and node.kind == 'name' and node.value in bindings:
-                    if node.value in self.visible_constants():
+                    if self.mode == 'strict' and node.value in self.visible_constants():
                         self.error('E_USING_CONST_SHADOW', 'Constants whose names coincide with USING fields need namespace validation', node.token)
                     variable = bindings[node.value]
-                    scope['resolved_uses'].append(dict(field=node.value, variable=variable,
+                    scope['resolved_uses'].append(dict(field=node.value, variable=path_text(variable),
                                                       line=node.token.line, column=node.token.column))
                     # Do not revisit this newly qualified root: its spelling can
                     # itself coincide with a field in another listed structure.
                     return Expr('field', node.token, node.value,
-                                [Expr('name', node.token, variable)])
-                if bindings and node.kind == 'call' and node.value in bindings:
+                                [copy_path(variable, node.token)])
+                if self.mode == 'strict' and bindings and node.kind == 'call' and node.value in bindings:
                     self.error('E_USING_CALL_SHADOW', 'Calls whose names coincide with USING fields need namespace validation', node.token)
                 node.args = [resolve(argument, bindings, scope) for argument in node.args]
             elif isinstance(node, Statement):
                 if node.kind == 'using':
-                    if scope is not None:
+                    if self.mode == 'strict' and scope is not None:
                         self.error('E_USING_NESTED', 'Nested USING field priority needs additional evidence', node.token)
-                    fields = {}
+                    fields = dict(bindings or {})
+                    selectors, source_selectors = [], []
                     for variable in node.args:
-                        spec = self.symbol_type(Expr('name', variable, variable.value))
+                        selector = variable if isinstance(variable, Expr) else Expr('name', variable, variable.value)
+                        source_selectors.append(path_text(selector))
+                        # A selector list uses enclosing aliases only, never the
+                        # fields introduced by earlier selectors in this list.
+                        selector = resolve(selector, bindings, scope)
+                        spec = self.access_type(selector)
                         if spec[0] != 'STRUCTURE':
-                            self.error('E_USING_TYPE', 'USING requires a named STRUCTURE variable', variable)
-                        for name, _ in spec[2]: fields[name] = variable.value
+                            self.error('E_USING_TYPE', 'USING requires a named STRUCTURE variable or field path', selector.token)
+                        for name, _ in spec[2]: fields[name] = selector
+                        selectors.append(selector)
+                    parent = scope
                     scope = dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                  line=node.token.line, column=node.token.column,
-                                 variables=[variable.value for variable in node.args],
-                                 field_bindings=fields, resolved_uses=[])
+                                 variables=[path_text(selector) for selector in selectors],
+                                 field_bindings={name:path_text(selector) for name,selector in fields.items()}, resolved_uses=[])
+                    if self.mode == 'pythonic':
+                        scope.update(id=len(self.using_scopes), parent=parent['id'] if parent else None,
+                                     depth=parent['depth']+1 if parent else 0, source_selectors=source_selectors)
                     self.using_scopes.append(scope)
                     self.features.add('USING explicit field resolution')
+                    if parent: self.features.add('nested USING lexical scope')
+                    if any(selector.kind == 'field' for selector in selectors): self.features.add('qualified USING selector')
+                    node.args = selectors
                     node.body = resolve(node.body, fields, scope)
                     return node
                 if bindings and node.kind == 'for' and node.args[0].value in bindings:
@@ -2553,6 +2582,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         global_or_formal_counter_calls_and_returns='Global counters follow write proof and cleanup; formal counters and nonlocal counters in parameterized routines remain blocked',
         jumps_and_labels_inside_for='blocked', controller_validated=False)
     report['abort_policy']['for_boundary'] = 'Pythonic FOR scopes clear initialized counters during ABORT unwinding; prior non-counter effects remain'
+    report['using_policy'] = dict(
+        selectors='Named STRUCTURE variables or dotted STRUCTURE field paths; resolve against enclosing aliases only; selectors in the same list do not affect one another',
+        priority='Inner fields override outer fields; right-most matching selector wins within one list; unmatched outer fields remain available; restore outer bindings after the block',
+        resolution='Expand bare aliases to copied absolute field paths before type, call, effect and control-flow checks; inserted roots are not resolved again; no dynamic caller scope',
+        nested_scopes='Lexical scopes; depth zero at the outermost USING; scope id, parent id, source selectors and resolved paths in using_scopes',
+        call_name_collisions='Explicit expression calls and procedure call statements resolve routines; a bare expression resolves a matching field before a zero-argument function',
+        constant_name_collisions='Matching fields shadow global/local constants only inside the scope; CASE labels still require compile-time constants',
+        shadowed_for_counters='blocked; fields cannot own FOR counters',
+        boundary='Named user STRUCTURE types only; no indexed, grouped or function-result selectors, implicit nested-field search or native namespace/alias-lifetime claim',
+        controller_validated=False)
     report['numeric_policy'] = dict(
         mode=mode, real_model='python_float', arithmetic='Python float +, -, *, /; finite results required',
         sqrt='math.sqrt for nonnegative finite inputs', exp='math.exp', ln='math.log for positive finite inputs',
@@ -2659,10 +2698,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
                    'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
                    'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays',
                    'INDEX with an empty search', 'SUB_STR beyond the source end',
-                   'FOR-body routine calls and RETURN require')
+                   'FOR-body routine calls and RETURN require', 'USING qualifies fields lexically')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
     report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and in-loop jumps remain blocked')
+    report['limitations'].append('USING supports lexical nesting and dotted named STRUCTURE selectors; indexed/call/grouped selectors, builtin record selectors and field FOR counters remain blocked')
     return result

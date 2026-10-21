@@ -1,0 +1,37 @@
+PROGRAM lexical_fields
+TYPE leaf_t=STRUCTURE
+  value: INTEGER
+  label: STRING[8]
+ENDSTRUCTURE
+packet_t=STRUCTURE
+  detail: leaf_t
+  value: INTEGER
+ENDSTRUCTURE
+VAR
+  packet: packet_t
+  result,called: INTEGER
+  text: STRING[16]
+
+ROUTINE value: INTEGER
+BEGIN
+  called=called+1
+  RETURN 42
+END value
+
+BEGIN
+  called=0
+  USING packet DO
+    value=1
+    USING detail DO
+      value=7
+      label='inner'
+      result=value+value()
+    ENDUSING
+    value=value+1
+  ENDUSING
+  USING packet.detail DO
+    text=label
+    value=value+1
+  ENDUSING
+  WRITE('outer=',packet.value,', inner=',packet.detail.value,', result=',result,', text=',text,CR)
+END lexical_fields

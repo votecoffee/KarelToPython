@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.59.0",
+  "translator_version": "0.60.0",
+  "using_mode_note": "Public Pythonic nested USING, dotted selectors and namespace choices follow ../pythonic-using.md; older nesting, field-selector and constant/call-name rejections below remain for the future strict milestone.",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Chosen checked FOR calls, read-only counter references and deterministic cleanup; no new native counter-state claim",

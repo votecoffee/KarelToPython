@@ -3,13 +3,14 @@ import ast
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError
 
 
-def compile_program(body='work', routines='', prefix='', declarations='x,y,result: INTEGER\nflag: BOOLEAN\nreal_value: REAL\ntext: STRING[8]'):
+def compile_program(body='work', routines='', prefix='', declarations='x,y,result: INTEGER\nflag: BOOLEAN\nreal_value: REAL\ntext: STRING[8]', *, _translator=translate):
     source = f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T'
-    generated = translate(source, filename='local_constants.kl')
+    generated = _translator(source, filename='local_constants.kl')
     ast.parse(generated.python_source, feature_version=(3, 11))
     namespace = {'__name__': 'local_constant_test'}
     exec(generated.python_source, namespace)
@@ -167,7 +168,7 @@ class LocalConstantBehaviorTests(unittest.TestCase):
         routines = 'ROUTINE work CONST count=7 VAR record: item_t BEGIN USING record DO record.count=count+1 ENDUSING result=record.count END work'
         # Unqualified count is deliberately blocked even in this expression.
         with self.assertRaises(TranslationError) as caught:
-            execute(routines, prefix='TYPE item_t=STRUCTURE count: INTEGER ENDSTRUCTURE')
+            execute(routines, prefix='TYPE item_t=STRUCTURE count: INTEGER ENDSTRUCTURE', _translator=legacy_translate)
         self.assertEqual(caught.exception.code, 'E_USING_CONST_SHADOW')
 
     def test_local_constant_used_outside_using_with_explicit_field(self):
@@ -326,7 +327,7 @@ class LocalConstantRejectionTests(unittest.TestCase):
         self.reject('ROUTINE work CONST step=7 BEGIN step:: END work', 'E_LABEL_CONFLICT')
 
     def test_using_field_constant_collision(self):
-        self.reject('ROUTINE work CONST count=7 VAR record: item_t BEGIN USING record DO result=count ENDUSING END work', 'E_USING_CONST_SHADOW', prefix='TYPE item_t=STRUCTURE count: INTEGER ENDSTRUCTURE')
+        self.reject('ROUTINE work CONST count=7 VAR record: item_t BEGIN USING record DO result=count ENDUSING END work', 'E_USING_CONST_SHADOW', prefix='TYPE item_t=STRUCTURE count: INTEGER ENDSTRUCTURE', _translator=legacy_translate)
 
     def test_string_constant_value_argument_preserves_constant(self):
         state = execute("ROUTINE label(p: STRING) BEGIN p='changed' END label\nROUTINE work CONST name='abc' BEGIN label(name) text=name END work")

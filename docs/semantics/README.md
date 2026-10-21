@@ -20,6 +20,8 @@ Earlier substring-overrun and empty-search rejections are qualified by the
 [Pythonic STRING operations](../string-operations.md).
 Earlier fresh-local-only FOR calls, counter-reference rejections and exceptional
 counter observations are qualified by [Pythonic FOR](../pythonic-for.md).
+Earlier USING nesting, dotted-selector and namespace rejections are qualified
+by [Pythonic USING](../pythonic-using.md).
 
 Each ledger is relative to this directory. Test paths inside its text are relative
 to the repository root. Private corpus reports and machine-specific provenance
@@ -52,6 +54,7 @@ are kept outside public documentation.
 | Pythonic text formats | [pythonic_text_format_semantics.json](pythonic_text_format_semantics.json) |
 | Pythonic STRING operations | [pythonic_string_operation_semantics.json](pythonic_string_operation_semantics.json) |
 | Pythonic FOR | [pythonic_for_semantics.json](pythonic_for_semantics.json) |
+| Pythonic USING | [pythonic_using_semantics.json](pythonic_using_semantics.json) |
 | Positional routine | [positional_routine_semantics.json](positional_routine_semantics.json) |
 | Predefined | [predefined_semantics.json](predefined_semantics.json) |
 | Select | [select_semantics.json](select_semantics.json) |

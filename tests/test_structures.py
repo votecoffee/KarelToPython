@@ -347,7 +347,7 @@ class StructureRejectionTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
 
     def test_using_structure_field_selector_blocked(self):
-        self.rejected('USING src.child DO count = 7 ENDUSING', code='E_USING_TARGET')
+        self.rejected('USING src.child DO count = 7 ENDUSING', code='E_USING_TARGET', _translator=legacy_translate)
 
     def test_field_index_with_routine_call_blocked_in_assignment(self):
         self.rejected('src.slots(next_index()) = 7', 'ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', 'E_SYNTAX', _translator=legacy_translate)

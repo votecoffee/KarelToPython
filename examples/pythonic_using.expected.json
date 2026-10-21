@@ -1,0 +1,6 @@
+{
+  "PACKET": {"DETAIL": {"VALUE": 8, "LABEL": "inner"}, "VALUE": 2},
+  "RESULT": 49,
+  "CALLED": 1,
+  "TEXT": "inner"
+}

@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.59.0. Acceptance is specific to
+This is the supported prototype subset as of 0.60.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -25,7 +25,7 @@ internally and in the historical semantic notes.
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. No unspecified STRING capacities, resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no type aliases or ABI claim. |
-| USING | Restricted bare structure selectors and field priority | Lexical scope; no complex selector expressions or dynamic caller scope. |
+| USING | Nested lexical scopes, named STRUCTURE variables and dotted selectors; inner/right-most field priority | Fields shadow constants; calls use call context. No indexed/call/grouped selectors, builtin record selectors, field FOR counters or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
 | VECTOR | Checked float arithmetic, scaling, cross/dot products, equality and routine values | Group ambiguous products and initialize finite components. Zero/parallel cross products allowed. |
@@ -38,6 +38,7 @@ See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.
 See [Pythonic FOR](pythonic-for.md) for global-counter calls, read-only counter
 arguments, bounds and cleanup on early exits/errors.
+See [Pythonic USING](pythonic-using.md) for nested field paths and namespace choices.
 
 ## Zero-argument function calls
 

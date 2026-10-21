@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.60.0 - 2026-10-21
+
+- Support Pythonic nested USING scopes and dotted named STRUCTURE selectors.
+  Inner/right-most fields take precedence; unmatched outer fields remain
+  available and enclosing bindings are restored after the block. Resolve selector
+  lists against enclosing aliases only, without chaining aliases within one list.
+- Define field priority over constants in expressions/targets, explicit function
+  calls and procedure call context over field names, and bare field priority over
+  zero-argument function names. Keep CASE labels compile-time constants.
+- Expand aliases to independent absolute paths before type, effect and control-flow
+  checks; preserve original storage roots, reference/value behavior and callee
+  lexical isolation. Keep indexed/call/grouped selectors, field FOR counters,
+  builtin record selectors and unsupported jumps blocked.
+- Add parent/depth/selector metadata, 52 execution regressions, an authored example
+  with independent fixtures and a USING guide. Preserve conservative checks
+  internally for the future strict milestone; no native namespace/lifetime claim.
+
 ## 0.59.0 - 2026-10-21
 
 - Permit Pythonic global-counter FOR bodies to call helpers when transitive

@@ -47,7 +47,7 @@ class UsingResolutionTests(unittest.TestCase):
 
     def test_constant_name_collision_is_explicitly_blocked(self):
         with self.assertRaises(TranslationError) as caught:
-            compile_program('USING left DO count = 7 ENDUSING', declarations='left: left_t', constants='CONST count = 90')
+            compile_program('USING left DO count = 7 ENDUSING', declarations='left: left_t', constants='CONST count = 90', _translator=legacy_translate)
         self.assertEqual(caught.exception.code, 'E_USING_CONST_SHADOW')
 
     def test_noncolliding_constant_remains_usable(self):
@@ -248,22 +248,22 @@ class UsingBoundaryTests(unittest.TestCase):
 
     def test_indexed_and_field_selectors_remain_blocked(self):
         for selector in ('items[1]', 'left.child'):
-            with self.subTest(selector=selector): self.rejected(f'USING {selector} DO ENDUSING', 'E_USING_TARGET')
+            with self.subTest(selector=selector): self.rejected(f'USING {selector} DO ENDUSING', 'E_USING_TARGET', _translator=legacy_translate)
 
     def test_function_selector_remains_blocked(self):
         self.rejected('USING make() DO ENDUSING', 'E_USING_TARGET')
 
     def test_nested_using_remains_blocked(self):
-        self.rejected('USING left DO USING right DO count = 7 ENDUSING ENDUSING', 'E_USING_NESTED')
+        self.rejected('USING left DO USING right DO count = 7 ENDUSING ENDUSING', 'E_USING_NESTED', _translator=legacy_translate)
 
     def test_shadowed_for_counter_remains_blocked(self):
         self.rejected('USING left DO FOR count = 1 TO 2 DO ENDFOR ENDUSING', 'E_USING_FOR_COUNTER')
 
     def test_call_name_colliding_with_field_remains_blocked(self):
-        self.rejected('USING left DO count() ENDUSING', 'E_USING_CALL_SHADOW')
+        self.rejected('USING left DO count() ENDUSING', 'E_USING_CALL_SHADOW', _translator=legacy_translate)
 
     def test_function_call_name_collision_remains_blocked(self):
-        self.rejected('USING left DO result = count() ENDUSING', 'E_USING_CALL_SHADOW')
+        self.rejected('USING left DO result = count() ENDUSING', 'E_USING_CALL_SHADOW', _translator=legacy_translate)
 
     def test_field_type_checks_still_apply(self):
         self.rejected("USING left DO count = 'bad' ENDUSING", 'E_TYPE')
@@ -303,7 +303,7 @@ ROUTINE relay: INTEGER BEGIN RETURN change() END relay'''
 
     def test_shadowed_case_constant_does_not_become_a_runtime_case(self):
         self.rejected('USING left DO SELECT result OF CASE(count): result = 1 ENDSELECT ENDUSING', 'E_USING_CONST_SHADOW',
-                      declarations='left: left_t result: INTEGER', constants='CONST count = 7')
+                      declarations='left: left_t result: INTEGER', constants='CONST count = 7', _translator=legacy_translate)
 
 
 if __name__ == '__main__': unittest.main()

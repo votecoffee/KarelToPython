@@ -109,6 +109,11 @@ FOR calls and read-only counter references. `for_policy` records cleanup after
 successful initial assignment, including early exits and failures. See
 [Pythonic FOR](pythonic-for.md) for proof boundaries and compatibility changes.
 
+`using_scopes` records lexical `id`, `parent` and zero-based `depth`, original
+`source_selectors`, resolved paths in `variables`, inherited `field_bindings` and
+source-located `resolved_uses`. `using_policy` describes nested precedence and
+constant/routine-name lookup. See [Pythonic USING](pythonic-using.md).
+
 ## Limits
 
 `conversion_policy.format` includes signed `CNV_INT_STR` bases 2..16, with base 0

@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.59.0**. It is a
+tool are named **karel2py**. The current implementation is **0.60.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -155,6 +155,10 @@ the counters. Read-only counter references are supported, and initialized
 counters clear on RETURN, ABORT and errors. See [Pythonic FOR](docs/pythonic-for.md)
 for cleanup, argument passing and remaining restrictions.
 
+USING supports nested lexical scopes and dotted STRUCTURE selectors. Inner
+fields take precedence, with outer bindings restored afterward. See
+[Pythonic USING](docs/pythonic-using.md) for field, constant and routine lookup.
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -187,7 +191,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 59 authored runnable examples, checks complete
+The example runner translates the 60 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
