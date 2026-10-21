@@ -20,12 +20,12 @@ and its [expected output](../examples/pythonic_output.write.expected.json).
 
 ## Formatting equivalents
 
-Specifiers are INTEGER literals separated by `::`. Their meaning depends on the
-data type; they are not Python expressions.
+Specifiers are KAREL INTEGER expressions separated by `::`. Their meaning depends
+on the data type. See [dynamic formats and quoted fields](text-formats.md).
 
 | Data type | No format | `::width` | Second specifier |
 | --- | --- | --- | --- |
-| STRING | Contents unchanged | Existing truncation, padding and alignment rules | 0/1: unquoted left/right; 2/3: existing fitting quoted subset. |
+| STRING | Contents unchanged | Truncation, padding and bounded natural-width fallback | 0/1: unquoted left/right; 2/3: quoted left/right with doubled apostrophes. |
 | INTEGER, BYTE, SHORT | Signed decimal with a leading blank | Minimum right-aligned field, expanding to fit | Base 2..16; 0 selects decimal. Uppercase A..F; nondecimal fields zero-fill after an optional minus. |
 | REAL | Leading blank plus Python `.5E` scientific formatting | Minimum right-aligned field, expanding to fit | Nonnegative precision selects fixed-point `.nf`; negative precision selects scientific `.nE` using its absolute value. |
 | BOOLEAN | Leading blank plus TRUE/FALSE | Minimum right-aligned field, expanding to fit | Unsupported. |
@@ -38,16 +38,18 @@ For example, `WRITE(5::6::2)` yields ` 00101`; `WRITE(-42::0::16)` yields
 Numeric and BOOLEAN widths are bounded to 0..254, with 0 selecting natural width.
 REAL precision is bounded to -254..254. Decimal formatting uses Python rounding;
 negative nondecimal integers use a minus sign rather than controller bit-pattern
-formatting. These are chosen Pythonic conventions. STRING retains its existing
-width fallback and quoted-content guards. Dynamic formats, aggregate output,
+formatting. These are chosen Pythonic conventions. STRING quoting preserves
+paired quotes and complete escapes when truncating. Aggregate output,
 explicit devices/files, binary transfer, READ and IO_STATUS remain unsupported.
 
 ## Evaluation and output callbacks
 
 Items are evaluated and formatted **once, from left to right**. This permits
 multiple routine calls in one `WRITE` list. An item's value is captured before a
-later item can change its source storage. Existing guards still apply inside
-each expression, including ambiguous side-effecting arithmetic.
+later item can change its source storage. For each item, evaluate the value,
+width and second format in that order, then validate and render. Expressions
+follow the chosen [evaluation order](evaluation-order.md), including function
+effects and Boolean short circuiting.
 
 After all items render, the combined ASCII output is checked against the
 254-character statement limit. The prototype also bounds a statement to 1024

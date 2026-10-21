@@ -104,11 +104,20 @@ creates no outer request while preserving earlier effects and nested requests.
 selecting decimal. Digits use uppercase A..F and no prefix; minimum widths in
 1..254 add left padding. These are chosen Pythonic conventions.
 
-`conversion_policy` reports rounded Python `CNV_REAL_STR` fixed precision in
-0..254, with minimum widths in 1..254. Those bounds limit formatting work.
-Scientific output remains unsupported; caller-capacity blank/asterisk overflow
-and checked output references remain. Input conversions use Python int/float
+`conversion_policy` reports rounded Python `CNV_REAL_STR` precision in -254..254:
+negative selects uppercase scientific with absolute digits, nonnegative selects
+fixed output. Minimum widths are in 1..254. Those bounds limit formatting work;
+caller-capacity blank/asterisk overflow and checked output references remain.
+Input conversions use Python int/float
 text grammar, bounded ASCII text and finite/range checks.
+
+WRITE accepts INTEGER format expressions. Report `format_specifiers` entries
+are integers for signed/grouped literals, or objects containing `expression=true`
+and physical `line`/`column` for dynamic values. `items[].dynamic_formats` identifies
+dynamic sites; `format_width` retains the integer or expression object, while
+`alignment`, `quoted` and `width_policy` explicitly mark dynamic cases.
+`write_policy.string` describes paired quotes, doubled apostrophes and bounded
+truncation/fallback. See [text formats](text-formats.md).
 
 `bare_function_calls` records each resolved zero-parameter function-name use with
 its body, original source line/column and exact `result_spec`.

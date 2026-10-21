@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.56.0",
+  "translator_version": "0.57.0",
+  "text_format_mode_note": "Public Pythonic dynamic WRITE, quoted fields and scientific conversion follow ../text-formats.md; earlier literal-only, quoted-content and scientific-format rejections below are retained for the future strict milestone.",
   "array_shape_mode_note": "Public Pythonic result declarations and first-dimension ARRAY_LEN follow ../array-result-shapes.md; older result-form and multidimensional-length rejections below are retained for the future strict milestone.",
   "array_mode_note": "Public Pythonic ARRAY value/result composition follows ../pythonic-arrays.md; older assignment-only and whole-value rejections below are retained for the future strict milestone.",
   "evaluation_mode_note": "Public Pythonic mode uses the chosen order in ../evaluation-order.md; older ordering rejections below are retained only for the future strict milestone.",
@@ -9,7 +10,7 @@
   "page_numbering": "One-based PDF pages",
   "reviewed_pages": [131, 133, 623],
   "source_rules": {
-    "write_syntax": "Omitted-file WRITE accepts a comma-separated list of expressions with optional INTEGER literal format specifiers, or CR items.",
+    "write_syntax": "Omitted-file WRITE accepts a comma-separated list of expressions with optional INTEGER format specifiers; Pythonic expression support follows ../text-formats.md, or CR items.",
     "integer": "Decimal output has a leading blank; width is a minimum field. The second specifier selects base 2..16; nondecimal width uses leading zeros.",
     "real": "Default scientific output, minimum field widths and signed fractional precision selecting fixed/scientific forms.",
     "cr": "Subsequent data starts on the next line."
@@ -25,8 +26,8 @@
   },
   "retained_boundaries": [
     "Initialized known scalar values and existing ownership/type checks",
-    "Existing STRING width/alignment and fitting quoted-content guards",
-    "No aggregate output, dynamic format expressions, explicit files/devices, binary transfer, READ or IO_STATUS",
+    "Bounded STRING width/alignment, quoted truncation and doubled apostrophes follow ../text-formats.md",
+    "No aggregate output, explicit files/devices, binary transfer, READ or IO_STATUS",
     "No native compiler or controller I/O equivalence claim; strict mode remains a future milestone"
   ],
   "tests": ["tests/test_pythonic_writes.py", "tests/test_runtime_portability.py", "examples/pythonic_output.kl"],

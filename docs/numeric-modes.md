@@ -39,10 +39,10 @@ policy even after errors, and independent threads do not share mutable mode stat
 | `ASIN`, `ACOS` | Python inverse trig, converted to degrees | Inputs in -1..1; general rounded results. |
 | `ATAN2(x,y)` | `math.degrees(math.atan2(y,x))` | KAREL argument order, all quadrants, result in -180..180 degrees; origin rejected. |
 | `CNV_STR_REAL`, `CNV_STR_INT` | `float(text)`, `int(text,10)` | Bounded ASCII input, including Python whitespace/exponent conventions. Invalid numeric text clears the output; non-finite/out-of-range values raise before mutation. |
-| `CNV_REAL_STR` | Python fixed-point `format` | Decimal rounding, 0..254 fractional digits, a leading blank and optional left padding to minimum width 1..254. |
+| `CNV_REAL_STR` | Python fixed/scientific `format` | Precision -254..254; negative selects uppercase scientific with absolute digits. Leading blank and optional left padding to minimum width 1..254. See [text formats](text-formats.md). |
 | `CNV_INT_STR` | Positional integer formatting | Signed bases 2..16, uppercase A..F, no prefix; base 0 selects decimal. Leading blank and minimum width 1..254. |
 | VECTOR math, REAL record fields and joint data | Checked float components | Rounded intermediates/results; zero and parallel cross products allowed. Structural identity and explicit joint context remain required. |
-| Numeric WRITE items | Python integer/float formatting | Mixed scalar lists, literal width/base/precision, CR mapped to LF and one complete output request; see [text output](pythonic-output.md). |
+| Numeric WRITE items | Python integer/float formatting | Mixed scalar lists, INTEGER expressions for width/base/precision, CR mapped to LF and one complete output request; see [text output](pythonic-output.md). |
 
 Both text formatters retain caller STRING capacity and the blank/asterisk
 overflow marker. Prototype width/precision bounds limit formatting work. Math

@@ -721,14 +721,17 @@ def conversion_procedure(name, source, *arguments, line=None):
     if name == 'CNV_REAL_STR':
         value = real(source, line)
         length, num_digits = (integer(argument, line) for argument in arguments[:-1])
-        if not 0 <= num_digits <= 254:
-            raise KarelRuntimeError('CNV_REAL_STR supports fixed fractional digits in 0..254; scientific/out-of-bound precision rules need validation', line)
         if _pythonic():
-            text = ' ' + format(value, f'.{num_digits}f')
             if not 1 <= length <= 254:
                 raise KarelRuntimeError('CNV_REAL_STR minimum length must be in 1..254', line)
+            if not -254 <= num_digits <= 254:
+                raise KarelRuntimeError('CNV_REAL_STR precision must be in -254..254', line)
+            style = 'E' if num_digits < 0 else 'f'
+            text = ' ' + format(value, f'.{abs(num_digits)}{style}')
             text = text.rjust(length)
         else:
+            if not 0 <= num_digits <= 254:
+                raise KarelRuntimeError('CNV_REAL_STR supports fixed fractional digits in 0..254; scientific/out-of-bound precision rules need validation', line)
             scaled = Fraction(value) * 10 ** num_digits
             if scaled.denominator != 1:
                 raise KarelRuntimeError('CNV_REAL_STR decimal rounding is not validated; exact formatting only', line)
@@ -1177,6 +1180,19 @@ def _format_write_string(text, line=None, *, width=None, alignment=0):
         if type(width) is not int or not 0 <= width <= 2147483647:
             raise KarelRuntimeError('WRITE STRING width must be nonnegative INTEGER in 0..2147483647', line)
         if alignment in (2, 3):
+            if _pythonic():
+                # Keep paired quotes and complete doubled-apostrophe escapes,
+                # even when the requested field is shorter than the wrapper.
+                escaped = ["''" if char == "'" else char for char in text]
+                natural = sum(map(len, escaped)) + 3
+                width = max(3, width) if 1 <= width <= 254 else natural
+                contents, remaining = [], width - 3
+                for char in escaped:
+                    if len(char) > remaining: break
+                    contents.append(char)
+                    remaining -= len(char)
+                text = " '" + ''.join(contents) + "'"
+                return text.rjust(width) if alignment == 3 else text.ljust(width)
             if not 1 <= width <= 254:
                 raise KarelRuntimeError('Quoted WRITE width fallback is not implemented', line)
             if "'" in text:

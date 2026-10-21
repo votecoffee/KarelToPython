@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.56.0**. It is a
+tool are named **karel2py**. The current implementation is **0.57.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -141,6 +141,11 @@ Results also support named types and fixed or wildcard matrix/cube dimensions.
 `ARRAY_LEN` returns the first dimension, like Python `len`. See
 [ARRAY result shapes](docs/array-result-shapes.md).
 
+WRITE formats accept INTEGER expressions, including function calls. Quoted
+STRING fields handle apostrophes and truncation; REAL-to-text conversion supports
+fixed and scientific notation. See [Pythonic text formats](docs/text-formats.md)
+for the chosen conventions, evaluation order and bounds.
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -152,14 +157,15 @@ Results also support named types and fixed or wildcard matrix/cube dimensions.
   ARRAY functions, selected built-ins, general degree trig, SQRT, EXP and LN.
 - Positional data records, opaque joint values, selected VECTOR operations and
   explicit-context offline conversion subsets.
-- Rounded fixed-decimal REAL text formatting with 0..254 fractional digits,
+- Rounded fixed/scientific REAL text formatting with precision -254..254,
   minimum-width padding and caller-capacity overflow markers.
 - Signed INTEGER text formatting in bases 2..16, with checked output references
   and capacities.
-- Mixed scalar `WRITE` lists, CR newlines and numeric formatting through a
+- Mixed scalar `WRITE` lists, CR newlines, dynamic formats and quoted STRING
+  truncation/escaping through a
   recorder or supplied callback.
 
-Each item has type and context restrictions. Broad ARRAY result forms, external routines,
+Each item has type and context restrictions. External routines,
 motion, controller files/registers/I/O and native task behavior remain unsupported.
 Read the [support table and limitations](docs/language-support.md) before using a feature.
 
@@ -173,7 +179,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 56 authored runnable examples, checks complete
+The example runner translates the 57 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.

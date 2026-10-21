@@ -1,0 +1,33 @@
+{
+  "translator_version": "0.57.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Chosen bounded Python equivalents for dynamic WRITE formats, quoted STRING fields and scientific CNV_REAL_STR; no new native behavior claim",
+  "implementation_choices": {
+    "formats": "KAREL INTEGER expressions, with BYTE/SHORT promotion; up to two formats, one for BOOLEAN and none for CR; no Python eval",
+    "evaluation": "Each item evaluates value, width, second format once in order, then validates/renders before the next item; all item formats evaluated before range checks",
+    "ranges": "Numeric/BOOLEAN width 0..254; REAL precision -254..254; integer base 0 or 2..16; STRING width 0..2147483647, alignment 0..3",
+    "static_checks": "Signed/grouped literal formats retain translation-time range checks; other expressions have runtime type/range/initialization checks",
+    "quoted": "Leading blank and paired apostrophes, embedded apostrophes doubled; left/right padding outside; right-truncate contents using indivisible escaped characters",
+    "tiny_width": "Quoted widths 1 or 2 promote to 3 so the wrapper remains intact",
+    "fallback": "Width 0 or >254 selects natural rendered length for quoted STRING, contents length for unquoted STRING; no huge padding allocation",
+    "real_conversion": "Python float format: negative precision selects uppercase scientific with absolute fractional digits, nonnegative selects fixed; width 1..254; preserve caller-capacity blank/asterisk overflow marker",
+    "report": "Literal format_specifiers remain integers; dynamic entries contain expression=true and physical line/column; dynamic width/alignment/quoting policies are explicit",
+    "failure": "No outer request on rendering/combined-length failure; retain earlier effects/nested requests, skip later expressions after an evaluation error, unwind routine frames; no callback retry"
+  },
+  "retained_boundaries": [
+    "Initialized ASCII STRING inputs <=254 characters, checked finite REALs and integral storage",
+    "Combined rendered WRITE output <=254 characters and <=1024 items, including escaped expansion",
+    "Existing type, shape, ownership, FOR-counter, call-depth and step checks",
+    "No explicit file/device access, READ, aggregate output, binary transfer or IO_STATUS",
+    "Conservative internal formatting tests remain for the future strict milestone"
+  ],
+  "tests": [
+    "tests/test_pythonic_text_formats.py",
+    "tests/test_pythonic_writes.py",
+    "tests/test_pythonic_mode.py",
+    "tests/test_runtime_portability.py",
+    "examples/pythonic_text_formats.kl"
+  ],
+  "controller_validated": false
+}

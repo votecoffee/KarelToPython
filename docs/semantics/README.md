@@ -14,6 +14,8 @@ strict mode remains a future milestone. Older ARRAY assignment-only and value
 rejections also belong to the conservative contract; see the
 [Pythonic ARRAY rules](../pythonic-arrays.md). Result-form and length rejections
 are also qualified by the [Pythonic result shapes](../array-result-shapes.md).
+Earlier literal-only, quoted-content and scientific-format rejections are
+qualified by the [current text format rules](../text-formats.md).
 
 Each ledger is relative to this directory. Test paths inside its text are relative
 to the repository root. Private corpus reports and machine-specific provenance
@@ -43,6 +45,7 @@ are kept outside public documentation.
 | Pythonic evaluation order | [pythonic_order_semantics.json](pythonic_order_semantics.json) |
 | Pythonic ARRAY | [pythonic_array_semantics.json](pythonic_array_semantics.json) |
 | Pythonic ARRAY result shapes | [pythonic_array_shape_semantics.json](pythonic_array_shape_semantics.json) |
+| Pythonic text formats | [pythonic_text_format_semantics.json](pythonic_text_format_semantics.json) |
 | Positional routine | [positional_routine_semantics.json](positional_routine_semantics.json) |
 | Predefined | [predefined_semantics.json](predefined_semantics.json) |
 | Select | [select_semantics.json](select_semantics.json) |

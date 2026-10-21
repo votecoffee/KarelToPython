@@ -230,15 +230,20 @@ class QuotedWriteCLITests(unittest.TestCase):
             program=namespace['Program']()
             program.run()
             self.assertEqual(texts(program),[" 'ABC'  ",'ABC'])
-    def test_cli_rejects_quoted_zero_without_module(self):
+    def test_cli_quoted_zero_uses_pythonic_natural_width(self):
         with tempfile.TemporaryDirectory() as folder:
             target=Path(folder)
             source=target/'source.kl'
             source.write_text("PROGRAM T\nBEGIN WRITE('ABC'::0::2) END T")
             process=subprocess.run([sys.executable,'-m','karel2py',str(source),'-o',str(target/'converted.py'),'--report',str(target/'report.json')],cwd=ROOT,capture_output=True,text=True)
-            self.assertEqual(process.returncode,2,process.stderr)
-            self.assertFalse((target/'converted.py').exists())
-            self.assertEqual(json.loads((target/'report.json').read_text())['diagnostics'][0]['code'],'E_WRITE_FORMAT')
+            self.assertEqual(process.returncode,0,process.stderr)
+            site=json.loads((target/'report.json').read_text())['writes'][0]
+            self.assertEqual((site['quoted'],site['width_policy']),(True,'contents_length'))
+            namespace={'__name__':'cli_pythonic_quote_test'}
+            exec((target/'converted.py').read_text(),namespace)
+            program=namespace['Program']()
+            program.run()
+            self.assertEqual(texts(program),[" 'ABC'"])
 
 
 if __name__ == '__main__': unittest.main()

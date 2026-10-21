@@ -2,10 +2,11 @@
 import unittest
 from karel2py import translate,runtime as rt
 from karel2py.lexer import TranslationError,tokenize
+from tests.legacy_numeric_support import translate as legacy_translate
 
 
-def compile_program(body='',*,declarations='text: STRING[80]\nnumber: INTEGER',prefix='',routines='',**context):
-    result=translate(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='literal_apostrophes.kl')
+def compile_program(body='',*,declarations='text: STRING[80]\nnumber: INTEGER',prefix='',routines='',_translator=translate,**context):
+    result=_translator(f'PROGRAM T\n{prefix}\nVAR {declarations}\n{routines}\nBEGIN\n{body}\nEND T',filename='literal_apostrophes.kl')
     namespace={'__name__':'literal_apostrophe_test'}
     exec(result.python_source,namespace)
     return namespace['Program'](**context),result
@@ -134,7 +135,7 @@ class LiteralApostropheSourceTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program("text='caf\u00e9''s'")
         self.assertEqual(caught.exception.code,'E_ENCODING')
     def test_quoted_write_embedded_apostrophe_remains_blocked(self):
-        program,_=compile_program("WRITE('can''t'::12::2)")
+        program,_=compile_program("WRITE('can''t'::12::2)",_translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'embedded apostrophes'): program.run()
         self.assertEqual(program.write_requests,())
     def test_string_function_result_preserves_apostrophe(self):

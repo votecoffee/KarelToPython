@@ -180,7 +180,7 @@ class PythonicGuardTests(unittest.TestCase):
                 execute('i=' + expression)
 
     def test_format_bounds_preserve_destination(self):
-        for width, precision in ((0, 2), (255, 2), (1, -1), (1, 255)):
+        for width, precision in ((0, 2), (255, 2), (1, -255), (1, 255)):
             program, _ = compile_program(f"text='keep' CNV_REAL_STR(0.1,{width},{precision},text)")
             with self.assertRaises(rt.KarelRuntimeError): program.run()
             self.assertEqual(program.snapshot()['TEXT'], 'keep')

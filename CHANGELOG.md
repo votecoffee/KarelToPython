@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.57.0 - 2026-10-21
+
+- Accept bounded KAREL INTEGER expressions for WRITE widths, alignment, base and
+  precision. Evaluate each value, width and second format once in source order;
+  validate/render each item before the next, preserving prior effects on failure.
+  Include format calls in routine-effect analysis and retain existing FOR guards.
+- Add Pythonic quoted STRING escaping and truncation, preserving paired quotes
+  and complete doubled-apostrophe escapes. Tiny widths preserve the wrapper;
+  zero/large widths use bounded natural length. Keep combined output <=254.
+- Support negative CNV_REAL_STR precision for uppercase scientific output with
+  Python rounding, preserving caller capacity and blank/asterisk overflow markers.
+- Add dynamic format metadata, a public guide, 65 execution/runtime regressions
+  and an authored example with independent fixtures. Keep conservative tests
+  internally for the future strict milestone; no native formatting equivalence
+  claim. Bound oversized INTEGER tokens before Python integer parsing.
+
 ## 0.56.0 - 2026-10-21
 
 - Add Pythonic named ARRAY results and anonymous fixed, wildcard or mixed result

@@ -248,9 +248,8 @@ class PythonicWriteValidationTests(unittest.TestCase):
     def test_explicit_device_remains_blocked(self):
         self.reject('WRITE OUTPUT(1,CR)', 'E_WRITE_TARGET')
 
-    def test_dynamic_and_extra_formats_remain_blocked(self):
-        for body in ('WRITE(1::x)', 'WRITE(1::(2))', 'WRITE(1::2+1)', 'WRITE(1::2::10::3)'):
-            self.reject(body, 'E_WRITE_FORMAT')
+    def test_extra_formats_remain_blocked(self):
+        self.reject('WRITE(1::2::10::3)', 'E_WRITE_FORMAT')
 
     def test_type_specific_format_ranges(self):
         for body in ('WRITE(1::0::1)', 'WRITE(1::0::17)', 'WRITE(1::255)',

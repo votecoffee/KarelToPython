@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.56.0. Acceptance is specific to
+This is the supported prototype subset as of 0.57.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -29,9 +29,9 @@ internally and in the historical semantic notes.
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
 | VECTOR | Checked float arithmetic, scaling, cross/dot products, equality and routine values | Group ambiguous products and initialize finite components. Zero/parallel cross products allowed. |
-| Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed-decimal REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
+| Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
-| WRITE | Mixed scalar lists, signed integers, finite REALs, numeric formatting, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Literal formats; existing STRING quote guards; no explicit FILE/device destinations, aggregate output or READ. |
+| WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; no explicit FILE/device destinations, aggregate output or READ. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
 
 ## Zero-argument function calls
@@ -154,8 +154,10 @@ native compiler or controller validation. See the authored
 
 ## Decimal formatting
 
-`CNV_REAL_STR(source,length,num_digits,target)` supports fixed precision in
-0..254. For example, `CNV_REAL_STR(1.125,1,3,text)` produces ` 1.125`, including
+`CNV_REAL_STR(source,length,num_digits,target)` supports precision in -254..254.
+Negative precision selects uppercase scientific notation using its absolute
+value; nonnegative precision selects fixed output.
+For example, `CNV_REAL_STR(1.125,1,3,text)` produces ` 1.125`, including
 its leading blank. Requested trailing zeros are retained; zero fractional digits
 suppress the decimal point. Python fixed-point formatting supplies decimal
 rounding; ordinary decimal inputs and rounded results are accepted.
@@ -164,10 +166,11 @@ rounding; ordinary decimal inputs and rounded results are accepted.
 If the result exceeds the caller's declared STRING
 capacity, output is one blank followed by asterisks filling that capacity. This
 also applies when supported precision produces more than 254 characters. The
-0..254 precision bound limits prototype work; it is not a claimed controller
-format-parameter range. Scientific notation and invalid-format outcome inference
-remain blocked. See the authored [precision example](../examples/fixed_decimal_precision.kl)
-and [conversion contract](semantics/conversion_semantics.json).
+-254..254 precision bound limits prototype work; it is not a claimed controller
+format-parameter range. Invalid formats raise errors. See
+[Pythonic text formats](text-formats.md), the authored
+[precision example](../examples/fixed_decimal_precision.kl) and the older
+[conservative conversion contract](semantics/conversion_semantics.json).
 
 ## Examples
 

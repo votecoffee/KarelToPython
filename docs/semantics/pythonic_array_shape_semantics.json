@@ -1,5 +1,6 @@
 {
-  "translator_version": "0.56.0",
+  "translator_version": "0.57.0",
+  "text_format_mode_note": "Public Pythonic dynamic WRITE, quoted fields and scientific conversion follow ../text-formats.md; earlier literal-only, quoted-content and scientific-format rejections below are retained for the future strict milestone.",
   "date": "2026-10-21",
   "mode": "pythonic",
   "evidence": "Chosen Pythonic result declaration and first-dimension length policy; authored execution/runtime tests and independent example fixtures, without native acceptance claims.",
