@@ -87,6 +87,11 @@ with `Program(write=messages.append)`, where `messages` is a list. The
 
 ## Limits
 
+`conversion_policy` reports exact `CNV_REAL_STR` fixed precision in 0..254.
+That bound limits prototype formatting work. Rounding, scientific notation and
+extra minimum-width padding still reject before output mutation; the existing
+caller-capacity blank/asterisk overflow rule remains.
+
 `bare_function_calls` records each resolved zero-parameter function-name use with
 its body, original source line/column and exact `result_spec`.
 `bare_function_policy` describes the resolution and effect boundaries. These sites

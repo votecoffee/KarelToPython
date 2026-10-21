@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.48.0",
+  "translator_version": "0.49.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Restricted pure-data conversion procedures with checked caller output references. Accepted source, successful conversion, Python tests and controller behavior are separate evidence. General conversion grammar, widths, bases and alarms are not authenticated.",
@@ -51,9 +51,9 @@
         503
       ],
       "documented": "REAL source, INTEGER minimum length and fractional-digit count, STRING output. Zero digits suppress the decimal point; negative digits request scientific notation. Result contains at least one leading blank. Insufficient declared output capacity returns a blank and asterisks. Invalid format parameters return uninitialized output, but their complete validity ranges are not specified here.",
-      "implemented": "Fixed fractional-digit counts 0, 1 and 2. The source passes the shared exact REAL guard, then exact rational scaling by 10**num_digits must be integral. Decimal digits are assembled from that integer without host floating-point formatting or rounding. One leading blank; trailing fractional zeros retained. Positive minimum length must not exceed the natural result length, so no extra width padding is guessed. Output uses caller capacity and the blank/asterisk overflow rule.",
-      "restriction": "Rounding-dependent decimal output, scientific notation, other precisions, extra padding and invalid-format classification are blocked before output mutation. Signed zero and underflow retain the existing numeric model. Alarm behavior, alignment, validity bounds and controller output remain unverified.",
-      "tests": "tests/test_real_text_format.py; examples/real_text_format.kl; numeric_semantics.json defines the shared REAL input guard"
+      "implemented": "Fixed fractional-digit counts 0..254, bounded before computing the exact scale. The 254-digit cap is an explicit prototype resource guard, not an established native validity limit. The source passes the shared exact REAL guard, then exact rational scaling by 10**num_digits must be integral. Decimal digits are assembled from that integer without host floating-point formatting or rounding. One leading blank; trailing fractional zeros retained. Positive minimum length must not exceed the natural result length, so no extra width padding is guessed. Output uses caller capacity and the blank/asterisk overflow rule.",
+      "restriction": "Rounding-dependent decimal output, scientific notation, precisions outside 0..254, extra padding and invalid-format classification are blocked before output mutation. Signed zero and underflow retain the existing numeric model. Alarm behavior, alignment, validity bounds and controller output remain unverified.",
+      "tests": "tests/test_real_text_format.py; tests/test_fixed_decimal_precision.py: 30 checks using independent Decimal text oracles, every supported precision, exact binary32 endpoints and long expansions, capacity/overflow boundaries, rounding and input guards, reference identity, effect analysis and failure cleanup; examples/fixed_decimal_precision.kl"
     },
     {
       "feature": "Caller output references, flow and effects",
@@ -77,12 +77,16 @@
     "Special-state MAXINT conversion/storage and controller alarm behavior",
     "Argument fault/evaluation order, controller output alias rules and environment setup",
     "CNV_STR_REAL broader decimal grammar, rounding, special-state and controller fault behavior",
-    "CNV_REAL_STR decimal rounding, scientific notation, other precisions, padding and format-parameter validity bounds"
+    "CNV_REAL_STR decimal rounding, scientific notation, precisions outside the chosen prototype bound, padding and format-parameter validity bounds"
   ],
   "validation": {
     "controller_connected": false,
     "controller_executed": false
   },
   "source_reference": "../references.md",
-  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N"
+  "manual": "FANUC KAREL Reference Manual, MARRC75KR07091E Rev N",
+  "current_visual_inspection_pages": [
+    339,
+    340
+  ]
 }

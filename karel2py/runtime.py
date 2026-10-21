@@ -650,8 +650,8 @@ def conversion_procedure(name, source, *arguments, line=None):
     if name == 'CNV_REAL_STR':
         value = real(source, line)
         length, num_digits = (integer(argument, line) for argument in arguments[:-1])
-        if num_digits not in (0, 1, 2):
-            raise KarelRuntimeError('CNV_REAL_STR supports 0, 1 or 2 fixed fractional digits; scientific/other precision rules need validation', line)
+        if not 0 <= num_digits <= 254:
+            raise KarelRuntimeError('CNV_REAL_STR supports fixed fractional digits in 0..254; scientific/out-of-bound precision rules need validation', line)
         scaled = Fraction(value) * 10 ** num_digits
         if scaled.denominator != 1:
             raise KarelRuntimeError('CNV_REAL_STR decimal rounding is not validated; exact formatting only', line)

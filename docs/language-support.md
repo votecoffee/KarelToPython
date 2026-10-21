@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.48.0. Acceptance is specific to
+This is the supported prototype subset as of 0.49.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -25,7 +25,7 @@ rules, implemented restrictions and unresolved native behavior.
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies | POSITION orientation starts unknown and remains recursively read-only. No invented orientation, geometry or robot defaults. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access, implicit group discovery, positional conversion or kinematics. |
 | VECTOR | Checked exact arithmetic, scaling, cross/dot products, equality and routine values | Group ambiguous products, initialize components, preserve exact intermediates; degenerate cases remain restricted. |
-| Conversion | Selected INTEGER/REAL text conversions and fixed-decimal formatting, exact XYZWPR extraction via UNPOS | Canonical formats, exactness and disjoint output requirements; no inferred native status/rounding behavior. |
+| Conversion | Selected INTEGER/REAL text conversions, exact fixed-decimal REAL formatting with 0..254 fractional digits, exact XYZWPR extraction via UNPOS | Precision bound is a prototype limit; canonical formats, exactness and disjoint output requirements. No inferred native status/rounding behavior. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WRITE | Restricted single STRING, BOOLEAN or nonnegative INTEGER request | Recorder/callback only; restricted literal STRING formats; no FILE destinations, multi-item, general REAL/negative INTEGER output or READ. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
@@ -117,6 +117,23 @@ POSITION orientation remains protected, with no source acquisition or default
 values. Exact joint copying needs no axis context; conversion procedures retain
 their existing explicit-context requirements. The full contract and unresolved
 native behavior are in [array_routine_semantics.json](semantics/array_routine_semantics.json).
+
+## Exact decimal formatting
+
+`CNV_REAL_STR(source,length,num_digits,target)` supports fixed precision in
+0..254. For example, `CNV_REAL_STR(1.125,1,3,text)` produces ` 1.125`, including
+its leading blank. Requested trailing zeros are retained; zero fractional digits
+suppress the decimal point. The source and decimal result must pass the existing
+exact REAL checks. A value requiring decimal rounding raises before output changes.
+
+`length` must be positive and no greater than the natural result length, so extra
+padding remains blocked. If the result exceeds the caller's declared STRING
+capacity, output is one blank followed by asterisks filling that capacity. This
+also applies when supported precision produces more than 254 characters. The
+0..254 precision bound limits prototype work; it is not a claimed controller
+format-parameter range. Scientific notation and invalid-format outcome inference
+remain blocked. See the authored [precision example](../examples/fixed_decimal_precision.kl)
+and [conversion contract](semantics/conversion_semantics.json).
 
 ## Examples
 

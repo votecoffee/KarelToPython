@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.48.0",
+  "translator_version": "0.49.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Manual rules and an explicitly chosen conservative representability guard. This is not authenticated controller storage, arithmetic, alarm, or runtime-equivalence evidence.",
@@ -14,7 +14,8 @@
     "signed_zero": "Not modeled; zero is normalized to positive zero.",
     "square_root": "Input is checked with the existing REAL guard first. The reduced rational numerator and denominator must both be perfect squares; their exact root must pass the same REAL guard. No host floating-point square root or tolerance is used.",
     "controller_validated": false,
-    "trigonometry": "Explicit rational-period/finite-table exact results after existing REAL input checks; see trig_semantics.json. No host trig/libm."
+    "trigonometry": "Explicit rational-period/finite-table exact results after existing REAL input checks; see trig_semantics.json. No host trig/libm.",
+    "fixed_decimal_formatting": "CNV_REAL_STR reuses checked exact REAL values and rational scaling for 0..254 fractional digits. The scaled value must be integral; no decimal rounding is used. The explicit precision resource bound and caller-capacity overflow policy are described in conversion_semantics.json."
   },
   "rules": [
     {

@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.48.0",
+  "translator_version": "0.49.0",
   "date": "2026-10-13",
   "page_numbering": "One-based PDF pages",
   "boundary": "Documented field lookup with explicitly restricted selectors and lexical normalization. Tests establish offline prototype behavior only; compiler/controller equivalence and excluded forms remain unverified.",

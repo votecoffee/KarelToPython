@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.48.0",
+  "translator_version": "0.49.0",
   "date": "2026-10-21",
   "page_numbering": "One-based PDF pages",
   "boundary": "Internal unsized anonymous outer ARRAY results with supported scalar, explicitly bounded STRING, record, exact-width joint or prior named fixed ARRAY elements, one outer dimension and at most three logical dimensions. Independent recursively checked copies and direct assignment only; all scalar leaves known/initialized. Exact STRING element capacities retained and checked without result truncation. Named outer results, flat multidimensional result sources/declarations, unspecified STRING capacities, direct STRING returns and whole ARRAY value arguments remain blocked. Recursive checked offline policy; no native layout, stack cost, ABI, partial-copy or controller-runtime equivalence claim.",

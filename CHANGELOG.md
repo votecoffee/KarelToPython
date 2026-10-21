@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.49.0 - 2026-10-21
+
+- Extend exact `CNV_REAL_STR` fixed formatting from 0/1/2 to 0..254 fractional
+  digits, with a bounded rational calculation and no host decimal rounding.
+- Preserve strict REAL/INTEGER inputs, positive minimum widths requiring no extra
+  padding, caller STRING capacities and blank/asterisk overflow markers. Rounding,
+  scientific notation and precision outside the explicit prototype bound remain
+  blocked before output mutation; no native validity range is inferred.
+- Add 30 regression checks using independent Decimal formatting oracles, range
+  endpoints, long expansions, capacity thresholds and existing effect/reference
+  guards, plus a runnable authored example. Validation remains offline.
+
 ## 0.48.0 - 2026-10-21
 
 - Add `ARRAY OF STRING[capacity]` function results with constant capacities 1..254,

@@ -77,7 +77,7 @@ class RealFormatValueTests(unittest.TestCase):
     def test_report_exposes_format_restrictions(self):
         _, result = compile_program('CNV_REAL_STR(2.5,1,2,text)')
         self.assertIn('CNV_REAL_STR', result.report['features'])
-        self.assertIn('0/1/2', result.report['conversion_policy']['real_format'])
+        self.assertIn('0..254', result.report['conversion_policy']['real_format'])
         self.assertIn('Rounding', result.report['conversion_policy']['real_format_guard'])
         self.assertFalse(result.report['conversion_policy']['controller_validated'])
 
@@ -152,10 +152,10 @@ class RealFormatRuntimeBoundaryTests(unittest.TestCase):
             with self.subTest(value=value, precision=precision):
                 self.failure(f'CNV_REAL_STR({value},1,{precision},text)', 'decimal rounding')
 
-    def test_scientific_and_other_precisions_preserve_output(self):
-        for precision in (-2, -1, 3, 7, 2147483647):
+    def test_scientific_and_out_of_bound_precisions_preserve_output(self):
+        for precision in (-2, -1, 255, 2147483647):
             with self.subTest(precision=precision):
-                self.failure(f'CNV_REAL_STR(2.5,1,{precision},text)', 'scientific/other precision')
+                self.failure(f'CNV_REAL_STR(2.5,1,{precision},text)', 'scientific/out-of-bound precision')
 
     def test_padding_and_invalid_length_outcomes_not_inferred(self):
         for width in (-1, 0, 6, 7, 2147483647):
