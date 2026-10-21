@@ -84,7 +84,7 @@ not rolled back by failures or ABORT.
   Tests can inject a recorder. Zero delay makes no callback.
 - `write(text)` handles supported text `WRITE` requests. Without it, requests
   are recorded in `write_requests`; this is not controller output. A callback
-  must return `None` synchronously.
+  receives one complete statement and must return `None` synchronously.
 - `joint_axes=n` supplies an explicit offline axis count for the restricted
   degree-valued joint conversion subset. It is not robot discovery or group
   configuration. Copying exact joint values does not infer a controller context.
@@ -92,6 +92,11 @@ not rolled back by failures or ABORT.
 For example, a generated program using supported WRITE requests can be exercised
 with `Program(write=messages.append)`, where `messages` is a list. The
 `write_requests` and `abort_info` properties return defensive observations.
+Mixed STRING/BOOLEAN/INTEGER/BYTE/SHORT/REAL items and CR newlines are supported.
+Numeric width/base/precision specifiers follow the chosen
+[Pythonic output contract](pythonic-output.md). Items render left to right once;
+the combined ASCII output is limited to 254 characters. Rendering/length failure
+creates no outer request while preserving earlier effects and nested requests.
 
 ## Limits
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.52.0 - 2026-10-21
+
+- Extend Pythonic `WRITE` to mixed STRING, BOOLEAN, signed INTEGER, BYTE, SHORT
+  and finite REAL items, plus CR mapped to LF. Evaluate and format items once,
+  left to right; send one complete request to the recorder or callback.
+- Add numeric minimum widths, integer bases 2..16 and REAL fixed/scientific
+  precision using Python rounding. Preserve scalar initialization/type guards,
+  STRING formatting, output observations and callback/error cleanup behavior.
+- Bound combined output to 254 ASCII characters and statements to 1024 items.
+  Rendering or length failure emits no outer request; prior expression effects
+  and nested requests remain visible. Keep files/devices, READ and dynamic format
+  expressions unsupported. Strict mode remains a future milestone.
+- Add 52 regression tests, a runnable mixed-output example, a public output guide
+  and source-page semantic notes. Preserve earlier conservative WRITE tests
+  internally; validation remains offline.
+
 ## 0.51.0 - 2026-10-21
 
 - Make Pythonic numeric behavior the public default, selectable through

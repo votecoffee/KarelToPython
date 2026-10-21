@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.51.0. Acceptance is specific to
+This is the supported prototype subset as of 0.52.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -31,7 +31,7 @@ internally and in the historical semantic notes.
 | VECTOR | Checked float arithmetic, scaling, cross/dot products, equality and routine values | Group ambiguous products and initialize finite components. Zero/parallel cross products allowed. |
 | Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed-decimal REAL output, checked XYZWPR extraction via UNPOS | Bounded width/precision, caller capacities and disjoint outputs; chosen Pythonic formatting conventions. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
-| WRITE | Restricted single STRING, BOOLEAN or nonnegative INTEGER request | Recorder/callback only; restricted literal STRING formats; no FILE destinations, multi-item, general REAL/negative INTEGER output or READ. |
+| WRITE | Mixed scalar lists, signed integers, finite REALs, numeric formatting, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Literal formats; existing STRING quote guards; no explicit FILE/device destinations, aggregate output or READ. |
 | ABORT | Bare statement with sticky termination and frame cleanup | No task qualifiers, condition/action semantics, motion cancellation or controller restart behavior. |
 
 ## Zero-argument function calls
@@ -123,6 +123,9 @@ their existing explicit-context requirements. The full contract and unresolved
 native behavior are in [array_routine_semantics.json](semantics/array_routine_semantics.json).
 
 ## INTEGER base formatting
+
+For statement output rather than conversion to STRING storage, see
+[Pythonic WRITE](pythonic-output.md), including mixed items and REAL formatting.
 
 `CNV_INT_STR(source,length,base,target)` formats signed INTEGER values in bases
 2..16. Base 0 selects decimal; alphabetic digits are uppercase A..F. For example,

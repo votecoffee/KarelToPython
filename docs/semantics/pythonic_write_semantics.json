@@ -1,0 +1,31 @@
+{
+  "translator_version": "0.52.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "manual": "MARRC75KR07091E Rev N",
+  "page_numbering": "One-based PDF pages",
+  "reviewed_pages": [131, 133, 623],
+  "source_rules": {
+    "write_syntax": "Omitted-file WRITE accepts a comma-separated list of expressions with optional INTEGER literal format specifiers, or CR items.",
+    "integer": "Decimal output has a leading blank; width is a minimum field. The second specifier selects base 2..16; nondecimal width uses leading zeros.",
+    "real": "Default scientific output, minimum field widths and signed fractional precision selecting fixed/scientific forms.",
+    "cr": "Subsequent data starts on the next line."
+  },
+  "implementation_choices": {
+    "evaluation": "Render each scalar once, left to right. Validate combined length after all item expressions. Send one completed outer statement to the recorder/callback.",
+    "newline": "LF, without automatic separators or a trailing newline unless requested.",
+    "real": "Finite Python floats; default .5E, nonnegative precision .nf, negative precision .nE; Python rounding.",
+    "integer": "Checked expression range and narrow storage; uppercase digits and minus signs for negative nondecimal values, without inferring controller two's-complement formatting.",
+    "boolean": "Existing leading-blank TRUE/FALSE with optional minimum width; no second specifier.",
+    "resource_limits": "Combined ASCII output <=254 characters; <=1024 items; numeric/BOOLEAN widths 0..254; REAL precision -254..254. The item/format bounds are prototype guards.",
+    "errors": "No outer request on render/length failure. Preserve prior expression effects and nested requests. Callback failures/interruption retain a complete request and unwind routine frames without retry."
+  },
+  "retained_boundaries": [
+    "Initialized known scalar values and existing ownership/type checks",
+    "Existing STRING width/alignment and fitting quoted-content guards",
+    "No aggregate output, dynamic format expressions, explicit files/devices, binary transfer, READ or IO_STATUS",
+    "No native compiler or controller I/O equivalence claim; strict mode remains a future milestone"
+  ],
+  "tests": ["tests/test_pythonic_writes.py", "tests/test_runtime_portability.py", "examples/pythonic_output.kl"],
+  "controller_validated": false
+}

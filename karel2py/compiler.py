@@ -176,13 +176,14 @@ ARRAY_ELEMENTS = (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS')
 
 
 class Parser:
-    def __init__(self, source, filename):
+    def __init__(self, source, filename, mode='strict'):
         self.continuations = []
         self.escaped_string_literals = []
         self.predefined_uses = []
         self.tokens = tokenize(source, filename, continuations=self.continuations)
         self.position = 0
         self.filename = filename
+        self.mode = mode
 
     @property
     def current(self): return self.tokens[self.position]
@@ -518,6 +519,7 @@ class Parser:
                 self.error('E_ABORT_TARGET', 'Only bare ABORT of the current offline execution is supported; task qualifiers and arguments remain blocked', self.current)
             return Statement('abort', token)
         if name == 'WRITE':
+            if self.mode == 'pythonic': return self.pythonic_write(token)
             if not self.accept('('):
                 self.error('E_WRITE_TARGET', 'WRITE currently supports the omitted-file form with one STRING or unformatted BOOLEAN/INTEGER expression', token)
             if self.current.value in (')', 'CR'):
@@ -571,6 +573,49 @@ class Parser:
         else:
             arguments = []
         return Statement('call', token, [Expr('call', token, name, arguments)])
+
+    def pythonic_write(self, token):
+        if not self.accept('('):
+            self.error('E_WRITE_TARGET', 'WRITE supports the omitted-file parenthesized form', token)
+        self.skip_newlines()
+        items = []
+        while True:
+            item_token = self.current
+            if item_token.value in (')', ','):
+                self.error('E_WRITE_ITEM', 'WRITE requires a data expression or CR', item_token)
+            if self.accept('CR'):
+                item = Expr('write_cr', item_token)
+                if self.current.value == '::':
+                    self.error('E_WRITE_FORMAT', 'CR does not accept format specifiers')
+            else:
+                value = self.expression()
+                formats, format_tokens = [], []
+                while self.accept('::'):
+                    if len(formats) == 2:
+                        self.error('E_WRITE_FORMAT', 'WRITE accepts at most two INTEGER literal format specifiers')
+                    format_token = self.current
+                    sign = -1 if self.accept('-') else 1
+                    if sign == 1: self.accept('+')
+                    literal = self.current
+                    digits = literal.value.lstrip('0') or '0'
+                    if literal.kind != 'INT' or len(digits) > 10 or int(digits) > 2147483647:
+                        self.error('E_WRITE_FORMAT', 'WRITE format specifiers require bounded INTEGER literals', format_token)
+                    self.take()
+                    formats.append(sign * int(digits))
+                    format_tokens.append(format_token)
+                if formats and self.current.kind != 'NL' and self.current.value not in (')', ',', ':'):
+                    self.error('E_WRITE_FORMAT', 'WRITE format specifiers must be INTEGER literals')
+                item = Expr('write_item', item_token, (formats, format_tokens), [value])
+            items.append(item)
+            if len(items) > 1024:
+                self.error('E_WRITE_ITEMS', 'WRITE exceeds the prototype limit of 1024 items', token)
+            self.skip_newlines()
+            if not self.accept(','): break
+            self.skip_newlines()
+        if self.current.value == ':':
+            self.error('E_WRITE_ITEM', 'WRITE format specifiers use double colons')
+        self.expect(')')
+        return Statement('write_items', token, items)
 
     def check_label_name(self, token):
         if (token.kind != 'NAME' or token.value in RESERVED | BUILTINS | CONTROLLER_NAMES | PREDEFINED_CONSTANTS.keys()
@@ -1053,7 +1098,7 @@ class Emitter:
             for node in self.walk_nodes(routine.body):
                 if isinstance(node, Statement) and node.kind == 'delay':
                     routine.may_delay = True
-                if isinstance(node, Statement) and node.kind == 'write':
+                if isinstance(node, Statement) and node.kind in ('write', 'write_items'):
                     routine.may_write = True
                 if isinstance(node, Statement) and node.kind == 'abort':
                     routine.may_abort = True
@@ -1730,6 +1775,55 @@ class Emitter:
             self.delay_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                         line=token.line, column=token.column, duration_type='INTEGER',
                                         evaluated='once; runtime range check'))
+        elif kind == 'write_items':
+            pieces, items = [], []
+            for item in stmt.args:
+                if item.kind == 'write_cr':
+                    pieces.append(repr('\n'))
+                    items.append(dict(data_type='CR', line=item.token.line, column=item.token.column,
+                                      format_specifiers=[]))
+                    continue
+                value, spec = self.expression(item.args[0])
+                data_type = spec[0]
+                if data_type not in ('STRING', 'BOOLEAN', 'INTEGER', 'REAL', *NARROW_TYPES):
+                    self.error('E_TYPE', f'WRITE requires scalar data, found {data_type}', item.token)
+                formats, format_tokens = item.value
+                width = formats[0] if formats else None
+                second = formats[1] if len(formats) == 2 else None
+                if width is not None and (width < 0 or data_type != 'STRING' and width > 254):
+                    self.error('E_WRITE_FORMAT', 'WRITE width must be nonnegative; numeric/BOOLEAN widths are limited to 254', format_tokens[0])
+                if second is not None:
+                    valid = (data_type == 'STRING' and second in (0, 1, 2, 3)
+                             or data_type == 'REAL' and -254 <= second <= 254
+                             or data_type in INTEGRAL_TYPES and second in (0, *range(2, 17)))
+                    if not valid:
+                        self.error('E_WRITE_FORMAT', f'Invalid {data_type} WRITE second format specifier', format_tokens[1])
+                if data_type == 'STRING' and second in (2, 3) and not 1 <= width <= 254:
+                    self.error('E_WRITE_FORMAT', 'Quoted WRITE requires literal width 1..254', format_tokens[0])
+                pieces.append(f'_rt.format_write_item({data_type!r}, {value}, {tuple(formats)!r}, {item.token.line})')
+                items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
+                                  format_specifiers=formats))
+                self.features.add(f'WRITE {data_type} output request')
+                if formats: self.features.add(f'WRITE {data_type} formatting')
+            self.line(f'self._state.write_items([{", ".join(pieces)}], {line})', token)
+            self.features.add('WRITE output request')
+            if any(item['data_type'] == 'CR' for item in items): self.features.add('WRITE CR newline')
+            if len(items) > 1: self.features.add('WRITE multiple data items')
+            self.write_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                        line=token.line, column=token.column,
+                                        data_type=items[0]['data_type'] if len(items) == 1 else 'MIXED',
+                                        data_items=len(items), items=items, evaluated='Left to right, once per expression; format each item before evaluating the next; one request after complete rendering',
+                                        format_specifiers=items[0]['format_specifiers'] if len(items) == 1 else []))
+            if len(items) == 1 and items[0]['data_type'] != 'CR':
+                formats = items[0]['format_specifiers']
+                width = formats[0] if formats else None
+                is_string = items[0]['data_type'] == 'STRING'
+                alignment = formats[1] if is_string and len(formats) == 2 else 0
+                self.write_uses[-1].update(
+                    format_width=width, alignment='right' if not is_string or alignment in (1, 3) else 'left',
+                    quoted=is_string and alignment in (2, 3),
+                    width_policy=('contents_length' if is_string and width is not None and (width == 0 or width > 254)
+                                  else 'fixed' if is_string and formats else 'minimum' if formats else 'unformatted'))
         elif kind == 'write':
             value, spec = self.expression(stmt.args[0])
             data_type = spec[0]
@@ -1965,7 +2059,7 @@ class Emitter:
 
 
 def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
-    parser = Parser(source, filename)
+    parser = Parser(source, filename, mode)
     program = parser.parse()
     emitter = Emitter(program, filename, array_shapes, mode)
     if parser.continuations:
@@ -2313,9 +2407,22 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
         nondecimal_format='Minimal digits 0..9/A..F, optional minus, no prefix; Pythonic formatting convention',
         invalid_base='Outside 0 or 2..16 clears output after width/input checks',
         other_formats='Input follows Python int/float grammar; output fixed-point or integer bases only')
+    report['write_policy'] = dict(
+        source='Omitted-file WRITE with 1..1024 scalar expressions or CR items',
+        input='Initialized ASCII STRING, BOOLEAN, signed INTEGER/BYTE/SHORT or finite REAL; combined rendered output at most 254 characters',
+        evaluation='Items evaluated and formatted left to right once; combined length checked after all items; one outer request after successful rendering',
+        formatting='STRING retains width/alignment rules; numeric/BOOLEAN literal widths 0..254; zero selects natural width',
+        integer='Signed decimal or bases 2..16 (0 selects decimal); one leading blank; uppercase A..F; nondecimal widths zero-fill after the minus sign',
+        real='Python float formatting; default five fractional digits in uppercase scientific notation; signed precision -254..254 selects scientific when negative, fixed otherwise',
+        boolean='TRUE/FALSE with one leading blank and optional minimum width; no second specifier',
+        newline='CR renders one LF character; no automatic newline appended',
+        adapter='Default per-run request recorder; Program(write=...) receives one complete statement as a synchronous text callback returning None',
+        trace='Copied text/line/adapter_outcome records; failures retain prior expression/output effects and unwind routine frames',
+        boundary='No explicit file/device access, binary transfer, READ, aggregate output, dynamic format expressions or controller IO_STATUS; existing quoted STRING restrictions remain',
+        controller_validated=False)
     strict_only = ('REAL uses exact binary32', 'Underflow follows the manual', 'Signed MOD with negative',
                    'SQRT accepts', 'SIN/COS/TAN', 'ATAN2 accepts', 'CNV_REAL_STR accepts',
-                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts')
+                   'CNV_STR_INT accepts', 'CNV_INT_STR accepts', 'WRITE accepts')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     return result

@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.51.0**. It is a
+tool are named **karel2py**. The current implementation is **0.52.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -119,6 +119,10 @@ use Python `float`; structural and initialization checks remain. **Strict mode
 is a future milestone**; its previous exactness work is preserved internally.
 See the [equivalence matrix and mode roadmap](docs/numeric-modes.md).
 
+Pythonic `WRITE` supports mixed text, signed numbers, REAL formatting and `CR`
+newlines, for example `WRITE('value=',value::0::3,CR)`. Requests are recorded or
+sent to a supplied callback. See the [text output guide](docs/pythonic-output.md).
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -134,7 +138,8 @@ See the [equivalence matrix and mode roadmap](docs/numeric-modes.md).
   minimum-width padding and caller-capacity overflow markers.
 - Signed INTEGER text formatting in bases 2..16, with checked output references
   and capacities.
-- Restricted text `WRITE` requests through a recorder or supplied callback.
+- Mixed scalar `WRITE` lists, CR newlines and numeric formatting through a
+  recorder or supplied callback.
 
 Each item has type and context restrictions. Direct STRING function results,
 broad ARRAY result forms, external routines,
@@ -151,7 +156,7 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
-The example runner translates the 51 authored runnable examples, checks complete
+The example runner translates the 52 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
 fixtures. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.

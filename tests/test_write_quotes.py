@@ -6,7 +6,8 @@ import sys
 import tempfile
 import unittest
 
-from karel2py import translate, runtime as rt
+from karel2py import runtime as rt
+from tests.legacy_numeric_support import translate
 from karel2py.lexer import TranslationError
 
 

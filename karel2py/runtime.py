@@ -1127,6 +1127,75 @@ def snapshot_value(value):
     return value
 
 
+def _format_write_string(text, line=None, *, width=None, alignment=0):
+    text = ascii_string(text, line)
+    if len(text) > 254:
+        raise KarelRuntimeError('WRITE STRING input is limited to 254 characters', line)
+    if type(alignment) is not int or alignment not in (0, 1, 2, 3):
+        raise KarelRuntimeError('WRITE STRING alignment must be INTEGER 0, 1, 2 or 3', line)
+    if width is None:
+        if alignment != 0:
+            raise KarelRuntimeError('WRITE STRING alignment requires a width', line)
+    else:
+        if type(width) is not int or not 0 <= width <= 2147483647:
+            raise KarelRuntimeError('WRITE STRING width must be nonnegative INTEGER in 0..2147483647', line)
+        if alignment in (2, 3):
+            if not 1 <= width <= 254:
+                raise KarelRuntimeError('Quoted WRITE width fallback is not implemented', line)
+            if "'" in text:
+                raise KarelRuntimeError('Quoted WRITE with embedded apostrophes is not implemented', line)
+            if len(text) + 3 > width:
+                raise KarelRuntimeError('Quoted WRITE truncation is not implemented; width must fit a leading blank, contents and both quotes', line)
+            text = " '" + text + "'"
+        else:
+            if not 1 <= width <= 254:
+                width = len(text)
+            text = text[:width]
+        blanks = ' ' * (width - len(text))
+        text = blanks + text if alignment in (1, 3) else text + blanks
+    return text
+
+
+def format_write_item(kind, value, formats=(), line=None):
+    """Render one Pythonic scalar without emitting an output request."""
+    if not _pythonic(): raise KarelRuntimeError('Scalar item rendering requires Pythonic mode', line)
+    if type(formats) not in (tuple, list) or len(formats) > 2 or any(type(item) is not int for item in formats):
+        raise KarelRuntimeError('WRITE requires at most two INTEGER format specifiers', line)
+    width = formats[0] if formats else None
+    second = formats[1] if len(formats) == 2 else None
+    if kind == 'STRING':
+        return _format_write_string(value, line, width=width, alignment=second if second is not None else 0)
+    if width is not None and not 0 <= width <= 254:
+        raise KarelRuntimeError('Numeric/BOOLEAN WRITE width must be in 0..254', line)
+    if kind == 'REAL':
+        value = real(value, line)
+        precision = second if second is not None else -5
+        if not -254 <= precision <= 254:
+            raise KarelRuntimeError('REAL WRITE precision must be in -254..254', line)
+        style = 'E' if precision < 0 else 'f'
+        text = ' ' + format(value, f'.{abs(precision)}{style}')
+    elif kind == 'BOOLEAN':
+        if second is not None: raise KarelRuntimeError('BOOLEAN WRITE accepts only a width', line)
+        text = ' TRUE' if boolean(value, line) else ' FALSE'
+    elif kind in ('INTEGER', 'BYTE', 'SHORT'):
+        value = integer(value, line) if kind == 'INTEGER' else integer(checked((kind,), value, line), line)
+        base = 10 if second in (None, 0) else second
+        if not 2 <= base <= 16:
+            raise KarelRuntimeError('INTEGER WRITE base must be 0 or 2..16', line)
+        digits, remaining = [], abs(value)
+        while remaining:
+            remaining, digit = divmod(remaining, base)
+            digits.append('0123456789ABCDEF'[digit])
+        body = ('-' if value < 0 else '') + (''.join(reversed(digits)) or '0')
+        # Retain the manual's zero-filled nondecimal fields, with a Pythonic
+        # minus sign instead of inferring controller two's-complement output.
+        if base != 10 and width: body = body.zfill(width - 1)
+        text = ' ' + body
+    else:
+        raise KarelRuntimeError('WRITE requires a supported scalar type', line)
+    return text.rjust(width or 0)
+
+
 class State:
     def __init__(self, declarations, constants, *, sleep=None, write=None, joint_axes=None):
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
@@ -1211,31 +1280,7 @@ class State:
 
     def write_string(self, text, line=None, *, width=None, alignment=0):
         """Record an offline request or call a supplied text sink; not device I/O."""
-        text = ascii_string(text, line)
-        if len(text) > 254:
-            raise KarelRuntimeError('WRITE STRING input is limited to 254 characters', line)
-        if type(alignment) is not int or alignment not in (0, 1, 2, 3):
-            raise KarelRuntimeError('WRITE STRING alignment must be INTEGER 0, 1, 2 or 3', line)
-        if width is None:
-            if alignment != 0:
-                raise KarelRuntimeError('WRITE STRING alignment requires a width', line)
-        else:
-            if type(width) is not int or not 0 <= width <= 2147483647:
-                raise KarelRuntimeError('WRITE STRING width must be nonnegative INTEGER in 0..2147483647', line)
-            if alignment in (2, 3):
-                if not 1 <= width <= 254:
-                    raise KarelRuntimeError('Quoted WRITE width fallback is not implemented', line)
-                if "'" in text:
-                    raise KarelRuntimeError('Quoted WRITE with embedded apostrophes is not implemented', line)
-                if len(text) + 3 > width:
-                    raise KarelRuntimeError('Quoted WRITE truncation is not implemented; width must fit a leading blank, contents and both quotes', line)
-                text = " '" + text + "'"
-            else:
-                if not 1 <= width <= 254:
-                    width = len(text)
-                text = text[:width]
-            blanks = ' ' * (width - len(text))
-            text = blanks + text if alignment in (1, 3) else text + blanks
+        text = _format_write_string(text, line, width=width, alignment=alignment)
         request = dict(text=text, line=line, adapter_outcome='recorded')
         self.write_requests.append(request)
         if self._write is None:
@@ -1253,6 +1298,17 @@ class State:
             request['adapter_outcome'] = 'callback_result_rejected'
             raise KarelRuntimeError('WRITE output callback must return None', line)
         request['adapter_outcome'] = 'callback_completed'
+
+    def write_items(self, pieces, line=None):
+        """Commit one fully rendered WRITE; earlier expression effects remain."""
+        if type(pieces) not in (list, tuple) or not 1 <= len(pieces) <= 1024:
+            raise KarelRuntimeError('WRITE requires 1..1024 rendered items', line)
+        total = 0
+        for piece in pieces:
+            total += len(ascii_string(piece, line))
+            if total > 254:
+                raise KarelRuntimeError('WRITE combined output is limited to 254 characters', line)
+        self.write_string(''.join(pieces), line)
 
     def write_boolean(self, value, line=None):
         """Default BOOLEAN text; same offline request/callback contract as STRING."""

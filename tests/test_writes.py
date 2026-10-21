@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from karel2py import translate
+from tests.legacy_numeric_support import translate
 from karel2py.lexer import TranslationError
 from karel2py import runtime as rt
 

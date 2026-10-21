@@ -7,7 +7,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from karel2py import translate, runtime as rt
+from karel2py import runtime as rt
+from tests.legacy_numeric_support import translate
 from karel2py.lexer import TranslationError
 
 
@@ -236,11 +237,11 @@ class BooleanWriteCLITests(unittest.TestCase):
             program=namespace['Program']()
             program.run()
             self.assertEqual(texts(program),[' TRUE',' FALSE'])
-    def test_cli_rejects_boolean_format_without_module(self):
+    def test_cli_rejects_boolean_second_format_without_module(self):
         with tempfile.TemporaryDirectory() as folder:
             target=Path(folder)
             source=target/'source.kl'
-            source.write_text('PROGRAM T\nBEGIN WRITE(ON::8) END T')
+            source.write_text('PROGRAM T\nBEGIN WRITE(ON::8::1) END T')
             process=subprocess.run([sys.executable,'-m','karel2py',str(source),'-o',str(target/'converted.py'),'--report',str(target/'report.json')],cwd=ROOT,capture_output=True,text=True)
             self.assertEqual(process.returncode,2,process.stderr)
             self.assertFalse((target/'converted.py').exists())

@@ -40,6 +40,7 @@ policy even after errors, and independent threads do not share mutable mode stat
 | `CNV_REAL_STR` | Python fixed-point `format` | Decimal rounding, 0..254 fractional digits, a leading blank and optional left padding to minimum width 1..254. |
 | `CNV_INT_STR` | Positional integer formatting | Signed bases 2..16, uppercase A..F, no prefix; base 0 selects decimal. Leading blank and minimum width 1..254. |
 | VECTOR math, REAL record fields and joint data | Checked float components | Rounded intermediates/results; zero and parallel cross products allowed. Structural identity and explicit joint context remain required. |
+| Numeric WRITE items | Python integer/float formatting | Mixed scalar lists, literal width/base/precision, CR mapped to LF and one complete output request; see [text output](pythonic-output.md). |
 
 Both text formatters retain caller STRING capacity and the blank/asterisk
 overflow marker. Prototype width/precision bounds limit formatting work. Math

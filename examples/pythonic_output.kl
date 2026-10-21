@@ -1,0 +1,22 @@
+PROGRAM pythonic_output
+VAR
+  count: INTEGER
+  measure: REAL
+  raw: ARRAY[1] OF BYTE
+  enabled: BOOLEAN
+
+ROUTINE emit_reading(n: INTEGER; value: REAL)
+BEGIN
+  WRITE('sample',n::3,': ',value::0::3,CR)
+END emit_reading
+
+BEGIN
+  count=-42
+  measure=1.0/3.0
+  raw[1]=255
+  enabled=ON
+  WRITE('count=',count,', hex=',count::0::16,CR)
+  WRITE('enabled=',enabled::8,', raw=',raw[1]::0::16,CR)
+  WRITE('scientific=',measure,CR)
+  emit_reading(1,measure)
+END pythonic_output

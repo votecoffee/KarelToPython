@@ -33,6 +33,7 @@ are kept outside public documentation.
 | Narrow integer | [narrow_integer_semantics.json](narrow_integer_semantics.json) |
 | Numeric | [numeric_semantics.json](numeric_semantics.json) |
 | Position | [position_semantics.json](position_semantics.json) |
+| Pythonic WRITE | [pythonic_write_semantics.json](pythonic_write_semantics.json) |
 | Positional routine | [positional_routine_semantics.json](positional_routine_semantics.json) |
 | Predefined | [predefined_semantics.json](predefined_semantics.json) |
 | Select | [select_semantics.json](select_semantics.json) |
@@ -49,3 +50,7 @@ are kept outside public documentation.
 | Vector routine | [vector_routine_semantics.json](vector_routine_semantics.json) |
 | Vector | [vector_semantics.json](vector_semantics.json) |
 | Write | [write_semantics.json](write_semantics.json) |
+
+The older WRITE ledger preserves the conservative output contract. Current
+Pythonic item lists and formatting are described in the Pythonic WRITE ledger
+and [output guide](../pythonic-output.md).
