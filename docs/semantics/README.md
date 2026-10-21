@@ -82,6 +82,7 @@ are kept outside public documentation.
 | Approximate position comparison | [position_comparison_semantics.json](position_comparison_semantics.json) |
 | Boolean WAIT FOR | [wait_semantics.json](wait_semantics.json) |
 | Packed date/time text | [time_text_semantics.json](time_text_semantics.json) |
+| Host microsecond timers | [microsecond_timer_semantics.json](microsecond_timer_semantics.json) |
 | String | [string_semantics.json](string_semantics.json) |
 | String value | [string_value_semantics.json](string_value_semantics.json) |
 | Structure routine | [structure_routine_semantics.json](structure_routine_semantics.json) |

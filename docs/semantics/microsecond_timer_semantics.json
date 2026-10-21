@@ -1,0 +1,29 @@
+{
+  "translator_version": "0.77.0",
+  "date": "2026-10-21",
+  "mode": "pythonic",
+  "scope": "Host elapsed microseconds with GET_USEC_TIM and pure GET_USEC_SUB",
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [419, 420],
+    "documented": "INTEGER microsecond sampling, value-returning GET_USEC_SUB(later,earlier), and a two-minute measurement limit",
+    "uncertainty": "Native encoding, epoch, exact overflow and tick precision are unverified; GET_USEC_SUB heading says procedure but signature, return type and example use a function"
+  },
+  "implementation_choices": {
+    "clock": "Default time.monotonic_ns() // 1000, sampled only at evaluated GET_USEC_TIM sites, modulo 120000000; no calendar clock",
+    "adapter": "Optional Program(clock_us=...) synchronous nonnegative Python integer microseconds; allow unbounded samples before modulo, reject bool/float/negative/asynchronous responses; adapter owns progression and is retained across runs",
+    "counter": "Portable ring 0..119999999, not a native counter encoding claim",
+    "subtraction": "Both INTEGER counter inputs in portable range; (later-earlier) modulo 120000000; elapsed interpretation requires one clock and actual interval shorter than two minutes; multiple wraps/backward or mixed clocks cannot be detected",
+    "effects": "Arguments once left-to-right before range checks; ordinary short circuiting, initialization, FOR guards, step budgets and frame cleanup; prior effects retained and pending assignment preserved on errors; sticky ABORT wins",
+    "observations": "Program.clock_reads returns defensive line/adapter/outcome records, plus counter on success, reset at run start; no raw unbounded samples in trace",
+    "names": "Pythonic fallbacks preserve internal routines; GET_USEC_TIM bare value syntax resolves only after ordinary declarations and USING fields",
+    "reports": "Source-located microsecond_timers, microsecond_timer_policy and transitive potential_host_clock_reads routine effects"
+  },
+  "retained_boundaries": [
+    "No GET_TIME, SET_TIME, timezone, controller/power-on clock, native tick/overflow/encoding or scheduling equivalence",
+    "Synchronous host callbacks may block; step budget is not a wall-clock deadline",
+    "No controller contact or native runtime acceptance; existing structural/resource protections remain and strict is future work"
+  ],
+  "tests": ["tests/test_microseconds.py", "tests/test_waits.py", "tests/test_runtime_portability.py", "examples/pythonic_microseconds.kl"],
+  "controller_validated": false
+}

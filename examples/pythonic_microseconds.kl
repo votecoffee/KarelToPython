@@ -1,0 +1,10 @@
+PROGRAM PYTHONIC_MICROSECONDS
+%ENVIRONMENT TIM
+VAR earlier,later,elapsed,same: INTEGER
+BEGIN
+  earlier=119999990
+  later=25
+  elapsed=GET_USEC_SUB(later,earlier)
+  same=GET_USEC_SUB(42,42)
+  WRITE('elapsed=',elapsed::0,' us',CR)
+END PYTHONIC_MICROSECONDS

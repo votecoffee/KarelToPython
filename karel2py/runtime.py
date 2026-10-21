@@ -759,6 +759,16 @@ def config_text_conversion(name, source, target, status=None, *, line=None):
 
 
 TIME_MONTHS = ('JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC')
+USEC_PERIOD = 120_000_000
+
+
+def usec_sub(later, earlier, line=None):
+    """Portable elapsed microseconds on the explicit two-minute counter ring."""
+    if not _pythonic(): raise KarelRuntimeError('Microsecond timers require Pythonic mode',line)
+    later, earlier = integer(later,line), integer(earlier,line)
+    if not (0 <= later < USEC_PERIOD and 0 <= earlier < USEC_PERIOD):
+        raise KarelRuntimeError('Microsecond counter values must be in 0..119999999',line)
+    return (later-earlier) % USEC_PERIOD
 
 
 def _parse_time_text(source, line=None):
@@ -1763,7 +1773,7 @@ class TextInput:
 
 
 class State:
-    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None):
+    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None):
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
         if sleep is not None and not callable(sleep):
@@ -1772,13 +1782,17 @@ class State:
             raise TypeError('write must be a synchronous callable accepting text, or None')
         if read is not None and not callable(read):
             raise TypeError('read must be a synchronous callable accepting a request, or None')
+        if clock_us is not None and not callable(clock_us):
+            raise TypeError('clock_us must be a synchronous callable returning nonnegative integer microseconds, or None')
         self._sleep = time.sleep if sleep is None else sleep
         self._write = write
         self._read = read
+        self._clock_us = clock_us
         self.joint_axes = joint_axes
         self.pose_tolerance = checked_pose_tolerance(pose_tolerance)
         self.write_requests = []
         self.read_requests = []
+        self.clock_reads = []
         self.types = declarations
         self.constants = constants
         self.values = {name: initial_value(spec) for name, spec in declarations.items()}
@@ -1849,6 +1863,7 @@ class State:
         self.max_steps, self.steps = max_steps, 0
         self.write_requests.clear()
         self.read_requests.clear()
+        self.clock_reads.clear()
 
     def read_observations(self):
         return tuple(deepcopy(self.read_requests))
@@ -1962,6 +1977,29 @@ class State:
             raise KarelRuntimeError(f'Host DELAY sleeper failed: {exc}', line) from exc
         if result is not None:
             raise KarelRuntimeError('Host DELAY sleeper must return None', line)
+
+    def microsecond_time(self, line=None):
+        """Sample host monotonic microseconds or an explicit synchronous test clock."""
+        if not _pythonic(): raise KarelRuntimeError('Microsecond timers require Pythonic mode',line)
+        if self._aborted: raise KarelAbort(self._abort_line)
+        observation = dict(line=line,adapter='monotonic' if self._clock_us is None else 'injected',adapter_outcome='requested')
+        self.clock_reads.append(observation)
+        try:
+            sample = time.monotonic_ns()//1000 if self._clock_us is None else self._clock_us()
+        except Exception as exc:
+            observation['adapter_outcome'] = 'aborted' if self._aborted else 'clock_failed'
+            if self._aborted: raise KarelAbort(self._abort_line) from exc
+            raise KarelRuntimeError(f'Host microsecond clock failed: {exc}',line) from exc
+        if inspect.iscoroutine(sample): sample.close()
+        if self._aborted:
+            observation['adapter_outcome'] = 'aborted'
+            raise KarelAbort(self._abort_line)
+        if type(sample) is not int or sample < 0:
+            observation['adapter_outcome'] = 'invalid_response'
+            raise KarelRuntimeError('Host microsecond clock must return nonnegative integer microseconds synchronously',line)
+        counter = sample % USEC_PERIOD
+        observation.update(counter=counter,adapter_outcome='completed')
+        return counter
 
     def wait_poll(self, line=None):
         """Yield after a false budgeted WAIT check; do not infer controller timing."""

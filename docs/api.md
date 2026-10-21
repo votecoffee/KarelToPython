@@ -55,6 +55,8 @@ independent writable VECTOR results. Internal routines keep their own signatures
 BOOLEAN checks, zero-second host yields and the normal execution step budget.
 [Time text](time-text.md) adds `time_text_conversions` and `time_text_policy` for
 supplied packed dates, exact output types, complete formatting and capture order.
+[Microsecond timers](microsecond-timers.md) add `microsecond_timers`,
+`microsecond_timer_policy` and transitive `potential_host_clock_reads` routine effects.
 
 `mode="pythonic"` is the default and currently the only released mode. It uses
 ordinary Python floats, rounded math and ties-to-even `ROUND`. The selected mode
@@ -94,7 +96,7 @@ and report paths must differ. Their parent directories must already exist.
 
 ## Generated Program
 
-A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None)`.
+A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None)`.
 Call `Program().run(max_steps=100_000)` to execute explicitly and receive a
 snapshot of global variables. Only the generated module's entry point runs it
 automatically; importing a module defines its class.
@@ -116,6 +118,11 @@ not rolled back by failures or ABORT.
 
 ## Host callbacks and context
 
+- `clock_us()` optionally supplies nonnegative Python integer microseconds for
+  GET_USEC_TIM. The default uses host monotonic nanoseconds floored to microseconds;
+  counter values wrap at 120,000,000 in the portable model. `Program.clock_reads`
+  exposes copied line/adapter/outcome records and successful counters, reset at
+  run start. See [microsecond timers](microsecond-timers.md).
 - `sleep(seconds)` handles supported `DELAY`. The default is the host sleeper.
   Tests can inject a recorder. Zero delay makes no callback. Boolean WAIT FOR
   calls the same sleeper with `0.0` after a false condition check; true checks do

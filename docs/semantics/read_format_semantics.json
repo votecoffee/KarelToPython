@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.76.0",
+  "translator_version": "0.77.0",
   "date": "2026-10-21",
   "mode": "pythonic",
   "scope": "Scalar READ widths, integral bases, quoted STRING fields and ordered dynamic formats",

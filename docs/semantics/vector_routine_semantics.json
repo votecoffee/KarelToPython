@@ -1,5 +1,5 @@
 {
-  "translator_version": "0.76.0",
+  "translator_version": "0.77.0",
   "position_geometry_mode_note": "Pythonic POSITION/XYZWPR colon, INV and FRAME follow ../position-geometry.md. Older POSITION geometry exclusions below describe the preserved conservative contract; other positional types and exact routine interfaces retain their boundaries.",
   "vector_expression_mode_note": "Public Pythonic VEC construction, unary VECTOR signs and left-associated cross/dot chains follow ../pythonic-vectors.md; earlier constructor/sign/chain guards below remain internal for the future strict milestone.",
   "using_mode_note": "Public Pythonic nested USING, dotted selectors and namespace choices follow ../pythonic-using.md; older nesting, field-selector and constant/call-name rejections below remain for the future strict milestone.",

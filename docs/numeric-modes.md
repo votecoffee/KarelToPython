@@ -41,6 +41,8 @@ policy even after errors, and independent threads do not share mutable mode stat
 | `CNV_STR_REAL`, `CNV_STR_INT` | `float(text)`, `int(text,10)` | Bounded ASCII input, including Python whitespace/exponent conventions. Invalid numeric text clears the output; non-finite/out-of-range values raise before mutation. |
 | `CNV_REAL_STR` | Python fixed/scientific `format` | Precision -254..254; negative selects uppercase scientific with absolute digits. Leading blank and optional left padding to minimum width 1..254. See [text formats](text-formats.md). |
 | `CNV_INT_STR` | Positional integer formatting | Signed bases 2..16, uppercase A..F, no prefix; base 0 selects decimal. Leading blank and minimum width 1..254. |
+| `CNV_STR_TIME`, `CNV_TIME_STR` | Gregorian calendar validation and packed bit fields | Fixed English text, 1980..2107, two-second precision and signed 32-bit patterns; see [time text](time-text.md). |
+| `GET_USEC_TIM`, `GET_USEC_SUB` | Host monotonic microseconds and modular subtraction | Explicit two-minute ring and optional test clock; one clock and intervals shorter than two minutes; see [microsecond timers](microsecond-timers.md). |
 | VECTOR math, REAL record fields and joint data | Checked float components | Rounded intermediates/results; zero and parallel cross products allowed. Structural identity and explicit joint context remain required. |
 | Numeric WRITE items | Python integer/float formatting | Mixed scalar lists, INTEGER expressions for width/base/precision, CR mapped to LF and one complete output request; see [text output](pythonic-output.md). |
 

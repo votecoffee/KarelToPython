@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.77.0 - 2026-10-21
+
+- Add Pythonic GET_USEC_TIM and GET_USEC_SUB for host elapsed time, with a
+  documented two-minute counter ring and optional synchronous clock injection.
+  Accept unshadowed bare clock syntax and preserve user routines/declarations.
+- Add defensive clock observations, transitive routine effects and source-located
+  timer reports. Preserve short circuiting, source order, pending assignments,
+  step/FOR guards, sticky ABORT and frame cleanup on clock failures. Include
+  rollover, adapter and ownership checks, an authored example and a guide.
+  Native timing/encoding and calendar clock access remain unsupported; strict
+  remains future work.
+
 ## 0.76.0 - 2026-10-21
 
 - Add Pythonic CNV_STR_TIME and CNV_TIME_STR for supplied packed date/time data,

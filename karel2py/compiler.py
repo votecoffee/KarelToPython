@@ -49,6 +49,7 @@ class Routine:
     may_write: bool = False
     may_read: bool = False
     may_abort: bool = False
+    may_clock: bool = False
     string_result_defaulted: bool = False
 
 
@@ -173,6 +174,7 @@ CONVERSION_OUTPUT_TYPES = {'CNV_STR_INT': 'INTEGER', 'CNV_INT_STR': 'STRING', 'C
 JOINT_PROCEDURES = {'CNV_REL_JPOS', 'CNV_JPOS_REL'}
 CONFIG_TEXT_PROCEDURES = {'CNV_CONF_STR', 'CNV_STR_CONF'}
 TIME_TEXT_PROCEDURES = {'CNV_STR_TIME', 'CNV_TIME_STR'}
+TIMER_FUNCTIONS = {'GET_USEC_TIM', 'GET_USEC_SUB'}
 MULTI_OUTPUT_PROCEDURES = JOINT_PROCEDURES | {'UNPOS'}
 # Constructors, frame helpers and pose queries are Pythonic fallbacks. Preserve internal routines and
 # ordinary declarations with these names.
@@ -826,6 +828,7 @@ class Emitter:
         self.pos_constructor_uses = []
         self.config_text_uses = []
         self.time_text_uses = []
+        self.microsecond_timer_uses = []
         self.frame_operation_uses = []
         self.position_axis_uses = []
         self.position_comparison_uses = []
@@ -1167,6 +1170,13 @@ class Emitter:
                             result_spec=routine.return_type))
                         self.features.add('bare zero-argument function call')
                         return Expr('call', node.token, node.value, [])
+                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value == 'GET_USEC_TIM' and node.value not in self.routines:
+                    local_names = (self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
+                    if node.value not in self.types.keys() | self.constants.keys() | local_names:
+                        self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                                                            name=node.value,line=node.token.line,column=node.token.column,result_spec=('INTEGER',)))
+                        self.features.add('bare zero-argument function call')
+                        return Expr('call',node.token,node.value,[])
                 if node.kind in ('index', 'field', 'read_item'):
                     node.args = [resolve(node.args[0], storage=True),
                                  *[resolve(argument) for argument in node.args[1:]]]
@@ -1300,6 +1310,8 @@ class Emitter:
                         if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                 if isinstance(node, Statement) and node.kind == 'abort':
                     routine.may_abort = True
+                if isinstance(node, Expr) and node.kind == 'call' and self.mode == 'pythonic' and node.value == 'GET_USEC_TIM' and node.value not in self.routines:
+                    routine.may_clock = True
                 if isinstance(node, Statement) and node.kind in ('assign', 'for'):
                     name = node.args[0].value if node.kind == 'for' else self.root_name(node.args[0])
                     if name not in local_names: routine.side_effecting = True
@@ -1349,6 +1361,9 @@ class Emitter:
                 if not routine.may_abort and any(self.routines[name].may_abort for name in edges[routine.name]):
                     routine.may_abort = True
                     changed = True
+                if not routine.may_clock and any(self.routines[name].may_clock for name in edges[routine.name]):
+                    routine.may_clock = True
+                    changed = True
                 parameter_names = {token.value for token, _ in routine.parameters}
                 local_names = {token.value for token, _ in routine.declarations}
                 for call in calls_by_routine[routine.name]:
@@ -1378,7 +1393,8 @@ class Emitter:
     def has_external_effect_call(self, expr):
         return any(isinstance(node, Expr) and node.kind == 'call' and node.value in self.routines
                    and (self.routines[node.value].side_effecting or self.routines[node.value].may_delay
-                        or self.routines[node.value].may_write or self.routines[node.value].may_read or self.routines[node.value].may_abort)
+                        or self.routines[node.value].may_write or self.routines[node.value].may_read or self.routines[node.value].may_abort
+                        or self.routines[node.value].may_clock)
                    for node in self.walk_nodes(expr))
 
     def has_fresh_active_counters(self):
@@ -1636,6 +1652,8 @@ class Emitter:
         if expr.kind == 'call':
             if self.active_counters and expr.value in self.routines:
                 self.check_for_call(expr.token, self.routines[expr.value])
+            if self.mode == 'pythonic' and expr.value in TIMER_FUNCTIONS and expr.value not in self.routines:
+                return self.microsecond_timer(expr), ('INTEGER',)
             if (expr.value in BUILTIN_PROCEDURES or expr.value in MULTI_OUTPUT_PROCEDURES
                     or self.mode == 'pythonic' and expr.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES and expr.value not in self.routines):
                 self.error('E_PROCEDURE_RESULT', 'Conversion procedures have an output argument, not an expression result', expr.token)
@@ -1794,6 +1812,19 @@ class Emitter:
                                          argument_order=['source','target','status'] if parsing else ['source','target'],
                                          outputs=2 if parsing else 1, source_copied=not parsing))
         return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line})'
+
+    def microsecond_timer(self, expr):
+        reading = expr.value == 'GET_USEC_TIM'
+        count = 0 if reading else 2
+        if len(expr.args) != count: self.error('E_ARGUMENTS', f'{expr.value} requires {count} arguments',expr.token)
+        self.check_for_call(expr.token)
+        codes = [self.require_type(argument,'INTEGER') for argument in expr.args]
+        self.features.add(expr.value)
+        self.microsecond_timer_uses.append(dict(function=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                                                line=expr.token.line,column=expr.token.column,host_clock_read=reading,
+                                                argument_order=[] if reading else ['later','earlier'],arguments_evaluated_once=True,result_type='INTEGER'))
+        if reading: return f'self._state.microsecond_time({expr.token.line})'
+        return f'_rt.usec_sub({", ".join(codes)}, {expr.token.line})'
 
     def time_text_conversion(self, expr):
         if len(expr.args) != 2: self.error('E_ARGUMENTS', f'{expr.value} requires two arguments',expr.token)
@@ -2497,9 +2528,9 @@ class Emitter:
         self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None):')
+        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None):')
         self.indent = 2
-        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance)')
+        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, clock_us=clock_us)')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2518,6 +2549,12 @@ class Emitter:
         self.line('def read_requests(self):')
         self.indent = 2
         self.line('return self._state.read_observations()')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def clock_reads(self):')
+        self.indent = 2
+        self.line('return tuple(observation.copy() for observation in self._state.clock_reads)')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2806,6 +2843,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         pos_constructors=emitter.pos_constructor_uses,
         config_text_conversions=emitter.config_text_uses,
         time_text_conversions=emitter.time_text_uses,
+        microsecond_timers=emitter.microsecond_timer_uses,
         frame_operations=emitter.frame_operation_uses,
         position_axis_queries=emitter.position_axis_uses,
         position_comparisons=emitter.position_comparison_uses,
@@ -2893,6 +2931,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         routine_effects={r.name: dict(potential_external_writes=r.side_effecting,
                                      potential_global_writes=sorted(r.global_writes),
                                      potential_host_delays=r.may_delay,
+                                     potential_host_clock_reads=r.may_clock,
                                      potential_output_requests=r.may_write,
                                      potential_input_requests=r.may_read,
                                      potential_aborts=r.may_abort,
@@ -2960,6 +2999,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic')
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
     report = result.report
+    report['bare_function_policy']['microsecond_clock'] = 'In Pythonic mode an unshadowed GET_USEC_TIM value name resolves as a zero-argument clock function; internal routines and local/global variables/constants retain precedence'
+    report['microsecond_timer_policy'] = dict(
+        functions=sorted(TIMER_FUNCTIONS),
+        counter='Portable two-minute ring: nonnegative host microseconds modulo 120000000; default time.monotonic_ns() // 1000; no calendar clock or controller epoch',
+        adapter='Program(clock_us=...) optionally supplies synchronous nonnegative Python integer microseconds; no sampling at construction/run start; booleans, negative, floating and asynchronous responses rejected',
+        subtraction='GET_USEC_SUB(later,earlier): INTEGER counters each in 0..119999999; result (later-earlier) modulo 120000000; valid elapsed interpretation requires one clock and intervals shorter than two minutes',
+        evaluation='Once in source order, ordinary short circuiting, step/FOR/frame protections and prior effects retained; timer errors preserve pending assignment target; sticky ABORT takes precedence',
+        observations='Program.clock_reads returns defensive line/adapter/outcome/counter records, reset at run start; failed reads have no counter; no raw unbounded clock samples retained',
+        names='Pythonic fallback functions preserve internal routines and ordinary declarations; GET_USEC_TIM also supports unshadowed bare value syntax',
+        boundary='Host elapsed-time approximation only; two-minute period and encoding are explicit portable choices, no native tick/overflow/precision/scheduling or controller acceptance claim; GET_TIME/SET_TIME unsupported and strict future work',
+        controller_validated=False)
     report['time_text_policy'] = dict(
         procedures=sorted(TIME_TEXT_PROCEDURES),
         grammar='ASCII DD-MMM-YYYY HH:MM[:SS], fixed English months case-insensitive, outer whitespace allowed; omitted seconds zero; Gregorian dates in 1980..2107; invalid text writes INTEGER zero',
