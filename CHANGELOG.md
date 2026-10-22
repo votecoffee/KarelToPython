@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.92.0 - 2026-10-22
+
+- Add read-only whole CONFIG, VECTOR, POSITION, XYZWPR and XYZWPREXT UNINIT
+  queries. Any missing leaf or complete nested record returns TRUE, with checked
+  schemas and known scalar values; geometry validity remains a separate check.
+- Support record fields, individual ARRAY elements and parenthesized storage;
+  evaluate computed selectors once. Retain scalar/joint behavior, copy guards,
+  BYTE distinction and whole ARRAY/PATH/user STRUCTURE/resource exclusions.
+- Add source-located report facts, 36 tests, two examples, runtime-only coverage
+  and documentation of the portable partial-record choice. Strict remains future.
+
 ## 0.91.0 - 2026-10-22
 
 - Add PULSE DOUT statements and handler actions with checked INTEGER operands,

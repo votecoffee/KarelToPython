@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.91.0**. It is a
+tool are named **karel2py**. The current implementation is **0.92.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -182,6 +182,9 @@ operands, with direct matrix results whenever POSITION is involved.
 See [POSITION geometry](docs/position-geometry.md).
 APPROACH and ORIENT return independent VECTOR copies of a pose's positive Z and
 Y axes. See [pose axis queries](docs/position-axes.md).
+`UNINIT` queries whole builtin records, including partially initialized poses
+and vectors, without changing storage. See [initialization queries](docs/initialization-queries.md)
+for the portable leaf rule and retained container exclusions.
 Approximate position comparison (`>=<`) uses explicit host-supplied distance,
 angle and CONFIG tolerances. See [position comparisons](docs/position-comparisons.md).
 Boolean `WAIT FOR` rechecks its condition with host yields and the ordinary
@@ -297,6 +300,7 @@ source. Strict mode remains a future milestone.
 - Three/four-point FRAME construction with checked geometry and an optional origin.
 - POSITION/XYZWPR assignment conversion with checked orientation matrices.
 - POSITION and mixed POSITION/XYZWPR geometry, preserving protected matrix columns.
+- Read-only whole builtin-record UNINIT queries, including nested and partial values.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
 - Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
@@ -332,7 +336,7 @@ python tools/check_repository.py
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus two complete linked projects. It also checks that the unsupported-motion example is rejected.
+fixtures, plus three complete linked projects. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

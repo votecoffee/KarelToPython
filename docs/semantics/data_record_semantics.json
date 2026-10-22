@@ -1,4 +1,5 @@
 {
+  "initialization_query_mode_note": "Pythonic whole builtin-record UNINIT follows ../initialization-queries.md; earlier whole-record exclusions below remain internal for the future strict milestone. Whole user STRUCTURE, ARRAY, PATH and resource queries remain blocked.",
   "translator_version": "0.78.0",
   "position_geometry_mode_note": "Pythonic POSITION/XYZWPR colon, INV and FRAME follow ../position-geometry.md. Older POSITION geometry exclusions below describe the preserved conservative contract; other positional types and exact routine interfaces retain their boundaries.",
   "position_conversion_mode_note": "Pythonic whole-value POSITION/XYZWPR assignments follow ../position-conversions.md; older blanket assignment/initialization exclusions below remain for the future strict milestone. Other positional types and exact routine interfaces retain their boundaries.",

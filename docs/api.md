@@ -365,3 +365,10 @@ A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
 `extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py`, `clocks.py`, `fileops.py` and `pulses.py`. Project loading
 also needs `project.py`, the compiler and lexer. Installing the package includes
 all of them.
+
+`UNINIT` supports whole CONFIG, VECTOR, POSITION, XYZWPR and XYZWPREXT storage
+in Pythonic mode. Any missing nested leaf yields TRUE, with no storage mutation.
+`initialization_queries` records each source site and operand type;
+`initialization_query_policy` describes the portable rule and exclusions. These
+queries require no service adapter and add no `service_requests`. See
+[initialization queries](initialization-queries.md) for examples and validation.
