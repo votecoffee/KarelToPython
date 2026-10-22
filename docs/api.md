@@ -362,7 +362,7 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 new run. Services retain their explicit shared state.
 
 A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
-`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py`, `clocks.py`, `fileops.py` and `pulses.py`. Project loading
+`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py`, `clocks.py`, `fileops.py`, `pulses.py` and `inspection.py`. Project loading
 also needs `project.py`, the compiler and lexer. Installing the package includes
 all of them.
 
@@ -372,3 +372,9 @@ in Pythonic mode. Any missing nested leaf yields TRUE, with no storage mutation.
 `initialization_query_policy` describes the portable rule and exclusions. These
 queries require no service adapter and add no `service_requests`. See
 [initialization queries](initialization-queries.md) for examples and validation.
+
+`VAR_INFO` and `VAR_LIST` inspect global declarations in the explicit execution
+context. They reuse ordinary output/reference checks and source-located
+`service_operations`/`service_requests`. `variable_inspection_policy` records type
+codes, canonical ARRAY/alias metadata, portable flags, filters and pagination.
+See [variable inspection](variable-inspection.md) for complete signatures and statuses.

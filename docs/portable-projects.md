@@ -24,6 +24,9 @@ Version 0.90.0 adds [model-backed joint/Cartesian assignments](kinematic-assignm
 with selected frame/tool, current-joint inverse seed and retained interface types.
 Version 0.91.0 adds [digital output pulses](pulses.md) with blocking/NOWAIT,
 explicit host polling and scheduler deadlines that survive normal completion/pause.
+Version 0.92.0 adds [builtin-record initialization queries](initialization-queries.md).
+Version 0.93.0 adds [global variable inspection](variable-inspection.md), with
+canonical metadata, filtered name lists, pagination and checked formats.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

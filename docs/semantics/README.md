@@ -136,3 +136,6 @@ The 0.92.0 [initialization ledger](initialization_query_semantics.json) records
 whole builtin-record queries, partial leaves, read-only validation and retained
 whole-container exclusions. It supersedes earlier whole builtin-record UNINIT
 restrictions; historical ledgers retain their version-bound scope.
+The 0.93.0 [variable inspection ledger](variable_inspection_semantics.json) records
+static metadata, type codes, aggregate/resource flag choices, sorted listings,
+pagination and output-format capacity checks.

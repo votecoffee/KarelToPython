@@ -1,5 +1,5 @@
 {
-  "version": "0.92.0",
+  "version": "0.93.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -132,5 +132,6 @@
   "file_comparison": "file_comparison_semantics.json",
   "kinematic_assignment": "kinematic_assignment_semantics.json",
   "pulses": "pulse_semantics.json",
-  "initialization_queries": "initialization_query_semantics.json"
+  "initialization_queries": "initialization_query_semantics.json",
+  "variable_inspection": "variable_inspection_semantics.json"
 }

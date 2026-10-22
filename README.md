@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.92.0**. It is a
+tool are named **karel2py**. The current implementation is **0.93.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -275,6 +275,11 @@ and tools. Inverse assignments require supplied current joints as a seed. See
 PULSE supports blocking and NOWAIT digital outputs with checked durations,
 explicit host polling and scheduler deadlines. Pause, terminal state and later
 writes have documented ownership rules. See [output pulses](docs/pulses.md).
+
+VAR_INFO inspects canonical types, dimensions, capacities and initialization.
+VAR_LIST filters and pages explicit global names with checked output formats.
+See [variable inspection](docs/variable-inspection.md) for static paths, supplied
+namespaces and portable resource/initialization choices.
 
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the

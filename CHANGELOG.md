@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.93.0 - 2026-10-22
+
+- Add VAR_INFO over explicit static globals, fields, ARRAY elements and PATH
+  nodes/headers: canonical types/codes, logical dimensions, STRING capacity and
+  read-only initialization metadata with documented aggregate/resource choices.
+- Add VAR_LIST with case-insensitive star filters, canonical type selection,
+  sorted pagination, four formats and capacity checks. Keep output batches atomic
+  on portable status failures and preserve source initialization and protection.
+- Add source/report policies, 63 tests, two examples, runtime-only coverage and
+  documented native-evidence boundaries. Strict mode remains future work.
+
 ## 0.92.0 - 2026-10-22
 
 - Add read-only whole CONFIG, VECTOR, POSITION, XYZWPR and XYZWPREXT UNINIT
