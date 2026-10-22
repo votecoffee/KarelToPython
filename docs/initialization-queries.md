@@ -31,7 +31,8 @@ preserve the storage query; computed subscripts evaluate once. Earlier subscript
 effects persist if a later check fails, as in ordinary expression evaluation.
 Builtin records nested in larger containers remain individually queryable.
 
-Every known leaf must still have its ordinary valid scalar type and domain.
+Every known leaf must still have its ordinary valid scalar type and domain,
+including the CONFIG turn-number storage range of -8..7.
 The query checks all fields, even if an earlier field was uninitialized. Malformed
 host-supplied records raise an error without changing the source or assigning the
 query result. Initialized records need not describe a proper rotation, reachable
@@ -39,8 +40,9 @@ pose or valid robot configuration: geometry operations perform their own checks.
 
 Whole ARRAY, PATH and user STRUCTURE queries remain rejected, following the
 manual's explicit exclusions. Whole FILE and QUEUE_TYPE queries also remain
-blocked. Constants, literals, constructors and function results do not identify
-queryable storage. BYTE remains distinct: unknown BYTE contents are not an
+blocked. Constants, literals and direct constructor/function results are rejected.
+Existing field/element selectors on aggregate temporaries retain their ordinary
+behavior, including `UNINIT(make()[1])`. BYTE remains distinct: unknown BYTE contents are not an
 uninitialized value, and BYTE queries remain rejected even after a write.
 
 Existing scalar and JOINTPOS behavior is retained. Whole copies still require

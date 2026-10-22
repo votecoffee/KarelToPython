@@ -8,12 +8,12 @@
     "records":["CONFIG","VECTOR","POSITION","XYZWPR","XYZWPREXT"],
     "meaning":"TRUE when any scalar leaf or entire nested builtin record is uninitialized; complete nested records inspect recursively",
     "storage":"Variables, record fields and individual ARRAY elements; Pythonic parentheses preserve storage; selectors evaluate once",
-    "validation":"Matching builtin schemas and ordinary known scalar types/domains; all fields inspected; no proper-rotation, robot configuration or reachability validation",
+    "validation":"Matching builtin schemas and ordinary known scalar types/domains, including CONFIG turns -8..7; all fields inspected; no proper-rotation, robot configuration or reachability validation",
     "ownership":"Read-only query with no initialization, copying, replacement or service request; existing complete-copy requirements retained",
     "observations":"Source-located value-free initialization_queries and initialization_query_policy in translation reports"
   },
   "portable_choices":["Recursive partial-leaf rule rather than native allocation flags","Queryability of builtin records is separate from whole user STRUCTURE support","Parentheses around storage retain query meaning","FILE and QUEUE_TYPE resource state has no inferred initialization rule"],
-  "retained":["Scalar and JOINTPOS behavior","Whole ARRAY, PATH and user STRUCTURE exclusions","BYTE unknown-versus-uninitialized distinction","Constants, literals, constructors and function results rejected","Read-only POSITION orientation protection","Strict mode remains future work"],
+  "retained":["Scalar and JOINTPOS behavior","Whole ARRAY, PATH and user STRUCTURE exclusions","BYTE unknown-versus-uninitialized distinction","Constants, literals and direct constructor/function results rejected; existing temporary-field/element selectors retained","Read-only POSITION orientation protection","Strict mode remains future work"],
   "verification":["tests/test_initialization_queries.py","tests/test_data_records.py","tests/test_position_data.py","tests/test_runtime_portability.py","examples/record_initialization.kl","examples/pose_initialization.kl"],
   "guide":"../initialization-queries.md"
 }

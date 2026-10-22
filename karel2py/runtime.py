@@ -961,7 +961,10 @@ def _record_uninitialized(value,spec,line=None):
         if member is UNINITIALIZED: missing=True
         elif member is UNKNOWN_BYTE: raise KarelRuntimeError('BYTE initialization queries are not implemented',line)
         elif field_spec[0] in DATA_RECORD_TYPES: missing|=_record_uninitialized(member,field_spec,line)
-        else: checked(field_spec,member,line)
+        else:
+            checked(field_spec,member,line)
+            if spec[0]=='CONFIG' and field_spec==INTEGER and not -8<=member<=7:
+                raise KarelRuntimeError('CONFIG turn numbers are limited to -8..7 by the prototype',line)
     return missing
 
 

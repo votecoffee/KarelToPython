@@ -148,8 +148,9 @@ class InitializationValidationTests(unittest.TestCase):
             with self.subTest(leaf=leaf),self.assertRaises(rt.KarelRuntimeError): self.query(value)
 
     def test_invalid_later_nested_record_is_not_hidden_by_earlier_missing_leaf(self):
-        value=rt.Structure(('POSITION',));value.values['CONFIG_DATA'].values['CFG_FRONT']=7
-        with self.assertRaises(rt.KarelRuntimeError): self.query(value)
+        for field,invalid in (('CFG_FRONT',7),('CFG_TURN_NO1',8),('CFG_TURN_NO2',-9)):
+            value=rt.Structure(('POSITION',));value.values['CONFIG_DATA'].values[field]=invalid
+            with self.subTest(field=field),self.assertRaisesRegex(rt.KarelRuntimeError,'line 71'): self.query(value)
 
     def test_wrong_builtin_spec_shape_fails(self):
         value=rt.Structure(('VECTOR',));value.spec=('VECTOR',1)

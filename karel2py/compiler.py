@@ -3916,7 +3916,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         builtin_records=['CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'],
         meaning='Whole builtin record is uninitialized when any nested leaf or complete nested record is uninitialized; inspect without initializing, copying or changing source storage',
         validation='Validate record schema and known scalar types/domains; inspect all fields even when another is uninitialized; no proper-rotation or robot/configuration validity query',
-        operands='Variable, field or individual ARRAY-element storage; Pythonic parentheses unwrap storage; computed selectors evaluate once; constants and function/literal/constructor results rejected',
+        operands='Variable, field or individual ARRAY-element storage; Pythonic parentheses unwrap storage; computed selectors evaluate once; constants and direct function/literal/constructor results rejected; existing temporary-field/element selectors retained',
         exclusions='Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE remain blocked; BYTE unknown contents remain distinct from uninitialized state',
         boundary='Portable partial-record rule rather than native allocation flags; existing scalar/joint behavior and exact interfaces retained; strict remains future work',
         guide='docs/initialization-queries.md',controller_validated=False)
