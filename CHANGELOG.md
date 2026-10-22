@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.79.0 - 2026-10-22
+
+- Add explicit offline string/position registers, digital/group/analog ports,
+  GET_VAR/SET_VAR and shared checked service context.
+- Add in-memory text/binary FILE transfers, cursor/status procedures, typed PATH
+  nodes/headers and copies, and initialized FIFO QUEUE_TYPE operations.
+- Add cooperative handlers with multiple WHEN clauses, connected timers, retained
+  pause/resume frames, terminal task stop, explicit task registry and external
+  Python routine bindings. `--cooperative` also enables host control.
+- Add MIRROR, XYZWPREXT frame/conversion metadata and explicit robot-model
+  conversion/reachability adapters. No robot model or native behavior is inferred.
+- Add authored examples, service equivalence matrix, semantic evidence, portable
+  distribution checks and integration regressions. Preserve the strict milestone.
+
 ## 0.78.0 - 2026-10-21
 
 - Add Pythonic GET_REG, SET_INT_REG and SET_REAL_REG on an explicit in-memory

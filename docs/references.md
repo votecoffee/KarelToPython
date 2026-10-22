@@ -26,3 +26,14 @@ Host behavior and injected callback tests are separate from controller behavior.
 
 The root README follows the section structure described by
 [Standard Readme](https://github.com/RichardLitt/standard-readme).
+
+## Offline services added in 0.79.0
+
+The extended implementation uses MARRC75KR07091E Rev N's register and variable
+procedures, PATH/QUEUE descriptions, condition-handler chapter, FILE forms and
+geometry/model signatures. The [ledger](semantics/extended_service_semantics.json)
+retains PDF page references and uncertainties without redistributing the manual.
+The [guide](offline-services.md) separates source syntax from explicit portable
+choices for statuses, binary layout, task control and external axes. GET_QUEUE's
+syntax/parameter-order discrepancy remains documented. Tests use small authored
+programs; passing them establishes offline behavior only.

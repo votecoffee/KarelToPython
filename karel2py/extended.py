@@ -335,10 +335,11 @@ def update_timers(state,line=None):
 def connect_timer(state,reference,line=None):
     rt=runtime()
     if type(reference) is not rt.Reference or reference.spec!=('INTEGER',): fail('Timer requires ordinary INTEGER storage',line)
-    if reference.raw() is rt.UNINITIALIZED: reference.set(0,line)
     key=(id(reference.storage),reference.key)
     if key in state._timers: fail('Timer is already connected',line)
-    state._timers[key]=[reference,timer_clock(state,line),0]
+    now=timer_clock(state,line)
+    if reference.raw() is rt.UNINITIALIZED: reference.set(0,line)
+    state._timers[key]=[reference,now,0]
 
 
 def disconnect_timer(state,reference,line=None):
@@ -451,6 +452,8 @@ class ExecutionContext:
     @classmethod
     def from_config(cls,config):
         if type(config) is not dict or set(config)-{'strings','positions','ports','files'}: raise ValueError('Unknown execution context fields')
+        for name,allowed in (('strings',{'count','capacity','values'}),('positions',{'count','groups'}),('ports',{'counts','values'})):
+            if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
         if 'strings' in config:
             row=config['strings']; services['strings']=StringRegisters(row['count'],{int(k):v for k,v in row.get('values',{}).items()},capacity=row.get('capacity',254))
@@ -548,7 +551,10 @@ class ExecutionContext:
             robot=self.require('robot',line); value=args[0]
             if name=='IN_RANGE':
                 if robot.reachable is None: fail('IN_RANGE requires an explicit reachability adapter',line)
-                return rt.boolean(robot.reachable(rt.frame_value(value,line)),line)
+                pose=rt.frame_value(value,line)
+                try: answer=robot.reachable(pose)
+                except Exception as exc: raise rt.KarelRuntimeError('Reachability adapter failed: '+str(exc),line) from exc
+                return rt.boolean(answer,line)
             if robot.joint_limits is None or len(robot.joint_limits)!=len(value.values): fail('J_IN_RANGE requires explicit limits for every joint',line)
             return all(lo<=rt.real(axis,line)<=hi for axis,(lo,hi) in zip(value.values,robot.joint_limits))
         if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line)

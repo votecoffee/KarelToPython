@@ -18,7 +18,7 @@ else:
     report = result.report
 ```
 
-`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic")` accepts a KAREL
+`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False)` accepts a KAREL
 source string. `filename` labels diagnostics and source locations. Translation
 does not run the program. The returned object exposes generated `python_source`
 and a JSON-serializable `report` with program/version information, source maps,
@@ -98,7 +98,7 @@ and report paths must differ. Their parent directories must already exist.
 
 ## Generated Program
 
-A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None)`.
+A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None, context=None)`.
 Call `Program().run(max_steps=100_000)` to execute explicitly and receive a
 snapshot of global variables. Only the generated module's entry point runs it
 automatically; importing a module defines its class.
@@ -205,7 +205,7 @@ truncation/fallback. See [text formats](text-formats.md).
 its body, original source line/column and exact `result_spec`.
 `bare_function_policy` describes the resolution and effect boundaries. These sites
 use the ordinary checked call path; they do not represent first-class functions
-or external linkage.
+or native external ABI. Explicit Python callback linkage is supported.
 
 ARRAY return reports include the exact resolved `element_spec` and `logical_rank`
 (one through three). Anonymous outer results may contain prior named
@@ -261,3 +261,25 @@ physical line/column, X/Y/Z argument order, one-time evaluation and independent
 value flags. `vector_policy` records constructor/internal-routine name priority,
 unary VECTOR signs, product association and numeric boundaries. See
 [Pythonic vector expressions](pythonic-vectors.md).
+
+## Offline service context and cooperative execution
+
+`context=ExecutionContext(...)` adds strings, positions, ports, variables, files,
+robot adapters, external callback bindings and a task registry. Generated scripts
+accept `--context` JSON for serializable service state. See the
+[complete service guide](offline-services.md) for signatures and examples.
+`service_operations`, `service_policy`, `cooperative_policy` and
+`extended_geometry_policy` describe source sites and current portable choices.
+
+Task-control syntax, handlers, connected timers and external declarations enable
+cooperative generation automatically. `translate(...,cooperative=True)` and CLI
+`--cooperative` enable host control for other source and enter the context hash.
+Generated cooperative Programs add `pause()`, `resume()`, `stop()` and
+`task_state`. `run()`/`resume()` raise `KarelPause` when suspended; `resume()`
+retains the stack, budget and current instruction. `stop()` closes suspended
+frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
+`service_requests` returns copied operation/line/outcome records and resets on a
+new run. Services retain their explicit shared state.
+
+A minimal runtime-only distribution now needs `karel2py/__init__.py`,
+`runtime.py` and `extended.py`. The compiler/lexer are needed for translation.

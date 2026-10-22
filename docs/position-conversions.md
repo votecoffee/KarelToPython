@@ -1,5 +1,9 @@
 # Pythonic POSITION conversions
 
+Version 0.79.0 extends the base contract below with XYZWPREXT operands and
+explicit external-axis metadata. The [offline service guide](offline-services.md)
+defines the added conversions, propagation rules and remaining boundaries.
+
 Since 0.71.0, whole-value assignments can convert between XYZWPR and POSITION.
 This gives POSITION explicit orientation data while retaining its protected
 orientation fields.

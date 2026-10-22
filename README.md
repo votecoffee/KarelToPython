@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.78.0**. It is a
+tool are named **karel2py**. The current implementation is **0.79.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -31,7 +31,7 @@ generator and runtime. It supports inspecting and exercising small source
 programs offline while preserving type, initialization and ownership checks.
 
 Translation acceptance, successful offline execution and controller behavior
-are separate results. Motion, controller I/O and robot commissioning are outside
+are separate results. Physical motion, live controller I/O and robot commissioning are outside
 the current implementation. See the [language support guide](docs/language-support.md)
 for specific restrictions and [reference notes](docs/references.md) for provenance.
 
@@ -209,6 +209,25 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 [READ formats](docs/read-formats.md), [text input](docs/text-input.md) and
 [Pythonic input](docs/pythonic-read.md) for capture order, validation and failure behavior.
 
+### Offline services and task control
+
+String/position registers, digital/group/analog ports and GET_VAR/SET_VAR use
+explicit in-memory services. FILE text/binary transfers, typed PATH lists and
+QUEUE_TYPE work offline. Cooperative handlers, connected timers, pause/resume,
+registered tasks and external Python callbacks preserve execution state.
+MIRROR and extended poses work with documented Pythonic conventions; kinematics
+and reachability use supplied robot-model adapters.
+
+```sh
+python -m karel2py examples/offline_services.kl -o services.py
+python services.py --context examples/offline_services.services.initial.json
+```
+
+See the [service equivalence matrix and embedding guide](docs/offline-services.md)
+for supported operations, context setup, pause/resume examples and remaining
+native-behavior gaps. Use `--cooperative` to add host task control to ordinary
+source. Strict mode remains a future milestone.
+
 ## Supported Features
 
 - Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
@@ -243,7 +262,8 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
   with complete-response checks and input-request observations.
 
 Each item has type and context restrictions. External routines,
-motion, controller files/registers/I/O and native task behavior remain unsupported.
+physical motion, live controller access and native task behavior remain unsupported.
+Explicit offline services now model files/registers/I/O and cooperative tasks.
 Read the [support table and limitations](docs/language-support.md) before using a feature.
 
 ## Development

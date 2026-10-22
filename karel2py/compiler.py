@@ -358,7 +358,7 @@ class Parser:
                 else: data=item
                 if not self.accept(','): break
                 self.skip_lines()
-            return ('PATH',node,data)
+            return ('PATH',node,data,token)
         if token.value in PREDEFINED_CONSTANTS:
             self.error('E_TYPE', 'Predefined constants cannot be used as data types', token)
         if token.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT'): return (token.value,)
@@ -985,7 +985,7 @@ class Emitter:
         if spec[0]=='PATH':
             resolved=('PATH',self.resolve_spec(spec[1]) if spec[1] else None,self.resolve_spec(spec[2]) if spec[2] else None)
             if any(item and item[0]!='STRUCTURE' for item in resolved[1:]):
-                self.error('E_TYPE','PATH NODEDATA and PATHHEADER require named STRUCTURE types',Token('NAME','PATH',1,1))
+                self.error('E_TYPE','PATH NODEDATA and PATHHEADER require named STRUCTURE types',spec[3] if len(spec)>3 else Token('NAME','PATH',1,1))
             return resolved
         if spec[0] == 'JOINTPOS':
             rt.joint_width(spec)
@@ -1109,6 +1109,7 @@ class Emitter:
     def validate_symbols(self):
         names = set()
         for token, expr in self.program.constants:
+            if token.value in ex.PORT_TYPES: self.error('E_DUPLICATE','Port identifiers cannot be constants',token)
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
             names.add(token.value)
             value = self.constant(expr)
@@ -1141,7 +1142,7 @@ class Emitter:
             self.features.add('named STRUCTURE definition')
         for token, spec in self.program.declarations:
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
-            if token.value in blocked_controller_names(self.mode):
+            if token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys():
                 self.error('E_CONTROLLER', 'Controller identifiers are not supported', token)
             names.add(token.value)
             resolved = self.resolve_global_spec(token, spec)
@@ -1560,6 +1561,8 @@ class Emitter:
     def access_type(self, expr):
         """Inspect receiver types without emitting calls or duplicate call-site reports."""
         if expr.kind == 'group': return self.access_type(expr.args[0])
+        if self.mode=='pythonic' and expr.kind=='call' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
+            return ex.FUNCTIONS[expr.value][1]
         if expr.kind == 'call' and expr.value in self.routines and self.routines[expr.value].return_type:
             return self.routines[expr.value].return_type
         if self.mode == 'pythonic' and expr.kind == 'call' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines:
@@ -2989,6 +2992,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
     generated = emitter.emit()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
+        cooperative_execution=emitter.cooperative,
         program=program.name, source_sha256=hashlib.sha256(source.encode('utf-8')).hexdigest(),
         translation_context=dict(mode=mode, array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}),
         translation_context_sha256=hashlib.sha256(json.dumps(dict(mode=mode, array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}), sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest(),
@@ -3326,6 +3330,23 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     with rt._numeric_scope(mode):
         result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative)
     report = result.report
+    report['service_policy'] = dict(
+        procedures=sorted(ex.PROCEDURES), functions=sorted(ex.FUNCTIONS), ports=dict(ex.PORT_TYPES),
+        context='Explicit ExecutionContext with bounded in-memory services; numeric registers retain their separate context',
+        values='Checked exact output references, disjoint resources, ordered input/selector capture; prior completed effects retained on error',
+        files='MemoryFiles only; portable little-endian binary fields and ASCII text, byte cursors, no host filesystem access',
+        collections='Typed one-based PATH nodes/header, full/reversed range copies and initialized fixed-capacity FIFO queues',
+        robot='JOINT2POS/POS2JOINT/IN_RANGE require explicit model adapters; J_IN_RANGE requires every joint limit',
+        observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
+        guide='docs/offline-services.md',controller_validated=False)
+    report['cooperative_policy'] = dict(
+        enabled=report['cooperative_execution'],
+        generation='Automatic for task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
+        execution='Generator-based run/resume retains routine/FOR frames; terminal stop closes generators; no concurrent drive or native scheduler',
+        handlers='Ordered checkpoint scans, multiple WHEN clauses, first true clause disables before actions, explicit rearm and retained lexical frames',
+        timers='Global INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry and backward-clock checks',
+        linkage='Explicit external callback and TaskRegistry bindings; no module loading, robot tasks or motion semantics',
+        guide='docs/offline-services.md',controller_validated=False)
     if cooperative:
         report['translation_context']['cooperative'] = True
         report['translation_context_sha256'] = hashlib.sha256(json.dumps(report['translation_context'], sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest()
@@ -3608,4 +3629,23 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and in-loop jumps remain blocked')
     report['limitations'].append('USING supports lexical nesting and dotted named STRUCTURE selectors; indexed/call/grouped selectors, builtin record selectors and field FOR counters remain blocked')
     report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax, local TYPE sections and external FROM types remain blocked')
+    report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
+    report['position_axis_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT only; complete checked poses, no robot acquisition or orientation defaults'
+    report['position_conversion_policy']['boundary'] = 'Whole POSITION/XYZWPR/XYZWPREXT assignments only; exact routine/array interfaces, checked proper matrices; widening zeros axes and narrowing drops axes'
+    report['extended_geometry_policy'] = dict(
+        types=['POSITION','XYZWPR','XYZWPREXT'],
+        external_axes='Three REAL metadata fields; INV and MIRROR preserve; colon selects right extended operand else left; FRAME selects origin axes else zero',
+        mirror='Frame XZ plane reflection; orientation=True reverses local Y after reflection to retain a proper rotation; CONFIG preserved',
+        model='Explicit RobotContext adapters for conversions/reachability, inclusive supplied joint limits; no guessed model',
+        boundary='No extended >=< metric, external-axis physical transformations, motion, controller geometry or native acceptance claim',
+        guide='docs/offline-services.md',controller_validated=False)
+    report['data_record_policy']['boundary'] = 'Checked positional data and whole pose conversions; registers and geometry use explicit services; no builtin USING, record I/O, motion or inferred group/frame context'
+    report['pos_policy']['boundary'] = 'POS returns exact XYZWPR; whole assignments can convert poses under position_conversion_policy; no implicit routine/array conversion, robot context, native configuration validity or native pause/status'
+    report['frame_policy']['operands'] = 'Explicit complete POSITION/XYZWPR/XYZWPREXT; colon composition, INV and three/four-point FRAME use checked frame math and explicit external metadata'
+    report['frame_policy']['result_type'] = 'INV preserves representation; colon/FRAME prefer XYZWPREXT, then POSITION, then XYZWPR; external metadata follows extended_geometry_policy'
+    report['position_conversion_policy']['scope'] = 'Whole assignments among POSITION, XYZWPR and XYZWPREXT; no automatic routine/RETURN or whole-array conversion'
+    report['position_axis_policy']['functions'] = 'APPROACH returns positive Z and ORIENT positive Y from complete POSITION/XYZWPR/XYZWPREXT; internal routines retain precedence'
+    for key in ('vector_routine_policy','structure_routine_policy','positional_routine_policy','array_routine_policy'):
+        report[key]['boundary'] = report[key]['boundary'].replace('external routines or ', '').replace('external routines, ', '')
+    report['limitations'].append('New services follow explicit offline context and cooperative policies; binary file layout, task scheduling, handler timing, MIRROR orientation and external axes use documented portable conventions')
     return result

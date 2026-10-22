@@ -1,5 +1,9 @@
 # Pythonic frame transforms
 
+Version 0.79.0 extends the base contract below with XYZWPREXT operands and
+explicit external-axis metadata. The [offline service guide](offline-services.md)
+defines the added conversions, propagation rules and remaining boundaries.
+
 Since 0.69.0, Pythonic mode supports explicit `XYZWPR : XYZWPR` composition and
 `INV(XYZWPR)` inversion. These are offline rigid transforms using Python floats.
 Since 0.70.0, [FRAME construction](frame-construction.md) also builds an explicit

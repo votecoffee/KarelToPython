@@ -170,6 +170,54 @@ class ExtendedBoundaryTests(unittest.TestCase):
     def test_extended_comparison_remains_explicitly_unsupported(self):
         self.reject('ok=p>=<p','E_TYPE',decl='p: XYZWPREXT ok: BOOLEAN')
 
+    def test_invalid_path_node_type_is_diagnostic(self):
+        self.reject('', 'E_TYPE',decl='p: PATH NODEDATA=INTEGER')
+
+    def test_invalid_clock_does_not_initialize_timer(self):
+        p,_=compile_program('CONNECT TIMER TO n',clock_us=lambda:False)
+        with self.assertRaises(rt.KarelRuntimeError): p.run()
+        self.assertEqual(p.snapshot()['N'],{'uninitialized':True})
+
+    def test_unknown_context_fields_rejected(self):
+        with self.assertRaises(ValueError): rt.ExecutionContext.from_config({'positions':{'count':1,'values':{}}})
+
+    def test_reachability_failure_is_source_located(self):
+        def broken(value): raise ValueError('model unavailable')
+        ctx=rt.ExecutionContext(robot=rt.RobotContext(reachable=broken))
+        p,_=compile_program("CNV_STR_CONF('N',c,s) p=POS(0,0,0,0,0,0,c) ok=IN_RANGE(p)",decl='c: CONFIG s: INTEGER p: XYZWPR ok: BOOLEAN',context=ctx)
+        with self.assertRaises(rt.KarelRuntimeError) as caught: p.run()
+        self.assertIsNotNone(caught.exception.line)
+
+    def test_model_validates_all_outputs_before_assignment(self):
+        def forward(joints,frame,tool,solution):
+            return pose(7),frame.values['CONFIG_DATA'],[0.,0.]
+        ctx=rt.ExecutionContext(robot=rt.RobotContext(forward=forward))
+        p,_=compile_program("CNV_STR_CONF('N',c,s) f=POS(0,0,0,0,0,0,c) s=9 JOINT2POS(j,f,f,0,p,c,axes,s)",decl='j: JOINTPOS f,p: POSITION c: CONFIG axes: ARRAY[1] OF REAL s: INTEGER',context=ctx)
+        p._state.values['J'].values[:]=[0.]*9
+        with self.assertRaises(rt.KarelRuntimeError): p.run()
+        self.assertEqual(p.snapshot()['P']['LOCATION']['X'],{'uninitialized':True})
+        self.assertEqual(p.snapshot()['S'],9)
+
+    def test_public_reports_describe_supplied_services(self):
+        _,result=compile_program('PAUSE')
+        self.assertTrue(result.report['cooperative_policy']['enabled'])
+        self.assertFalse(result.report['service_policy']['controller_validated'])
+        self.assertIn('MIRROR',result.report['service_policy']['functions'])
+        self.assertIn('external_axes',result.report['extended_geometry_policy'])
+
+    def test_handler_function_predicate_and_action(self):
+        state=run('n=0 CONDITION[1]: WHEN ready() DO change() ENDCONDITION ENABLE CONDITION[1] s=0',routines='ROUTINE ready: BOOLEAN BEGIN RETURN TRUE END ready ROUTINE change BEGIN n=7 END change')
+        self.assertEqual(state['N'],7)
+
+    def test_cooperative_function_in_boolean_loop_test(self):
+        state=run('n=0 WHILE (n<2) AND advance() DO s=n ENDWHILE',cooperative=True,routines='ROUTINE advance: BOOLEAN BEGIN n=n+1 RETURN TRUE END advance')
+        self.assertEqual((state['N'],state['S']),(2,2))
+
+    def test_returned_pose_field_value_argument(self):
+        ctx=rt.ExecutionContext(positions=rt.PositionRegisters(1,{1:pose(7)}))
+        state=run('take(GET_POS_REG(1,s).config_data)',decl='s,n: INTEGER',routines='ROUTINE take(value: CONFIG) BEGIN n=value.cfg_turn_no1 END take',context=ctx)
+        self.assertEqual(state['N'],0)
+
 
 class ExtendedCliTests(unittest.TestCase):
     def test_generated_context_and_cooperative_option(self):

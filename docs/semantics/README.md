@@ -103,3 +103,8 @@ and [output guide](../pythonic-output.md).
 The older STRING ledgers preserve the conservative result/value restrictions;
 current behavior follows the Pythonic STRING ledger and
 [STRING guide](../pythonic-strings.md).
+
+The [extended service ledger](extended_service_semantics.json) records the 0.79.0
+register/port, FILE/collection, cooperative control and robot-model contracts.
+Its [guide](../offline-services.md) extends the earlier geometry ledgers with
+XYZWPREXT metadata and MIRROR; historical native-behavior questions remain open.

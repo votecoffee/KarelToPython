@@ -2001,13 +2001,19 @@ class State:
         if not _pythonic(): raise KarelRuntimeError('Extended services require Pythonic mode',line)
         row=dict(operation=name,line=line,outcome='requested'); self.service_requests.append(row)
         try: result=self.execution.invoke(self,name,arguments,line)
-        except Exception:
-            row['outcome']='failed'; raise
+        except Exception as exc:
+            row['outcome']='failed'
+            if isinstance(exc,KarelRuntimeError) and exc.line is None: raise KarelRuntimeError(str(exc),line) from exc
+            raise
         row['outcome']='completed'; return result
 
     def port_read(self,kind,number,line=None): return self.execution.require('ports',line).read(kind,number,line)
 
-    def port_write(self,kind,number,value,line=None): return self.execution.require('ports',line).write(kind,number,value,line)
+    def port_write(self,kind,number,value,line=None):
+        try: return self.execution.require('ports',line).write(kind,number,value,line)
+        except KarelRuntimeError as exc:
+            if exc.line is None: raise KarelRuntimeError(str(exc),line) from exc
+            raise
 
     def read_observations(self):
         return tuple(deepcopy(self.read_requests))

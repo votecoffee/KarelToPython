@@ -1,5 +1,9 @@
 # Pythonic POSITION geometry
 
+Version 0.79.0 extends the base contract below with XYZWPREXT operands and
+explicit external-axis metadata. The [offline service guide](offline-services.md)
+defines the added conversions, propagation rules and remaining boundaries.
+
 Since 0.72.0, `:`, `INV` and `FRAME` accept complete POSITION values as well as
 XYZWPR. Mixed operands are supported. POSITION results use rotation matrices
 directly, retaining protected NORMAL, ORIENT and APPROACH columns.

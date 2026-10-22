@@ -1,5 +1,9 @@
 # Pythonic pose axis queries
 
+Version 0.79.0 extends the base contract below with XYZWPREXT operands and
+explicit external-axis metadata. The [offline service guide](offline-services.md)
+defines the added conversions, propagation rules and remaining boundaries.
+
 Since 0.73.0, `APPROACH(pose)` returns the positive Z axis and `ORIENT(pose)`
 returns the positive Y axis as independent VECTOR values. Both accept complete
 POSITION values. Pythonic mode also accepts XYZWPR under the existing rotation
