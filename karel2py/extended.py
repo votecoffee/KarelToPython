@@ -18,7 +18,8 @@ def runtime():
 def fail(message, line=None): raise runtime().KarelRuntimeError(message,line)
 
 
-# mode: i=value input, o=output reference, r=mutable resource/reference.
+# mode: i=value input, o=output reference, r=mutable resource/reference,
+# m=INTEGER mask output reference or literal zero to discard.
 def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
@@ -57,6 +58,9 @@ PROCEDURES = {
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
 }
 FUNCTIONS = {
+    'CURPOS':((arg('INTEGER','m'),arg('INTEGER','m'),I),('XYZWPREXT',)),
+    'CURJPOS':((arg('INTEGER','m'),arg('INTEGER','m'),I),('JOINTPOS',9)),
+    'CURR_PROG':((),('STRING',12)),
     'SEMA_COUNT':((I,),('INTEGER',)),
     'GET_POS_REG': ((I,OI,I),('XYZWPREXT',)),
     'GET_JPOS_REG': ((I,OI,I),('JOINTPOS',9)),
@@ -68,7 +72,7 @@ FUNCTIONS = {
     'J_IN_RANGE': ((arg('JOINTPOS'),),('BOOLEAN',)),
     'MIRROR': ((arg('POSE'),arg('POSE'),B),('XYZWPREXT',)),
 }
-OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR'}
+OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS'}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
 OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT'}
@@ -88,7 +92,8 @@ def matches(spec, kind):
 def outputs_checked(signature, arguments, line=None):
     rt=runtime(); occupied=set()
     for (mode,kind), value in zip(signature,arguments):
-        if mode not in ('o','r'): continue
+        if mode=='m' and type(value) is int and value==0: continue
+        if mode not in ('o','r','m'): continue
         if type(value) is not rt.Reference or not matches(value.spec,kind): fail('Service output requires an ordinary exact-type writable reference',line)
         cells=rt._reference_cells(value)
         if occupied & cells: fail('Service output/resource references must not overlap',line)
@@ -453,13 +458,64 @@ class QueueValue:
         for index in range(len(self.buffer.values)): self.buffer.set(index+1,self.entries[index][1] if index<len(self.entries) else 0,line)
 
 
+_KEEP_CURRENT=object()
+
+
+class RobotState:
+    """Caller-supplied current pose/joints; updates validate before replacing data."""
+    def __init__(self,*,position=None,joints=None,axis_limit_mask=0,overtravel_mask=0):
+        self._position=None; self._joints=None
+        self.update(position=position,joints=joints,axis_limit_mask=axis_limit_mask,overtravel_mask=overtravel_mask)
+    def update(self,*,position=_KEEP_CURRENT,joints=_KEEP_CURRENT,axis_limit_mask=_KEEP_CURRENT,overtravel_mask=_KEEP_CURRENT):
+        rt=runtime(); point=self._position; joint=self._joints
+        with rt._numeric_scope('pythonic'):
+            if position is not _KEEP_CURRENT: point=None if position is None else rt.frame_value(position)
+            if joints is not _KEEP_CURRENT:
+                if joints is None: joint=None
+                elif isinstance(joints,rt.JointPosition):
+                    joint=joints.clone(); joint.values[:]=[rt.real(value) for value in joint.values]
+                elif type(joints) in (list,tuple) and 1<=len(joints)<=9:
+                    joint=rt.JointPosition(('JOINTPOS',len(joints))); joint.values[:]=[rt.real(value) for value in joints]
+                else: raise ValueError('Current joints require a complete JOINTPOS or 1..9 explicit axes')
+            if point is None and joint is None: raise ValueError('Current robot state requires a supplied pose or joints')
+            limits=self.axis_limit_mask if axis_limit_mask is _KEEP_CURRENT else axis_limit_mask
+            travel=self.overtravel_mask if overtravel_mask is _KEEP_CURRENT else overtravel_mask
+            for value in (limits,travel):
+                if type(value) is not int or not 0<=value<=511: raise ValueError('Current robot masks must be INTEGERs in 0..511')
+        self._position,self._joints=point,joint
+        self.axis_limit_mask,self.overtravel_mask=limits,travel
+    @property
+    def position(self): return None if self._position is None else self._position.clone()
+    @property
+    def joints(self): return None if self._joints is None else self._joints.clone()
+    def to_config(self):
+        from .storage import typed_value
+        result={'axis_limit_mask':self.axis_limit_mask,'overtravel_mask':self.overtravel_mask}
+        if self._position is not None: result['position']=typed_value(self._position)
+        if self._joints is not None: result['joints']=typed_value(self._joints)
+        return result
+    @classmethod
+    def from_config(cls,config):
+        from .storage import decode_typed
+        if type(config) is not dict or set(config)-{'position','joints','axis_limit_mask','overtravel_mask'}: raise ValueError('Unknown current robot state fields')
+        point=decode_typed(config['position'])[1] if 'position' in config else None
+        joints=decode_typed(config['joints'])[1] if 'joints' in config else None
+        if joints is not None and not isinstance(joints,runtime().JointPosition): raise ValueError('Current joints require JOINTPOS data')
+        return cls(position=point,joints=joints,axis_limit_mask=config.get('axis_limit_mask',0),overtravel_mask=config.get('overtravel_mask',0))
+
+
 class RobotContext:
     """User-supplied offline kinematics/reachability, with no guessed robot model."""
-    def __init__(self,*,forward=None,inverse=None,reachable=None,joint_limits=None,groups=None,active_group=1,frames=None,tools=None):
+    def __init__(self,*,forward=None,inverse=None,reachable=None,joint_limits=None,groups=None,active_group=1,frames=None,tools=None,current=None,active_frame=0,active_tool=0):
         for value in (forward,inverse,reachable):
             if value is not None and not callable(value): raise TypeError('Robot model adapters must be callable')
         self.forward,self.inverse,self.reachable=forward,inverse,reachable
         self.groups=dict(groups or {}); self.active_group=active_group
+        if type(active_group) is not int or active_group<1 or any(type(group) is not int or group<1 or type(value) is not RobotContext for group,value in self.groups.items()): raise ValueError('Explicit positive robot groups required')
+        if self.groups and active_group not in self.groups: raise ValueError('Active robot group is not configured')
+        if current is not None and type(current) is not RobotState: raise TypeError('current must be RobotState or None')
+        if self.groups and current is not None: raise ValueError('Current state belongs to each robot group')
+        self.current=current; self.active_frame=active_frame; self.active_tool=active_tool
         self.frames=dict(frames or {}); self.tools=dict(tools or {}); self.model_config=None; self.model=None
         self.joint_limits=tuple(joint_limits) if joint_limits is not None else None
         if self.joint_limits is not None and any(len(pair)!=2 or not all(type(x) in (int,float) and math.isfinite(x) for x in pair) or pair[0]>pair[1] for pair in self.joint_limits): raise ValueError('Invalid explicit joint limits')
@@ -468,10 +524,42 @@ class RobotContext:
         from .kinematics import robot_context_from_config
         return robot_context_from_config(config)
     def for_group(self,group=None):
-        if not self.groups: return self
+        if not self.groups:
+            if group is not None and (type(group) is not int or group!=self.active_group): fail('Robot group has no configured model/state')
+            return self
         group=self.active_group if group is None else group
-        if group not in self.groups: fail('Robot group has no configured model')
+        if type(group) is not int or group not in self.groups: fail('Robot group has no configured model/state')
         return self.groups[group]
+    def current_value(self,name,line=None):
+        rt=runtime()
+        if self.current is None: fail(name+' requires explicit current robot state',line)
+        if name=='CURJPOS':
+            value=self.current.joints
+            if value is None: fail('CURJPOS requires supplied current joints',line)
+            result=rt.JointPosition(('JOINTPOS',9)); result.values[:]=list(value.values)+[0.]*(9-len(value.values))
+            return rt.checked(result.spec,result,line)
+        value=self.current.position
+        if value is None:
+            if self.model is None: fail('CURPOS requires a supplied pose or current joints with a configured DH model',line)
+            try: value=self.model.forward(self.current.joints,self.frame(self.active_frame),self.tool(self.active_tool),check_limits=False)[0]
+            except Exception as exc: raise rt.KarelRuntimeError('Current pose model failed: '+str(exc),line) from exc
+        return pose_extended(rt.frame_value(value,line),line)
+    def to_config(self):
+        config=deepcopy(self.model_config) if self.model_config is not None else {}
+        if self.groups:
+            groups={str(group):value.to_config() for group,value in self.groups.items()}
+            if any(value is not None for value in groups.values()):
+                if any(value is None for value in groups.values()): raise ValueError('Cannot persist robot groups without a model or current state')
+                config['groups']=groups
+                if self.model_config is None: config['active_group']=self.active_group
+            if self.active_group!=config.get('active_group',min(self.groups)): config['active_group']=self.active_group
+        elif self.current is not None: config['current']=self.current.to_config()
+        if not self.groups and self.active_group!=config.get('active_group',1): config['active_group']=self.active_group
+        if self.model is not None:
+            if self.active_frame!=config.get('frame',0): config['frame']=self.active_frame
+            if self.active_tool!=config.get('tool',0): config['tool']=self.active_tool
+        if self.model_config is None and config and self.active_group!=1: config['active_group']=self.active_group
+        return config or None
     def frame(self,number=0):
         if number not in self.frames: fail('Requested frame is not configured')
         return self.frames[number].clone()
@@ -740,9 +828,17 @@ class ExecutionContext:
     def invoke(self,state,name,arguments,line=None):
         rt=runtime(); args=list(arguments)
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
-        if name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(1 if name!='SET_FILE_ATR' else 0)
+        if name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS') else 0 if name=='SET_FILE_ATR' else 1)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name=='CURR_PROG': return rt.checked(('STRING',12),state.program_name,line)
+        if name in ('CURPOS','CURJPOS'):
+            group=rt.task_root(state).robot_group if args[2] is None else rt.integer(args[2],line)
+            robot=self.require('robot',line).for_group(group)
+            value=robot.current_value(name,line)
+            for reference,mask in zip(args[:2],(robot.current.axis_limit_mask,robot.current.overtravel_mask)):
+                if type(reference) is rt.Reference: reference.set(mask,line)
+            return value
         if name in ('GET_PORT_VAL','SET_PORT_VAL','GET_PORT_CMT','SET_PORT_CMT','GET_PORT_SIM','SET_PORT_SIM'):
             return self.require('ports',line).indirect(name,args,line)
         if name in {f'{action}_{kind}_CMT' for action in ('GET','SET') for kind in ('REG','PREG','SREG')}:

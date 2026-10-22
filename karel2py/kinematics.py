@@ -117,10 +117,12 @@ class SerialRobotModel:
 
     def within_limits(self,joints): return len(joints)==self.axes and all(lo<=q<=hi for q,(lo,hi) in zip(joints,self.limits))
 
-    def forward(self,joints,uframe,utool,config_ref=0):
+    def forward(self,joints,uframe,utool,config_ref=0,*,check_limits=True):
+        if type(check_limits) is not bool: raise TypeError('check_limits must be BOOLEAN')
         if config_ref!=0: raise ValueError('Portable DH model supports config_ref=0')
         values=[rt().real(value) for value in joints.values]
-        if not self.within_limits(values): raise ValueError('Joint values exceed model limits')
+        if len(values)!=self.axes: raise ValueError('Joint data does not match the explicit model')
+        if check_limits and not self.within_limits(values): raise ValueError('Joint values exceed model limits')
         result=multiply(inverse(matrix(uframe)),multiply(multiply(self.base,self.chain(values)),matrix(utool)))
         cfg=uframe.values['CONFIG_DATA'].clone()
         axes=values[-self.external_axes:] if self.external_axes else []
@@ -185,10 +187,10 @@ class SerialRobotModel:
 
 
 def robot_context_from_config(config):
-    from .extended import RobotContext
+    from .extended import RobotContext,RobotState
     from .storage import decode_typed
     if type(config) is not dict: raise ValueError('Robot context must be an object')
-    allowed={'groups','active_group','dh','external_axes','base','iterations','position_tolerance','orientation_tolerance','frames','tools','frame','tool'}
+    allowed={'groups','active_group','dh','external_axes','base','iterations','position_tolerance','orientation_tolerance','frames','tools','frame','tool','current'}
     if set(config)-allowed: raise ValueError('Unknown robot context fields')
     if 'groups' in config:
         if set(config)-{'groups','active_group'}: raise ValueError('Grouped model configuration cannot mix flat model fields')
@@ -197,6 +199,10 @@ def robot_context_from_config(config):
         active=config.get('active_group',min(groups))
         if active not in groups: raise ValueError('Active robot group is not configured')
         context=RobotContext(groups=groups,active_group=active); context.model_config=deepcopy(config); return context
+    current=RobotState.from_config(config['current']) if 'current' in config else None
+    if 'dh' not in config:
+        if current is None or set(config)-{'current','active_group'}: raise ValueError('Robot context requires DH parameters or explicit current state')
+        context=RobotContext(current=current,active_group=config.get('active_group',1));context.model_config=deepcopy(config);return context
     base=decode_typed(config['base'])[1] if 'base' in config else None
     model=SerialRobotModel(config['dh'],external_axes=config.get('external_axes',0),base=base,iterations=config.get('iterations',200),position_tolerance=config.get('position_tolerance',.01),orientation_tolerance=config.get('orientation_tolerance',.01))
     frames={int(k):decode_typed(v)[1] for k,v in config.get('frames',{}).items()}; tools={int(k):decode_typed(v)[1] for k,v in config.get('tools',{}).items()}
@@ -204,5 +210,5 @@ def robot_context_from_config(config):
     active_frame=config.get('frame',0); active_tool=config.get('tool',0)
     if active_frame not in frames or active_tool not in tools: raise ValueError('Active frame/tool must be supplied')
     for value in (*frames.values(),*tools.values()): matrix(value)
-    context=RobotContext(forward=model.forward,inverse=model.inverse,reachable=lambda p:model.reachable(p,frames[active_frame],tools[active_tool]),joint_limits=model.limits,frames=frames,tools=tools)
+    context=RobotContext(forward=model.forward,inverse=model.inverse,reachable=lambda p:model.reachable(p,frames[active_frame],tools[active_tool]),joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
     context.model=model; context.model_config=deepcopy(config); return context

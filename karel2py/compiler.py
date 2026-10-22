@@ -1310,11 +1310,11 @@ class Emitter:
                             result_spec=routine.return_type))
                         self.features.add('bare zero-argument function call')
                         return Expr('call', node.token, node.value, [])
-                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value == 'GET_USEC_TIM' and node.value not in self.routines:
+                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG') and node.value not in self.routines:
                     local_names = (self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
                     if node.value not in self.types.keys() | self.constants.keys() | local_names:
                         self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                            name=node.value,line=node.token.line,column=node.token.column,result_spec=('INTEGER',)))
+                                                            name=node.value,line=node.token.line,column=node.token.column,result_spec=('INTEGER',) if node.value=='GET_USEC_TIM' else ('STRING',12)))
                         self.features.add('bare zero-argument function call')
                         return Expr('call',node.token,node.value,[])
                 if node.kind in ('index', 'field', 'read_item'):
@@ -1459,7 +1459,7 @@ class Emitter:
                     routine.may_services=True
                     signature=ex.PROCEDURES.get(node.value,ex.FUNCTIONS.get(node.value,((),None))[0])
                     for argument,(mode,_) in zip(node.args,signature):
-                        if mode not in ('o','r'): continue
+                        if mode not in ('o','r','m'): continue
                         name=self.root_name(argument)
                         if name not in local_names: routine.side_effecting=True
                         if name in parameter_names: routine.parameter_writes.add(name)
@@ -2029,7 +2029,11 @@ class Emitter:
         if expr.value=='SET_VAR' and self.active_counters: self.error('E_FOR_COUNTER','SET_VAR cannot indirectly write an active FOR counter',expr.token)
         codes=[]
         for value,(mode,kind) in zip(expr.args,signature):
-            if mode in ('o','r'):
+            discarded=value
+            while discarded.kind=='group': discarded=discarded.args[0]
+            if mode=='m' and discarded.kind=='literal' and type(discarded.value) is int and discarded.value==0:
+                codes.append('0'); continue
+            if mode in ('o','r','m'):
                 if value.kind not in ('name','field','index') or self.root_name(value) in self.visible_constants(): self.error('E_OUTPUT_ARGUMENT','Service output requires writable storage',value.token)
                 if self.root_name(value) in self.active_counters: self.error('E_FOR_COUNTER','Service output cannot write an active FOR counter',value.token)
                 if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
@@ -2437,7 +2441,7 @@ class Emitter:
                         if name in routine.global_writes: return True
                         if any(token.value in routine.parameter_writes and self.root_name(value) == name for (token, _), value in zip(routine.parameters, action.args)): return True
                     signature = ex.PROCEDURES.get(action.value, ex.FUNCTIONS.get(action.value, ((), None))[0])
-                    if any(mode in ('o', 'r') and self.root_name(value) == name for value, (mode, _) in zip(action.args, signature)): return True
+                    if any(mode in ('o', 'r','m') and self.root_name(value) == name for value, (mode, _) in zip(action.args, signature)): return True
         return False
 
     def statement(self, stmt, file_code=None):
@@ -3473,6 +3477,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Optional bank comments, port type_codes/simulated flags and per-task arguments survive context JSON save/load; legacy context shape retained when absent',
         boundary='No controller discovery, native port enums, physical simulation/mode/assignment, teach-pendant acquisition or controller acceptance; strict mode deferred',
         guide='docs/io-and-call-parameters.md',controller_validated=False)
+    report['current_robot_policy']=dict(
+        functions=['CURPOS','CURJPOS','CURR_PROG'],
+        context='Explicit RobotState position and/or complete joints per robot group; caller updates atomically; no pose/joints or live acquisition defaults',
+        position='CURPOS returns an independent XYZWPREXT; supplied pose takes precedence; otherwise configured DH forward math uses current joints, active frame/tool and base without rejecting outside-limit observations',
+        joints='CURJPOS returns independent JOINTPOS9 with zero-padded unused slots; supplied joint width remains unchanged; no inverse conversion inferred from a pose',
+        masks='Exact disjoint INTEGER output references or literal zero to discard; explicit metadata 0..511, default zero; validate query before writing either mask',
+        group='Optional explicit group or calling root task group; unconfigured groups reject, including flat contexts; linked calls inherit caller query group',
+        program='CURR_PROG or CURR_PROG() returns executing module name as STRING[12], including library module during linked calls; ordinary declarations/internal functions retain precedence',
+        persistence='State-only and model-backed contexts serialize latest snapshots and grouped state; no call stacks, motion or time evolution restored',
+        boundary='Supplied/model-derived offline state only; no encoders, measured consistency, motion execution, mask authentication, calibrated geometry, native unused-axis encoding or controller acceptance',
+        guide='docs/current-robot-state.md',controller_validated=False)
     report['cooperative_policy'] = dict(
         enabled=report['cooperative_execution'],
         generation='Automatic for task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
@@ -3508,6 +3523,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Explicit offline memory model only, no robot communication, remote/group registers, R[] syntax, native count/error/persistence/initial-value or controller acceptance claim; comments use the separate offline comment API',
         controller_validated=False)
     report['bare_function_policy']['microsecond_clock'] = 'In Pythonic mode an unshadowed GET_USEC_TIM value name resolves as a zero-argument clock function; internal routines and local/global variables/constants retain precedence'
+    report['bare_function_policy']['current_program'] = 'An unshadowed CURR_PROG value name resolves as a zero-argument STRING[12] function reporting the executing module; internal routines and local/global declarations retain precedence'
     report['microsecond_timer_policy'] = dict(
         functions=sorted(TIMER_FUNCTIONS),
         counter='Portable two-minute ring: nonnegative host microseconds modulo 120000000; default time.monotonic_ns() // 1000; no calendar clock or controller epoch',

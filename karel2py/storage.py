@@ -241,5 +241,7 @@ def context_config(context):
     if context.semaphores is not None: result['semaphores']=context.semaphores.to_config()
     if context.errors is not None: result['errors']=context.errors.to_config()
     if context.parameters is not None: result['parameters']=context.parameters.to_config()
-    if context.robot is not None and context.robot.model_config is not None: result['robot']=deepcopy(context.robot.model_config)
+    if context.robot is not None:
+        config=context.robot.to_config()
+        if config is not None: result['robot']=config
     return result
