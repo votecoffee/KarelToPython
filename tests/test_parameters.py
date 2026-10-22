@@ -211,8 +211,9 @@ class ParameterRejectionTests(unittest.TestCase):
         routines = 'ROUTINE f: INTEGER BEGIN x = x + 1 RETURN x END f\nROUTINE r(p,q: INTEGER) BEGIN END r'
         self.rejected('x = 1 r(x,f())', routines, 'E_EVALUATION_ORDER', _translator=legacy_translate)
 
-    def test_double_parenthesis_uninit_not_treated_as_reference(self):
-        self.rejected('flag = UNINIT((x))', '', 'E_ARGUMENTS')
+    def test_parenthesized_uninit_preserves_storage_in_pythonic_mode(self):
+        self.assertTrue(execute('flag = UNINIT((x))', '')['FLAG'])
+        self.rejected('flag = UNINIT((x))', '', 'E_ARGUMENTS', _translator=legacy_translate)
 
     def test_reference_argument_index_out_of_bounds(self):
         p, _ = compile_program('triple(a[0])', TRIPLE)
