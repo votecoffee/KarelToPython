@@ -1,7 +1,9 @@
 # Offline services and cooperative execution
 
-Version 0.79.0 adds explicit Pythonic implementations for registers and ports,
+Version 0.80.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
+[Portable projects](portable-projects.md) documents persistence, directory files,
+events/scheduling, automatic source linkage and loadable DH models.
 All state belongs to supplied Python objects. A missing service raises a
 source-located error. Strict mode remains a future milestone.
 
@@ -14,21 +16,22 @@ source-located error. Strict mode remains a future milestone.
 | `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter requires nine-axis JOINTPOS; setters retain the declared width. No implicit pose/joint conversion. |
 | `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT` | `PortBank` Boolean values | Host supplies inputs; translated assignments write output kinds only. |
 | `GIN/GOUT`, `AIN/AOUT` | Nonnegative checked `int`, finite `float` | Explicit counts and values; no zero-filled or hardware defaults. Analog float values are a portable choice. |
-| `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static global paths such as `PARTS[2].VALUE`; foreign programs require explicit bindings. No Python evaluation of paths. |
-| `OPEN/CLOSE FILE`, `READ file`, `WRITE file` | `MemoryFiles` and `FileHandle` | Named byte buffers, cursors and checked scalar transfers. Names never access the host filesystem. |
+| `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static global paths such as `PARTS[2].VALUE`; foreign programs use attached namespaces or explicit bindings. No Python evaluation of paths. |
+| `OPEN/CLOSE FILE`, `READ file`, `WRITE file` | `MemoryFiles`/`DirectoryFiles` and `FileHandle` | Byte buffers or an explicit directory root, cursors and checked scalar transfers. |
 | Binary FILE fields | Standard-library `struct` | Little endian; INTEGER 1/2/4 bytes, REAL 4/8, BOOLEAN/BYTE 1, SHORT 2, ASCII STRING with byte width. |
 | `GET_FILE_POS`, `SET_FILE_POS`, `BYTES_LEFT`, `BYTES_AHEAD`, `IO_STATUS`, `CLR_IO_STAT` | Checked cursor/status operations | Byte positions, seek within current contents; `-1` seeks to end. |
-| `SET_FILE_ATR(file,ATR_IA)` | Set binary-transfer attribute before opening | Portable ATR_IA value 1; other attributes are rejected. `RB/WB/RWB/AB` also select binary access. |
+| FILE attributes | ATR_IA interactive flush; ATR_UF binary; ATR_REVERSE byte order; ATR_EOL terminator | Portable package identifiers; ATR_FIELD metadata; `RB/WB/RWB/AB` also select binary. |
+| COPY_FILE / DELETE_FILE / RENAME_FILE / FILE_LIST | Both backends | Synchronous operations, portable missing/exists/busy statuses and name listing format 0. |
 | `PATH` | Typed node list with optional header | One-based nodes; `NODEDATA` and `PATHHEADER` structures; direct field references. |
 | `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and deep copies | Empty paths have length zero; full or reversed partial copying; maximum 32767 nodes. |
 | `QUEUE_TYPE` and seven queue procedures | FIFO entries with sequence IDs and an INTEGER backing array | Explicit INIT_QUEUE; fixed capacity; retain original backing-array identity. |
-| `CONDITION`, `WHEN`, `ENABLE/DISABLE/PURGE` | Ordered predicates and generator actions | Cooperative scanning, multiple WHEN clauses, one-shot trigger with explicit rearm. |
+| `CONDITION`, `WHEN`, `ENABLE/DISABLE/PURGE` | Ordered predicates and generator actions | Checkpoint/interval scanning, events/edges, EVAL capture, multiple WHEN clauses and explicit rearm. |
 | `CONNECT/DISCONNECT TIMER` | Monotonic elapsed milliseconds in global INTEGER references | Updated at execution checkpoints; injectable microsecond clock; fractional milliseconds carried forward. |
 | `PAUSE`, host `resume()` | Suspended Python generator | Retains instruction position, routine locals, references and FOR state. |
 | `STOP`, host `stop()` | Terminal offline task state | Closes suspended frames; construct a new Program to restart. This is a Pythonic task-stop convention, not native motion STOP behavior. |
 | `RESUME`, `UNPAUSE` | Clear a pending offline pause request | A suspended Program needs a host `resume()` or another registered task's CONT_TASK call. Native motion RESUME is not modeled. |
-| `RUN_TASK`, `PAUSE_TASK`, `CONT_TASK`, `ABORT_TASK` | Explicit `TaskRegistry` | Synchronous cooperative tasks; no native scheduler, motion flags, lock masks or arbitrary start line. |
-| `ROUTINE ... FROM library` | Explicit Python callback binding | Typed reference arguments and checked return values; no module discovery or automatic imports. |
+| `RUN_TASK`, `PAUSE_TASK`, `CONT_TASK`, `ABORT_TASK` | Explicit `TaskRegistry` | TaskRegistry or deterministic TaskScheduler; no motion flags, lock masks or arbitrary start line. |
+| `ROUTINE ... FROM library` | Python callback or source Project link | Typed references/results, shared imported globals; no native ABI. |
 | `MIRROR(point,plane,orient)` | Reflection about the plane frame's XZ plane | XYZWPREXT result; optional orientation reflection uses a documented proper-rotation convention. |
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
 | `JOINT2POS`, `POS2JOINT`, `IN_RANGE`, `J_IN_RANGE` | `RobotContext` adapters and supplied limits | Requires a supplied model or limits; no robot geometry, calibration or reachability is inferred. |
@@ -82,10 +85,12 @@ prior source statements. `Program.service_requests` returns defensive operation,
 line and outcome records; it omits values and resets at each new run.
 
 Generated scripts accept `--context configuration.json`. The JSON schema has
-optional `strings` (`count`, `capacity`, `values`), `positions` (`count`, `groups`),
-`ports` (`counts`, `values` by kind and number), and `files` (name to ASCII text
-or `{"hex":"..."}`). Position values, foreign references, callbacks, clocks,
-robot models and task registries are supplied through Python embedding.
+optional `strings` (`count`, `capacity`, `values`), `positions` (`count`, `groups`,
+`values`), `numeric`, `ports` (`counts`, `values` by kind and number), `variables`,
+`robot`, `events`, `local_handlers` and `files` (name to ASCII text or
+`{"hex":"..."}`). Typed values retain aggregate/joint specs and initialization.
+Callbacks, clocks and task registries use Python embedding. See
+[configuration and persistence](portable-projects.md#shared-and-persistent-state).
 
 ```sh
 python -m karel2py examples/offline_services.kl -o converted.py
@@ -218,9 +223,9 @@ Whole assignments convert POSITION, XYZWPR and XYZWPREXT. Widening fills three
 external-axis fields with zero; narrowing drops them. Routine interfaces remain
 exact types. INV preserves external fields. Colon composition takes external
 fields from the right operand if extended, otherwise the left. FRAME uses the
-origin operand's external fields, otherwise zero. These fields are metadata,
-not independent transformations or inferred physical joint motion. Extended
-`>=<` comparisons remain rejected because their tolerance metric is unspecified.
+origin operand's external fields, otherwise zero. Frame operators propagate these fields as metadata. Explicit serial-DH models
+can instead give external joints a kinematic role. Extended `>=<` uses supplied
+per-axis absolute tolerances; see [model context](portable-projects.md#robot-models-and-extended-poses).
 
 MIRROR reflects locations about a supplied frame's XZ plane and preserves the
 point's external fields and CONFIG. With orientation false, orientation is
@@ -228,7 +233,8 @@ unchanged. With true, the world reflection is followed by reversal of local Y
 to retain a right-handed proper rotation. This is an explicit Pythonic choice:
 reflecting all three axes alone would produce an improper rotation.
 
-RobotContext supplies `forward`, `inverse`, `reachable` and/or `joint_limits`.
+RobotContext supplies `forward`, `inverse`, `reachable` and/or `joint_limits`,
+or loads a standard-DH model through `from_config`.
 JOINT2POS calls `forward(joints,uframe,utool,config_ref)` and expects a tuple
 `(pose,config,external_axes)`. POS2JOINT calls
 `inverse(reference_joints,pose,uframe,utool,config_ref,config,external_axes)` and

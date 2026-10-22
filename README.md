@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.79.0**. It is a
+tool are named **karel2py**. The current implementation is **0.80.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -211,19 +211,22 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 
 ### Offline services and task control
 
-String/position registers, digital/group/analog ports and GET_VAR/SET_VAR use
-explicit in-memory services. FILE text/binary transfers, typed PATH lists and
-QUEUE_TYPE work offline. Cooperative handlers, connected timers, pause/resume,
-registered tasks and external Python callbacks preserve execution state.
-MIRROR and extended poses work with documented Pythonic conventions; kinematics
-and reachability use supplied robot-model adapters.
+Registers, ports and program globals share an explicit context with typed JSON
+save/load. FILE operations can use memory or a caller-selected directory. Typed
+PATH and QUEUE_TYPE collections work offline. A deterministic scheduler handles
+events, timers, delays and task pause/continue/stop. Source projects automatically
+link typed external routines and imported globals. A configurable standard-DH
+robot model provides forward/inverse math, external joints and bounded
+reachability checks; extended-pose comparisons use explicit axis tolerances.
 
 ```sh
 python -m karel2py examples/offline_services.kl -o services.py
 python services.py --context examples/offline_services.services.initial.json
 ```
 
-See the [service equivalence matrix and embedding guide](docs/offline-services.md)
+Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
+See [portable projects and model setup](docs/portable-projects.md) and the
+[service equivalence matrix and embedding guide](docs/offline-services.md)
 for supported operations, context setup, pause/resume examples and remaining
 native-behavior gaps. Use `--cooperative` to add host task control to ordinary
 source. Strict mode remains a future milestone.
@@ -246,7 +249,7 @@ source. Strict mode remains a future milestone.
 - POSITION/XYZWPR assignment conversion with checked orientation matrices.
 - POSITION and mixed POSITION/XYZWPR geometry, preserving protected matrix columns.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
-- Approximate POSITION/XYZWPR comparison with explicit per-instance tolerances.
+- Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Packed date/time text conversion with checked calendars and complete outputs.
 - Host microsecond sampling and elapsed-time subtraction with an injectable clock.
@@ -261,8 +264,9 @@ source. Strict mode remains a future milestone.
 - Scalar `READ` destinations through a typed callback, JSON batches or text/CR input,
   with complete-response checks and input-request observations.
 
-Each item has type and context restrictions. External routines,
-physical motion, live controller access and native task behavior remain unsupported.
+Each item has type and context restrictions. Physical motion, live controller
+access and native task behavior remain unsupported. External routines can link
+to supplied KAREL modules or explicit Python callbacks.
 Explicit offline services now model files/registers/I/O and cooperative tasks.
 Read the [support table and limitations](docs/language-support.md) before using a feature.
 
@@ -278,7 +282,7 @@ python tools/check_repository.py
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures. It also checks that the unsupported-motion example is rejected.
+fixtures, plus a complete linked project. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING
@@ -309,7 +313,8 @@ maintained alongside example sources.
 ## API
 
 The main entry point is
-`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic")`. It returns a
+`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False)`.
+`translate_project(sources)` and `load_project(directory)` add typed project linkage. It returns a
 translation containing `python_source` and `report`, or raises
 `karel2py.lexer.TranslationError`. See [docs/api.md](docs/api.md).
 

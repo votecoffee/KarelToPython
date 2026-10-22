@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.80.0 - 2026-10-22
+
+- Add typed JSON save/load for service banks and attached program globals, with
+  partial initialization and explicit system/foreign variable namespaces.
+- Add caller-rooted DirectoryFiles, atomic close/flush, file management/listing,
+  reverse byte order and ASCII EOL. Correct ATR_IA to interactive flushing;
+  use ATR_UF for binary fields. Existing RB/WB modes continue to work.
+- Add deterministic cooperative scheduling with virtual time, parked delays,
+  EVENT signals, port edges, EVAL capture, scan intervals and local lifetimes.
+- Add typed source-project linkage, shared FROM globals and independent stacks
+  for concurrent library calls, with caller budgets and sticky abort cleanup.
+- Add configurable standard-DH kinematics, bounded numerical IK/reachability,
+  external kinematic joints, groups/frames/tools and extended-pose tolerances.
+- Add authored programs, a three-module project, public setup/mapping guide and
+  integration regressions. Keep strict mode and native behavior gaps explicit.
+
 ## 0.79.0 - 2026-10-22
 
 - Add explicit offline string/position registers, digital/group/analog ports,

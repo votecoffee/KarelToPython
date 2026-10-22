@@ -1,37 +1,113 @@
 {
-  "version": "0.79.0",
+  "version": "0.80.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
   "sources": [
-    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[106,107,108],"topic":"Global handlers, multiple WHEN clauses and enable/disable/purge"},
-    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[310,311,351,352,353,370,402,409,412,414,420,421,434,443,444,449,450,456,457,471,472,474,479,480,539,552,556,557,561],"topic":"Registers, paths, queues, task procedures, file attributes and robot-model operations"}
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        106,
+        107,
+        108
+      ],
+      "topic": "Global handlers, multiple WHEN clauses and enable/disable/purge"
+    },
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        310,
+        311,
+        351,
+        352,
+        353,
+        370,
+        402,
+        409,
+        412,
+        414,
+        420,
+        421,
+        434,
+        443,
+        444,
+        449,
+        450,
+        456,
+        457,
+        471,
+        472,
+        474,
+        479,
+        480,
+        539,
+        552,
+        556,
+        557,
+        561
+      ],
+      "topic": "Registers, paths, queues, task procedures, file attributes and robot-model operations"
+    },
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        110,
+        111,
+        112,
+        113,
+        114,
+        120,
+        122,
+        392,
+        506
+      ],
+      "topic": "EVAL, event/edge conditions, scan qualifiers, FILE_LIST and unformatted/interactive attributes"
+    }
   ],
   "implementation": {
-    "registers_ports_variables":"Explicit in-memory banks, static variable paths and host-bound foreign storage; checked disjoint outputs; no hardware acquisition",
-    "files":"Byte-backed MemoryFiles, bounded cursors and checked scalar transfers; little-endian binary fields and ASCII text; no operating-system path access",
-    "collections":"Typed one-based PATH nodes/header and independent copies; initialized fixed-capacity FIFO queues tied to one backing array",
-    "control":"Cooperative generator frames, first matching WHEN clause, one-shot handlers with explicit rearm, checkpoint timers and explicit callback/task registries",
-    "geometry":"Checked frame math with external metadata propagation; explicit proper-rotation MIRROR convention; kinematic and reachability adapters require supplied models"
+    "registers_ports_variables": "Explicit banks and typed JSON persistence, attached foreign globals and explicit system roots; no hardware acquisition",
+    "files": "MemoryFiles or explicit DirectoryFiles root, atomic buffered close/interactive flush, attributes and synchronous file management",
+    "collections": "Typed one-based PATH nodes/header and independent copies; initialized fixed-capacity FIFO queues tied to one backing array",
+    "control": "Deterministic cooperative scheduler with virtual time, events, edges, EVAL, scan intervals and optional local lifetimes; typed supplied-source project linkage",
+    "geometry": "Explicit standard-DH FK/numerical IK/reachability, limits/groups/frames/tools and external kinematic joints; extended per-axis comparison tolerances"
   },
   "portable_choices": {
-    "status_codes":"Register/path/variable/queue status conventions documented in offline-services.md; they do not assert a native alarm mapping",
-    "binary":"Little endian; IEEE host struct REAL encoding at 4 or 8 bytes; portable ATR_IA identifier 1",
-    "analog":"Finite Python float ports",
-    "stop":"Terminal offline task stop; native KAREL STOP/RESUME motion behavior is outside this implementation",
-    "extended_axes":"Zero-fill on widening, drop on narrowing; preserve on inverse/MIRROR, rightmost extended operand on colon, origin metadata on FRAME",
-    "mirror_orientation":"Reflect about frame XZ, then reverse local Y to retain a proper rotation",
-    "queue":"Capacity equals backing-array length, monotonically increasing sequence IDs, zero-filled unused backing slots"
+    "status_codes": "Register/path/variable/queue status conventions documented in offline-services.md; they do not assert a native alarm mapping",
+    "binary": "Little endian by default, ATR_REVERSE big endian; ATR_UF unformatted, ATR_IA interactive flush; identifiers are package constants",
+    "analog": "Finite Python float ports",
+    "stop": "Terminal offline task stop; native KAREL STOP/RESUME motion behavior is outside this implementation",
+    "extended_axes": "Zero-fill on widening, drop on narrowing; preserve on inverse/MIRROR, rightmost extended operand on colon, origin metadata on FRAME",
+    "mirror_orientation": "Reflect about frame XZ, then reverse local Y to retain a proper rotation",
+    "queue": "Capacity equals backing-array length, monotonically increasing sequence IDs, zero-filled unused backing slots",
+    "events": "Broadcast generations consumed independently per handler/expression; coalesce multiple signals and retain context generations",
+    "scheduler": "Round-robin checkpoints, default 1 ms virtual quantum, parked DELAY and explicit source entry; no host processes",
+    "persistence": "Typed value snapshots include partial leaves and file bytes, but omit live resources and continuation state",
+    "inverse": "Bounded damped numerical IK; failure does not prove geometric impossibility; config_ref=0 only",
+    "extended_comparison": "Explicit scalar or three-axis absolute tolerances; missing plain-pose external values equal zero"
   },
   "unresolved": [
-    "GET_QUEUE syntax line swaps sequence/status relative to the parameter descriptions and worked example; implementation follows the latter",
-    "Native binary file layout, file status/alarm mapping, ATR_IA numeric value and other file attributes",
-    "Robot-specific configurations, group discovery, kinematic models and calibrated reachability",
-    "Native handler scan intervals, interrupts, edge/event conditions, local condition handlers and motion actions",
-    "Controller task scheduling, pause/restart locks and external ABI",
-    "Obsolete STD_PTH_NODE association records, group-qualified node types and physical NODE_SIZE",
-    "Strict mode and native external-axis transformation conventions"
+    "GET_QUEUE syntax line swaps sequence/status relative to descriptions/example; implementation follows latter",
+    "Native binary layouts, listing formats, device behavior, file status/alarm mapping and numeric attribute encodings",
+    "Robot-specific calibrated dimensions, configuration branch selection, collisions and certified reachability",
+    "Native interrupts/priorities, ERROR/POWERUP/SEMAPHORE conditions, motion UNTIL/local handlers and NOABORT/NOPAUSE",
+    "Native task scheduling/locks, external ABI, native persistent storage and suspended checkpoint restoration",
+    "Obsolete STD_PTH_NODE association records, group-qualified node identity and physical NODE_SIZE",
+    "Strict mode and native external-axis transformation/comparison conventions"
   ],
-  "verification": ["tests/test_extended_services.py","tests/test_extended_boundaries.py","examples/offline_services.kl","examples/offline_files.kl","examples/offline_collections.kl","examples/offline_handlers_geometry.kl"],
-  "guide": "../offline-services.md"
+  "verification": [
+    "tests/test_extended_services.py",
+    "tests/test_extended_boundaries.py",
+    "examples/offline_services.kl",
+    "examples/offline_files.kl",
+    "examples/offline_collections.kl",
+    "examples/offline_handlers_geometry.kl",
+    "tests/test_broad_services.py",
+    "tests/test_project_scheduler.py",
+    "examples/linked_project/main.kl",
+    "examples/file_management.kl",
+    "examples/robot_dh.kl",
+    "examples/extended_comparison.kl"
+  ],
+  "guide": "../offline-services.md",
+  "extended_guide": "../portable-projects.md"
 }

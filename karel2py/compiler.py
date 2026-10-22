@@ -3471,15 +3471,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         evaluation='Evaluate once per check until true; no yield after a true check; after each false check call the existing synchronous sleep callback with 0.0 seconds',
         execution='Every condition test uses the normal execution step budget, including repeated false checks; function statements also count; this is not a wall-clock timeout',
         effects='WAIT propagates potential host-delay effects through routines; retain condition/callback effects and ordinary FOR protections, ABORT and frame cleanup; callback failures are source-located and not retried',
-        boundary='Pythonic polling only; no native condition-event syntax, handlers, hardware I/O, motion conditions, controller scheduling, timing or external task acceptance; strict remains future work',
+        boundary='Pythonic polling and optional cooperative EVENT checks; no acquired hardware I/O, motion conditions, native controller scheduling or timing acceptance; strict remains future work',
         controller_validated=False)
     report['position_comparison_policy'] = dict(
-        operator='>=< on complete POSITION or XYZWPR, including mixed operands; BOOLEAN result',
+        operator='>=< on complete POSITION, XYZWPR or XYZWPREXT, including mixed operands; BOOLEAN result',
         context='Explicit Program(pose_tolerance=(location_mm, orientation_deg, check_config)) required when executed; finite nonnegative location bound, orientation in 0..180 and exact BOOLEAN; immutable per-instance copy, no defaults or controller discovery',
         metric='Inclusive Euclidean location distance and shortest rotation angle in degrees; relative matrix transpose(Ra)*Rb, atan2 of half skew norm and clamped half(trace-1); no relative tolerance; rounded Python floats',
         configuration='If check_config is true, require every CONFIG field to match; otherwise ignore differences after complete validation',
+        external_axes='XYZWPREXT requires explicit external_tolerance scalar or three-axis tuple; inclusive absolute differences, missing plain-pose axes equal zero',
         evaluation='Evaluate and validate each operand once left-to-right before later effects; check both complete proper poses even when another comparison would be false; preserve prior effects and destination on failure',
-        boundary='No scalar/VECTOR/XYZWPREXT/JOINTPOS comparisons, source system-variable access, frame discovery, native tolerance/configuration metric equivalence or controller acceptance; strict remains future work',
+        boundary='No scalar/VECTOR/JOINTPOS comparisons, implicit tolerances or native tolerance/configuration metric equivalence; strict remains future work',
         controller_validated=False)
     report['position_axis_policy'] = dict(
         functions='APPROACH returns positive Z; ORIENT returns positive Y; exact POSITION and Pythonic XYZWPR operands; internal routines and ordinary names retain precedence',
@@ -3721,9 +3722,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         types=['POSITION','XYZWPR','XYZWPREXT'],
         external_axes='Three REAL metadata fields; INV and MIRROR preserve; colon selects right extended operand else left; FRAME selects origin axes else zero',
         mirror='Frame XZ plane reflection; orientation=True reverses local Y after reflection to retain a proper rotation; CONFIG preserved',
-        model='Explicit RobotContext adapters for conversions/reachability, inclusive supplied joint limits; no guessed model',
-        boundary='No extended >=< metric, external-axis physical transformations, motion, controller geometry or native acceptance claim',
-        guide='docs/offline-services.md',controller_validated=False)
+        model='Explicit callbacks or configured standard-DH models; FK, bounded numerical IK, reachability search, joint limits, groups/frames/tools and tail external joints',
+        boundary='Generic configured models only; no calibrated native robot configuration branches, collisions, motion or controller acceptance claim',
+        guide='docs/portable-projects.md',controller_validated=False)
+    report['abort_policy']['source']='Bare ABORT, handler action or explicitly registered task target; sticky offline termination'
+    report['abort_policy']['boundary']='No controller motion cancellation, NOABORT behavior, native persistence or restart acceptance'
     report['data_record_policy']['boundary'] = 'Checked positional data and whole pose conversions; registers and geometry use explicit services; no builtin USING, record I/O, motion or inferred group/frame context'
     report['pos_policy']['boundary'] = 'POS returns exact XYZWPR; whole assignments can convert poses under position_conversion_policy; no implicit routine/array conversion, robot context, native configuration validity or native pause/status'
     report['frame_policy']['operands'] = 'Explicit complete POSITION/XYZWPR/XYZWPREXT; colon composition, INV and three/four-point FRAME use checked frame math and explicit external metadata'

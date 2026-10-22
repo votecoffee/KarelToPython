@@ -1,0 +1,16 @@
+PROGRAM EXTENDED_COMPARISON
+VAR near: BOOLEAN
+ROUTINE compare
+VAR cfg: CONFIG
+    first,second: XYZWPREXT
+    status: INTEGER
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  first=POS(0,0,0,0,0,0,cfg)
+  second=first
+  second.ext1=0.2
+  near=first>=<second
+END compare
+BEGIN
+  compare()
+END EXTENDED_COMPARISON

@@ -138,3 +138,6 @@ establish native register initialization, count, error mapping or persistence.
 This is an offline execution context. Real controller access, remote/group
 register operations, position/string registers, register comments and `R[]`
 syntax remain unsupported. REGOPE is metadata; strict remains a future milestone.
+
+Since 0.80.0, ExecutionContext can own the numeric bank and save/load it with
+other typed state. See [persistent services](portable-projects.md#shared-and-persistent-state).

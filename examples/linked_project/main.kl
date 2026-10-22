@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR value FROM LIBRARY: INTEGER
+    total,status: INTEGER
+ROUTINE add(amount: INTEGER): INTEGER FROM LIBRARY
+BEGIN
+  value=10
+  total=add(2)
+  RUN_TASK('WORKER',0,FALSE,FALSE,0,status)
+  WAIT FOR EVENT[1]
+  total=total+1
+END MAIN

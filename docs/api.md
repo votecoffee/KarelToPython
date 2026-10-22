@@ -75,6 +75,20 @@ dimension through `array_shapes`, for example `{"READINGS": [3]}`. Names are
 case-insensitive; fixed dimensions must agree. Shapes are embedded during
 translation. They do not query or resize controller storage.
 
+## Projects and persistent services
+
+`translate_project({filename: source_text})` and `load_project(directory)` return
+a Project with `translations`, `classes` and `instantiate(context=None,
+options=None)`. Its instance exposes `programs`, `context`, `scheduler`,
+`run(entry,max_cycles=100000)` and `snapshot()`. FROM routines/imported globals
+link among explicitly supplied sources. `python -m karel2py.project directory`
+checks them; `--entry NAME` explicitly executes.
+
+ExecutionContext supports typed `to_config`, `from_config`, `save` and `load`.
+DirectoryFiles, TaskScheduler and SerialRobotModel provide optional explicit
+backends. See [portable projects](portable-projects.md) for complete examples,
+JSON formats, scheduling semantics and remaining boundaries.
+
 ## CLI
 
 ```sh
@@ -98,7 +112,7 @@ and report paths must differ. Their parent directories must already exist.
 
 ## Generated Program
 
-A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None, context=None)`.
+A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None)`.
 Call `Program().run(max_steps=100_000)` to execute explicitly and receive a
 snapshot of global variables. Only the generated module's entry point runs it
 automatically; importing a module defines its class.
@@ -281,5 +295,7 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 `service_requests` returns copied operation/line/outcome records and resets on a
 new run. Services retain their explicit shared state.
 
-A minimal runtime-only distribution now needs `karel2py/__init__.py`,
-`runtime.py` and `extended.py`. The compiler/lexer are needed for translation.
+A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
+`extended.py`, `storage.py`, `kinematics.py` and `scheduling.py`. Project loading
+also needs `project.py`, the compiler and lexer. Installing the package includes
+all of them.

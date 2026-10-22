@@ -1,5 +1,7 @@
 """Authored persistence, filesystem and explicit robot-model integration checks."""
 import json
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -214,3 +216,34 @@ class GroupAndComparisonTests(unittest.TestCase):
     def test_external_tolerance_validation(self):
         for value in (True,-1,[1,2],(1,2,float('nan'))):
             with self.subTest(value=value),self.assertRaises(ValueError): rt.checked_external_tolerance(value)
+
+
+class BroadCLITests(unittest.TestCase):
+    def execute(self,module,args,folder):
+        script="import sys,runpy;sys.path.insert(0,sys.argv[1]);sys.argv=sys.argv[2:];runpy.run_path(sys.argv[0],run_name='__main__')"
+        return subprocess.run([sys.executable,'-I','-c',script,str(Path(__file__).resolve().parents[1]),str(module),*args],cwd=folder,capture_output=True,text=True)
+
+    def test_generated_filesystem_and_saved_state(self):
+        p,result=compile_program("OPEN FILE f ('W','a.txt') WRITE f ('hello') CLOSE FILE f",decl='f: FILE')
+        with tempfile.TemporaryDirectory() as folder:
+            module=Path(folder,'converted.py');module.write_text(result.python_source,encoding='utf-8')
+            output=self.execute(module,['--filesystem-root',folder,'--state-out','state.json'],folder)
+            self.assertEqual(output.returncode,0,output.stderr)
+            self.assertEqual(Path(folder,'a.txt').read_bytes(),b'hello')
+            config=json.loads(Path(folder,'state.json').read_text());self.assertEqual(config['files']['a.txt']['hex'],'68656c6c6f')
+
+    def test_generated_external_axis_tolerances(self):
+        p,result=compile_program("CNV_STR_CONF('N',c,s) p=POS(0,0,0,0,0,0,c) q=p q.ext1=.2 ok=p>=<q",decl='c: CONFIG s: INTEGER p,q: XYZWPREXT ok: BOOLEAN')
+        with tempfile.TemporaryDirectory() as folder:
+            module=Path(folder,'converted.py');module.write_text(result.python_source,encoding='utf-8')
+            output=self.execute(module,['--location-tolerance-mm','0','--orientation-tolerance-deg','0','--ignore-config','--external-axis-tolerances','.5','0','0'],folder)
+            self.assertEqual(output.returncode,0,output.stderr);self.assertIn("'OK': True",output.stdout)
+
+    def test_project_cli_checks_and_executes_explicitly(self):
+        root=Path(__file__).resolve().parents[1]
+        script="import sys,runpy;sys.path.insert(0,sys.argv[1]);sys.argv=sys.argv[2:];runpy.run_module('karel2py.project',run_name='__main__')"
+        for flags in ([],['--entry','MAIN']):
+            output=subprocess.run([sys.executable,'-I','-c',script,str(root),'karel2py.project',str(root/'examples/linked_project'),*flags],capture_output=True,text=True)
+            self.assertEqual(output.returncode,0,output.stderr)
+            result=json.loads(output.stdout)
+            self.assertEqual(result['MAIN']['values']['TOTAL'],13) if flags else self.assertTrue(result['linked'])

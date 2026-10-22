@@ -103,7 +103,10 @@ describes approximate POSITION comparison and its relationship to `$LOCTOL`,
 distance/rotation metrics, field-by-field CONFIG check and numeric bounds are
 portable Pythonic choices. Source system-variable access is still unsupported.
 
-XYZWPREXT, JOINTPOS, VECTOR and scalar operands remain unsupported. There is no
-implicit controller context, external-axis comparison, kinematic or reachability
-inference, native metric equivalence or controller execution claim. Strict mode
+Since 0.80.0, XYZWPREXT comparisons use explicit `external_tolerance` values
+(scalar or three axes), with inclusive absolute difference limits. Plain poses
+supply zero external values in mixed comparisons. See
+[extended pose setup](portable-projects.md#robot-models-and-extended-poses).
+JOINTPOS, VECTOR and scalar operands remain unsupported. There is no implicit
+controller context, native metric equivalence or controller execution claim. Strict mode
 remains a future milestone.

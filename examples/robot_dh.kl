@@ -1,0 +1,23 @@
+PROGRAM ROBOT_DH
+VAR distance: REAL
+    reachable: BOOLEAN
+    status: INTEGER
+ROUTINE calculate
+VAR cfg: CONFIG
+    frame,point: POSITION
+    joints: JOINTPOS2
+    axes: ARRAY[2] OF REAL
+    external: ARRAY[3] OF REAL
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  frame=POS(0,0,0,0,0,0,cfg)
+  axes[1]=0
+  axes[2]=0
+  CNV_REL_JPOS(axes,joints,status)
+  JOINT2POS(joints,frame,frame,0,point,cfg,external,status)
+  distance=point.location.x
+  reachable=IN_RANGE(point)
+END calculate
+BEGIN
+  calculate()
+END ROBOT_DH

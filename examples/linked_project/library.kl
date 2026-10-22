@@ -1,0 +1,10 @@
+PROGRAM LIBRARY
+VAR value: INTEGER
+ROUTINE add(amount: INTEGER): INTEGER
+BEGIN
+  value=value+amount
+  RETURN value
+END add
+BEGIN
+  value=10
+END LIBRARY

@@ -1,0 +1,9 @@
+PROGRAM FILE_MANAGEMENT
+VAR names: ARRAY[2] OF STRING[20]
+    count,status: INTEGER
+BEGIN
+  COPY_FILE('seed.txt','copy.txt',FALSE,FALSE,status)
+  RENAME_FILE('copy.txt','saved.txt',FALSE,status)
+  DELETE_FILE('seed.txt',FALSE,status)
+  FILE_LIST('*.txt',0,0,names,count,status)
+END FILE_MANAGEMENT

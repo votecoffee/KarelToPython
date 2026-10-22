@@ -6,7 +6,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from karel2py import translate
+from karel2py import translate,load_project
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelAbort, TextInput, NumericRegisters, ExecutionContext, snapshot_value
 
@@ -107,8 +107,12 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 82, 'Update the expected example count when adding examples'
-    print(f'{count} examples passed; unsupported motion rejected; no generated files written')
+    assert count == 86, 'Update the expected example count when adding examples'
+    folder=ROOT/'examples/linked_project'
+    instance=load_project(folder).instantiate()
+    assert instance.run('MAIN')==read_json(folder/'expected.json'), 'linked project snapshot'
+    print('PASS linked_project (three source modules)')
+    print(f'{count} examples and one linked project passed; unsupported motion rejected; no generated files written')
     return 0
 
 

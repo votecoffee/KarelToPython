@@ -37,3 +37,11 @@ The [guide](offline-services.md) separates source syntax from explicit portable
 choices for statuses, binary layout, task control and external axes. GET_QUEUE's
 syntax/parameter-order discrepancy remains documented. Tests use small authored
 programs; passing them establishes offline behavior only.
+
+## Portable services extended in 0.80.0
+
+The extended ledger adds the manual forms for EVAL, event/edge conditions,
+WITH $SCAN_TIME, file management and attributes. The serial-DH model, numerical
+solver, persistent value format, event generations and cooperative scheduler
+are explicit Pythonic choices, verified by authored software tests. The
+[project guide](portable-projects.md) records their limits.

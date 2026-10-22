@@ -1,11 +1,14 @@
 {
-  "translator_version": "0.78.0",
+  "translator_version": "0.80.0",
   "date": "2026-10-21",
   "mode": "pythonic",
-  "scope": "Approximate >=< comparison on explicit POSITION/XYZWPR with host-supplied tolerance context",
+  "scope": "Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit pose and external-axis tolerances",
   "reference_basis": {
     "edition": "MARRC75KR07091E Rev N",
-    "pdf_pages": [82, 83],
+    "pdf_pages": [
+      82,
+      83
+    ],
     "documented": "Approximate POSITION equality returns BOOLEAN and uses location/orientation tolerance and configuration-check system variables; extended axes are excluded",
     "uncertainty": "Native numeric defaults, distance/angle metrics, CONFIG rules and mixed-type behavior remain unverified"
   },
@@ -16,13 +19,18 @@
     "validation": "Complete exact initialized finite POSITION/XYZWPR including CONFIG; frame_policy proper POSITION matrices; reject non-finite derived distance; no matrix repair or kinematics",
     "effects": "Evaluate once left-to-right and snapshot each operand before later effects; validate both operands before context/metrics; prior effects remain, destination unchanged and target expressions skipped on failure; ordinary Boolean/FOR/frame cleanup",
     "cli": "Generated scripts containing the operator require --location-tolerance-mm, --orientation-tolerance-deg and exactly one of --check-config/--ignore-config; combine with READ/joint context; invalid bounds are usage errors",
-    "reports": "Source-located position_comparisons with actual operand types and capture flags; position_comparison_policy records context, metrics, CONFIG and limits; runtime tolerance is not translation-context hash input"
+    "reports": "Source-located position_comparisons with actual operand types and capture flags; position_comparison_policy records context, metrics, CONFIG and limits; runtime tolerance is not translation-context hash input",
+    "extended": "Explicit per-axis absolute external_tolerance scalar or tuple, inclusive; mixed plain-pose axes are zero; Pythonic extension of manual scope"
   },
   "retained_boundaries": [
-    "No XYZWPREXT/JOINTPOS/VECTOR/scalar operands, exact/ordered pose comparisons, source system-variable access or implicit context",
-    "No external-axis comparison, frame discovery, native metric/configuration equivalence, kinematics or controller acceptance",
+    "No JOINTPOS/VECTOR/scalar operands, exact/ordered pose comparisons or implicit tolerance context",
+    "No native metric/configuration equivalence or controller acceptance",
     "Strict remains future work; authored fixtures and independent quaternion checks establish offline behavior only"
   ],
-  "tests": ["tests/test_position_comparisons.py", "tests/test_runtime_portability.py", "examples/pythonic_position_comparisons.kl"],
+  "tests": [
+    "tests/test_position_comparisons.py",
+    "tests/test_runtime_portability.py",
+    "examples/pythonic_position_comparisons.kl"
+  ],
   "controller_validated": false
 }
