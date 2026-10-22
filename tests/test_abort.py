@@ -125,13 +125,13 @@ class AbortExecutionTests(unittest.TestCase):
 class AbortTranslationTests(unittest.TestCase):
     def test_target_forms_blocked(self):
         for form in ('ABORT PROGRAM[1]','ABORT(1)','ABORT()','ABORT[1]','ABORT=1','ABORT.field'):
-            with self.subTest(form=form),self.assertRaises(TranslationError) as caught: compile_program(form)
+            with self.subTest(form=form),self.assertRaises(TranslationError) as caught: compile_program(form,_translator=legacy_translate)
             self.assertEqual(caught.exception.code,'E_ABORT_TARGET')
     def test_continued_task_target_blocked(self):
-        with self.assertRaises(TranslationError) as caught: compile_program('ABORT &\n PROGRAM[1]')
+        with self.assertRaises(TranslationError) as caught: compile_program('ABORT &\n PROGRAM[1]',_translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_ABORT_TARGET')
     def test_action_and_condition_contexts_blocked(self):
-        with self.assertRaises(TranslationError): compile_program('CONDITION[1]: WHEN ABORT DO ABORT ENDCONDITION')
+        with self.assertRaises(TranslationError): compile_program('CONDITION[1]: WHEN ABORT DO ABORT ENDCONDITION',_translator=legacy_translate)
     def test_abort_task_requires_explicit_registered_target(self):
         program,_=compile_program("ABORT_TASK('T',ON,OFF,value)")
         self.assertEqual(program.run()['VALUE'],1)

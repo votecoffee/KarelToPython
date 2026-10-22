@@ -167,8 +167,9 @@ class ExtendedBoundaryTests(unittest.TestCase):
         state=run("CNV_STR_CONF('N',c,s) ext=POS(1,2,3,0,0,0,c) ext.ext1=9 p=ext ext=p",decl='c: CONFIG s: INTEGER ext: XYZWPREXT p: POSITION')
         self.assertEqual((state['EXT']['X'],state['EXT']['EXT1']),(1.,0.))
 
-    def test_extended_comparison_remains_explicitly_unsupported(self):
-        self.reject('ok=p>=<p','E_TYPE',decl='p: XYZWPREXT ok: BOOLEAN')
+    def test_extended_comparison_requires_tolerances(self):
+        p,_=compile_program("CNV_STR_CONF('N',c,s) p=POS(0,0,0,0,0,0,c) ok=p>=<p",decl='c: CONFIG s: INTEGER p: XYZWPREXT ok: BOOLEAN',pose_tolerance=(0,0,True))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'external_tolerance'): p.run()
 
     def test_invalid_path_node_type_is_diagnostic(self):
         self.reject('', 'E_TYPE',decl='p: PATH NODEDATA=INTEGER')
@@ -179,7 +180,7 @@ class ExtendedBoundaryTests(unittest.TestCase):
         self.assertEqual(p.snapshot()['N'],{'uninitialized':True})
 
     def test_unknown_context_fields_rejected(self):
-        with self.assertRaises(ValueError): rt.ExecutionContext.from_config({'positions':{'count':1,'values':{}}})
+        with self.assertRaises(ValueError): rt.ExecutionContext.from_config({'positions':{'count':1,'unexpected':{}}})
 
     def test_reachability_failure_is_source_located(self):
         def broken(value): raise ValueError('model unavailable')

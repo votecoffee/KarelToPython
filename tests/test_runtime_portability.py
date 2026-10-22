@@ -67,7 +67,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'

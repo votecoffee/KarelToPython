@@ -103,7 +103,7 @@ class FileCollectionTests(unittest.TestCase):
         self.assertEqual(files.snapshot(),{'relative.txt':b'seed'})
     def test_file_attribute_and_status(self):
         files=rt.MemoryFiles()
-        state=run("SET_FILE_ATR(f,ATR_IA) OPEN FILE f ('RW','b') WRITE f (7) n=GET_FILE_POS(f) SET_FILE_POS(f,0,s) left=BYTES_LEFT(f) CLOSE FILE f",decl='f: FILE n,s,left: INTEGER',context=rt.ExecutionContext(files=files))
+        state=run("SET_FILE_ATR(f,ATR_UF) OPEN FILE f ('RW','b') WRITE f (7) n=GET_FILE_POS(f) SET_FILE_POS(f,0,s) left=BYTES_LEFT(f) CLOSE FILE f",decl='f: FILE n,s,left: INTEGER',context=rt.ExecutionContext(files=files))
         self.assertEqual((state['N'],state['LEFT']),(4,4))
     def test_path_nodes_insert_delete(self):
         state=run('APPEND_NODE(p,s) APPEND_NODE(p,s) INSERT_NODE(p,2,s) DELETE_NODE(p,1,s) n=PATH_LEN(p)',decl='p: PATH n,s: INTEGER')

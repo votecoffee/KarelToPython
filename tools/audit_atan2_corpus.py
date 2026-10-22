@@ -58,7 +58,7 @@ def main():
         selection='Every V8.33 KL source with lexical ATAN2 name tokens; strings/comments/directives excluded; stable independent scanner',
         selection_boundary='Lexical tokens are candidates, not executed-call counts. Full-source translation decides acceptance; runtime support is restricted to nonnegative-coordinate exact bearings.',
         atan2_token_count=token_count,function_token_counts=dict(sorted(by_function.items())),counts=dict(collections.Counter(row['status'] for row in cases)),cases=cases,
-        translator_sources={name:hashlib.sha256((args.translator_package/'karel2py'/name).read_bytes()).hexdigest() for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
+        translator_sources={name:hashlib.sha256((args.translator_package/'karel2py'/name).read_bytes()).hexdigest() for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + [p.name for p in sorted((args.translator_package/'karel2py').glob('*.py')) if p.name not in ('__init__.py','compiler.py','lexer.py','runtime.py')]},
         boundary='Complete original sources/paired PCs are read and hashed, never changed, trimmed, executed or recompiled. No numeric controller observations or native/runtime equivalence. Only V8.33 scanned.')
     if args.baseline:
         old=json.loads(args.baseline.read_text(encoding='utf-8')); prior={row['relative_source']:row for row in old['cases']}

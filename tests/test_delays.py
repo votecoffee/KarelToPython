@@ -291,7 +291,7 @@ class DelayRejectionTests(unittest.TestCase):
     def test_directive_delay_remains_blocked(self): self.reject('x=7', 'E_DIRECTIVE', prefix='%DELAY=0')
     def test_incomplete_condition_handler_rejected(self): self.reject('CONDITION[1]:', 'E_SYNTAX')
     def test_motion_hold_remains_blocked(self): self.reject('HOLD', 'E_UNSUPPORTED')
-    def test_task_targeted_abort_remains_blocked(self): self.reject('ABORT PROGRAM[1]', 'E_ABORT_TARGET')
+    def test_legacy_task_targeted_abort_remains_blocked(self): self.reject('ABORT PROGRAM[1]', 'E_ABORT_TARGET', _translator=legacy_translate)
 
     def test_delay_function_inside_operator_blocked(self):
         self.reject('x=1+wait_value()', 'E_EVALUATION_ORDER', routines='ROUTINE wait_value: INTEGER BEGIN DELAY 125 RETURN 7 END wait_value', _translator=legacy_translate)

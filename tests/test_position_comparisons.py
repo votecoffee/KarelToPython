@@ -177,7 +177,7 @@ class PositionComparisonGuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,code)
 
     def test_other_types_remain_blocked(self):
-        for kind in ('XYZWPREXT','JOINTPOS','VECTOR','CONFIG','INTEGER','REAL','BOOLEAN','STRING[10]'):
+        for kind in ('JOINTPOS','VECTOR','CONFIG','INTEGER','REAL','BOOLEAN','STRING[10]'):
             for expr in ('value>=<value','p>=<value','value>=<p'):
                 with self.subTest(kind=kind,expr=expr): self.reject('near='+expr,declarations=DECLARATIONS+' value: '+kind)
 
@@ -229,7 +229,7 @@ class PositionComparisonCliTests(unittest.TestCase):
         source=source or 'PROGRAM T VAR cfg: CONFIG a: XYZWPR near: BOOLEAN BEGIN '+INIT+' a=POS(0,0,0,0,0,0,cfg) near=a>=<a END T'
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); package=root/'karel2py'; package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py'): shutil.copyfile(ROOT/'karel2py'/name,package/name)
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py'): shutil.copyfile(ROOT/'karel2py'/name,package/name)
             script=root/'converted.py'; script.write_text(translate(source).python_source,encoding='utf-8')
             (root/'input.json').write_text('[[7]]',encoding='utf-8')
             return subprocess.run([sys.executable,str(script),*arguments],cwd=root,capture_output=True,text=True)

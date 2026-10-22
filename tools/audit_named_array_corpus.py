@@ -64,7 +64,7 @@ def main():
                   selection_boundary='Lexical declaration candidates only; external FROM forms can make the left name token a program name rather than a type name. Actual support is decided by full-source translation.',
                   definition_candidates=declaration_tokens, counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + [p.name for p in sorted((args.translator_package/'karel2py').glob('*.py')) if p.name not in ('__init__.py','compiler.py','lexer.py','runtime.py')]},
                   boundary='The complete V8.33 source tree was scanned without modification. No matching corpus source is a corpus gap, not extra acceptance evidence. No trimmed source, corpus execution, compiler invocation or controller validation; other release trees were not scanned.')
     if args.baseline:
         old = json.loads(args.baseline.read_text(encoding='utf-8'))

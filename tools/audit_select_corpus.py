@@ -52,7 +52,7 @@ def main():
                   token_counts=dict(totals), token_count_scope='SELECT/CASE/ELSE/ENDSELECT tokens in selected full sources, including ELSE belonging to IF',
                   counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + [p.name for p in sorted((args.translator_package/'karel2py').glob('*.py')) if p.name not in ('__init__.py','compiler.py','lexer.py','runtime.py')]},
                   boundary='Original full source and paired-PC hashes only. Unsupported features remain blockers. Translation acceptance does not establish successful no-match execution. No trimmed source, corpus execution, compiler invocation or controller validation. Only the V8.33 tree was scanned.')
     if args.baseline:
         old = json.loads(args.baseline.read_text(encoding='utf-8'))

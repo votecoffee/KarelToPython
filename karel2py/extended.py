@@ -1,12 +1,13 @@
 """Explicit offline services for translated programs.
 
-No device discovery, module loading, operating-system file writes or robot access.
+No device discovery or robot access. Filesystem use requires an explicit backend.
 The compiler and runtime share these signatures; adapters operate on checked values.
 """
 from copy import deepcopy
 import math
 import re
 import struct
+import fnmatch
 
 
 def runtime():
@@ -32,6 +33,8 @@ PROCEDURES = {
     'APPEND_NODE': (arg('PATH','r'),OI), 'INSERT_NODE': (arg('PATH','r'),I,OI),
     'DELETE_NODE': (arg('PATH','r'),I,OI),
     'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
+    'COPY_FILE': (S,S,B,B,OI), 'DELETE_FILE': (S,B,OI), 'RENAME_FILE': (S,S,B,OI),
+    'FILE_LIST': (S,I,I,arg('STRING_ARRAY','r'),OI,OI),
     'INIT_QUEUE': (arg('QUEUE_TYPE','r'),),
     'APPEND_QUEUE': (I,arg('QUEUE_TYPE','r'),arg('INT_ARRAY','r'),OI,OI),
     'INSERT_QUEUE': (I,I,arg('QUEUE_TYPE','r'),arg('INT_ARRAY','r'),OI),
@@ -67,6 +70,7 @@ def matches(spec, kind):
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
     if kind in ('INT_ARRAY','REAL_ARRAY'):
         return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]==('INTEGER' if kind=='INT_ARRAY' else 'REAL')
+    if kind=='STRING_ARRAY': return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]=='STRING'
     return spec[0]==kind
 
 
@@ -147,7 +151,12 @@ class PortBank:
 
 
 class VariableStore:
-    def __init__(self): self.bindings={}
+    def __init__(self): self.bindings={}; self.programs={}
+    def attach(self,name,state):
+        name=name.upper(); self.programs.setdefault(name,state)
+        for (program,path),reference in self.bindings.items():
+            if program==name and path in state.types and state.types[path]==reference.spec:
+                state.values[path]=deepcopy(reference.raw())
     def bind(self,program,name,reference):
         if type(reference) is not runtime().Reference: raise TypeError('VariableStore requires ordinary Reference bindings')
         self.bindings[program.upper(),name.upper()]=reference
@@ -158,7 +167,9 @@ class VariableStore:
 
 
 class FileHandle:
-    def __init__(self): self.name=None; self.position=0; self.mode=''; self.binary=False; self.status=0; self.owner=None
+    def __init__(self):
+        self.name=None; self.position=0; self.mode=''; self.binary=False; self.status=0; self.owner=None
+        self.interactive=False; self.reverse=False; self.field=False; self.eol=10
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
     def tell(self,line=None): self.require_open(line); return self.position
@@ -182,6 +193,7 @@ def file_piece(handle,kind,value,formats,line=None):
     if kind=='STRING' and not formats: formats=[len(rt.ascii_string(value,line))]
     width,code=binary_format(kind,formats,line)
     if code is None: return rt.ascii_string(value,line)[:width].ljust(width,'\0').encode('ascii')
+    if handle.reverse: code='>'+code[1:]
     try: return struct.pack(code,value)
     except (OverflowError,struct.error) as exc: raise rt.KarelRuntimeError('Binary field cannot represent supplied value',line) from exc
 
@@ -198,10 +210,13 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
             for target,field in zip(targets,formats):
                 if target.spec[0]=='STRING' and not field: field=(target.spec[1],)
                 width,code=binary_format(target.spec[0],field,line); raw=handle.owner.read_bytes(handle,width,line)
+                if code and handle.reverse: code='>'+code[1:]
                 value=raw.decode('ascii') if code is None else struct.unpack(code,raw)[0]
                 values.append(rt.checked(target.spec,value,line))
-        except Exception:
-            handle.position=start; handle.status=1; raise
+        except Exception as exc:
+            handle.position=start; handle.status=1
+            if isinstance(exc,UnicodeError): raise rt.KarelRuntimeError('Binary STRING requires ASCII data',line) from exc
+            raise
         for target,value in zip(targets,values): target.set(value,line)
     else:
         if handle.mode in ('W','A'): fail('FILE is not readable',line)
@@ -224,7 +239,7 @@ class MemoryFiles:
     """Byte-backed named files; never consult the operating-system filesystem."""
     def __init__(self,initial=None,*,limit=16*1024*1024):
         if type(limit) is not int or not 1<=limit<=64*1024*1024: raise ValueError('File limit must be in 1..64 MiB')
-        self.limit=limit; self.files={}
+        self.limit=limit; self.files={}; self.handles=[]
         for name,value in (initial or {}).items():
             data=value.encode('ascii') if type(value) is str else bytes(value)
             self._check(name,data); self.files[name]=bytearray(data)
@@ -233,6 +248,7 @@ class MemoryFiles:
         if not name or len(name)>254 or len(data)>self.limit: fail('Invalid memory file name or file size limit')
     def open(self,handle,mode,name,line=None):
         if handle.owner is not None: fail('FILE is already open',line)
+        if self._busy(name): fail('File is already open through this backend',line)
         mode=runtime().ascii_string(mode,line).upper(); self._check(name,b'')
         binary='B' in mode or handle.binary; mode=mode.replace('B','')
         mode={'RO':'R','WO':'W','RW':'RW','UD':'RW','AP':'A'}.get(mode,mode)
@@ -241,7 +257,11 @@ class MemoryFiles:
         if mode=='W' or name not in self.files: self.files[name]=bytearray()
         handle.name,handle.mode,handle.owner,handle.binary=name,mode,self,binary
         handle.position=len(self.files[name]) if mode=='A' else 0; handle.status=0
-    def close(self,handle,line=None): handle.require_open(line); handle.owner=None
+        self.handles.append(handle)
+    def close(self,handle,line=None):
+        handle.require_open(line); handle.owner=None
+        self.handles=[item for item in self.handles if item is not handle]
+    def _busy(self,name): return any(handle.owner is not None and handle.name==name for handle in self.handles)
     def write(self,handle,data,line=None):
         handle.require_open(line)
         if handle.mode=='R': fail('FILE is read-only',line)
@@ -256,6 +276,24 @@ class MemoryFiles:
         if len(data)!=count: handle.status=1; fail('End of memory file',line)
         handle.position+=count; handle.status=0; return bytes(data)
     def snapshot(self): return {name:bytes(data) for name,data in self.files.items()}
+    def flush(self,handle,line=None): handle.require_open(line)
+    def list_names(self,pattern='*'): return sorted(name for name in self.files if fnmatch.fnmatchcase(name,pattern))
+    def copy(self,source,target,overwrite=False):
+        self._check(source,b''); self._check(target,b'')
+        if self._busy(source) or self._busy(target): return 3
+        if source not in self.files: return 1
+        if target in self.files and not overwrite: return 2
+        self.files[target]=self.files[source].copy(); return 0
+    def delete(self,name):
+        if self._busy(name): return 3
+        if name not in self.files: return 1
+        del self.files[name]; return 0
+    def rename(self,source,target):
+        self._check(target,b'')
+        if self._busy(source) or self._busy(target): return 3
+        if source not in self.files: return 1
+        if target in self.files: return 2
+        self.files[target]=self.files.pop(source); return 0
 
 
 class PathValue:
@@ -287,12 +325,29 @@ class QueueValue:
 
 class RobotContext:
     """User-supplied offline kinematics/reachability, with no guessed robot model."""
-    def __init__(self,*,forward=None,inverse=None,reachable=None,joint_limits=None):
+    def __init__(self,*,forward=None,inverse=None,reachable=None,joint_limits=None,groups=None,active_group=1,frames=None,tools=None):
         for value in (forward,inverse,reachable):
             if value is not None and not callable(value): raise TypeError('Robot model adapters must be callable')
         self.forward,self.inverse,self.reachable=forward,inverse,reachable
+        self.groups=dict(groups or {}); self.active_group=active_group
+        self.frames=dict(frames or {}); self.tools=dict(tools or {}); self.model_config=None; self.model=None
         self.joint_limits=tuple(joint_limits) if joint_limits is not None else None
         if self.joint_limits is not None and any(len(pair)!=2 or not all(type(x) in (int,float) and math.isfinite(x) for x in pair) or pair[0]>pair[1] for pair in self.joint_limits): raise ValueError('Invalid explicit joint limits')
+    @classmethod
+    def from_config(cls,config):
+        from .kinematics import robot_context_from_config
+        return robot_context_from_config(config)
+    def for_group(self,group=None):
+        if not self.groups: return self
+        group=self.active_group if group is None else group
+        if group not in self.groups: fail('Robot group has no configured model')
+        return self.groups[group]
+    def frame(self,number=0):
+        if number not in self.frames: fail('Requested frame is not configured')
+        return self.frames[number].clone()
+    def tool(self,number=0):
+        if number not in self.tools: fail('Requested tool is not configured')
+        return self.tools[number].clone()
 
 
 class TaskRegistry:
@@ -348,11 +403,14 @@ def disconnect_timer(state,reference,line=None):
     del state._timers[key]
 
 
-def define_condition(state,number,clauses,line=None):
+def define_condition(state,number,clauses,line=None,*,scan_ms=0):
     number=runtime().integer(number,line)
     if not 1<=number<=1000: fail('Condition number must be in 1..1000',line)
     if number in state._handlers: fail('Purge an existing condition before redefining it',line)
-    state._handlers[number]=dict(clauses=clauses,enabled=False,frames=list(state.local_frames))
+    scan_ms=runtime().integer(scan_ms,line)
+    if not 0<=scan_ms<=86400000: fail('Handler scan interval must be in 0..86400000 ms',line)
+    local_frame=state.local_frames[-1] if state.execution.local_handlers and state.local_frames else None
+    state._handlers[number]=dict(clauses=clauses,enabled=False,frames=list(state.local_frames),scan_ms=scan_ms,due=None,local_frame=local_frame)
 
 
 def condition_control(state,operation,number,line=None):
@@ -360,6 +418,7 @@ def condition_control(state,operation,number,line=None):
     if operation=='PURGE': state._handlers.pop(number,None); return
     if number not in state._handlers: return
     state._handlers[number]['enabled']=operation=='ENABLE'
+    if operation=='ENABLE': state._handlers[number]['due']=None
 
 
 def checkpoint(state,line=None,*,force_pause=False):
@@ -368,7 +427,12 @@ def checkpoint(state,line=None,*,force_pause=False):
         for number in list(state._handlers):
             handler=state._handlers.get(number)
             if handler is None or not handler['enabled']: continue
+            if handler['scan_ms']:
+                now=timer_clock(state,line)
+                if handler['due'] is not None and now<handler['due']: continue
+                handler['due']=now+handler['scan_ms']*1000
             original,depth=state.local_frames,state.call_depth
+            previous_scan=state._scanning_condition; state._scanning_condition=number
             state.local_frames=list(handler['frames']); state.call_depth=len(state.local_frames); state._in_handler=True
             try:
                 for predicate,action in handler['clauses']:
@@ -381,9 +445,11 @@ def checkpoint(state,line=None,*,force_pause=False):
                         break
             finally:
                 state.local_frames=original; state.call_depth=depth; state._in_handler=False
+                state._scanning_condition=previous_scan
     if state._pause_requested and (not state._in_handler or force_pause):
         state.task_state='paused'; yield dict(kind='pause',line=line)
         state._pause_requested=False; state.task_state='running'
+    if state._scheduler is not None: yield dict(kind='timeslice',line=line)
 
 
 def cooperative_test(state,predicate,line=None):
@@ -396,6 +462,12 @@ def cooperative_test(state,predicate,line=None):
 def pause_execution(state,line=None):
     state._pause_requested=True
     yield from checkpoint(state,line,force_pause=True)
+
+
+def abort_execution(state,line=None):
+    state._abort_requested=True
+    yield from checkpoint(state,line)
+    state.abort(line)
 
 
 def drive(program):
@@ -427,6 +499,8 @@ def run_cooperative(program,max_steps=100000):
 
 def resume_cooperative(program):
     if program._state.task_state!='paused': fail('Only a paused task can resume')
+    if program._state._scheduler is not None: fail('Scheduled tasks continue through their TaskScheduler')
+    program._state._lifecycle['CONTINUE']+=1
     program._state.task_state='running'; return drive(program)
 
 
@@ -436,32 +510,70 @@ def stop_cooperative(program):
     if getattr(program,'_execution',None) is not None:
         program._execution.close(); program._execution=None
     state.task_state='stopped'
+    state._scheduler=None
+    if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,local_handlers=False):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
         self.externals=dict(externals or {}); self.entries={}
         self.tasks=tasks if tasks is not None else TaskRegistry()
+        self.numeric=numeric; self.events=events
+        if type(local_handlers) is not bool: raise TypeError('local_handlers must be BOOLEAN')
+        self.local_handlers=local_handlers
+    def to_config(self):
+        from .storage import context_config
+        return context_config(self)
+    def save(self,path):
+        from .storage import write_json
+        write_json(path,self.to_config())
+    @classmethod
+    def load(cls,path):
+        import json
+        from pathlib import Path
+        return cls.from_config(json.loads(Path(path).read_text(encoding='utf-8-sig')))
     def require(self,name,line=None):
         value=getattr(self,name)
         if value is None: fail('Operation requires explicit ExecutionContext '+name+' service',line)
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files'}: raise ValueError('Unknown execution context fields')
-        for name,allowed in (('strings',{'count','capacity','values'}),('positions',{'count','groups'}),('ports',{'counts','values'})):
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','local_handlers'}: raise ValueError('Unknown execution context fields')
+        for name,allowed in (('strings',{'count','capacity','values'}),('positions',{'count','groups','values'}),('ports',{'counts','values'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'local_handlers' in config: services['local_handlers']=config['local_handlers']
         if 'strings' in config:
             row=config['strings']; services['strings']=StringRegisters(row['count'],{int(k):v for k,v in row.get('values',{}).items()},capacity=row.get('capacity',254))
-        if 'positions' in config: services['positions']=PositionRegisters(config['positions']['count'],groups=config['positions'].get('groups',(1,)))
+        if 'positions' in config:
+            from .storage import decode_typed
+            row=config['positions']; values={}
+            for key,value in row.get('values',{}).items():
+                pair=tuple(int(x) for x in key.split(':'))
+                if len(pair)==1: pair=(row.get('groups',[1])[0],pair[0])
+                if len(pair)!=2: raise ValueError('Position keys require group:number')
+                values[pair]=decode_typed(value)[1]
+            services['positions']=PositionRegisters(row['count'],values,groups=row.get('groups',(1,)))
         if 'ports' in config:
             row=config['ports']; services['ports']=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()})
         if 'files' in config:
             services['files']=MemoryFiles({name:bytes.fromhex(value['hex']) if type(value) is dict else value for name,value in config['files'].items()})
+        if 'numeric' in config: services['numeric']=runtime().NumericRegisters.from_config(config['numeric'])
+        if 'variables' in config:
+            from .storage import decode_typed
+            variables=VariableStore()
+            for row in config['variables']:
+                if set(row)!={'program','path','type','value'}: raise ValueError('Variable state requires program, path, type and value')
+                spec,value=decode_typed({'type':row['type'],'value':row['value']})
+                variables.bind(row['program'],row['path'],runtime().Reference(spec,{'value':value},'value'))
+            services['variables']=variables
+        if 'robot' in config: services['robot']=RobotContext.from_config(config['robot'])
+        if 'events' in config:
+            from .scheduling import EventBank
+            services['events']=EventBank(config['events'])
         return cls(**services)
     def invoke(self,state,name,arguments,line=None):
         rt=runtime(); args=list(arguments)
@@ -469,6 +581,19 @@ class ExecutionContext:
         if name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(1 if name!='SET_FILE_ATR' else 0)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST'):
+            files=self.require('files',line)
+            try:
+                if name=='COPY_FILE': code=files.copy(args[0],args[1],args[2])
+                elif name=='DELETE_FILE': code=files.delete(args[0])
+                elif name=='RENAME_FILE': code=files.rename(args[0],args[1])
+                else:
+                    if args[1]<0 or args[2]!=0: fail('FILE_LIST requires nonnegative skip and portable name format 0',line)
+                    selected=files.list_names(args[0])[args[1]:]; array=args[3].raw(); selected=selected[:len(array.values)]
+                    for i,name in enumerate(selected): array.set(i+1,name,line)
+                    args[4].set(len(selected),line); code=0
+            except (OSError,ValueError) as exc: raise rt.KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
+            args[-1].set(code,line); return
         if name in ('CONT_TASK','PAUSE_TASK','ABORT_TASK','RUN_TASK'):
             task=self.tasks.tasks.get(args[0].upper())
             if task is None: args[-1].set(1,line); return
@@ -479,10 +604,14 @@ class ExecutionContext:
             elif name=='ABORT_TASK':
                 if args[2]: fail('Motion cancellation is outside the offline task model',line)
                 if getattr(task._state,'_driving',False): task._state.abort(line)
-                if getattr(task,'_execution',None) is not None: task._execution.close(); task._execution=None
+                task.stop()
                 task._state._aborted=True; task._state._abort_line=line; task._state.task_state='aborted'
             else:
                 if name=='RUN_TASK' and (args[1]!=0 or args[3] or args[4]!=0): fail('Offline RUN_TASK requires line 0, no motion and lock mask 0',line)
+                if hasattr(self.tasks,'start'):
+                    if name=='CONT_TASK': self.tasks.continue_task(args[0])
+                    else: self.tasks.start(args[0],paused=args[2])
+                    args[-1].set(0,line); return
                 try:
                     if name=='CONT_TASK': task.resume()
                     else:
@@ -534,8 +663,16 @@ class ExecutionContext:
             handle=args[0]
             if name=='SET_FILE_ATR':
                 if handle.owner is not None: fail('File attributes must be set before OPEN',line)
-                if args[1]!=1: fail('Only portable ATR_IA binary attribute is supported',line)
-                handle.binary=True; return
+                attribute=args[1]
+                if attribute==1: handle.interactive=True
+                elif attribute==2: handle.binary=True
+                elif attribute==3: handle.reverse=True
+                elif attribute==4: handle.field=True
+                elif attribute==5:
+                    if not 0<=args[2]<=127: fail('ATR_EOL requires an ASCII character code',line)
+                    handle.eol=args[2]
+                else: fail('Unsupported portable file attribute',line)
+                return
             if name=='CLR_IO_STAT': handle.status=0; return
             if name=='IO_STATUS': return handle.status
             handle.require_open(line); length=len(handle.owner.files[handle.name])
@@ -548,7 +685,7 @@ class ExecutionContext:
             args[-1].set(code,line); return
         if name=='MIRROR': return mirror(*args,line=line)
         if name in ('IN_RANGE','J_IN_RANGE'):
-            robot=self.require('robot',line); value=args[0]
+            robot=self.require('robot',line).for_group(getattr(state,'robot_group',None)); value=args[0]
             if name=='IN_RANGE':
                 if robot.reachable is None: fail('IN_RANGE requires an explicit reachability adapter',line)
                 pose=rt.frame_value(value,line)
@@ -557,17 +694,31 @@ class ExecutionContext:
                 return rt.boolean(answer,line)
             if robot.joint_limits is None or len(robot.joint_limits)!=len(value.values): fail('J_IN_RANGE requires explicit limits for every joint',line)
             return all(lo<=rt.real(axis,line)<=hi for axis,(lo,hi) in zip(value.values,robot.joint_limits))
-        if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line)
+        if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=getattr(state,'robot_group',None))
         fail('Unsupported extended operation '+name,line)
     def resolve(self,state,program,path,line=None):
         rt=runtime(); program=program.upper(); path=path.upper()
+        # Explicit system roots and full-path bindings have precedence over discovery.
+        selected=program if program not in ('',state.program_name) else state.program_name
+        reference=self.variables.bindings.get((selected,path)) or self.variables.bindings.get((program,path))
+        owner=state if program in ('',state.program_name) else self.variables.programs.get(program)
+        root=re.match(r'[A-Z_][A-Z_0-9]*',path)
+        if reference is not None and (owner is None or root is None or root[0] not in owner.types): return reference
+        if path.startswith('$'):
+            candidates=[(key,reference) for (owner,key),reference in self.variables.bindings.items() if owner in (program,selected,'SYSTEM','*SYSTEM*','') and (path==key or path.startswith(key+'.') or path.startswith(key+'['))]
+            if candidates:
+                key,reference=max(candidates,key=lambda item:len(item[0])); rest=path[len(key):]
+                return self.descend(reference,rest,line)
         if program not in ('',state.program_name):
-            reference=self.variables.bindings.get((program,path))
-            if reference is None: fail('Variable is not bound in the explicit VariableStore',line)
-            return reference
+            state=self.variables.programs.get(program)
+            if state is None: fail('Variable program is not attached to the explicit context',line)
         tokens=re.fullmatch(r'([A-Z_][A-Z_0-9]*)(.*)',path)
         if not tokens or tokens[1] not in state.types: fail('Variable path requires a static declared global',line)
-        reference=rt.Reference(state.types[tokens[1]],state.values,tokens[1]); rest=tokens[2]
+        value=state.values[tokens[1]]
+        reference=value if isinstance(value,rt.Reference) else rt.Reference(state.types[tokens[1]],state.values,tokens[1]); rest=tokens[2]
+        return self.descend(reference,rest,line)
+    def descend(self,reference,rest,line=None):
+        rt=runtime()
         while rest:
             field=re.match(r'\.([A-Z_][A-Z_0-9]*)',rest)
             index=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest)
@@ -626,8 +777,8 @@ class ExecutionContext:
             elif name=='DELETE_QUEUE': del q.entries[at]
             else: q.entries[at]=(sequence,rt.integer(args[0],line))
         q.sync(line); args[-1].set(code,line)
-    def kinematics(self,name,args,line):
-        rt=runtime(); robot=self.require('robot',line)
+    def kinematics(self,name,args,line,*,group=None):
+        rt=runtime(); robot=self.require('robot',line).for_group(group)
         callback=robot.forward if name=='JOINT2POS' else robot.inverse
         if callback is None: fail(name+' requires an explicit robot model adapter',line)
         inputs=deepcopy(tuple(args[:4] if name=='JOINT2POS' else args[:7]))

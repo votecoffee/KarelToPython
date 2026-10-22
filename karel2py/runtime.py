@@ -1,7 +1,7 @@
 """Offline compatibility runtime for the implemented source subset.
 
-No robot APIs or device I/O. All value reads and assignments are explicit.
-Only the generated module needs this file on a target interpreter.
+Robot models, storage backends and other services require explicit caller data.
+Generated modules use this package's standard-library-only runtime modules.
 """
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
@@ -62,6 +62,7 @@ class KarelAbort(Exception):
 
 
 class _Uninitialized:
+    def __deepcopy__(self, memo): return self
     def __repr__(self):
         return 'UNINITIALIZED'
 
@@ -70,6 +71,7 @@ UNINITIALIZED = _Uninitialized()
 
 
 class _UnknownByte:
+    def __deepcopy__(self, memo): return self
     def __repr__(self): return 'UNKNOWN_BYTE'
 
 
@@ -1299,7 +1301,17 @@ def checked_pose_tolerance(value):
     return location,orientation,value[2]
 
 
-def positions_close(left, right, tolerance, line=None):
+def checked_external_tolerance(value):
+    if value is None: return None
+    if type(value) in (int,float): value=(value,)*3
+    if type(value) not in (list,tuple) or len(value)!=3 or any(type(x) not in (int,float) for x in value):
+        raise ValueError('external_tolerance requires one or three finite nonnegative axis tolerances')
+    result=tuple(float(x) for x in value)
+    if not all(math.isfinite(x) and x>=0 for x in result): raise ValueError('External-axis tolerances must be finite and nonnegative')
+    return result
+
+
+def positions_close(left, right, tolerance, line=None, *, external_tolerance=None):
     """Compare explicit poses with supplied distance, rotation and CONFIG rules."""
     if not _pythonic(): raise KarelRuntimeError('Position comparison requires Pythonic mode', line)
     rotation, location, config = _frame_parts(left, line)
@@ -1307,6 +1319,11 @@ def positions_close(left, right, tolerance, line=None):
     try: context = checked_pose_tolerance(tolerance)
     except ValueError as exc: raise KarelRuntimeError(str(exc),line) from None
     if context is None: raise KarelRuntimeError('Position comparison requires explicit Program(pose_tolerance=(location_mm, orientation_deg, check_config)) context',line)
+    if any(value.spec==('XYZWPREXT',) for value in (left,right)):
+        try: axes=checked_external_tolerance(external_tolerance)
+        except ValueError as exc: raise KarelRuntimeError(str(exc),line) from None
+        if axes is None: raise KarelRuntimeError('Extended-pose comparison requires explicit external_tolerance',line)
+        if any(abs(left.values.get(key,0.)-right.values.get(key,0.))>limit for key,limit in zip(('EXT1','EXT2','EXT3'),axes)): return False
     distance = real(math.dist(location,other_location),line)
     relative = tuple(tuple(sum(rotation[k][i]*other_rotation[k][j] for k in range(3)) for j in range(3)) for i in range(3))
     sine = math.hypot(*(relative[j][i]-relative[i][j] for i,j in ((1,2),(2,0),(0,1))))/2
@@ -1856,12 +1873,17 @@ class NumericRegisters:
 
 
 class State:
-    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None, context=None):
+    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None):
         if context is not None and type(context) is not ExecutionContext: raise TypeError('context must be ExecutionContext or None')
         self.execution=context if context is not None else ExecutionContext()
+        if registers is None: registers=self.execution.numeric
+        self.robot_group=self.execution.robot.active_group if self.execution.robot is not None else None
         self.program_name=''
         self.service_requests=[]
         self._handlers={}; self._in_handler=False; self._timers={}
+        self._scheduler=None; self._scheduler_clock=False; self._budget_parent=None
+        self._event_seen={}; self._edge_history={}; self._scanning_condition=None
+        self._abort_requested=False; self._lifecycle={'CONTINUE':0}
         self.task_state='ready'; self._pause_requested=False; self._driving=False
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
@@ -1882,6 +1904,7 @@ class State:
         self.registers = registers
         self.joint_axes = joint_axes
         self.pose_tolerance = checked_pose_tolerance(pose_tolerance)
+        self.external_tolerance = checked_external_tolerance(external_tolerance)
         self.write_requests = []
         self.read_requests = []
         self.clock_reads = []
@@ -1978,6 +2001,7 @@ class State:
                                            status=code,adapter_outcome='completed' if code == 0 else 'uninitialized' if code == REGISTER_UNINITIALIZED else 'out_of_range'))
 
     def tick(self, line=None):
+        if self._budget_parent is not None: self._budget_parent.tick(line)
         if self._aborted: raise KarelAbort(self._abort_line)
         if self.task_state=='stopped': raise KarelStop('Task is stopped')
         update_timers(self,line)
@@ -1996,6 +2020,7 @@ class State:
         self.register_requests.clear()
         self.service_requests.clear()
         self._handlers.clear(); self._timers.clear()
+        self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._lifecycle={'CONTINUE':0}
 
     def extended_call(self,name,arguments,line=None):
         if not _pythonic(): raise KarelRuntimeError('Extended services require Pythonic mode',line)
@@ -2097,6 +2122,7 @@ class State:
         if file is not None:
             file.require_open(line)
             data=b''.join(piece.encode('ascii') if type(piece) is str else piece for piece in pieces)
+            if not file.binary: data=data.replace(b'\n',bytes((file.eol,)))
             file.owner.write(file,data,line); return
         total = 0
         for piece in pieces:
@@ -2181,6 +2207,9 @@ class State:
         self.local_frames.append((declarations, values))
 
     def leave_routine(self):
+        frame=self.local_frames[-1]
+        for number,handler in list(self._handlers.items()):
+            if handler.get('local_frame') is frame: self._handlers.pop(number,None)
         self.call_depth -= 1
         self.local_frames.pop()
 
@@ -2188,7 +2217,8 @@ class State:
         if self.local_frames and name in self.local_frames[-1][0]:
             value = self.local_frames[-1][1][name]
             return value.raw() if isinstance(value, Reference) else value
-        return self.constants[name] if name in self.constants else self.values[name]
+        value=self.constants[name] if name in self.constants else self.values[name]
+        return value.raw() if isinstance(value,Reference) else value
 
     def reference(self, name, line=None):
         if name in self.constants:
@@ -2226,7 +2256,7 @@ class State:
         return boolean(value, line)
 
     def snapshot(self):
-        return {name: snapshot_value(value) for name, value in self.values.items()}
+        return {name: snapshot_value(value.raw() if isinstance(value,Reference) else value) for name, value in self.values.items()}
 
     def file_read(self,handle,targets,line=None,**options):
         from .extended import file_read
@@ -2241,7 +2271,12 @@ class State:
     def external_call(self,program,name,arguments,result_spec,line=None):
         callback=self.execution.externals.get((program.upper(),name.upper()))
         if callback is None: raise KarelRuntimeError('External routine is not explicitly linked: '+program+'.'+name,line)
-        try: result=callback(*arguments)
+        try:
+            result=callback.invoke(self,arguments,line) if getattr(callback,'_karel_link',False) else callback(*arguments)
+            if inspect.isgenerator(result): result=yield from result
+        except KarelAbort as exc:
+            self._aborted=True; self._abort_line=exc.line; raise
+        except (KarelPause,KarelStop): raise
         except Exception as exc: raise KarelRuntimeError('External routine failed: '+str(exc),line) from exc
         if self._aborted: raise KarelAbort(self._abort_line)
         if result_spec is None:
@@ -2253,5 +2288,9 @@ class State:
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank,
                        VariableStore, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, file_piece,
                        TaskRegistry, KarelPause, KarelStop, update_timers, connect_timer, disconnect_timer,
-                       define_condition, condition_control, checkpoint, cooperative_test, pause_execution,
+                        define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
+from .storage import DirectoryFiles
+from .kinematics import SerialRobotModel
+from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
+                         signal_event,delay_execution,control_task,condition_scope)

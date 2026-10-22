@@ -146,7 +146,7 @@ class PositionGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program('p.normal. &\n x=1')
         self.assertEqual(caught.exception.code,'E_POSITION_READ_ONLY')
         self.assertEqual(caught.exception.token.line,11)
-    def test_group_qualifier_still_blocked(self): self.reject(code='E_POSITION_GROUP',declarations='p: POSITION IN GROUP[1]')
+    def test_group_qualifier_still_blocked(self): self.reject(code='E_POSITION_GROUP',declarations='p: POSITION IN GROUP[1]',translator=legacy_translate)
     def test_joint_conversion_still_blocked(self): self.reject('p=j',code='E_TYPE',declarations='p: POSITION j: JOINTPOS')
     def test_legacy_position_conversion_stays_blocked(self): self.reject('p=x',code='E_TYPE',declarations='p: POSITION x: XYZWPR',translator=legacy_translate)
     def test_whole_uninit_still_blocked(self): self.reject('flag=UNINIT(p)',code='E_TYPE')
@@ -254,7 +254,7 @@ class ExtendedPositionTests(unittest.TestCase):
     def test_extended_pythonic_real_field(self):
         self.assertEqual(compile_program('ext.ext1=0.1')[0].run()['EXT']['EXT1'], .1)
     def test_extended_group_still_blocked(self):
-        with self.assertRaises(TranslationError) as caught: compile_program(declarations='ext: XYZWPREXT IN GROUP[1]')
+        with self.assertRaises(TranslationError) as caught: compile_program(declarations='ext: XYZWPREXT IN GROUP[1]',translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_POSITION_GROUP')
     def test_extended_distinct_from_xyzwpr(self):
         with self.assertRaises(TranslationError): compile_program('take(b)',declarations='b: XYZWPR',routines='ROUTINE take(a: XYZWPREXT) BEGIN END take')

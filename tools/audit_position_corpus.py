@@ -61,7 +61,7 @@ def main():
                   selection_boundary='Token selection is not a validated executable-statement count; full-source translation decides support.',
                   position_token_count=token_count, counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + [p.name for p in sorted((args.translator_package/'karel2py').glob('*.py')) if p.name not in ('__init__.py','compiler.py','lexer.py','runtime.py')]},
                   boundary='Original complete sources and paired-PC hashes are preserved. No trimmed source, corpus execution, output callback, compiler invocation or controller validation. Only V8.33 was scanned.')
     if args.baseline:
         old = json.loads(args.baseline.read_text(encoding='utf-8'))

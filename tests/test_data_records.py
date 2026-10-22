@@ -190,7 +190,7 @@ class DataRecordGuardTests(unittest.TestCase):
     def test_other_position_types_stay_blocked(self):
         for kind in ('VISION',):
             with self.subTest(kind=kind): self.reject(declarations=f'x: {kind}')
-    def test_group_qualifier_stays_blocked(self): self.reject(declarations='p: XYZWPR IN GROUP[1]',code='E_POSITION_GROUP')
+    def test_group_qualifier_stays_blocked(self): self.reject(declarations='p: XYZWPR IN GROUP[1]',code='E_POSITION_GROUP', _translator=legacy_translate)
     def test_builtin_using_stays_blocked(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE')
     def test_unknown_field(self): self.reject('p.ext1=1',code='E_FIELD')
     def test_wrong_real_field_type(self): self.reject('v.x=ON')

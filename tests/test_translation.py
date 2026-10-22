@@ -159,7 +159,7 @@ class RejectionTests(unittest.TestCase):
 
     def test_unsupported_controller_constructs(self):
         for statement in ('MOVE TO x', 'ABORT PROGRAM[1]', 'HOLD'):
-            with self.subTest(statement=statement): self.reject(statement, 'E_ABORT_TARGET' if statement.startswith('ABORT') else 'E_UNSUPPORTED')
+            with self.subTest(statement=statement): self.reject(statement, 'E_ABORT_TARGET' if statement.startswith('ABORT') else 'E_UNSUPPORTED', _translator=legacy_translate)
 
     def test_directives_fail_closed(self):
         for directive in ('%CMOSVARS', '%INCLUDE ABC', '%DEFGROUP=1'):

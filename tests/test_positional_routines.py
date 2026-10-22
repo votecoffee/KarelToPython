@@ -165,7 +165,7 @@ class PositionalRoutineGuardTests(unittest.TestCase):
     def test_missing_return_values_blocked(self):
         for kind in NEW_TYPES:
             with self.subTest(kind=kind): self.reject('E_RETURN',routines=f'ROUTINE get: {kind} BEGIN RETURN END get')
-    def test_group_qualified_result_blocked(self): self.reject('E_POSITION_GROUP',routines='ROUTINE get: XYZWPR IN GROUP[1] BEGIN END get')
+    def test_group_qualified_result_blocked(self): self.reject('E_POSITION_GROUP',routines='ROUTINE get: XYZWPR IN GROUP[1] BEGIN END get', _translator=legacy_translate)
     def test_bare_orientation_argument_stays_blocked(self): self.reject('E_POSITION_READ_ONLY_ARG','work(pose.normal)',declarations='pose: POSITION',routines='ROUTINE work(v: VECTOR) BEGIN END work')
     def test_position_geometry_stays_blocked(self): self.reject('E_TYPE','flag=p=q',declarations='p,q: POSITION flag: BOOLEAN')
     def test_named_array_result_and_whole_array_value_stay_blocked(self):

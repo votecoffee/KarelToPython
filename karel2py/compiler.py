@@ -68,6 +68,7 @@ class Program:
     directives: list
     user_types: list = field(default_factory=list)
     directive_metadata: list = field(default_factory=list)
+    imported_variables: list = field(default_factory=list)
 
 
 @dataclass
@@ -134,10 +135,11 @@ class FlowGraph:
 PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
-PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648, 'ATR_IA': 1}
+PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
+                        'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
-    'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE',
+    'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE','EVENT','WITH',
     'PROGRAM', 'CONST', 'VAR', 'TYPE', 'BEGIN', 'IF', 'THEN', 'SELECT', 'OF',
     'FOR', 'TO', 'DOWNTO', 'DO', 'WHILE', 'REPEAT', 'RETURN', 'ROUTINE',
     'INTEGER', 'BOOLEAN', 'STRING', 'REAL', 'ARRAY', 'STRUCTURE', 'ENDSTRUCTURE', 'TRUE', 'FALSE',
@@ -213,6 +215,7 @@ class Parser:
         self.position = 0
         self.filename = filename
         self.mode = mode
+        self.in_condition=False
 
     @property
     def current(self): return self.tokens[self.position]
@@ -243,7 +246,7 @@ class Parser:
     def name(self):
         if self.current.value in PREDEFINED_CONSTANTS:
             self.error('E_PREDEFINED_NAME', 'Redefining predefined constants is blocked pending namespace evidence')
-        if self.current.kind != 'NAME' or self.current.value in RESERVED | BUILTINS:
+        if self.current.kind != 'NAME' or self.current.value in RESERVED | BUILTINS or self.current.value.startswith('$'):
             self.error('E_NAME', 'Expected a non-reserved identifier')
         return self.take()
 
@@ -282,7 +285,7 @@ class Parser:
         self.skip_lines()
         self.expect('PROGRAM')
         name = self.name().value
-        constants, declarations, routines, directives, user_types = [], [], [], [], []
+        constants, declarations, routines, directives, user_types, imports = [], [], [], [], [], []
         declarations_started = False
         while True:
             self.skip_lines()
@@ -327,9 +330,12 @@ class Parser:
                 while self.current.kind == 'NAME' and self.current.value not in RESERVED:
                     names = [self.name()]
                     while self.accept(','): names.append(self.name())
+                    owner=None
+                    if self.mode=='pythonic' and self.accept('FROM'): owner=self.name().value
                     self.expect(':')
                     spec = self.type_spec()
                     declarations.extend((key, spec) for key in names)
+                    if owner: imports.extend((key.value,owner,key.value) for key in names)
                     self.skip_lines()
             elif self.current.value == 'ROUTINE':
                 declarations_started = True
@@ -340,7 +346,7 @@ class Parser:
                 self.expect(name)
                 self.skip_lines()
                 self.expect('<EOF>')
-                return Program(name, constants, declarations, routines, body, directives, user_types, self.directive_metadata)
+                return Program(name, constants, declarations, routines, body, directives, user_types, self.directive_metadata,imports)
             else:
                 self.error('E_DECLARATION', 'Expected CONST, TYPE, VAR, ROUTINE or BEGIN; external declarations and controller types are not implemented')
 
@@ -363,12 +369,9 @@ class Parser:
             self.error('E_TYPE', 'Predefined constants cannot be used as data types', token)
         if token.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT'): return (token.value,)
         if token.value in rt.JOINT_TYPE_NAMES:
-            if self.current.value == 'IN': self.error('E_POSITION_GROUP', 'Group-qualified joint types require controller context', token)
-            return rt.joint_spec(token.value)
+            return self.group_spec(rt.joint_spec(token.value),token)
         if token.value in DATA_RECORD_TYPES:
-            if self.current.value == 'IN':
-                self.error('E_POSITION_GROUP', 'Group-qualified positional declarations need controller/frame semantics', token)
-            return (token.value,)
+            return self.group_spec((token.value,),token)
         if token.value == 'STRING':
             self.expect('[')
             size = self.expression()
@@ -390,6 +393,12 @@ class Parser:
         if token.kind == 'NAME' and token.value not in RESERVED:
             return ('NAMED', token)
         self.error('E_TYPE', f'{token.value} data type is not implemented', token)
+
+    def group_spec(self,spec,token):
+        if self.current.value!='IN': return spec
+        if self.mode!='pythonic': self.error('E_POSITION_GROUP','Group-qualified data requires Pythonic context',token)
+        self.take(); self.expect('GROUP'); self.expect('['); group=self.expression(); self.expect(']')
+        return ('GROUPED',spec,group,token)
 
     def routine(self):
         token = self.expect('ROUTINE')
@@ -441,7 +450,7 @@ class Parser:
                 else:
                     self.error('E_RETURN_TYPE', 'ARRAY results require supported scalars, bounded STRINGs, data records, joints or prior named aggregate elements', element)
                 if self.current.value == 'IN':
-                    self.error('E_POSITION_GROUP', 'Group-qualified ARRAY result elements are not implemented', element)
+                    element_spec=self.group_spec(element_spec,element)
                 return_type = ('ARRAY', dimensions, element_spec)
             elif self.mode == 'pythonic' and self.current.value == 'STRING':
                 string_token = self.take()
@@ -454,7 +463,7 @@ class Parser:
                 return_type = ('STRING', capacity)
             else: return_type = self.type_spec()
         allowed_results = ('INTEGER', 'BOOLEAN', 'REAL', *DATA_RECORD_TYPES, 'JOINTPOS', 'NAMED', 'ARRAY')
-        if self.mode == 'pythonic': allowed_results += ('STRING',)
+        if self.mode == 'pythonic': allowed_results += ('STRING','GROUPED')
         if return_type and return_type[0] not in allowed_results:
             self.error('E_RETURN_TYPE', 'Routine results require a supported scalar, exact data record/joint type or named STRUCTURE', token)
         self.skip_lines()
@@ -497,12 +506,9 @@ class Parser:
             self.error('E_PARAMETERS', 'Predefined constants cannot be used as parameter types', token)
         if token.value in ('INTEGER', 'BOOLEAN', 'REAL'): return (token.value,)
         if token.value in rt.JOINT_TYPE_NAMES:
-            if self.current.value == 'IN': self.error('E_POSITION_GROUP', 'Group-qualified joint parameters are not implemented', token)
-            return rt.joint_spec(token.value)
+            return self.group_spec(rt.joint_spec(token.value),token)
         if token.value in DATA_RECORD_TYPES:
-            if self.current.value == 'IN':
-                self.error('E_POSITION_GROUP', 'Group-qualified positional parameters are not implemented', token)
-            return (token.value,)
+            return self.group_spec((token.value,),token)
         if token.value == 'STRING':
             if self.current.value == '[':
                 self.error('E_PARAMETERS', 'STRING formal parameters have no declared capacity', token)
@@ -524,7 +530,7 @@ class Parser:
             self.expect('OF')
             element = self.take()
             if element.value in rt.JOINT_TYPE_NAMES:
-                return ('ARRAY', shape, rt.joint_spec(element.value))
+                return ('ARRAY', shape, self.group_spec(rt.joint_spec(element.value),element))
             if element.value not in (*ARRAY_SCALARS, *DATA_RECORD_TYPES):
                 if element.kind == 'NAME' and element.value not in RESERVED | BUILTINS:
                     return ('ARRAY', shape, ('NAMED', element))
@@ -533,7 +539,7 @@ class Parser:
                 if self.current.value == '[':
                     self.error('E_PARAMETERS', 'ARRAY OF STRING formal parameters inherit element capacity', element)
                 return ('ARRAY', shape, ('STRING', None))
-            return ('ARRAY', shape, (element.value,))
+            return ('ARRAY', shape, self.group_spec((element.value,),element) if element.value in DATA_RECORD_TYPES else (element.value,))
         if token.kind == 'NAME' and token.value not in RESERVED:
             return ('NAMED', token)
         self.error('E_PARAMETERS', 'Parameter type is not implemented', token)
@@ -551,25 +557,36 @@ class Parser:
     def statement(self):
         token = self.take()
         name = token.value
-        if self.mode=='pythonic' and name in ('PAUSE','RESUME','UNPAUSE','STOP'):
-            return Statement('task_control',token,[name])
+        if self.mode=='pythonic' and name in ('PAUSE','RESUME','UNPAUSE','CONTINUE','STOP'):
+            target=[]
+            if name!='STOP' and self.accept('PROGRAM'):
+                self.expect('['); target=[self.expression()]; self.expect(']')
+            return Statement('task_control',token,[name,*target])
+        if self.mode=='pythonic' and name=='SIGNAL':
+            self.expect('EVENT'); self.expect('['); number=self.expression(); self.expect(']')
+            return Statement('signal_event',token,[number])
         if self.mode=='pythonic' and name in ('CONNECT','DISCONNECT'):
             self.expect('TIMER')
             if name=='CONNECT': self.expect('TO')
             return Statement('timer_connect' if name=='CONNECT' else 'timer_disconnect',token,[self.storage_selector()])
         if self.mode=='pythonic' and name=='CONDITION':
             self.expect('['); number=self.expression(); self.expect(']'); self.expect(':'); self.skip_lines()
+            scan=None
+            if self.accept('WITH'):
+                self.expect('$SCAN_TIME'); self.expect('='); scan=self.expression(); self.skip_lines()
             clauses=[]
             while self.current.value=='WHEN':
                 when=self.take()
-                condition=Expr('task_event',self.take(),'PAUSE') if self.current.value=='PAUSE' else self.expression()
+                self.in_condition=True
+                try: condition=self.expression()
+                finally: self.in_condition=False
                 self.expect('DO'); self.skip_lines(); actions=[]
                 while self.current.value not in ('WHEN','ENDCONDITION'):
                     actions.append(self.statement()); self.accept(','); self.skip_lines()
                 clauses.append(Statement('condition_clause',when,[condition],actions))
             if not clauses: self.error('E_SYNTAX','CONDITION requires at least one WHEN clause')
             self.expect('ENDCONDITION')
-            return Statement('condition',token,[number],clauses)
+            return Statement('condition',token,[number,*([scan] if scan else [])],clauses)
         if self.mode=='pythonic' and name in ('ENABLE','DISABLE','PURGE'):
             self.expect('CONDITION'); self.expect('['); number=self.expression(); self.expect(']')
             return Statement('condition_control',token,[name,number])
@@ -650,6 +667,9 @@ class Parser:
             self.expect('FOR')
             return Statement('wait', token, [self.expression()])
         if name == 'ABORT':
+            if self.mode=='pythonic' and self.accept('PROGRAM'):
+                self.expect('['); target=self.expression(); self.expect(']')
+                return Statement('task_control',token,['ABORT',target])
             if self.current.value in ('PROGRAM', '(', '[', '.', '='):
                 self.error('E_ABORT_TARGET', 'Only bare ABORT of the current offline execution is supported; task qualifiers and arguments remain blocked', self.current)
             return Statement('abort', token)
@@ -818,7 +838,11 @@ class Parser:
     def expression(self, minimum=0, *, allow_relative=True):
         self.skip_lines()
         token = self.take()
-        if token.kind == 'INT':
+        if self.mode=='pythonic' and token.value=='EVENT':
+            self.expect('['); number=self.expression(); self.expect(']'); left=Expr('event',token,args=[number])
+        elif self.in_condition and token.value in ('PAUSE','ABORT','CONTINUE'):
+            left=Expr('task_event',token,token.value)
+        elif token.kind == 'INT':
             digits = token.value.lstrip('0') or '0'
             if len(digits) > 10:
                 self.error('E_LITERAL', 'INTEGER literal outside signed 32-bit range', token)
@@ -852,10 +876,17 @@ class Parser:
         elif token.kind == 'NAME' and token.value not in RESERVED:
             if self.accept('('): left = Expr('call', token, token.value, self.arguments())
             else: left = self.access(Expr('name', token, token.value))
+            if self.in_condition and left.kind=='call' and left.value=='EVAL':
+                if len(left.args)!=1: self.error('E_ARGUMENTS','EVAL requires one captured expression',token)
+                left.kind='eval'
         else:
             self.error('E_EXPRESSION', f'Expected expression, found {token.value}', token)
         if self.mode == 'pythonic' and left.kind in ('call', 'group'):
             left = self.access(left)
+        if (self.in_condition and left.kind=='index' and left.args[0].kind=='name'
+                and ex.PORT_TYPES.get(left.args[0].value)=='BOOLEAN' and self.current.value in ('+','-')
+                and self.tokens[self.position+1].value in ('DO','AND','OR',')','=','<>')):
+            operator=self.take(); left=Expr('edge',operator,operator.value,[left])
         while (self.current.value in PRECEDENCE and PRECEDENCE[self.current.value] >= minimum
                and (self.current.value != ':' or self.mode == 'pythonic' and allow_relative)):
             operator = self.take()
@@ -878,7 +909,8 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('task_control','condition','condition_control','timer_connect','timer_disconnect') or isinstance(node,Expr) and node.kind=='call' and node.value in ('PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK') for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event') or isinstance(node,Expr) and (node.kind in ('event','edge') or node.kind=='call' and node.value in ('PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK')) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.group_uses=[]
         self.using_scopes = []
         self.active_counters = set()
         self.control_flow = dict(program=None, routines={}, jump_policy='same_block_or_ancestor_no_for', controller_validated=False)
@@ -981,6 +1013,12 @@ class Emitter:
         return child.kind == 'literal' and type(child.value) is int and child.value == 2147483648
 
     def resolve_spec(self, spec):
+        if spec[0]=='GROUPED':
+            group=self.constant(spec[2])
+            if type(group) is not int or not 1<=group<=32: self.error('E_POSITION_GROUP','Group must be an INTEGER in 1..32',spec[3])
+            resolved=self.resolve_spec(spec[1])
+            self.group_uses.append(dict(group=group,type=resolved[0],line=spec[3].line,column=spec[3].column))
+            self.features.add('explicit group metadata'); return resolved
         if spec[0] in ('FILE','QUEUE_TYPE'): return spec
         if spec[0]=='PATH':
             resolved=('PATH',self.resolve_spec(spec[1]) if spec[1] else None,self.resolve_spec(spec[2]) if spec[2] else None)
@@ -1053,7 +1091,7 @@ class Emitter:
         if rt.array_identity(spec) is not None: return spec
         element = self.resolve_spec(spec[2])
         dimensions = []
-        for size in rt.array_shape(spec):
+        for size in rt.array_shape(('ARRAY',spec[1],element)):
             if size is None or isinstance(size, Expr) and size.kind == 'array_wildcard':
                 dimensions.append(None)
             else:
@@ -1157,6 +1195,8 @@ class Emitter:
             if routine.name in names: self.error('E_DUPLICATE', 'Duplicate declaration', routine.token)
             names.add(routine.name)
             self.routines[routine.name] = routine
+            if routine.return_type and routine.return_type[0]=='GROUPED':
+                routine.return_type=self.resolve_spec(routine.return_type)
             if routine.return_type and routine.return_type[0] == 'STRING':
                 routine.return_type = self.resolve_spec(routine.return_type)
                 self.features.add('STRING function result')
@@ -1660,7 +1700,17 @@ class Emitter:
                 all(a == b or a is None or b is None for a, b in zip(target_shape, source_shape)))
 
     def expression(self, expr, raw=False, *, allow_array_result=False):
-        if expr.kind=='task_event': return 'self._state._pause_requested', ('BOOLEAN',)
+        if expr.kind=='captured': return expr.value
+        if expr.kind=='event':
+            number=self.require_type(expr.args[0],'INTEGER'); key=(expr.token.line,expr.token.column)
+            return f'_rt.event_condition(self._state,{number},{key!r},{expr.token.line})',('BOOLEAN',)
+        if expr.kind=='edge':
+            value=self.require_type(expr.args[0],'BOOLEAN'); key=(expr.token.line,expr.token.column)
+            return f'_rt.edge_condition(self._state,{key!r},{value},{expr.value!r},{expr.token.line})',('BOOLEAN',)
+        if expr.kind=='task_event':
+            if expr.value=='PAUSE': return 'self._state._pause_requested',('BOOLEAN',)
+            if expr.value=='ABORT': return 'self._state._abort_requested',('BOOLEAN',)
+            return f'_rt.lifecycle_condition(self._state,{expr.value!r},{(expr.token.line,expr.token.column)!r})',('BOOLEAN',)
         line = expr.token.line
         if expr.kind == 'group':
             return self.expression(expr.args[0], raw=raw)
@@ -1731,7 +1781,7 @@ class Emitter:
             if right_type[0] in NARROW_TYPES: right_type = ('INTEGER',)
             op = expr.value
             if op == '>=<':
-                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',)) for spec in (lt,right_type))
+                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',), ('XYZWPREXT',)) for spec in (lt,right_type))
                 result_type = ('BOOLEAN',)
                 if valid:
                     self.position_comparison_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -1779,7 +1829,7 @@ class Emitter:
                     left = f'_rt.frame_value({left}, {line}, expected={lt!r})'
                     right = f'_rt.frame_value({right}, {line}, expected={right_type!r})'
                 if op == '>=<':
-                    return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line})', result_type
+                    return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line}, external_tolerance=self._state.external_tolerance)', result_type
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
         if expr.kind == 'call':
             if self.mode=='pythonic' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
@@ -2373,10 +2423,18 @@ class Emitter:
         self.line(f'self._state.tick({line})', token)
         if kind=='task_control':
             action=stmt.args[0]
+            if len(stmt.args)>1:
+                number=self.require_type(stmt.args[1],'INTEGER')
+                self.line(f'yield from _rt.control_task(self._state,{action!r},{number},{line})',token); return
             if action=='PAUSE': self.line(f'yield from _rt.pause_execution(self._state,{line})',token)
             elif action=='STOP': self.line('raise _rt.KarelStop("Task stopped")',token)
-            else: self.line('self._state._pause_requested=False',token)
+            else:
+                self.line('self._state._pause_requested=False',token)
+                if action=='CONTINUE': self.line("self._state._lifecycle['CONTINUE']+=1",token)
             return
+        if kind=='signal_event':
+            number=self.require_type(stmt.args[0],'INTEGER')
+            self.line(f'_rt.signal_event(self._state,{number},{line})',token); return
         if kind in ('timer_connect','timer_disconnect'):
             target=stmt.args[0]
             if self.current_routine and self.root_name(target) in self.current_routine.local_types: self.error('E_TIMER_SCOPE','Connected timer storage must be global',target.token)
@@ -2391,6 +2449,11 @@ class Emitter:
         if kind=='condition':
             number=self.require_type(stmt.args[0],'INTEGER'); pairs=[]
             for clause in stmt.body:
+                for item in reversed(list(self.walk_nodes(clause.args))):
+                    if isinstance(item,Expr) and item.kind=='eval':
+                        code,spec=self.expression(item.args[0]); temporary=self.fresh()
+                        self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})',item.token)
+                        item.kind='captured'; item.value=(temporary,spec); item.args=[]
                 for action_node in self.walk_nodes(clause.body):
                     if isinstance(action_node,Statement) and action_node.kind in ('label','goto','return','condition'):
                         self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
@@ -2399,7 +2462,8 @@ class Emitter:
                 self.line(f'def {predicate}():'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
                 self.line(f'def {action}():'); self.indent+=1; self.line('if False: yield None')
                 self.block(clause.body); self.indent-=1; pairs.append(f'({predicate},{action})')
-            self.line(f'_rt.define_condition(self._state,{number},[{", ".join(pairs)}],{line})',token); return
+            scan=self.require_type(stmt.args[1],'INTEGER') if len(stmt.args)>1 else '0'
+            self.line(f'_rt.define_condition(self._state,{number},[{", ".join(pairs)}],{line},scan_ms={scan})',token); return
         if kind in ('file_read','file_write'):
             file_value=self.require_type(stmt.args[0],'FILE'); captured_file=self.fresh()
             self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
@@ -2460,13 +2524,13 @@ class Emitter:
         elif kind == 'abort':
             if self.mode == 'strict' and self.active_counters and not self.has_fresh_active_counters():
                 self.error('E_FOR_COUNTER', 'ABORT inside FOR requires fresh routine-local counters; observable counter state on abort is unvalidated', token)
-            self.line(f'self._state.abort({line})', token)
+            self.line(f'yield from _rt.abort_execution(self._state,{line})' if self.cooperative else f'self._state.abort({line})', token)
             self.features.add('ABORT')
             self.abort_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=line, column=token.column, scope='current offline execution'))
         elif kind == 'delay':
             duration = self.require_type(stmt.args[0], 'INTEGER')
-            self.line(f'self._state.delay({duration}, {line})', token)
+            self.line(f'yield from _rt.delay_execution(self._state,{duration},{line})' if self.cooperative else f'self._state.delay({duration}, {line})', token)
             self.features.add('DELAY')
             self.delay_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                         line=token.line, column=token.column, duration_type='INTEGER',
@@ -2794,13 +2858,18 @@ class Emitter:
         self.line(f'source_program = {self.program.name!r}')
         self.line(f'translation_mode = {self.mode!r}')
         self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
+        self.line(f'source_groups = {tuple(sorted(set(row["group"] for row in self.group_uses)))!r}')
+        self.line(f'imported_variables = {tuple(self.program.imported_variables)!r}')
+        self.line(f'routine_interfaces = { {r.name:dict(parameters=tuple(spec for _,spec in r.parameters),result=r.return_type,external=r.external) for r in self.program.routines}!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None, context=None):')
+        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None):')
         self.indent = 2
-        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, clock_us=clock_us, registers=registers, context=context)')
+        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, external_tolerance=external_tolerance, clock_us=clock_us, registers=registers, context=context)')
         self.line(f'self._state.program_name={self.program.name!r}')
         self.line('self._state.program=self')
+        self.line('if len(self.source_groups)==1: self._state.robot_group=self.source_groups[0]')
+        self.line('self._state.execution.variables.attach(self.source_program,self._state)')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2862,7 +2931,7 @@ class Emitter:
             self.line('try:')
             self.indent = 3
             if routine.external:
-                self.line(f'return self._state.external_call({routine.external!r},{routine.name!r},[{", ".join(argument_names)}],{routine.return_type!r},{routine.token.line})',routine.token)
+                self.line(f'return (yield from self._state.external_call({routine.external!r},{routine.name!r},[{", ".join(argument_names)}],{routine.return_type!r},{routine.token.line}))',routine.token)
             else: self.emit_body(routine.body)
             if routine.return_type and not routine.external:
                 self.line(f'raise _rt.KarelRuntimeError("Function completed without RETURN", {routine.token.line})')
@@ -2912,6 +2981,10 @@ class Emitter:
                 self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
                 self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
             self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
+            self.line('_parser.add_argument("--filesystem-root", help="Explicit directory for FILE operations")')
+            self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
+            if 'operator >=<' in self.features:
+                self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
             self.line('_args = _parser.parse_args()')
             self.line('import json as _json')
             self.line('_context = None')
@@ -2925,6 +2998,11 @@ class Emitter:
             self.indent += 1
             self.line('_parser.error("Invalid service context: "+str(_error))')
             self.indent -= 2
+            self.line('if _args.filesystem_root is not None or _args.state_out is not None:')
+            self.indent += 1
+            self.line('if _context is None: _context = _rt.ExecutionContext()')
+            self.line('if _args.filesystem_root is not None: _context.files = _rt.DirectoryFiles(_args.filesystem_root)')
+            self.indent -= 1
             if self.features & REGISTER_PROCEDURES:
                 self.line('import json as _json')
                 self.line('try:')
@@ -2970,9 +3048,15 @@ class Emitter:
             context = ['context=_context']
             if self.features & REGISTER_PROCEDURES: context.append('registers=_registers')
             if self.features & JOINT_PROCEDURES: context.append('joint_axes=_args.joint_axes')
-            if 'operator >=<' in self.features: context.append('pose_tolerance=_pose_tolerance')
+            if 'operator >=<' in self.features: context.extend(('pose_tolerance=_pose_tolerance','external_tolerance=_args.external_axis_tolerances'))
             if 'read' in self.features: context.append('read=_responses')
-            self.line(f'print(Program({", ".join(context)}).run())')
+            self.line(f'_program = Program({", ".join(context)})')
+            self.line('print(_program.run())')
+            self.line('if _args.state_out is not None:')
+            self.indent += 1
+            self.line('if _program._state.registers is not None: _context.numeric = _program._state.registers')
+            self.line('_context.save(_args.state_out)')
+            self.indent -= 1
         else:
             self.line('print(Program().run())')
         result = '\n'.join(self.lines) + '\n'
@@ -2993,6 +3077,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
+        group_declarations=emitter.group_uses,
         program=program.name, source_sha256=hashlib.sha256(source.encode('utf-8')).hexdigest(),
         translation_context=dict(mode=mode, array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}),
         translation_context_sha256=hashlib.sha256(json.dumps(dict(mode=mode, array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}), sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest(),
@@ -3332,27 +3417,27 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report = result.report
     report['service_policy'] = dict(
         procedures=sorted(ex.PROCEDURES), functions=sorted(ex.FUNCTIONS), ports=dict(ex.PORT_TYPES),
-        context='Explicit ExecutionContext with bounded in-memory services; numeric registers retain their separate context',
+        context='Explicit ExecutionContext with bounded banks, typed JSON persistence and attached program namespaces; optional caller-rooted DirectoryFiles and configured DH model',
         values='Checked exact output references, disjoint resources, ordered input/selector capture; prior completed effects retained on error',
-        files='MemoryFiles only; portable little-endian binary fields and ASCII text, byte cursors, no host filesystem access',
+        files='MemoryFiles or explicit DirectoryFiles root; ASCII text, ATR_UF binary, selectable byte order, EOL and interactive flush; bounded copy/delete/rename/list',
         collections='Typed one-based PATH nodes/header, full/reversed range copies and initialized fixed-capacity FIFO queues',
-        robot='JOINT2POS/POS2JOINT/IN_RANGE require explicit model adapters; J_IN_RANGE requires every joint limit',
+        robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
     report['cooperative_policy'] = dict(
         enabled=report['cooperative_execution'],
         generation='Automatic for task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
-        execution='Generator-based run/resume retains routine/FOR frames; terminal stop closes generators; no concurrent drive or native scheduler',
-        handlers='Ordered checkpoint scans, multiple WHEN clauses, first true clause disables before actions, explicit rearm and retained lexical frames',
+        execution='Generator-based run/resume retains routine/FOR frames; optional deterministic TaskScheduler interleaves checkpoints with virtual time; terminal stop closes generators',
+        handlers='Ordered checkpoint scans with optional WITH $SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
         timers='Global INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry and backward-clock checks',
-        linkage='Explicit external callback and TaskRegistry bindings; no module loading, robot tasks or motion semantics',
+        linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
         guide='docs/offline-services.md',controller_validated=False)
     if cooperative:
         report['translation_context']['cooperative'] = True
         report['translation_context_sha256'] = hashlib.sha256(json.dumps(report['translation_context'], sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest()
     report['register_policy'] = dict(
         procedures=sorted(REGISTER_PROCEDURES),
-        context='Explicit Program(registers=NumericRegisters(count, initial)) memory bank, count 1..32767 and optional INTEGER/REAL values; no default register count, implicit zeros, controller backend, persistence or file writes',
+        context='Explicit Program(registers=NumericRegisters(count, initial)) memory bank, count 1..32767 and optional INTEGER/REAL values; no default register count, implicit zeros or controller backend; optional ExecutionContext numeric bank and explicit JSON save/load',
         status='Portable codes: 0 success, REGISTER_UNINITIALIZED=1 for absent value, REGISTER_OUT_OF_RANGE=2 outside explicit count; type/storage/initialization/overlap/context failures raise before operation writes; no native alarm mapping',
         read='GET_REG writes real_flag, only the selected exact INTEGER/REAL value output and status; preserve unused numeric output; missing/out-of-range reads write status only',
         write='SET_INT_REG stores INTEGER, SET_REAL_REG stores Python float with ordinary numeric promotion; successful writes persist in the explicit bank across runs/shared programs; out-of-range writes preserve the bank',

@@ -185,7 +185,7 @@ class AggregateArrayRejectionTests(unittest.TestCase):
     def test_group_qualified_result_elements_remain_blocked(self):
         for kind in ('VECTOR','XYZWPR','JOINTPOS3'):
             with self.subTest(kind=kind):
-                self.reject('E_POSITION_GROUP',routines=f'ROUTINE make: ARRAY OF {kind} IN GROUP[1] BEGIN END make')
+                self.reject('E_POSITION_GROUP',routines=f'ROUTINE make: ARRAY OF {kind} IN GROUP[1] BEGIN END make', _translator=legacy_translate)
 
     def test_multidimensional_record_source_remains_blocked(self):
         self.reject('E_RETURN',routines='ROUTINE make: ARRAY OF item_t VAR p: ARRAY[1,1] OF item_t BEGIN RETURN p END make')
