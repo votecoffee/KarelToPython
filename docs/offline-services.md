@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.87.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.88.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -39,6 +39,7 @@ source-located error. Strict mode remains a future milestone.
 | `STOP`, host `stop()` | Terminal offline task state | Closes suspended frames; construct a new Program to restart. This is a Pythonic task-stop convention, not native motion STOP behavior. |
 | `RESUME`, `UNPAUSE` | Clear a pending offline pause request | A suspended Program needs a host `resume()` or another registered task's CONT_TASK call. Native motion RESUME is not modeled. |
 | `RUN_TASK`, `PAUSE_TASK`, `CONT_TASK`, `ABORT_TASK` | Explicit `TaskRegistry` | TaskRegistry or deterministic TaskScheduler; no motion flags, lock masks or arbitrary start line. |
+| `GET_TSK_INFO` | Registered task lookup plus live execution data or supplied attributes | Directional name/number operands; selected output only; portable identifiers and statuses. |
 | `ROUTINE ... FROM library` | Python callback or source Project link | Typed references/results, shared imported globals; no native ABI. |
 | `MIRROR(point,plane,orient)` | Reflection about the plane frame's XZ plane | XYZWPREXT result; optional orientation reflection uses a documented proper-rotation convention. |
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
@@ -234,6 +235,8 @@ target checkpoints so its handlers can suppress them. The no_wait flag does
 not change this portable behavior. See [task requests](task-and-file-extensions.md#task-requests).
 No source program can launch
 an arbitrary host process.
+See [task inspection](task-inspection.md) for GET_TSK_INFO, active linked-routine
+identity, checkpoint lines, logical frame counts and supplied task metadata.
 
 External declarations use `ROUTINE name(parameters): result_type FROM library`.
 Bind `ExecutionContext(externals={("LIBRARY","NAME"): callback})`. Callbacks

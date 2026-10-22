@@ -103,6 +103,12 @@ datetime or packed value, optional elapsed-microsecond adapter and frozen restor
 The report's `calendar_clock_policy` records the contract. See
 [calendar time](calendar-clock.md) for setup, JSON and source examples.
 
+TaskRegistry and TaskScheduler accept `bind(name,program,attributes=None)` with
+optional named INTEGER metadata. GET_TSK_INFO uses registered identity, live
+caller-rooted execution data or that explicit metadata. `rt.TASK_CONSTANTS` and
+the report's `task_inspection_policy` record the portable mappings. See
+[task inspection](task-inspection.md) for lookup/output rules and all attributes.
+
 ## CLI
 
 ```sh

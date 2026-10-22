@@ -1,0 +1,26 @@
+{
+  "version":"0.88.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Supplied GET_TSK_INFO API forms and authored offline task/scheduler tests; no native task inspection",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[418,419],"topic":"GET_TSK_INFO directional identity operands, INTEGER/STRING value outputs, 21 TSK attributes, PG status and program-type names"}],
+  "implemented":{
+    "lookup":"Case-insensitive registered name when number is zero/uninitialized; otherwise one-based registry order shared with numeric controls",
+    "outputs":"Only selected identity and selected INTEGER/STRING output change on success; failures write status only; exact disjoint writable references",
+    "live":"Caller-rooted source module/routine frames, latest checkpoint line, logical frame count, task/program state and scheduler quantum",
+    "metadata":"Fourteen remaining documented INTEGER attributes can be supplied explicitly during binding; live attributes cannot be overridden",
+    "ownership":"Input/reference capture order, source guards, independent concurrent linked stacks, cleanup on completion/failure/stop and value-free operation records"
+  },
+  "portable_choices":[
+    "Package TSK IDs 1..21, PG task-state IDs 100..108 and program-type IDs 200..202 do not assert native encodings",
+    "Additional PG_COMPLETED/PG_STOPPED/PG_FAILED/PG_WAITING names preserve existing runtime state distinctions",
+    "TSK_STACK counts logical active routine frames, including external declaration proxies, rather than native allocation bytes",
+    "TSK_LINENUM is the most recent source checkpoint and is zero before execution; it is not a native instruction pointer",
+    "Unmodeled attributes require explicit informational metadata; they do not change task scheduling/control",
+    "Portable status 0 success, 1 unknown task, 2 invalid selector, 3 missing metadata; failed inspection preserves data/identity outputs",
+    "No implicit task discovery or binding; host task configuration/continuations are omitted from value snapshots"
+  ],
+  "remaining":["Native enum/task-number/stack layout, parent-child discovery, priority and interrupt execution, motion state, strict mode and native acceptance"],
+  "verification":["tests/test_task_inspection.py","tests/test_runtime_portability.py","examples/task_inspection_project/main.kl","examples/task_inspection_project/worker.kl"],
+  "guide":"../task-inspection.md"
+}

@@ -69,6 +69,8 @@ The [register lifecycle guide](register-lifecycle.md) covers position representa
 inspection, one/all-group clearing and removing logical port simulation.
 The [calendar clock guide](calendar-clock.md) covers explicit GET_TIME/SET_TIME,
 elapsed-time adapters and frozen datetime snapshots.
+The [task inspection guide](task-inspection.md) covers GET_TSK_INFO lookup,
+live execution data, portable constants and supplied attributes.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.

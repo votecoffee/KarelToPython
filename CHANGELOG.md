@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.88.0 - 2026-10-22
+
+- Add GET_TSK_INFO over explicit task registries and schedulers, including
+  directional name/number lookup and selected INTEGER/STRING output preservation.
+- Expose live task/program states, active module/routine, latest checkpoint,
+  logical frame count and scheduler quantum. Keep linked callers and concurrent
+  library stacks separate; clean inspection frames on return, stop and failure.
+- Accept explicit informational metadata for the other documented attributes.
+  Publish portable TSK_/PG_ identifiers and additional existing-runtime states.
+- Add 40 integration tests, a runtime-only check, a two-task example project,
+  report policy and manual-backed semantic notes. Strict/native behavior remains future.
+
 ## 0.87.0 - 2026-10-22
 
 - Add GET_TIME and SET_TIME on an explicit CalendarClock, frozen or advanced by a

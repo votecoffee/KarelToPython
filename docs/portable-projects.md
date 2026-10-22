@@ -16,6 +16,8 @@ persistence and consistent updates to loaded-model frame/tool context.
 Version 0.86.0 adds [register inspection/clearing and logical port unsimulation](register-lifecycle.md).
 Version 0.87.0 adds [calendar clocks](calendar-clock.md), shared GET_TIME/SET_TIME
 and full datetime snapshots with frozen restore.
+Version 0.88.0 adds [task inspection](task-inspection.md) over explicitly bound
+tasks, live execution context and supplied informational attributes.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

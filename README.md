@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.87.0**. It is a
+tool are named **karel2py**. The current implementation is **0.88.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -256,6 +256,10 @@ GET_TIME and SET_TIME use an explicit offline CalendarClock, frozen or advanced
 by a supplied elapsed-time adapter. Complete calendar snapshots persist through
 context JSON. See [calendar time](docs/calendar-clock.md).
 
+GET_TSK_INFO inspects explicitly registered tasks by name or number, including
+live state, active linked routines, checkpoints and supplied attributes. See
+[task inspection](docs/task-inspection.md) and its runnable two-task project.
+
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the
 [service equivalence matrix and embedding guide](docs/offline-services.md)
@@ -315,7 +319,7 @@ python tools/check_repository.py
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus a complete linked project. It also checks that the unsupported-motion example is rejected.
+fixtures, plus two complete linked projects. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING
