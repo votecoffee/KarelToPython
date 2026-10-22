@@ -560,6 +560,11 @@ class Parser:
     def statement(self):
         token = self.take()
         name = token.value
+        if self.mode=='pythonic' and name=='PULSE':
+            self.expect('DOUT');self.expect('[');port=self.expression();self.expect(']');self.expect('FOR')
+            duration=self.expression();nowait=bool(self.accept('NOWAIT'))
+            if nowait and self.in_handler_actions: self.error('E_CONDITION_ACTION','NOWAIT is not allowed in a PULSE handler action',token)
+            return Statement('pulse',token,[port,duration,nowait])
         if self.mode=='pythonic' and name in ('PAUSE','RESUME','UNPAUSE','CONTINUE','STOP'):
             target=[]
             if name!='STOP' and self.accept('PROGRAM'):
@@ -924,7 +929,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         self.group_uses=[]
         self.using_scopes = []
         self.active_counters = set()
@@ -956,6 +961,7 @@ class Emitter:
         self.position_comparison_uses = []
         self.position_conversion_uses = []
         self.kinematic_assignment_uses = []
+        self.pulse_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -1439,6 +1445,8 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
+                if isinstance(node,Statement) and node.kind=='pulse':
+                    routine.may_services=True;routine.may_delay|=not node.args[2]
                 if isinstance(node, Statement) and node.kind in ('delay','wait'):
                     routine.may_delay = True
                 if isinstance(node, Statement) and node.kind in ('write', 'write_items'):
@@ -2452,6 +2460,13 @@ class Emitter:
         line = token.line
         self.features.add(kind)
         self.line(f'self._state.tick({line})', token)
+        if kind=='pulse':
+            if 'DOUT' in self.types or 'DOUT' in self.visible_constants(): self.error('E_PULSE','PULSE requires the unshadowed DOUT port bank',token)
+            number=self.require_type(stmt.args[0],'INTEGER');duration=self.require_type(stmt.args[1],'INTEGER')
+            self.features.update(('ports','extended services'))
+            self.pulse_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,nowait=stmt.args[2],operands_evaluated_once=True))
+            self.line(f'yield from _rt.pulse_execution(self._state,{number},{duration},{stmt.args[2]!r},{line})',token);return
         if kind=='task_control':
             action=stmt.args[0]
             if len(stmt.args)>1:
@@ -3317,6 +3332,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses,
+        pulses=emitter.pulse_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -3549,7 +3565,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/joint-interoperability.md',controller_validated=False)
     report['cooperative_policy'] = dict(
         enabled=report['cooperative_execution'],
-        generation='Automatic for task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
+        generation='Automatic for PULSE, task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
         execution='Generator-based run/resume retains routine/FOR frames; optional deterministic TaskScheduler interleaves checkpoints with virtual time; terminal stop closes generators',
         handlers='Ordered checkpoint scans with optional WITH $SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
         timers='Global INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry and backward-clock checks',
@@ -3877,6 +3893,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         ownership='Complete conversion and detached RHS precede target selector evaluation; failure preserves destination, earlier source/host effects remain; value-free KINEMATIC_ASSIGNMENT records',
         boundary='No implicit motion, current-state update, native branch selection, collision or certified reachability; no automatic JOINTPOS frame operators or whole-array/interface conversions; strict deferred',
         guide='docs/kinematic-assignments.md',controller_validated=False)
+    report['pulse_policy']=dict(
+        syntax='PULSE DOUT[port] FOR milliseconds [NOWAIT]; INTEGER operands captured once in source order; NOWAIT prohibited in handler actions',
+        duration='Range 0..86400000 ms; zero does not change output or existing pulse; positive values round upward to multiples of 8 ms with deterministic modeled expiry',
+        context='Explicit PortBank DOUT address; no physical output adapter; overlapping pulses reject; successful direct/indirect/host writes cancel the previous deadline',
+        waiting='Blocking uses existing DELAY driver; synchronous sleep callback completion completes the logical pulse; scheduler parks the task and uses virtual time regardless of injected program clock',
+        nowait='Nonblocking start; standalone clocks use captured clock_us or monotonic microseconds; checkpoints, port reads/snapshots and explicit poll_pulses service expirations without background threads',
+        lifecycle='Pause permits expiration; normal completion retains pending pulse; abort/stop/failure freeze last modeled value and discard pending work on polling; linked calls belong to root caller',
+        scheduler='Polls shared banks and drains its pending pulses even when owners complete or pause; idle jumps to waiting/pulse deadlines; cycle limits remain',
+        persistence='JSON stores observed values and existing port metadata only; pending clocks/owners/deadlines are not serialized; service records are value-free PULSE start/wait outcomes',
+        boundary='No controller scan jitter, polarity/complement modes, physical timing, automatic background expiry or native acceptance; strict remains future work',
+        guide='docs/pulses.md',controller_validated=False)
     report['position_conversion_policy']['boundary']='Context-free Cartesian representation changes only; model-backed joint assignments follow kinematic_assignment_policy; exact routine/array interfaces and checked proper matrices remain'
     report['data_record_policy']['boundary']='Cartesian whole assignments follow position_conversion_policy; joint/Cartesian whole assignments require kinematic_assignment_policy; no automatic routine/array conversion or physical motion'
     report['positional_routine_policy']['boundary']='Exact parameter/RETURN types; whole assignments follow position_conversion_policy and kinematic_assignment_policy; no controller ABI, native branch selection or orientation defaults'

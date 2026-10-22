@@ -1,0 +1,26 @@
+{
+  "version":"0.91.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Supplied PULSE statement/action forms and authored offline clock/scheduler tests; no hardware output or native timing execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[491,492],"topic":"PULSE DOUT statement/action, NOWAIT, eight-millisecond rounding, zero/range limits and pause/abort behavior"}],
+  "implemented":{
+    "syntax":"INTEGER DOUT port and duration expressions, optional NOWAIT on statements only; automatic cooperative generation and transitive blocking delay effects",
+    "duration":"Zero no-op, positive duration rounded upward to eight milliseconds, maximum 86400000; deterministic rounded expiry rather than native scan jitter",
+    "execution":"Existing blocking DELAY driver or pending NOWAIT output; explicit captured host clock or scheduler virtual time",
+    "ownership":"Root-caller ownership through linked routines, independent output deadlines, pause/completion expiry, terminal freeze and successful-write cancellation",
+    "observation":"Source-located value-free records, explicit polling, port read/snapshot and checkpoint servicing; pending work excluded from JSON restore"
+  },
+  "portable_choices":[
+    "A standalone blocking sleep callback completes the modeled delay on return; it need not advance a host clock",
+    "Scheduled pulses always use scheduler virtual time; scheduler run drains pulse deadlines after completion or pause and can jump idle time",
+    "Overlapping pulses reject until expiry or an explicit write cancels the previous deadline",
+    "Successful source/indirect/host writes take ownership; failed writes leave pending work intact",
+    "Abort/STOP/failure freeze the last modeled value and discard pending work on polling; no terminal cleanup drives an output off",
+    "Host polling is explicit and no background threads run; clock samples validate as a batch before expiration changes",
+    "Snapshots preserve observed values only, so a restored on value has no inherited deadline"
+  ],
+  "remaining":["Physical output adapters, native port modes, scan jitter, controller timing/lifecycle acceptance and strict mode"],
+  "verification":["tests/test_pulses.py","tests/test_runtime_portability.py","examples/pulse_wait.kl","examples/pulse_override.kl","examples/pulse_project/main.kl","examples/pulse_project/lib.kl"],
+  "guide":"../pulses.md"
+}

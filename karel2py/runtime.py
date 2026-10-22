@@ -2079,6 +2079,7 @@ class State:
         if self._aborted: raise KarelAbort(self._abort_line)
         if self.task_state=='stopped': raise KarelStop('Task is stopped')
         update_timers(self,line)
+        if self.execution.ports is not None: self.execution.ports.poll_pulses(line)
         self.steps += 1
         if self.steps > self.max_steps:
             raise KarelRuntimeError(f'Execution step budget exceeded ({self.max_steps})', line)
@@ -2387,6 +2388,7 @@ from .extended import (ExecutionContext, StringRegisters, PositionRegisters, Por
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles
 from .clocks import CalendarClock
+from .pulses import pulse_execution
 from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
                          signal_event,delay_execution,control_task,condition_scope,TASK_CONSTANTS)

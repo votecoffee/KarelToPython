@@ -66,14 +66,16 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('file_compare', 'DIFFERENT', 2),
                     ('file_print', 'STATUS', 0),
                     ('joint_assignment', 'RESTORED', {'axes': [0.] * 9}),
-                    ('joint_external_assignment', 'RESTORED', {'axes': [0., 25.] + [0.] * 7})]
+                    ('joint_external_assignment', 'RESTORED', {'axes': [0., 25.] + [0.] * 7}),
+                    ('pulse_wait', 'AFTER', False),
+                    ('pulse_override', 'AFTER', True)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'
@@ -94,7 +96,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                 if services_file.exists():
                     setup+='from karel2py.runtime import ExecutionContext\n'
                     adapter+=(', ' if adapter else '')+f'context=ExecutionContext.from_config({json.loads(services_file.read_text())!r})'
-                adapter+=(', ' if adapter else '')+f'**{context!r}'
+                adapter+=(', ' if adapter else '')+f'sleep=lambda _: None, **{context!r}'
                 (target / 'check.py').write_text('import json\nfrom converted import Program\n'
                                                +setup+f'print(json.dumps(Program({adapter}).run()))\n')
                 process = subprocess.run([sys.executable, 'check.py'], cwd=target, capture_output=True, text=True)
@@ -112,7 +114,7 @@ class RuntimePortabilityTests(unittest.TestCase):
         worker=translate('PROGRAM WORKER VAR n: INTEGER BEGIN n=1 PAUSE n=2 END WORKER')
         with tempfile.TemporaryDirectory() as folder:
             target=Path(folder);package=target/'karel2py';package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py'):
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py'):
                 shutil.copyfile(ROOT/'karel2py'/name,package/name)
             (target/'observer.py').write_text(observer.python_source,encoding='utf-8')
             (target/'worker.py').write_text(worker.python_source,encoding='utf-8')

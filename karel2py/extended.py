@@ -241,6 +241,7 @@ class PortBank:
         if comments is not None and type(comments) is not dict: raise ValueError('Port comments must be an address mapping')
         if type(simulated) not in (list,tuple,set): raise ValueError('Simulated ports must be a collection of addresses')
         self.counts={str(k).upper():v for k,v in counts.items()}; self.values={}
+        self._pulses={};self._polling_pulses=False
         if any(k not in PORT_TYPES or type(v) is not int or not 1<=v<=32767 for k,v in self.counts.items()): raise ValueError('Explicit valid port kinds/counts required')
         if type_codes is not None and type(type_codes) is not dict: raise ValueError('Port type codes must be an INTEGER-to-kind mapping')
         self.type_codes={}; self.comments={}; self.simulated=set()
@@ -262,14 +263,21 @@ class PortBank:
         with rt._numeric_scope('pythonic'): value=rt.checked((PORT_TYPES[kind],),value)
         if kind in ('GIN','GOUT') and value<0: fail('Group ports require nonnegative INTEGER values')
         self.values[kind,number]=value
+        self._pulses.pop((kind,number),None)
     def read(self,kind,number,line=None):
+        self.poll_pulses(line)
         number=runtime().integer(number,line)
         if (kind,number) not in self.values: fail('Port has no supplied value or is outside its bank',line)
         return self.values[kind,number]
     def write(self,kind,number,value,line=None):
         if kind not in OUTPUT_PORTS and (kind,number) not in self.simulated: fail('Translated programs cannot assign an input port unless it is simulated',line)
         self.update(kind,number,value)
-    def snapshot(self): return self.values.copy()
+    def snapshot(self): self.poll_pulses();return self.values.copy()
+    def poll_pulses(self,line=None):
+        from .pulses import poll
+        return poll(self,line)
+    @property
+    def pending_pulses(self): return len(self._pulses)
 
     def indirect(self,name,args,line=None):
         rt=runtime()
@@ -282,6 +290,7 @@ class PortBank:
         elif name=='GET_PORT_CMT': value=self.comments.get(key,'')
         elif name=='SET_PORT_CMT': self.comments[key]=rt.ascii_string(args[2],line)[:16]; args[-1].set(0,line); return
         elif name=='GET_PORT_VAL':
+            self.poll_pulses(line)
             if key not in self.values: args[-1].set(1,line); return
             value=self.values[key]
             try: value=port_value(value,args[2].spec[0],line)

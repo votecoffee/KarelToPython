@@ -1,0 +1,9 @@
+PROGRAM PULSE_OVERRIDE
+VAR before,after: BOOLEAN
+BEGIN
+  -- A later write cancels this long pulse immediately.
+  PULSE DOUT[1] FOR 86400000 NOWAIT
+  before=DOUT[1]
+  DOUT[1]=TRUE
+  after=DOUT[1]
+END PULSE_OVERRIDE

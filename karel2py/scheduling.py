@@ -177,10 +177,15 @@ class TaskScheduler:
         program._state._lifecycle['CONTINUE']=program._state._lifecycle.get('CONTINUE',0)+1
         if powerup: program._state._lifecycle['POWERUP']=program._state._lifecycle.get('POWERUP',0)+1
     def powerup(self,name): self.continue_task(name,powerup=True)
+    def _pulse_banks(self):
+        return {program._state.execution.ports for program in self.tasks.values() if program._state.execution.ports is not None}
+    def _pulse_deadlines(self):
+        return [pulse.deadline for bank in self._pulse_banks() for pulse in bank._pulses.values() if pulse.scheduler is self]
     def stop(self,name):
         name=name.upper(); self.tasks[name].stop(); self.waiting.pop(name,None)
     def step(self):
         runtime=rt(); progressed=False
+        for bank in self._pulse_banks(): bank.poll_pulses()
         for name,program in tuple(self.tasks.items()):
             state=program._state
             if state.task_state=='waiting':
@@ -206,7 +211,9 @@ class TaskScheduler:
                 self.errors[name]=exc; raise
             finally: state._driving=False
         self.now_us+=self.quantum_us
-        if not progressed and self.waiting: self.now_us=max(self.now_us,min(self.waiting.values()))
+        deadlines=[*self.waiting.values(),*self._pulse_deadlines()]
+        if not progressed and deadlines: self.now_us=max(self.now_us,min(deadlines))
+        for bank in self._pulse_banks(): bank.poll_pulses()
         return progressed
     def run(self,*,max_cycles=100000):
         if self._running: raise rt().KarelRuntimeError('Scheduler cannot be driven recursively')
@@ -214,7 +221,8 @@ class TaskScheduler:
         self._running=True
         try:
             for _ in range(max_cycles):
-                if not any(program._state.task_state in ('running','waiting') for program in self.tasks.values()): return self.snapshot()
+                for bank in self._pulse_banks(): bank.poll_pulses()
+                if not any(program._state.task_state in ('running','waiting') for program in self.tasks.values()) and not self._pulse_deadlines(): return self.snapshot()
                 self.step()
             raise rt().KarelRuntimeError('Scheduler cycle budget exceeded')
         finally: self._running=False

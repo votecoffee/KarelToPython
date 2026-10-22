@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR before,after: BOOLEAN
+ROUTINE trigger FROM LIB
+BEGIN
+  trigger()
+  before=DOUT[1]
+  DELAY 20
+  after=DOUT[1]
+END MAIN

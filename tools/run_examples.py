@@ -15,6 +15,19 @@ def read_json(path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def service_snapshot(services):
+    observed = {}
+    for kind in ('strings','positions','ports','files','semaphores'):
+        service=getattr(services,kind)
+        if service is None: continue
+        observed[kind]={(':'.join(str(part) for part in key) if type(key) is tuple else str(key)):
+                        ({'hex':value.hex()} if type(value) is bytes else snapshot_value(value))
+                        for key,value in service.snapshot().items()}
+    if services.errors is not None: observed['errors']=services.errors.snapshot()
+    if services.calendar is not None: observed['calendar']=services.calendar.to_config()
+    return observed
+
+
 def run_example(source, *, inject_write=False):
     name = source.stem
     fixture = source.parent
@@ -62,15 +75,7 @@ def run_example(source, *, inject_write=False):
         assert not registers_expected.exists(), name + ': register expectation requires explicit initial context'
     services_expected = fixture / f'{name}.services.expected.json'
     if services is not None:
-        observed = {}
-        for kind in ('strings','positions','ports','files','semaphores'):
-            service=getattr(services,kind)
-            if service is None: continue
-            observed[kind]={(':'.join(str(part) for part in key) if type(key) is tuple else str(key)):
-                            ({'hex':value.hex()} if type(value) is bytes else snapshot_value(value))
-                            for key,value in service.snapshot().items()}
-        if services.errors is not None: observed['errors']=services.errors.snapshot()
-        if services.calendar is not None: observed['calendar']=services.calendar.to_config()
+        observed = service_snapshot(services)
         assert observed == read_json(services_expected), name + ': offline service state'
     else:
         assert not services_expected.exists(), name + ': service expectation requires explicit initial context'
@@ -109,12 +114,18 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 105, 'Update the expected example count when adding examples'
+    assert count == 107, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==2, 'Update the expected project count when adding projects'
+    assert len(projects)==3, 'Update the expected project count when adding projects'
     for folder in projects:
-        instance=load_project(folder).instantiate()
+        initial=folder/'services.initial.json'
+        services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
+        instance=load_project(folder).instantiate(context=services)
         assert instance.run('MAIN')==read_json(folder/'expected.json'), folder.name+': linked project snapshot'
+        expected_services=folder/'services.expected.json'
+        if services is not None:
+            assert service_snapshot(services)==read_json(expected_services), folder.name+': service state'
+        else: assert not expected_services.exists(), folder.name+': service state requires context'
         print('PASS '+folder.name+' (linked source project)')
     print(f'{count} examples and {len(projects)} linked projects passed; unsupported motion rejected; no generated files written')
     return 0
