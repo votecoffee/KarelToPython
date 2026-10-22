@@ -1457,7 +1457,7 @@ class Emitter:
                     routine.may_clock = True
                 if isinstance(node,Expr) and node.kind=='call' and self.mode=='pythonic' and node.value in ex.PROCEDURES.keys()|ex.FUNCTIONS.keys() and node.value not in self.routines:
                     routine.may_services=True
-                    signature=ex.PROCEDURES.get(node.value,ex.FUNCTIONS.get(node.value,((),None))[0])
+                    signature=ex.signature_for(node.value,len(node.args))
                     for argument,(mode,_) in zip(node.args,signature):
                         if mode not in ('o','r','m'): continue
                         name=self.root_name(argument)
@@ -2023,8 +2023,9 @@ class Emitter:
 
     def service_call(self,expr):
         signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
-        minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST)
+        minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST or expr.value in ex.OPTIONAL_GROUP)
         if not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
+        signature=ex.signature_for(expr.value,len(expr.args))
         self.check_for_call(expr.token)
         if expr.value=='SET_VAR' and self.active_counters: self.error('E_FOR_COUNTER','SET_VAR cannot indirectly write an active FOR counter',expr.token)
         codes=[]
@@ -2440,7 +2441,7 @@ class Emitter:
                     if routine:
                         if name in routine.global_writes: return True
                         if any(token.value in routine.parameter_writes and self.root_name(value) == name for (token, _), value in zip(routine.parameters, action.args)): return True
-                    signature = ex.PROCEDURES.get(action.value, ex.FUNCTIONS.get(action.value, ((), None))[0])
+                    signature = ex.signature_for(action.value,len(action.args))
                     if any(mode in ('o', 'r','m') and self.root_name(value) == name for value, (mode, _) in zip(action.args, signature)): return True
         return False
 
@@ -3477,6 +3478,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Optional bank comments, port type_codes/simulated flags and per-task arguments survive context JSON save/load; legacy context shape retained when absent',
         boundary='No controller discovery, native port enums, physical simulation/mode/assignment, teach-pendant acquisition or controller acceptance; strict mode deferred',
         guide='docs/io-and-call-parameters.md',controller_validated=False)
+    report['register_lifecycle_policy']=dict(
+        procedures=['POS_REG_TYPE','CLR_POS_REG','CLR_PORT_SIM'],
+        representation='Stored position representation codes: POSITION 1, XYZWPR 2, XYZWPREXT 6, JOINTPOS 9; axes are stored joint width, three extended slots, or portable zero for plain Cartesian types',
+        group='POS_REG_TYPE accepts explicit group or omits the second argument; omission uses the root caller group, with group 1 when no robot/source group exists',
+        clear='CLR_POS_REG removes one group or every configured group when group=0; valid absent entries succeed; other registers, comments and existing copies remain unchanged',
+        simulation='CLR_PORT_SIM removes the mapped address simulation flag, preserving values and comments; unsimulated inputs reject subsequent indirect source writes until simulated again',
+        status='Portable 0 success, 1 absent register, 2 invalid address/group; failed introspection preserves representation outputs; checked disjoint exact INTEGER outputs and source-order evaluation',
+        boundary='Explicit offline banks and flags only; stored widths and three external slots do not infer physical axes; no live acquisition, hardware mode change, native alarms or controller acceptance',
+        guide='docs/register-lifecycle.md',controller_validated=False)
     report['current_robot_policy']=dict(
         functions=['CURPOS','CURJPOS','CURR_PROG'],
         context='Explicit RobotState position and/or complete joints per robot group; caller updates atomically; no pose/joints or live acquisition defaults',

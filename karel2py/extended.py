@@ -35,7 +35,9 @@ PROCEDURES = {
     'GET_PORT_VAL': (I,I,arg('PORT_VALUE','o'),OI), 'SET_PORT_VAL': (I,I,arg('PORT_VALUE'),OI),
     'GET_PORT_CMT': (I,I,OS,OI), 'SET_PORT_CMT': (I,I,S,OI),
     'GET_PORT_SIM': (I,I,OI,OI), 'SET_PORT_SIM': (I,I,arg('PORT_VALUE'),OI),
+    'CLR_PORT_SIM': (I,I,OI),
     'GET_TPE_PRM': (I,OI,OI,arg('REAL','o'),OS,OI),
+    'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
     'GET_VAR': (arg('INTEGER','o'),S,S,OA,OI),
@@ -73,9 +75,18 @@ FUNCTIONS = {
     'MIRROR': ((arg('POSE'),arg('POSE'),B),('XYZWPREXT',)),
 }
 OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS'}
+OPTIONAL_GROUP = {'POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
 OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT'}
+
+
+def signature_for(name,arity):
+    """Match source arguments when an optional group occurs before outputs."""
+    signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
+    if name in OPTIONAL_GROUP and arity==len(signature)-1:
+        index=OPTIONAL_GROUP[name]; return signature[:index]+signature[index+1:]
+    return signature
 
 
 def matches(spec, kind):
@@ -205,6 +216,18 @@ class PositionRegisters:
         with rt._numeric_scope('pythonic'): value=rt.checked(value.spec,value)
         if group not in self.groups or not 1<=number<=self.count: return 2
         self.values[group,number]=value; return 0
+    def describe(self,number,group=1,line=None):
+        rt=runtime(); number=rt.integer(number,line); group=rt.integer(group,line)
+        code,value=self.read(number,group)
+        if code: return code,None,None
+        kind=value.spec[0]
+        axes=rt.joint_width(value.spec) if kind=='JOINTPOS' else 3 if kind=='XYZWPREXT' else 0
+        return 0,{'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'JOINTPOS':9}[kind],axes
+    def clear(self,number,group=1,line=None):
+        rt=runtime(); number=rt.integer(number,line); group=rt.integer(group,line)
+        if not 1<=number<=self.count or (group!=0 and group not in self.groups): return 2
+        for selected in self.groups if group==0 else (group,): self.values.pop((selected,number),None)
+        return 0
     def snapshot(self): return deepcopy(self.values)
 
 
@@ -251,6 +274,7 @@ class PortBank:
         code,number=(rt.integer(value,line) for value in args[:2]); kind=self.type_codes.get(code)
         if kind not in self.counts or not 1<=number<=self.counts[kind]: args[-1].set(2,line); return
         key=kind,number
+        if name=='CLR_PORT_SIM': self.simulated.discard(key); args[-1].set(0,line); return
         if name=='GET_PORT_SIM': value=int(key in self.simulated)
         elif name=='GET_PORT_CMT': value=self.comments.get(key,'')
         elif name=='SET_PORT_CMT': self.comments[key]=rt.ascii_string(args[2],line)[:16]; args[-1].set(0,line); return
@@ -848,6 +872,9 @@ class ExecutionContext:
         rt=runtime(); args=list(arguments)
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS') else 0 if name=='SET_FILE_ATR' else 1)
+        if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
+            group=rt.task_root(state).robot_group
+            args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
         if name=='CURR_PROG': return rt.checked(('STRING',12),state.program_name,line)
@@ -858,7 +885,7 @@ class ExecutionContext:
             for reference,mask in zip(args[:2],(robot.current.axis_limit_mask,robot.current.overtravel_mask)):
                 if type(reference) is rt.Reference: reference.set(mask,line)
             return value
-        if name in ('GET_PORT_VAL','SET_PORT_VAL','GET_PORT_CMT','SET_PORT_CMT','GET_PORT_SIM','SET_PORT_SIM'):
+        if name in ('GET_PORT_VAL','SET_PORT_VAL','GET_PORT_CMT','SET_PORT_CMT','GET_PORT_SIM','SET_PORT_SIM','CLR_PORT_SIM'):
             return self.require('ports',line).indirect(name,args,line)
         if name in {f'{action}_{kind}_CMT' for action in ('GET','SET') for kind in ('REG','PREG','SREG')}:
             bank=state.registers if '_REG_' in name else self.require('positions' if '_PREG_' in name else 'strings',line)
@@ -918,6 +945,13 @@ class ExecutionContext:
                 code,value=bank.read(number)
                 if code==0: args[1].set(value,line)
             else: code=bank.write(number,args[1])
+            args[-1].set(code,line); return
+        if name in ('POS_REG_TYPE','CLR_POS_REG'):
+            bank=self.require('positions',line)
+            if name=='CLR_POS_REG': code=bank.clear(args[0],args[1],line)
+            else:
+                code,kind,axes=bank.describe(args[0],args[1],line)
+                if code==0: args[2].set(kind,line); args[3].set(axes,line)
             args[-1].set(code,line); return
         if name in ('GET_POS_REG','GET_JPOS_REG','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
             bank=self.require('positions',line); number=args[0]; group=args[-1]
