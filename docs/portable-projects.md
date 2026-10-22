@@ -11,6 +11,8 @@ procedures and the [semantic ledger](semantics/extended_service_semantics.json)
 retains source provenance and unresolved behavior.
 Version 0.84.0 adds [current robot snapshots and program queries](current-robot-state.md),
 including state-only contexts and current data alongside the existing models.
+Version 0.85.0 adds [joint interoperability](joint-interoperability.md), limits-only
+persistence and consistent updates to loaded-model frame/tool context.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

@@ -1,0 +1,12 @@
+PROGRAM LIMIT_ONLY
+VAR ready: BOOLEAN
+    status: INTEGER
+ROUTINE check: BOOLEAN
+VAR joints: JOINTPOS
+BEGIN
+  joints=GET_JPOS_REG(1,status)
+  RETURN J_IN_RANGE(joints)
+END check
+BEGIN
+  ready=check()
+END LIMIT_ONLY

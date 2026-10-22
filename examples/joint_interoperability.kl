@@ -1,0 +1,24 @@
+PROGRAM JOINT_LINK
+VAR x,y: REAL
+    ready: BOOLEAN
+    status: INTEGER
+ROUTINE convert: REAL
+VAR frame,point: POSITION
+    joints,result: JOINTPOS
+    cfg: CONFIG
+    external: ARRAY[3] OF REAL
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  frame=POS(0,0,0,0,0,0,cfg)
+  joints=GET_JPOS_REG(1,status)
+  ready=J_IN_RANGE(joints) AND J_IN_RANGE(CURJPOS(0,0))
+  JOINT2POS(joints,frame,frame,0,point,cfg,external,status)
+  POS2JOINT(joints,point,frame,frame,0,cfg,external,result,status)
+  ready=ready AND J_IN_RANGE(result)
+  SET_JPOS_REG(2,result,status)
+  y=point.location.y
+  RETURN point.location.x
+END convert
+BEGIN
+  x=convert()
+END JOINT_LINK

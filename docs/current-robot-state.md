@@ -57,6 +57,9 @@ translator. Supplied values occupy the first slots; unused slots are zero.
 The stored snapshot retains its original width. Padding is a portable convention,
 not a claim that additional physical axes exist. Assignment to a narrower
 JOINTPOS declaration still requires an explicit supported conversion.
+Since 0.85.0, model conversions and explicit range contexts accept this padded
+form when unused slots are zero. GET_JPOS_REG uses the same padding convention.
+See [joint interoperability](joint-interoperability.md).
 
 ## Mask outputs and groups
 

@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.84.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.85.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -15,7 +15,7 @@ source-located error. Strict mode remains a future milestone.
 | --- | --- | --- |
 | `GET_STR_REG`, `SET_STR_REG` | `StringRegisters` dictionary | Explicit count and ASCII capacity; reads copy and truncate to destination capacity. |
 | `GET_POS_REG`, `SET_POS_REG`, `SET_EPOS_REG` | `PositionRegisters` keyed by group and number | Complete independent Cartesian values; getter returns XYZWPREXT. |
-| `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter requires nine-axis JOINTPOS; setters retain the declared width. No implicit pose/joint conversion. |
+| `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter pads complete narrow joints to nine slots; stored width is retained. No implicit pose/joint conversion. |
 | `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT` | `PortBank` Boolean values | Host supplies inputs; translated assignments write output kinds only. |
 | `GIN/GOUT`, `AIN/AOUT` | Nonnegative checked `int`, finite `float` | Explicit counts and values; no zero-filled or hardware defaults. Analog float values are a portable choice. |
 | `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static global paths such as `PARTS[2].VALUE`; foreign programs use attached namespaces or explicit bindings. No Python evaluation of paths. |
@@ -242,6 +242,8 @@ DH-based Cartesian evaluation. Host updates and grouped state persist as typed
 JSON. CURR_PROG names the executing module. See
 [current robot state](current-robot-state.md) for mask handling, unused joint
 slots, caller groups and the boundary between supplied and measured state.
+See [joint interoperability](joint-interoperability.md) for composing those
+values with model conversions and range checks, plus persisted frame/tool updates.
 
 Whole assignments convert POSITION, XYZWPR and XYZWPREXT. Widening fills three
 external-axis fields with zero; narrowing drops them. Routine interfaces remain

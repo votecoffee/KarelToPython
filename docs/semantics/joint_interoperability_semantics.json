@@ -1,0 +1,33 @@
+{
+  "version": "0.85.0",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored interoperability tests extending existing offline current-state and service contracts; no controller execution",
+  "sources": [
+    {"kind":"repository_contract","source":"current_robot_semantics.json","topic":"CURJPOS nine-slot results, supplied current state, groups and model-derived pose"},
+    {"kind":"repository_contract","source":"extended_service_semantics.json","topic":"Joint registers, model conversion signatures, explicit limits and loaded frame/tool context"}
+  ],
+  "implemented": {
+    "inputs":"Exact configured joint width or complete JOINTPOS9 with zero-only unused slots, normalized at model/limit boundaries",
+    "outputs":"GET_JPOS_REG pads narrow stored joints without modifying bank representation; model POS2JOINT writes its exact width or padded nine slots",
+    "validation":"Reject nonzero/uninitialized/nonfinite/Boolean padding, other widths and invalid output shapes before operation outputs; normal limit checks retained",
+    "limits":"One-to-nine-axis explicit limits-only contexts persist with or without current state; DH limits remain in model rows",
+    "frames":"Loaded-model reachability uses current frame/tool selection; valid host map changes/removals and selections survive save/load",
+    "groups":"All robot queries/conversions/range checks use root caller group during linked routines"
+  },
+  "portable_choices": [
+    "Nine-slot padding is an authored Pythonic convention rather than a native encoding or evidence of additional physical axes",
+    "Only exact model/limit width or JOINTPOS9 is accepted; nonzero extra axes are not discarded",
+    "No global implicit JOINTPOS assignment conversion; custom callbacks without a model retain exact output width",
+    "Frame/tool IDs are portable 0..32767 integers; stored matrices and active selections are validated before persistence",
+    "Unchanged input representations and omitted default identity entries keep their original configuration shape",
+    "Bounded model math and limit checks do not establish collision clearance or native reachability"
+  ],
+  "remaining": [
+    "Native unused-axis encodings, external ABI and grouped storage layouts",
+    "Robot-specific calibration, collisions, complete IK branch search and certified reachability",
+    "Physical acquisition/motion, strict mode and controller/runtime acceptance"
+  ],
+  "verification": ["tests/test_joint_interoperability.py","tests/test_current_robot_state.py","tests/test_broad_services.py","examples/joint_interoperability.kl","examples/joint_limits.kl"],
+  "guide": "../joint-interoperability.md"
+}

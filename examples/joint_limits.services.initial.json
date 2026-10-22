@@ -1,0 +1,1 @@
+{"robot":{"joint_limits":[[-10,10],[-20,20]]},"positions":{"count":1,"values":{"1":{"type":["JOINTPOS",2],"value":[5.0,15.0]}}}}

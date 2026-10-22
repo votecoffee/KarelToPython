@@ -118,3 +118,5 @@ The 0.83.0 [I/O and argument ledger](io_parameter_semantics.json) adds explicit
 indirect port mappings, simulation, independent comments and per-task arguments.
 The 0.84.0 [current-state ledger](current_robot_semantics.json) records supplied
 robot snapshots, model-derived Cartesian queries, mask/group choices and CURR_PROG.
+The 0.85.0 [joint interoperability ledger](joint_interoperability_semantics.json)
+records padded model/limit boundaries, register reads and current frame/tool persistence.

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.85.0 - 2026-10-22
+
+- Accept exact model/limit width or JOINTPOS9 with zero-only unused slots across
+  forward/inverse conversion and joint range checks. Reject discarded nonzero,
+  partial or invalid axes. Model inverse outputs support model width or nine slots.
+- Pad narrow joint-register reads without changing stored representation, so
+  current queries, registers, conversion and range checks work together.
+- Persist explicit limits-only contexts and latest valid model frame/tool maps,
+  removals and selections. Reachability follows current selections, and linked
+  conversions/range checks use the caller's group consistently.
+- Add two authored examples, 33 integration tests, report policy and semantic
+  notes. Native unused-axis encoding, physical motion and strict remain future.
+
 ## 0.84.0 - 2026-10-22
 
 - Add RobotState with complete supplied pose/joints, defensive copies, atomic host

@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.84.0**. It is a
+tool are named **karel2py**. The current implementation is **0.85.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -241,6 +241,11 @@ CURPOS/CURJPOS read supplied current robot snapshots or model-derived Cartesian
 state, with explicit groups and mask outputs. CURR_PROG reports the executing
 module. See [current robot state](docs/current-robot-state.md) for host updates,
 frame/tool handling, joint padding and persistence.
+
+Padded joint values now compose across current queries, registers, model
+conversions and range checks. Limits-only contexts can persist, and loaded-model
+frame/tool updates remain consistent across queries and save/load. See
+[joint interoperability](docs/joint-interoperability.md).
 
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the

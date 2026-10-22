@@ -303,6 +303,11 @@ accepts `current=RobotState(...)`; typed context JSON can contain `robot.current
 with or without a DH model. See [current robot state](current-robot-state.md) for
 mask discard arguments, group selection, host updates and persisted snapshots.
 
+`joint_interoperability_policy` describes exact/padded joint inputs, model output
+widths, serialized explicit limits and latest model frame/tool state. See
+[joint interoperability](joint-interoperability.md) for conversions, validation
+and the distinction between configured active axes and unused result slots.
+
 `context=ExecutionContext(...)` adds strings, positions, ports, variables, files,
 robot adapters, external callback bindings and a task registry. Generated scripts
 accept `--context` JSON for serializable service state. See the
