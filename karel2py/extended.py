@@ -462,6 +462,9 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
         state.task_state='paused'; yield dict(kind='pause',line=line)
         state._pause_requested=False; state.task_state='running'
         if state._abort_requested: state.abort(state._abort_request_line or line)
+        # Recovery events must be visible even when PAUSE was the last source
+        # statement, rather than waiting for a following statement to scan.
+        yield from checkpoint(state,line)
     if state._scheduler is not None and not _defer_control: yield dict(kind='timeslice',line=line)
 
 

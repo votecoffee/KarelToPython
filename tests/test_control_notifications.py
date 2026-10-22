@@ -213,6 +213,16 @@ class LifecycleAndLinkedControlTests(unittest.TestCase):
         p,_=compile_program('n=7',cooperative=True)
         with self.assertRaises(rt.KarelRuntimeError): p.powerup()
 
+    def test_powerup_after_final_pause_scans_before_completion(self):
+        p,_=compile_program('n=0 CONDITION[1]: WHEN POWERUP DO n=7 ENDCONDITION ENABLE CONDITION[1] PAUSE')
+        with self.assertRaises(rt.KarelPause): p.run()
+        self.assertEqual(p.powerup()['N'],7)
+
+    def test_continue_after_final_pause_scans_before_completion(self):
+        p,_=compile_program('n=0 CONDITION[1]: WHEN CONTINUE DO n=7 ENDCONDITION ENABLE CONDITION[1] PAUSE')
+        with self.assertRaises(rt.KarelPause): p.run()
+        self.assertEqual(p.resume()['N'],7)
+
     def test_caller_noabort_cancels_abort_inside_library(self):
         instance=translate_project({'a':source('LIB','',routines='ROUTINE halt BEGIN ABORT END halt'),'b':source('MAIN','CONDITION[1]: WHEN ABORT DO NOABORT ENDCONDITION ENABLE CONDITION[1] halt() n=7',routines='ROUTINE halt FROM LIB')}).instantiate()
         self.assertEqual(instance.run('MAIN')['MAIN']['values']['N'],7)
