@@ -115,6 +115,11 @@ report's `file_comparison_policy` covers ASCII records, binary offsets, bounded
 JSON reports and synchronous WRITE callbacks. See
 [file comparison and printing](file-comparison.md) for the complete contract.
 
+Whole JOINTPOS/Cartesian assignments call the supplied robot adapters with the
+selected frame/tool and root task group. The report records `kinematic_assignments`
+and `kinematic_assignment_policy`; service observations use KINEMATIC_ASSIGNMENT.
+See [kinematic assignments](kinematic-assignments.md) for seed, type and failure rules.
+
 ## CLI
 
 ```sh

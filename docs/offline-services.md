@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.89.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.90.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -46,6 +46,7 @@ source-located error. Strict mode remains a future milestone.
 | `MIRROR(point,plane,orient)` | Reflection about the plane frame's XZ plane | XYZWPREXT result; optional orientation reflection uses a documented proper-rotation convention. |
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
 | `JOINT2POS`, `POS2JOINT`, `IN_RANGE`, `J_IN_RANGE` | `RobotContext` adapters and supplied limits | Requires a supplied model or limits; no robot geometry, calibration or reachability is inferred. |
+| JOINTPOS/Cartesian whole assignment | Supplied forward/inverse model and selected frame/tool | Calling root group; inverse requires current-joint seed; no current-state update or physical motion. |
 | `CURPOS`, `CURJPOS`, `CURR_PROG` | Explicit current RobotState, optional configured DH math and executing module name | Independent results, optional groups and checked/discarded masks; no physical state acquisition. |
 
 See [file comparison and printing](file-comparison.md) for report format,

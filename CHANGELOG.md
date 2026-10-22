@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.90.0 - 2026-10-22
+
+- Add JOINTPOS to/from POSITION, XYZWPR and XYZWPREXT whole assignments through
+  supplied robot adapters/models, selected frame/tool and calling task group.
+- Reuse explicit kinematic checks, padding and limits. Inverse assignments require
+  supplied current joints as seed; source CONFIG/external metadata flows through.
+- Preserve destinations on failure, detach values before target selectors, retain
+  sticky abort and exact routine/RETURN/whole-array interfaces. Add source-located
+  service/report records, 37 tests, two examples and runtime-only coverage.
+- Document portable context/seed choices; strict/native behavior remains future.
+
 ## 0.89.0 - 2026-10-22
 
 - Add COMPARE_FILE over memory and rooted directory backends: ASCII differing

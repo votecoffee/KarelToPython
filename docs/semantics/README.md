@@ -128,3 +128,5 @@ The 0.88.0 [task inspection ledger](task_inspection_semantics.json) records
 directional lookup, live/caller-rooted state, supplied attributes and portable enums.
 The 0.89.0 [file comparison ledger](file_comparison_semantics.json) records
 closed named reads, portable comparison/report choices and synchronous printing.
+The 0.90.0 [kinematic assignment ledger](kinematic_assignment_semantics.json) records
+model-backed whole assignments, selected context, seed requirements and exact interfaces.

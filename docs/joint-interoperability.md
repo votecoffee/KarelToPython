@@ -5,6 +5,9 @@ interfaces. Bare JOINTPOS values have nine slots in this translator; a supplied
 model or limit context can have fewer active axes. These are explicit offline
 conventions, without a native unused-axis or controller-equivalence claim.
 
+Version 0.90.0 adds [whole joint/Cartesian assignments](kinematic-assignments.md)
+using these same model checks and explicitly supplied context.
+
 ## Joint widths and unused slots
 
 Model JOINT2POS/POS2JOINT inputs and J_IN_RANGE accept either the exact configured

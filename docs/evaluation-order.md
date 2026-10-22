@@ -74,6 +74,10 @@ have effects even when an earlier numeric subscript is out of range.
 Conversion procedures evaluate inputs and output-reference expressions in source
 order before entering the procedure. Bare aggregate inputs remain live storage,
 so later reference-index functions can change their contents before conversion.
+Model-backed [joint/Cartesian assignments](kinematic-assignments.md) finish
+conversion and detach the RHS before evaluating the target selector. A failed
+conversion does not evaluate that selector; completed source/host effects remain.
+
 UNPOS overlap checks, exact output types and explicit joint-axis context still
 apply before output writes. An index function's earlier effects are retained if
 the subsequent procedure fails.

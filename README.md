@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.89.0**. It is a
+tool are named **karel2py**. The current implementation is **0.90.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -264,6 +264,10 @@ COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
 report to an open FILE. PRINT_FILE sends validated ASCII to the existing output
 recorder or callback. Both use explicit memory or directory file context. See
 [file comparison and printing](docs/file-comparison.md).
+
+Whole JOINTPOS/Cartesian assignments use supplied robot models, selected frames
+and tools. Inverse assignments require supplied current joints as a seed. See
+[kinematic assignments](docs/kinematic-assignments.md) for the context and type rules.
 
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the

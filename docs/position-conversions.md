@@ -3,6 +3,7 @@
 Version 0.79.0 extends the base contract below with XYZWPREXT operands and
 explicit external-axis metadata. The [offline service guide](offline-services.md)
 defines the added conversions, propagation rules and remaining boundaries.
+Version 0.90.0 adds separate [model-backed joint/Cartesian assignments](kinematic-assignments.md).
 
 Since 0.71.0, whole-value assignments can convert between XYZWPR and POSITION.
 This gives POSITION explicit orientation data while retaining its protected
@@ -107,12 +108,14 @@ create conversion entries.
 
 The reviewed [reference edition](references.md), one-based PDF pages 79 and 481,
 permits positional assignment across representations and describes POSITION's
-matrix fields and read/write access. This implementation covers only the
-POSITION/XYZWPR pair. The column mapping, Euler representation, proper-matrix
+matrix fields and read/write access. The base contract described here covers the
+POSITION/XYZWPR pair; the later XYZWPREXT and kinematic extensions are linked above.
+The column mapping, Euler representation, proper-matrix
 guard and tolerance are explicit portable choices checked against independent
 quaternion geometry.
 
-There is no implicit conversion for XYZWPREXT, JOINTPOS, VECTOR or CONFIG, no
-external-axis handling or kinematics, and no native compiler/controller or
-configuration-validity claim. Strict mode remains future work and retains its
+VECTOR/CONFIG and routine/RETURN/whole-array interfaces retain exact types.
+JOINTPOS assignments require the explicit model context described above. There
+is no native compiler/controller or configuration-validity claim. Strict mode
+remains future work and retains its
 previous internal assignment guards.
