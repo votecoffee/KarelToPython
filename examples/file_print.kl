@@ -1,0 +1,5 @@
+PROGRAM FILE_PRINT
+VAR status: INTEGER
+BEGIN
+  PRINT_FILE('message.txt',FALSE,status)
+END FILE_PRINT

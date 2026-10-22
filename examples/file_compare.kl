@@ -1,0 +1,7 @@
+PROGRAM FILE_COMPARE
+VAR report: FILE different,status: INTEGER
+BEGIN
+  OPEN FILE report ('W','changes.jsonl')
+  COMPARE_FILE('left.txt','right.txt',report,TRUE,different,status)
+  CLOSE FILE report
+END FILE_COMPARE

@@ -1457,6 +1457,7 @@ class Emitter:
                     routine.may_clock = True
                 if isinstance(node,Expr) and node.kind=='call' and self.mode=='pythonic' and node.value in ex.PROCEDURES.keys()|ex.FUNCTIONS.keys() and node.value not in self.routines:
                     routine.may_services=True
+                    if node.value=='PRINT_FILE': routine.may_write=True
                     signature=ex.signature_for(node.value,len(node.args))
                     for argument,(mode,_) in zip(node.args,signature):
                         if mode not in ('o','r','m'): continue
@@ -3478,6 +3479,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Optional bank comments, port type_codes/simulated flags and per-task arguments survive context JSON save/load; legacy context shape retained when absent',
         boundary='No controller discovery, native port enums, physical simulation/mode/assignment, teach-pendant acquisition or controller acceptance; strict mode deferred',
         guide='docs/io-and-call-parameters.md',controller_validated=False)
+    report['file_comparison_policy']=dict(
+        procedures=['COMPARE_FILE','PRINT_FILE'],
+        inputs='Closed named input files from explicit MemoryFiles or rooted DirectoryFiles; bounded detached byte reads; busy/missing inputs preserve comparison count and report',
+        ascii='Compare same-numbered ASCII records; normalize CR/LF/CRLF and ignore final-terminator presence; count unequal or missing records without line alignment',
+        binary='Return one-based first unequal byte or prefix EOF position; zero for identical inputs',
+        report='ASCII JSON Lines summary and per-record differences written once at the captured writable FILE cursor, respecting append, ATR_EOL, size bounds and interactive flush; result must belong to input backend',
+        printing='Validate entire ASCII file before output; preserve original bytes in <=254-character WRITE recorder/callback chunks; both nowait values execute synchronously',
+        budget='Charge each ASCII record, each 4096-byte binary block and each print chunk to the ordinary step budget; handlers do not scan within these synchronous operations',
+        status='Portable 0 success, 1 missing input, 3 open/busy input; invalid context/path/ASCII/report capacity or callback errors raise; prior completed print callbacks remain effective',
+        boundary='No native comparison/report/alignment/offset encoding, printer/device discovery, asynchronous execution or controller acceptance; strict remains future work',
+        guide='docs/file-comparison.md',controller_validated=False)
     report['task_inspection_policy']=dict(
         procedure='GET_TSK_INFO(task_name,task_no,attribute,value_int,value_str,status)',
         constants=dict(rt.TASK_CONSTANTS),

@@ -121,7 +121,7 @@ class DirectoryFiles:
 
     def _key(self,name): return self._path(name).relative_to(self.root).as_posix()
 
-    def _busy(self,key): return any(handle.owner is self and handle.name==key for handle in self.handles)
+    def _busy(self,key): return any(handle.owner is self and os.path.normcase(handle.name)==os.path.normcase(key) for handle in self.handles)
 
     def open(self,handle,mode,name,line=None):
         if handle.owner is not None: raise rt().KarelRuntimeError('FILE is already open',line)
@@ -160,6 +160,16 @@ class DirectoryFiles:
     def read_bytes(self,handle,count,line=None): return self.memory.read_bytes(handle,count,line)
 
     def snapshot(self): return self.memory.snapshot()
+
+    def read_named(self,name):
+        key=self._key(name)
+        if self._busy(key): return 3,None
+        path=self._path(key)
+        if not path.exists(): return 1,None
+        if not path.is_file() or path.stat().st_size>self.limit: raise ValueError('Invalid file or file size limit exceeded')
+        with path.open('rb') as stream: data=stream.read(self.limit+1)
+        if len(data)>self.limit: raise ValueError('File size limit exceeded')
+        return 0,data
 
     def list_names(self,pattern='*'):
         # Validate the non-wildcard path components before traversing the selected root.

@@ -1,0 +1,29 @@
+{
+  "version":"0.89.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Supplied manual API forms and authored offline tests; no native file comparison or printing",
+  "sources":[
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[344,345],"topic":"COMPARE_FILE names, open writable result FILE, ASCII differing lines and binary first-difference example"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[484],"topic":"PRINT_FILE ASCII input, default output and unsupported nowait note"}
+  ],
+  "implemented":{
+    "backends":"Bounded detached closed-file reads from MemoryFiles or explicitly rooted DirectoryFiles; fresh disk bytes and no read-cache mutation",
+    "comparison":"Same-numbered ASCII records with CR/LF/CRLF normalization or one-based binary first unequal byte/EOF; zero when equal",
+    "report":"Compact ASCII JSON summary and per-record differences; one write after full validation, capacity and budget checks; normal FILE cursor, append and ATR_EOL semantics",
+    "printing":"Entire ASCII input validated before <=254-character WRITE recorder/callback chunks, preserving original newlines; synchronous for both nowait values",
+    "ownership":"Disjoint checked outputs, shared handle identity, protected FOR counters, source capture order, sticky abort and routine output-effect propagation"
+  },
+  "portable_choices":[
+    "ASCII comparison does not align lines; final terminator presence is ignored and a blank record differs from no record",
+    "Binary diff_count is a one-based first difference including prefix EOF, not a byte mismatch count; this base is not a native encoding claim",
+    "Report schema and ASCII escaping are package conventions, independent of proprietary controller report formats",
+    "Portable status 0 success, 1 missing input and 3 busy input; failure statuses preserve count/report; validation exceptions preserve pending outputs",
+    "Comparison results must use the input backend; no implicit cross-backend or operating-system file lookup",
+    "Print callbacks use ordinary output observations; completed earlier effects survive later failure and no callback retry occurs",
+    "One execution step per ASCII record, 4096-byte binary block or print chunk; no internal handler scan, cooperative yield or wall-time callback bound"
+  ],
+  "remaining":["Native report layout, line alignment, binary offsets/statuses, printer/device discovery, asynchronous spooling, physical PATH node byte layout, strict mode and native acceptance"],
+  "verification":["tests/test_file_comparison.py","tests/test_runtime_portability.py","examples/file_compare.kl","examples/file_print.kl"],
+  "guide":"../file-comparison.md"
+}

@@ -48,6 +48,7 @@ PROCEDURES = {
     'DELETE_NODE': (arg('PATH','r'),I,OI),
     'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
     'COPY_FILE': (S,S,B,B,OI), 'DELETE_FILE': (S,B,OI), 'RENAME_FILE': (S,S,B,OI),
+    'COMPARE_FILE': (S,S,arg('FILE'),B,OI,OI), 'PRINT_FILE': (S,B,OI),
     'FILE_LIST': (S,I,I,arg('STRING_ARRAY','r'),OI,OI),
     'INIT_QUEUE': (arg('QUEUE_TYPE','r'),),
     'APPEND_QUEUE': (I,arg('QUEUE_TYPE','r'),arg('INT_ARRAY','r'),OI,OI),
@@ -437,6 +438,11 @@ class MemoryFiles:
         if len(data)!=count: handle.status=1; fail('End of memory file',line)
         handle.position+=count; handle.status=0; return bytes(data)
     def snapshot(self): return {name:bytes(data) for name,data in self.files.items()}
+    def read_named(self,name):
+        self._check(name,b'')
+        if self._busy(name): return 3,None
+        if name not in self.files: return 1,None
+        data=bytes(self.files[name]);self._check(name,data);return 0,data
     def flush(self,handle,line=None): handle.require_open(line)
     def list_names(self,pattern='*'): return sorted(name for name in self.files if fnmatch.fnmatchcase(name,pattern))
     def copy(self,source,target,overwrite=False):
@@ -884,6 +890,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('COMPARE_FILE','PRINT_FILE'):
+            from .fileops import file_operation
+            return file_operation(state,name,args,line)
         if name=='GET_TSK_INFO':
             from .scheduling import get_task_info
             return get_task_info(state,args,line)

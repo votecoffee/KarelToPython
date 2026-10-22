@@ -62,14 +62,16 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_microseconds', 'ELAPSED', 35),
                     ('pythonic_numeric_registers', 'VALUE', 42),
                     ('calendar_clock', 'STAMP', 1482515548),
-                    ('calendar_reset', 'READBACK', -2145320960)]
+                    ('calendar_reset', 'READBACK', -2145320960),
+                    ('file_compare', 'DIFFERENT', 2),
+                    ('file_print', 'STATUS', 0)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'
@@ -108,7 +110,7 @@ class RuntimePortabilityTests(unittest.TestCase):
         worker=translate('PROGRAM WORKER VAR n: INTEGER BEGIN n=1 PAUSE n=2 END WORKER')
         with tempfile.TemporaryDirectory() as folder:
             target=Path(folder);package=target/'karel2py';package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py'):
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py'):
                 shutil.copyfile(ROOT/'karel2py'/name,package/name)
             (target/'observer.py').write_text(observer.python_source,encoding='utf-8')
             (target/'worker.py').write_text(worker.python_source,encoding='utf-8')
