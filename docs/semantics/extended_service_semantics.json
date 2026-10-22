@@ -1,5 +1,5 @@
 {
-  "version": "0.95.0",
+  "version": "0.96.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -135,5 +135,6 @@
   "initialization_queries": "initialization_query_semantics.json",
   "variable_inspection": "variable_inspection_semantics.json",
   "joint_geometry": "joint_geometry_semantics.json",
-  "program_listing": "program_listing_semantics.json"
+  "program_listing": "program_listing_semantics.json",
+  "pose_decomposition": "pose_decomposition_semantics.json"
 }

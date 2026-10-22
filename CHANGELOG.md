@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.96.0 - 2026-10-22
+
+- Extend Pythonic UNPOS to pose values, POSITION/XYZWPREXT, constructors, geometry
+  and typed routine/service results; decompose JOINTPOS through existing supplied
+  forward kinematics and selected root group/frame/tool.
+- Capture and validate the source before output selectors, permit source/output
+  aliases through an independent snapshot and retain exact, protected, disjoint
+  output guards. Preserve direct XYZWPR/XYZWPREXT components; POSITION uses the
+  established matrix/Euler convention. Validate external fields without adding
+  external-axis outputs or changing robot snapshots.
+- Support bare and zero-argument CURPOS/CURJPOS with both masks discarded,
+  preserving declared-name priorities and explicit mask/group forms.
+- Add 54 tests, two examples, policies and runtime-only coverage. Preserve the
+  conservative strict compiler/runtime contract and document Pythonic choices.
+
 ## 0.95.0 - 2026-10-22
 
 - Add PROG_LIST over attached KAREL Programs and explicit ProgramCatalog metadata
