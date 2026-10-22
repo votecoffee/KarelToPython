@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.95.0 - 2026-10-22
+
+- Add PROG_LIST over attached KAREL Programs and explicit ProgramCatalog metadata
+  with all six program types, type filters, star patterns, sorted bounded pages,
+  checked name/type formats and optional Pythonic cursor pagination.
+- Preserve complete output batches on capacity/option failures, clear unused
+  slots on success and persist explicit catalog metadata without loading code
+  or inferring program identities from files, variable bindings or callbacks.
+- Add 48 tests, two examples, report policies and runtime-only coverage. Document
+  the manual syntax/table discrepancy and portable directory/index choices;
+  retain older minimal runtime bundles. Strict mode remains future work.
+
 ## 0.94.0 - 2026-10-22
 
 - Accept JOINTPOS operands in colon, INV, FRAME, MIRROR, APPROACH, ORIENT and
