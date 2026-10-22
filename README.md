@@ -303,6 +303,11 @@ CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files
 through explicit memory or mapped directory backends, with batch preflight and
 documented late-failure behavior. See [file management](docs/file-management.md).
 
+I/O assignment/mode procedures stage settings against explicit physical-capacity
+metadata; module lookup uses a supplied catalog. The host applies pending settings
+at an explicit configuration boundary. Logical port values remain independent.
+See [I/O configuration](docs/port-configuration.md).
+
 PROG_LIST filters and pages attached programs and explicit catalog metadata,
 including program types, checked names and optional cursor pagination. See
 [program listing](docs/program-listing.md) for context setup and portable formats.

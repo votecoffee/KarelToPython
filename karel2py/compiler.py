@@ -3553,6 +3553,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['port_configuration_policy']=dict(
+        procedures=['GET_PORT_ASG','SET_PORT_ASG','GET_PORT_MOD','SET_PORT_MOD','IO_MOD_TYPE'],
+        context='Explicit PortBank configuration: physical capacities/directions, module catalog, active and pending settings; logical type_codes required except IO_MOD_TYPE',
+        assignment='Same-direction families; BOOLEAN batches of 1..8 individual points, group widths 1..32 bits, analog single points; preflight complete logical/physical spans before staging',
+        modes='Masks 0..3; complementary requires an odd BOOLEAN output and a following configured logical point',
+        lifecycle='SET stages pending settings; GET reads active settings; host PortBank.apply_configuration applies and clears all pending settings; task POWERUP events do not apply I/O configuration',
+        values='Configuration metadata does not acquire, invert, copy, complement, initialize or rescale logical/physical values, simulation flags or scheduled pulses',
+        status='Portable 0 success, 1 absent assignment/module, 2 invalid logical address/module coordinate, 3 invalid assignment/mode; missing configuration raises before outputs',
+        persistence='Typed contexts retain active/pending configuration; host snapshots are detached; legacy PortBank.snapshot remains logical values only',
+        boundary='No physical wiring/discovery, native code tables, reboot, controller alarm mapping or native GET-before-powerup equivalence; strict remains future work',
+        guide='docs/port-configuration.md',controller_validated=False)
     report['file_management_policy']=dict(
         procedures=['CHECK_NAME','MOVE_FILE'],
         names='CHECK_NAME accepts 1..36 ASCII letters/digits/underscores without extension/device; portable 0 valid and 2 invalid; no file backend or existence lookup; not a source-program grammar check',

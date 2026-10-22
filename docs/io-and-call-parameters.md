@@ -4,6 +4,10 @@ Version 0.83.0 extends the explicit offline service context with thirteen
 procedures. The implementations share existing banks and use ordinary Pythonic
 checks. They do not acquire controller values or change hardware configuration.
 
+Since 0.101.0, [I/O configuration](port-configuration.md) also supports assignment
+and mode inspection/staging plus explicit module lookup. Its topology and pending
+settings persist separately from the logical values described here.
+
 | KAREL | Pythonic implementation |
 | --- | --- |
 | GET_PORT_VAL / SET_PORT_VAL | Read/write the same PortBank storage used by DIN/DOUT and other port expressions. |

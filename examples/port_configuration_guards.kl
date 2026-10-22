@@ -1,0 +1,14 @@
+PROGRAM PORT_GUARDS
+VAR
+  mode,module_type,status: INTEGER
+  wrong_direction,span_error,mode_error,missing_module,missing_port: INTEGER
+BEGIN
+  SET_PORT_ASG(10,1,0,1,20,1,1,wrong_direction)
+  SET_PORT_ASG(20,8,0,1,20,1,2,span_error)
+  SET_PORT_MOD(20,2,2,mode_error)
+  mode=99
+  GET_PORT_MOD(20,1,mode,status)
+  module_type=99
+  IO_MOD_TYPE(0,2,module_type,missing_module)
+  GET_PORT_MOD(20,9,mode,missing_port)
+END PORT_GUARDS

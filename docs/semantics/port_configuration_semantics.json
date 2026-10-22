@@ -1,0 +1,31 @@
+{
+  "version":"0.101.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed I/O configuration signatures, spans, mode flags and deferred settings; authored offline topology, failure, evaluation, task/linkage and persistence tests",
+  "sources":[
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[403,404],"printed_pages":[353,354],"topic":"A.7.5 GET_PORT_ASG logical-to-physical assignment fields and group width"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[406,407],"printed_pages":[356,357],"topic":"A.7.8 GET_PORT_MOD reverse and complementary masks"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[446,447],"printed_pages":[396,397],"topic":"A.9.18 IO_MOD_TYPE rack/slot and explicit board types"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[543,544,547],"printed_pages":[493,494,497],"topic":"A.19.20 SET_PORT_ASG and A.19.23 SET_PORT_MOD; valid mapping direction, digital batches and next-power-up activation"}
+  ],
+  "implemented":{
+    "context":"PortBank explicit physical capacities/directions, module metadata, logical assignments/modes and pending settings",
+    "assignments":"Direction-compatible bounded spans; BOOLEAN batches 1..8 normalized per point, group widths 1..32 and single analog points",
+    "modes":"Masks 0..3; complementary requires an odd BOOLEAN output with a following configured logical point",
+    "lifecycle":"SET stages, GET reads active; host apply_configuration applies all pending rows and clears them; task POWERUP does not apply configuration",
+    "persistence":"Independent active/pending typed context save/load and detached host snapshots; legacy logical value snapshot shape preserved",
+    "failures":"Complete-batch preflight, exact disjoint outputs, once-only ordered argument evaluation and retained earlier effects"
+  },
+  "portable_choices":[
+    "All logical and physical type codes are explicitly supplied; no native enum discovery",
+    "GET reads active settings before host application; native read-before-power-up behavior is not claimed",
+    "Coordinates 0..32767, physical capacity 1..32767, group width at most 32 and analog width 1 bound portable metadata",
+    "Mode and mapping metadata does not acquire, copy, invert, complement, initialize or rescale logical/physical values",
+    "Physical span sharing is allowed as metadata; no physical ownership arbitration",
+    "Portable statuses 0 success, 1 assignment/module absent, 2 address/coordinate, 3 invalid mapping/mode; no native alarm mapping"
+  ],
+  "remaining":["Physical signal adapters and wiring semantics","Native enum/status tables","Controller reboot/configuration acceptance","Native GET-before-power-up equivalence","Serial GET_PORT_ATR/SET_PORT_ATR","Strict mode"],
+  "verification":["tests/test_port_configuration.py","tests/test_runtime_portability.py","examples/port_configuration.kl","examples/port_configuration_guards.kl"],
+  "guide":"../port-configuration.md"
+}

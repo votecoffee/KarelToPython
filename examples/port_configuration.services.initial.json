@@ -1,0 +1,12 @@
+{
+  "ports":{
+    "counts":{"DOUT":8,"GOUT":1},
+    "type_codes":{"20":"DOUT","40":"GOUT"},
+    "values":{"DOUT":{"1":true}},
+    "configuration":{
+      "physical":[{"rack":0,"slot":1,"type_code":20,"kind":"DOUT","count":64}],
+      "modules":[{"rack":0,"slot":1,"type":7}],
+      "assignments":[{"kind":"GOUT","number":1,"rack":0,"slot":1,"type_code":20,"start":1,"count":8}]
+    }
+  }
+}

@@ -86,7 +86,9 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('queue_transfer', 'N', 30),
                     ('queue_missing', 'MISSING_STATUS', 12311),
                     ('file_move', 'MOVE_STATUS', 0),
-                    ('file_move_guards', 'BUSY_STATUS', 3)]
+                    ('file_move_guards', 'BUSY_STATUS', 3),
+                    ('port_configuration', 'ACTIVE_MODE', 0),
+                    ('port_configuration_guards', 'WRONG_DIRECTION', 3)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

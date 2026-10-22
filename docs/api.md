@@ -397,6 +397,13 @@ retained effects on late failure. MemoryFiles and DirectoryFiles expose
 `move(specification, check=None)` with a keyword-only optional budget callback.
 See [file management](file-management.md).
 
+`port_configuration_policy` describes GET/SET_PORT_ASG, GET/SET_PORT_MOD and
+IO_MOD_TYPE: explicit topology, bounded spans/modes, portable statuses, deferred
+settings and logical-value independence. `PortBank(configuration=...)` accepts
+the same object as JSON `ports.configuration`; `bank.configuration` returns a
+detached snapshot and `bank.apply_configuration()` applies all pending settings.
+Task POWERUP events do not apply configuration. See [I/O configuration](port-configuration.md).
+
 `PROG_LIST` lists attached Programs and optional immutable
 `ExecutionContext(programs=ProgramCatalog(...))` metadata. Context JSON preserves
 explicit entries under `programs`. `program_listing_policy` records type filters,

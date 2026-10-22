@@ -26,6 +26,7 @@ source-located error. Strict mode remains a future milestone.
 | `UNPOS` | Checked pose-value decomposition | POSITION/XYZWPREXT, expressions and model-backed joints; independent source capture and disjoint outputs; see [pose decomposition](pose-decomposition.md). |
 | `GET/SET_PORT_VAL`, `GET/SET_PORT_SIM`, `GET/SET_PORT_CMT` | Shared PortBank values plus simulation/comment metadata | Explicit INTEGER type-code mapping; outputs or simulated inputs can be written; bounded scalar conversions. |
 | `CLR_PORT_SIM` | Remove a logical simulation flag | Retain last supplied value/comment; subsequent indirect input writes require simulation again. |
+| `GET/SET_PORT_ASG`, `GET/SET_PORT_MOD`, `IO_MOD_TYPE` | Explicit topology, active/pending settings and module metadata | Checked assignment spans and modes; host applies staged settings; logical values stay independent. See [I/O configuration](port-configuration.md). |
 | `GET/SET_REG_CMT`, `GET/SET_PREG_CMT`, `GET/SET_SREG_CMT` | Independent bank comment storage | Numeric/position/string capacities 16/16/254; does not initialize values. |
 | `GET_TPE_PRM` | Explicit per-root-task CallParameters | Arguments 1..10, type 1/2/3, unused outputs preserved, absent status 17042. |
 | `OPEN/CLOSE FILE`, `READ file`, `WRITE file` | `MemoryFiles`/`DirectoryFiles` and `FileHandle` | Byte buffers or an explicit directory root, cursors and checked scalar transfers. |

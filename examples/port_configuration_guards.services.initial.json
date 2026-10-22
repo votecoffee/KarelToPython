@@ -1,0 +1,12 @@
+{
+  "ports":{
+    "counts":{"DIN":8,"DOUT":8},
+    "type_codes":{"10":"DIN","20":"DOUT"},
+    "configuration":{
+      "physical":[
+        {"rack":0,"slot":1,"type_code":10,"kind":"DIN","count":16},
+        {"rack":0,"slot":1,"type_code":20,"kind":"DOUT","count":16}
+      ]
+    }
+  }
+}

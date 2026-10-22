@@ -384,6 +384,7 @@ def context_config(context):
         values={}
         for (kind,number),value in context.ports.snapshot().items(): values.setdefault(kind,{})[str(number)]=value
         result['ports']={'counts':context.ports.counts.copy(),'values':values}
+        if context.ports.configuration is not None: result['ports']['configuration']=context.ports.configuration
         if context.ports.type_codes: result['ports']['type_codes']={str(k):v for k,v in context.ports.type_codes.items()}
         if context.ports.comments:
             comments={}

@@ -37,6 +37,10 @@ PROCEDURES = {
     'GET_PORT_CMT': (I,I,OS,OI), 'SET_PORT_CMT': (I,I,S,OI),
     'GET_PORT_SIM': (I,I,OI,OI), 'SET_PORT_SIM': (I,I,arg('PORT_VALUE'),OI),
     'CLR_PORT_SIM': (I,I,OI),
+    'GET_PORT_ASG': (I,I,OI,OI,OI,OI,OI,OI),
+    'SET_PORT_ASG': (I,I,I,I,I,I,I,OI),
+    'GET_PORT_MOD': (I,I,OI,OI), 'SET_PORT_MOD': (I,I,I,OI),
+    'IO_MOD_TYPE': (I,I,OI,OI),
     'GET_TPE_PRM': (I,OI,OI,arg('REAL','o'),OS,OI),
     'GET_TSK_INFO': (arg('STRING','r'),arg('INTEGER','r'),I,OI,OS,OI),
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
@@ -242,9 +246,124 @@ class PositionRegisters:
     def snapshot(self): return deepcopy(self.values)
 
 
+class _PortConfiguration:
+    """Explicit topology and deferred settings; never a physical signal model."""
+    def __init__(self,bank,config):
+        self.bank=bank;self.physical={};self.modules={}
+        self.assignments={};self.pending_assignments={};self.modes={};self.pending_modes={}
+        fields={'physical','modules','assignments','pending_assignments','modes','pending_modes'}
+        if type(config) is not dict or set(config)-fields: raise ValueError('Unknown port configuration fields')
+        for field in fields:
+            if type(config.get(field,[])) is not list: raise ValueError('Port configuration '+field+' must be a list')
+        def row(value,keys):
+            if type(value) is not dict or set(value)!=set(keys.split()): raise ValueError('Invalid port configuration row')
+            return value
+        def number(value,minimum=0,maximum=2147483646):
+            if type(value) is not int or not minimum<=value<=maximum: raise ValueError('Invalid port configuration INTEGER')
+            return value
+        codes={}
+        for value in config.get('physical',[]):
+            value=row(value,'rack slot type_code kind count');kind=value['kind']
+            if kind not in ('DIN','DOUT','AIN','AOUT'): raise ValueError('Physical kind must be DIN, DOUT, AIN or AOUT')
+            rack=number(value['rack'],maximum=32767);slot=number(value['slot'],maximum=32767)
+            code=number(value['type_code']);count=number(value['count'],1,32767);key=rack,slot,code
+            if key in self.physical or codes.get(code,kind)!=kind: raise ValueError('Duplicate or conflicting physical port catalog')
+            if code in bank.type_codes and self.family(bank.type_codes[code])!=kind: raise ValueError('Physical and logical type codes conflict')
+            codes[code]=kind;self.physical[key]=(kind,count)
+        for value in config.get('modules',[]):
+            value=row(value,'rack slot type');key=number(value['rack'],maximum=32767),number(value['slot'],maximum=32767)
+            if key in self.modules: raise ValueError('Duplicate I/O module')
+            self.modules[key]=number(value['type'])
+        for field in ('assignments','pending_assignments'):
+            target=getattr(self,field)
+            for value in config.get(field,[]):
+                value=row(value,'kind number rack slot type_code start count')
+                kind=value['kind'];port=number(value['number'],1,32767)
+                data=tuple(number(value[key]) for key in ('rack','slot','type_code','start','count'))
+                rows=self.assignment(kind,port,*data)
+                if rows is None or target.keys() & rows.keys(): raise ValueError('Invalid or duplicate port assignment')
+                target.update(rows)
+        for field in ('modes','pending_modes'):
+            target=getattr(self,field)
+            for value in config.get(field,[]):
+                value=row(value,'kind number mask');kind=value['kind'];port=number(value['number'],1,32767);mask=number(value['mask'])
+                if not self.mode(kind,port,mask) or (kind,port) in target: raise ValueError('Invalid or duplicate port mode')
+                target[kind,port]=mask
+
+    @staticmethod
+    def family(kind):
+        if kind in ('DIN','RDI','RDIN','GIN'): return 'DIN'
+        if kind in ('DOUT','RDO','RDOUT','GOUT'): return 'DOUT'
+        return kind
+
+    def address(self,kind,number):
+        return type(kind) is str and kind in self.bank.counts and 1<=number<=self.bank.counts[kind]
+
+    def assignment(self,kind,number,rack,slot,code,start,count):
+        physical=self.physical.get((rack,slot,code))
+        if not self.address(kind,number) or physical is None or physical[0]!=self.family(kind): return None
+        if not 1<=start<=physical[1] or not 1<=count or start+count-1>physical[1]: return None
+        if kind in ('GIN','GOUT'):
+            return {(kind,number):(rack,slot,code,start,count)} if count<=32 else None
+        if PORT_TYPES[kind]=='BOOLEAN':
+            if count>8 or number+count-1>self.bank.counts[kind]: return None
+            return {(kind,number+offset):(rack,slot,code,start+offset,1) for offset in range(count)}
+        return {(kind,number):(rack,slot,code,start,1)} if count==1 else None
+
+    def mode(self,kind,number,mask):
+        return (self.address(kind,number) and 0<=mask<=3 and
+                (not mask&2 or (kind in OUTPUT_PORTS and PORT_TYPES[kind]=='BOOLEAN' and
+                                number%2==1 and number<self.bank.counts[kind])))
+
+    def apply(self):
+        count=len(self.pending_assignments)+len(self.pending_modes)
+        self.assignments.update(self.pending_assignments);self.modes.update(self.pending_modes)
+        self.pending_assignments.clear();self.pending_modes.clear();return count
+
+    def to_config(self):
+        result={}
+        if self.physical:
+            result['physical']=[dict(rack=rack,slot=slot,type_code=code,kind=kind,count=count) for (rack,slot,code),(kind,count) in sorted(self.physical.items())]
+        if self.modules: result['modules']=[dict(rack=rack,slot=slot,type=value) for (rack,slot),value in sorted(self.modules.items())]
+        for field in ('assignments','pending_assignments'):
+            values=getattr(self,field)
+            if values: result[field]=[dict(kind=kind,number=number,**dict(zip(('rack','slot','type_code','start','count'),data))) for (kind,number),data in sorted(values.items())]
+        for field in ('modes','pending_modes'):
+            values=getattr(self,field)
+            if values: result[field]=[dict(kind=kind,number=number,mask=mask) for (kind,number),mask in sorted(values.items())]
+        return result
+
+    def invoke(self,name,args,line):
+        rt=runtime();first,second=(rt.integer(value,line) for value in args[:2])
+        if name=='IO_MOD_TYPE':
+            if not 0<=first<=32767 or not 0<=second<=32767: args[-1].set(2,line);return
+            value=self.modules.get((first,second))
+            if value is None: args[-1].set(1,line);return
+            values=(value,)
+        else:
+            if not self.bank.type_codes: fail('Port configuration requires explicit type_codes mapping',line)
+            kind=self.bank.type_codes.get(first);key=kind,second
+            if not self.address(kind,second): args[-1].set(2,line);return
+            if name=='SET_PORT_ASG':
+                rows=self.assignment(kind,second,*(rt.integer(value,line) for value in args[2:-1]))
+                if rows is None: args[-1].set(3,line);return
+                self.pending_assignments.update(rows);args[-1].set(0,line);return
+            if name=='SET_PORT_MOD':
+                mask=rt.integer(args[2],line)
+                if not self.mode(kind,second,mask): args[-1].set(3,line);return
+                self.pending_modes[key]=mask;args[-1].set(0,line);return
+            if name=='GET_PORT_ASG':
+                values=self.assignments.get(key)
+                if values is None: args[-1].set(1,line);return
+            else: values=(self.modes.get(key,0),)
+        prepared=[rt.checked(reference.spec,value,line) for reference,value in zip(args[2:-1],values)]
+        for reference,value in zip(args[2:-1],prepared): reference.set(value,line)
+        args[-1].set(0,line)
+
+
 class PortBank:
     """Host updates may supply inputs; translated assignments write outputs only."""
-    def __init__(self,counts,initial=None,*,type_codes=None,comments=None,simulated=()):
+    def __init__(self,counts,initial=None,*,type_codes=None,comments=None,simulated=(),configuration=None):
         if type(counts) is not dict: raise ValueError('Port counts must be an object')
         if comments is not None and type(comments) is not dict: raise ValueError('Port comments must be an address mapping')
         if type(simulated) not in (list,tuple,set): raise ValueError('Simulated ports must be a collection of addresses')
@@ -261,6 +380,16 @@ class PortBank:
             kind,number=key; self._key(kind,number); self.comments[kind.upper(),number]=runtime().ascii_string(value)[:16]
         for kind,number in simulated:
             self._key(kind,number); self.simulated.add((kind.upper(),number))
+        self._configuration=None if configuration is None else _PortConfiguration(self,configuration)
+    @property
+    def configuration(self):
+        return None if self._configuration is None else self._configuration.to_config()
+    def apply_configuration(self):
+        if self._configuration is None: fail('Operation requires explicit port configuration')
+        return self._configuration.apply()
+    def configure(self,name,args,line=None):
+        if self._configuration is None: fail('Operation requires explicit port configuration',line)
+        return self._configuration.invoke(name,args,line)
     def _key(self,kind,number,line=None):
         kind=kind.upper(); number=runtime().integer(number,line)
         if kind not in self.counts or not 1<=number<=self.counts[kind]: fail('Port is outside its explicit bank',line)
@@ -1025,7 +1154,7 @@ class ExecutionContext:
     @classmethod
     def from_config(cls,config):
         if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs'}: raise ValueError('Unknown execution context fields')
-        for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes'})):
+        for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
         if 'programs' in config:
@@ -1059,7 +1188,8 @@ class ExecutionContext:
             for kind,numbers in row.get('simulated',{}).items():
                 if type(numbers) is not list: raise ValueError('Simulated ports require lists of numbers')
                 simulated.extend((kind,n) for n in numbers)
-            services['ports']=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()},type_codes=codes,comments=comments,simulated=simulated)
+            if 'configuration' in row and type(row['configuration']) is not dict: raise ValueError('Port configuration must be an object')
+            services['ports']=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()},type_codes=codes,comments=comments,simulated=simulated,configuration=row.get('configuration'))
         if 'files' in config:
             services['files']=MemoryFiles({name:bytes.fromhex(value['hex']) if type(value) is dict else value for name,value in config['files'].items()})
         if 'numeric' in config: services['numeric']=runtime().NumericRegisters.from_config(config['numeric'])
@@ -1115,6 +1245,8 @@ class ExecutionContext:
             return value
         if name in ('GET_PORT_VAL','SET_PORT_VAL','GET_PORT_CMT','SET_PORT_CMT','GET_PORT_SIM','SET_PORT_SIM','CLR_PORT_SIM'):
             return self.require('ports',line).indirect(name,args,line)
+        if name in ('GET_PORT_ASG','SET_PORT_ASG','GET_PORT_MOD','SET_PORT_MOD','IO_MOD_TYPE'):
+            return self.require('ports',line).configure(name,args,line)
         if name in {f'{action}_{kind}_CMT' for action in ('GET','SET') for kind in ('REG','PREG','SREG')}:
             bank=state.registers if '_REG_' in name else self.require('positions' if '_PREG_' in name else 'strings',line)
             if bank is None: fail('Register comments require an explicit numeric register bank',line)

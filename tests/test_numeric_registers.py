@@ -197,9 +197,9 @@ class RegisterSourceGuardTests(unittest.TestCase):
         state,_,_,_=execute('value=GET_REG(7)',routines='ROUTINE GET_REG(n: INTEGER): INTEGER BEGIN RETURN n+1 END GET_REG')
         self.assertEqual(state['VALUE'],8)
     def test_ordinary_declarations_remain_usable(self): self.assertEqual(execute('GET_REG=7',declarations='GET_REG: INTEGER')[0]['GET_REG'],7)
-    def test_other_controller_calls_remain_blocked(self):
-        for body in ('GET_PORT_ATR(code)','GET_PORT_MOD(code)'):
-            with self.subTest(body=body): self.reject(body,'E_CALL')
+    def test_serial_call_and_invalid_mode_arity_remain_blocked(self):
+        self.reject('GET_PORT_ATR(code)','E_CALL')
+        self.reject('GET_PORT_MOD(code)','E_ARGUMENTS')
     def test_legacy_calls_remain_unsupported(self): self.reject('SET_INT_REG(1,7,code)','E_CALL',translator=legacy_translate)
 
 
