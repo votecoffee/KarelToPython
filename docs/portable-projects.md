@@ -18,11 +18,13 @@ Version 0.87.0 adds [calendar clocks](calendar-clock.md), shared GET_TIME/SET_TI
 and full datetime snapshots with frozen restore.
 Version 0.88.0 adds [task inspection](task-inspection.md) over explicitly bound
 tasks, live execution context and supplied informational attributes.
+Version 0.89.0 adds [file comparison and printing](file-comparison.md), using
+closed named inputs, bounded report FILE output and synchronous WRITE callbacks.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |
 | Registers and I/O | Numeric/string/position banks and ports persist to typed JSON; position type/axes, grouped clearing and simulation lifecycle; attached program globals and explicitly supplied system roots resolve through GET_VAR/SET_VAR | Live I/O acquisition and automatic controller-system-variable discovery |
-| Files and collections | Explicit directory backend, copy/delete/rename/list, ASCII/binary transfers, attributes, typed PATH/header and QUEUE_TYPE operations | Native devices, proprietary binary layouts, association records and native alarms |
+| Files and collections | Explicit directory backend, copy/delete/rename/list/compare/print, ASCII/binary transfers, attributes, typed PATH/header and QUEUE_TYPE operations | Native devices, proprietary binary layouts, association records and native alarms |
 | Control and linkage | Deterministic task scheduler, virtual time, event broadcasts, port edges, EVAL capture, scan intervals, optional local handler lifetime, typed source-project linkage | Native interrupts/priorities, motion UNTIL handlers, native alarm dictionaries and external ABI |
 | Geometry | Explicit standard-DH model, forward/numerical inverse conversion, limits/reachability, external kinematic joints, groups/frames/tools and extended-pose comparisons | Robot-specific calibration/configuration branch selection, collisions and certified reachability |
 

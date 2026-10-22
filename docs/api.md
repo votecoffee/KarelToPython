@@ -109,6 +109,12 @@ caller-rooted execution data or that explicit metadata. `rt.TASK_CONSTANTS` and
 the report's `task_inspection_policy` record the portable mappings. See
 [task inspection](task-inspection.md) for lookup/output rules and all attributes.
 
+COMPARE_FILE and PRINT_FILE require the explicit files service. Both backends
+expose `read_named(name)` returning `(status, detached_bytes_or_None)`. The
+report's `file_comparison_policy` covers ASCII records, binary offsets, bounded
+JSON reports and synchronous WRITE callbacks. See
+[file comparison and printing](file-comparison.md) for the complete contract.
+
 ## CLI
 
 ```sh
@@ -346,6 +352,6 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 new run. Services retain their explicit shared state.
 
 A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
-`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py` and `clocks.py`. Project loading
+`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py`, `clocks.py` and `fileops.py`. Project loading
 also needs `project.py`, the compiler and lexer. Installing the package includes
 all of them.

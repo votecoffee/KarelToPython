@@ -126,3 +126,5 @@ The 0.87.0 [calendar ledger](calendar_clock_semantics.json) records explicit
 GET_TIME/SET_TIME, elapsed adapters, packing and frozen snapshot restoration.
 The 0.88.0 [task inspection ledger](task_inspection_semantics.json) records
 directional lookup, live/caller-rooted state, supplied attributes and portable enums.
+The 0.89.0 [file comparison ledger](file_comparison_semantics.json) records
+closed named reads, portable comparison/report choices and synchronous printing.

@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.88.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.89.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -29,6 +29,8 @@ source-located error. Strict mode remains a future milestone.
 | `GET_FILE_POS`, `SET_FILE_POS`, `BYTES_LEFT`, `BYTES_AHEAD`, `IO_STATUS`, `CLR_IO_STAT` | Checked cursor/status operations | Byte positions, seek within current contents; `-1` seeks to end. |
 | FILE attributes | ATR_IA interactive flush; ATR_UF binary; ATR_REVERSE byte order; ATR_EOL record terminator; ATR_FIELD capacity-sized STRING reads | Portable package identifiers; `RB/WB/RWB/AB` also select binary. |
 | COPY_FILE / DELETE_FILE / RENAME_FILE / FILE_LIST | Both backends | Synchronous operations, portable missing/exists/busy statuses and name listing format 0. |
+| `COMPARE_FILE` | Same-numbered ASCII records or binary first difference | Closed inputs, open writable result FILE, bounded JSON report and portable statuses. |
+| `PRINT_FILE` | Existing WRITE recorder/callback | Validated ASCII in <=254-character synchronous chunks; both nowait values supported. |
 | `PATH` | Typed node list with optional header | One-based nodes; `NODEDATA` and `PATHHEADER` structures; direct field references. |
 | `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and deep copies | Empty paths have length zero; full or reversed partial copying; maximum 32767 nodes. |
 | `QUEUE_TYPE` and seven queue procedures | FIFO entries with sequence IDs and an INTEGER backing array | Explicit INIT_QUEUE; fixed capacity; retain original backing-array identity. |
@@ -45,6 +47,9 @@ source-located error. Strict mode remains a future milestone.
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
 | `JOINT2POS`, `POS2JOINT`, `IN_RANGE`, `J_IN_RANGE` | `RobotContext` adapters and supplied limits | Requires a supplied model or limits; no robot geometry, calibration or reachability is inferred. |
 | `CURPOS`, `CURJPOS`, `CURR_PROG` | Explicit current RobotState, optional configured DH math and executing module name | Independent results, optional groups and checked/discarded masks; no physical state acquisition. |
+
+See [file comparison and printing](file-comparison.md) for report format,
+source capture, budget, callback and failure behavior.
 
 ## Register, port and variable context
 

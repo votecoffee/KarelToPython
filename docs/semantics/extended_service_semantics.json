@@ -1,5 +1,5 @@
 {
-  "version": "0.88.0",
+  "version": "0.89.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -128,5 +128,6 @@
   "joint_interoperability": "joint_interoperability_semantics.json",
   "register_lifecycle": "register_lifecycle_semantics.json",
   "calendar_clock": "calendar_clock_semantics.json",
-  "task_inspection": "task_inspection_semantics.json"
+  "task_inspection": "task_inspection_semantics.json",
+  "file_comparison": "file_comparison_semantics.json"
 }

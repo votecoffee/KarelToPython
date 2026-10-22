@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.89.0 - 2026-10-22
+
+- Add COMPARE_FILE over memory and rooted directory backends: ASCII differing
+  records or binary first-difference offsets, with bounded JSON reports written
+  through existing FILE cursor, append, terminator and flush semantics.
+- Add PRINT_FILE through the WRITE recorder/callback, preserving ASCII bytes
+  in bounded synchronous chunks. Validate before output; retain completed effects
+  on callback failure, budget exhaustion or abort.
+- Add closed named-file reads, fresh directory input, busy-file alias checks,
+  40 authored tests, two runnable examples and runtime-only portability checks.
+- Document portable statuses, comparison/report choices and native boundaries;
+  strict mode remains a future milestone.
+
 ## 0.88.0 - 2026-10-22
 
 - Add GET_TSK_INFO over explicit task registries and schedulers, including
