@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.86.0 - 2026-10-22
+
+- Add POS_REG_TYPE with stored representation/axis reporting and optional group
+  selection rooted in the caller, including linked routines. Share optional-middle
+  argument mapping with routine and handler write analysis.
+- Add CLR_POS_REG for one group or all groups, retaining other register values,
+  comments and independent copies; valid absent clearing is idempotent.
+- Add CLR_PORT_SIM for logical flags, retaining last supplied values/comments
+  while restoring ordinary input-write restrictions. Existing JSON persists results.
+- Add two authored examples, 37 integration tests, report policy and source-backed
+  semantic notes. Native hardware modes, alarms and strict remain future work.
+
 ## 0.85.0 - 2026-10-22
 
 - Accept exact model/limit width or JOINTPOS9 with zero-only unused slots across

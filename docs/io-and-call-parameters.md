@@ -74,8 +74,9 @@ Port comments default to empty strings for configured addresses, even before a
 value is supplied. SET_PORT_CMT truncates to 16 ASCII characters; GET truncates
 to destination capacity. The setter truncation is a Pythonic choice where the
 manual requires a comment no longer than 16 characters. Physical assignment,
-reverse/complementary modes, unsimulation and hardware effects remain outside
-this implementation.
+reverse/complementary modes and hardware effects remain outside this implementation.
+Version 0.86.0 adds [CLR_PORT_SIM](register-lifecycle.md#removing-logical-port-simulation)
+to remove a logical simulation flag while preserving the last supplied value.
 
 Port JSON configuration adds optional `type_codes`, `comments` and `simulated`:
 

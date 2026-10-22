@@ -89,6 +89,14 @@ DirectoryFiles, TaskScheduler and SerialRobotModel provide optional explicit
 backends. See [portable projects](portable-projects.md) for complete examples,
 JSON formats, scheduling semantics and remaining boundaries.
 
+`PositionRegisters.describe(number,group=1)` returns `(status,kind,axes)`;
+`clear(number,group=1)` returns status, with group zero clearing all configured
+groups for that number. Source POS_REG_TYPE can omit its second group operand
+and uses the root task's default; the host methods default explicitly to 1.
+CLR_PORT_SIM removes an existing logical simulation flag. The translation report's
+`register_lifecycle_policy` describes these choices. See
+[register lifecycle](register-lifecycle.md) for representation codes and failure behavior.
+
 ## CLI
 
 ```sh

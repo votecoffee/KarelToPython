@@ -1,0 +1,13 @@
+PROGRAM PORT_UNSIM
+VAR simulated,blocked,value,status: INTEGER
+    flag: BOOLEAN
+BEGIN
+  SET_PORT_SIM(10,1,1,status)
+  CLR_PORT_SIM(10,1,status)
+  GET_PORT_SIM(10,1,simulated,status)
+  SET_PORT_VAL(10,1,0,status)
+  blocked=status
+  flag=DIN[1]
+  DOUT[1]=flag
+  GET_PORT_VAL(10,1,value,status)
+END PORT_UNSIM

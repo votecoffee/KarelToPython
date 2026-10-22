@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.85.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.86.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -16,10 +16,12 @@ source-located error. Strict mode remains a future milestone.
 | `GET_STR_REG`, `SET_STR_REG` | `StringRegisters` dictionary | Explicit count and ASCII capacity; reads copy and truncate to destination capacity. |
 | `GET_POS_REG`, `SET_POS_REG`, `SET_EPOS_REG` | `PositionRegisters` keyed by group and number | Complete independent Cartesian values; getter returns XYZWPREXT. |
 | `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter pads complete narrow joints to nine slots; stored width is retained. No implicit pose/joint conversion. |
+| `POS_REG_TYPE`, `CLR_POS_REG` | Stored representation/axes and group value removal | Inspect without conversion; clear one or all groups; independent comments retained. |
 | `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT` | `PortBank` Boolean values | Host supplies inputs; translated assignments write output kinds only. |
 | `GIN/GOUT`, `AIN/AOUT` | Nonnegative checked `int`, finite `float` | Explicit counts and values; no zero-filled or hardware defaults. Analog float values are a portable choice. |
 | `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static global paths such as `PARTS[2].VALUE`; foreign programs use attached namespaces or explicit bindings. No Python evaluation of paths. |
 | `GET/SET_PORT_VAL`, `GET/SET_PORT_SIM`, `GET/SET_PORT_CMT` | Shared PortBank values plus simulation/comment metadata | Explicit INTEGER type-code mapping; outputs or simulated inputs can be written; bounded scalar conversions. |
+| `CLR_PORT_SIM` | Remove a logical simulation flag | Retain last supplied value/comment; subsequent indirect input writes require simulation again. |
 | `GET/SET_REG_CMT`, `GET/SET_PREG_CMT`, `GET/SET_SREG_CMT` | Independent bank comment storage | Numeric/position/string capacities 16/16/254; does not initialize values. |
 | `GET_TPE_PRM` | Explicit per-root-task CallParameters | Arguments 1..10, type 1/2/3, unused outputs preserved, absent status 17042. |
 | `OPEN/CLOSE FILE`, `READ file`, `WRITE file` | `MemoryFiles`/`DirectoryFiles` and `FileHandle` | Byte buffers or an explicit directory root, cursors and checked scalar transfers. |
@@ -76,6 +78,8 @@ are detached. String and port banks expose copied snapshots too. Shared context
 objects retain writes across runs and programs.
 See [I/O and CALL parameters](io-and-call-parameters.md) for indirect procedures,
 simulation flags, comment persistence and supplied teach-pendant arguments.
+See [register lifecycle](register-lifecycle.md) for stored representation codes,
+axis counts, optional query groups, grouped clearing and logical unsimulation.
 
 `GET_VAR(entry,program,path,value,status)` and SET_VAR use five arguments.
 The entry output is a stable positive cache ID. An empty program string selects

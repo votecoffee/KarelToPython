@@ -1,0 +1,10 @@
+PROGRAM REG_LIFE
+VAR kind,axes,status,stored_axes,missing: INTEGER
+BEGIN
+  POS_REG_TYPE(1,2,kind,axes,status)
+  stored_axes=axes
+  CLR_POS_REG(1,2,status)
+  POS_REG_TYPE(1,2,kind,axes,status)
+  missing=status
+  POS_REG_TYPE(1,1,kind,axes,status)
+END REG_LIFE

@@ -1,0 +1,29 @@
+{
+  "version":"0.86.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Supplied manual API forms and authored offline integration tests; no native execution",
+  "sources":[
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[332],"topic":"CLR_POS_REG group-zero clearing and CLR_PORT_SIM mapped unsimulation"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[480,481],"topic":"POS_REG_TYPE argument order, omitted group, representation codes 1/2/6/9 and axis-count meaning"}
+  ],
+  "implemented":{
+    "inspection":"POS_REG_TYPE reports stored representation without conversion; omitted second argument follows root caller group and defaults to 1 without source/robot context",
+    "clearing":"CLR_POS_REG removes one group or all configured groups for zero; valid absent clear is idempotent; independent values and comments retained",
+    "unsimulation":"CLR_PORT_SIM discards one configured logical-port simulation flag; later indirect input writes require simulation; values and comments retained",
+    "persistence":"Existing typed context JSON preserves absence, remaining values/groups, comments and simulation flags",
+    "ownership":"Exact disjoint INTEGER outputs; optional-middle argument mapping shared by emission and routine/handler effect analysis"
+  },
+  "portable_choices":[
+    "POSITION and XYZWPR report zero axes where the manual leaves their count unspecified",
+    "XYZWPREXT reports its three stored extended slots, not discovered physical axes",
+    "JOINTPOS reports stored width even when register reads return a padded nine-slot copy",
+    "Register status 1 means absent; status 2 means invalid address/group; failed inspection preserves kind/axes",
+    "A clear of a valid absent position value succeeds and retains the register comment",
+    "Unsimulation retains last supplied value without hardware acquisition; an absent value remains absent",
+    "Root source/robot group selection uses the existing translator context; no additional controller default discovery"
+  ],
+  "remaining":["Native alarm/status mapping, physical group and external-axis discovery, controller I/O mode effects, strict mode and native acceptance"],
+  "verification":["tests/test_register_lifecycle.py","examples/register_lifecycle.kl","examples/port_unsimulation.kl"],
+  "guide":"../register-lifecycle.md"
+}

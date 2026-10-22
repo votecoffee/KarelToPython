@@ -65,6 +65,8 @@ simulation, register/port comments and supplied per-task GET_TPE_PRM arguments.
 CURJPOS, group snapshots, mask outputs and executing-module CURR_PROG queries.
 [Joint interoperability](joint-interoperability.md) connects padded queries and
 register values with model conversions, range checks and persisted frame/tool context.
+The [register lifecycle guide](register-lifecycle.md) covers position representation
+inspection, one/all-group clearing and removing logical port simulation.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.

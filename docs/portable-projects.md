@@ -13,10 +13,11 @@ Version 0.84.0 adds [current robot snapshots and program queries](current-robot-
 including state-only contexts and current data alongside the existing models.
 Version 0.85.0 adds [joint interoperability](joint-interoperability.md), limits-only
 persistence and consistent updates to loaded-model frame/tool context.
+Version 0.86.0 adds [register inspection/clearing and logical port unsimulation](register-lifecycle.md).
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |
-| Registers and I/O | Numeric/string/position banks and ports persist to typed JSON; attached program globals and explicitly supplied system roots resolve through GET_VAR/SET_VAR | Live I/O acquisition and automatic controller-system-variable discovery |
+| Registers and I/O | Numeric/string/position banks and ports persist to typed JSON; position type/axes, grouped clearing and simulation lifecycle; attached program globals and explicitly supplied system roots resolve through GET_VAR/SET_VAR | Live I/O acquisition and automatic controller-system-variable discovery |
 | Files and collections | Explicit directory backend, copy/delete/rename/list, ASCII/binary transfers, attributes, typed PATH/header and QUEUE_TYPE operations | Native devices, proprietary binary layouts, association records and native alarms |
 | Control and linkage | Deterministic task scheduler, virtual time, event broadcasts, port edges, EVAL capture, scan intervals, optional local handler lifetime, typed source-project linkage | Native interrupts/priorities, motion UNTIL handlers, native alarm dictionaries and external ABI |
 | Geometry | Explicit standard-DH model, forward/numerical inverse conversion, limits/reachability, external kinematic joints, groups/frames/tools and extended-pose comparisons | Robot-specific calibration/configuration branch selection, collisions and certified reachability |

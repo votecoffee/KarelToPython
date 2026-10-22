@@ -1,5 +1,5 @@
 {
-  "version": "0.85.0",
+  "version": "0.86.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -125,5 +125,6 @@
   "extension_guide": "../task-and-file-extensions.md",
   "io_parameters": "io_parameter_semantics.json",
   "current_state": "current_robot_semantics.json",
-  "joint_interoperability": "joint_interoperability_semantics.json"
+  "joint_interoperability": "joint_interoperability_semantics.json",
+  "register_lifecycle": "register_lifecycle_semantics.json"
 }
