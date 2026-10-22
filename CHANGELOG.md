@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.99.0 - 2026-10-22
+
+- Allow whole QUEUE_TYPE logical values through GET_VAR/SET_VAR. Copy FIFO
+  order, sequence gaps/counter and initialization state using the checked
+  collection codec; retain receiver object identity with independent entries.
+- Release the receiver's old buffer binding without synchronizing any ARRAY.
+  Its next queue operation binds an adequate explicit INTEGER ARRAY; normal
+  capacity/identity guards then apply. Self-copy also releases binding.
+- Snapshot SET queues before later selectors and GET queues after selectors.
+  Copy an uninitialized queue with portable status 12311; type mismatch writes
+  status 3 only. Validate both sides before publishing state or cache outputs.
+- Accept detached queue snapshots in VariableStore.define and retain typed
+  save/load continuation. Reject malformed queue/buffer state, embedded resources
+  and whole FILE/PATH transfers; ordinary resource value interfaces stay guarded.
+- Add 44 tests, two runnable examples and documented source/ownership/status
+  policies. Native copy semantics and strict mode remain future work.
+
 ## 0.98.0 - 2026-10-22
 
 - Extend GET_VAR/SET_VAR to same-rank ARRAY prefix transfers across different
