@@ -1,0 +1,21 @@
+PROGRAM JOINT_MIRROR
+VAR reflected_x,reflected_y,reflected_z,heading,external_axis: REAL
+ROUTINE calculate
+VAR joints: JOINTPOS
+    value,origin: XYZWPREXT
+    cfg: CONFIG
+    status: INTEGER
+BEGIN
+  joints=CURJPOS(0,0)
+  CNV_STR_CONF('N',cfg,status)
+  origin=POS(0,0,0,0,0,0,cfg)
+  value=MIRROR(joints,origin,TRUE)
+  reflected_x=value.x
+  reflected_y=value.y
+  reflected_z=value.z
+  heading=value.r
+  external_axis=value.ext1
+END calculate
+BEGIN
+  calculate
+END JOINT_MIRROR

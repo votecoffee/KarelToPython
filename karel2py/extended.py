@@ -77,7 +77,7 @@ FUNCTIONS = {
     'IO_STATUS': ((arg('FILE'),),('INTEGER',)),
     'IN_RANGE': ((arg('POSE'),),('BOOLEAN',)),
     'J_IN_RANGE': ((arg('JOINTPOS'),),('BOOLEAN',)),
-    'MIRROR': ((arg('POSE'),arg('POSE'),B),('XYZWPREXT',)),
+    'MIRROR': ((arg('GEOMETRY_POSE'),arg('GEOMETRY_POSE'),B),('XYZWPREXT',)),
 }
 OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1}
@@ -98,6 +98,7 @@ def matches(spec, kind):
     rt=runtime()
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
+    if kind=='GEOMETRY_POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
     if kind=='PORT_VALUE': return spec[0] in ('INTEGER','REAL','BOOLEAN','STRING')
     if kind in ('INT_ARRAY','REAL_ARRAY'):
         return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]==('INTEGER' if kind=='INT_ARRAY' else 'REAL')

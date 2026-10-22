@@ -962,6 +962,7 @@ class Emitter:
         self.position_comparison_uses = []
         self.position_conversion_uses = []
         self.kinematic_assignment_uses = []
+        self.joint_geometry_uses = []
         self.pulse_uses = []
         self.initialization_query_uses = []
         self.structure_return_uses = []
@@ -1655,9 +1656,19 @@ class Emitter:
         self.error('E_TYPE', 'Expected a variable receiver path', expr.token)
 
     def frame_result_type(self, specs, token):
+        if self.mode=='pythonic': specs=[('XYZWPREXT',) if spec[0]=='JOINTPOS' else spec for spec in specs]
         if not specs or any(spec not in (('XYZWPR',), ('POSITION',),('XYZWPREXT',)) for spec in specs):
             self.error('E_TYPE', 'Frame operations require POSITION or XYZWPR operands', token)
         return ('XYZWPREXT',) if ('XYZWPREXT',) in specs else ('POSITION',) if ('POSITION',) in specs else ('XYZWPR',)
+
+    def geometry_operand(self,code,spec,token,operation):
+        if self.mode=='pythonic' and spec[0]=='JOINTPOS':
+            self.features.update(('extended services','joint geometry'))
+            if self.current_routine: self.current_routine.may_services=True
+            self.joint_geometry_uses.append(dict(operation=operation,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=token.line,column=token.column,source_type=spec,target_type=('XYZWPREXT',),evaluated_once=True,independent_value=True))
+            return f'self._state.geometry_value({code},{spec!r},{token.line})'
+        return f'_rt.frame_value({code}, {token.line}, expected={spec!r})'
 
     def is_position_read_only_access(self, expr):
         """Check receiver paths, without mistaking an index expression for a target."""
@@ -1815,14 +1826,14 @@ class Emitter:
             if right_type[0] in NARROW_TYPES: right_type = ('INTEGER',)
             op = expr.value
             if op == '>=<':
-                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',), ('XYZWPREXT',)) for spec in (lt,right_type))
+                valid = self.mode == 'pythonic' and all(spec[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS') for spec in (lt,right_type))
                 result_type = ('BOOLEAN',)
                 if valid:
                     self.position_comparison_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                                               line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
                                                               result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
             elif op == ':':
-                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',), ('XYZWPREXT',)) for spec in (lt,right_type))
+                valid = self.mode == 'pythonic' and all(spec[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS') for spec in (lt,right_type))
                 result_type = self.frame_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
                 if valid:
                     self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
@@ -1860,8 +1871,8 @@ class Emitter:
                 if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
                 if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
                 if op in (':','>=<'):
-                    left = f'_rt.frame_value({left}, {line}, expected={lt!r})'
-                    right = f'_rt.frame_value({right}, {line}, expected={right_type!r})'
+                    left = self.geometry_operand(left,lt,expr.args[0].token,op)
+                    right = self.geometry_operand(right,right_type,expr.args[1].token,op)
                 if op == '>=<':
                     return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line}, external_tolerance=self._state.external_tolerance)', result_type
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
@@ -1935,7 +1946,7 @@ class Emitter:
             if len(expr.args) != 1: self.error('E_ARGUMENTS', f'{expr.value} requires one pose', expr.token)
             code, axis_spec = self.expression(expr.args[0])
             self.frame_result_type([axis_spec], expr.args[0].token)
-            codes = [f'_rt.frame_value({code}, {expr.token.line}, expected={axis_spec!r})']
+            codes = [self.geometry_operand(code,axis_spec,expr.args[0].token,expr.value)]
             result_type = ('VECTOR',)
         elif expr.value in ('INV','FRAME'):
             if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4)):
@@ -1944,7 +1955,7 @@ class Emitter:
             for argument in expr.args:
                 code, spec = self.expression(argument)
                 self.frame_result_type([spec], argument.token)
-                codes.append(f'_rt.frame_value({code}, {expr.token.line}, expected={spec!r})'); frame_specs.append(spec)
+                codes.append(self.geometry_operand(code,spec,argument.token,expr.value)); frame_specs.append(spec)
             result_type = self.frame_result_type(frame_specs, expr.token)
         else:
             signature, result_type = BUILTIN_SIGNATURES[expr.value]
@@ -2060,6 +2071,7 @@ class Emitter:
                 code,spec=self.reference(value)
             else:
                 code,spec=self.expression(value)
+                if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
                 if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
                 if kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
                 if kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.assignment_value({code},{value.token.line})'
@@ -3150,7 +3162,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         emitter.features.add('doubled apostrophe STRING literal')
     emitter.features.update('predefined ' + use['name'] for use in parser.predefined_uses)
     generated = emitter.emit()
-    if emitter.kinematic_assignment_uses: emitter.analyze_routine_effects()
+    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses: emitter.analyze_routine_effects()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
@@ -3340,6 +3352,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses,
+        joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,
@@ -3427,6 +3440,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
                                      potential_host_clock_reads=r.may_clock,
                                      potential_register_reads=r.may_read_registers,
                                      potential_register_writes=r.may_write_registers,
+                                     potential_service_requests=r.may_services,
                                      potential_output_requests=r.may_write,
                                      potential_input_requests=r.may_read,
                                      potential_aborts=r.may_abort,
@@ -3937,6 +3951,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['data_record_policy']['boundary']='Cartesian whole assignments follow position_conversion_policy; joint/Cartesian whole assignments require kinematic_assignment_policy; no automatic routine/array conversion or physical motion'
     report['positional_routine_policy']['boundary']='Exact parameter/RETURN types; whole assignments follow position_conversion_policy and kinematic_assignment_policy; no controller ABI, native branch selection or orientation defaults'
     report['position_axis_policy']['functions'] = 'APPROACH returns positive Z and ORIENT positive Y from complete POSITION/XYZWPR/XYZWPREXT; internal routines retain precedence'
+    report['joint_geometry_policy']=dict(
+        operations=[':', 'INV','FRAME','MIRROR','APPROACH','ORIENT','>=<'],
+        conversion='Complete exact-width JOINTPOS operand snapshot becomes independent XYZWPREXT through the existing forward model/adapters, root task group and selected frame/tool; config_ref zero',
+        result='Joint participation makes colon/INV/FRAME Cartesian XYZWPREXT; MIRROR remains XYZWPREXT, axes VECTOR and comparisons BOOLEAN; no implicit joint-space inverse solve',
+        evaluation='Evaluate, snapshot and convert each joint once before later operands/arguments and assignment target selectors; preserve prior effects and sticky root abort; Cartesian-only behavior retained',
+        context='Require supplied robot model/forward adapter and configured group/frame/tool; complete joints need no current-joint inverse seed; geometry does not change supplied current state',
+        external_axes='Retain three forward metadata axes under existing INV/MIRROR/colon/FRAME rules; comparisons require explicit pose and external tolerances',
+        observations='joint_geometry source sites include operation, body, line/column and source/result specs; runtime JOINT_GEOMETRY operation/line/outcome records are value-free; routine service effects propagate',
+        boundary='Portable Cartesian interpretation, no raw joint algebra, implicit routine/RETURN/whole-array conversion, orientation defaults, calibration or native/controller equivalence; strict remains future work',
+        guide='docs/joint-geometry.md',controller_validated=False)
+    report['frame_policy']['operands']+='; JOINTPOS converts through joint_geometry_policy'
+    report['frame_policy']['result_type']+='; JOINTPOS first becomes XYZWPREXT'
+    report['frame_policy']['boundary']='Joint operands require explicit joint_geometry_policy context; VECTOR frames, automatic routine/RETURN/whole-array conversion and native kinematic equivalence remain blocked'
+    report['extended_geometry_policy']['types'].append('JOINTPOS')
+    report['position_axis_policy']['functions']+='; JOINTPOS uses explicit joint_geometry_policy conversion'
+    report['position_axis_policy']['boundary']='Complete proper Cartesian inputs or model-backed JOINTPOS; no VECTOR/scalar inputs, inferred context or orientation defaults'
+    report['position_comparison_policy']['operands']='POSITION/XYZWPR/XYZWPREXT and model-backed JOINTPOS under joint_geometry_policy'
+    report['position_comparison_policy']['boundary']='Explicit pose and external tolerances, Cartesian metrics after joint conversion; no scalar/VECTOR or raw joint-coordinate comparisons, defaults or native equivalence'
     for key in ('vector_routine_policy','structure_routine_policy','positional_routine_policy','array_routine_policy'):
         report[key]['boundary'] = report[key]['boundary'].replace('external routines or ', '').replace('external routines, ', '')
     report['limitations'].append('New services follow explicit offline context and cooperative policies; binary file layout, task scheduling, handler timing, MIRROR orientation and external axes use documented portable conventions')

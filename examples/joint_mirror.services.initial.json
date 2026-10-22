@@ -1,0 +1,1 @@
+{"robot":{"dh":[{"a":100},{"a":100},{"type":"prismatic"}],"external_axes":1,"current":{"joints":{"type":["JOINTPOS",3],"value":[0.0,90.0,25.0]}}}}

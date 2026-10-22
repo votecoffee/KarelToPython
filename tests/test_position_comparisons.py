@@ -177,7 +177,7 @@ class PositionComparisonGuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,code)
 
     def test_other_types_remain_blocked(self):
-        for kind in ('JOINTPOS','VECTOR','CONFIG','INTEGER','REAL','BOOLEAN','STRING[10]'):
+        for kind in ('VECTOR','CONFIG','INTEGER','REAL','BOOLEAN','STRING[10]'):
             for expr in ('value>=<value','p>=<value','value>=<p'):
                 with self.subTest(kind=kind,expr=expr): self.reject('near='+expr,declarations=DECLARATIONS+' value: '+kind)
 

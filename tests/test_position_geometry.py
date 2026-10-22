@@ -208,7 +208,7 @@ class PositionGeometryGuardTests(unittest.TestCase):
         self.reject('p.normal.x=INV(q).normal.x','E_POSITION_READ_ONLY')
 
     def test_other_operand_types_stay_blocked(self):
-        for kind in ('JOINTPOS','VECTOR','CONFIG','INTEGER'):
+        for kind in ('VECTOR','CONFIG','INTEGER'):
             for expression in ('p:x','x:p','INV(x)','FRAME(p,q,x)'):
                 with self.subTest(kind=kind,expression=expression):
                     self.reject('r='+expression,declarations=DECLARATIONS+' x: '+kind)

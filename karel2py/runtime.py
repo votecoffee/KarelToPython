@@ -2131,7 +2131,16 @@ class State:
 
     def kinematic_assignment(self,target,value,line=None):
         if not _pythonic(): raise KarelRuntimeError('Kinematic assignments require Pythonic mode',line)
-        row=dict(operation='KINEMATIC_ASSIGNMENT',line=line,outcome='requested');self.service_requests.append(row)
+        return self._kinematic_conversion(target,value,line,'KINEMATIC_ASSIGNMENT')
+
+    def geometry_value(self,value,expected,line=None):
+        if not _pythonic(): raise KarelRuntimeError('Joint geometry requires Pythonic mode',line)
+        if expected[0]!='JOINTPOS': return frame_value(value,line,expected=expected)
+        captured=checked(expected,value,line)
+        return self._kinematic_conversion(('XYZWPREXT',),captured,line,'JOINT_GEOMETRY')
+
+    def _kinematic_conversion(self,target,value,line,operation):
+        row=dict(operation=operation,line=line,outcome='requested');self.service_requests.append(row)
         try:
             result=self.execution.kinematic_assignment(self,target,value,line)
             root=task_root(self)
@@ -2143,7 +2152,9 @@ class State:
             if root._aborted: raise KarelAbort(root._abort_line)
             if self._aborted: raise KarelAbort(self._abort_line)
             if isinstance(exc,KarelRuntimeError) and exc.line is None: raise KarelRuntimeError(str(exc),line) from exc
-            if isinstance(exc,(ValueError,TypeError,KeyError,IndexError)): raise KarelRuntimeError('Kinematic assignment failed: '+str(exc),line) from exc
+            if isinstance(exc,(ValueError,TypeError,KeyError,IndexError)):
+                label='Joint geometry' if operation=='JOINT_GEOMETRY' else 'Kinematic assignment'
+                raise KarelRuntimeError(label+' failed: '+str(exc),line) from exc
             raise
         row['outcome']='completed';return result
 

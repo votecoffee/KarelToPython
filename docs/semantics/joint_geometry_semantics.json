@@ -1,0 +1,20 @@
+{
+  "version":"0.94.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed positional operations and explicit forward-conversion interface plus authored model/adapter tests; joint-expression coercion is a portable extension, not native overload proof",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[81,83,84,311,312,398,446,449,450,456,457,470],"topic":"Relative/comparison operations, axis queries, FRAME/INV, assignable JOINTPOS and JOINT2POS, MIRROR"}],
+  "implemented":{
+    "operations":[":","INV","FRAME","MIRROR","APPROACH","ORIENT",">=<"],
+    "conversion":"Complete exact declared JOINTPOS snapshot to independent XYZWPREXT through supplied forward adapter/model, calling root group and configured selected frame/tool; config_ref zero",
+    "results":"Joint participation makes colon/INV/FRAME extended Cartesian; MIRROR remains XYZWPREXT, axis queries VECTOR and comparison BOOLEAN",
+    "ownership":"Per-operand ordered snapshot/conversion before later arguments and target selectors; preserve source and current robot values, earlier effects, proper-pose checks and sticky abort",
+    "external":"Existing three-axis metadata propagation; Cartesian approximate comparison requires explicit pose and external tolerances",
+    "observations":"Source-located joint_geometry operands, joint_geometry_policy and value-free JOINT_GEOMETRY runtime outcomes; transitive routine service effects"
+  },
+  "portable_choices":["Forward Cartesian interpretation of joint geometry rather than raw joint-coordinate algebra","XYZWPREXT result representation for every converted joint, including zero external values","Selected explicit frame/tool and calling-root group; no implicit inverse seed or current-state mutation","Existing Cartesian math, CONFIG, reflection, metadata and tolerance choices remain"],
+  "retained":["Complete finite joint values, configured widths/padding and model limits","Exact routine/RETURN/whole-array/register and UNPOS interfaces","Read-only POSITION orientation","VECTOR/scalar frame rejection","Strict mode remains future work"],
+  "remaining":["Native overload/result conventions and controller acceptance","Robot calibration/configuration branches","Collision checks and physical reachability acceptance"],
+  "verification":["tests/test_joint_geometry.py","tests/test_runtime_portability.py","examples/joint_geometry.kl","examples/joint_mirror.kl"],
+  "guide":"../joint-geometry.md"
+}

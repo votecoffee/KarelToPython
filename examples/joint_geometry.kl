@@ -1,0 +1,24 @@
+PROGRAM JOINT_GEOMETRY
+VAR inverse_x,composed_x,approach_z,orient_y: REAL
+ROUTINE calculate
+VAR joints: JOINTPOS
+    value,origin: XYZWPREXT
+    axis: VECTOR
+    cfg: CONFIG
+    status: INTEGER
+BEGIN
+  joints=CURJPOS(0,0)
+  CNV_STR_CONF('N',cfg,status)
+  origin=POS(0,0,0,0,0,0,cfg)
+  value=INV(joints)
+  inverse_x=value.x
+  value=joints:origin
+  composed_x=value.x
+  axis=APPROACH(joints)
+  approach_z=axis.z
+  axis=ORIENT(joints)
+  orient_y=axis.y
+END calculate
+BEGIN
+  calculate
+END JOINT_GEOMETRY
