@@ -3,7 +3,8 @@
 Version 0.80.0 extended all four offline service areas; 0.81.0 adds
 [semaphores and error/lifecycle notifications](control-notifications.md). Version
 0.82.0 adds [scoped errors, task requests and field reads](task-and-file-extensions.md). These are executable
-Pythonic conventions with authored tests; they do not assert native controller
+Pythonic conventions; 0.83.0 adds [indirect I/O, comments and CALL arguments](io-and-call-parameters.md).
+They have authored tests and do not assert native controller
 timing, file layout, task ABI or robot calibration. Strict mode remains a future
 milestone. The [service matrix](offline-services.md) describes the underlying
 procedures and the [semantic ledger](semantics/extended_service_semantics.json)

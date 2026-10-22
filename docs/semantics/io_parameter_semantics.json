@@ -1,0 +1,44 @@
+{
+  "version": "0.83.0",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Manual API forms and authored offline tests; no native I/O, task or teach-pendant execution",
+  "sources": [
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[406,408,409,546,547,548],"topic":"Logical port comments, GET/SET_PORT_VAL and GET/SET_PORT_SIM; codes delegated to KLIOTYPS include"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[411,413,414,550,551,552],"topic":"Numeric, position and string register comment procedure forms; numeric comment truncation at 16 characters"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[416,417],"topic":"GET_TPE_PRM argument order, maximum ten arguments, type codes 1/2/3 and missing status 17042"}
+  ],
+  "implemented": {
+    "indirect_ports":"Caller-supplied INTEGER code-to-kind mapping, shared existing PortBank storage and explicit missing/range/representation/direction statuses",
+    "simulation":"SET_PORT_SIM initializes the logical value and marks it simulated; SET_PORT_VAL permits outputs and simulated inputs; direct source input assignments remain rejected",
+    "port_comments":"Independent 16-character ASCII metadata; empty comment is available before a value exists",
+    "register_comments":"Independent numeric/position/string bank comments with capacities 16/16/254; setter/destination truncation; valid empty default and range status 2",
+    "parameters":"CallParameters selects root-task arguments 1..10; type 1 INTEGER, 2 REAL, 3 STRING; unused outputs preserved; absent argument writes only status 17042",
+    "persistence":"Optional metadata and parameters preserved through context JSON; numeric-register standalone to_config includes comments; legacy shapes retained when metadata is empty"
+  },
+  "portable_choices": [
+    "No default port type-code enum is inferred; source numeric codes must match the caller-supplied mapping",
+    "GET_PORT_VAL manual parameter line lists STRING while Boolean details describe 0/1; runtime supports INTEGER/REAL/BOOLEAN/STRING scalar outputs and setters",
+    "GET_PORT_SIM uses the documented INTEGER output with 0/1 despite prose describing TRUE/FALSE",
+    "Fractional analog-to-INTEGER conversion returns representation status 3; no implicit truncation",
+    "Port statuses 0/1/2/3/4 are explicit offline conventions without native alarm mapping",
+    "Port comment setters truncate to 16 where the manual requires at most 16; position comment capacity 16 and string comment capacity 254 are portable choices",
+    "Comments do not initialize registers and position comments are shared across bank groups",
+    "GET_TPE_PRM unused outputs remain untouched; STRING results truncate to destination capacity",
+    "Arguments are supplied per root program by the host, persist across runs and are not forwarded by source RUN_TASK"
+  ],
+  "remaining": [
+    "Native type-code include loading, physical port assignments, reverse/complementary modes, unsimulation and hardware acquisition",
+    "Native register-comment limits/alarms beyond the documented numeric truncation",
+    "Teach-pendant program loading/execution, native CALL/MACRO acquisition and task ABI",
+    "Strict mode and controller/runtime acceptance"
+  ],
+  "verification": [
+    "tests/test_io_parameters.py",
+    "tests/test_numeric_registers.py",
+    "examples/indirect_io.kl",
+    "examples/register_comments.kl",
+    "examples/call_parameters.kl"
+  ],
+  "guide": "../io-and-call-parameters.md"
+}

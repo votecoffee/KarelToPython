@@ -1,0 +1,12 @@
+PROGRAM REGISTER_COMMENTS
+VAR status: INTEGER
+    numeric_comment,position_comment: STRING[16]
+    string_comment: STRING[254]
+BEGIN
+  SET_REG_CMT(1,'counter',status)
+  SET_PREG_CMT(1,'target',status)
+  SET_SREG_CMT(1,'description',status)
+  GET_REG_CMT(1,numeric_comment,status)
+  GET_PREG_CMT(1,position_comment,status)
+  GET_SREG_CMT(1,string_comment,status)
+END REGISTER_COMMENTS

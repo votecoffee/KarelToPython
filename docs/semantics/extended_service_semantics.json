@@ -1,5 +1,5 @@
 {
-  "version": "0.82.0",
+  "version": "0.83.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -122,5 +122,6 @@
   "guide": "../offline-services.md",
   "extended_guide": "../portable-projects.md",
   "control_notifications": "control_notification_semantics.json",
-  "extension_guide": "../task-and-file-extensions.md"
+  "extension_guide": "../task-and-file-extensions.md",
+  "io_parameters": "io_parameter_semantics.json"
 }

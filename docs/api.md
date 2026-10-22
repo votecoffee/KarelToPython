@@ -293,6 +293,11 @@ unary VECTOR signs, product association and numeric boundaries. See
 
 ## Offline service context and cooperative execution
 
+`io_parameter_policy` describes indirect port mapping, scalar conversions,
+simulation, comments, argument scope and portable status codes. See
+[I/O and CALL parameters](io-and-call-parameters.md) for CallParameters and the
+optional constructor/JSON fields for register and port metadata.
+
 `context=ExecutionContext(...)` adds strings, positions, ports, variables, files,
 robot adapters, external callback bindings and a task registry. Generated scripts
 accept `--context` JSON for serializable service state. See the

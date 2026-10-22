@@ -1843,7 +1843,7 @@ REGISTER_OUT_OF_RANGE = 2
 
 
 class NumericRegisters:
-    """Explicit bounded in-memory numeric registers; no controller or persistence."""
+    """Explicit bounded in-memory numeric registers; no controller access."""
     def __init__(self, count, initial=None, *, comments=None):
         if type(count) is not int or not 1 <= count <= 32767:
             raise ValueError('NumericRegisters count must be an integer in 1..32767')

@@ -3505,7 +3505,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         evaluation='Inputs then exact writable outputs once left-to-right; outputs disjoint before bank access; prior effects retained on error; normal FOR/CONFIG/POSITION guards and frame cleanup',
         observations='Program.register_requests returns defensive procedure/register number/line/operation/status/outcome records reset at run start; values omitted',
         names='Pythonic fallback procedures preserve internal routines and ordinary declarations; other controller identifiers remain blocked; strict future work',
-        boundary='Explicit offline memory model only, no robot communication, remote/group registers, R[] syntax, comments, native count/error/persistence/initial-value or controller acceptance claim',
+        boundary='Explicit offline memory model only, no robot communication, remote/group registers, R[] syntax, native count/error/persistence/initial-value or controller acceptance claim; comments use the separate offline comment API',
         controller_validated=False)
     report['bare_function_policy']['microsecond_clock'] = 'In Pythonic mode an unshadowed GET_USEC_TIM value name resolves as a zero-argument clock function; internal routines and local/global variables/constants retain precedence'
     report['microsecond_timer_policy'] = dict(

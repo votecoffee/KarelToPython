@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.83.0 - 2026-10-22
+
+- Add indirect port value/comment/simulation procedures with explicit port-type
+  mappings, checked scalar conversions and shared direct-port storage. Simulated
+  input values can be updated through SET_PORT_VAL; physical modes stay outside.
+- Add independent numeric, position and string register comments, constructor
+  metadata and JSON persistence without initializing absent register values.
+- Add per-task CallParameters and GET_TPE_PRM, selected output preservation,
+  missing argument status 17042 and linked caller identity.
+- Add three authored examples, 39 integration tests, public API/report policy
+  and source-backed semantic notes. Strict and native I/O/TP execution remain future.
+
 ## 0.82.0 - 2026-10-22
 
 - Add POST_ERR_L with eleven named portable ERSEV constants, explicit local/global

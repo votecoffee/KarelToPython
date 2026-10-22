@@ -1,0 +1,10 @@
+PROGRAM CALL_PARAMETERS
+VAR kind,count,status: INTEGER
+    gain: REAL
+    label: STRING[16]
+BEGIN
+  GET_TPE_PRM(1,kind,count,gain,label,status)
+  GET_TPE_PRM(2,kind,count,gain,label,status)
+  GET_TPE_PRM(3,kind,count,gain,label,status)
+  GET_TPE_PRM(4,kind,count,gain,label,status)
+END CALL_PARAMETERS

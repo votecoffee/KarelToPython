@@ -112,7 +112,7 @@ python -m karel2py examples/pythonic_numeric_registers.kl -o converted.py
 python converted.py --registers examples/pythonic_numeric_registers.registers.initial.json
 ```
 
-The JSON contains exactly `count` and `values`, for example
+The JSON requires `count` and `values`, with optional `comments`, for example
 `{"count": 3, "values": {"1": -7, "2": 0.5}}`. Keys are canonical positive decimal
 strings within the explicit count. `NumericRegisters.from_config(config)` loads
 the same decoded structure for embedding. Invalid files/configurations produce
@@ -136,8 +136,11 @@ preservation and portable nonzero statuses are project choices. They do not
 establish native register initialization, count, error mapping or persistence.
 
 This is an offline execution context. Real controller access, remote/group
-register operations, position/string registers, register comments and `R[]`
-syntax remain unsupported. REGOPE is metadata; strict remains a future milestone.
+register operations and `R[]` syntax remain unsupported. Position/string banks
+use the [offline services](offline-services.md); independent register comments
+and optional constructor/JSON metadata use the
+[I/O and argument extensions](io-and-call-parameters.md). REGOPE is metadata;
+strict remains a future milestone.
 
 Since 0.80.0, ExecutionContext can own the numeric bank and save/load it with
 other typed state. See [persistent services](portable-projects.md#shared-and-persistent-state).

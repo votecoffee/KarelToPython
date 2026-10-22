@@ -1,0 +1,13 @@
+PROGRAM INDIRECT_IO
+VAR status,simulated,value: INTEGER
+    flag: BOOLEAN
+    comment: STRING[16]
+BEGIN
+  SET_PORT_SIM(10,1,1,status)
+  GET_PORT_SIM(10,1,simulated,status)
+  GET_PORT_VAL(10,1,value,status)
+  SET_PORT_VAL(20,1,value,status)
+  flag=DOUT[1]
+  SET_PORT_CMT(10,1,'ready',status)
+  GET_PORT_CMT(10,1,comment,status)
+END INDIRECT_IO
