@@ -38,13 +38,13 @@ zero-argument callable returning nonnegative Python integer microseconds:
 ```python
 from karel2py import translate
 
-source = """PROGRAM TIMER
+source = """PROGRAM STOPWATCH
 VAR first,last,elapsed: INTEGER
 BEGIN
   first=GET_USEC_TIM
   last=GET_USEC_TIM()
   elapsed=GET_USEC_SUB(last,first)
-END TIMER"""
+END STOPWATCH"""
 namespace = {"__name__": "timer_example"}
 exec(translate(source).python_source, namespace)
 samples = iter((119999990, 120000025))
