@@ -1,6 +1,7 @@
 # Portable projects, state, files and robot models
 
-Version 0.80.0 extends all four offline service areas. These are executable
+Version 0.80.0 extended all four offline service areas; 0.81.0 adds
+[semaphores and error/lifecycle notifications](control-notifications.md). These are executable
 Pythonic conventions with authored tests; they do not assert native controller
 timing, file layout, task ABI or robot calibration. Strict mode remains a future
 milestone. The [service matrix](offline-services.md) describes the underlying
@@ -11,7 +12,7 @@ retains source provenance and unresolved behavior.
 | --- | --- | --- |
 | Registers and I/O | Numeric/string/position banks and ports persist to typed JSON; attached program globals and explicitly supplied system roots resolve through GET_VAR/SET_VAR | Live I/O acquisition and automatic controller-system-variable discovery |
 | Files and collections | Explicit directory backend, copy/delete/rename/list, ASCII/binary transfers, attributes, typed PATH/header and QUEUE_TYPE operations | Native devices, proprietary binary layouts, association records and native alarms |
-| Control and linkage | Deterministic task scheduler, virtual time, event broadcasts, port edges, EVAL capture, scan intervals, optional local handler lifetime, typed source-project linkage | Native interrupts/priorities, ERROR/POWERUP/SEMAPHORE conditions, motion UNTIL handlers and external ABI |
+| Control and linkage | Deterministic task scheduler, virtual time, event broadcasts, port edges, EVAL capture, scan intervals, optional local handler lifetime, typed source-project linkage | Native interrupts/priorities, motion UNTIL handlers, native alarm dictionaries and external ABI |
 | Geometry | Explicit standard-DH model, forward/numerical inverse conversion, limits/reachability, external kinematic joints, groups/frames/tools and extended-pose comparisons | Robot-specific calibration/configuration branch selection, collisions and certified reachability |
 
 ## Shared and persistent state
@@ -180,8 +181,9 @@ Handlers remain one-shot until explicitly enabled again. By default they keep
 their captured lexical frames. `ExecutionContext(local_handlers=True)` instead
 purges handlers defined in a routine when its frame exits. `rt.condition_scope`
 offers host-controlled lifetime. These facilities do not implement native motion
-UNTIL handlers, interrupt priorities, ERROR/POWERUP/SEMAPHORE conditions or native
-NOABORT/NOPAUSE actions.
+UNTIL handlers or interrupt priorities. Version 0.81.0 adds Pythonic
+ERROR/POWERUP/SEMAPHORE conditions and NOABORT/NOPAUSE/NOMESSAGE actions; see
+[control notifications](control-notifications.md).
 
 ## Robot models and extended poses
 

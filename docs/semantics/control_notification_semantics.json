@@ -1,0 +1,44 @@
+{
+  "version": "0.81.0",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Manual forms and authored offline tests; no controller or native task execution",
+  "sources": [
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[110,111,112,113,114],"topic":"ERROR, POWERUP, SEMAPHORE and miscellaneous handler actions; EVAL capture"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[329,475,482,483,533],"topic":"CLEAR_SEMA, PEND_SEMA, POST_ERR, POST_SEMA and SEMA_COUNT signatures"}
+  ],
+  "implemented": {
+    "semaphores":"Explicit bank count; zero initial unspecified counters; FIFO wait tickets, atomic posting/consumption and negative queued-wait counts",
+    "waits":"-1 indefinite, 0 immediate or positive milliseconds up to one day; BOOLEAN timeout; scheduler virtual clock or standalone 1 ms sleeper polling",
+    "cleanup":"Stop/abort/failure removes waits, refunds unconsumed grants and preserves unrelated waiters by identity; active waits cannot be serialized",
+    "errors":"POST_ERR code/parameter/cause/severity 0 warning, 1 global context pause, 2 global context abort; bounded defensive ErrorHistory",
+    "conditions":"ERROR[n] and wildcard consume retained scoped records independently; POWERUP is an explicit recovery continuation; SEMAPHORE is non-consuming",
+    "actions":"NOPAUSE and NOABORT clear pending control requests, including linked calls; NOMESSAGE marks retained history; EVAL actions capture at definition",
+    "runtime_failures":"Cooperative KarelRuntimeError notifies code 1 with origin runtime after unwinding, then remains an exception; exhausted budgets skip handler execution",
+    "powerup":"Program.powerup or scheduler.powerup continues a live paused instance and increments POWERUP plus CONTINUE; no lost-process restoration",
+    "signals":"EVENT and SEMAPHORE signal statements scan at their trailing checkpoint even as the final source statement"
+  },
+  "portable_differences": [
+    "Record/event generations latch and coalesce until scanned, unlike native ephemeral error/event scans",
+    "Runtime code 1 is an offline category without a native alarm mapping; no automatic retry or continuation after invalid runtime values",
+    "CLEAR_SEMA preserves queued waits and granted reservations; no native cancellation assertion",
+    "FIFO ordering, one-day bounds, polling quantum and ticket refund rules are portable conventions",
+    "POST_ERR global scope includes only active/paused registered Programs in one context; no motion or native alarm dictionary",
+    "Scheduler raises at its first abort; remaining pending requests require the next drive; paused standalone targets require continuation",
+    "NOMESSAGE preserves the suppressed audit record, rather than deleting history",
+    "Handlers run sequentially with ordinary Pythonic actions; no native interrupt priority or routine-action ordering equivalence"
+  ],
+  "remaining": [
+    "Native priorities and motion UNTIL/local interrupt handlers",
+    "POST_ERR_L native severity constants, alarm dictionaries and physical motion effects",
+    "Suspended-process/power-failure restoration and native persistent semaphores",
+    "Strict mode and controller/runtime acceptance"
+  ],
+  "verification": [
+    "tests/test_control_notifications.py",
+    "tests/test_project_scheduler.py",
+    "examples/offline_semaphores.kl",
+    "examples/offline_error_handlers.kl"
+  ],
+  "guide": "../control-notifications.md"
+}

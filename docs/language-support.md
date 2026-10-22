@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.80.0. Acceptance is specific to
+This is the supported prototype subset as of 0.81.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -40,7 +40,7 @@ internally and in the historical semantic notes.
 | Pose axis queries | APPROACH and ORIENT on POSITION/XYZWPR/XYZWPREXT return independent writable VECTOR values for positive Z/Y | Complete finite poses, checked CONFIG and proper POSITION matrices; no normalization, defaults, other positional operands or controller acquisition. |
 | Position comparison | Approximate >=< on POSITION/XYZWPR/XYZWPREXT, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle/external-axis tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
-| WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition, native event conditions or controller timing. |
+| WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles or a caller-rooted DirectoryFiles; no live devices or aggregate output. |
 | READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; no live devices, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
@@ -49,12 +49,14 @@ internally and in the historical semantic notes.
 | Registers and ports | String/position/joint banks, digital/group/analog ports, static GET_VAR/SET_VAR paths | Explicit context, checked values and disjoint outputs; attached foreign globals and explicit system roots; no live acquisition. |
 | FILE | OPEN/CLOSE, text/binary READ/WRITE, byte cursors, byte counts and status | MemoryFiles or explicit DirectoryFiles root; copy/delete/rename/list, ATR_UF binary, reverse byte order, EOL and interactive flush; no native device routing. |
 | PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queue procedures | One-based nodes, fixed backing-array capacity, portable status/sequence conventions and no native layout claim. |
-| Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic optional scheduler, event broadcasts, edges, EVAL, scan intervals, local lifetimes and typed project linkage; no native interrupts or motion behavior. |
+| Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |
 | Robot model | MIRROR, extended pose metadata, JOINT2POS/POS2JOINT, IN_RANGE/J_IN_RANGE | Explicit right-handed reflection convention, supplied callbacks/limits or standard-DH models with bounded IK, explicit groups/frames/tools and external joints; no inferred robot context or native reachability claim. |
 
 See the [offline service matrix and guide](offline-services.md) for the complete
 contracts and remaining gaps; [portable projects](portable-projects.md) covers
-the 0.80.0 implementation and setup.
+the project implementation and setup.
+[Control notifications](control-notifications.md) covers 0.81.0 semaphores, error
+records, runtime-failure observation and explicit powerup recovery.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.

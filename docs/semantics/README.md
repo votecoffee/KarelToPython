@@ -108,3 +108,7 @@ The [extended service ledger](extended_service_semantics.json) records the 0.79.
 register/port, FILE/collection, cooperative control and robot-model contracts.
 Its [guide](../offline-services.md) extends the earlier geometry ledgers with
 XYZWPREXT metadata and MIRROR; historical native-behavior questions remain open.
+
+See [control notifications](../control-notifications.md) and the
+[semaphore/error/lifecycle ledger](control_notification_semantics.json) for
+the 0.81.0 manual forms, portable choices and remaining native gaps.

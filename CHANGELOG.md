@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.81.0 - 2026-10-22
+
+- Add explicit FIFO counting semaphores, POST/CLEAR/COUNT/PEND procedures,
+  semaphore conditions and SIGNAL, timed/indefinite waits and cancellation cleanup.
+- Add POST_ERR, scoped bounded error history, ERROR/wildcard conditions and
+  NOMESSAGE/NOPAUSE/NOABORT handler actions. Invalid runtime values still fail
+  after notifying handlers with a documented portable error category.
+- Add explicit POWERUP continuation for live paused Programs/scheduled tasks,
+  shared pending control requests across library calls and EVAL action capture.
+- Scan after final signal statements, wake delayed tasks for pending aborts,
+  preserve semaphore reservations and reject persistence of active waits.
+- Add authored notification examples, integration regressions and source-backed
+  semantic notes. Native priorities, motion, POST_ERR_L and strict remain future.
+
 ## 0.80.0 - 2026-10-22
 
 - Add typed JSON save/load for service banks and attached program globals, with

@@ -1,9 +1,11 @@
 # Offline services and cooperative execution
 
-Version 0.80.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.81.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
+[Control notifications](control-notifications.md) adds semaphore operations,
+ERROR/POWERUP conditions and pending pause/abort suppression.
 All state belongs to supplied Python objects. A missing service raises a
 source-located error. Strict mode remains a future milestone.
 

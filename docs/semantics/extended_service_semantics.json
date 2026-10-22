@@ -1,5 +1,5 @@
 {
-  "version": "0.80.0",
+  "version": "0.81.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -68,7 +68,7 @@
     "registers_ports_variables": "Explicit banks and typed JSON persistence, attached foreign globals and explicit system roots; no hardware acquisition",
     "files": "MemoryFiles or explicit DirectoryFiles root, atomic buffered close/interactive flush, attributes and synchronous file management",
     "collections": "Typed one-based PATH nodes/header and independent copies; initialized fixed-capacity FIFO queues tied to one backing array",
-    "control": "Deterministic cooperative scheduler with virtual time, events, edges, EVAL, scan intervals and optional local lifetimes; typed supplied-source project linkage",
+    "control": "Deterministic cooperative scheduler with virtual time, events, edges, EVAL, scan intervals and optional local lifetimes; typed supplied-source project linkage; FIFO semaphores, scoped errors and explicit POWERUP, pending suppression and EVAL actions",
     "geometry": "Explicit standard-DH FK/numerical IK/reachability, limits/groups/frames/tools and external kinematic joints; extended per-axis comparison tolerances"
   },
   "portable_choices": {
@@ -89,7 +89,7 @@
     "GET_QUEUE syntax line swaps sequence/status relative to descriptions/example; implementation follows latter",
     "Native binary layouts, listing formats, device behavior, file status/alarm mapping and numeric attribute encodings",
     "Robot-specific calibrated dimensions, configuration branch selection, collisions and certified reachability",
-    "Native interrupts/priorities, ERROR/POWERUP/SEMAPHORE conditions, motion UNTIL/local handlers and NOABORT/NOPAUSE",
+    "Native interrupt priorities, motion UNTIL/local handlers, POST_ERR_L and native alarm dictionaries",
     "Native task scheduling/locks, external ABI, native persistent storage and suspended checkpoint restoration",
     "Obsolete STD_PTH_NODE association records, group-qualified node identity and physical NODE_SIZE",
     "Strict mode and native external-axis transformation/comparison conventions"
@@ -109,5 +109,6 @@
     "examples/extended_comparison.kl"
   ],
   "guide": "../offline-services.md",
-  "extended_guide": "../portable-projects.md"
+  "extended_guide": "../portable-projects.md",
+  "control_notifications": "control_notification_semantics.json"
 }

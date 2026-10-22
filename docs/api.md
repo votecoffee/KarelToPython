@@ -110,6 +110,17 @@ and report paths must differ. Their parent directories must already exist.
 | `1` | File or text-decoding error. |
 | `2` | Rejected source or invalid CLI arguments. |
 
+## Semaphores and notifications
+
+ExecutionContext accepts explicit `semaphores=SemaphoreBank(count,initial)` and
+`errors=ErrorHistory(limit=1000)` services, including typed JSON save/load.
+PEND_SEMA and POST_ERR enable cooperative generation automatically. ERROR
+conditions observe posted/host notifications or portable runtime-failure code 1.
+NOABORT/NOPAUSE clear pending requests; they cannot suppress an invalid runtime
+value. `Program.powerup()` and `scheduler.powerup(name)` explicitly continue a
+live paused instance. See [control notifications](control-notifications.md) for
+FIFO ordering, timeouts, error scope, suppression and recovery boundaries.
+
 ## Generated Program
 
 A generated module defines `Program(*, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None)`.
@@ -288,7 +299,7 @@ accept `--context` JSON for serializable service state. See the
 Task-control syntax, handlers, connected timers and external declarations enable
 cooperative generation automatically. `translate(...,cooperative=True)` and CLI
 `--cooperative` enable host control for other source and enter the context hash.
-Generated cooperative Programs add `pause()`, `resume()`, `stop()` and
+Generated cooperative Programs add `pause()`, `resume()`, `powerup()`, `stop()` and
 `task_state`. `run()`/`resume()` raise `KarelPause` when suspended; `resume()`
 retains the stack, budget and current instruction. `stop()` closes suspended
 frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
@@ -296,6 +307,6 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 new run. Services retain their explicit shared state.
 
 A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
-`extended.py`, `storage.py`, `kinematics.py` and `scheduling.py`. Project loading
+`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py` and `control.py`. Project loading
 also needs `project.py`, the compiler and lexer. Installing the package includes
 all of them.

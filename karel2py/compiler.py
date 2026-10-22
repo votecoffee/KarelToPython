@@ -3468,6 +3468,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         timers='Global INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry and backward-clock checks',
         linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
         guide='docs/offline-services.md',controller_validated=False)
+    report['control_notification_policy']=dict(
+        semaphores='Explicit SemaphoreBank count and FIFO tickets; non-consuming conditions, negative queued counts, timed/indefinite waits, grant refund and cancellation cleanup',
+        persistence='Quiescent semaphore counters and bounded scoped error history; outstanding wait tickets cannot be saved',
+        errors='POST_ERR 0 warning, 1 pause, 2 abort within shared context; ERROR[n]/ERROR[*] consume scoped retained notifications; runtime code 1 is an offline category',
+        failure='Cooperative KarelRuntimeError notifies after frame unwinding then remains a failure; budget exhaustion skips additional actions; no retry',
+        actions='NOPAUSE/NOABORT clear pending requests; NOMESSAGE marks retained history; EVAL predicates/actions capture at definition',
+        lifecycle='Explicit Program.powerup/scheduler.powerup resumes a live paused instance with POWERUP plus CONTINUE; ordinary resume signals CONTINUE only',
+        signals='EVENT and SEMAPHORE signal statements scan at their trailing checkpoint, including final statements',
+        boundary='No native priorities, motion UNTIL handlers, POST_ERR_L encodings, alarm dictionaries, process restoration or controller acceptance',
+        guide='docs/control-notifications.md',controller_validated=False)
     if cooperative:
         report['translation_context']['cooperative'] = True
         report['translation_context_sha256'] = hashlib.sha256(json.dumps(report['translation_context'], sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest()
@@ -3762,7 +3772,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Generic configured models only; no calibrated native robot configuration branches, collisions, motion or controller acceptance claim',
         guide='docs/portable-projects.md',controller_validated=False)
     report['abort_policy']['source']='Bare ABORT, handler action or explicitly registered task target; sticky offline termination'
-    report['abort_policy']['boundary']='No controller motion cancellation, NOABORT behavior, native persistence or restart acceptance'
+    report['abort_policy']['boundary']='NOABORT can cancel pending cooperative requests, but cannot undo sticky termination; no controller motion cancellation, native persistence or restart acceptance'
     report['data_record_policy']['boundary'] = 'Checked positional data and whole pose conversions; registers and geometry use explicit services; no builtin USING, record I/O, motion or inferred group/frame context'
     report['pos_policy']['boundary'] = 'POS returns exact XYZWPR; whole assignments can convert poses under position_conversion_policy; no implicit routine/array conversion, robot context, native configuration validity or native pause/status'
     report['frame_policy']['operands'] = 'Explicit complete POSITION/XYZWPR/XYZWPREXT; colon composition, INV and three/four-point FRAME use checked frame math and explicit external metadata'
