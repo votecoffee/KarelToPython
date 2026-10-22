@@ -29,6 +29,12 @@ PROCEDURES = {
     'CONT_TASK': (S,OI), 'PAUSE_TASK': (S,B,B,OI), 'ABORT_TASK': (S,B,B,OI),
     'RUN_TASK': (S,I,B,B,I,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
+    **{name:signature for family in ('REG','PREG','SREG') for name,signature in
+       ((f'GET_{family}_CMT',(I,OS,OI)),(f'SET_{family}_CMT',(I,S,OI)))},
+    'GET_PORT_VAL': (I,I,arg('PORT_VALUE','o'),OI), 'SET_PORT_VAL': (I,I,arg('PORT_VALUE'),OI),
+    'GET_PORT_CMT': (I,I,OS,OI), 'SET_PORT_CMT': (I,I,S,OI),
+    'GET_PORT_SIM': (I,I,OI,OI), 'SET_PORT_SIM': (I,I,arg('PORT_VALUE'),OI),
+    'GET_TPE_PRM': (I,OI,OI,arg('REAL','o'),OS,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
     'GET_VAR': (arg('INTEGER','o'),S,S,OA,OI),
@@ -72,6 +78,7 @@ def matches(spec, kind):
     rt=runtime()
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
+    if kind=='PORT_VALUE': return spec[0] in ('INTEGER','REAL','BOOLEAN','STRING')
     if kind in ('INT_ARRAY','REAL_ARRAY'):
         return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]==('INTEGER' if kind=='INT_ARRAY' else 'REAL')
     if kind=='STRING_ARRAY': return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]=='STRING'
@@ -88,11 +95,74 @@ def outputs_checked(signature, arguments, line=None):
         occupied.update(cells)
 
 
+class RegisterComments:
+    """Comments are independent of whether a register value has been supplied."""
+    def __init__(self,count,initial=None,*,capacity=16):
+        if type(count) is not int or not 1<=count<=32767: raise ValueError('Explicit register comment count required')
+        if type(capacity) is not int or not 1<=capacity<=254: raise ValueError('Comment capacity must be in 1..254')
+        if initial is not None and type(initial) is not dict: raise ValueError('Comments must be a register-number mapping')
+        self.count,self.capacity,self.values=count,capacity,{}
+        for number,value in (initial or {}).items():
+            if self.write(number,value): raise ValueError('Comment register outside its bank')
+    def read(self,number,line=None):
+        number=runtime().integer(number,line)
+        return (2,None) if not 1<=number<=self.count else (0,self.values.get(number,''))
+    def write(self,number,value,line=None):
+        number=runtime().integer(number,line); value=runtime().ascii_string(value,line)
+        if not 1<=number<=self.count: return 2
+        self.values[number]=value[:self.capacity]; return 0
+    def snapshot(self): return self.values.copy()
+    @staticmethod
+    def decode(values):
+        if type(values) is not dict: raise ValueError('Comments must be an object')
+        result={}
+        for key,value in values.items():
+            if type(key) is not str or not re.fullmatch(r'[1-9][0-9]{0,4}',key): raise ValueError('Comment keys require canonical positive register numbers')
+            result[int(key)]=value
+        return result
+
+
+class CallParameters:
+    """Explicit per-task CALL arguments, without a teach-pendant connection."""
+    def __init__(self,initial=None):
+        if initial is not None and type(initial) is not dict: raise ValueError('Call parameters must map program names to numbered arguments')
+        self.values={}
+        for program,arguments in (initial or {}).items():
+            if type(program) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',program): raise ValueError('Call parameter program requires an ASCII identifier')
+            if program.upper() in self.values or type(arguments) is not dict: raise ValueError('Duplicate or invalid call parameter program')
+            values={}
+            for number,value in arguments.items():
+                if type(number) is not int or not 1<=number<=10: raise ValueError('Call parameter number must be in 1..10')
+                if type(value) not in (int,float,str): raise ValueError('Call parameters require INTEGER, REAL or ASCII STRING values')
+                with runtime()._numeric_scope('pythonic'):
+                    value=runtime().checked(('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254),value)
+                if type(arguments[number]) is str and len(arguments[number])>254: raise ValueError('Call parameter STRING exceeds 254 characters')
+                values[number]=value
+            self.values[program.upper()]=values
+    def read(self,program,number,line=None):
+        number=runtime().integer(number,line)
+        return self.values.get(program.upper(),{}).get(number)
+    def to_config(self): return {name:{str(number):value for number,value in values.items()} for name,values in self.values.items()}
+    @classmethod
+    def from_config(cls,config):
+        if type(config) is not dict: raise ValueError('Call parameters must be an object')
+        values={}
+        for name,arguments in config.items():
+            if type(arguments) is not dict: raise ValueError('Numbered call parameters must be an object')
+            converted={}
+            for key,value in arguments.items():
+                if type(key) is not str or not re.fullmatch(r'[1-9]|10',key): raise ValueError('Call parameter keys must be canonical numbers in 1..10')
+                converted[int(key)]=value
+            values[name]=converted
+        return cls(values)
+
+
 class StringRegisters:
-    def __init__(self,count,initial=None,*,capacity=254):
+    def __init__(self,count,initial=None,*,capacity=254,comments=None):
         if type(count) is not int or not 1<=count<=32767: raise ValueError('String register count must be in 1..32767')
         if type(capacity) is not int or not 1<=capacity<=254: raise ValueError('String register capacity must be in 1..254')
         self.count,self.capacity,self.values=count,capacity,{}
+        self.comments=RegisterComments(count,comments,capacity=254)
         for number,value in (initial or {}).items():
             if self.write(number,value): raise ValueError('Initial string register is outside its bank')
     def read(self,number): return (2,None) if not 1<=number<=self.count else (0,self.values[number]) if number in self.values else (1,None)
@@ -113,10 +183,11 @@ def pose_extended(value,line=None):
 
 
 class PositionRegisters:
-    def __init__(self,count,initial=None,*,groups=(1,)):
+    def __init__(self,count,initial=None,*,groups=(1,),comments=None):
         if type(count) is not int or not 1<=count<=32767: raise ValueError('Position register count must be in 1..32767')
         if not groups or any(type(g) is not int or g<1 for g in groups): raise ValueError('Explicit positive position groups required')
         self.count,self.groups,self.values=count,tuple(groups),{}
+        self.comments=RegisterComments(count,comments)
         for key,value in (initial or {}).items():
             group,number=key if type(key) is tuple else (self.groups[0],key)
             if self.write(number,value,group): raise ValueError('Initial position register is outside its bank')
@@ -134,10 +205,26 @@ class PositionRegisters:
 
 class PortBank:
     """Host updates may supply inputs; translated assignments write outputs only."""
-    def __init__(self,counts,initial=None):
+    def __init__(self,counts,initial=None,*,type_codes=None,comments=None,simulated=()):
+        if type(counts) is not dict: raise ValueError('Port counts must be an object')
+        if comments is not None and type(comments) is not dict: raise ValueError('Port comments must be an address mapping')
+        if type(simulated) not in (list,tuple,set): raise ValueError('Simulated ports must be a collection of addresses')
         self.counts={str(k).upper():v for k,v in counts.items()}; self.values={}
         if any(k not in PORT_TYPES or type(v) is not int or not 1<=v<=32767 for k,v in self.counts.items()): raise ValueError('Explicit valid port kinds/counts required')
+        if type_codes is not None and type(type_codes) is not dict: raise ValueError('Port type codes must be an INTEGER-to-kind mapping')
+        self.type_codes={}; self.comments={}; self.simulated=set()
+        for code,kind in (type_codes or {}).items():
+            if type(code) is not int or not 0<=code<=2147483646 or type(kind) is not str or kind.upper() not in self.counts: raise ValueError('Port type codes must identify configured port kinds')
+            self.type_codes[code]=kind.upper()
         for (kind,number),value in (initial or {}).items(): self.update(kind,number,value)
+        for key,value in (comments or {}).items():
+            kind,number=key; self._key(kind,number); self.comments[kind.upper(),number]=runtime().ascii_string(value)[:16]
+        for kind,number in simulated:
+            self._key(kind,number); self.simulated.add((kind.upper(),number))
+    def _key(self,kind,number,line=None):
+        kind=kind.upper(); number=runtime().integer(number,line)
+        if kind not in self.counts or not 1<=number<=self.counts[kind]: fail('Port is outside its explicit bank',line)
+        return kind,number
     def update(self,kind,number,value):
         rt=runtime(); kind=kind.upper(); number=rt.integer(number)
         if kind not in self.counts or not 1<=number<=self.counts[kind]: fail('Port is outside its explicit bank')
@@ -149,9 +236,50 @@ class PortBank:
         if (kind,number) not in self.values: fail('Port has no supplied value or is outside its bank',line)
         return self.values[kind,number]
     def write(self,kind,number,value,line=None):
-        if kind not in OUTPUT_PORTS: fail('Translated programs cannot assign an input port',line)
+        if kind not in OUTPUT_PORTS and (kind,number) not in self.simulated: fail('Translated programs cannot assign an input port unless it is simulated',line)
         self.update(kind,number,value)
     def snapshot(self): return self.values.copy()
+
+    def indirect(self,name,args,line=None):
+        rt=runtime()
+        if not self.type_codes: fail('Indirect port access requires explicit type_codes mapping',line)
+        code,number=(rt.integer(value,line) for value in args[:2]); kind=self.type_codes.get(code)
+        if kind not in self.counts or not 1<=number<=self.counts[kind]: args[-1].set(2,line); return
+        key=kind,number
+        if name=='GET_PORT_SIM': value=int(key in self.simulated)
+        elif name=='GET_PORT_CMT': value=self.comments.get(key,'')
+        elif name=='SET_PORT_CMT': self.comments[key]=rt.ascii_string(args[2],line)[:16]; args[-1].set(0,line); return
+        elif name=='GET_PORT_VAL':
+            if key not in self.values: args[-1].set(1,line); return
+            value=self.values[key]
+            try: value=port_value(value,args[2].spec[0],line)
+            except (ValueError,rt.KarelRuntimeError): args[-1].set(3,line); return
+        else:
+            if name=='SET_PORT_VAL' and kind not in OUTPUT_PORTS and key not in self.simulated: args[-1].set(4,line); return
+            try: value=port_value(args[2],PORT_TYPES[kind],line)
+            except (ValueError,OverflowError,rt.KarelRuntimeError): args[-1].set(3,line); return
+            if PORT_TYPES[kind]=='INTEGER' and value<0: args[-1].set(3,line); return
+            self.update(kind,number,value)
+            if name=='SET_PORT_SIM': self.simulated.add(key)
+            args[-1].set(0,line); return
+        # Validate before either output changes, including short INTEGER domains.
+        value=rt.checked(args[2].spec,value,line); args[2].set(value,line); args[-1].set(0,line)
+
+
+def port_value(value,kind,line=None):
+    """Scalar port conversions, with exact INTEGER and explicit Boolean 0/1 text."""
+    rt=runtime()
+    if kind=='STRING': return ('1' if value else '0') if type(value) is bool else str(value)
+    if type(value) is str:
+        if value.upper() in ('ON','TRUE','OFF','FALSE'): value=value.upper() in ('ON','TRUE')
+        else: value=float(value) if kind=='REAL' else int(value,10)
+    if kind=='BOOLEAN':
+        if value not in (0,1): raise ValueError('Boolean port requires 0 or 1')
+        return bool(value)
+    if kind=='INTEGER':
+        if type(value) is float and not value.is_integer(): raise ValueError('Fractional analog port requires REAL output')
+        return rt.checked(('INTEGER',),int(value),line)
+    return rt.real(int(value) if type(value) is bool else value,line)
 
 
 class VariableStore:
@@ -527,7 +655,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,local_handlers=False):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,local_handlers=False):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -535,6 +663,8 @@ class ExecutionContext:
         self.tasks=tasks if tasks is not None else TaskRegistry()
         self.numeric=numeric; self.events=events
         self.semaphores=semaphores; self.errors=errors
+        if parameters is not None and type(parameters) is not CallParameters: raise TypeError('parameters must be CallParameters or None')
+        self.parameters=parameters
         if type(local_handlers) is not bool: raise TypeError('local_handlers must be BOOLEAN')
         self.local_handlers=local_handlers
     def to_config(self):
@@ -554,13 +684,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','local_handlers'}: raise ValueError('Unknown execution context fields')
-        for name,allowed in (('strings',{'count','capacity','values'}),('positions',{'count','groups','values'}),('ports',{'counts','values'})):
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','local_handlers'}: raise ValueError('Unknown execution context fields')
+        for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
         if 'local_handlers' in config: services['local_handlers']=config['local_handlers']
         if 'strings' in config:
-            row=config['strings']; services['strings']=StringRegisters(row['count'],{int(k):v for k,v in row.get('values',{}).items()},capacity=row.get('capacity',254))
+            row=config['strings']; services['strings']=StringRegisters(row['count'],{int(k):v for k,v in row.get('values',{}).items()},capacity=row.get('capacity',254),comments=RegisterComments.decode(row.get('comments',{})))
         if 'positions' in config:
             from .storage import decode_typed
             row=config['positions']; values={}
@@ -569,9 +699,21 @@ class ExecutionContext:
                 if len(pair)==1: pair=(row.get('groups',[1])[0],pair[0])
                 if len(pair)!=2: raise ValueError('Position keys require group:number')
                 values[pair]=decode_typed(value)[1]
-            services['positions']=PositionRegisters(row['count'],values,groups=row.get('groups',(1,)))
+            services['positions']=PositionRegisters(row['count'],values,groups=row.get('groups',(1,)),comments=RegisterComments.decode(row.get('comments',{})))
         if 'ports' in config:
-            row=config['ports']; services['ports']=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()})
+            row=config['ports']; codes={}
+            for field in ('comments','simulated'):
+                if type(row.get(field,{})) is not dict: raise ValueError('Port '+field+' must be an object')
+            if type(row.get('type_codes',{})) is not dict: raise ValueError('Port type_codes must be an object')
+            for code,kind in row.get('type_codes',{}).items():
+                if type(code) is not str or not code.isascii() or not code.isdecimal() or str(int(code))!=code: raise ValueError('Port type code keys must be canonical nonnegative integers')
+                codes[int(code)]=kind
+            comments={(kind,n):v for kind,values in row.get('comments',{}).items() for n,v in RegisterComments.decode(values).items()}
+            simulated=[]
+            for kind,numbers in row.get('simulated',{}).items():
+                if type(numbers) is not list: raise ValueError('Simulated ports require lists of numbers')
+                simulated.extend((kind,n) for n in numbers)
+            services['ports']=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()},type_codes=codes,comments=comments,simulated=simulated)
         if 'files' in config:
             services['files']=MemoryFiles({name:bytes.fromhex(value['hex']) if type(value) is dict else value for name,value in config['files'].items()})
         if 'numeric' in config: services['numeric']=runtime().NumericRegisters.from_config(config['numeric'])
@@ -593,6 +735,7 @@ class ExecutionContext:
         if 'errors' in config:
             from .control import ErrorHistory
             services['errors']=ErrorHistory.from_config(config['errors'])
+        if 'parameters' in config: services['parameters']=CallParameters.from_config(config['parameters'])
         return cls(**services)
     def invoke(self,state,name,arguments,line=None):
         rt=runtime(); args=list(arguments)
@@ -600,6 +743,22 @@ class ExecutionContext:
         if name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(1 if name!='SET_FILE_ATR' else 0)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('GET_PORT_VAL','SET_PORT_VAL','GET_PORT_CMT','SET_PORT_CMT','GET_PORT_SIM','SET_PORT_SIM'):
+            return self.require('ports',line).indirect(name,args,line)
+        if name in {f'{action}_{kind}_CMT' for action in ('GET','SET') for kind in ('REG','PREG','SREG')}:
+            bank=state.registers if '_REG_' in name else self.require('positions' if '_PREG_' in name else 'strings',line)
+            if bank is None: fail('Register comments require an explicit numeric register bank',line)
+            if name.startswith('GET_'):
+                code,value=bank.comments.read(args[0],line)
+                if code==0: args[1].set(value,line)
+            else: code=bank.comments.write(args[0],args[1],line)
+            args[-1].set(code,line); return
+        if name=='GET_TPE_PRM':
+            value=self.require('parameters',line).read(rt.task_root(state).program_name,args[0],line)
+            if value is None: args[-1].set(17042,line); return
+            data_type=1 if type(value) is int else 2 if type(value) is float else 3
+            target=args[data_type+1]; value=rt.checked(target.spec,value,line)
+            args[1].set(data_type,line); target.set(value,line); args[-1].set(0,line); return
         if name in ('CLEAR_SEMA','POST_SEMA','SEMA_COUNT'):
             bank=self.require('semaphores',line)
             return (bank.clear if name=='CLEAR_SEMA' else bank.post if name=='POST_SEMA' else bank.value)(args[0],line)

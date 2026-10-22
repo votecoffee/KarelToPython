@@ -205,14 +205,26 @@ class DirectoryFiles:
 def context_config(context):
     result={}
     if context.local_handlers: result['local_handlers']=True
-    if context.numeric is not None: result['numeric']={'count':context.numeric.count,'values':{str(k):v for k,v in context.numeric.snapshot().items()}}
+    if context.numeric is not None: result['numeric']=context.numeric.to_config()
     if context.strings is not None: result['strings']={'count':context.strings.count,'capacity':context.strings.capacity,'values':{str(k):v for k,v in context.strings.snapshot().items()}}
     if context.positions is not None:
         result['positions']={'count':context.positions.count,'groups':list(context.positions.groups),'values':{f'{group}:{number}':typed_value(value) for (group,number),value in context.positions.snapshot().items()}}
+    for name in ('strings','positions'):
+        bank=getattr(context,name)
+        if bank is not None and bank.comments.values: result[name]['comments']={str(k):v for k,v in bank.comments.snapshot().items()}
     if context.ports is not None:
         values={}
         for (kind,number),value in context.ports.snapshot().items(): values.setdefault(kind,{})[str(number)]=value
         result['ports']={'counts':context.ports.counts.copy(),'values':values}
+        if context.ports.type_codes: result['ports']['type_codes']={str(k):v for k,v in context.ports.type_codes.items()}
+        if context.ports.comments:
+            comments={}
+            for (kind,number),value in context.ports.comments.items(): comments.setdefault(kind,{})[str(number)]=value
+            result['ports']['comments']=comments
+        if context.ports.simulated:
+            simulated={}
+            for kind,number in sorted(context.ports.simulated): simulated.setdefault(kind,[]).append(number)
+            result['ports']['simulated']=simulated
     if context.files is not None:
         result['files']={name:{'hex':value.hex()} for name,value in context.files.snapshot().items()}
     if context.variables.bindings:
@@ -228,5 +240,6 @@ def context_config(context):
     if context.events is not None: result['events']=context.events.snapshot()
     if context.semaphores is not None: result['semaphores']=context.semaphores.to_config()
     if context.errors is not None: result['errors']=context.errors.to_config()
+    if context.parameters is not None: result['parameters']=context.parameters.to_config()
     if context.robot is not None and context.robot.model_config is not None: result['robot']=deepcopy(context.robot.model_config)
     return result

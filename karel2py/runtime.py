@@ -1844,12 +1844,13 @@ REGISTER_OUT_OF_RANGE = 2
 
 class NumericRegisters:
     """Explicit bounded in-memory numeric registers; no controller or persistence."""
-    def __init__(self, count, initial=None):
+    def __init__(self, count, initial=None, *, comments=None):
         if type(count) is not int or not 1 <= count <= 32767:
             raise ValueError('NumericRegisters count must be an integer in 1..32767')
         if initial is not None and type(initial) is not dict:
             raise TypeError('NumericRegisters initial values must be a dict of integer register numbers to int/float values')
         self._count, self._values = count, {}
+        self.comments=RegisterComments(count,comments)
         for number, value in (initial or {}).items():
             if self.write(number,value) != 0: raise ValueError('Initial register number is outside the explicit register count')
 
@@ -1858,16 +1859,21 @@ class NumericRegisters:
 
     def snapshot(self): return self._values.copy()
 
+    def to_config(self):
+        result={'count':self.count,'values':{str(k):v for k,v in self.snapshot().items()}}
+        if self.comments.values: result['comments']={str(k):v for k,v in self.comments.snapshot().items()}
+        return result
+
     @classmethod
     def from_config(cls, config):
-        if type(config) is not dict or set(config) != {'count','values'} or type(config['values']) is not dict:
-            raise ValueError('Register configuration requires exactly count and values, with values an object')
+        if type(config) is not dict or not {'count','values'}<=set(config) or set(config)-{'count','values','comments'} or type(config['values']) is not dict:
+            raise ValueError('Register configuration requires count and values, with optional comments')
         values = {}
         for number, value in config['values'].items():
             if type(number) is not str or not re.fullmatch(r'[1-9][0-9]{0,4}',number):
                 raise ValueError('Register configuration keys must be canonical positive decimal numbers up to 32767')
             values[int(number)] = value
-        return cls(config['count'],values)
+        return cls(config['count'],values,comments=RegisterComments.decode(config.get('comments',{})))
 
     def read(self, number, line=None):
         number = integer(number,line)
@@ -2318,7 +2324,7 @@ class State:
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 
-from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank,
+from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters,
                        VariableStore, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, file_piece,
                         TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,

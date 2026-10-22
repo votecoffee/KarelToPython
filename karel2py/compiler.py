@@ -3463,6 +3463,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['io_parameter_policy']=dict(
+        ports='GET/SET_PORT_VAL, GET/SET_PORT_CMT and GET/SET_PORT_SIM share PortBank values; indirect IDs require caller-supplied type_codes mapping, without inferred native enums',
+        simulation='SET_PORT_SIM initializes the value and marks the logical port simulated; SET_PORT_VAL writes outputs or simulated inputs; direct input assignment remains rejected',
+        conversions='Checked INTEGER/REAL/BOOLEAN/ASCII STRING scalar values; Boolean 0/1, exact integral conversion, finite analog values; GET_PORT_SIM returns INTEGER 0/1',
+        status='Portable port codes: 0 success, 1 missing value, 2 unmapped type/range, 3 invalid representation, 4 input not simulated; failed requests preserve other outputs and bank state',
+        comments='Independent numeric/position/string-register comments, empty by default; capacities 16/16/254; port comments 16; setters and output destinations truncate; serialized with their banks',
+        parameters='Explicit CallParameters map root program names to argument numbers 1..10; GET_TPE_PRM writes type 1 INTEGER, 2 REAL or 3 STRING and only the selected value output; absent argument writes status 17042 only',
+        persistence='Optional bank comments, port type_codes/simulated flags and per-task arguments survive context JSON save/load; legacy context shape retained when absent',
+        boundary='No controller discovery, native port enums, physical simulation/mode/assignment, teach-pendant acquisition or controller acceptance; strict mode deferred',
+        guide='docs/io-and-call-parameters.md',controller_validated=False)
     report['cooperative_policy'] = dict(
         enabled=report['cooperative_execution'],
         generation='Automatic for task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',

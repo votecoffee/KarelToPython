@@ -198,7 +198,7 @@ class RegisterSourceGuardTests(unittest.TestCase):
         self.assertEqual(state['VALUE'],8)
     def test_ordinary_declarations_remain_usable(self): self.assertEqual(execute('GET_REG=7',declarations='GET_REG: INTEGER')[0]['GET_REG'],7)
     def test_other_controller_calls_remain_blocked(self):
-        for body in ('GET_TPE_PRM(1,code)','GET_TIME(code)'):
+        for body in ('GET_TIME(code)','GET_TSK_INFO(code)'):
             with self.subTest(body=body): self.reject(body,'E_CALL')
     def test_legacy_calls_remain_unsupported(self): self.reject('SET_INT_REG(1,7,code)','E_CALL',translator=legacy_translate)
 
