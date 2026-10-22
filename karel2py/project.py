@@ -19,6 +19,7 @@ class LinkedRoutine:
         state.values=self.prototype._state.values
         state._budget_parent=caller; state.call_depth=caller.call_depth
         state._scheduler=caller._scheduler; state._clock_us=caller._clock_us
+        state._lifecycle=caller._lifecycle
         state._sleep=caller._sleep; state._write=caller._write; state._read=caller._read
         state.max_steps=caller.max_steps
         result=getattr(instance,'_routine_'+self.name)(*arguments)

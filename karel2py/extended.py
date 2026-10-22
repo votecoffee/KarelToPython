@@ -423,6 +423,10 @@ def condition_control(state,operation,number,line=None):
 
 def checkpoint(state,line=None,*,force_pause=False):
     rt=runtime(); state.tick(line)
+    # A library invocation owns its locals, while its caller still owns the
+    # running task. Scan that task and honor its pause requests inside the call.
+    parent=state._budget_parent
+    if parent is not None: yield from checkpoint(parent,line)
     if not state._in_handler:
         for number in list(state._handlers):
             handler=state._handlers.get(number)
@@ -449,7 +453,7 @@ def checkpoint(state,line=None,*,force_pause=False):
     if state._pause_requested and (not state._in_handler or force_pause):
         state.task_state='paused'; yield dict(kind='pause',line=line)
         state._pause_requested=False; state.task_state='running'
-    if state._scheduler is not None: yield dict(kind='timeslice',line=line)
+    if state._scheduler is not None and parent is None: yield dict(kind='timeslice',line=line)
 
 
 def cooperative_test(state,predicate,line=None):

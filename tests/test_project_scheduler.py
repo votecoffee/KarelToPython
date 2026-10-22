@@ -61,6 +61,21 @@ class ProjectTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'): instance.run('MAIN')
         self.assertEqual(instance.programs['MAIN']._state.call_depth,0)
 
+    def test_host_pause_inside_library_loop(self):
+        instance=translate_project({'a':source('LIB','',routines='ROUTINE loop BEGIN WHILE TRUE DO ENDWHILE END loop'),'b':source('MAIN','loop()',routines='ROUTINE loop FROM LIB')}).instantiate()
+        instance.scheduler.start('MAIN')
+        for _ in range(10): instance.scheduler.step()
+        instance.programs['MAIN'].pause()
+        self.assertEqual(instance.scheduler.run(max_cycles=10)['MAIN']['state'],'paused')
+        instance.scheduler.stop('MAIN');self.assertEqual(instance.programs['MAIN']._state.call_depth,0)
+
+    def test_caller_handler_scans_inside_linked_call(self):
+        instance=translate_project({'lib':source('LIB','',decl='n FROM MAIN: INTEGER',routines='ROUTINE loop BEGIN WHILE n<10 DO n=n+1 ENDWHILE END loop'),
+            'main':source('MAIN','n=0 CONDITION[1]: WHEN n>=3 DO PAUSE ENDCONDITION ENABLE CONDITION[1] loop()',routines='ROUTINE loop FROM LIB')}).instantiate()
+        self.assertEqual(instance.run('MAIN')['MAIN']['state'],'paused')
+        self.assertLess(instance.programs['MAIN'].snapshot()['N'],10)
+        instance.scheduler.continue_task('MAIN');self.assertEqual(instance.scheduler.run()['MAIN']['values']['N'],10)
+
     def test_load_explicit_directory(self):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder,'main.KL').write_text(source('MAIN','n=7'))

@@ -147,8 +147,8 @@ order. The source-project loader binds in sorted filename order.
 or paused; a paused task needs an explicit continuation. Cycle and per-task step
 budgets bound WAIT loops. Errors stop the current drive and preserve prior writes;
 other active tasks remain available for the caller to inspect or stop. No host
-thread or process is launched. A caller's host pause of a deeply linked routine
-takes effect when execution returns to the caller's checkpoint.
+thread or process is launched. Caller handlers and pause requests are checked
+at checkpoints inside linked routines, retaining their independent local stacks.
 
 `SIGNAL EVENT[n]` increments a shared generation. EVENT[n] conditions and WAIT
 consume generations independently per handler/expression. Multiple signals
