@@ -1,0 +1,1 @@
+{"MAIN":{"state":"completed","values":{"TASK_NAME":"WORKER","TEXT":"WORKER","TASK_NO":2,"VALUE":105,"STATUS":0,"READY":100,"PAUSED":103,"FINISHED":105}},"WORKER":{"state":"completed","values":{"COUNT":2}}}

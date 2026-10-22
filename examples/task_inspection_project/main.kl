@@ -1,0 +1,18 @@
+PROGRAM MAIN
+VAR task_name,text: STRING[16]
+    task_no,value,status,ready,paused,finished: INTEGER
+BEGIN
+  task_name='WORKER'
+  task_no=0
+  GET_TSK_INFO(task_name,task_no,TSK_STATUS,value,text,status)
+  ready=value
+  RUN_TASK('WORKER',0,FALSE,FALSE,0,status)
+  DELAY 10
+  GET_TSK_INFO(task_name,task_no,TSK_STATUS,value,text,status)
+  paused=value
+  GET_TSK_INFO(task_name,task_no,TSK_PROGNAME,value,text,status)
+  CONT_TASK('WORKER',status)
+  DELAY 10
+  GET_TSK_INFO(task_name,task_no,TSK_STATUS,value,text,status)
+  finished=value
+END MAIN

@@ -2,9 +2,84 @@
 from contextlib import contextmanager
 
 
+# Package identifiers, deliberately separate from native controller enums.
+TASK_ATTRIBUTES={name:index for index,name in enumerate((
+    'TSK_HOLDCOND','TSK_LINENUM','TSK_LOCKGRP','TSK_MCTL','TSK_NOABORT',
+    'TSK_NOBUSY','TSK_NOPAUSE','TSK_NUMCLDS','TSK_PARENT','TSK_PAUSESFT',
+    'TSK_PRIORITY','TSK_PROGNAME','TSK_PROGTYPE','TSK_ROUTNAME','TSK_STACK',
+    'TSK_STATUS','TSK_STEP','TSK_TIMESLIC','TSK_TPMOTION','TSK_TRACE','TSK_TRACELEN'),1)}
+TASK_STATES={name:100+index for index,name in enumerate((
+    'PG_RUNACCEPT','PG_ABORTING','PG_RUNNING','PG_PAUSED','PG_ABORTED',
+    'PG_COMPLETED','PG_STOPPED','PG_FAILED','PG_WAITING'))}
+TASK_PROGRAM_TYPES={'PG_NOT_EXEC':200,'PG_MNEMONIC':201,'PG_AR_KAREL':202}
+TASK_CONSTANTS={**TASK_ATTRIBUTES,**TASK_STATES,**TASK_PROGRAM_TYPES}
+TASK_DYNAMIC={'TSK_LINENUM','TSK_PROGNAME','TSK_PROGTYPE','TSK_ROUTNAME','TSK_STACK','TSK_STATUS','TSK_TIMESLIC'}
+
+
 def rt():
     from . import runtime
     return runtime
+
+
+def bind_task(registry,name,program,attributes=None):
+    runtime=rt();name=runtime.ascii_string(name).upper()
+    if not name or len(name)>254: raise ValueError('Task binding requires an ASCII name of 1..254 characters')
+    if not all(callable(getattr(program,method,None)) for method in ('run','resume','pause','stop')):
+        raise TypeError('Tasks require a cooperative Program; translate with cooperative=True')
+    if attributes is not None and type(attributes) is not dict: raise ValueError('Task attributes must be a named INTEGER mapping')
+    values={}
+    for key,value in (attributes or {}).items():
+        if type(key) is not str or key.upper() not in TASK_ATTRIBUTES or key.upper() in TASK_DYNAMIC or key.upper() in values:
+            raise ValueError('Only distinct unmodeled TSK_* attributes can be supplied')
+        values[key.upper()]=runtime.integer(value)
+    registry.tasks[name]=program;registry.attributes[name]=values
+
+
+def task_attribute(registry,name,program,attribute,line=None):
+    runtime=rt();root=runtime.task_root(program._state)
+    active=root._task_frames[-1] if root._task_frames else (root,'')
+    state=root.task_state
+    if attribute=='TSK_STATUS':
+        key={'ready':'PG_RUNACCEPT','running':'PG_RUNNING','paused':'PG_PAUSED','waiting':'PG_WAITING',
+             'completed':'PG_COMPLETED','stopped':'PG_STOPPED','aborted':'PG_ABORTED','failed':'PG_FAILED'}[state]
+        if root._abort_requested and state in ('ready','running','paused','waiting'): key='PG_ABORTING'
+        return TASK_STATES[key]
+    if attribute=='TSK_PROGTYPE': return TASK_PROGRAM_TYPES['PG_AR_KAREL' if root._has_run else 'PG_NOT_EXEC']
+    if attribute=='TSK_PROGNAME': return active[0].program_name
+    if attribute=='TSK_ROUTNAME': return active[1]
+    if attribute=='TSK_LINENUM': return root._task_line
+    if attribute=='TSK_STACK': return len(root._task_frames)
+    if attribute=='TSK_TIMESLIC': return getattr(root._scheduler or registry,'quantum_us',0)//1000
+    value=getattr(registry,'attributes',{}).get(name,{}).get(attribute)
+    return None if value is None else runtime.integer(value,line)
+
+
+def get_task_info(state,arguments,line=None):
+    runtime=rt();name_ref,number_ref,attribute,int_ref,str_ref,status=arguments
+    attribute=runtime.integer(attribute,line)
+    key=next((key for key,value in TASK_ATTRIBUTES.items() if value==attribute),None)
+    if key is None: status.set(2,line);return
+    number=number_ref.raw()
+    if number is not runtime.UNINITIALIZED: number=runtime.integer(number,line)
+    by_name=number is runtime.UNINITIALIZED or number==0
+    registry=state.execution.tasks;tasks=list(registry.tasks.items())
+    if by_name:
+        selected=runtime.ascii_string(name_ref.raw(),line).upper()
+        number=next((index for index,(name,_) in enumerate(tasks,1) if name==selected),None)
+        if number is None: status.set(1,line);return
+    else:
+        number=runtime.integer(number,line)
+        if number<1: status.set(2,line);return
+        if number>len(tasks): status.set(1,line);return
+    name,program=tasks[number-1]
+    value=task_attribute(registry,name,program,key,line)
+    if value is None: status.set(3,line);return
+    target=str_ref if key in ('TSK_PROGNAME','TSK_ROUTNAME') else int_ref
+    value=runtime.checked(target.spec,value,line)
+    identity=runtime.checked(number_ref.spec,number,line) if by_name else runtime.checked(name_ref.spec,name,line)
+    if by_name: number_ref.set(identity,line)
+    else: name_ref.set(identity,line)
+    target.set(value,line);status.set(0,line)
 
 
 class EventBank:
@@ -79,11 +154,9 @@ class TaskScheduler:
     def __init__(self,*,quantum_ms=1,max_steps=100000):
         if type(quantum_ms) is not int or not 1<=quantum_ms<=1000: raise ValueError('Scheduler quantum must be in 1..1000 ms')
         if type(max_steps) is not int or max_steps<1: raise ValueError('Task step budget must be positive')
-        self.tasks={}; self.quantum_us=quantum_ms*1000; self.max_steps=max_steps
+        self.tasks={}; self.attributes={}; self.quantum_us=quantum_ms*1000; self.max_steps=max_steps
         self.now_us=0; self.waiting={}; self.errors={}; self._running=False
-    def bind(self,name,program):
-        if not all(callable(getattr(program,method,None)) for method in ('run','resume','pause','stop')): raise TypeError('Scheduler requires cooperative Programs')
-        self.tasks[name.upper()]=program
+    def bind(self,name,program,*,attributes=None): bind_task(self,name,program,attributes)
     def start(self,name,*,paused=False):
         name=name.upper()
         if name not in self.tasks: raise KeyError(name)

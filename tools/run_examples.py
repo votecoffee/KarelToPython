@@ -110,11 +110,13 @@ def main(argv=None):
         count += 1
         print('PASS ' + source.stem)
     assert count == 101, 'Update the expected example count when adding examples'
-    folder=ROOT/'examples/linked_project'
-    instance=load_project(folder).instantiate()
-    assert instance.run('MAIN')==read_json(folder/'expected.json'), 'linked project snapshot'
-    print('PASS linked_project (three source modules)')
-    print(f'{count} examples and one linked project passed; unsupported motion rejected; no generated files written')
+    projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
+    assert len(projects)==2, 'Update the expected project count when adding projects'
+    for folder in projects:
+        instance=load_project(folder).instantiate()
+        assert instance.run('MAIN')==read_json(folder/'expected.json'), folder.name+': linked project snapshot'
+        print('PASS '+folder.name+' (linked source project)')
+    print(f'{count} examples and {len(projects)} linked projects passed; unsupported motion rejected; no generated files written')
     return 0
 
 

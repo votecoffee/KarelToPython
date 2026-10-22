@@ -103,5 +103,29 @@ class RuntimePortabilityTests(unittest.TestCase):
         exec(result.python_source, namespace)
         self.assertEqual(namespace['Program']().run()['R'], 3)
 
+    def test_task_inspection_without_compiler(self):
+        observer=translate("PROGRAM OBSERVER VAR name,text: STRING[16] number,value,status: INTEGER BEGIN name='worker' GET_TSK_INFO(name,number,TSK_STATUS,value,text,status) END OBSERVER")
+        worker=translate('PROGRAM WORKER VAR n: INTEGER BEGIN n=1 PAUSE n=2 END WORKER')
+        with tempfile.TemporaryDirectory() as folder:
+            target=Path(folder);package=target/'karel2py';package.mkdir()
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py'):
+                shutil.copyfile(ROOT/'karel2py'/name,package/name)
+            (target/'observer.py').write_text(observer.python_source,encoding='utf-8')
+            (target/'worker.py').write_text(worker.python_source,encoding='utf-8')
+            script='''from karel2py import runtime as rt
+from observer import Program as Observer
+from worker import Program as Worker
+ctx=rt.ExecutionContext();worker=Worker(context=ctx);ctx.tasks.bind('worker',worker)
+try: worker.run()
+except rt.KarelPause: pass
+else: raise AssertionError('worker did not pause')
+state=Observer(context=ctx).run()
+assert (state['NAME'],state['NUMBER'],state['VALUE'],state['STATUS'])==('worker',1,rt.TASK_CONSTANTS['PG_PAUSED'],0)
+assert worker.task_state=='paused'
+'''
+            (target/'check.py').write_text(script,encoding='utf-8')
+            process=subprocess.run([sys.executable,'check.py'],cwd=target,capture_output=True,text=True)
+            self.assertEqual(process.returncode,0,process.stderr)
+
 
 if __name__ == '__main__': unittest.main()

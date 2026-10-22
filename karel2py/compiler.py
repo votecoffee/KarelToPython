@@ -137,7 +137,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
-                        **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()}}
+                        **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
     'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE','EVENT','WITH',
@@ -2965,7 +2965,7 @@ class Emitter:
             self.indent = 2
             self.line(f'self._state.tick({routine.token.line})')
             bindings = ', '.join(f'{token.value!r}: {arg}' for (token, _), arg in zip(routine.parameters, argument_names))
-            self.line(f'self._state.enter_routine({routine.local_types!r}, {routine.token.line}, {{{bindings}}})')
+            self.line(f'self._state.enter_routine({routine.local_types!r}, {routine.token.line}, {{{bindings}}}, routine={routine.name!r})')
             self.line('try:')
             self.indent = 3
             if routine.external:
@@ -3478,6 +3478,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Optional bank comments, port type_codes/simulated flags and per-task arguments survive context JSON save/load; legacy context shape retained when absent',
         boundary='No controller discovery, native port enums, physical simulation/mode/assignment, teach-pendant acquisition or controller acceptance; strict mode deferred',
         guide='docs/io-and-call-parameters.md',controller_validated=False)
+    report['task_inspection_policy']=dict(
+        procedure='GET_TSK_INFO(task_name,task_no,attribute,value_int,value_str,status)',
+        constants=dict(rt.TASK_CONSTANTS),
+        selection='Name lookup when task_no is uninitialized or zero; otherwise one-based registry insertion order, shared with numeric task controls; only selected identity/value outputs change on success',
+        live='Program/routine names from active caller-rooted frames, latest source checkpoint line, logical routine-frame count, execution/program state and scheduler quantum',
+        metadata='Other documented TSK_* INTEGER attributes require explicit bind(name,program,attributes={...}); metadata is informational and does not change task behavior',
+        status='Portable 0 success, 1 unknown task, 2 invalid attribute/negative number, 3 unsupplied metadata; failure preserves identity and value outputs',
+        boundary='Portable constants and additional completed/stopped/failed/waiting states; no native enum, stack byte size, priority/interrupt/motion behavior or controller acceptance; task bindings and continuations are not serialized',
+        guide='docs/task-inspection.md',controller_validated=False)
     report['calendar_clock_policy']=dict(
         procedures=['GET_TIME','SET_TIME'],
         context='Explicit CalendarClock in ExecutionContext.calendar; supplied naive calendar value in 1980..2107; frozen unless a synchronous elapsed-microsecond adapter is supplied',

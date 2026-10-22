@@ -38,6 +38,7 @@ PROCEDURES = {
     'GET_PORT_SIM': (I,I,OI,OI), 'SET_PORT_SIM': (I,I,arg('PORT_VALUE'),OI),
     'CLR_PORT_SIM': (I,I,OI),
     'GET_TPE_PRM': (I,OI,OI,arg('REAL','o'),OS,OI),
+    'GET_TSK_INFO': (arg('STRING','r'),arg('INTEGER','r'),I,OI,OS,OI),
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
@@ -613,11 +614,10 @@ class RobotContext:
 
 
 class TaskRegistry:
-    def __init__(self): self.tasks={}
-    def bind(self,name,program):
-        if not all(callable(getattr(program,method,None)) for method in ('run','resume','pause','stop')):
-            raise TypeError('Tasks require a cooperative Program; translate with cooperative=True')
-        self.tasks[runtime().ascii_string(name).upper()]=program
+    def __init__(self): self.tasks={};self.attributes={}
+    def bind(self,name,program,*,attributes=None):
+        from .scheduling import bind_task
+        bind_task(self,name,program,attributes)
 
 
 class KarelPause(RuntimeError):
@@ -884,6 +884,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name=='GET_TSK_INFO':
+            from .scheduling import get_task_info
+            return get_task_info(state,args,line)
         if name in ('GET_TIME','SET_TIME'):
             clock=self.require('calendar',line)
             if name=='GET_TIME': args[0].set(clock.read(line),line)

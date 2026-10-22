@@ -135,7 +135,7 @@ class DirectiveBoundaryTests(unittest.TestCase):
     def test_unknown_directive_prefix_is_not_an_allowlist_match(self): self.reject('%COMMENTED=x','E_DIRECTIVE')
     def test_inline_source_after_directive_is_rejected(self): self.reject('%ENVIRONMENT STRNG VAR a: INTEGER','E_DIRECTIVE_SYNTAX')
     def test_environment_does_not_enable_controller_symbols(self): self.reject('%ENVIRONMENT REGOPE','E_TYPE',body='total=DIN[1]')
-    def test_environment_does_not_enable_arbitrary_functions(self): self.reject('%ENVIRONMENT TIM','E_CALL',body='GET_TSK_INFO(total)')
+    def test_environment_does_not_enable_arbitrary_functions(self): self.reject('%ENVIRONMENT TIM','E_CALL',body='GET_PORT_ATR(total)')
     def test_environment_does_not_enable_extra_types(self): self.reject('%ENVIRONMENT FDEV','E_TYPE',tail='VAR f: VISION')
     def test_legacy_metadata_rejections_remain(self):
         for item in ('%ENVIRONMENT STRNG',"%COMMENT='x'",'%ALPHABETIZE'):

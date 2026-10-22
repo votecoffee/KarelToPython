@@ -1,0 +1,7 @@
+PROGRAM WORKER
+VAR count: INTEGER
+BEGIN
+  count=1
+  PAUSE
+  count=2
+END WORKER

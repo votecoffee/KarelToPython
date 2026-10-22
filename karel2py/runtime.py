@@ -1950,6 +1950,7 @@ class State:
         if registers is None: registers=self.execution.numeric
         self.robot_group=self.execution.robot.active_group if self.execution.robot is not None else None
         self.program_name=''
+        self._task_frames=[];self._task_line=0;self._has_run=False
         self.service_requests=[]
         self._handlers={}; self._in_handler=False; self._timers={}
         self._scheduler=None; self._scheduler_clock=False; self._budget_parent=None
@@ -2073,6 +2074,7 @@ class State:
                                            status=code,adapter_outcome='completed' if code == 0 else 'uninitialized' if code == REGISTER_UNINITIALIZED else 'out_of_range'))
 
     def tick(self, line=None):
+        if line is not None: task_root(self)._task_line=line
         if self._budget_parent is not None: self._budget_parent.tick(line)
         if self._aborted: raise KarelAbort(self._abort_line)
         if self.task_state=='stopped': raise KarelStop('Task is stopped')
@@ -2086,6 +2088,7 @@ class State:
         if type(max_steps) is not int or max_steps < 1:
             raise ValueError('max_steps must be a positive integer')
         self.max_steps, self.steps = max_steps, 0
+        self._task_frames.clear();self._task_line=0;self._has_run=True
         self.write_requests.clear()
         self.read_requests.clear()
         self.clock_reads.clear()
@@ -2265,7 +2268,7 @@ class State:
         if self._aborted: raise KarelAbort(self._abort_line)
         if result is not None: raise KarelRuntimeError('Host WAIT sleeper must return None', line)
 
-    def enter_routine(self, declarations, line=None, arguments=None):
+    def enter_routine(self, declarations, line=None, arguments=None, *, routine=''):
         if self.call_depth >= 64:
             raise KarelRuntimeError('Prototype routine call-depth limit exceeded (64)', line)
         arguments = arguments or {}
@@ -2277,6 +2280,7 @@ class State:
         values.update(arguments)
         self.call_depth += 1
         self.local_frames.append((declarations, values))
+        task_root(self)._task_frames.append((self,routine))
 
     def leave_routine(self):
         frame=self.local_frames[-1]
@@ -2284,6 +2288,7 @@ class State:
             if handler.get('local_frame') is frame: self._handlers.pop(number,None)
         self.call_depth -= 1
         self.local_frames.pop()
+        task_root(self)._task_frames.pop()
 
     def raw(self, name):
         if self.local_frames and name in self.local_frames[-1][0]:
@@ -2366,6 +2371,6 @@ from .storage import DirectoryFiles
 from .clocks import CalendarClock
 from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
-                         signal_event,delay_execution,control_task,condition_scope)
+                         signal_event,delay_execution,control_task,condition_scope,TASK_CONSTANTS)
 from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,cooperative_service,
                       runtime_failure,powerup_cooperative,task_root,request_task_control,ERROR_SEVERITIES)
