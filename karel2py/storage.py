@@ -2,7 +2,9 @@
 from copy import deepcopy
 import fnmatch
 import json
+import math
 import os
+import re
 from pathlib import Path
 import tempfile
 
@@ -23,13 +25,17 @@ def typed_value(value, spec=None):
         spec=getattr(value,'spec',None)
         if spec is None:
             spec=('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254) if type(value) is str else None
-    if spec is None or spec[0] in ('FILE','PATH','QUEUE_TYPE'): raise ValueError('A serializable value requires an explicit data type')
+    if spec is None or spec[0]=='FILE': raise ValueError('A serializable value requires an explicit data type')
+    if spec[0] in ('PATH','QUEUE_TYPE'):
+        with runtime._numeric_scope('pythonic'): payload=collection_payload(spec,value)
+        return {'type':json.loads(json.dumps(spec)),'value':payload}
     return {'type':json.loads(json.dumps(spec)),'value':runtime.snapshot_value(value)}
 
 
 def restore_value(spec, payload):
     runtime=rt(); spec=tuple_spec(spec)
-    if spec[0] in ('FILE','PATH','QUEUE_TYPE'): raise ValueError('Resource handles are not persistent values')
+    if spec[0]=='FILE': raise ValueError('FILE handles are not persistent values')
+    if spec[0] in ('PATH','QUEUE_TYPE'): return restore_collection(spec,payload)
     if payload=={'uninitialized':True}: return runtime.UNINITIALIZED
     if payload=={'unknown_byte':True}:
         if spec!=('BYTE',): raise ValueError('Unknown BYTE marker requires BYTE storage')
@@ -66,6 +72,136 @@ def decode_typed(row):
     spec=tuple_spec(spec)
     with rt()._numeric_scope('pythonic'): value=restore_value(spec,row['value'])
     return spec,value
+
+
+def collection_data_spec(spec):
+    """Validate the concrete, resource-free data schema of a PATH component."""
+    runtime=rt()
+    if type(spec) is not tuple or not spec: raise ValueError('Collection data requires a concrete type')
+    kind=spec[0]
+    if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT',*runtime.DATA_RECORD_TYPES):
+        if spec!=(kind,): raise ValueError('Malformed collection scalar/record type')
+    elif kind=='STRING':
+        if len(spec)!=2 or type(spec[1]) is not int or not 1<=spec[1]<=254: raise ValueError('Collection STRING capacity requires 1..254')
+    elif kind=='JOINTPOS':
+        if len(spec)!=2 or type(spec[1]) is not int or not 1<=spec[1]<=9: raise ValueError('Collection JOINTPOS width requires 1..9')
+    elif kind=='STRUCTURE':
+        if len(spec)!=3 or type(spec[1]) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]*',spec[1]) or type(spec[2]) is not tuple:
+            raise ValueError('Collection STRUCTURE requires a canonical name and fields')
+        names=set()
+        for field in spec[2]:
+            if (type(field) is not tuple or len(field)!=2 or type(field[0]) is not str
+                    or not re.fullmatch(r'[A-Z_][A-Z_0-9]*',field[0]) or field[0] in names):
+                raise ValueError('Collection STRUCTURE fields require distinct canonical names')
+            names.add(field[0]);collection_data_spec(field[1])
+    elif kind=='ARRAY':
+        if len(spec) not in (3,4): raise ValueError('Malformed collection ARRAY type')
+        if len(spec)==4 and (type(spec[3]) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]*',spec[3])):
+            raise ValueError('Collection ARRAY identity requires a canonical name')
+        physical=spec[1] if type(spec[1]) is tuple else (spec[1],)
+        if not 1<=len(physical)<=3 or any(type(size) is not int or not 1<=size<=32767 for size in physical):
+            raise ValueError('Collection ARRAY dimensions require fixed sizes in 1..32767')
+        collection_data_spec(spec[2]);shape=runtime.array_dimensions(spec)
+        if spec[2][0]=='ARRAY' and runtime.array_identity(spec[2]) is None:
+            raise ValueError('Nested collection ARRAY components require named types')
+        if not 1<=len(shape)<=3 or any(type(size) is not int or not 1<=size<=32767 for size in shape):
+            raise ValueError('Collection ARRAY dimensions require one through three fixed sizes')
+    else: raise ValueError('Unsupported collection data type or embedded resource')
+    if runtime.scalar_leaf_count(spec)>32767: raise ValueError('Collection component exceeds 32767 scalar leaves')
+
+
+def collection_data_payload(spec,value):
+    """Preserve partial data while checking known leaves and exact host shapes."""
+    runtime=rt()
+    if value is runtime.UNINITIALIZED: return {'uninitialized':True}
+    if value is runtime.UNKNOWN_BYTE:
+        if spec!=('BYTE',): raise ValueError('Unknown BYTE requires BYTE collection storage')
+        return {'unknown_byte':True}
+    if spec[0]=='ARRAY':
+        if (type(value) is not runtime.Array or value.spec!=spec or value.shape!=runtime.array_shape(spec)
+                or len(value.values)!=math.prod(runtime.array_shape(spec))):
+            raise ValueError('Collection ARRAY storage does not match its schema')
+        return [collection_data_payload(spec[2],item) for item in value.values]
+    if spec[0] in runtime.RECORD_TYPES:
+        fields=dict(runtime.record_fields(spec))
+        if type(value) is not runtime.Structure or value.spec!=spec or value.types!=fields or set(value.values)!=set(fields):
+            raise ValueError('Collection record storage does not match its schema')
+        if spec[0] in runtime.DATA_RECORD_TYPES: runtime._record_uninitialized(value,spec)
+        return {name:collection_data_payload(field,value.values[name]) for name,field in fields.items()}
+    if spec[0]=='JOINTPOS':
+        if type(value) is not runtime.JointPosition or value.spec!=spec or len(value.values)!=spec[1]:
+            raise ValueError('Collection joint storage does not match its schema')
+        return {'axes':[collection_data_payload(('REAL',),axis) for axis in value.values]}
+    if spec[0]=='STRING' and (type(value) is not str or len(value)>spec[1]): raise ValueError('Collection STRING exceeds its declared capacity')
+    checked=runtime.checked(spec,value)
+    if checked is runtime.UNINITIALIZED: raise ValueError('Collection missing values require an explicit marker')
+    return runtime.snapshot_value(checked)
+
+
+def collection_payload(spec,value):
+    runtime=rt()
+    if spec==('QUEUE_TYPE',):
+        if type(value) is not runtime.QueueValue or value.spec!=spec or type(value.initialized) is not bool:
+            raise ValueError('Malformed QUEUE_TYPE state')
+        sequence=runtime.checked(('INTEGER',),value.sequence)
+        if sequence<0 or type(value.entries) is not list or len(value.entries)>32767: raise ValueError('Invalid queue sequence or entry count')
+        entries=[];seen=set()
+        for pair in value.entries:
+            if type(pair) not in (tuple,list) or len(pair)!=2: raise ValueError('Queue entries require sequence/value pairs')
+            number,item=(runtime.checked(('INTEGER',),member) for member in pair)
+            if not 1<=number<=sequence or number in seen: raise ValueError('Queue entry sequences require distinct positive IDs no greater than the sequence counter')
+            seen.add(number);entries.append([number,item])
+        if not value.initialized and (sequence or entries or value.buffer is not None): raise ValueError('Uninitialized queue cannot contain entries, a sequence or a buffer')
+        if value.buffer is not None:
+            buffer=value.buffer
+            if (type(buffer) is not runtime.Array or len(runtime.array_dimensions(buffer.spec))!=1
+                    or buffer.spec[2]!=('INTEGER',) or len(buffer.values)!=math.prod(runtime.array_shape(buffer.spec))
+                    or len(entries)>len(buffer.values)):
+                raise ValueError('Queue backing ARRAY cannot hold its entries')
+        return dict(initialized=value.initialized,sequence=sequence,entries=entries)
+    if len(spec)!=3 or spec[0]!='PATH': raise ValueError('Malformed PATH type')
+    for component in spec[1:]:
+        if component is not None:
+            collection_data_spec(component)
+            if component[0]!='STRUCTURE': raise ValueError('PATH NODEDATA/PATHHEADER require named STRUCTURE types')
+    if type(value) is not runtime.PathValue or value.spec!=spec or type(value.nodes) is not list or len(value.nodes)>32767:
+        raise ValueError('PATH storage does not match its type or node limit')
+    if spec[2] is None and value.data is not None: raise ValueError('Headerless PATH cannot contain header data')
+    return dict(nodes=[collection_data_payload(value.node_spec,node) for node in value.nodes],
+                data=collection_data_payload(spec[2],value.data) if spec[2] else None)
+
+
+def restore_collection(spec,payload):
+    runtime=rt()
+    if type(payload) is not dict: raise ValueError('Collection state requires an object')
+    if spec==('QUEUE_TYPE',):
+        if set(payload)!={'initialized','sequence','entries'} or type(payload['entries']) is not list:
+            raise ValueError('Queue state requires initialized, sequence and entries')
+        value=runtime.QueueValue();value.initialized=payload['initialized'];value.sequence=payload['sequence'];value.entries=payload['entries']
+        normalized=collection_payload(spec,value)
+        value.entries=[tuple(pair) for pair in normalized['entries']]
+        return value
+    if len(spec)!=3 or spec[0]!='PATH' or set(payload)!={'nodes','data'} or type(payload['nodes']) is not list or len(payload['nodes'])>32767:
+        raise ValueError('PATH state requires nodes and data within the node limit')
+    # Validate the schema before constructing its records or arrays.
+    for component in spec[1:]:
+        if component is not None:
+            collection_data_spec(component)
+            if component[0]!='STRUCTURE': raise ValueError('PATH NODEDATA/PATHHEADER require named STRUCTURE types')
+    def check_markers(item):
+        if type(item) is dict:
+            if 'uninitialized' in item or 'unknown_byte' in item:
+                if len(item)!=1 or next(iter(item.values())) is not True: raise ValueError('Collection missing markers require exactly a true Boolean flag')
+            else:
+                for member in item.values(): check_markers(member)
+        elif type(item) is list:
+            for member in item: check_markers(member)
+    check_markers(payload)
+    value=runtime.PathValue(spec)
+    value.nodes=[restore_value(value.node_spec,node) for node in payload['nodes']]
+    value.data=restore_value(spec[2],payload['data']) if spec[2] else None
+    if collection_payload(spec,value)!=payload: raise ValueError('PATH payload must preserve canonical fields, capacities and missing markers')
+    return value
 
 
 def write_json(path, data):
@@ -244,7 +380,7 @@ def context_config(context):
     variables={(row['program'],row['path']):row for row in result.get('variables',[])}
     for name,state in context.variables.programs.items():
         for path,spec in state.types.items():
-            if spec[0] not in ('FILE','PATH','QUEUE_TYPE'):
+            if spec[0]!='FILE':
                 value=state.values[path]
                 if isinstance(value,rt().Reference): value=value.raw()
                 variables[name,path]=dict(program=name,path=path,**typed_value(value,spec))

@@ -33,6 +33,8 @@ Version 0.95.0 adds [program listing](program-listing.md), with attached Program
 identities, persisted explicit catalogs, filtered pages and an optional cursor.
 Version 0.96.0 adds [pose decomposition](pose-decomposition.md): UNPOS values,
 model-backed joints, captured-source aliases and default-mask current queries.
+Version 0.97.0 adds [collection persistence](collection-persistence.md), preserving
+typed partial PATH data and logical queue entries/sequences with explicit buffer rebinding.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |
@@ -68,7 +70,7 @@ The JSON preserves type specs, numeric kind, partial ARRAY/record initialization
 unknown BYTE leaves, joint widths, position-register group keys, file bytes,
 event generations and configured robot models. Attached programs contribute
 global values. Restoring them requires a fresh Program with matching declarations.
-FILE handles, PATH/QUEUE resources, active call stacks, timers, handler closures,
+FILE handles, queue-buffer references, active call stacks, timers, handler closures,
 callbacks and scheduler continuation state are not serialized. This is a value
 snapshot, not a suspended-program checkpoint. A directory backend is restored as
 memory bytes; reselect its root explicitly to use disk again.

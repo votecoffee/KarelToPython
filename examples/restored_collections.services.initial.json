@@ -1,0 +1,7 @@
+{
+  "variables":[
+    {"program":"RESTORE","path":"P","type":["PATH",["STRUCTURE","NODE_T",[["ID",["INTEGER"]],["POINT",["VECTOR"]],["BYTES",["ARRAY",2,["BYTE"]]]]],["STRUCTURE","HEADER_T",[["COUNT",["INTEGER"]],["LABEL",["STRING",8]]]]],
+     "value":{"nodes":[{"ID":10,"POINT":{"X":1.5,"Y":{"uninitialized":true},"Z":{"uninitialized":true}},"BYTES":[7,{"unknown_byte":true}]},{"ID":20,"POINT":{"X":{"uninitialized":true},"Y":{"uninitialized":true},"Z":{"uninitialized":true}},"BYTES":[{"unknown_byte":true},{"unknown_byte":true}]}],"data":{"COUNT":2,"LABEL":"saved"}}},
+    {"program":"RESTORE","path":"Q","type":["QUEUE_TYPE"],"value":{"initialized":true,"sequence":3,"entries":[[2,70],[1,50]]}}
+  ]
+}

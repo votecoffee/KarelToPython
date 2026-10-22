@@ -397,3 +397,8 @@ kind and snapshot policy; `unpos_policy` records representations and alias rules
 Bare or zero-argument CURPOS/CURJPOS discard both masks using the existing explicit
 context; their source sites appear in `bare_function_calls` and `service_operations`.
 See [pose decomposition](pose-decomposition.md).
+
+`collection_state_policy` describes PATH/QUEUE_TYPE typed context snapshots,
+partial data validation and queue buffer rebinding. `storage.typed_value()` and
+`decode_typed()` support both collections; context save/load includes their
+attached globals and explicit bindings. See [collection persistence](collection-persistence.md).

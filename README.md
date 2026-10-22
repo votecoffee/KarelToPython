@@ -294,6 +294,10 @@ PROG_LIST filters and pages attached programs and explicit catalog metadata,
 including program types, checked names and optional cursor pagination. See
 [program listing](docs/program-listing.md) for context setup and portable formats.
 
+PATH and QUEUE_TYPE globals now survive typed context save/load, including partial
+PATH data and queue sequence IDs. Restored queues bind to the next explicitly
+supplied buffer. See [collection persistence](docs/collection-persistence.md).
+
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the
 [service equivalence matrix and embedding guide](docs/offline-services.md)

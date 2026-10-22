@@ -3559,6 +3559,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Only explicit catalog metadata persists in context programs; attached code and tasks require host/project attachment after reload',
         boundary='Reviewed manual syntax omits status despite its parameter table; use seven required arguments and optional eighth cursor; no native directory order/cursor encoding/status mapping, program loading or controller execution; strict deferred',
         guide='docs/program-listing.md',controller_validated=False)
+    report['collection_state_policy']=dict(
+        types=['PATH','QUEUE_TYPE'],
+        persistence='Typed context variables include attached PATH and QUEUE_TYPE globals and explicit bindings; FILE handles and running stacks remain excluded',
+        paths='Exact NODEDATA/PATHHEADER schemas and order, header data, nodes, partial leaves and unknown BYTE markers; resource-free concrete data components checked before allocation',
+        queues='Initialized flag, ordered sequence/value entries and sequence counter; preserve deletion gaps and inserted order; buffer identity and its former capacity are not serialized',
+        rebinding='Loaded queue starts without a buffer; first explicit queue-operation ARRAY binds if it can hold existing entries; subsequent operations retain ordinary same-buffer identity; INIT_QUEUE deliberately resets saved contents',
+        validation='Known finite/type/config/capacity data, canonical missing markers, 32767 nodes/entries and distinct positive queue IDs within the sequence counter; reject malformed/embedded resources before save writes',
+        boundary='Portable logical values only; no controller VR/native collection layout, backing-array graph identity, queue capacity restoration, call stacks or suspended execution; strict deferred',
+        guide='docs/collection-persistence.md',controller_validated=False)
     report['variable_inspection_policy']=dict(
         procedures=['VAR_INFO','VAR_LIST'],type_codes=dict(VARIABLE_TYPE_CODES),
         lookup='Current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',

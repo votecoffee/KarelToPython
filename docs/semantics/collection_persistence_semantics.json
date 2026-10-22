@@ -1,0 +1,27 @@
+{
+  "version":"0.97.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Authored offline collection codec, attachment, continuation and file preservation tests; reviewed PATH/node and queue contracts; no native collection persistence execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[311,434],"printed_pages":[261,384],"topic":"APPEND_QUEUE ordered value/sequence storage, ARRAY capacity and INIT_QUEUE reset"},{"manual":"MARRC75KR07091E Rev N","pdf_pages":[420,556],"printed_pages":[370,506],"topic":"GET_VAR/SET_VAR exclude whole PATH while allowing static node/field/subscript paths"}],
+  "implemented":{
+    "context":"Typed variables export/import includes attached PATH/QUEUE_TYPE globals and explicit bindings; FILE handles remain excluded",
+    "paths":"Resolved nominal node/header schemas, ordered nodes, header data and partial known/missing/BYTE leaves",
+    "queues":"Initialization flag, last issued sequence counter and ordered distinct sequence/value entries, preserving deleted-ID gaps and insert order",
+    "binding":"Restored queue has no buffer; first explicit queue-operation ARRAY binds when it can hold existing entries; within-run buffer identity remains checked",
+    "validation":"Canonical shapes, capacities, concrete resource-free schema, known finite values and CONFIG domains; bounded node/entry counts; prepare snapshots before atomic writes",
+    "observations":"collection_state_policy; save/load does not add source service requests or resume stacks"
+  },
+  "portable_choices":[
+    "JSON represents logical values rather than native controller collection/VR bytes",
+    "Retain partial PATH data, whole missing nodes and unknown BYTE markers without initialization changes",
+    "Queue sequence counter persists even when the queue is empty; entry order is not sorted by sequence",
+    "Do not persist backing ARRAY reference or old capacity; explicit first-use ARRAY may provide larger capacity",
+    "Too-small restored buffer fails before binding/consumption; later operations retain same-buffer identity",
+    "New Program starts source at the beginning; INIT_QUEUE intentionally resets restored state",
+    "Keep whole PATH/QUEUE generic-variable exclusions and FILE-handle exclusion"
+  ],
+  "remaining":["Native binary and VR persistence","Native collection ownership and alias graph","Old buffer identity/capacity restoration","Task checkpoint and controller acceptance","Strict mode"],
+  "verification":["tests/test_collection_persistence.py","tests/test_runtime_portability.py","examples/collection_state.kl","examples/restored_collections.kl"],
+  "guide":"../collection-persistence.md"
+}

@@ -1,0 +1,24 @@
+PROGRAM collections
+TYPE node_t=STRUCTURE id: INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count: INTEGER label: STRING[8] ENDSTRUCTURE
+VAR
+  p: PATH NODEDATA=node_t,PATHHEADER=header_t
+  q: QUEUE_TYPE
+  data,view: ARRAY[3] OF INTEGER
+  seeded: BOOLEAN
+  count,seq,s,first,node_count: INTEGER
+BEGIN
+  IF UNINIT(seeded) THEN
+    p.count=1
+    p.label='saved'
+    APPEND_NODE(p,s)
+    p[1].id=42
+    INIT_QUEUE(q)
+    APPEND_QUEUE(7,q,data,seq,s)
+    APPEND_QUEUE(9,q,data,seq,s)
+    seeded=TRUE
+  ENDIF
+  COPY_QUEUE(q,data,0,0,view,count,s)
+  first=p[1].id
+  node_count=PATH_LEN(p)
+END collections

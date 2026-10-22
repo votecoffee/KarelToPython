@@ -1,0 +1,17 @@
+PROGRAM restore
+TYPE node_t=STRUCTURE id: INTEGER point: VECTOR bytes: ARRAY[2] OF BYTE ENDSTRUCTURE
+     header_t=STRUCTURE count: INTEGER label: STRING[8] ENDSTRUCTURE
+VAR
+  p: PATH NODEDATA=node_t,PATHHEADER=header_t
+  q: QUEUE_TYPE
+  data: ARRAY[3] OF INTEGER
+  n,seq,new_id,s,first,count: INTEGER
+  missing: BOOLEAN
+BEGIN
+  GET_QUEUE(q,data,n,seq,s)
+  APPEND_QUEUE(90,q,data,new_id,s)
+  p[2].id=21
+  first=p[1].id
+  count=p.count
+  missing=UNINIT(p[1].point)
+END restore
