@@ -962,6 +962,7 @@ class Emitter:
         self.position_conversion_uses = []
         self.kinematic_assignment_uses = []
         self.pulse_uses = []
+        self.initialization_query_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -1899,16 +1900,22 @@ class Emitter:
             if len(expr.args) != 1:
                 self.error('E_ARGUMENTS', 'UNINIT requires exactly one argument', expr.token)
             argument = expr.args[0]
+            grouped=argument.kind=='group'
+            if self.mode=='pythonic':
+                while argument.kind=='group': argument=argument.args[0]
             if argument.kind not in ('name', 'index', 'field'):
-                self.error('E_ARGUMENTS', 'UNINIT requires a scalar variable, field or array element', expr.token)
+                self.error('E_ARGUMENTS', 'UNINIT requires variable, field or array-element storage', expr.token)
             code, spec = self.expression(argument, raw=True)
             if spec[0] == 'BYTE':
                 self.error('E_BYTE_UNINIT', 'BYTE initialization queries are not implemented; the manual specifies no uninitialized checking for BYTE', argument.token)
-            if spec[0] not in ('INTEGER', 'SHORT', 'BOOLEAN', 'REAL', 'STRING', 'JOINTPOS'):
+            supported=('INTEGER','SHORT','BOOLEAN','REAL','STRING','JOINTPOS')+(DATA_RECORD_TYPES if self.mode=='pythonic' else ())
+            if spec[0] not in supported:
                 self.error('E_TYPE', 'Invalid UNINIT argument type', expr.token)
             if self.root_name(argument) in self.visible_constants():
                 self.error('E_ARGUMENTS', 'UNINIT requires a variable, not a constant', expr.token)
             codes, result_type = [code], ('BOOLEAN',)
+            self.initialization_query_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=expr.token.line,column=expr.token.column,operand_type=spec,storage_kind=argument.kind,grouped=grouped,evaluated_once=True))
         elif expr.value == 'ABS':
             if len(expr.args) != 1: self.error('E_ARGUMENTS', 'ABS requires exactly one argument', expr.token)
             code, result_type = self.expression(expr.args[0])
@@ -3333,6 +3340,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses,
         pulses=emitter.pulse_uses,
+        initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -3904,6 +3912,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='JSON stores observed values and existing port metadata only; pending clocks/owners/deadlines are not serialized; service records are value-free PULSE start/wait outcomes',
         boundary='No controller scan jitter, polarity/complement modes, physical timing, automatic background expiry or native acceptance; strict remains future work',
         guide='docs/pulses.md',controller_validated=False)
+    report['initialization_query_policy']=dict(
+        builtin_records=['CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'],
+        meaning='Whole builtin record is uninitialized when any nested leaf or complete nested record is uninitialized; inspect without initializing, copying or changing source storage',
+        validation='Validate record schema and known scalar types/domains; inspect all fields even when another is uninitialized; no proper-rotation or robot/configuration validity query',
+        operands='Variable, field or individual ARRAY-element storage; Pythonic parentheses unwrap storage; computed selectors evaluate once; constants and function/literal/constructor results rejected',
+        exclusions='Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE remain blocked; BYTE unknown contents remain distinct from uninitialized state',
+        boundary='Portable partial-record rule rather than native allocation flags; existing scalar/joint behavior and exact interfaces retained; strict remains future work',
+        guide='docs/initialization-queries.md',controller_validated=False)
+    report['data_record_policy']['initialization']='Scalar leaves start uninitialized; whole builtin-record UNINIT follows initialization_query_policy; copies still require complete values'
+    report['limitations']=[item.replace('aggregate UNINIT remains blocked','whole user STRUCTURE and ARRAY UNINIT remain blocked') for item in report['limitations']]
     report['position_conversion_policy']['boundary']='Context-free Cartesian representation changes only; model-backed joint assignments follow kinematic_assignment_policy; exact routine/array interfaces and checked proper matrices remain'
     report['data_record_policy']['boundary']='Cartesian whole assignments follow position_conversion_policy; joint/Cartesian whole assignments require kinematic_assignment_policy; no automatic routine/array conversion or physical motion'
     report['positional_routine_policy']['boundary']='Exact parameter/RETURN types; whole assignments follow position_conversion_policy and kinematic_assignment_policy; no controller ABI, native branch selection or orientation defaults'

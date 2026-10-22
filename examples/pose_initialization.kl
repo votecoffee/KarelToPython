@@ -1,0 +1,19 @@
+PROGRAM POSE_INITIALIZATION
+VAR fresh,complete,axes_ready: BOOLEAN
+ROUTINE inspect
+VAR cfg: CONFIG
+    pose: POSITION
+    extended: XYZWPREXT
+    status: INTEGER
+BEGIN
+  fresh=UNINIT(pose)
+  CNV_STR_CONF('N',cfg,status)
+  pose=POS(1,2,3,0,0,0,cfg)
+  complete=NOT UNINIT(pose)
+  axes_ready=NOT UNINIT(pose.normal)
+  extended=pose
+  complete=complete AND NOT UNINIT(extended)
+END inspect
+BEGIN
+  inspect
+END POSE_INITIALIZATION

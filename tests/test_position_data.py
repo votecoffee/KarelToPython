@@ -152,7 +152,10 @@ class PositionGuardTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'robot'): program.run()
         self.assertEqual(program.snapshot()['P']['LOCATION']['X'],{'uninitialized':True})
     def test_legacy_position_conversion_stays_blocked(self): self.reject('p=x',code='E_TYPE',declarations='p: POSITION x: XYZWPR',translator=legacy_translate)
-    def test_whole_uninit_still_blocked(self): self.reject('flag=UNINIT(p)',code='E_TYPE')
+    def test_whole_uninit_queries_partial_position_without_initializing_it(self):
+        program,_=compile_program('flag=UNINIT(p)')
+        self.assertTrue(program.run()['FLAG']);self.assertEqual(program.snapshot()['P']['LOCATION']['X'],{'uninitialized':True})
+        self.reject('flag=UNINIT(p)',code='E_TYPE',translator=legacy_translate)
     def test_position_using_still_blocked(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE')
     def test_partial_position_copy_guard_preserves_destination(self):
         program,_=compile_program('q.location.x=9 p.location.x=1 q=p')

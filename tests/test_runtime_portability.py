@@ -68,7 +68,9 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('joint_assignment', 'RESTORED', {'axes': [0.] * 9}),
                     ('joint_external_assignment', 'RESTORED', {'axes': [0., 25.] + [0.] * 7}),
                     ('pulse_wait', 'AFTER', False),
-                    ('pulse_override', 'AFTER', True)]
+                    ('pulse_override', 'AFTER', True),
+                    ('record_initialization', 'PARTIAL', True),
+                    ('pose_initialization', 'AXES_READY', True)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

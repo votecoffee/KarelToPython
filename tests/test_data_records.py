@@ -206,9 +206,12 @@ class DataRecordGuardTests(unittest.TestCase):
     def test_direct_string_results_are_supported(self):
         program,_=compile_program('text=f()',declarations='text: STRING[3]',routines="ROUTINE f: STRING[3] BEGIN RETURN 'abc' END f")
         self.assertEqual(program.run()['TEXT'],'abc')
-    def test_aggregate_uninit_blocked(self):
+    def test_builtin_record_uninit_is_readonly_and_strict_stays_blocked(self):
         for name in ('v','p','c'):
-            with self.subTest(name=name): self.reject(f'flag=UNINIT({name})')
+            with self.subTest(name=name):
+                program,_=compile_program(f'flag=UNINIT({name})')
+                self.assertTrue(program.run()['FLAG'])
+                self.reject(f'flag=UNINIT({name})',_translator=legacy_translate)
     def test_vector_operators_not_silently_componentwise(self):
         for operator in ('*','/','<','<=','>','>='):
             with self.subTest(operator=operator),self.assertRaises(TranslationError): compile_program(f'v=v{operator}w')

@@ -1,0 +1,12 @@
+PROGRAM RECORD_INITIALIZATION
+VAR point: VECTOR
+    fresh,partial,complete: BOOLEAN
+BEGIN
+  fresh=UNINIT(point)
+  point.x=1
+  partial=UNINIT((point))
+  IF UNINIT(point) THEN
+    point=VEC(1,2,3)
+  ENDIF
+  complete=NOT UNINIT(point)
+END RECORD_INITIALIZATION

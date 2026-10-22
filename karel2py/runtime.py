@@ -950,11 +950,29 @@ def conversion_procedure(name, source, *arguments, line=None):
     _store_conversion_text(name, target, text, line)
 
 
-def uninit(value):
+def _record_uninitialized(value,spec,line=None):
+    if not isinstance(value,Structure) or value.spec!=spec or spec!=(spec[0],) or spec[0] not in DATA_RECORD_TYPES:
+        raise KarelRuntimeError('Initialization query requires matching builtin record storage',line)
+    fields=dict(record_fields(spec))
+    if set(value.values)!=set(fields): raise KarelRuntimeError('Initialization query found malformed record fields',line)
+    missing=False
+    for name,field_spec in fields.items():
+        member=value.values[name]
+        if member is UNINITIALIZED: missing=True
+        elif member is UNKNOWN_BYTE: raise KarelRuntimeError('BYTE initialization queries are not implemented',line)
+        elif field_spec[0] in DATA_RECORD_TYPES: missing|=_record_uninitialized(member,field_spec,line)
+        else: checked(field_spec,member,line)
+    return missing
+
+
+def uninit(value,line=None):
     if isinstance(value, JointPosition): return not fully_initialized(value)
+    if isinstance(value,Structure) and value.spec[0] in DATA_RECORD_TYPES:
+        if not _pythonic(): raise KarelRuntimeError('Whole record initialization queries require Pythonic mode',line)
+        return _record_uninitialized(value,(value.spec[0],),line)
     # Whole arrays deliberately rejected by the compiler; no guessed aggregate rule.
     if value is UNKNOWN_BYTE:
-        raise KarelRuntimeError('BYTE initialization queries are not implemented')
+        raise KarelRuntimeError('BYTE initialization queries are not implemented',line)
     return value is UNINITIALIZED
 
 
@@ -1551,7 +1569,7 @@ def builtin(name, arguments, line=None):
                 or any(type(size) is not int or not 1 <= size <= 32767 for size in array.shape)):
             raise KarelRuntimeError('ARRAY_LEN requires a concrete valid shape', line)
         return array.shape[0]
-    if name == 'UNINIT': return uninit(arguments[0])
+    if name == 'UNINIT': return uninit(arguments[0],line)
     if name == 'SUB_STR':
         source = ascii_string(arguments[0], line)
         start, count = (integer(x, line) for x in arguments[1:])
