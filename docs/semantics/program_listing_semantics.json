@@ -1,0 +1,28 @@
+{
+  "version":"0.95.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed PROG_LIST parameter table, filters, pagination and formats plus authored offline tests; no native program-directory execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[488,489],"printed_pages":[438,439],"topic":"PROG_LIST: program type filters, name patterns, skip restrictions, format widths, optional index and contradictory syntax/table status listing"}],
+  "implemented":{
+    "context":"Current/attached Programs and task Program identities supply PC rows; explicit immutable ProgramCatalog supplies all six types without loading code",
+    "filtering":"Case-insensitive star-only patterns, type filters 1..8, distinct sorted name/type pairs",
+    "pagination":"ARRAY-sized pages, restricted nonnegative skip and optional initialized cursor offset in rows remaining after skip",
+    "formats":"Name or 12/36 padded name columns plus space and two-letter type; no truncation, clear unused slots only on success",
+    "outputs":"Capture once in source order; disjoint exact writable references; prevalidate complete batch; status-only portable failures",
+    "persistence":"Explicit catalog metadata only; attached executable code and tasks require reattachment",
+    "observations":"program_listing_policy and source-located value-free service operation/request records"
+  },
+  "portable_choices":[
+    "Seven required arguments including status, plus an optional eighth cursor, follow the parameter table despite the abbreviated syntax line",
+    "ProgramCatalog uses 1..36 character ASCII identifiers and canonical type names; duplicate supplied identities are rejected",
+    "Metadata does not imply executable programs or populated variable namespaces",
+    "Bindings, filenames and external callbacks do not create directory entries",
+    "Task aliases do not replace source Program names; completed or stopped Programs remain attached",
+    "Cursor is an explicit row offset rather than a native opaque directory index; reset on query/context change",
+    "Portable status 0 success, 2 invalid options and 3 text/format capacity; failures preserve all other outputs"
+  ],
+  "remaining":["Native directory order and index encoding","Program discovery, loading, clearing and backup","Native status mapping and controller acceptance","Strict mode"],
+  "verification":["tests/test_program_listing.py","tests/test_runtime_portability.py","examples/program_catalog.kl","examples/program_pages.kl"],
+  "guide":"../program-listing.md"
+}

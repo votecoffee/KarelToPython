@@ -379,6 +379,12 @@ context. They reuse ordinary output/reference checks and source-located
 codes, canonical ARRAY/alias metadata, portable flags, filters and pagination.
 See [variable inspection](variable-inspection.md) for complete signatures and statuses.
 
+`PROG_LIST` lists attached Programs and optional immutable
+`ExecutionContext(programs=ProgramCatalog(...))` metadata. Context JSON preserves
+explicit entries under `programs`. `program_listing_policy` records type filters,
+formats, atomic outputs and optional Pythonic cursor pagination; see
+[program listing](program-listing.md).
+
 `joint_geometry` records model-backed JOINTPOS operands in supported geometry
 expressions; `joint_geometry_policy` describes explicit context and Cartesian
 results. Runtime `JOINT_GEOMETRY` records contain operation/line/outcome only.

@@ -1,0 +1,17 @@
+PROGRAM pages
+VAR
+  names: ARRAY[1] OF STRING[39]
+  last_name: STRING[39]
+  count,status,cursor_no,total,page_count: INTEGER
+BEGIN
+  cursor_no=0
+  total=0
+  page_count=0
+  PROG_LIST('PALLET*',2,0,2,names,count,status,cursor_no)
+  WHILE count>0 DO
+    total=total+count
+    page_count=page_count+1
+    last_name=names[1]
+    PROG_LIST('PALLET*',2,0,2,names,count,status,cursor_no)
+  ENDWHILE
+END pages

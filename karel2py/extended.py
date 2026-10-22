@@ -46,6 +46,7 @@ PROCEDURES = {
     'SET_VAR': (arg('INTEGER','o'),S,S,arg('ANY'),OI),
     'VAR_INFO': (S,S,arg('BOOLEAN','o'),OS,OI,arg('INT_ARRAY','r'),OI,OI),
     'VAR_LIST': (S,S,I,I,I,arg('STRING_ARRAY','r'),OI,OI),
+    'PROG_LIST': (S,I,I,I,arg('STRING_ARRAY','r'),OI,OI,arg('INTEGER','r')),
     'APPEND_NODE': (arg('PATH','r'),OI), 'INSERT_NODE': (arg('PATH','r'),I,OI),
     'DELETE_NODE': (arg('PATH','r'),I,OI),
     'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
@@ -79,7 +80,8 @@ FUNCTIONS = {
     'J_IN_RANGE': ((arg('JOINTPOS'),),('BOOLEAN',)),
     'MIRROR': ((arg('GEOMETRY_POSE'),arg('GEOMETRY_POSE'),B),('XYZWPREXT',)),
 }
-OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS'}
+OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST'}
+OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
@@ -87,8 +89,9 @@ OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT'}
 
 
 def signature_for(name,arity):
-    """Match source arguments when an optional group occurs before outputs."""
+    """Match explicit source arguments, including omitted group/reference slots."""
     signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
+    if name in OPTIONAL_REFERENCE and arity==len(signature)-1: return signature[:-1]
     if name in OPTIONAL_GROUP and arity==len(signature)-1:
         index=OPTIONAL_GROUP[name]; return signature[:index]+signature[index+1:]
     return signature
@@ -324,6 +327,33 @@ def port_value(value,kind,line=None):
         if type(value) is float and not value.is_integer(): raise ValueError('Fractional analog port requires REAL output')
         return rt.checked(('INTEGER',),int(value),line)
     return rt.real(int(value) if type(value) is bool else value,line)
+
+
+PROGRAM_TYPES={1:('VR',),2:('JB','PR','MR','TP'),3:('JB',),4:('PR',),
+               5:('MR',),6:('PC',),7:('VR','JB','PR','MR','TP','PC'),
+               8:('JB','PR','MR','TP','PC')}
+
+
+class ProgramCatalog:
+    """Explicit immutable listing metadata; entries do not load executable code."""
+    def __init__(self,entries=()):
+        rows=[]
+        for row in entries:
+            if type(row) is not dict or set(row)!={'name','type'}:
+                raise ValueError('Program catalog entries require name and type')
+            name,kind=row['name'],row['type']
+            if type(name) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]{0,35}',name):
+                raise ValueError('Program catalog names require 1..36 ASCII identifier characters')
+            if type(kind) is not str or kind.upper() not in PROGRAM_TYPES[7]:
+                raise ValueError('Program catalog type requires VR, JB, PR, MR, TP or PC')
+            rows.append((name.upper(),kind.upper()))
+        if len(set(rows))!=len(rows): raise ValueError('Duplicate program catalog name/type')
+        self._entries=tuple(sorted(rows))
+
+    @property
+    def entries(self): return self._entries
+
+    def to_config(self): return [dict(name=name,type=kind) for name,kind in self._entries]
 
 
 class VariableStore:
@@ -805,7 +835,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -820,6 +850,8 @@ class ExecutionContext:
         self.calendar=calendar
         if type(local_handlers) is not bool: raise TypeError('local_handlers must be BOOLEAN')
         self.local_handlers=local_handlers
+        if programs is not None and type(programs) is not ProgramCatalog: raise TypeError('programs must be ProgramCatalog or None')
+        self.programs=programs
     def to_config(self):
         from .storage import context_config
         return context_config(self)
@@ -837,10 +869,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'programs' in config:
+            if type(config['programs']) is not list: raise ValueError('programs must be a list of catalog entries')
+            services['programs']=ProgramCatalog(config['programs'])
         if 'calendar' in config:
             from .clocks import CalendarClock
             services['calendar']=CalendarClock.from_config(config['calendar'])
@@ -896,7 +931,8 @@ class ExecutionContext:
     def invoke(self,state,name,arguments,line=None):
         rt=runtime(); args=list(arguments)
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
-        if name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS') else 0 if name=='SET_FILE_ATR' else 1)
+        if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
+        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS') else 0 if name=='SET_FILE_ATR' else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
@@ -1005,6 +1041,9 @@ class ExecutionContext:
         if name in ('VAR_INFO','VAR_LIST'):
             from .inspection import variable_info,variable_list
             return (variable_info if name=='VAR_INFO' else variable_list)(self,state,args,line)
+        if name=='PROG_LIST':
+            from .inspection import program_list
+            return program_list(self,state,args,line)
         if name=='COPY_PATH':
             source,start,end,destination,status=args
             if source.spec!=destination.spec: status.set(3,line); return

@@ -29,6 +29,8 @@ Version 0.93.0 adds [global variable inspection](variable-inspection.md), with
 canonical metadata, filtered name lists, pagination and checked formats.
 Version 0.94.0 adds [joint operands in geometry](joint-geometry.md), using supplied
 forward context for Cartesian frame operations, reflection, axes and comparisons.
+Version 0.95.0 adds [program listing](program-listing.md), with attached Program
+identities, persisted explicit catalogs, filtered pages and an optional cursor.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

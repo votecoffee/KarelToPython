@@ -2,6 +2,7 @@
 import fnmatch
 import math
 import re
+from .extended import PROGRAM_TYPES
 
 
 TYPE_CODES={'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'INTEGER':16,'REAL':17,
@@ -120,3 +121,32 @@ def variable_list(context,state,args,line=None):
     array=rt.Array(names.spec)
     for index in range(1,capacity+1): array.set(index,text[index-1] if index<=len(text) else '',line)
     assign((names,count,status),(array,len(rows),0),line)
+
+
+def program_list(context,state,args,line=None):
+    rt=runtime(); pattern,kind,skip,form,names,count,status=args[:7]
+    cursor=args[7] if len(args)==8 else None
+    pattern=rt.ascii_string(pattern,line).upper()
+    kind,skip,form=(rt.integer(value,line) for value in (kind,skip,form))
+    offset=rt.integer(cursor.raw(),line) if cursor is not None else 0
+    if (kind not in PROGRAM_TYPES or skip<0 or offset<0 or form not in (1,2)
+            or not pattern or any(symbol in pattern for symbol in '[]?')
+            or (skip and (pattern!='*' or kind!=7))):
+        status.set(2,line);return
+    owners=list(context.variables.programs.values())+[state]
+    owners.extend(program._state for program in context.tasks.tasks.values())
+    rows={(owner.program_name,'PC') for owner in owners}
+    if context.programs is not None: rows.update(context.programs.entries)
+    rows=sorted(row for row in rows if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
+    capacity=rt.array_dimensions(names.spec)[0]
+    selected=rows[skip+offset:skip+offset+capacity];text=[]
+    for name,program_type in selected:
+        if form==2 and len(name)>36: status.set(3,line);return
+        width=12 if len(name)<=12 else 36
+        text.append(name if form==1 else f'{name:<{width}} {program_type}')
+    if any(len(value)>names.spec[2][1] for value in text): status.set(3,line);return
+    array=rt.Array(names.spec)
+    for index in range(1,capacity+1): array.set(index,text[index-1] if index<=len(text) else '',line)
+    outputs=(names,count,status);values=(array,len(selected),0)
+    if cursor is not None: outputs+=cursor,;values+=offset+len(selected),
+    assign(outputs,values,line)

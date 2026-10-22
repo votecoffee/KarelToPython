@@ -1,0 +1,7 @@
+PROGRAM catalog
+VAR
+  names: ARRAY[3] OF STRING[39]
+  count,status: INTEGER
+BEGIN
+  PROG_LIST('*',6,0,2,names,count,status)
+END catalog

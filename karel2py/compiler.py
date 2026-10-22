@@ -3518,6 +3518,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['program_listing_policy']=dict(
+        procedure='PROG_LIST(pattern,type,skip,format,names,count,status[,cursor])',
+        context='Current/attached KAREL programs and explicitly registered task Program identities are PC; optional immutable ProgramCatalog supplies VR/JB/PR/MR/TP/PC metadata without loading code',
+        listing='Case-insensitive star-only patterns, documented type filters 1..8, distinct name/type pairs sorted lexically and paged to ARRAY capacity; no discovery from files, bindings or callbacks',
+        pagination='Skip is allowed only for pattern * and type 7; optional initialized nonnegative INTEGER cursor indexes matching rows after skip and advances by returned count; reset when query/catalog changes',
+        formats='1 name; 2 name padded to 12 or 36 columns plus space and two-letter type; over-capacity rows fail without truncation; successful unused slots cleared',
+        status='Portable 0 success, 2 invalid options, 3 text capacity/format overflow; errors preserve all outputs except status; no matches succeeds',
+        outputs='Capture inputs/selectors once left-to-right; disjoint exact writable references; validate complete output batch including cursor before writes',
+        persistence='Only explicit catalog metadata persists in context programs; attached code and tasks require host/project attachment after reload',
+        boundary='Reviewed manual syntax omits status despite its parameter table; use seven required arguments and optional eighth cursor; no native directory order/cursor encoding/status mapping, program loading or controller execution; strict deferred',
+        guide='docs/program-listing.md',controller_validated=False)
     report['variable_inspection_policy']=dict(
         procedures=['VAR_INFO','VAR_LIST'],type_codes=dict(VARIABLE_TYPE_CODES),
         lookup='Current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',
