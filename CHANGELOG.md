@@ -11,7 +11,7 @@
 - Implement ATR_FIELD capacity-sized STRING reads, custom ASCII EOL input and
   exact byte cursors across mixed newlines. Failed text transfers preserve all
   targets and the cursor; binary and write field conventions remain unchanged.
-- Add two authored examples, 42 integration tests and public semantic boundaries.
+- Add two authored examples, 43 integration tests and public semantic boundaries.
   Native severity encodings, physical motion/servo effects and strict remain future.
 
 ## 0.81.0 - 2026-10-22

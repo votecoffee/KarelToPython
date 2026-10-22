@@ -101,6 +101,14 @@ class TaskRequestTests(unittest.TestCase):
     def test_final_continue_notifies_handlers(self):
         self.assertEqual(run('n=0 CONDITION[1]: WHEN CONTINUE DO n=7 ENDCONDITION ENABLE CONDITION[1] CONTINUE')['N'],7)
 
+    def test_final_numeric_continue_notifies_self_and_linked_handlers(self):
+        body='n=0 CONDITION[1]: WHEN CONTINUE DO n=7 ENDCONDITION ENABLE CONDITION[1] '
+        tasks=rt.TaskRegistry();p,_=compile_program(body+'CONTINUE PROGRAM[1]',context=rt.ExecutionContext(tasks=tasks))
+        tasks.bind('T',p);self.assertEqual(p.run()['N'],7)
+        instance=translate_project({'a':source('LIB','',routines='ROUTINE notify BEGIN CONTINUE PROGRAM[2] END notify'),
+            'b':source('MAIN',body+'notify()',routines='ROUTINE notify FROM LIB')}).instantiate()
+        self.assertEqual(instance.run('MAIN')['MAIN']['values']['N'],7)
+
     def test_unknown_task_sets_status_and_motion_request_preserves_child(self):
         self.assertEqual(run("ABORT_TASK('absent',TRUE,FALSE,s)")['S'],1)
         tasks=rt.TaskRegistry();child,_=compile_program('n=7',cooperative=True);tasks.bind('child',child)

@@ -3480,7 +3480,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         failure='Cooperative KarelRuntimeError notifies after frame unwinding then remains a failure; budget exhaustion skips additional actions; no retry',
         actions='NOPAUSE/NOABORT clear pending requests; NOMESSAGE marks retained history; EVAL predicates/actions capture at definition',
         lifecycle='Explicit Program.powerup/scheduler.powerup resumes a live paused instance with POWERUP plus CONTINUE; ordinary resume signals CONTINUE only',
-        signals='EVENT/SEMAPHORE signals and bare CONTINUE scan at their trailing checkpoint, including final statements',
+        signals='EVENT/SEMAPHORE signals and self CONTINUE scan at their trailing checkpoint, including final statements',
         boundary='Portable ERSEV IDs are independent of native encodings; STOP/SERVO variants request offline pause and SYSTEM requests global abort; no native priorities, motion UNTIL handlers, alarm dictionaries, process restoration or controller acceptance',
         guide='docs/control-notifications.md',controller_validated=False)
     if cooperative:

@@ -18,7 +18,7 @@
     "actions":"NOPAUSE and NOABORT clear pending control requests, including linked calls; NOMESSAGE marks retained history; EVAL actions capture at definition",
     "runtime_failures":"Cooperative KarelRuntimeError notifies code 1 with origin runtime after unwinding, then remains an exception; exhausted budgets skip handler execution",
     "powerup":"Program.powerup or scheduler.powerup continues a live paused instance and increments POWERUP plus CONTINUE; no lost-process restoration",
-    "signals":"EVENT and SEMAPHORE signals and bare CONTINUE scan at their trailing checkpoint even as the final source statement"
+    "signals":"EVENT and SEMAPHORE signals and self CONTINUE (bare or numeric) scan at their trailing checkpoint even as the final source statement"
   },
   "portable_differences": [
     "Record/event generations latch and coalesce until scanned, unlike native ephemeral error/event scans",

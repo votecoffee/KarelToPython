@@ -156,7 +156,9 @@ def control_task(state,action,number,line=None):
     if target._state is rt().task_root(state):
         if action=='PAUSE': yield from rt().pause_execution(state,line)
         elif action=='ABORT': yield from rt().abort_execution(state,line)
-        else: state._pause_requested=False; state._lifecycle['CONTINUE']+=1
+        else:
+            state._pause_requested=False; state._lifecycle['CONTINUE']+=1
+            yield from rt().checkpoint(state,line)
         return
     if action in ('PAUSE','ABORT'): rt().request_task_control(target._state,action,line)
     elif target._state._scheduler is not None: target._state._scheduler.continue_task(next(name for name,program in state.execution.tasks.tasks.items() if program is target))

@@ -26,7 +26,7 @@ the caller with status 0; a child runtime failure still propagates. With
 TaskScheduler, a terminal ABORT/STOP raises at the affected task's step. Inspect
 the task states and drive again to process remaining work or pending requests.
 
-Bare CONTINUE now scans handlers after incrementing its lifecycle generation,
+Self CONTINUE, bare or numeric, scans handlers after incrementing its lifecycle generation,
 including when it is the final source statement. POWERUP and ordinary resume
 retain their [existing contracts](control-notifications.md#recovery-and-handler-actions).
 
