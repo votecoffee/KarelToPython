@@ -58,7 +58,7 @@ class PositionalAuditIntegrationTests(unittest.TestCase):
             pc.write_bytes(b'original PC')
             source.write_bytes(raw+b'\n')
             self.assertNotEqual(subprocess.run([*command,'--baseline',str(baseline)],capture_output=True).returncode,0)
-            source.write_bytes(b'PROGRAM T VAR f: FILE v: VECTOR BEGIN END T')
+            source.write_bytes(b'PROGRAM T VAR f: VISION v: VECTOR BEGIN END T')
             result=subprocess.run(command,capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stderr)
             self.assertEqual(json.loads(output.read_text())['cases'][0]['diagnostic']['code'],'E_TYPE')

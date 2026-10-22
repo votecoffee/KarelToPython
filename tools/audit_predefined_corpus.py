@@ -50,7 +50,7 @@ def main():
                   selection='Every V8.33 KL source with lexical ON/OFF/MININT/MAXINT name tokens; strings, comments and directives excluded by the lexer pattern',
                   token_counts=dict(totals), counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py', 'compiler.py', 'lexer.py', 'runtime.py']},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
                   boundary='Original full source and paired-PC hashes only. Unsupported controller declarations/constructs remain blockers. No trimmed source, corpus execution, compiler invocation or controller validation. Only the V8.33 tree was scanned.')
     if args.baseline:
         old = json.loads(args.baseline.read_text(encoding='utf-8'))

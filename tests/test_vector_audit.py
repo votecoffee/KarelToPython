@@ -50,7 +50,7 @@ class VectorAuditIntegrationTests(unittest.TestCase):
             pc.write_bytes(b'original PC')
             source.write_bytes(raw+b'\n')
             self.assertNotEqual(subprocess.run([*command,'--baseline',str(baseline)],capture_output=True).returncode,0)
-            source.write_bytes(b'PROGRAM T VAR f: FILE a: VECTOR BEGIN END T')
+            source.write_bytes(b'PROGRAM T VAR f: VISION a: VECTOR BEGIN END T')
             self.assertEqual(subprocess.run(command,capture_output=True).returncode,0)
             self.assertEqual(json.loads(output.read_text())['cases'][0]['diagnostic']['code'],'E_TYPE')
 

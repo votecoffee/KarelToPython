@@ -90,7 +90,7 @@ class LocalConstantAuditIntegrationTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), raw)
 
     def test_preserves_earlier_blockers_and_pc_hash(self):
-        path = self.source('probe.KL', 'PROGRAM p VAR f: FILE ROUTINE work CONST n=7 BEGIN END work BEGIN END p')
+        path = self.source('probe.KL', 'PROGRAM p VAR f: VISION ROUTINE work CONST n=7 BEGIN END work BEGIN END p')
         raw = path.read_bytes()
         pc = self.root / 'PC/V8.33/probe.PC'
         pc.write_bytes(b'preexisting PC evidence')

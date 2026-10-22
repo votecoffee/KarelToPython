@@ -198,7 +198,7 @@ class RegisterSourceGuardTests(unittest.TestCase):
         self.assertEqual(state['VALUE'],8)
     def test_ordinary_declarations_remain_usable(self): self.assertEqual(execute('GET_REG=7',declarations='GET_REG: INTEGER')[0]['GET_REG'],7)
     def test_other_controller_calls_remain_blocked(self):
-        for body in ('GET_POS_REG(1,code)','SET_VAR(1,value,code)','SET_STR_REG(1,7,code)'):
+        for body in ('GET_TPE_PRM(1,code)','GET_TIME(code)'):
             with self.subTest(body=body): self.reject(body,'E_CALL')
     def test_legacy_calls_remain_unsupported(self): self.reject('SET_INT_REG(1,7,code)','E_CALL',translator=legacy_translate)
 
@@ -241,7 +241,7 @@ class RegisterCLITests(unittest.TestCase):
         Program,result=compile_program(body)
         with tempfile.TemporaryDirectory() as folder:
             package=Path(folder)/'karel2py'; package.mkdir()
-            for name in ('__init__.py','runtime.py'): (package/name).write_bytes((ROOT/'karel2py'/name).read_bytes())
+            for name in ('__init__.py','runtime.py','extended.py'): (package/name).write_bytes((ROOT/'karel2py'/name).read_bytes())
             module=Path(folder)/'converted.py'; module.write_text(result.python_source,encoding='utf-8')
             initial=Path(folder)/'registers.json'; initial.write_text(config,encoding='utf-8')
             command=[sys.executable,str(module),* ([] if missing else ['--registers',str(initial)])]

@@ -64,7 +64,7 @@ class WriteAuditIntegrationTests(unittest.TestCase):
         self.assertEqual(report['counts'], {'translated': 1})
 
     def test_preserves_complete_source_blockers_and_pc(self):
-        path = self.source('probe.KL', "PROGRAM p VAR f: FILE BEGIN WRITE('text') END p")
+        path = self.source('probe.KL', "PROGRAM p VAR f: VISION BEGIN WRITE('text') END p")
         raw = path.read_bytes()
         pc = self.root / 'PC/V8.33/probe.PC'
         pc.write_bytes(b'preexisting PC')

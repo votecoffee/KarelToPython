@@ -1,0 +1,6 @@
+{
+  "strings":{"count":1},
+  "positions":{"count":1},
+  "ports":{"counts":{"DIN":1,"DOUT":1,"GIN":1,"GOUT":1,"AIN":1,"AOUT":1},
+           "values":{"DIN":{"1":true},"GIN":{"1":7},"AIN":{"1":1.5}}}
+}

@@ -45,7 +45,7 @@ class ArrayResultAuditIntegrationTests(unittest.TestCase):
             output=root/'audit.json'; command=[sys.executable,str(TOOL),'--corpus',str(root),'--output',str(output)]
             self.assertEqual(subprocess.run(command,capture_output=True).returncode,0)
             report=json.loads(output.read_text()); self.assertEqual((report['array_result_token_count'],report['cases'],report['counts']),(0,[],{}))
-            raw=b'PROGRAM T VAR handle: FILE ROUTINE f: ARRAY OF INTEGER BEGIN END f BEGIN END T'; source.write_bytes(raw)
+            raw=b'PROGRAM T VAR handle: VISION ROUTINE f: ARRAY OF INTEGER BEGIN END f BEGIN END T'; source.write_bytes(raw)
             self.assertEqual(subprocess.run(command,capture_output=True).returncode,0)
             self.assertEqual(json.loads(output.read_text())['cases'][0]['diagnostic']['code'],'E_TYPE')
             self.assertEqual(source.read_bytes(),raw)

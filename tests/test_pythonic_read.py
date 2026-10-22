@@ -279,7 +279,7 @@ class ReadSourceGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body,**options)
         self.assertEqual(caught.exception.code,code)
         self.assertEqual(caught.exception.filename,'pythonic_read.kl')
-    def test_explicit_device_is_blocked(self): self.reject('READ INPUT(x)','E_READ_TARGET')
+    def test_explicit_device_is_blocked(self): self.reject('READ INPUT(x)','E_SYMBOL')
     def test_empty_input_list(self): self.reject('READ()','E_READ_ITEM')
     def test_legacy_cr_is_blocked(self): self.reject('READ(x,CR)','E_UNSUPPORTED',translator=legacy_translate)
     def test_legacy_formats_are_blocked(self): self.reject('READ(x::4)','E_UNSUPPORTED',translator=legacy_translate)
@@ -306,7 +306,7 @@ class ReadScriptAndExampleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); source=root/'converted.py'; data=root/'values.json'
             package=root/'karel2py'; package.mkdir()
-            for name in ('__init__.py','runtime.py'):
+            for name in ('__init__.py','runtime.py','extended.py'):
                 shutil.copyfile(Path(__file__).resolve().parents[1]/'karel2py'/name,package/name)
             source.write_text(result.python_source,encoding='utf-8')
             data.write_text(json.dumps(values),encoding='utf-8')

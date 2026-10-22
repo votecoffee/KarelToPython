@@ -144,7 +144,7 @@ class PosGuardAndNameTests(unittest.TestCase):
         self.assertEqual(p.run()['VALUE']['LOCATION'],dict(X=1,Y=2,Z=3))
         self.assertEqual(len(r.report['pos_constructors']),1)
         self.assertEqual([(row['source_type'],row['target_type']) for row in r.report['position_conversions']],[('XYZWPR','POSITION')])
-    def test_no_implicit_extended_pose_coercion(self): self.reject('value=POS(1,2,3,4,5,6,cfg)','E_TYPE',declarations=DECLARATIONS+' value: XYZWPREXT')
+    def test_joint_pose_coercion_still_blocked(self): self.reject('value=POS(1,2,3,4,5,6,cfg)','E_TYPE',declarations=DECLARATIONS+' value: JOINTPOS')
     def test_orientation_protection_retained(self): self.reject('value.normal=POS(1,2,3,4,5,6,cfg)','E_POSITION_READ_ONLY',declarations=DECLARATIONS+' value: POSITION')
     def test_coordinate_and_angle_domains(self):
         for index in range(6):

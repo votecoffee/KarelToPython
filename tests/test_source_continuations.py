@@ -208,7 +208,7 @@ class ContinuationBoundaryTests(unittest.TestCase):
 
     def test_continuation_does_not_enable_other_unsupported_features(self):
         with self.assertRaises(TranslationError) as caught:
-            translate('PROGRAM p\nVAR f: &\n FILE\nBEGIN\nEND p')
+            translate('PROGRAM p\nVAR f: &\n VISION\nBEGIN\nEND p')
         self.assertEqual(caught.exception.code, 'E_TYPE')
 
 

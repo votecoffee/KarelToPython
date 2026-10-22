@@ -132,8 +132,9 @@ class AbortTranslationTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,'E_ABORT_TARGET')
     def test_action_and_condition_contexts_blocked(self):
         with self.assertRaises(TranslationError): compile_program('CONDITION[1]: WHEN ABORT DO ABORT ENDCONDITION')
-    def test_abort_task_builtin_blocked(self):
-        with self.assertRaises(TranslationError): compile_program("ABORT_TASK('T',ON,ON,value)")
+    def test_abort_task_requires_explicit_registered_target(self):
+        program,_=compile_program("ABORT_TASK('T',ON,OFF,value)")
+        self.assertEqual(program.run()['VALUE'],1)
     def test_noabort_directive_blocked(self):
         with self.assertRaises(TranslationError): compile_program(prefix='%NOABORT=ERROR')
     def test_global_for_abort_blocked(self):

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RuntimePortabilityTests(unittest.TestCase):
-    def test_only_init_and_runtime_needed(self):
+    def test_runtime_distribution_without_compiler(self):
         examples = [('control_flow', 'TOTAL', 200), ('parameters', 'FACTORIAL_RESULT', 120),
                     ('aggregate_parameters', 'VALUES', [99, 20, 30, 40]),
                     ('string_processing', 'LABELS', ['AB', 'BC']),
@@ -67,7 +67,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'

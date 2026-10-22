@@ -51,7 +51,7 @@ def main():
                   source_manifest_sha256=hashlib.sha256(encoded).hexdigest(),
                   raw_ampersands=raw_count, matching_files=len(cases),
                   translator_sources={name: hashlib.sha256((package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py', 'compiler.py', 'lexer.py', 'runtime.py']},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
                   counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
                   boundary='Only this V8.33 tree was scanned. Absence of ampersands does not establish coverage in other releases or the 465-heading inventory. No added original-source acceptance claimed; no corpus execution or compiler/controller run.')
     args.output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')

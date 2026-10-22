@@ -158,7 +158,7 @@ class PositionAxisGuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,code)
 
     def test_other_operand_types_rejected(self):
-        for kind in ('XYZWPREXT','JOINTPOS','VECTOR','CONFIG','INTEGER','STRING[20]'):
+        for kind in ('JOINTPOS','VECTOR','CONFIG','INTEGER','STRING[20]'):
             for name in ('APPROACH','ORIENT'):
                 with self.subTest(kind=kind,name=name): self.reject(f'a={name}(value)',declarations=DECLARATIONS+' value: '+kind)
 

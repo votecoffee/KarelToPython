@@ -54,7 +54,7 @@ def main():
         rows.append(row)
     report = dict(date='2026-10-13', translator_version=__version__, feature=args.feature, selection=selected,
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py', 'compiler.py', 'lexer.py', 'runtime.py']},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
                   counts=dict(collections.Counter(row['status'] for row in rows)), cases=rows,
                   boundary=boundary)
     if args.baseline:

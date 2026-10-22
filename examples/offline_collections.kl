@@ -1,0 +1,20 @@
+PROGRAM OFFLINE_COLLECTIONS
+TYPE
+  node=STRUCTURE value: INTEGER ENDSTRUCTURE
+VAR
+  path_a,path_b: PATH NODEDATA=node
+  queue: QUEUE_TYPE
+  data: ARRAY[2] OF INTEGER
+  sequence,status,first,length: INTEGER
+BEGIN
+  APPEND_NODE(path_a,status)
+  APPEND_NODE(path_a,status)
+  path_a[1].value=7
+  path_a[2].value=9
+  COPY_PATH(path_a,2,1,path_b,status)
+  length=PATH_LEN(path_b)
+  INIT_QUEUE(queue)
+  APPEND_QUEUE(path_b[1].value,queue,data,sequence,status)
+  APPEND_QUEUE(path_b[2].value,queue,data,sequence,status)
+  GET_QUEUE(queue,data,first,sequence,status)
+END OFFLINE_COLLECTIONS

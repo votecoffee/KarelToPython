@@ -200,7 +200,7 @@ class ParameterRejectionTests(unittest.TestCase):
         self.rejected('', 'ROUTINE r(p: INTEGER) VAR p: INTEGER BEGIN END r', 'E_DUPLICATE')
 
     def test_unsupported_formal_parameter_forms_remain_blocked(self):
-        for spec in ('STRING[10]', 'ARRAY[3] OF INTEGER', 'ARRAY OF STRING[4]', 'ARRAY OF ARRAY OF INTEGER', 'FILE'):
+        for spec in ('STRING[10]', 'ARRAY[3] OF INTEGER', 'ARRAY OF STRING[4]', 'ARRAY OF ARRAY OF INTEGER', 'VISION'):
             with self.subTest(spec=spec):
                 self.rejected('', f'ROUTINE r(p: {spec}) BEGIN END r', 'E_PARAMETERS')
 

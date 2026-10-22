@@ -44,7 +44,7 @@ def main():
         cases.append(row)
     report = dict(date='2026-10-13', translator_version=__version__, feature=args.feature, selection=selected,
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py', 'compiler.py', 'lexer.py', 'runtime.py']},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
                   counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
                   boundary='Unchanged full original V8.33 conversion sources. Translation acceptance is separate from procedure outcomes. Unsupported geometry remains a blocker; ENVIRONMENT records requirements without enabling extra symbols or calls. No corpus execution, compiler invocation or controller validation.')
     if args.baseline:

@@ -41,7 +41,7 @@ def main():
                   feature='STRING reference, grouped-value, literal-value and STRING-return controls',
                   counts=dict(collections.Counter(row['status'] for row in cases)), cases=cases,
                   translator_sources={name: hashlib.sha256((args.translator_package / 'karel2py' / name).read_bytes()).hexdigest()
-                                      for name in ['__init__.py', 'compiler.py', 'lexer.py', 'runtime.py']},
+                                      for name in ['__init__.py','compiler.py','lexer.py','runtime.py'] + (['extended.py'] if (args.translator_package/'karel2py'/'extended.py').is_file() else [])},
                   boundary='Fixed five-source V8.33 sample. Complete declarations and paired PCs are preserved; earlier geometry blockers remain meaningful. No trimmed source, source execution, compiler run or controller validation. STRING-return compiler corpus presence does not resolve the conflicting manual statements or establish runtime behavior.')
     if args.baseline:
         old = json.loads(args.baseline.read_text(encoding='utf-8'))

@@ -1,0 +1,3 @@
+{"PATH_A":{"nodes":[{"VALUE":7},{"VALUE":9}],"data":null},
+ "PATH_B":{"nodes":[{"VALUE":9},{"VALUE":7}],"data":null},
+ "QUEUE":{"initialized":true,"entries":[[2,7]]},"DATA":[7,0],"SEQUENCE":1,"STATUS":0,"FIRST":9,"LENGTH":2}

@@ -23,7 +23,7 @@ class StringValueAuditTests(unittest.TestCase):
         for relative in audit.SELECTED:
             path = self.root/'KL/V8.33'/relative
             path.parent.mkdir(parents=True,exist_ok=True)
-            path.write_text("PROGRAM p VAR f: FILE BEGIN END p",encoding='utf-8')
+            path.write_text("PROGRAM p VAR f: VISION BEGIN END p",encoding='utf-8')
             self.raw[relative] = path.read_bytes()
 
     def invoke(self, baseline=None):
@@ -68,7 +68,7 @@ class StringValueAuditTests(unittest.TestCase):
         self.assertEqual(report['comparison']['regressions'],0)
     def test_selected_source_drift(self):
         baseline = self.baseline()
-        (self.root/'KL/V8.33'/audit.SELECTED[0]).write_text('PROGRAM p\nVAR f: FILE BEGIN END p')
+        (self.root/'KL/V8.33'/audit.SELECTED[0]).write_text('PROGRAM p\nVAR f: VISION BEGIN END p')
         self.assertNotEqual(self.invoke(baseline)[0].returncode,0)
     def test_paired_pc_drift(self):
         pc = self.root/'PC/V8.33'/Path(audit.SELECTED[0]).with_suffix('.pc')

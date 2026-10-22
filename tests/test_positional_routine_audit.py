@@ -46,7 +46,7 @@ class PositionalRoutineAuditIntegrationTests(unittest.TestCase):
             self.assertNotEqual(subprocess.run([*command,'--baseline',str(baseline)],capture_output=True).returncode,0)
             source.write_bytes(raw); unselected.write_bytes(unselected.read_bytes()+b'\n')
             self.assertNotEqual(subprocess.run([*command,'--baseline',str(baseline)],capture_output=True).returncode,0)
-            source.write_bytes(raw.replace(b'VAR p:',b'VAR file_var: FILE p:'))
+            source.write_bytes(raw.replace(b'VAR p:',b'VAR file_var: VISION p:'))
             self.assertEqual(subprocess.run(command,capture_output=True).returncode,0)
             self.assertEqual(json.loads(output.read_text())['cases'][0]['diagnostic']['code'],'E_TYPE')
 

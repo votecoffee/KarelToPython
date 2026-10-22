@@ -255,7 +255,7 @@ class PredefinedRejectionTests(unittest.TestCase):
         self.reject('b = MININT', 'E_TYPE')
 
     def test_controller_identifiers_are_not_enabled_by_on_off(self):
-        self.reject('b = DIN[1] = ON', 'E_CONTROLLER')
+        self.reject('b = DIN[1] + ON', 'E_TYPE')
         self.reject('x = LINEAR', 'E_SYMBOL')
 
 

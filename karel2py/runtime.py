@@ -292,6 +292,11 @@ def parameter_accepts(formal, actual):
 
 
 def checked(spec, value, line=None):
+    if spec[0] in ('FILE','PATH','QUEUE_TYPE'):
+        if spec[0]=='FILE' and isinstance(value,FileHandle): return value
+        if not hasattr(value,'spec') or value.spec!=spec: raise KarelRuntimeError('Resource type mismatch',line)
+        if spec[0]=='PATH': return value.clone()
+        raise KarelRuntimeError('QUEUE_TYPE cannot be copied; pass its reference',line)
     if spec[0] == 'INTEGER':
         value = integer(value, line)
         if value == 2147483647:
@@ -341,7 +346,7 @@ def checked(spec, value, line=None):
 
 def assignment_value(value, line=None):
     """Capture a Pythonic RHS before evaluating a possibly effectful target."""
-    if isinstance(value, (Array, Structure, JointPosition)):
+    if isinstance(value, (Array, Structure, JointPosition, PathValue)):
         return checked(value.spec, value, line)
     return require(value, line)
 
@@ -423,6 +428,9 @@ class Array:
 
 
 def initial_value(spec):
+    if spec[0]=='FILE': return FileHandle()
+    if spec[0]=='PATH': return PathValue(spec)
+    if spec[0]=='QUEUE_TYPE': return QueueValue()
     if spec[0] == 'JOINTPOS': return JointPosition(spec)
     if spec[0] == 'ARRAY': return Array(spec)
     if spec[0] in RECORD_TYPES: return Structure(spec)
@@ -486,6 +494,9 @@ def replace_value(current, updated):
 
 
 def field_reference(value, name, line=None):
+    if isinstance(value,PathValue):
+        if not value.spec[2]: raise KarelRuntimeError('PATH has no PATHHEADER',line)
+        return field_reference(value.data,name,line)
     if not isinstance(value, Structure):
         raise KarelRuntimeError('Expected STRUCTURE for field access', line)
     if name not in value.types:
@@ -586,6 +597,12 @@ def _reference_cells(reference):
     cells, seen = {(id(reference.storage), reference.key)}, set()
 
     def visit(value):
+        if isinstance(value, PathValue):
+            if id(value) in seen: return
+            seen.add(id(value))
+            visit(value.data)
+            for node in value.nodes: visit(node)
+            return
         if not isinstance(value, (Structure, Array)) or id(value) in seen: return
         seen.add(id(value))
         entries = value.values.items() if isinstance(value, Structure) else enumerate(value.values)
@@ -630,6 +647,9 @@ def unpos(source, outputs, line=None):
 
 
 def index_reference(array, index, line=None):
+    if isinstance(array,PathValue):
+        array.node(index,line)
+        return Reference(array.node_spec,array.nodes,index-1)
     if not isinstance(array, Array):
         raise KarelRuntimeError('Expected ARRAY for indexed reference argument', line)
     indexes = index if isinstance(index, tuple) else (index,)
@@ -1122,6 +1142,10 @@ def _frame_parts(value, line=None):
 
 
 def _frame_result(rotation, translation, config, line=None, *, result_type=('XYZWPR',)):
+    if result_type==('XYZWPREXT',):
+        source=_frame_result(rotation,translation,config,line)
+        result=Structure(result_type); result.values.update(source.values); result.values.update(EXT1=0.,EXT2=0.,EXT3=0.)
+        return result
     if result_type == ('POSITION',):
         result = Structure(result_type)
         for column, name in enumerate(POSITION_READ_ONLY_FIELDS):
@@ -1169,7 +1193,7 @@ def _position_rotation(position, line=None):
 def frame_value(value, line=None, *, expected=None):
     """Snapshot a complete pose and validate POSITION before later operands run."""
     if not _pythonic(): raise KarelRuntimeError('Frame values require Pythonic mode', line)
-    if not isinstance(value, Structure) or value.spec not in (('XYZWPR',), ('POSITION',)):
+    if not isinstance(value, Structure) or value.spec not in (('XYZWPR',), ('POSITION',), ('XYZWPREXT',)):
         raise KarelRuntimeError('Frame values require POSITION or XYZWPR', line)
     if expected is not None and value.spec != expected:
         raise KarelRuntimeError('Frame value does not match its declared pose type', line)
@@ -1181,8 +1205,7 @@ def frame_value(value, line=None, *, expected=None):
 def convert_position(target, value, line=None):
     """Convert explicit POSITION/XYZWPR assignment values without robot context."""
     if not _pythonic(): raise KarelRuntimeError('Positional conversions require Pythonic mode', line)
-    if (not isinstance(value, Structure) or (target, value.spec) not in
-            ((('POSITION',), ('XYZWPR',)), (('XYZWPR',), ('POSITION',)))):
+    if (not isinstance(value, Structure) or target not in (('POSITION',),('XYZWPR',),('XYZWPREXT',)) or value.spec not in (('POSITION',),('XYZWPR',),('XYZWPREXT',))):
         raise KarelRuntimeError('Only POSITION/XYZWPR assignment conversions are supported', line)
     rotation, location, config = _frame_parts(value, line)
     return _frame_result(rotation, location, config, line, result_type=target)
@@ -1226,8 +1249,11 @@ def frame_from_points(arguments, line=None):
     y_axis = unit(cross(z_axis, x_axis), 0.0, 'could not form a finite orthogonal Y axis')
     z_axis = unit(cross(x_axis, y_axis), 0.0, 'could not form a finite orthogonal Z axis')
     rotation = tuple(zip(x_axis, y_axis, z_axis))
-    result_type = ('POSITION',) if any(point.spec == ('POSITION',) for point in points) else ('XYZWPR',)
-    return _frame_result(rotation, locations[3] if len(points) == 4 else locations[0], origin.values['CONFIG_DATA'], line, result_type=result_type)
+    result_type = ('XYZWPREXT',) if any(point.spec==('XYZWPREXT',) for point in points) else ('POSITION',) if any(point.spec == ('POSITION',) for point in points) else ('XYZWPR',)
+    result=_frame_result(rotation, locations[3] if len(points) == 4 else locations[0], origin.values['CONFIG_DATA'], line, result_type=result_type)
+    if result_type==('XYZWPREXT',) and origin.spec==result_type:
+        for key in ('EXT1','EXT2','EXT3'): result.values[key]=origin.values[key]
+    return result
 
 
 def frame_inverse(value, line=None):
@@ -1236,7 +1262,10 @@ def frame_inverse(value, line=None):
     rotation, translation, config = _frame_parts(value, line)
     inverse = tuple(zip(*rotation))
     location = tuple(real(-sum(row[j]*translation[j] for j in range(3)), line) for row in inverse)
-    return _frame_result(inverse, location, config, line, result_type=value.spec)
+    result=_frame_result(inverse, location, config, line, result_type=value.spec)
+    if value.spec==('XYZWPREXT',):
+        for key in ('EXT1','EXT2','EXT3'): result.values[key]=value.values[key]
+    return result
 
 
 def frame_transform(left, right, line=None):
@@ -1248,8 +1277,12 @@ def frame_transform(left, right, line=None):
                            for j in range(3)) for i in range(3))
     location = tuple(real(translation[i] + sum(rotation[i][j]*other_translation[j] for j in range(3)), line)
                      for i in range(3))
-    result_type = ('POSITION',) if ('POSITION',) in (left.spec, right.spec) else ('XYZWPR',)
-    return _frame_result(composed, location, other_config, line, result_type=result_type)
+    result_type = ('XYZWPREXT',) if ('XYZWPREXT',) in (left.spec,right.spec) else ('POSITION',) if ('POSITION',) in (left.spec, right.spec) else ('XYZWPR',)
+    result=_frame_result(composed, location, other_config, line, result_type=result_type)
+    if result_type==('XYZWPREXT',):
+        source=right if right.spec==result_type else left
+        for key in ('EXT1','EXT2','EXT3'): result.values[key]=source.values[key]
+    return result
 
 
 def checked_pose_tolerance(value):
@@ -1505,6 +1538,9 @@ def builtin(name, arguments, line=None):
 
 
 def snapshot_value(value):
+    if isinstance(value,FileHandle): return dict(file=value.name,open=value.owner is not None,position=value.position,binary=value.binary,status=value.status)
+    if isinstance(value,PathValue): return dict(nodes=[snapshot_value(node) for node in value.nodes],data=snapshot_value(value.data))
+    if isinstance(value,QueueValue): return dict(initialized=value.initialized,entries=[list(pair) for pair in value.entries])
     if isinstance(value, JointPosition): return {'axes': [snapshot_value(x) for x in value.values]}
     if value is UNINITIALIZED:
         return {'uninitialized': True}
@@ -1820,7 +1856,13 @@ class NumericRegisters:
 
 
 class State:
-    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None):
+    def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None, context=None):
+        if context is not None and type(context) is not ExecutionContext: raise TypeError('context must be ExecutionContext or None')
+        self.execution=context if context is not None else ExecutionContext()
+        self.program_name=''
+        self.service_requests=[]
+        self._handlers={}; self._in_handler=False; self._timers={}
+        self.task_state='ready'; self._pause_requested=False; self._driving=False
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
         if sleep is not None and not callable(sleep):
@@ -1937,6 +1979,8 @@ class State:
 
     def tick(self, line=None):
         if self._aborted: raise KarelAbort(self._abort_line)
+        if self.task_state=='stopped': raise KarelStop('Task is stopped')
+        update_timers(self,line)
         self.steps += 1
         if self.steps > self.max_steps:
             raise KarelRuntimeError(f'Execution step budget exceeded ({self.max_steps})', line)
@@ -1950,6 +1994,20 @@ class State:
         self.read_requests.clear()
         self.clock_reads.clear()
         self.register_requests.clear()
+        self.service_requests.clear()
+        self._handlers.clear(); self._timers.clear()
+
+    def extended_call(self,name,arguments,line=None):
+        if not _pythonic(): raise KarelRuntimeError('Extended services require Pythonic mode',line)
+        row=dict(operation=name,line=line,outcome='requested'); self.service_requests.append(row)
+        try: result=self.execution.invoke(self,name,arguments,line)
+        except Exception:
+            row['outcome']='failed'; raise
+        row['outcome']='completed'; return result
+
+    def port_read(self,kind,number,line=None): return self.execution.require('ports',line).read(kind,number,line)
+
+    def port_write(self,kind,number,value,line=None): return self.execution.require('ports',line).write(kind,number,value,line)
 
     def read_observations(self):
         return tuple(deepcopy(self.read_requests))
@@ -2026,10 +2084,14 @@ class State:
             raise KarelRuntimeError('WRITE output callback must return None', line)
         request['adapter_outcome'] = 'callback_completed'
 
-    def write_items(self, pieces, line=None):
+    def write_items(self, pieces, line=None, *, file=None):
         """Commit one fully rendered WRITE; earlier expression effects remain."""
         if type(pieces) not in (list, tuple) or not 1 <= len(pieces) <= 1024:
             raise KarelRuntimeError('WRITE requires 1..1024 rendered items', line)
+        if file is not None:
+            file.require_open(line)
+            data=b''.join(piece.encode('ascii') if type(piece) is str else piece for piece in pieces)
+            file.owner.write(file,data,line); return
         total = 0
         for piece in pieces:
             total += len(ascii_string(piece, line))
@@ -2159,3 +2221,31 @@ class State:
 
     def snapshot(self):
         return {name: snapshot_value(value) for name, value in self.values.items()}
+
+    def file_read(self,handle,targets,line=None,**options):
+        from .extended import file_read
+        return file_read(self,handle,targets,line,**options)
+
+    def file_open(self,handle,mode,name,line=None):
+        self.execution.require('files',line).open(handle,mode,name,line)
+
+    def file_close(self,handle,line=None):
+        handle.require_open(line); handle.owner.close(handle,line)
+
+    def external_call(self,program,name,arguments,result_spec,line=None):
+        callback=self.execution.externals.get((program.upper(),name.upper()))
+        if callback is None: raise KarelRuntimeError('External routine is not explicitly linked: '+program+'.'+name,line)
+        try: result=callback(*arguments)
+        except Exception as exc: raise KarelRuntimeError('External routine failed: '+str(exc),line) from exc
+        if self._aborted: raise KarelAbort(self._abort_line)
+        if result_spec is None:
+            if result is not None: raise KarelRuntimeError('External procedure must return None',line)
+            return
+        return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
+
+
+from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank,
+                       VariableStore, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, file_piece,
+                       TaskRegistry, KarelPause, KarelStop, update_timers, connect_timer, disconnect_timer,
+                       define_condition, condition_control, checkpoint, cooperative_test, pause_execution,
+                       run_cooperative, resume_cooperative, stop_cooperative)

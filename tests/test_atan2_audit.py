@@ -35,7 +35,7 @@ class BearingAuditIntegrationTests(unittest.TestCase):
     def test_earlier_file_blocker_retained(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); (root/'KL/V8.33').mkdir(parents=True)
-            source=root/'KL/V8.33/probe.KL'; raw=b'PROGRAM T VAR f: FILE r: REAL BEGIN r=ATAN2(1,1) END T'; source.write_bytes(raw)
+            source=root/'KL/V8.33/probe.KL'; raw=b'PROGRAM T VAR f: VISION r: REAL BEGIN r=ATAN2(1,1) END T'; source.write_bytes(raw)
             output=root/'audit.json'
             result=subprocess.run([sys.executable,str(TOOL),'--corpus',str(root),'--output',str(output)],capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stderr)

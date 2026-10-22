@@ -1,0 +1,27 @@
+PROGRAM OFFLINE_SERVICES
+VAR
+  text: STRING[8]
+  number,saved,entry,status: INTEGER
+  result: REAL
+ROUTINE register_pose
+VAR
+  point: XYZWPR
+  cfg: CONFIG
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  point=POS(3,0,0,0,0,0,cfg)
+  SET_POS_REG(1,point,status)
+  point=GET_POS_REG(1,status)
+  result=point.x
+END register_pose
+BEGIN
+  SET_STR_REG(1,'done',status)
+  GET_STR_REG(1,text,status)
+  DOUT[1]=DIN[1]
+  GOUT[1]=GIN[1]+1
+  AOUT[1]=AIN[1]*2
+  number=7
+  GET_VAR(entry,'','NUMBER',saved,status)
+  SET_VAR(entry,'','NUMBER',saved+2,status)
+  register_pose()
+END OFFLINE_SERVICES

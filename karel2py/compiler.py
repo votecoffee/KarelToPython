@@ -10,6 +10,7 @@ import re
 
 from .lexer import Token, TranslationError, tokenize, directive_content
 from . import runtime as rt
+from . import extended as ex
 from . import __version__
 
 
@@ -52,6 +53,8 @@ class Routine:
     may_clock: bool = False
     may_read_registers: bool = False
     may_write_registers: bool = False
+    may_services: bool = False
+    external: str | None = None
     string_result_defaulted: bool = False
 
 
@@ -131,9 +134,10 @@ class FlowGraph:
 PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
-PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648}
+PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648, 'ATR_IA': 1}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
+    'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE',
     'PROGRAM', 'CONST', 'VAR', 'TYPE', 'BEGIN', 'IF', 'THEN', 'SELECT', 'OF',
     'FOR', 'TO', 'DOWNTO', 'DO', 'WHILE', 'REPEAT', 'RETURN', 'ROUTINE',
     'INTEGER', 'BOOLEAN', 'STRING', 'REAL', 'ARRAY', 'STRUCTURE', 'ENDSTRUCTURE', 'TRUE', 'FALSE',
@@ -196,7 +200,7 @@ ARRAY_ELEMENTS = (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS')
 
 
 def blocked_controller_names(mode):
-    return CONTROLLER_NAMES - REGISTER_PROCEDURES if mode == 'pythonic' else CONTROLLER_NAMES
+    return CONTROLLER_NAMES - REGISTER_PROCEDURES - ex.PROCEDURES.keys() - ex.FUNCTIONS.keys() - ex.PORT_TYPES.keys() if mode == 'pythonic' else CONTROLLER_NAMES
 
 
 class Parser:
@@ -342,6 +346,19 @@ class Parser:
 
     def type_spec(self):
         token = self.take()
+        if self.mode=='pythonic' and token.value in ('FILE','QUEUE_TYPE'): return (token.value,)
+        if self.mode=='pythonic' and token.value=='PATH':
+            node=data=None
+            seen=set()
+            while self.current.value in ('NODEDATA','PATHHEADER'):
+                key=self.take()
+                if key.value in seen: self.error('E_TYPE','Duplicate PATH clause',key)
+                seen.add(key.value); self.expect('='); item=self.type_spec()
+                if key.value=='NODEDATA': node=item
+                else: data=item
+                if not self.accept(','): break
+                self.skip_lines()
+            return ('PATH',node,data)
         if token.value in PREDEFINED_CONSTANTS:
             self.error('E_TYPE', 'Predefined constants cannot be used as data types', token)
         if token.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT'): return (token.value,)
@@ -441,6 +458,11 @@ class Parser:
         if return_type and return_type[0] not in allowed_results:
             self.error('E_RETURN_TYPE', 'Routine results require a supported scalar, exact data record/joint type or named STRUCTURE', token)
         self.skip_lines()
+        if self.mode=='pythonic' and self.accept('FROM'):
+            owner=self.take()
+            if owner.kind not in ('STRING','NAME'): self.error('E_ROUTINE_EXTERNAL','FROM requires a program name',owner)
+            external=owner.value[1:-1].replace("''", "'") if owner.kind=='STRING' else owner.value
+            return Routine(name,token,return_type,[],parameters=parameters,string_result_defaulted=string_result_defaulted,external=external)
         declarations, local_declarations = [], []
         while self.current.value in ('CONST', 'VAR'):
             section = self.take().value
@@ -469,6 +491,7 @@ class Parser:
                        local_declarations=local_declarations, string_result_defaulted=string_result_defaulted)
 
     def parameter_type(self):
+        if self.mode=='pythonic' and self.current.value in ('FILE','PATH','QUEUE_TYPE'): return self.type_spec()
         token = self.take()
         if token.value in PREDEFINED_CONSTANTS:
             self.error('E_PARAMETERS', 'Predefined constants cannot be used as parameter types', token)
@@ -528,6 +551,28 @@ class Parser:
     def statement(self):
         token = self.take()
         name = token.value
+        if self.mode=='pythonic' and name in ('PAUSE','RESUME','UNPAUSE','STOP'):
+            return Statement('task_control',token,[name])
+        if self.mode=='pythonic' and name in ('CONNECT','DISCONNECT'):
+            self.expect('TIMER')
+            if name=='CONNECT': self.expect('TO')
+            return Statement('timer_connect' if name=='CONNECT' else 'timer_disconnect',token,[self.storage_selector()])
+        if self.mode=='pythonic' and name=='CONDITION':
+            self.expect('['); number=self.expression(); self.expect(']'); self.expect(':'); self.skip_lines()
+            clauses=[]
+            while self.current.value=='WHEN':
+                when=self.take()
+                condition=Expr('task_event',self.take(),'PAUSE') if self.current.value=='PAUSE' else self.expression()
+                self.expect('DO'); self.skip_lines(); actions=[]
+                while self.current.value not in ('WHEN','ENDCONDITION'):
+                    actions.append(self.statement()); self.accept(','); self.skip_lines()
+                clauses.append(Statement('condition_clause',when,[condition],actions))
+            if not clauses: self.error('E_SYNTAX','CONDITION requires at least one WHEN clause')
+            self.expect('ENDCONDITION')
+            return Statement('condition',token,[number],clauses)
+        if self.mode=='pythonic' and name in ('ENABLE','DISABLE','PURGE'):
+            self.expect('CONDITION'); self.expect('['); number=self.expression(); self.expect(']')
+            return Statement('condition_control',token,[name,number])
         if self.accept('::'):
             self.check_label_name(token)
             return Statement('label', token, [token])
@@ -591,6 +636,11 @@ class Parser:
             if not cases:
                 self.error('E_SELECT', 'SELECT requires at least one CASE', token)
             return Statement('select', token, [selector, cases], alternate=alternate, has_else=has_else)
+        if self.mode=='pythonic' and name in ('OPEN','CLOSE'):
+            self.expect('FILE'); destination=self.storage_selector()
+            if name=='CLOSE': return Statement('file_close',token,[destination])
+            self.expect('('); mode=self.expression(); self.expect(','); path=self.expression(); self.expect(')')
+            return Statement('file_open',token,[destination,mode,path])
         if name == 'RETURN':
             result = None if self.current.kind == 'NL' or self.current.value in BLOCK_ENDS | {';'} else self.expression()
             return Statement('return', token, [result])
@@ -604,8 +654,8 @@ class Parser:
                 self.error('E_ABORT_TARGET', 'Only bare ABORT of the current offline execution is supported; task qualifiers and arguments remain blocked', self.current)
             return Statement('abort', token)
         if name == 'READ' and self.mode == 'pythonic':
-            if not self.accept('('):
-                self.error('E_READ_TARGET', 'READ supports the omitted-file parenthesized form', token)
+            destination=self.storage_selector() if self.current.value!='(' else None
+            self.expect('(')
             targets = []
             self.skip_newlines()
             while True:
@@ -628,9 +678,13 @@ class Parser:
                 self.skip_newlines()
                 if not self.accept(','): break
             self.expect(')')
-            return Statement('read', token, targets)
+            result=Statement('read', token, targets)
+            return Statement('file_read',token,[destination,result]) if destination else result
         if name == 'WRITE':
-            if self.mode == 'pythonic': return self.pythonic_write(token)
+            if self.mode == 'pythonic':
+                destination=self.storage_selector() if self.current.value!='(' else None
+                result=self.pythonic_write(token)
+                return Statement('file_write',token,[destination,result]) if destination else result
             if not self.accept('('):
                 self.error('E_WRITE_TARGET', 'WRITE currently supports the omitted-file form with one STRING or unformatted BOOLEAN/INTEGER expression', token)
             if self.current.value in (')', 'CR'):
@@ -724,8 +778,19 @@ class Parser:
         self.expect(')')
         return Statement('write_items', token, items)
 
+    def storage_selector(self):
+        token=self.name(); result=Expr('name',token,token.value)
+        while self.current.value in ('.','['):
+            if self.accept('.'):
+                member=self.name(); result=Expr('field',member,member.value,[result])
+            else:
+                opening=self.take(); indexes=[self.expression()]
+                while self.accept(','): indexes.append(self.expression())
+                self.expect(']'); result=Expr('index',opening,args=[result,*indexes])
+        return result
+
     def check_label_name(self, token):
-        if (token.kind != 'NAME' or token.value in RESERVED | BUILTINS | blocked_controller_names(self.mode) | PREDEFINED_CONSTANTS.keys()
+        if (token.kind != 'NAME' or token.value in RESERVED | BUILTINS | CONTROLLER_NAMES | ex.PORT_TYPES.keys() | PREDEFINED_CONSTANTS.keys()
                 or not token.value[0].isalpha() or len(token.value) > 36):
             self.error('E_LABEL_NAME', 'Labels require a non-reserved letter-starting identifier of at most 36 characters', token)
 
@@ -805,7 +870,7 @@ class Parser:
 
 
 class Emitter:
-    def __init__(self, program, filename, array_shapes=None, mode='strict'):
+    def __init__(self, program, filename, array_shapes=None, mode='strict', cooperative=False):
         self.program, self.filename = program, filename
         self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
@@ -813,6 +878,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('task_control','condition','condition_control','timer_connect','timer_disconnect') or isinstance(node,Expr) and node.kind=='call' and node.value in ('PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK') for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         self.using_scopes = []
         self.active_counters = set()
         self.control_flow = dict(program=None, routines={}, jump_policy='same_block_or_ancestor_no_for', controller_validated=False)
@@ -837,6 +903,7 @@ class Emitter:
         self.time_text_uses = []
         self.microsecond_timer_uses = []
         self.register_uses = []
+        self.service_uses = []
         self.frame_operation_uses = []
         self.position_axis_uses = []
         self.position_comparison_uses = []
@@ -874,6 +941,7 @@ class Emitter:
         raise TranslationError(code, message, token, self.filename)
 
     def line(self, text='', token=None):
+        if self.cooperative: text=re.sub(r'self\._state\.tick\(([^()]*)\)',r'(yield from _rt.checkpoint(self._state,\1))',text)
         self.lines.append('    ' * self.indent + text)
         if token:
             self.source_map.append(dict(python_line=len(self.lines), karel_line=token.line,
@@ -913,6 +981,12 @@ class Emitter:
         return child.kind == 'literal' and type(child.value) is int and child.value == 2147483648
 
     def resolve_spec(self, spec):
+        if spec[0] in ('FILE','QUEUE_TYPE'): return spec
+        if spec[0]=='PATH':
+            resolved=('PATH',self.resolve_spec(spec[1]) if spec[1] else None,self.resolve_spec(spec[2]) if spec[2] else None)
+            if any(item and item[0]!='STRUCTURE' for item in resolved[1:]):
+                self.error('E_TYPE','PATH NODEDATA and PATHHEADER require named STRUCTURE types',Token('NAME','PATH',1,1))
+            return resolved
         if spec[0] == 'JOINTPOS':
             rt.joint_width(spec)
             self.features.add('JOINTPOS data')
@@ -1061,6 +1135,8 @@ class Emitter:
             for member, spec in definition:
                 if member.value in resolved: self.error('E_DUPLICATE', 'Duplicate STRUCTURE field', member)
                 resolved[member.value] = self.resolve_spec(spec)
+                if resolved[member.value][0] in ('FILE','PATH','QUEUE_TYPE'):
+                    self.error('E_TYPE','Resource fields in STRUCTURE are not supported',member)
             self.user_types[token.value] = ('STRUCTURE', token.value, tuple(resolved.items()))
             self.features.add('named STRUCTURE definition')
         for token, spec in self.program.declarations:
@@ -1126,7 +1202,7 @@ class Emitter:
             # Parameters are resolved before local declarations: local constants
             # cannot alter the routine's interface or a global type definition.
             for token, spec in routine.parameters:
-                if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in blocked_controller_names(self.mode):
+                if token.value in routine.local_types or token.value in self.constants or token.value in self.user_types or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys():
                     self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
                 resolved = self.resolve_spec(spec)
                 if resolved[0] in NARROW_TYPES:
@@ -1137,7 +1213,7 @@ class Emitter:
             for kind, token, definition in routine.local_declarations:
                 if (token.value in routine.local_types or token.value in routine.local_constants
                         or token.value in self.constants or token.value in self.user_types
-                        or token.value in blocked_controller_names(self.mode)):
+                        or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys()):
                     self.error('E_DUPLICATE', 'Duplicate, constant-shadowing or controller local identifier', token)
                 if kind == 'CONST':
                     if token.value in names or token.value == self.program.name:
@@ -1299,6 +1375,9 @@ class Emitter:
     def analyze_routine_effects(self):
         edges, calls_by_routine = {}, {}
         for routine in self.program.routines:
+            if routine.external:
+                routine.parameter_writes.update(token.value for token,_ in routine.parameters)
+                routine.may_services=True
             local_names = {token.value for token, _ in routine.declarations}
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
@@ -1320,6 +1399,16 @@ class Emitter:
                     routine.may_abort = True
                 if isinstance(node, Expr) and node.kind == 'call' and self.mode == 'pythonic' and node.value == 'GET_USEC_TIM' and node.value not in self.routines:
                     routine.may_clock = True
+                if isinstance(node,Expr) and node.kind=='call' and self.mode=='pythonic' and node.value in ex.PROCEDURES.keys()|ex.FUNCTIONS.keys() and node.value not in self.routines:
+                    routine.may_services=True
+                    signature=ex.PROCEDURES.get(node.value,ex.FUNCTIONS.get(node.value,((),None))[0])
+                    for argument,(mode,_) in zip(node.args,signature):
+                        if mode not in ('o','r'): continue
+                        name=self.root_name(argument)
+                        if name not in local_names: routine.side_effecting=True
+                        if name in parameter_names: routine.parameter_writes.add(name)
+                        if name in self.types and name not in local_names|parameter_names: routine.global_writes.add(name)
+                    if node.value=='SET_VAR': routine.global_writes.update(self.types)
                 if isinstance(node, Statement) and node.kind in ('assign', 'for'):
                     name = node.args[0].value if node.kind == 'for' else self.root_name(node.args[0])
                     if name not in local_names: routine.side_effecting = True
@@ -1384,6 +1473,8 @@ class Emitter:
                     if not getattr(routine,effect) and any(getattr(self.routines[name],effect) for name in edges[routine.name]):
                         setattr(routine,effect,True)
                         changed = True
+                if not routine.may_services and any(self.routines[name].may_services for name in edges[routine.name]):
+                    routine.may_services=True; changed=True
                 parameter_names = {token.value for token, _ in routine.parameters}
                 local_names = {token.value for token, _ in routine.declarations}
                 for call in calls_by_routine[routine.name]:
@@ -1415,7 +1506,7 @@ class Emitter:
                    and (self.routines[node.value].side_effecting or self.routines[node.value].may_delay
                         or self.routines[node.value].may_write or self.routines[node.value].may_read or self.routines[node.value].may_abort
                         or self.routines[node.value].may_clock or self.routines[node.value].may_read_registers
-                        or self.routines[node.value].may_write_registers)
+                        or self.routines[node.value].may_write_registers or self.routines[node.value].may_services)
                    for node in self.walk_nodes(expr))
 
     def has_fresh_active_counters(self):
@@ -1452,6 +1543,9 @@ class Emitter:
         return expr.value
 
     def member_type(self, spec, expr):
+        if spec[0]=='PATH':
+            if not spec[2]: self.error('E_FIELD','PATH has no PATHHEADER',expr.token)
+            return self.member_type(spec[2],expr)
         if spec[0] not in RECORD_TYPES: self.error('E_TYPE', 'Field access requires STRUCTURE or a supported data record', expr.token)
         fields = dict(rt.record_fields(spec))
         if expr.value not in fields:
@@ -1484,15 +1578,16 @@ class Emitter:
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
             spec = self.access_type(expr.args[0])
+            if spec[0]=='PATH': return rt.PathValue(spec).node_spec
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
             try: return rt.indexed_type(spec, len(expr.args) - 1)
             except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
         self.error('E_TYPE', 'Expected a variable receiver path', expr.token)
 
     def frame_result_type(self, specs, token):
-        if not specs or any(spec not in (('XYZWPR',), ('POSITION',)) for spec in specs):
+        if not specs or any(spec not in (('XYZWPR',), ('POSITION',),('XYZWPREXT',)) for spec in specs):
             self.error('E_TYPE', 'Frame operations require POSITION or XYZWPR operands', token)
-        return ('POSITION',) if ('POSITION',) in specs else ('XYZWPR',)
+        return ('XYZWPREXT',) if ('XYZWPREXT',) in specs else ('POSITION',) if ('POSITION',) in specs else ('XYZWPR',)
 
     def is_position_read_only_access(self, expr):
         """Check receiver paths, without mistaking an index expression for a target."""
@@ -1513,6 +1608,10 @@ class Emitter:
         if expr.kind == 'field':
             member = self.member_type(spec, expr)
             return f'_rt.field_reference({base}, {expr.value!r}, {line})', member
+        if spec[0]=='PATH':
+            if len(expr.args)!=2: self.error('E_ARRAY_RANK','PATH requires one node index',expr.token)
+            index=self.require_type(expr.args[1],'INTEGER')
+            return f'_rt.index_reference({base},{index},{line})',rt.PathValue(spec).node_spec
         if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
         index, selected = self.index_code(expr, spec)
         return f'_rt.index_reference({base}, {index}, {line})', selected
@@ -1558,6 +1657,7 @@ class Emitter:
                 all(a == b or a is None or b is None for a, b in zip(target_shape, source_shape)))
 
     def expression(self, expr, raw=False, *, allow_array_result=False):
+        if expr.kind=='task_event': return 'self._state._pause_requested', ('BOOLEAN',)
         line = expr.token.line
         if expr.kind == 'group':
             return self.expression(expr.args[0], raw=raw)
@@ -1589,7 +1689,15 @@ class Emitter:
             args = repr(expr.value) if raw else f'{expr.value!r}, {line}'
             return f'self._state.{method}({args})', spec
         if expr.kind == 'index':
+            if self.mode=='pythonic' and expr.args[0].kind=='name' and expr.args[0].value in ex.PORT_TYPES and expr.args[0].value not in self.types:
+                if len(expr.args)!=2: self.error('E_ARGUMENTS','Ports require one index',expr.token)
+                index=self.require_type(expr.args[1],'INTEGER'); kind=expr.args[0].value
+                self.features.add('ports'); return f'self._state.port_read({kind!r},{index},{line})',(ex.PORT_TYPES[kind],)
             base, spec = self.expression(expr.args[0], raw=True)
+            if spec[0]=='PATH':
+                if len(expr.args)!=2: self.error('E_ARRAY_RANK','PATH requires one node index',expr.token)
+                index=self.require_type(expr.args[1],'INTEGER')
+                return f'{base}.node({index},{line})',rt.PathValue(spec).node_spec
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
             index, selected = self.index_code(expr, spec)
             method = 'raw_index' if raw else 'load_index'
@@ -1627,7 +1735,7 @@ class Emitter:
                                                               line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
                                                               result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
             elif op == ':':
-                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',)) for spec in (lt,right_type))
+                valid = self.mode == 'pythonic' and all(spec in (('XYZWPR',), ('POSITION',), ('XYZWPREXT',)) for spec in (lt,right_type))
                 result_type = self.frame_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
                 if valid:
                     self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
@@ -1671,6 +1779,10 @@ class Emitter:
                     return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line})', result_type
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
         if expr.kind == 'call':
+            if self.mode=='pythonic' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
+                return self.service_call(expr),ex.FUNCTIONS[expr.value][1]
+            if self.mode=='pythonic' and expr.value in ex.PROCEDURES and expr.value not in self.routines:
+                self.error('E_PROCEDURE_RESULT','Service procedures have no expression result',expr.token)
             if self.active_counters and expr.value in self.routines:
                 self.check_for_call(expr.token, self.routines[expr.value])
             if self.mode == 'pythonic' and expr.value in TIMER_FUNCTIONS and expr.value not in self.routines:
@@ -1833,6 +1945,31 @@ class Emitter:
                                          argument_order=['source','target','status'] if parsing else ['source','target'],
                                          outputs=2 if parsing else 1, source_copied=not parsing))
         return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line})'
+
+    def service_call(self,expr):
+        signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
+        minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST)
+        if not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
+        self.check_for_call(expr.token)
+        if expr.value=='SET_VAR' and self.active_counters: self.error('E_FOR_COUNTER','SET_VAR cannot indirectly write an active FOR counter',expr.token)
+        codes=[]
+        for value,(mode,kind) in zip(expr.args,signature):
+            if mode in ('o','r'):
+                if value.kind not in ('name','field','index') or self.root_name(value) in self.visible_constants(): self.error('E_OUTPUT_ARGUMENT','Service output requires writable storage',value.token)
+                if self.root_name(value) in self.active_counters: self.error('E_FOR_COUNTER','Service output cannot write an active FOR counter',value.token)
+                if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
+                if self.is_config_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG fields cannot be output aliases',value.token)
+                code,spec=self.reference(value)
+            else:
+                code,spec=self.expression(value)
+                if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
+                if kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
+                if kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.assignment_value({code},{value.token.line})'
+            if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
+            codes.append(code)
+        self.features.add(expr.value); self.features.add('extended services')
+        self.service_uses.append(dict(operation=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,line=expr.token.line,column=expr.token.column))
+        return f'self._state.extended_call({expr.value!r},[{", ".join(codes)}],{expr.token.line})'
 
     def numeric_register(self, expr):
         reading = expr.value == 'GET_REG'
@@ -2051,7 +2188,8 @@ class Emitter:
                 self.features.add(expected[0] + (' reference parameter' if is_reference else ' value parameter'))
             self.features.add('parameter by reference' if is_reference else 'parameter by value')
             arguments.append(code)
-        return f'self._routine_{expr.value}({", ".join(arguments)})'
+        result=f'self._routine_{expr.value}({", ".join(arguments)})'
+        return f'(yield from {result})' if self.cooperative else result
 
     def require_type(self, expr, expected):
         code, spec = self.expression(expr)
@@ -2167,7 +2305,7 @@ class Emitter:
                     if kind == 'if': self.line(f'self._state.tick({line})', token)
                     condition = self.require_type(stmt.args[0], 'BOOLEAN')
                     yes, no = node.targets
-                    self.line(f'{pc} = {yes!r} if self._state.test({condition}, {line}) else {no!r}', token)
+                    self.line(f'{pc} = {yes!r} if {self.test_code(condition,line)} else {no!r}', token)
                 elif kind == 'select':
                     self.features.add('select')
                     self.line(f'self._state.tick({line})', token)
@@ -2201,13 +2339,84 @@ class Emitter:
         if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
         else: self.control_flow['program'] = report
 
-    def statement(self, stmt):
+    def test_code(self,code,line):
+        return f'(yield from _rt.cooperative_test(self._state,lambda: {code},{line}))' if self.cooperative else f'self._state.test({code},{line})'
+
+    def implicit_counter_write(self, name):
+        """Handlers and timers can run between ordinary source statements."""
+        for body in (self.program.body, *[routine.body for routine in self.program.routines]):
+            for node in self.walk_nodes(body):
+                if not isinstance(node, Statement): continue
+                if node.kind == 'timer_connect' and self.root_name(node.args[0]) == name: return True
+                if node.kind != 'condition': continue
+                for action in self.walk_nodes(node.body):
+                    if isinstance(action, Statement) and action.kind == 'assign' and self.root_name(action.args[0]) == name: return True
+                    if isinstance(action, Statement) and action.kind == 'read':
+                        if any(self.root_name(item.args[0] if item.kind == 'read_item' else item) == name for item in action.args if item.kind != 'read_cr'): return True
+                    if not isinstance(action, Expr) or action.kind != 'call': continue
+                    if action.value == 'SET_VAR': return True
+                    routine = self.routines.get(action.value)
+                    if routine:
+                        if name in routine.global_writes: return True
+                        if any(token.value in routine.parameter_writes and self.root_name(value) == name for (token, _), value in zip(routine.parameters, action.args)): return True
+                    signature = ex.PROCEDURES.get(action.value, ex.FUNCTIONS.get(action.value, ((), None))[0])
+                    if any(mode in ('o', 'r') and self.root_name(value) == name for value, (mode, _) in zip(action.args, signature)): return True
+        return False
+
+    def statement(self, stmt, file_code=None):
         token, kind = stmt.token, stmt.kind
         line = token.line
         self.features.add(kind)
         self.line(f'self._state.tick({line})', token)
+        if kind=='task_control':
+            action=stmt.args[0]
+            if action=='PAUSE': self.line(f'yield from _rt.pause_execution(self._state,{line})',token)
+            elif action=='STOP': self.line('raise _rt.KarelStop("Task stopped")',token)
+            else: self.line('self._state._pause_requested=False',token)
+            return
+        if kind in ('timer_connect','timer_disconnect'):
+            target=stmt.args[0]
+            if self.current_routine and self.root_name(target) in self.current_routine.local_types: self.error('E_TIMER_SCOPE','Connected timer storage must be global',target.token)
+            if self.root_name(target) in self.active_counters: self.error('E_FOR_COUNTER','Timer cannot modify active FOR counter',target.token)
+            reference,spec=self.reference(target)
+            if spec!=('INTEGER',) or self.is_config_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
+            method='connect_timer' if kind=='timer_connect' else 'disconnect_timer'
+            self.line(f'_rt.{method}(self._state,{reference},{line})',token); return
+        if kind=='condition_control':
+            number=self.require_type(stmt.args[1],'INTEGER')
+            self.line(f'_rt.condition_control(self._state,{stmt.args[0]!r},{number},{line})',token); return
+        if kind=='condition':
+            number=self.require_type(stmt.args[0],'INTEGER'); pairs=[]
+            for clause in stmt.body:
+                for action_node in self.walk_nodes(clause.body):
+                    if isinstance(action_node,Statement) and action_node.kind in ('label','goto','return','condition'):
+                        self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
+                predicate=self.fresh(); action=self.fresh()
+                condition=self.require_type(clause.args[0],'BOOLEAN')
+                self.line(f'def {predicate}():'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
+                self.line(f'def {action}():'); self.indent+=1; self.line('if False: yield None')
+                self.block(clause.body); self.indent-=1; pairs.append(f'({predicate},{action})')
+            self.line(f'_rt.define_condition(self._state,{number},[{", ".join(pairs)}],{line})',token); return
+        if kind in ('file_read','file_write'):
+            file_value=self.require_type(stmt.args[0],'FILE'); captured_file=self.fresh()
+            self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
+            self.statement(stmt.args[1],file_code=captured_file); return
+        if kind in ('file_open','file_close'):
+            file_value=self.require_type(stmt.args[0],'FILE'); self.features.add('memory files')
+            if kind=='file_open':
+                mode=self.require_type(stmt.args[1],'STRING'); name=self.require_type(stmt.args[2],'STRING')
+                self.line(f'self._state.file_open({file_value},{mode},{name},{line})',token)
+            else: self.line(f'self._state.file_close({file_value},{line})',token)
+            return
         if kind == 'assign':
             target, expr = stmt.args
+            if self.mode=='pythonic' and target.kind=='index' and target.args[0].kind=='name' and target.args[0].value in ex.PORT_TYPES and target.args[0].value not in self.types:
+                kind=target.args[0].value
+                if kind not in ex.OUTPUT_PORTS: self.error('E_PORT_DIRECTION','Cannot assign an input port',target.token)
+                value=self.require_type(expr,ex.PORT_TYPES[kind]); temp=self.fresh(); self.line(f'{temp}={value}',token)
+                if len(target.args)!=2: self.error('E_ARGUMENTS','Ports require one index',target.token)
+                index=self.require_type(target.args[1],'INTEGER'); self.features.add('ports')
+                self.line(f'self._state.port_write({kind!r},{index},{temp},{line})',token); return
             root = self.root_name(target)
             if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'Cannot assign to CONST', target.token)
             if root in self.active_counters: self.error('E_FOR_COUNTER', 'FOR counter writes inside its loop are blocked', target.token)
@@ -2219,8 +2428,7 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
-            if (self.mode == 'pythonic' and (target_type, value_type) in
-                    ((('POSITION',), ('XYZWPR',)), (('XYZWPR',), ('POSITION',)))):
+            if (self.mode == 'pythonic' and target_type!=value_type and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')):
                 value = f'_rt.convert_position({target_type!r}, {value}, {line})'
                 self.features.add('POSITION/XYZWPR assignment conversion')
                 self.position_conversion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -2262,7 +2470,7 @@ class Emitter:
                                         evaluated='once; runtime range check'))
         elif kind == 'wait':
             condition = self.require_type(stmt.args[0], 'BOOLEAN')
-            self.line(f'while not self._state.test({condition}, {line}):', token)
+            self.line(f'while not {self.test_code(condition,line)}:', token)
             self.indent += 1
             self.line(f'self._state.wait_poll({line})', token)
             self.indent -= 1
@@ -2300,12 +2508,13 @@ class Emitter:
                              or data_type in INTEGRAL_TYPES and second in (0, *range(2, 17)))
                     if not valid:
                         self.error('E_WRITE_FORMAT', f'Invalid {data_type} WRITE second format specifier', format_exprs[1].token)
-                pieces.append(f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})')
+                pieces.append(f'_rt.file_piece({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})')
                 items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
                                   format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
                 self.features.add(f'WRITE {data_type} output request')
                 if formats: self.features.add(f'WRITE {data_type} formatting')
-            self.line(f'self._state.write_items([{", ".join(pieces)}], {line})', token)
+            file_option=f',file={file_code}' if file_code else ''
+            self.line(f'self._state.write_items([{", ".join(pieces)}], {line}{file_option})', token)
             self.features.add('WRITE output request')
             if any(item['data_type'] == 'CR' for item in items): self.features.add('WRITE CR newline')
             if len(items) > 1: self.features.add('WRITE multiple data items')
@@ -2399,19 +2608,20 @@ class Emitter:
                         dynamic_formats=any(value is None for value in literals))
                     self.features.add(f'READ {spec[0]} formatting')
             controls = f', line_breaks={tuple(line_breaks)!r}' if line_breaks else ''
+            reader=f'self._state.file_read({file_code},' if file_code else 'self._state.read_items('
             if formatted:
                 captured = self.fresh()
                 self.line(f'{captured} = [{", ".join(references)}]', token)
-                self.line(f'self._state.read_items([item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
+                self.line(f'{reader}[item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
             else:
-                self.line(f'self._state.read_items([{", ".join(references)}], {line}{controls})', token)
+                self.line(f'{reader}[{", ".join(references)}], {line}{controls})', token)
             self.read_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=line, column=token.column, destinations=destinations,
                                        targets_evaluated_once=True, response_validated_before_assignment=True))
             if line_breaks: self.read_uses[-1]['line_breaks'] = line_breaks
         elif kind in ('if', 'while'):
             condition = self.require_type(stmt.args[0], 'BOOLEAN')
-            self.line(f'{kind} self._state.test({condition}, {line}):', token)
+            self.line(f'{kind} {self.test_code(condition,line)}:', token)
             self.indent += 1
             self.block(stmt.body)
             self.indent -= 1
@@ -2425,12 +2635,14 @@ class Emitter:
             self.line('while True:', token)
             self.indent += 1
             self.block(stmt.body)
-            self.line(f'if self._state.test({condition}, {line}):')
+            self.line(f'if {self.test_code(condition,line)}:')
             self.indent += 1
             self.line('break')
             self.indent -= 2
         elif kind == 'for':
             counter, initial, final, direction = stmt.args
+            if self.cooperative and self.implicit_counter_write(counter.value):
+                self.error('E_FOR_COUNTER', 'Condition action or connected timer may modify this FOR counter', counter)
             counter_types = self.types | (self.current_routine.local_types if self.current_routine else {})
             if counter.value not in counter_types or counter_types[counter.value][0] != 'INTEGER':
                 self.error('E_FOR_COUNTER', 'FOR counter must be an INTEGER variable', counter)
@@ -2486,6 +2698,8 @@ class Emitter:
             self.indent -= 2
         elif kind == 'call':
             expr = stmt.args[0]
+            if self.mode=='pythonic' and expr.value in ex.PROCEDURES and expr.value not in self.routines:
+                self.line(self.service_call(expr),token); return
             if self.mode == 'pythonic' and expr.value in REGISTER_PROCEDURES and expr.value not in self.routines:
                 self.line(self.numeric_register(expr), token)
                 return
@@ -2579,9 +2793,11 @@ class Emitter:
         self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None):')
+        self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, clock_us=None, registers=None, context=None):')
         self.indent = 2
-        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, clock_us=clock_us, registers=registers)')
+        self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, clock_us=clock_us, registers=registers, context=context)')
+        self.line(f'self._state.program_name={self.program.name!r}')
+        self.line('self._state.program=self')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -2613,6 +2829,11 @@ class Emitter:
         self.indent = 2
         self.line('return tuple(request.copy() for request in self._state.register_requests)')
         self.indent = 1
+        self.line('@property')
+        self.line('def service_requests(self):')
+        self.indent = 2
+        self.line('return tuple(request.copy() for request in self._state.service_requests)')
+        self.indent = 1
         self.line()
         self.line('@property')
         self.line('def abort_info(self):')
@@ -2637,8 +2858,10 @@ class Emitter:
             self.line(f'self._state.enter_routine({routine.local_types!r}, {routine.token.line}, {{{bindings}}})')
             self.line('try:')
             self.indent = 3
-            self.emit_body(routine.body)
-            if routine.return_type:
+            if routine.external:
+                self.line(f'return self._state.external_call({routine.external!r},{routine.name!r},[{", ".join(argument_names)}],{routine.return_type!r},{routine.token.line})',routine.token)
+            else: self.emit_body(routine.body)
+            if routine.return_type and not routine.external:
                 self.line(f'raise _rt.KarelRuntimeError("Function completed without RETURN", {routine.token.line})')
             self.indent = 2
             self.line('finally:')
@@ -2647,17 +2870,28 @@ class Emitter:
             self.indent = 1
         self.current_routine = None
         self.line()
+        if self.cooperative:
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def run(self, *, max_steps=100000):'); self.indent=2
+            self.line('return _rt.run_cooperative(self,max_steps)'); self.indent=1
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def resume(self):'); self.indent=2
+            self.line('return _rt.resume_cooperative(self)'); self.indent=1
+            self.line('def pause(self):'); self.indent=2; self.line('self._state._pause_requested=True'); self.indent=1
+            self.line('def stop(self):'); self.indent=2; self.line('return _rt.stop_cooperative(self)'); self.indent=1
+            self.line('@property'); self.line('def task_state(self):'); self.indent=2; self.line('return self._state.task_state'); self.indent=1
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def run(self, *, max_steps=100000):')
+        self.line('def _execute(self):' if self.cooperative else 'def run(self, *, max_steps=100000):')
         self.indent = 2
-        self.line('self._state.begin(max_steps)')
+        if self.cooperative: self.line('if False: yield None')
+        if not self.cooperative: self.line('self._state.begin(max_steps)')
         self.emit_body(self.program.body)
         self.line('return self._state.snapshot()')
         self.indent = 0
         self.line()
         self.line('if __name__ == "__main__":')
         self.indent = 1
-        if self.features & (JOINT_PROCEDURES | REGISTER_PROCEDURES) or 'read' in self.features or 'operator >=<' in self.features:
+        if self.features & (JOINT_PROCEDURES | REGISTER_PROCEDURES) or self.features & {'read','operator >=<','extended services','ports','memory files'}:
             self.line('import argparse as _argparse')
             self.line('_parser = _argparse.ArgumentParser(description="Explicit offline execution context; no controller connection")')
             if self.features & JOINT_PROCEDURES:
@@ -2671,10 +2905,23 @@ class Emitter:
                 self.line('_config.add_argument("--check-config", dest="check_config", action="store_true")')
                 self.line('_config.add_argument("--ignore-config", dest="check_config", action="store_false")')
             if 'read' in self.features:
-                self.line('_input = _parser.add_mutually_exclusive_group(required=True)')
+                self.line('_input = _parser.add_mutually_exclusive_group(required=False)')
                 self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
                 self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
+            self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
             self.line('_args = _parser.parse_args()')
+            self.line('import json as _json')
+            self.line('_context = None')
+            self.line('if _args.context is not None:')
+            self.indent += 1
+            self.line('try:')
+            self.indent += 1
+            self.line('with open(_args.context, encoding="utf-8-sig") as _stream: _context = _rt.ExecutionContext.from_config(_json.load(_stream))')
+            self.indent -= 1
+            self.line('except (OSError, KeyError, TypeError, ValueError, _rt.KarelRuntimeError) as _error:')
+            self.indent += 1
+            self.line('_parser.error("Invalid service context: "+str(_error))')
+            self.indent -= 2
             if self.features & REGISTER_PROCEDURES:
                 self.line('import json as _json')
                 self.line('try:')
@@ -2697,6 +2944,9 @@ class Emitter:
                 self.line('_parser.error(str(_error))')
                 self.indent -= 1
             if 'read' in self.features:
+                self.line('_responses = None')
+                self.line('if _args.read_values is not None or _args.read_text is not None:')
+                self.indent += 1
                 self.line('import json as _json')
                 self.line('try:')
                 self.indent += 1
@@ -2713,8 +2963,8 @@ class Emitter:
                 self.line('if type(_responses) is not list: _parser.error("READ batches must be a JSON list")')
                 self.line('_batches = iter(_responses)')
                 self.line('_responses = lambda request: next(_batches)')
-                self.indent -= 1
-            context = []
+                self.indent -= 2
+            context = ['context=_context']
             if self.features & REGISTER_PROCEDURES: context.append('registers=_registers')
             if self.features & JOINT_PROCEDURES: context.append('joint_axes=_args.joint_axes')
             if 'operator >=<' in self.features: context.append('pose_tolerance=_pose_tolerance')
@@ -2727,10 +2977,10 @@ class Emitter:
         return result
 
 
-def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
+def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', cooperative=False):
     parser = Parser(source, filename, mode)
     program = parser.parse()
-    emitter = Emitter(program, filename, array_shapes, mode)
+    emitter = Emitter(program, filename, array_shapes, mode, cooperative)
     if parser.continuations:
         emitter.features.add('physical line continuation')
     if parser.escaped_string_literals:
@@ -2917,6 +3167,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
         time_text_conversions=emitter.time_text_uses,
         microsecond_timers=emitter.microsecond_timer_uses,
         register_operations=emitter.register_uses,
+        service_operations=emitter.service_uses,
         frame_operations=emitter.frame_operation_uses,
         position_axis_queries=emitter.position_axis_uses,
         position_comparisons=emitter.position_comparison_uses,
@@ -3065,15 +3316,19 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict'):
     ))
 
 
-def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic'):
+def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic', cooperative=False):
     """Translate using the public Pythonic contract; strict is a future milestone."""
     if type(mode) is not str or mode != 'pythonic':
         message = ('Strict mode is a future milestone; use mode="pythonic"'
                    if mode == 'strict' else 'Supported translation mode: pythonic')
         raise TranslationError('E_MODE', message, Token('NAME', '', 1, 1), filename)
+    if type(cooperative) is not bool: raise ValueError('cooperative must be BOOLEAN')
     with rt._numeric_scope(mode):
-        result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode)
+        result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative)
     report = result.report
+    if cooperative:
+        report['translation_context']['cooperative'] = True
+        report['translation_context_sha256'] = hashlib.sha256(json.dumps(report['translation_context'], sort_keys=True, separators=(',', ':')).encode('ascii')).hexdigest()
     report['register_policy'] = dict(
         procedures=sorted(REGISTER_PROCEDURES),
         context='Explicit Program(registers=NumericRegisters(count, initial)) memory bank, count 1..32767 and optional INTEGER/REAL values; no default register count, implicit zeros, controller backend, persistence or file writes',

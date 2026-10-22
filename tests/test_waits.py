@@ -214,8 +214,8 @@ class WaitGuardTests(unittest.TestCase):
             with self.subTest(body=body),self.assertRaises(TranslationError): compile_program(body)
 
     def test_native_events_devices_and_handler_forms_stay_blocked(self):
-        for body in ('WAIT FOR DIN[1]','WAIT FOR STOP','WAIT FOR TIME 10','WAIT FOR TRUE,TRUE',
-                     'CONDITION[1]: WHEN TRUE DO WAIT FOR TRUE ENDCONDITION'):
+        for body in ('WAIT FOR STOP','WAIT FOR TIME 10','WAIT FOR TRUE,TRUE',
+                     'CONDITION[1]: WHEN TRUE DO MOVE TO x ENDCONDITION'):
             with self.subTest(body=body),self.assertRaises(TranslationError): compile_program(body)
 
     def test_transitive_counter_writes_inside_wait_condition_rejected(self):

@@ -1,0 +1,30 @@
+PROGRAM OFFLINE_HANDLERS_GEOMETRY
+VAR
+  result,external_axis: REAL
+  count: INTEGER
+  ready: BOOLEAN
+ROUTINE reflect
+VAR
+  point,plane,reflected: XYZWPREXT
+  cfg: CONFIG
+  status: INTEGER
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  point=POS(1,2,3,0,0,0,cfg)
+  point.ext1=42
+  plane=POS(0,0,0,0,0,0,cfg)
+  reflected=MIRROR(point,plane,FALSE)
+  result=reflected.y
+  external_axis=reflected.ext1
+END reflect
+BEGIN
+  count=0
+  ready=FALSE
+  CONDITION[1]:
+    WHEN ready DO count=count+1
+  ENDCONDITION
+  ENABLE CONDITION[1]
+  ready=TRUE
+  reflect()
+  PURGE CONDITION[1]
+END OFFLINE_HANDLERS_GEOMETRY

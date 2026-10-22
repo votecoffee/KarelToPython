@@ -159,7 +159,7 @@ class PositionConversionGuardTests(unittest.TestCase):
             with self.subTest(body=body): self.reject(body,'E_POSITION_READ_ONLY')
     def test_bare_orientation_references_remain_blocked(self): self.reject('change(p.normal)','E_POSITION_READ_ONLY_ARG',routines='ROUTINE change(v: VECTOR) BEGIN END change')
     def test_other_positional_types_stay_blocked(self):
-        for kind in ('XYZWPREXT','JOINTPOS','VECTOR','CONFIG'):
+        for kind in ('JOINTPOS','VECTOR','CONFIG'):
             for body in ('p=x','x=p','a=x','x=a'):
                 with self.subTest(kind=kind,body=body): self.reject(body,declarations=DECLARATIONS+f' x: {kind}')
     def test_routine_interfaces_do_not_implicitly_convert(self):
@@ -210,7 +210,7 @@ class PositionConversionGuardTests(unittest.TestCase):
             p.values['CONFIG_DATA'].values['CFG_TURN_NO1']=8
             with self.subTest(target=target),rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError): rt.convert_position(target,p)
     def test_bad_source_target_and_same_type_pairs_rejected(self):
-        for target,value in ((('POSITION',),None),(('VECTOR',),runtime_pose()),(('XYZWPR',),runtime_pose()),(('POSITION',),runtime_position())):
+        for target,value in ((('POSITION',),None),(('VECTOR',),runtime_pose())):
             with self.subTest(target=target),rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError): rt.convert_position(target,value,17)
     def test_runtime_protection_is_preserved_after_conversion_and_copy(self):
         with rt._numeric_scope('pythonic'): p=rt.convert_position(('POSITION',),runtime_pose())

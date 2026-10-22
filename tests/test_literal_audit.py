@@ -63,7 +63,7 @@ class LiteralAuditIntegrationTests(unittest.TestCase):
             source.write_bytes(raw)
             unselected.write_bytes(unselected.read_bytes()+b'\n')
             self.assertNotEqual(subprocess.run([*command,'--baseline',str(baseline)],capture_output=True).returncode,0)
-            source.write_bytes(raw.replace(b'VAR text:',b'VAR file_var: FILE text:'))
+            source.write_bytes(raw.replace(b'VAR text:',b'VAR file_var: VISION text:'))
             self.assertEqual(subprocess.run(command,capture_output=True).returncode,0)
             self.assertEqual(json.loads(output.read_text())['cases'][0]['diagnostic']['code'],'E_TYPE')
 

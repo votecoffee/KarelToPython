@@ -147,7 +147,7 @@ class PositionGuardTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,'E_POSITION_READ_ONLY')
         self.assertEqual(caught.exception.token.line,11)
     def test_group_qualifier_still_blocked(self): self.reject(code='E_POSITION_GROUP',declarations='p: POSITION IN GROUP[1]')
-    def test_cross_type_conversion_still_blocked(self): self.reject('p=ext',code='E_TYPE')
+    def test_joint_conversion_still_blocked(self): self.reject('p=j',code='E_TYPE',declarations='p: POSITION j: JOINTPOS')
     def test_legacy_position_conversion_stays_blocked(self): self.reject('p=x',code='E_TYPE',declarations='p: POSITION x: XYZWPR',translator=legacy_translate)
     def test_whole_uninit_still_blocked(self): self.reject('flag=UNINIT(p)',code='E_TYPE')
     def test_position_using_still_blocked(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE')
@@ -257,7 +257,7 @@ class ExtendedPositionTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(declarations='ext: XYZWPREXT IN GROUP[1]')
         self.assertEqual(caught.exception.code,'E_POSITION_GROUP')
     def test_extended_distinct_from_xyzwpr(self):
-        with self.assertRaises(TranslationError): compile_program('a=b',declarations='a: XYZWPREXT\nb: XYZWPR')
+        with self.assertRaises(TranslationError): compile_program('take(b)',declarations='b: XYZWPR',routines='ROUTINE take(a: XYZWPREXT) BEGIN END take')
     def test_generated_example(self):
         result=translate((ROOT/'examples/position_data.kl').read_text())
         namespace={'__name__':'position_example_test'}

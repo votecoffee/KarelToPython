@@ -40,6 +40,7 @@ def main(argv=None):
     parser.add_argument('--force', action='store_true', help='Allow overwriting explicitly named output/report')
     parser.add_argument('--mode', default='pythonic', metavar='pythonic',
                         help='Translation policy (default: pythonic); strict is a future milestone')
+    parser.add_argument('--cooperative', action='store_true', help='Enable host pause/resume even without source task-control statements')
     parser.add_argument('--array-shape', action='append', type=array_shape_option, default=[], metavar='NAME=DIM[,DIM]',
                         help='Explicit outer dimensions for a global ARRAY containing *; repeated for each variable, embedded during translation')
     args = parser.parse_args(argv)
@@ -65,7 +66,7 @@ def main(argv=None):
         source_bytes = args.source.read_bytes()
         source = source_bytes.decode('utf-8-sig')
         try:
-            result = translate(source, filename=str(args.source), array_shapes=array_shapes, mode=args.mode)
+            result = translate(source, filename=str(args.source), array_shapes=array_shapes, mode=args.mode, cooperative=args.cooperative)
         except TranslationError as exc:
             report = dict(status='rejected', translator_version=__version__,
                           source_file_sha256=hashlib.sha256(source_bytes).hexdigest(), diagnostics=[exc.as_dict()],

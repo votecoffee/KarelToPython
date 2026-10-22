@@ -246,7 +246,7 @@ class PythonicWriteValidationTests(unittest.TestCase):
             self.reject(body, 'E_WRITE_ITEM')
 
     def test_explicit_device_remains_blocked(self):
-        self.reject('WRITE OUTPUT(1,CR)', 'E_WRITE_TARGET')
+        self.reject('WRITE OUTPUT(1,CR)', 'E_SYMBOL')
 
     def test_extra_formats_remain_blocked(self):
         self.reject('WRITE(1::2::10::3)', 'E_WRITE_FORMAT')

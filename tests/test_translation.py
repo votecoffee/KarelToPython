@@ -158,7 +158,7 @@ class RejectionTests(unittest.TestCase):
         self.assertGreater(caught.exception.token.line, 0)
 
     def test_unsupported_controller_constructs(self):
-        for statement in ('MOVE TO x', 'ABORT PROGRAM[1]', 'STOP', 'CONDITION[1]:', 'PAUSE'):
+        for statement in ('MOVE TO x', 'ABORT PROGRAM[1]', 'HOLD'):
             with self.subTest(statement=statement): self.reject(statement, 'E_ABORT_TARGET' if statement.startswith('ABORT') else 'E_UNSUPPORTED')
 
     def test_directives_fail_closed(self):
@@ -177,7 +177,7 @@ class RejectionTests(unittest.TestCase):
         self.reject('x = missing', 'E_SYMBOL')
         self.reject('x = UNKNOWN(1)', 'E_CALL')
         self.reject('GET_POS_REG(1, x)', 'E_CALL')
-        self.reject('b = DIN[1]', 'E_CONTROLLER')
+        self.reject('b = DIN[1] + 1', 'E_TYPE')
 
     def test_no_partial_translation_on_later_failure(self):
         self.reject('x = 1\ny = x + 2\nMOVE TO x', 'E_UNSUPPORTED')
@@ -202,7 +202,7 @@ class RejectionTests(unittest.TestCase):
             with self.subTest(kind=kind): self.reject('', 'E_SIZE', declarations='x: ' + kind)
 
     def test_routine_parameters_and_local_constants(self):
-        self.reject('', 'E_PARAMETERS', extra='ROUTINE r(x: FILE)\nBEGIN END r')
+        self.reject('', 'E_PARAMETERS', extra='ROUTINE r(x: VISION)\nBEGIN END r')
         self.reject('', 'E_ROUTINE_LOCALS', extra='ROUTINE r\nTYPE z = ARRAY[1] OF INTEGER\nBEGIN END r')
 
     def test_procedure_not_expression(self):

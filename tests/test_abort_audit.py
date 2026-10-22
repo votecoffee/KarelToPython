@@ -49,7 +49,7 @@ class AbortAuditIntegrationTests(unittest.TestCase):
             pc.write_bytes(b'original PC')
             source.write_bytes(raw+b'\n')
             self.assertNotEqual(subprocess.run([*command,'--baseline',str(baseline)],capture_output=True).returncode,0)
-            source.write_bytes(b'PROGRAM T VAR f: FILE BEGIN ABORT END T')
+            source.write_bytes(b'PROGRAM T VAR f: VISION BEGIN ABORT END T')
             self.assertEqual(subprocess.run(command,capture_output=True).returncode,0)
             self.assertEqual(json.loads(output.read_text())['cases'][0]['diagnostic']['code'],'E_TYPE')
 

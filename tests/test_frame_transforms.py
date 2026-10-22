@@ -200,11 +200,11 @@ class FrameGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body,**options)
         self.assertEqual(caught.exception.code,code)
     def test_other_relative_operand_types_stay_blocked(self):
-        for kind in ('XYZWPREXT','VECTOR','JOINTPOS','CONFIG','INTEGER'):
+        for kind in ('VECTOR','JOINTPOS','CONFIG','INTEGER'):
             with self.subTest(kind=kind): self.reject('result=x:y',declarations=DECLARATIONS+f' x,y: {kind}')
     def test_mixed_relative_operand_types_stay_blocked(self): self.reject('result=a:VEC(1,2,3)')
     def test_other_inverse_operand_types_stay_blocked(self):
-        for kind in ('XYZWPREXT','VECTOR','JOINTPOS','CONFIG','INTEGER'):
+        for kind in ('VECTOR','JOINTPOS','CONFIG','INTEGER'):
             with self.subTest(kind=kind): self.reject('result=INV(x)',declarations=DECLARATIONS+f' x: {kind}')
     def test_inverse_argument_count(self):
         for body in ('result=INV()','result=INV(a,b)'):

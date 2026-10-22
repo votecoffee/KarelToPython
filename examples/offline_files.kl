@@ -1,0 +1,16 @@
+PROGRAM OFFLINE_FILES
+VAR
+  handle: FILE
+  status,number: INTEGER
+  value: REAL
+  text: STRING[2]
+BEGIN
+  OPEN FILE handle ('RW','greeting.txt')
+  WRITE handle ('Hi',CR)
+  CLOSE FILE handle
+  OPEN FILE handle ('RWB','values.bin')
+  WRITE handle (7,1.5::8,'ok'::2)
+  SET_FILE_POS(handle,0,status)
+  READ handle (number,value::8,text::2)
+  CLOSE FILE handle
+END OFFLINE_FILES

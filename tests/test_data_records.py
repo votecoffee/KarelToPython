@@ -188,7 +188,7 @@ class DataRecordGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body,**kwargs)
         self.assertEqual(caught.exception.code,code)
     def test_other_position_types_stay_blocked(self):
-        for kind in ('FILE','PATH','VISION','QUEUE_TYPE'):
+        for kind in ('VISION',):
             with self.subTest(kind=kind): self.reject(declarations=f'x: {kind}')
     def test_group_qualifier_stays_blocked(self): self.reject(declarations='p: XYZWPR IN GROUP[1]',code='E_POSITION_GROUP')
     def test_builtin_using_stays_blocked(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE')
