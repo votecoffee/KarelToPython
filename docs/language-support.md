@@ -67,6 +67,8 @@ CURJPOS, group snapshots, mask outputs and executing-module CURR_PROG queries.
 register values with model conversions, range checks and persisted frame/tool context.
 The [register lifecycle guide](register-lifecycle.md) covers position representation
 inspection, one/all-group clearing and removing logical port simulation.
+The [calendar clock guide](calendar-clock.md) covers explicit GET_TIME/SET_TIME,
+elapsed-time adapters and frozen datetime snapshots.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.

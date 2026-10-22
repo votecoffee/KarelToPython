@@ -1,0 +1,28 @@
+{
+  "version":"0.87.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Supplied manual forms and packed-field tables plus authored offline calendar tests; no host/controller clock writes",
+  "sources":[
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[415],"topic":"GET_TIME INTEGER output and year/month/day/hour/minute/two-second fields"},
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[552,553],"topic":"SET_TIME INTEGER input, zero no-op and conflicting table/detail field ranges"}
+  ],
+  "implemented":{
+    "service":"Explicit CalendarClock(datetime or packed INTEGER), frozen by default; ExecutionContext.calendar shares it across programs and linked routines",
+    "get":"Checked ordinary INTEGER output, shared packed conversion helpers and complete calendar validation before writing",
+    "set":"Changes only the supplied clock anchor; zero does not sample or change it; invalid input or adapter preserves existing state",
+    "elapsed":"Optional explicit synchronous nonnegative integer microsecond adapter; constructor anchor sample, backward-observation guard, fractional carry and calendar range checks",
+    "persistence":"Complete naive ISO datetime with microseconds; callbacks and elapsed origin omitted; restore is frozen",
+    "ownership":"Exact output type, source-order capture, FOR guards, prior effects, frame cleanup and value-free service records"
+  },
+  "portable_choices":[
+    "Use GET_TIME table layout also used by text conversions, resolving SET_TIME detail/table conflict explicitly",
+    "Years 1980..2107, signed 32-bit patterns, floor odd seconds when packed; internal microseconds retained",
+    "No implicit host-date sampling or default calendar; SET_TIME(0) also requires the explicit service",
+    "Adapter constructor sampling establishes elapsed origin; callbacks never set the operating-system clock",
+    "Setting calendar time does not alter connected timers, scheduler time or microsecond counters"
+  ],
+  "remaining":["Native invalid-date/timing equivalence, timezone and locale conversion, physical controller acquisition/configuration and strict mode"],
+  "verification":["tests/test_calendar_clock.py","tests/test_time_text.py","tests/test_runtime_portability.py","examples/calendar_clock.kl","examples/calendar_reset.kl"],
+  "guide":"../calendar-clock.md"
+}

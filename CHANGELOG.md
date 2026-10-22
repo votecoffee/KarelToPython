@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.87.0 - 2026-10-22
+
+- Add GET_TIME and SET_TIME on an explicit CalendarClock, frozen or advanced by a
+  supplied elapsed-microsecond callback. Reuse packed calendar conversion helpers;
+  zero sets are no-ops and no operating-system clock is changed.
+- Preserve complete datetime microseconds in snapshots and restore frozen clocks.
+  Validate samples, backward observations and calendar bounds before output/anchor
+  changes; retain shared linked context and ordinary output/counter protections.
+- Add two authored examples, 45 integration tests, runtime-only portability checks,
+  report policy and manual-backed semantic notes. Strict mode remains future work.
+
 ## 0.86.0 - 2026-10-22
 
 - Add POS_REG_TYPE with stored representation/axis reporting and optional group

@@ -122,3 +122,5 @@ The 0.85.0 [joint interoperability ledger](joint_interoperability_semantics.json
 records padded model/limit boundaries, register reads and current frame/tool persistence.
 The 0.86.0 [register lifecycle ledger](register_lifecycle_semantics.json) records
 representation codes, stored widths, grouped clearing and logical unsimulation.
+The 0.87.0 [calendar ledger](calendar_clock_semantics.json) records explicit
+GET_TIME/SET_TIME, elapsed adapters, packing and frozen snapshot restoration.

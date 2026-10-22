@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.86.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.87.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -34,6 +34,7 @@ source-located error. Strict mode remains a future milestone.
 | `QUEUE_TYPE` and seven queue procedures | FIFO entries with sequence IDs and an INTEGER backing array | Explicit INIT_QUEUE; fixed capacity; retain original backing-array identity. |
 | `CONDITION`, `WHEN`, `ENABLE/DISABLE/PURGE` | Ordered predicates and generator actions | Checkpoint/interval scanning, events/edges, EVAL capture, multiple WHEN clauses and explicit rearm. |
 | `CONNECT/DISCONNECT TIMER` | Monotonic elapsed milliseconds in global INTEGER references | Updated at execution checkpoints; injectable microsecond clock; fractional milliseconds carried forward. |
+| `GET_TIME`, `SET_TIME` | Explicit CalendarClock | Shared packed date/time fields; frozen or supplied elapsed adapter; zero set no-op; no operating-system clock write. |
 | `PAUSE`, host `resume()` | Suspended Python generator | Retains instruction position, routine locals, references and FOR state. |
 | `STOP`, host `stop()` | Terminal offline task state | Closes suspended frames; construct a new Program to restart. This is a Pythonic task-stop convention, not native motion STOP behavior. |
 | `RESUME`, `UNPAUSE` | Clear a pending offline pause request | A suspended Program needs a host `resume()` or another registered task's CONT_TASK call. Native motion RESUME is not modeled. |
@@ -99,10 +100,12 @@ line and outcome records; it omits values and resets at each new run.
 Generated scripts accept `--context configuration.json`. The JSON schema has
 optional `strings` (`count`, `capacity`, `values`), `positions` (`count`, `groups`,
 `values`), `numeric`, `ports` (`counts`, `values` by kind and number), `variables`,
-`robot`, `events`, `local_handlers` and `files` (name to ASCII text or
+`robot`, `events`, `calendar`, `local_handlers` and `files` (name to ASCII text or
 `{"hex":"..."}`). Typed values retain aggregate/joint specs and initialization.
-Callbacks, clocks and task registries use Python embedding. See
+Callbacks, elapsed clock adapters and task registries use Python embedding. See
 [configuration and persistence](portable-projects.md#shared-and-persistent-state).
+The calendar value itself persists; its optional elapsed callback uses Python
+embedding. See [calendar time](calendar-clock.md).
 
 ```sh
 python -m karel2py examples/offline_services.kl -o converted.py

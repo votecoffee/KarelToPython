@@ -14,6 +14,8 @@ including state-only contexts and current data alongside the existing models.
 Version 0.85.0 adds [joint interoperability](joint-interoperability.md), limits-only
 persistence and consistent updates to loaded-model frame/tool context.
 Version 0.86.0 adds [register inspection/clearing and logical port unsimulation](register-lifecycle.md).
+Version 0.87.0 adds [calendar clocks](calendar-clock.md), shared GET_TIME/SET_TIME
+and full datetime snapshots with frozen restore.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

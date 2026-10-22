@@ -97,6 +97,12 @@ CLR_PORT_SIM removes an existing logical simulation flag. The translation report
 `register_lifecycle_policy` describes these choices. See
 [register lifecycle](register-lifecycle.md) for representation codes and failure behavior.
 
+CalendarClock supplies GET_TIME/SET_TIME through `ExecutionContext(calendar=...)`.
+Its `now`, `read`, `set`, `to_config` and `from_config` methods use an explicit
+datetime or packed value, optional elapsed-microsecond adapter and frozen restore.
+The report's `calendar_clock_policy` records the contract. See
+[calendar time](calendar-clock.md) for setup, JSON and source examples.
+
 ## CLI
 
 ```sh
@@ -334,6 +340,6 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 new run. Services retain their explicit shared state.
 
 A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
-`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py` and `control.py`. Project loading
+`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py` and `clocks.py`. Project loading
 also needs `project.py`, the compiler and lexer. Installing the package includes
 all of them.

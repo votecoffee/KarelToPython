@@ -88,7 +88,8 @@ implementation explicitly chooses four-digit years, complete seconds, fixed
 English months, odd-second flooring, signed bit patterns and checked failures.
 Native formatting, invalid-packed behavior and odd-second behavior are unverified.
 
-These procedures convert supplied data without clock access. GET_TIME, SET_TIME,
-timezone conversion and controller scheduling remain unsupported. The TIM
+These procedures convert supplied data without clock access. Version 0.87.0 adds
+[GET_TIME and SET_TIME](calendar-clock.md) through a separate explicit offline
+calendar service. Timezone conversion and controller scheduling remain unsupported. The TIM
 directive is metadata. Offline checks do not establish controller acceptance;
 strict mode remains a future milestone.

@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.86.0**. It is a
+tool are named **karel2py**. The current implementation is **0.87.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -252,6 +252,10 @@ one or all groups without removing comments. CLR_PORT_SIM removes a logical
 simulation flag while retaining the last supplied value. See
 [register lifecycle](docs/register-lifecycle.md) for examples and statuses.
 
+GET_TIME and SET_TIME use an explicit offline CalendarClock, frozen or advanced
+by a supplied elapsed-time adapter. Complete calendar snapshots persist through
+context JSON. See [calendar time](docs/calendar-clock.md).
+
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the
 [service equivalence matrix and embedding guide](docs/offline-services.md)
@@ -280,6 +284,7 @@ source. Strict mode remains a future milestone.
 - Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Packed date/time text conversion with checked calendars and complete outputs.
+- Calendar GET_TIME/SET_TIME on an explicit frozen or advancing offline clock.
 - Host microsecond sampling and elapsed-time subtraction with an injectable clock.
 - Numeric register reads/writes on an explicit in-memory bank with checked outputs.
 - Source directive metadata for environment requirements, comments and display order.

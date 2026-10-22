@@ -20,7 +20,7 @@
     "reports": "Source-located microsecond_timers, microsecond_timer_policy and transitive potential_host_clock_reads routine effects"
   },
   "retained_boundaries": [
-    "No GET_TIME, SET_TIME, timezone, controller/power-on clock, native tick/overflow/encoding or scheduling equivalence",
+    "GET_TIME/SET_TIME use a separate explicit CalendarClock since 0.87.0; no timezone, controller/power-on clock, native tick/overflow/encoding or scheduling equivalence",
     "Synchronous host callbacks may block; step budget is not a wall-clock deadline",
     "No controller contact or native runtime acceptance; existing structural/resource protections remain and strict is future work"
   ],

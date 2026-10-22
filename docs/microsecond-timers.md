@@ -105,5 +105,6 @@ example use a function. The translator follows the value-returning form.
 The exact native counter encoding and wrap behavior are unverified. The
 120,000,000-microsecond ring, host monotonic source and adapter validation are
 explicit Pythonic choices. Host timing is separate from controller scheduling,
-power-on time and native tick precision. GET_TIME, SET_TIME and controller clock
-changes remain unsupported; strict mode remains a future milestone.
+power-on time and native tick precision. GET_TIME and SET_TIME use the separate
+[offline calendar service](calendar-clock.md); controller clock changes remain
+unsupported, and strict mode remains a future milestone.

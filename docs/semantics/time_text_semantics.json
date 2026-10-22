@@ -20,7 +20,7 @@
     "reports": "Source-located time_text_conversions and explicit time_text_policy"
   },
   "retained_boundaries": [
-    "No GET_TIME, SET_TIME, host/controller clock access, timezone, locale discovery or native chronological ordering claim",
+    "Conversions do not acquire clocks; GET_TIME/SET_TIME use a separate explicit CalendarClock since 0.87.0; no controller clock access, timezone, locale discovery or native chronological ordering claim",
     "No controller contact, native format/odd-second/invalid-packed equivalence or runtime acceptance",
     "Ordinary initialization, signed integer ranges, ASCII/capacities, CONFIG/POSITION reference checks and resource limits; strict remains future work"
   ],
