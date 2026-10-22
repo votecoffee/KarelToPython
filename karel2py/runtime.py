@@ -826,17 +826,28 @@ def _parse_time_text(source, line=None):
     if not 1980 <= year <= 2107: return 0
     try: stamp = datetime(year,month,int(day),int(hour),int(minute),int(second or 0))
     except ValueError: return 0
+    return _pack_time(stamp,line)
+
+
+def _pack_time(stamp, line=None):
+    if type(stamp) is not datetime or stamp.tzinfo is not None or not 1980<=stamp.year<=2107:
+        raise KarelRuntimeError('Calendar time requires a naive datetime in 1980..2107',line)
     packed = ((stamp.year-1980)<<25 | stamp.month<<21 | stamp.day<<16 |
               stamp.hour<<11 | stamp.minute<<5 | stamp.second//2)
     return packed if packed < 2**31 else packed-2**32
 
 
-def _format_time_text(source, line=None):
+def _unpack_time(source, line=None):
     packed = integer(source,line) & 0xffffffff
     year, month, day = 1980+(packed>>25), (packed>>21)&15, (packed>>16)&31
     hour, minute, second = (packed>>11)&31, (packed>>5)&63, (packed&31)*2
-    try: datetime(year,month,day,hour,minute,second)
+    try: return datetime(year,month,day,hour,minute,second)
     except ValueError: raise KarelRuntimeError('Packed time contains an invalid calendar date or clock field',line) from None
+
+
+def _format_time_text(source, line=None):
+    stamp=_unpack_time(source,line)
+    year,month,day,hour,minute,second=stamp.year,stamp.month,stamp.day,stamp.hour,stamp.minute,stamp.second
     return f'{day:02d}-{TIME_MONTHS[month-1]}-{year:04d} {hour:02d}:{minute:02d}:{second:02d}'
 
 
@@ -2352,6 +2363,7 @@ from .extended import (ExecutionContext, StringRegisters, PositionRegisters, Por
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles
+from .clocks import CalendarClock
 from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
                          signal_event,delay_execution,control_task,condition_scope)

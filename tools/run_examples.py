@@ -70,6 +70,7 @@ def run_example(source, *, inject_write=False):
                             ({'hex':value.hex()} if type(value) is bytes else snapshot_value(value))
                             for key,value in service.snapshot().items()}
         if services.errors is not None: observed['errors']=services.errors.snapshot()
+        if services.calendar is not None: observed['calendar']=services.calendar.to_config()
         assert observed == read_json(services_expected), name + ': offline service state'
     else:
         assert not services_expected.exists(), name + ': service expectation requires explicit initial context'
@@ -108,7 +109,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 99, 'Update the expected example count when adding examples'
+    assert count == 101, 'Update the expected example count when adding examples'
     folder=ROOT/'examples/linked_project'
     instance=load_project(folder).instantiate()
     assert instance.run('MAIN')==read_json(folder/'expected.json'), 'linked project snapshot'

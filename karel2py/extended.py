@@ -25,6 +25,7 @@ I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK'}
 PROCEDURES = {
+    'GET_TIME':(OI,), 'SET_TIME':(I,),
     'CLEAR_SEMA':(I,), 'POST_SEMA':(I,), 'PEND_SEMA':(I,I,arg('BOOLEAN','o')),
     'POST_ERR':(I,S,I,I), 'POST_ERR_L':(I,S,I,I),
     'CONT_TASK': (S,OI), 'PAUSE_TASK': (S,B,B,OI), 'ABORT_TASK': (S,B,B,OI),
@@ -786,7 +787,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,local_handlers=False):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -796,6 +797,9 @@ class ExecutionContext:
         self.semaphores=semaphores; self.errors=errors
         if parameters is not None and type(parameters) is not CallParameters: raise TypeError('parameters must be CallParameters or None')
         self.parameters=parameters
+        from .clocks import CalendarClock
+        if calendar is not None and type(calendar) is not CalendarClock: raise TypeError('calendar must be CalendarClock or None')
+        self.calendar=calendar
         if type(local_handlers) is not bool: raise TypeError('local_handlers must be BOOLEAN')
         self.local_handlers=local_handlers
     def to_config(self):
@@ -815,10 +819,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','local_handlers'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'calendar' in config:
+            from .clocks import CalendarClock
+            services['calendar']=CalendarClock.from_config(config['calendar'])
         if 'local_handlers' in config: services['local_handlers']=config['local_handlers']
         if 'strings' in config:
             row=config['strings']; services['strings']=StringRegisters(row['count'],{int(k):v for k,v in row.get('values',{}).items()},capacity=row.get('capacity',254),comments=RegisterComments.decode(row.get('comments',{})))
@@ -877,6 +884,11 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('GET_TIME','SET_TIME'):
+            clock=self.require('calendar',line)
+            if name=='GET_TIME': args[0].set(clock.read(line),line)
+            else: clock.set(args[0],line)
+            return
         if name=='CURR_PROG': return rt.checked(('STRING',12),state.program_name,line)
         if name in ('CURPOS','CURJPOS'):
             group=rt.task_root(state).robot_group if args[2] is None else rt.integer(args[2],line)

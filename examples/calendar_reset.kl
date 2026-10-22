@@ -1,0 +1,9 @@
+PROGRAM CALENDAR_RESET
+VAR target,readback: INTEGER
+    text: STRING[20]
+BEGIN
+  CNV_STR_TIME('01-JAN-2044 00:00:00',target)
+  SET_TIME(target)
+  GET_TIME(readback)
+  CNV_TIME_STR(readback,text)
+END CALENDAR_RESET

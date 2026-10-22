@@ -3478,6 +3478,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Optional bank comments, port type_codes/simulated flags and per-task arguments survive context JSON save/load; legacy context shape retained when absent',
         boundary='No controller discovery, native port enums, physical simulation/mode/assignment, teach-pendant acquisition or controller acceptance; strict mode deferred',
         guide='docs/io-and-call-parameters.md',controller_validated=False)
+    report['calendar_clock_policy']=dict(
+        procedures=['GET_TIME','SET_TIME'],
+        context='Explicit CalendarClock in ExecutionContext.calendar; supplied naive calendar value in 1980..2107; frozen unless a synchronous elapsed-microsecond adapter is supplied',
+        packing='Same checked signed 32-bit year/month/day/hour/minute/two-second fields as CNV_STR_TIME/CNV_TIME_STR; odd seconds floor at read; internal fractions retained',
+        set='SET_TIME updates only the supplied offline clock; zero is a no-op without sampling; other values validate before sampling or replacing the anchor',
+        elapsed='Adapter sampled once at clock construction, then once per read/set/snapshot; nonnegative integer microseconds, no backward observations; range and callback failures preserve prior clock state and pending GET output',
+        persistence='calendar.value is a complete naive ISO datetime; saves preserve full microseconds; restores are frozen snapshots without callbacks or elapsed origins',
+        boundary='No operating-system/controller clock changes, implicit host date acquisition, timezone, locale discovery, native timing or controller acceptance; strict remains future work',
+        guide='docs/calendar-clock.md',controller_validated=False)
     report['register_lifecycle_policy']=dict(
         procedures=['POS_REG_TYPE','CLR_POS_REG','CLR_PORT_SIM'],
         representation='Stored position representation codes: POSITION 1, XYZWPR 2, XYZWPREXT 6, JOINTPOS 9; axes are stored joint width, three extended slots, or portable zero for plain Cartesian types',
@@ -3551,7 +3560,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         evaluation='Once in source order, ordinary short circuiting, step/FOR/frame protections and prior effects retained; timer errors preserve pending assignment target; sticky ABORT takes precedence',
         observations='Program.clock_reads returns defensive line/adapter/outcome/counter records, reset at run start; failed reads have no counter; no raw unbounded clock samples retained',
         names='Pythonic fallback functions preserve internal routines and ordinary declarations; GET_USEC_TIM also supports unshadowed bare value syntax',
-        boundary='Host elapsed-time approximation only; two-minute period and encoding are explicit portable choices, no native tick/overflow/precision/scheduling or controller acceptance claim; GET_TIME/SET_TIME unsupported and strict future work',
+        boundary='Host elapsed-time approximation only; two-minute period and encoding are explicit portable choices, no native tick/overflow/precision/scheduling or controller acceptance claim; GET_TIME/SET_TIME use the separate explicit calendar service; strict future work',
         controller_validated=False)
     report['time_text_policy'] = dict(
         procedures=sorted(TIME_TEXT_PROCEDURES),
@@ -3560,7 +3569,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         formatting='Canonical 20-character DD-MMM-YYYY HH:MM:SS, uppercase English months independent of locale; reject invalid packed fields and output capacity below 20 before writing',
         evaluation='Capture source then writable target once left-to-right; convert after argument capture; retain prior effects on errors; ordinary initialization, FOR, CONFIG/POSITION and frame protections',
         names='Pythonic fallback procedures; explicit internal routines retain signatures/effects and ordinary variables remain usable',
-        boundary='Pure data only; no GET_TIME/SET_TIME, timezone, host/controller clock access, native odd-second/format/invalid-packed equivalence or controller acceptance; strict remains future work',
+        boundary='These conversions are pure data; GET_TIME/SET_TIME use the separate explicit calendar service; no timezone, implicit host/controller clock access, native odd-second/format/invalid-packed equivalence or controller acceptance; strict remains future work',
         controller_validated=False)
     report['wait_policy'] = dict(
         syntax='WAIT FOR one supported BOOLEAN expression; existing AND/OR short-circuit rules and ordinary expression/routine effects',

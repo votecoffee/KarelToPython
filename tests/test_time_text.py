@@ -169,9 +169,9 @@ class TimeSourceGuardTests(unittest.TestCase):
     def test_legacy_rejects_builtins(self):
         for body in ("CNV_STR_TIME('bad',encoded)",'CNV_TIME_STR(0,text)'):
             with self.subTest(body=body): self.reject(body,'E_CALL',translator=legacy_translate)
-    def test_clock_calls_remain_unsupported(self):
+    def test_legacy_clock_calls_remain_unsupported(self):
         for body in ('GET_TIME(encoded)','SET_TIME(encoded)'):
-            with self.subTest(body=body): self.reject(body,'E_CALL')
+            with self.subTest(body=body): self.reject(body,'E_CALL',translator=legacy_translate)
 
 
 class TimeRuntimeGuardTests(unittest.TestCase):

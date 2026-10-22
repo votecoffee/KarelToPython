@@ -204,6 +204,7 @@ class DirectoryFiles:
 
 def context_config(context):
     result={}
+    if context.calendar is not None: result['calendar']=context.calendar.to_config()
     if context.local_handlers: result['local_handlers']=True
     if context.numeric is not None: result['numeric']=context.numeric.to_config()
     if context.strings is not None: result['strings']={'count':context.strings.count,'capacity':context.strings.capacity,'values':{str(k):v for k,v in context.strings.snapshot().items()}}

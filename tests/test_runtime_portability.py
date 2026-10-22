@@ -60,14 +60,16 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pythonic_wait', 'AFTER_WAIT', 3),
                     ('pythonic_time_text', 'ENCODED', 1482515548),
                     ('pythonic_microseconds', 'ELAPSED', 35),
-                    ('pythonic_numeric_registers', 'VALUE', 42)]
+                    ('pythonic_numeric_registers', 'VALUE', 42),
+                    ('calendar_clock', 'STAMP', 1482515548),
+                    ('calendar_reset', 'READBACK', -2145320960)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'
@@ -84,6 +86,10 @@ class RuntimePortabilityTests(unittest.TestCase):
                 if registers_file.exists():
                     setup+='from karel2py.runtime import NumericRegisters\n'
                     adapter+=(', ' if adapter else '')+f'registers=NumericRegisters.from_config({json.loads(registers_file.read_text())!r})'
+                services_file=ROOT/f'examples/{example}.services.initial.json'
+                if services_file.exists():
+                    setup+='from karel2py.runtime import ExecutionContext\n'
+                    adapter+=(', ' if adapter else '')+f'context=ExecutionContext.from_config({json.loads(services_file.read_text())!r})'
                 adapter+=(', ' if adapter else '')+f'**{context!r}'
                 (target / 'check.py').write_text('import json\nfrom converted import Program\n'
                                                +setup+f'print(json.dumps(Program({adapter}).run()))\n')

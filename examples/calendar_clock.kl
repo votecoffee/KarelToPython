@@ -1,0 +1,9 @@
+PROGRAM CALENDAR_READ
+VAR stamp,again: INTEGER
+    text: STRING[20]
+BEGIN
+  GET_TIME(stamp)
+  CNV_TIME_STR(stamp,text)
+  SET_TIME(0)
+  GET_TIME(again)
+END CALENDAR_READ
