@@ -63,6 +63,12 @@ class StatePersistenceTests(unittest.TestCase):
         p=module('LIB','s=n',context=restored)
         self.assertEqual(p.run()['S'],7)
 
+    def test_persistent_program_globals_have_canonical_order(self):
+        ctx=rt.ExecutionContext();p=module('LIB','z=7 a=9',decl='z,a: INTEGER',context=ctx);p.run()
+        config=ctx.to_config();restored=rt.ExecutionContext.from_config(json.loads(json.dumps(config)))
+        self.assertEqual(restored.to_config(),config)
+        self.assertEqual([row['path'] for row in config['variables']],['A','Z'])
+
     def test_unknown_state_fields_rejected(self):
         with self.assertRaises(ValueError): rt.ExecutionContext.from_config({'positions':{'count':1,'unexpected':1}})
 

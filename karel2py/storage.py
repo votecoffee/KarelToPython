@@ -224,7 +224,7 @@ def context_config(context):
                 value=state.values[path]
                 if isinstance(value,rt().Reference): value=value.raw()
                 variables[name,path]=dict(program=name,path=path,**typed_value(value,spec))
-    if variables: result['variables']=list(variables.values())
+    if variables: result['variables']=[variables[key] for key in sorted(variables)]
     if context.events is not None: result['events']=context.events.snapshot()
     if context.semaphores is not None: result['semaphores']=context.semaphores.to_config()
     if context.errors is not None: result['errors']=context.errors.to_config()
