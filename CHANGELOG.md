@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.101.0 - 2026-10-22
+
+- Add GET_PORT_ASG, SET_PORT_ASG, GET_PORT_MOD, SET_PORT_MOD and IO_MOD_TYPE
+  over explicit PortBank topology, physical capacities and module metadata.
+- Validate complete assignment spans before staging: direction-compatible
+  BOOLEAN batches of 1..8 points, group widths of 1..32 and analog single points.
+  Bound mode masks and require valid odd BOOLEAN output pairs for complementary mode.
+- Keep active and pending settings separate. SET stages and GET reads active
+  settings; the host's apply_configuration applies all pending rows. Task POWERUP
+  notifications do not apply shared I/O settings.
+- Persist active/pending configuration with detached snapshots. Preserve logical
+  values, simulation/comments and pulse ownership/deadlines independently;
+  configuration does not simulate physical wiring, inversion or complementary signals.
+- Add 55 tests, two runnable examples, documented configuration/status policies,
+  runtime-only and installed-package checks. Native enums/alarms, physical signal
+  adapters, controller acceptance and strict mode remain future work.
+
 ## 0.100.0 - 2026-10-22
 
 - Add CHECK_NAME with a documented portable base-name grammar and status 0/2;

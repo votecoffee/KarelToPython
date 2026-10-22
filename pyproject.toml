@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "karel2py"
-version = "0.100.0"
+version = "0.101.0"
 description = "Fail-closed KAREL source to Python translator prototype"
 readme = "README.md"
 license = {file = "LICENSE"}

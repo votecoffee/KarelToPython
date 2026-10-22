@@ -1,5 +1,5 @@
 {
-  "version": "0.100.0",
+  "version": "0.101.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -140,5 +140,6 @@
   "collection_state": "collection_persistence_semantics.json",
   "variable_transfers": "variable_transfer_semantics.json",
   "queue_transfers": "queue_transfer_semantics.json",
-  "file_management": "file_management_semantics.json"
+  "file_management": "file_management_semantics.json",
+  "port_configuration": "port_configuration_semantics.json"
 }

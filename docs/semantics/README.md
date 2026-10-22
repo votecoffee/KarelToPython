@@ -146,3 +146,6 @@ The 0.94.0 [joint geometry ledger](joint_geometry_semantics.json) records suppli
 forward conversion in geometry expressions, Cartesian results, ordered capture,
 metadata and comparison context. It supersedes older blanket JOINTPOS geometry
 exclusions; historical ledgers retain their version-bound scope.
+The 0.101.0 [I/O configuration ledger](port_configuration_semantics.json) records
+explicit topology and module metadata, staged assignments/modes, host application,
+portable status/range choices and independence from logical signal values.
