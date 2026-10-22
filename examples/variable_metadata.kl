@@ -1,0 +1,12 @@
+PROGRAM VARIABLE_METADATA
+VAR items: ARRAY[2] OF STRING[4]
+    missing_before,missing_after: BOOLEAN
+    label: STRING[12]
+    code,capacity,status: INTEGER
+    dims: ARRAY[3] OF INTEGER
+BEGIN
+  VAR_INFO('','items',missing_before,label,code,dims,capacity,status)
+  items[1]='one'
+  items[2]='two'
+  VAR_INFO('','items',missing_after,label,code,dims,capacity,status)
+END VARIABLE_METADATA

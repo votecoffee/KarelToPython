@@ -70,14 +70,16 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pulse_wait', 'AFTER', False),
                     ('pulse_override', 'AFTER', True),
                     ('record_initialization', 'PARTIAL', True),
-                    ('pose_initialization', 'AXES_READY', True)]
+                    ('pose_initialization', 'AXES_READY', True),
+                    ('variable_metadata', 'CODE', 209),
+                    ('variable_catalog', 'COUNT', 1)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'

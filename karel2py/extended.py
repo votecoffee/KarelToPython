@@ -44,6 +44,8 @@ PROCEDURES = {
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
     'GET_VAR': (arg('INTEGER','o'),S,S,OA,OI),
     'SET_VAR': (arg('INTEGER','o'),S,S,arg('ANY'),OI),
+    'VAR_INFO': (S,S,arg('BOOLEAN','o'),OS,OI,arg('INT_ARRAY','r'),OI,OI),
+    'VAR_LIST': (S,S,I,I,I,arg('STRING_ARRAY','r'),OI,OI),
     'APPEND_NODE': (arg('PATH','r'),OI), 'INSERT_NODE': (arg('PATH','r'),I,OI),
     'DELETE_NODE': (arg('PATH','r'),I,OI),
     'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
@@ -999,6 +1001,9 @@ class ExecutionContext:
             if code: fail('Position register is absent, out of range or has a different representation',line)
             return value
         if name in ('GET_VAR','SET_VAR'): return self.variable(state,name,args,line)
+        if name in ('VAR_INFO','VAR_LIST'):
+            from .inspection import variable_info,variable_list
+            return (variable_info if name=='VAR_INFO' else variable_list)(self,state,args,line)
         if name=='COPY_PATH':
             source,start,end,destination,status=args
             if source.spec!=destination.spec: status.set(3,line); return
@@ -1057,7 +1062,7 @@ class ExecutionContext:
             return all(lo<=axis<=hi for axis,(lo,hi) in zip(values,robot.joint_limits))
         if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=rt.task_root(state).robot_group)
         fail('Unsupported extended operation '+name,line)
-    def resolve(self,state,program,path,line=None):
+    def resolve(self,state,program,path,line=None,*,path_nodes=False):
         rt=runtime(); program=program.upper(); path=path.upper()
         # Explicit system roots and full-path bindings have precedence over discovery.
         selected=program if program not in ('',state.program_name) else state.program_name
@@ -1069,7 +1074,7 @@ class ExecutionContext:
             candidates=[(key,reference) for (owner,key),reference in self.variables.bindings.items() if owner in (program,selected,'SYSTEM','*SYSTEM*','') and (path==key or path.startswith(key+'.') or path.startswith(key+'['))]
             if candidates:
                 key,reference=max(candidates,key=lambda item:len(item[0])); rest=path[len(key):]
-                return self.descend(reference,rest,line)
+                return self.descend(reference,rest,line,path_nodes=path_nodes)
         if program not in ('',state.program_name):
             state=self.variables.programs.get(program)
             if state is None: fail('Variable program is not attached to the explicit context',line)
@@ -1077,15 +1082,21 @@ class ExecutionContext:
         if not tokens or tokens[1] not in state.types: fail('Variable path requires a static declared global',line)
         value=state.values[tokens[1]]
         reference=value if isinstance(value,rt.Reference) else rt.Reference(state.types[tokens[1]],state.values,tokens[1]); rest=tokens[2]
-        return self.descend(reference,rest,line)
-    def descend(self,reference,rest,line=None):
+        return self.descend(reference,rest,line,path_nodes=path_nodes)
+    def descend(self,reference,rest,line=None,*,path_nodes=False):
         rt=runtime()
         while rest:
             field=re.match(r'\.([A-Z_][A-Z_0-9]*)',rest)
             index=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest)
             if field: reference=rt.field_reference(reference.raw(),field[1],line); rest=rest[field.end():]
             elif index:
-                numbers=tuple(int(x) for x in index[1].split(',')); reference=rt.index_reference(reference.raw(),numbers[0] if len(numbers)==1 else numbers,line); rest=rest[index.end():]
+                numbers=tuple(int(x) for x in index[1].split(',')); value=reference.raw()
+                if path_nodes and isinstance(value,PathValue):
+                    if len(numbers)!=1: fail('PATH requires one node index',line)
+                    value.node(numbers[0],line)
+                    reference=rt.Reference(value.node_spec,value.nodes,numbers[0]-1)
+                else: reference=rt.index_reference(value,numbers[0] if len(numbers)==1 else numbers,line)
+                rest=rest[index.end():]
             else: fail('Invalid static variable path',line)
         return reference
     def variable(self,state,name,args,line):

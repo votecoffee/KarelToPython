@@ -11,6 +11,7 @@ import re
 from .lexer import Token, TranslationError, tokenize, directive_content
 from . import runtime as rt
 from . import extended as ex
+from .inspection import TYPE_CODES as VARIABLE_TYPE_CODES
 from . import __version__
 
 
@@ -3503,6 +3504,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['variable_inspection_policy']=dict(
+        procedures=['VAR_INFO','VAR_LIST'],type_codes=dict(VARIABLE_TYPE_CODES),
+        lookup='Current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',
+        metadata='Canonical resolved leaf type and code, three logical ARRAY dimensions and STRING element capacity; no source-value copies or initialization',
+        initialization='Content-based missing leaves for data aggregates; unknown BYTE is not initialization-tracked; FILE tracks open state; PATH inspects supplied header/nodes; unsupported QUEUE_TYPE code returns status 4',
+        listing='Case-insensitive star patterns, sorted program/name roots, zero-based skip and caller ARRAY capacity; four formats; clear unused slots only on success',
+        status='Portable 0 success, 1 lookup/program missing, 2 invalid list options, 3 list text capacity/format overflow, 4 unsupported metadata type; failure writes status only',
+        outputs='Capture arguments once left-to-right; disjoint exact writable references; validate complete output batches before writes; inspected source may also be an output',
+        boundary='No native variable-table order, cache IDs, system discovery, controller initialization flags or native status mapping; strict remains future work',
+        guide='docs/variable-inspection.md',controller_validated=False)
     report['io_parameter_policy']=dict(
         ports='GET/SET_PORT_VAL, GET/SET_PORT_CMT and GET/SET_PORT_SIM share PortBank values; indirect IDs require caller-supplied type_codes mapping, without inferred native enums',
         simulation='SET_PORT_SIM initializes the value and marks the logical port simulated; SET_PORT_VAL writes outputs or simulated inputs; direct input assignment remains rejected',

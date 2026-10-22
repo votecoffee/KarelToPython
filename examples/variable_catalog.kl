@@ -1,0 +1,11 @@
+PROGRAM VARIABLE_CATALOG
+VAR part_count: INTEGER
+    part_label: STRING[4]
+    part_flag: BOOLEAN
+    first,names: ARRAY[2] OF STRING[32]
+    first_count,count,status: INTEGER
+BEGIN
+  VAR_LIST('','part_*',0,0,2,first,count,status)
+  first_count=count
+  VAR_LIST('','part_*',0,first_count,2,names,count,status)
+END VARIABLE_CATALOG

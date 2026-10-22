@@ -1,0 +1,26 @@
+{
+  "version":"0.93.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed VAR_INFO/VAR_LIST signatures, type-code tables, dimensions, pagination and formats plus authored offline tests; no native variable-table execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[596,597,598,599],"printed_pages":[546,547,548,549],"topic":"VAR_INFO and VAR_LIST, static variable paths, type codes, dimensions, STRING capacity, filters and output formats"}],
+  "implemented":{
+    "lookup":"Current/attached global declarations and explicit VariableStore roots; static fields, ARRAY subscripts and read-only PATH node/header access; no local-frame discovery",
+    "metadata":"Canonical resolved leaf type/name/code, three logical ARRAY dimensions, STRING leaf capacity and content-based initialization",
+    "listing":"Case-insensitive star patterns, canonical type filter, sorted program/name roots, zero-based skip, caller capacity and four text formats",
+    "outputs":"Capture all inputs/selectors once in source order; disjoint exact writable outputs; prepare complete result before writes; status-only portable failures",
+    "observations":"Source-located service_operations, variable_inspection_policy and existing value-free service_requests"
+  },
+  "portable_choices":[
+    "Arrays describe their terminal type and all logical dimensions; transparent aliases use canonical resolved names; JOINTPOS uses JOINTPOS9",
+    "Any missing data leaf marks an aggregate missing, without changing direct UNINIT exclusions",
+    "BYTE has no initialization tracking, so its flag is FALSE even while unknown contents remain unreadable",
+    "FILE flag follows open state; PATH flag inspects supplied header/nodes, with empty headerless PATH initialized",
+    "QUEUE_TYPE metadata returns unsupported-type status 4 because no reviewed type code is supplied",
+    "Lists sort by program/name, support star-only patterns, clear unused slots on success and preserve all outputs except status on failure",
+    "Format 4 uses 15 program columns and 12 variable columns; oversized fields or text return capacity status 3"
+  ],
+  "remaining":["Native ordering and initialization flags","Controller/system discovery","Native entry caches and alarms","Strict mode"],
+  "verification":["tests/test_variable_inspection.py","tests/test_runtime_portability.py","examples/variable_metadata.kl","examples/variable_catalog.kl"],
+  "guide":"../variable-inspection.md"
+}
