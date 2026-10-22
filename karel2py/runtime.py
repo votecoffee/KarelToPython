@@ -1695,13 +1695,25 @@ def capture_read_target(target, formats, line=None):
 
 class TextInput:
     """Explicit ASCII text adapter for Pythonic READ, with a persistent cursor."""
-    def __init__(self, text):
+    def __init__(self, text, *, terminator=None, field_mode=False):
         if type(text) is not str or not text.isascii():
             raise ValueError('TextInput requires an ASCII string')
-        self._terminated = bool(text) and text[-1] in '\r\n'
-        self._lines = re.split(r'\r\n|\r|\n', text)
+        if terminator is not None and (type(terminator) is not int or not 0<=terminator<=127):
+            raise ValueError('TextInput terminator must be an ASCII code or None')
+        if type(field_mode) is not bool: raise ValueError('TextInput field_mode must be BOOLEAN')
+        self.field_mode = field_mode
+        separators = list(re.finditer(r'\r\n|\r|\n' if terminator in (None,10,13) else re.escape(chr(terminator)), text))
+        self._starts = [0] + [match.end() for match in separators]
+        self._lines = [text[start:match.start()] for start,match in zip(self._starts,separators)] + [text[self._starts[-1]:]]
+        self._length = len(text)
+        self._terminated = bool(separators) and separators[-1].end() == len(text)
         if not text or self._terminated: self._lines.pop()
         self._row, self._column, self._after_field = 0, 0, False
+
+    @property
+    def offset(self):
+        """Exact ASCII byte offset, including consumed record separators."""
+        return self._length if self._row >= len(self._lines) else self._starts[self._row] + self._column
 
     @property
     def position(self):
@@ -1804,6 +1816,7 @@ class TextInput:
             controls = formats[index]
             width = controls[0] if controls else 0
             second = controls[1] if len(controls) == 2 else 0
+            if self.field_mode and spec[0] == 'STRING' and not width: width = spec[1]
             if spec[0] == 'STRING' and second == 2: token, row, column = self._quoted(width)
             elif width or spec[0] == 'STRING': token, row, column = self._string(width)
             else: token, row, column = self._token()
@@ -2315,4 +2328,4 @@ from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
                          signal_event,delay_execution,control_task,condition_scope)
 from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,cooperative_service,
-                      runtime_failure,powerup_cooperative)
+                      runtime_failure,powerup_cooperative,task_root,request_task_control,ERROR_SEVERITIES)

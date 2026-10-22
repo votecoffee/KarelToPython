@@ -22,10 +22,10 @@ def fail(message, line=None): raise runtime().KarelRuntimeError(message,line)
 def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
-COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR'}
+COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK'}
 PROCEDURES = {
     'CLEAR_SEMA':(I,), 'POST_SEMA':(I,), 'PEND_SEMA':(I,I,arg('BOOLEAN','o')),
-    'POST_ERR':(I,S,I,I),
+    'POST_ERR':(I,S,I,I), 'POST_ERR_L':(I,S,I,I),
     'CONT_TASK': (S,OI), 'PAUSE_TASK': (S,B,B,OI), 'ABORT_TASK': (S,B,B,OI),
     'RUN_TASK': (S,I,B,B,I,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
@@ -227,15 +227,13 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
         raw=bytes(handle.owner.files[handle.name][start:])
         try: text=raw.decode('ascii')
         except UnicodeDecodeError: fail('Text FILE requires ASCII data',line)
-        reader=rt.TextInput(text); previous=state._read
+        reader=rt.TextInput(text,terminator=handle.eol,field_mode=handle.field); previous=state._read
         try:
             state._read=reader; state.read_items(targets,line,line_breaks=line_breaks,formats=formats)
         except Exception:
             handle.status=1; raise
         finally: state._read=previous
-        lines=text.splitlines(keepends=True)
-        consumed=len(raw) if reader._row>=len(lines) else sum(len(part) for part in lines[:reader._row])+reader._column
-        handle.position=start+consumed
+        handle.position=start+reader.offset
     handle.status=0
 
 
@@ -461,7 +459,6 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
     if state._pause_requested and (not state._in_handler or force_pause) and not _defer_control:
         state.task_state='paused'; yield dict(kind='pause',line=line)
         state._pause_requested=False; state.task_state='running'
-        if state._abort_requested: state.abort(state._abort_request_line or line)
         # Recovery events must be visible even when PAUSE was the last source
         # statement, rather than waiting for a following statement to scan.
         yield from checkpoint(state,line)
@@ -606,9 +603,11 @@ class ExecutionContext:
         if name in ('CLEAR_SEMA','POST_SEMA','SEMA_COUNT'):
             bank=self.require('semaphores',line)
             return (bank.clear if name=='CLEAR_SEMA' else bank.post if name=='POST_SEMA' else bank.value)(args[0],line)
-        if name in ('PEND_SEMA','POST_ERR'):
-            from .control import pend_semaphore,post_error
-            return (pend_semaphore if name=='PEND_SEMA' else post_error)(state,*args,line=line)
+        if name in ('PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK'):
+            from .control import pend_semaphore,post_error,named_task_control
+            if name in ('PAUSE_TASK','ABORT_TASK'): return named_task_control(state,name,args,line)
+            if name=='PEND_SEMA': return pend_semaphore(state,*args,line=line)
+            return post_error(state,*args,line=line,severity_name='portable' if name=='POST_ERR_L' else None)
         if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST'):
             files=self.require('files',line)
             try:
@@ -622,18 +621,10 @@ class ExecutionContext:
                     args[4].set(len(selected),line); code=0
             except (OSError,ValueError) as exc: raise rt.KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
             args[-1].set(code,line); return
-        if name in ('CONT_TASK','PAUSE_TASK','ABORT_TASK','RUN_TASK'):
+        if name in ('CONT_TASK','RUN_TASK'):
             task=self.tasks.tasks.get(args[0].upper())
             if task is None: args[-1].set(1,line); return
-            if task is getattr(state,'program',None) and name in ('CONT_TASK','RUN_TASK'): fail('A task cannot synchronously drive itself',line)
-            if name=='PAUSE_TASK':
-                if args[2]: fail('Motion-stop semantics are outside the offline task model',line)
-                task._state._pause_requested=True
-            elif name=='ABORT_TASK':
-                if args[2]: fail('Motion cancellation is outside the offline task model',line)
-                if getattr(task._state,'_driving',False): task._state.abort(line)
-                task.stop()
-                task._state._aborted=True; task._state._abort_line=line; task._state.task_state='aborted'
+            if task._state is rt.task_root(state): fail('A task cannot synchronously drive itself',line)
             else:
                 if name=='RUN_TASK' and (args[1]!=0 or args[3] or args[4]!=0): fail('Offline RUN_TASK requires line 0, no motion and lock mask 0',line)
                 if hasattr(self.tasks,'start'):
@@ -645,7 +636,7 @@ class ExecutionContext:
                     else:
                         if args[2]: task._state._pause_requested=True
                         task.run()
-                except KarelPause: pass
+                except (KarelPause,rt.KarelAbort,KarelStop): pass
             args[-1].set(0,line); return
         if name in ('GET_STR_REG','SET_STR_REG'):
             bank=self.require('strings',line); number=args[0]

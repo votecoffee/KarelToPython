@@ -136,7 +136,8 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
-                        'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5}
+                        'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
+                        **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()}}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
     'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE','EVENT','WITH',
@@ -2453,7 +2454,9 @@ class Emitter:
             elif action=='STOP': self.line('raise _rt.KarelStop("Task stopped")',token)
             else:
                 self.line('self._state._pause_requested=False',token)
-                if action=='CONTINUE': self.line("self._state._lifecycle['CONTINUE']+=1",token)
+                if action=='CONTINUE':
+                    self.line("self._state._lifecycle['CONTINUE']+=1",token)
+                    self.line(f'yield from _rt.checkpoint(self._state,{line})',token)
             return
         if kind=='signal_event':
             number=self.require_type(stmt.args[0],'INTEGER')
@@ -3455,7 +3458,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         procedures=sorted(ex.PROCEDURES), functions=sorted(ex.FUNCTIONS), ports=dict(ex.PORT_TYPES),
         context='Explicit ExecutionContext with bounded banks, typed JSON persistence and attached program namespaces; optional caller-rooted DirectoryFiles and configured DH model',
         values='Checked exact output references, disjoint resources, ordered input/selector capture; prior completed effects retained on error',
-        files='MemoryFiles or explicit DirectoryFiles root; ASCII text, ATR_UF binary, selectable byte order, EOL and interactive flush; bounded copy/delete/rename/list',
+        files='MemoryFiles or explicit DirectoryFiles root; ASCII text, ATR_FIELD capacity-sized STRING reads, byte-accurate EOL cursors, ATR_UF binary, selectable byte order and interactive flush; bounded copy/delete/rename/list',
         collections='Typed one-based PATH nodes/header, full/reversed range copies and initialized fixed-capacity FIFO queues',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
@@ -3467,16 +3470,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         handlers='Ordered checkpoint scans with optional WITH $SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
         timers='Global INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry and backward-clock checks',
         linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
+        requests='Named/numeric remote pause/abort delivered at target checkpoints, including paused-task ABORT handlers; self identity follows linked caller; synchronous child ABORT/STOP does not terminate caller',
         guide='docs/offline-services.md',controller_validated=False)
     report['control_notification_policy']=dict(
         semaphores='Explicit SemaphoreBank count and FIFO tickets; non-consuming conditions, negative queued counts, timed/indefinite waits, grant refund and cancellation cleanup',
         persistence='Quiescent semaphore counters and bounded scoped error history; outstanding wait tickets cannot be saved',
-        errors='POST_ERR 0 warning, 1 pause, 2 abort within shared context; ERROR[n]/ERROR[*] consume scoped retained notifications; runtime code 1 is an offline category',
+        errors='POST_ERR 0 warning, 1 pause, 2 abort within shared context; POST_ERR_L portable ERSEV_* IDs 0..10 with local/global scope and normalized offline effects; ERROR[n]/ERROR[*] consume scoped retained notifications; runtime code 1 is an offline category',
+        severity_constants={name:dict(identifier=row[0],effect=('warning','pause','abort')[row[1]],local=row[2]) for name,row in rt.ERROR_SEVERITIES.items()},
         failure='Cooperative KarelRuntimeError notifies after frame unwinding then remains a failure; budget exhaustion skips additional actions; no retry',
         actions='NOPAUSE/NOABORT clear pending requests; NOMESSAGE marks retained history; EVAL predicates/actions capture at definition',
         lifecycle='Explicit Program.powerup/scheduler.powerup resumes a live paused instance with POWERUP plus CONTINUE; ordinary resume signals CONTINUE only',
-        signals='EVENT and SEMAPHORE signal statements scan at their trailing checkpoint, including final statements',
-        boundary='No native priorities, motion UNTIL handlers, POST_ERR_L encodings, alarm dictionaries, process restoration or controller acceptance',
+        signals='EVENT/SEMAPHORE signals and bare CONTINUE scan at their trailing checkpoint, including final statements',
+        boundary='Portable ERSEV IDs are independent of native encodings; STOP/SERVO variants request offline pause and SYSTEM requests global abort; no native priorities, motion UNTIL handlers, alarm dictionaries, process restoration or controller acceptance',
         guide='docs/control-notifications.md',controller_validated=False)
     if cooperative:
         report['translation_context']['cooperative'] = True

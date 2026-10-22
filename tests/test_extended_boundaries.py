@@ -89,6 +89,8 @@ class ExtendedBoundaryTests(unittest.TestCase):
         with self.assertRaises(rt.KarelPause): child.run()
         tasks=rt.TaskRegistry(); tasks.bind('child',child)
         run("ABORT_TASK('child',TRUE,FALSE,s)",context=rt.ExecutionContext(tasks=tasks))
+        self.assertTrue(child._state._abort_requested)
+        with self.assertRaises(rt.KarelAbort): child.resume()
         self.assertEqual((child.task_state,child._state.call_depth),('aborted',0))
         with self.assertRaises(rt.KarelAbort): child.run()
 

@@ -99,7 +99,8 @@ class SchedulerTests(unittest.TestCase):
         instance=self.programs("RUN_TASK('CHILD',0,FALSE,FALSE,0,s) DELAY 10 CONTINUE PROGRAM[2]",'n=1 PAUSE n=2')
         self.assertEqual(instance.run('MAIN')['CHILD']['values']['N'],2)
         instance=self.programs("RUN_TASK('CHILD',0,FALSE,FALSE,0,s) DELAY 5 ABORT PROGRAM[2]",'PAUSE n=9')
-        self.assertEqual(instance.run('MAIN')['CHILD']['state'],'aborted')
+        with self.assertRaises(rt.KarelAbort): instance.run('MAIN')
+        self.assertEqual(instance.scheduler.snapshot()['CHILD']['state'],'aborted')
         self.assertIsNone(instance.programs['CHILD']._state._scheduler)
 
     def test_scheduler_budget_bounded(self):

@@ -153,15 +153,13 @@ def control_task(state,action,number,line=None):
     number=rt().integer(number,line); tasks=list(state.execution.tasks.tasks.values())
     if not 1<=number<=len(tasks): raise rt().KarelRuntimeError('Task number is not registered',line)
     target=tasks[number-1]
-    if target._state is state:
+    if target._state is rt().task_root(state):
         if action=='PAUSE': yield from rt().pause_execution(state,line)
         elif action=='ABORT': yield from rt().abort_execution(state,line)
         else: state._pause_requested=False; state._lifecycle['CONTINUE']+=1
         return
-    if action=='PAUSE': target.pause()
-    elif action=='ABORT':
-        target.stop(); target._state._aborted=True; target._state._abort_line=line; target._state.task_state='aborted'
+    if action in ('PAUSE','ABORT'): rt().request_task_control(target._state,action,line)
     elif target._state._scheduler is not None: target._state._scheduler.continue_task(next(name for name,program in state.execution.tasks.tasks.items() if program is target))
     else:
         try: target.resume()
-        except rt().KarelPause: pass
+        except (rt().KarelPause,rt().KarelAbort,rt().KarelStop): pass

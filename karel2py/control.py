@@ -3,6 +3,18 @@ from collections import deque
 from copy import deepcopy
 
 
+# Portable identifiers, deliberately independent of controller enum encodings.
+# (identifier, offline effect: warning/pause/abort, local scope)
+ERROR_SEVERITIES={
+    'ERSEV_NONE':(0,0,False),'ERSEV_WARN':(1,0,False),
+    'ERSEV_PAUSE':(2,1,False),'ERSEV_PAUSEL':(3,1,True),
+    'ERSEV_STOP':(4,1,False),'ERSEV_STOPL':(5,1,True),
+    'ERSEV_SERVO':(6,1,False),'ERSEV_SERVOL':(7,1,True),
+    'ERSEV_ABORT':(8,2,False),'ERSEV_ABORTL':(9,2,True),
+    'ERSEV_SYSTEM':(10,2,False),
+}
+
+
 def rt():
     from . import runtime
     return runtime
@@ -79,11 +91,17 @@ class ErrorHistory:
         if type(limit) is not int or not 1<=limit<=100000: raise ValueError('Error history limit must be in 1..100000')
         self.limit=limit; self.records=[]; self.sequence=0
         for row in records:
-            if type(row) is not dict or set(row)!={'sequence','code','parameter','cause','severity','program','line','origin','suppressed'}: raise ValueError('Invalid error history record')
+            required={'sequence','code','parameter','cause','severity','program','line','origin','suppressed'}
+            metadata={'operation','severity_name','source_program'}
+            if type(row) is not dict or not required<=set(row) or set(row)-required-metadata: raise ValueError('Invalid error history record')
             if type(row['sequence']) is not int or row['sequence']<=self.sequence: raise ValueError('Error history IDs must increase')
             self.validate(row['code'],row['parameter'],row['cause'],row['severity'])
             if type(row['program']) is not str or row['line'] is not None and (type(row['line']) is not int or row['line']<1): raise ValueError('Invalid error source')
             if row['origin'] not in ('posted','runtime','host') or type(row['suppressed']) is not bool: raise ValueError('Invalid error record metadata')
+            if metadata & set(row):
+                if not metadata<=set(row) or row['operation']!='POST_ERR_L' or type(row['severity_name']) is not str or row['severity_name'] not in ERROR_SEVERITIES or type(row['source_program']) is not str: raise ValueError('Invalid local error metadata')
+                _,effect,local=ERROR_SEVERITIES[row['severity_name']]
+                if row['severity']!=effect or (bool(row['program'])!=local): raise ValueError('Local severity metadata disagrees with effect/scope')
             self.sequence=row['sequence']; self.records.append(deepcopy(row))
         self.records=self.records[-limit:]
 
@@ -145,6 +163,29 @@ def handler_action(state,action,line=None):
     else: raise rt().KarelRuntimeError('Unknown handler action',line)
 
 
+def request_task_control(target,action,line=None):
+    """Queue a request on a live task; terminal/inactive aborts have no frames."""
+    if target.task_state in ('stopped','aborted'): return
+    if action=='PAUSE': target._pause_requested=True; return
+    if action!='ABORT': raise rt().KarelRuntimeError('Unsupported pending task request',line)
+    if getattr(getattr(target,'program',None),'_execution',None) is None:
+        target._aborted=True; target._abort_line=line; target.task_state='aborted'; return
+    target._abort_requested=True; target._abort_request_line=line
+    if target.task_state=='paused' and target._scheduler is not None:
+        target.task_state='running'; target._pause_requested=False
+
+
+def named_task_control(state,name,args,line=None):
+    runtime=rt(); target=state.execution.tasks.tasks.get(args[0].upper())
+    if target is None: args[-1].set(1,line); return
+    if args[2]: raise runtime.KarelRuntimeError('Motion-stop/cancellation semantics are outside the offline task model',line)
+    action='PAUSE' if name=='PAUSE_TASK' else 'ABORT'
+    args[-1].set(0,line)
+    if target._state is task_root(state):
+        yield from (runtime.pause_execution if action=='PAUSE' else runtime.abort_execution)(state,line)
+    else: request_task_control(target._state,action,line)
+
+
 def pend_semaphore(state,number,max_time,time_out,line=None):
     runtime=rt(); bank=state.execution.require('semaphores',line)
     number=bank.number(number,line); max_time=runtime.integer(max_time,line)
@@ -170,14 +211,20 @@ def pend_semaphore(state,number,max_time,time_out,line=None):
     finally: bank.release(ticket)
 
 
-def post_error(state,code,parameter,cause,severity,line=None):
+def post_error(state,code,parameter,cause,severity,line=None,*,severity_name=None):
     runtime=rt(); root=task_root(state)
-    record=error_history(state).post(code,parameter,cause,severity,line=line,origin='posted')
-    targets=[root,*[program._state for program in state.execution.tasks.tasks.values() if program._state is not root and program._state.task_state in ('running','waiting','paused')]]
+    local=False
+    if severity_name is not None:
+        raw=runtime.integer(severity,line)
+        match=next(((name,effect,local) for name,(identifier,effect,local) in ERROR_SEVERITIES.items() if identifier==raw),None)
+        if match is None: raise runtime.KarelRuntimeError('POST_ERR_L requires a portable ERSEV_* identifier in 0..10',line)
+        severity_name,severity,local=match
+    record=error_history(state).post(code,parameter,cause,severity,program=root.program_name if local else '',line=line,origin='posted')
+    if severity_name is not None: record.update(operation='POST_ERR_L',severity_name=severity_name,source_program=state.program_name)
+    targets=[root]
+    if not local: targets.extend(program._state for program in state.execution.tasks.tasks.values() if program._state is not root and program._state.task_state in ('running','waiting','paused'))
     for target in targets:
-        if severity==1: target._pause_requested=True
-        elif severity==2: target._abort_requested=True; target._abort_request_line=line
-        if severity==2 and target.task_state=='paused' and target._scheduler is not None: target.task_state='running'; target._pause_requested=False
+        if severity: request_task_control(target,'PAUSE' if severity==1 else 'ABORT',line)
     previous=state._current_error; state._current_error=record
     try: yield from runtime.checkpoint(state,line)
     finally: state._current_error=previous
