@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.97.0 - 2026-10-22
+
+- Include PATH and QUEUE_TYPE globals and explicit bindings in typed context
+  snapshots. Preserve nominal PATH schemas, headers, node order, partial data
+  and unknown BYTE markers; preserve queue FIFO order, sequence IDs and counter.
+- Restore queues without their former buffer reference/capacity; the first
+  explicitly supplied queue-operation ARRAY binds when it can hold the saved
+  entries. Retain within-run buffer identity and deliberate INIT_QUEUE reset.
+- Validate schemas, host shapes, known values, capacities, CONFIG domains and
+  canonical markers before state-file writes. Keep FILE handles, native layouts
+  and task checkpoints outside snapshots.
+- Add 54 tests, two runnable examples, installed/runtime-only verification and
+  documented portable state/rebinding policies. Strict mode remains future work.
+
 ## 0.96.0 - 2026-10-22
 
 - Extend Pythonic UNPOS to pose values, POSITION/XYZWPREXT, constructors, geometry
