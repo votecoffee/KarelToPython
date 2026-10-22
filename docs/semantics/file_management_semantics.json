@@ -1,0 +1,26 @@
+{
+  "version":"0.100.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed CHECK_NAME/MOVE_FILE signatures and RD/FR wildcard direction contract; authored memory/directory, failure, ordering, linkage and persistence tests; no native file-device execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[328],"printed_pages":[278],"topic":"CHECK_NAME(name,status) checks file/program base names for illegal characters, without extensions or special system names"},{"manual":"MARRC75KR07091E Rev N","pdf_pages":[459,460],"printed_pages":[409,410],"topic":"MOVE_FILE(file_spec,status) swaps RAM and FROM files; filename/type star wildcard forms and RD device spelling"}],
+  "implemented":{
+    "names":"Context-free portable 1..36 ASCII letter/digit/underscore base-name validation with status 0/2",
+    "movement":"MemoryFiles explicit RD/FR logical names and DirectoryFiles explicit peer mappings; preserve bytes, case, suffix and literal relative subdirectory",
+    "selection":"Case-insensitive star-only final component, no recursion; optional single device-root separator; sorted at most 32767 files",
+    "preparation":"Validate rooted/symlink-safe paths, complete batch busy/collision/duplicate/size conditions before moves, including case and MemoryFiles device aliases",
+    "execution":"Synchronous ordered backend renames; source-byte cache refresh, normal step checks and retained completed moves on late failure",
+    "observations":"file_management_policy and ordinary value-free source/runtime service records; file snapshots retain moved bytes"
+  },
+  "portable_choices":[
+    "Simple-name character/length grammar and 0/2 status are authored choices; not every native filename/program-name rule",
+    "MOVE_FILE requires explicit RD/FR context rather than controller discovery or a default device",
+    "Literal subdirectories are preserved under the peer mapping; no wildcard directories, recursive moves, traversal or automatic directory creation",
+    "Move statuses 0 success, 1 source absent, 2 collision, 3 busy, 4 unmapped/unsupported/identical roots; no native alarm mapping",
+    "Preflight validates the selected batch, but later OS/budget/status failures retain completed per-file moves without retry or rollback",
+    "Context file data persists as logical bytes; host DirectoryFiles roots/mappings and FILE handles are not restored"
+  ],
+  "remaining":["Native filename/status equivalence","Controller mount/flash/erase behavior","Concurrent filesystem transaction","Other device families and hardware metadata","Strict mode","Controller acceptance"],
+  "verification":["tests/test_file_management.py","tests/test_runtime_portability.py","examples/file_move.kl","examples/file_move_guards.kl"],
+  "guide":"../file-management.md"
+}

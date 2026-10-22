@@ -299,6 +299,10 @@ Whole QUEUE_TYPE values also transfer logical contents and sequence counters
 through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue
 operation. See [queue transfers](docs/queue-transfers.md).
 
+CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files
+through explicit memory or mapped directory backends, with batch preflight and
+documented late-failure behavior. See [file management](docs/file-management.md).
+
 PROG_LIST filters and pages attached programs and explicit catalog metadata,
 including program types, checked names and optional cursor pagination. See
 [program listing](docs/program-listing.md) for context setup and portable formats.

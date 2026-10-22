@@ -363,6 +363,10 @@ class DirectoryFiles:
         if source in self.files: self.files[target]=self.files.pop(source)
         return 0
 
+    def move(self,specification,*,check=None):
+        from .fileops import move_files
+        return move_files(self,specification,check=check)
+
 
 def context_config(context):
     result={}

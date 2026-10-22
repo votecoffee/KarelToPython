@@ -1,0 +1,28 @@
+PROGRAM file_move_guards
+VAR
+  f: FILE
+  status,collision_status,busy_status,move_status,reverse_status,count: INTEGER
+  names: ARRAY[3] OF STRING[40]
+BEGIN
+  OPEN FILE f ('W','RD:a.KL')
+  WRITE f ('alpha',CR)
+  CLOSE FILE f
+  OPEN FILE f ('W','RD:b.KL')
+  WRITE f ('beta',CR)
+  CLOSE FILE f
+  OPEN FILE f ('W','FR:b.KL')
+  WRITE f ('old',CR)
+  CLOSE FILE f
+  MOVE_FILE('RD:*.KL',status)
+  collision_status=status
+  DELETE_FILE('FR:b.KL',FALSE,status)
+  OPEN FILE f ('R','RD:b.KL')
+  MOVE_FILE('RD:*.KL',status)
+  busy_status=status
+  CLOSE FILE f
+  MOVE_FILE('RD:*.KL',status)
+  move_status=status
+  MOVE_FILE('FR:a.KL',status)
+  reverse_status=status
+  FILE_LIST('*',0,0,names,count,status)
+END file_move_guards

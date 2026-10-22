@@ -33,6 +33,7 @@ source-located error. Strict mode remains a future milestone.
 | `GET_FILE_POS`, `SET_FILE_POS`, `BYTES_LEFT`, `BYTES_AHEAD`, `IO_STATUS`, `CLR_IO_STAT` | Checked cursor/status operations | Byte positions, seek within current contents; `-1` seeks to end. |
 | FILE attributes | ATR_IA interactive flush; ATR_UF binary; ATR_REVERSE byte order; ATR_EOL record terminator; ATR_FIELD capacity-sized STRING reads | Portable package identifiers; `RB/WB/RWB/AB` also select binary. |
 | COPY_FILE / DELETE_FILE / RENAME_FILE / FILE_LIST | Both backends | Synchronous operations, portable missing/exists/busy statuses and name listing format 0. |
+| CHECK_NAME / MOVE_FILE | Portable name grammar; both explicit backends for moves | Base names without extensions; RD/FR wildcard batches with collision/busy/size preflight and explicit late-failure behavior. See [file management](file-management.md). |
 | `COMPARE_FILE` | Same-numbered ASCII records or binary first difference | Closed inputs, open writable result FILE, bounded JSON report and portable statuses. |
 | `PRINT_FILE` | Existing WRITE recorder/callback | Validated ASCII in <=254-character synchronous chunks; both nowait values supported. |
 | `PATH` | Typed node list with optional header | One-based nodes; `NODEDATA` and `PATHHEADER` structures; direct field references. |

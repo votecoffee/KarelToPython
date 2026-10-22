@@ -51,6 +51,7 @@ PROCEDURES = {
     'DELETE_NODE': (arg('PATH','r'),I,OI),
     'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
     'COPY_FILE': (S,S,B,B,OI), 'DELETE_FILE': (S,B,OI), 'RENAME_FILE': (S,S,B,OI),
+    'CHECK_NAME': (S,OI), 'MOVE_FILE': (S,OI),
     'COMPARE_FILE': (S,S,arg('FILE'),B,OI,OI), 'PRINT_FILE': (S,B,OI),
     'FILE_LIST': (S,I,I,arg('STRING_ARRAY','r'),OI,OI),
     'INIT_QUEUE': (arg('QUEUE_TYPE','r'),),
@@ -653,6 +654,9 @@ class MemoryFiles:
         if source not in self.files: return 1
         if target in self.files: return 2
         self.files[target]=self.files.pop(source); return 0
+    def move(self,specification,*,check=None):
+        from .fileops import move_files
+        return move_files(self,specification,check=check)
 
 
 class PathValue:
@@ -1133,12 +1137,16 @@ class ExecutionContext:
             if name in ('PAUSE_TASK','ABORT_TASK'): return named_task_control(state,name,args,line)
             if name=='PEND_SEMA': return pend_semaphore(state,*args,line=line)
             return post_error(state,*args,line=line,severity_name='portable' if name=='POST_ERR_L' else None)
-        if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST'):
+        if name=='CHECK_NAME':
+            from .fileops import check_name
+            args[1].set(check_name(args[0],line),line);return
+        if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST','MOVE_FILE'):
             files=self.require('files',line)
             try:
                 if name=='COPY_FILE': code=files.copy(args[0],args[1],args[2])
                 elif name=='DELETE_FILE': code=files.delete(args[0])
                 elif name=='RENAME_FILE': code=files.rename(args[0],args[1])
+                elif name=='MOVE_FILE': code=files.move(args[0],check=lambda:state.tick(line))
                 else:
                     if args[1]<0 or args[2]!=0: fail('FILE_LIST requires nonnegative skip and portable name format 0',line)
                     selected=files.list_names(args[0])[args[1]:]; array=args[3].raw(); selected=selected[:len(array.values)]

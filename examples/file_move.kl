@@ -1,0 +1,21 @@
+PROGRAM file_move
+VAR
+  f: FILE
+  status,name_status,move_status,count: INTEGER
+  names: ARRAY[3] OF STRING[40]
+BEGIN
+  CHECK_NAME('job_a',status)
+  name_status=status
+  OPEN FILE f ('W','RD:job_a.KL')
+  WRITE f ('alpha',CR)
+  CLOSE FILE f
+  OPEN FILE f ('W','RD:job_b.KL')
+  WRITE f ('beta',CR)
+  CLOSE FILE f
+  OPEN FILE f ('W','RD:notes.TP')
+  WRITE f ('keep',CR)
+  CLOSE FILE f
+  MOVE_FILE('RD:job_*.KL',status)
+  move_status=status
+  FILE_LIST('FR:*',0,0,names,count,status)
+END file_move

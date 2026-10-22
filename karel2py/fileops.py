@@ -1,5 +1,6 @@
 """Bounded offline file comparison and printing over explicit FILE backends."""
 from itertools import zip_longest
+import fnmatch
 import json
 import re
 
@@ -7,6 +8,107 @@ import re
 def rt():
     from . import runtime
     return runtime
+
+
+def check_name(name,line=None):
+    """Portable simple file/program base name, without an extension or device."""
+    name=rt().ascii_string(name,line)
+    return 0 if re.fullmatch(r'[A-Za-z0-9_]{1,36}',name) else 2
+
+
+def move_specification(value,*,pattern=True):
+    value=rt().ascii_string(value)
+    if ':' not in value: return None
+    device,relative=value.split(':',1);device=device.upper()
+    if device not in ('RD','FR'): return None
+    relative=relative.replace('\\','/')
+    if relative.startswith('/'): relative=relative[1:]
+    parts=relative.split('/')
+    if (any(part in ('','.','..') for part in parts) or any('*' in part for part in parts[:-1])
+            or ':' in relative or pattern and any(char in relative for char in '?[]')
+            or any(ord(char)<32 or ord(char)==127 for char in relative)):
+        raise ValueError('MOVE_FILE requires a relative file pattern with star wildcards only in its final component')
+    return device,'/'.join(parts[:-1]),parts[-1]
+
+
+def move_files(files,specification,*,check=None):
+    """Preflight a bounded RD/FR batch, then perform ordered per-file moves."""
+    from .storage import DirectoryFiles
+    parsed=move_specification(specification)
+    if parsed is None: return 4
+    device,parent,pattern=parsed;peer='FR' if device=='RD' else 'RD'
+    check=check or (lambda:None);directory=isinstance(files,DirectoryFiles)
+    plan=[];existing=set()
+    def selected(name): return fnmatch.fnmatchcase(name.casefold(),pattern.casefold())
+    if directory:
+        if device not in files.devices or peer not in files.devices: return 4
+        source_root=files._path('/'.join(part for part in (files.devices[device],parent) if part) or '.',directory=True)
+        target_root=files._path('/'.join(part for part in (files.devices[peer],parent) if part) or '.',directory=True)
+        if source_root==target_root: return 4
+        if not source_root.is_dir(): return 1
+        if not target_root.is_dir(): raise ValueError('MOVE_FILE target parent directory must already exist')
+        candidates=set()
+        for path in source_root.iterdir():
+            check()
+            if selected(path.name) and (path.is_file() or path.is_symlink()):
+                candidates.add(path.relative_to(files.root).as_posix())
+                if len(candidates)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
+        for handle in files.handles:
+            if handle.owner is files:
+                path=files._path(handle.name)
+                if path.parent==source_root and selected(path.name):
+                    candidates.add(handle.name)
+                    if len(candidates)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
+        for name in sorted(candidates):
+            source=files._path(name);target=files._path((target_root/source.name).relative_to(files.root).as_posix())
+            plan.append((name,target.relative_to(files.root).as_posix()))
+            if len(plan)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
+        wanted={files._path(target).name.casefold() for _,target in plan}
+        for path in target_root.iterdir():
+            check()
+            if path.name.casefold() in wanted: existing.add(path.relative_to(files.root).as_posix().casefold())
+    else:
+        for name in sorted(files.files):
+            check()
+            try: candidate=move_specification(name,pattern=False)
+            except ValueError: continue
+            if candidate is None: continue
+            found,folder,base=candidate
+            if found==device and folder.casefold()==parent.casefold() and selected(base):
+                target=peer+':'+(folder+'/' if folder else '')+base
+                plan.append((name,target))
+                if len(plan)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
+        def logical_name(name):
+            try: parsed=move_specification(name,pattern=False)
+            except ValueError: parsed=None
+            if parsed is None: return name.casefold()
+            found,folder,base=parsed
+            return (found+':'+(folder+'/' if folder else '')+base).casefold()
+        existing={logical_name(name) for name in files.files}
+    if not plan: return 1
+    key=str.casefold if directory else logical_name
+    busy={key(handle.name) for handle in files.handles if handle.owner is files}
+    if any(key(source) in busy or key(target) in busy for source,target in plan): return 3
+    targets=[target.casefold() for _,target in plan]
+    if len(set(targets))!=len(targets) or any(target in existing for target in targets): return 2
+    for source,target in plan:
+        check()
+        if directory:
+            path=files._path(source)
+            if not path.is_file() or path.stat().st_size>files.limit: raise ValueError('MOVE_FILE source is not a bounded regular file')
+        else: files._check(source,files.files[source]);files._check(target,b'')
+    for source,target in plan:
+        check()
+        if directory:
+            code,data=files.read_named(source)
+            if code: return code
+            code=files.rename(source,target)
+            if code: return code
+            files.files[target]=bytearray(data)
+        else:
+            code=files.rename(source,target)
+            if code: return code
+    return 0
 
 
 def ascii_lines(data):

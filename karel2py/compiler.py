@@ -3553,6 +3553,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['file_management_policy']=dict(
+        procedures=['CHECK_NAME','MOVE_FILE'],
+        names='CHECK_NAME accepts 1..36 ASCII letters/digits/underscores without extension/device; portable 0 valid and 2 invalid; no file backend or existence lookup; not a source-program grammar check',
+        context='MOVE_FILE requires explicit MemoryFiles device-prefixed names or DirectoryFiles with RD/FR mappings; swap RD and FR only; preserve filename case, suffix, literal subdirectory and exact bytes',
+        patterns='Case-insensitive star-only final component; optional single slash/backslash after colon; literal parent components, no recursion, traversal, question/bracket patterns or automatic directory creation',
+        preflight='Select and sort at most 32767 files; validate source/target paths, complete batch busy/collision/duplicate/size conditions before moving; guard case-only and logical MemoryFiles alias collisions',
+        status='Portable MOVE codes: 0 success, 1 no source match, 2 target/duplicate collision, 3 busy source/target, 4 unsupported/unmapped device pair or identical mapped roots; checked status output only',
+        execution='Synchronous ordered per-file backend renames; budget checks during preparation and commit; late OS/status/budget failures retain earlier completed moves, no automatic retry/rollback; directory cache uses read source bytes',
+        capture='Input and status-selector expressions run once left-to-right before lookup/preparation; value-free ordinary source/runtime service records; moved contents persist via existing context file snapshots',
+        boundary='Portable name grammar and status/selection choices; no native name/flash layout, mount/erase cycle, controller filesystem, concurrent filesystem transaction or strict-mode equivalence',
+        guide='docs/file-management.md',controller_validated=False)
     report['program_listing_policy']=dict(
         procedure='PROG_LIST(pattern,type,skip,format,names,count,status[,cursor])',
         context='Current/attached KAREL programs and explicitly registered task Program identities are PC; optional immutable ProgramCatalog supplies VR/JB/PR/MR/TP/PC metadata without loading code',

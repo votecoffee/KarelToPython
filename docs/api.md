@@ -391,6 +391,12 @@ initialization/order/counter state and receiver buffer release. Explicit
 [queue transfers](queue-transfers.md) for ordering, ownership and initialization
 choices; ordinary resource assignments remain excluded.
 
+`file_management_policy` describes CHECK_NAME's portable grammar and MOVE_FILE's
+explicit RD/FR context, wildcard selection, batch preflight, status codes and
+retained effects on late failure. MemoryFiles and DirectoryFiles expose
+`move(specification, check=None)` with a keyword-only optional budget callback.
+See [file management](file-management.md).
+
 `PROG_LIST` lists attached Programs and optional immutable
 `ExecutionContext(programs=ProgramCatalog(...))` metadata. Context JSON preserves
 explicit entries under `programs`. `program_listing_policy` records type filters,
