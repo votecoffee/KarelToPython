@@ -135,7 +135,11 @@ class JointGuardTests(unittest.TestCase):
     def test_joint_result_fallthrough_is_guarded(self):
         program,_=compile_program('j=f()',routines='ROUTINE f: JOINTPOS3 BEGIN END f')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'without RETURN'): program.run()
-    def test_cartesian_conversion_blocked(self): self.reject('p=j',declarations='p: XYZWPR\nj: JOINTPOS3')
+    def test_cartesian_conversion_requires_robot_context(self):
+        program,_=compile_program('p=j',declarations='p: XYZWPR\nj: JOINTPOS3');program._state.values['J'].values[:]=[0.]*3
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'robot'): program.run()
+        self.assertEqual(program.snapshot()['P']['X'],{'uninitialized':True})
+        self.reject('p=j',declarations='p: XYZWPR\nj: JOINTPOS3',_translator=legacy_translate)
     def test_integer_array_input_not_promoted(self): self.reject(LOAD,declarations='a: ARRAY[3] OF INTEGER\nj: JOINTPOS3\ns: INTEGER')
     def test_multidimensional_real_input_blocked(self): self.reject(LOAD,declarations='a: ARRAY[1,3] OF REAL\nj: JOINTPOS3\ns: INTEGER')
     def test_narrow_status_blocked(self): self.reject('CNV_REL_JPOS(a,j,item.value)',prefix='TYPE holder=STRUCTURE value: SHORT ENDSTRUCTURE',declarations='a: ARRAY[3] OF REAL\nj: JOINTPOS3\nitem: holder')

@@ -1129,6 +1129,34 @@ class ExecutionContext:
             elif name=='DELETE_QUEUE': del q.entries[at]
             else: q.entries[at]=(sequence,rt.integer(args[0],line))
         q.sync(line); args[-1].set(code,line)
+    def kinematic_assignment(self,state,target,value,line=None):
+        """Use the ordinary model/adapters with explicit selected frame/tool data."""
+        rt=runtime();poses=(('POSITION',),('XYZWPR',),('XYZWPREXT',))
+        forward=isinstance(value,rt.JointPosition) and target in poses
+        inverse=isinstance(value,rt.Structure) and value.spec in poses and type(target) is tuple and len(target)==2 and target[0]=='JOINTPOS'
+        if not forward and not inverse: fail('Kinematic assignment requires JOINTPOS and Cartesian storage',line)
+        group=rt.task_root(state).robot_group;robot=self.require('robot',line).for_group(group)
+        frame=robot.frame(robot.active_frame);tool=robot.tool(robot.active_tool)
+        def output(spec): return rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
+        status=output(('INTEGER',))
+        if forward:
+            rt.joint_values(value,rt.joint_width(value.spec),line)
+            point=output(('POSITION',));config=output(('CONFIG',));axes=output(('ARRAY',3,('REAL',)))
+            self.kinematics('JOINT2POS',[value,frame,tool,0,point,config,axes,status],line,group=group)
+            result=pose_extended(point.raw(),line);result.values['CONFIG_DATA']=config.raw().clone()
+            result.values.update((f'EXT{i+1}',number) for i,number in enumerate(axes.raw().values))
+            return rt.convert_position(target,result,line) if target!=('XYZWPREXT',) else result
+        rt.joint_width(target)
+        if robot.model is not None and target not in (('JOINTPOS',robot.model.axes),('JOINTPOS',9)):
+            fail('Inverse assignment output must match the model axes or JOINTPOS9',line)
+        if robot.current is None or robot.current.joints is None: fail('Inverse assignment requires supplied current joints as its reference',line)
+        reference=robot.current.joints;rt.joint_values(reference,rt.joint_width(reference.spec),line)
+        point=pose_extended(value,line);axes=rt.Array(('ARRAY',3,('REAL',)))
+        axes.values[:]=[point.values[f'EXT{i+1}'] for i in range(3)];result=output(target)
+        self.kinematics('POS2JOINT',[reference,point,frame,tool,0,point.values['CONFIG_DATA'],axes,result,status],line,group=group)
+        rt.joint_values(result.raw(),rt.joint_width(target),line)
+        return result.raw().clone()
+
     def kinematics(self,name,args,line,*,group=None):
         rt=runtime(); robot=self.require('robot',line).for_group(group)
         callback=robot.forward if name=='JOINT2POS' else robot.inverse

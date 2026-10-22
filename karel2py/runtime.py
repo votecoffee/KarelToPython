@@ -2107,6 +2107,24 @@ class State:
             raise
         row['outcome']='completed'; return result
 
+    def kinematic_assignment(self,target,value,line=None):
+        if not _pythonic(): raise KarelRuntimeError('Kinematic assignments require Pythonic mode',line)
+        row=dict(operation='KINEMATIC_ASSIGNMENT',line=line,outcome='requested');self.service_requests.append(row)
+        try:
+            result=self.execution.kinematic_assignment(self,target,value,line)
+            root=task_root(self)
+            if root._aborted: raise KarelAbort(root._abort_line)
+            if self._aborted: raise KarelAbort(self._abort_line)
+        except Exception as exc:
+            row['outcome']='failed'
+            root=task_root(self)
+            if root._aborted: raise KarelAbort(root._abort_line)
+            if self._aborted: raise KarelAbort(self._abort_line)
+            if isinstance(exc,KarelRuntimeError) and exc.line is None: raise KarelRuntimeError(str(exc),line) from exc
+            if isinstance(exc,(ValueError,TypeError,KeyError,IndexError)): raise KarelRuntimeError('Kinematic assignment failed: '+str(exc),line) from exc
+            raise
+        row['outcome']='completed';return result
+
     def port_read(self,kind,number,line=None): return self.execution.require('ports',line).read(kind,number,line)
 
     def port_write(self,kind,number,value,line=None):

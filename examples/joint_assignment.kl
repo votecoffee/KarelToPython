@@ -1,0 +1,7 @@
+PROGRAM JOINT_ASSIGNMENT
+VAR j,restored: JOINTPOS point: XYZWPR
+BEGIN
+  j=CURJPOS(0,0)
+  point=j
+  restored=point
+END JOINT_ASSIGNMENT

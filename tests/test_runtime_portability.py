@@ -64,7 +64,9 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('calendar_clock', 'STAMP', 1482515548),
                     ('calendar_reset', 'READBACK', -2145320960),
                     ('file_compare', 'DIFFERENT', 2),
-                    ('file_print', 'STATUS', 0)]
+                    ('file_print', 'STATUS', 0),
+                    ('joint_assignment', 'RESTORED', {'axes': [0.] * 9}),
+                    ('joint_external_assignment', 'RESTORED', {'axes': [0., 25.] + [0.] * 7})]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

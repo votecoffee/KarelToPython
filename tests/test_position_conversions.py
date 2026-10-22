@@ -159,7 +159,7 @@ class PositionConversionGuardTests(unittest.TestCase):
             with self.subTest(body=body): self.reject(body,'E_POSITION_READ_ONLY')
     def test_bare_orientation_references_remain_blocked(self): self.reject('change(p.normal)','E_POSITION_READ_ONLY_ARG',routines='ROUTINE change(v: VECTOR) BEGIN END change')
     def test_other_positional_types_stay_blocked(self):
-        for kind in ('JOINTPOS','VECTOR','CONFIG'):
+        for kind in ('VECTOR','CONFIG'):
             for body in ('p=x','x=p','a=x','x=a'):
                 with self.subTest(kind=kind,body=body): self.reject(body,declarations=DECLARATIONS+f' x: {kind}')
     def test_routine_interfaces_do_not_implicitly_convert(self):

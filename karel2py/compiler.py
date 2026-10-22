@@ -955,6 +955,7 @@ class Emitter:
         self.position_axis_uses = []
         self.position_comparison_uses = []
         self.position_conversion_uses = []
+        self.kinematic_assignment_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
         self.positional_return_uses = []
@@ -2534,7 +2535,14 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
-            if (self.mode == 'pythonic' and target_type!=value_type and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')):
+            if (self.mode=='pythonic' and ((target_type[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT')))):
+                value=f'self._state.kinematic_assignment({target_type!r},{value},{line})'
+                self.features.update(('extended services','kinematic assignment'))
+                if self.current_routine: self.current_routine.may_services=True
+                self.kinematic_assignment_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type=value_type,target_type=target_type,target_kind=target.kind,
+                    evaluated_once=True,independent_value=True))
+            elif (self.mode == 'pythonic' and target_type!=value_type and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')):
                 value = f'_rt.convert_position({target_type!r}, {value}, {line})'
                 self.features.add('POSITION/XYZWPR assignment conversion')
                 self.position_conversion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -3119,6 +3127,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         emitter.features.add('doubled apostrophe STRING literal')
     emitter.features.update('predefined ' + use['name'] for use in parser.predefined_uses)
     generated = emitter.emit()
+    if emitter.kinematic_assignment_uses: emitter.analyze_routine_effects()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
@@ -3307,6 +3316,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_comparisons=emitter.position_comparison_uses,
         waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
+        kinematic_assignments=emitter.kinematic_assignment_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
@@ -3858,6 +3868,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['frame_policy']['operands'] = 'Explicit complete POSITION/XYZWPR/XYZWPREXT; colon composition, INV and three/four-point FRAME use checked frame math and explicit external metadata'
     report['frame_policy']['result_type'] = 'INV preserves representation; colon/FRAME prefer XYZWPREXT, then POSITION, then XYZWPR; external metadata follows extended_geometry_policy'
     report['position_conversion_policy']['scope'] = 'Whole assignments among POSITION, XYZWPR and XYZWPREXT; no automatic routine/RETURN or whole-array conversion'
+    report['kinematic_assignment_policy']=dict(
+        scope='Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments, including individual fields/elements and function results; routine, RETURN and whole-array interfaces remain exact',
+        context='Explicit robot model/adapters in the calling root task group with selected frame/tool maps; no model or frame/tool discovery',
+        forward='Reuse JOINT2POS checks and supplied forward adapter; config_ref=0; independent CONFIG and external-axis outputs become Cartesian fields',
+        inverse='Reuse POS2JOINT checks and supplied inverse adapter; require complete current joints as seed; source CONFIG and three external axes, with zero for absent plain-pose axes; config_ref=0',
+        widths='Configured model width or JOINTPOS9 with zero unused axes; model inverse writes either width or padded nine slots; callbacks retain exact output width',
+        ownership='Complete conversion and detached RHS precede target selector evaluation; failure preserves destination, earlier source/host effects remain; value-free KINEMATIC_ASSIGNMENT records',
+        boundary='No implicit motion, current-state update, native branch selection, collision or certified reachability; no automatic JOINTPOS frame operators or whole-array/interface conversions; strict deferred',
+        guide='docs/kinematic-assignments.md',controller_validated=False)
+    report['position_conversion_policy']['boundary']='Context-free Cartesian representation changes only; model-backed joint assignments follow kinematic_assignment_policy; exact routine/array interfaces and checked proper matrices remain'
+    report['data_record_policy']['boundary']='Cartesian whole assignments follow position_conversion_policy; joint/Cartesian whole assignments require kinematic_assignment_policy; no automatic routine/array conversion or physical motion'
+    report['positional_routine_policy']['boundary']='Exact parameter/RETURN types; whole assignments follow position_conversion_policy and kinematic_assignment_policy; no controller ABI, native branch selection or orientation defaults'
     report['position_axis_policy']['functions'] = 'APPROACH returns positive Z and ORIENT positive Y from complete POSITION/XYZWPR/XYZWPREXT; internal routines retain precedence'
     for key in ('vector_routine_policy','structure_routine_policy','positional_routine_policy','array_routine_policy'):
         report[key]['boundary'] = report[key]['boundary'].replace('external routines or ', '').replace('external routines, ', '')

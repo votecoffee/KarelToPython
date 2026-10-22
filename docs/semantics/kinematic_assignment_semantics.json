@@ -1,0 +1,25 @@
+{
+  "version":"0.90.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Supplied positional assignment forms, existing explicit robot adapters and authored offline model tests; no native kinematic assignment execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[449,450],"topic":"JOINTPOS may be assigned to other positional types; explicit JOINT2POS forward-kinematics interface"}],
+  "implemented":{
+    "scope":"Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments, individual fields/elements and function-result RHS values",
+    "context":"Calling root task group, selected configured frame/tool and existing supplied forward/inverse adapters or standard-DH model",
+    "inverse":"Complete current joints as reference seed, source CONFIG and external values, config_ref zero; destination contents do not seed solving",
+    "width":"Shared model-width or padded-nine-slot checks; model inverse output padding; custom callback output exact width",
+    "ownership":"Detached inputs/results, conversion before target selector, destination preserved on failure, sticky abort retained and source-located value-free service records"
+  },
+  "portable_choices":[
+    "Automatic assignment uses configured active frame/tool rather than discovering controller context",
+    "Current-joint seed and config_ref zero are explicit portable choices, not native branch-selection claims",
+    "Forward CONFIG/external outputs become Cartesian metadata; plain poses drop external values and supply zero on inverse",
+    "No source implicit conversion for routine/RETURN/whole-array/variable/register interfaces or JOINTPOS frame operators",
+    "Normal model limits and iteration bounds remain; failed numerical solving does not prove unreachable geometry",
+    "Conversion does not mutate current robot state or perform motion; completed external callback effects remain on later failure"
+  ],
+  "remaining":["Native default context/configuration branch rules, robot-specific calibration, collision checks, physical/controller acceptance and strict mode"],
+  "verification":["tests/test_kinematic_assignments.py","tests/test_runtime_portability.py","examples/joint_assignment.kl","examples/joint_external_assignment.kl"],
+  "guide":"../kinematic-assignments.md"
+}
