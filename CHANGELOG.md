@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.98.0 - 2026-10-22
+
+- Extend GET_VAR/SET_VAR to same-rank ARRAY prefix transfers across different
+  extents and outer identities. Preserve receiver tails, retain terminal type
+  checks and truncate STRING elements to receiver capacity.
+- Capture typed SET sources once before later selectors, including missing
+  references. Propagate partial record/joint/ARRAY data with status 12311;
+  preserve unknown BYTE contents distinctly and check types before clearing.
+- Prepare complete replacements before writes; retain exact/disjoint/protected
+  output guards, earlier argument effects and stable cache IDs on success.
+  Incompatible GET/SET types or ARRAY ranks return status 3 without data changes.
+- Fix nested multidimensional ARRAY state reloads while retaining existing flat
+  configurations. Preserve protected POSITION orientation children on restore.
+- Add 70 tests, two runnable examples, portable/installed-package checks and
+  public transfer policies. Ordinary assignment/routine type rules remain;
+  strict mode and native/controller equivalence remain future work.
+
 ## 0.97.0 - 2026-10-22
 
 - Include PATH and QUEUE_TYPE globals and explicit bindings in typed context

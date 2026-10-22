@@ -35,6 +35,8 @@ Version 0.96.0 adds [pose decomposition](pose-decomposition.md): UNPOS values,
 model-backed joints, captured-source aliases and default-mask current queries.
 Version 0.97.0 adds [collection persistence](collection-persistence.md), preserving
 typed partial PATH data and logical queue entries/sequences with explicit buffer rebinding.
+Version 0.98.0 adds [variable transfers](variable-transfers.md), with bounded
+ARRAY prefix copies, typed missing data and multidimensional state reloads.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

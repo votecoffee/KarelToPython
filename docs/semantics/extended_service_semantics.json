@@ -1,5 +1,5 @@
 {
-  "version": "0.97.0",
+  "version": "0.98.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -137,5 +137,6 @@
   "joint_geometry": "joint_geometry_semantics.json",
   "program_listing": "program_listing_semantics.json",
   "pose_decomposition": "pose_decomposition_semantics.json",
-  "collection_state": "collection_persistence_semantics.json"
+  "collection_state": "collection_persistence_semantics.json",
+  "variable_transfers": "variable_transfer_semantics.json"
 }
