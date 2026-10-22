@@ -120,6 +120,11 @@ selected frame/tool and root task group. The report records `kinematic_assignmen
 and `kinematic_assignment_policy`; service observations use KINEMATIC_ASSIGNMENT.
 See [kinematic assignments](kinematic-assignments.md) for seed, type and failure rules.
 
+PULSE uses explicit PortBank DOUT values, captured host clocks or scheduler virtual
+time. `PortBank.poll_pulses()` services expirations and returns their count;
+`pending_pulses` reports retained records. The report includes `pulses` and
+`pulse_policy`. See [output pulses](pulses.md) for blocking/NOWAIT and lifecycle rules.
+
 ## CLI
 
 ```sh
@@ -357,6 +362,6 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 new run. Services retain their explicit shared state.
 
 A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
-`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py`, `clocks.py` and `fileops.py`. Project loading
+`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py`, `clocks.py`, `fileops.py` and `pulses.py`. Project loading
 also needs `project.py`, the compiler and lexer. Installing the package includes
 all of them.

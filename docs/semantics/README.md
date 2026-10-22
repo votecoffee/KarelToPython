@@ -130,3 +130,5 @@ The 0.89.0 [file comparison ledger](file_comparison_semantics.json) records
 closed named reads, portable comparison/report choices and synchronous printing.
 The 0.90.0 [kinematic assignment ledger](kinematic_assignment_semantics.json) records
 model-backed whole assignments, selected context, seed requirements and exact interfaces.
+The 0.91.0 [pulse ledger](pulse_semantics.json) records rounded output timing,
+clock/scheduler servicing, root ownership, overrides and terminal freeze choices.

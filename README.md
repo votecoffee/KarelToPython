@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.90.0**. It is a
+tool are named **karel2py**. The current implementation is **0.91.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -268,6 +268,10 @@ recorder or callback. Both use explicit memory or directory file context. See
 Whole JOINTPOS/Cartesian assignments use supplied robot models, selected frames
 and tools. Inverse assignments require supplied current joints as a seed. See
 [kinematic assignments](docs/kinematic-assignments.md) for the context and type rules.
+
+PULSE supports blocking and NOWAIT digital outputs with checked durations,
+explicit host polling and scheduler deadlines. Pause, terminal state and later
+writes have documented ownership rules. See [output pulses](docs/pulses.md).
 
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the

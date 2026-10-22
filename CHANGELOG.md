@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.91.0 - 2026-10-22
+
+- Add PULSE DOUT statements and handler actions with checked INTEGER operands,
+  eight-millisecond duration rounding, blocking waits and NOWAIT deadlines.
+- Integrate host polling, port reads/snapshots and scheduler virtual time; drain
+  pending pulses after task completion/pause. Linked pulses belong to the caller.
+- Preserve terminal output state, reject overlapping pulses and cancel deadlines
+  on successful writes. Keep pending work out of serialized context values.
+- Add 42 tests, two root examples, a linked pulse project, runtime-only coverage
+  and documented portable timing/lifecycle choices. Strict/native work remains future.
+
 ## 0.90.0 - 2026-10-22
 
 - Add JOINTPOS to/from POSITION, XYZWPR and XYZWPREXT whole assignments through

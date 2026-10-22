@@ -29,6 +29,7 @@ internally and in the historical semantic notes.
 | USING | Nested lexical scopes, named STRUCTURE variables and dotted selectors; inner/right-most field priority | Fields shadow constants; calls use call context. No indexed/call/grouped selectors, builtin record selectors, field FOR counters or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
 | POSITION conversion | Whole assignments among XYZWPR, XYZWPREXT and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; exact interfaces and whole-array types; context-free Cartesian conversion only; model-backed joint assignments are listed below. Widening zeros external metadata; narrowing drops it. |
+| Output pulses | PULSE DOUT with blocking/NOWAIT statements and blocking handler actions | Explicit bank, rounded duration, host polling or scheduler virtual time; portable override/lifecycle rules. |
 | Kinematic assignment | Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT using supplied robot adapters/models | Selected frame/tool and root group; inverse needs current joints as seed; exact routine/RETURN/whole-array interfaces remain. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access or implicit group discovery. RobotContext supplies explicit kinematics. |
 | VECTOR | VEC construction, unary signs, checked float arithmetic, scaling, left-associated cross/dot products, equality and routine values | Initialized finite components; parentheses override association; explicit internal VEC routines retain precedence. Zero/parallel cross products allowed. No frame transforms or kinematics. |
@@ -76,6 +77,8 @@ The [file comparison and printing guide](file-comparison.md) covers COMPARE_FILE
 and PRINT_FILE with explicit backends, bounded reports and recorded/callback output.
 The [kinematic assignment guide](kinematic-assignments.md) covers model-backed
 whole-value joint/Cartesian changes and retained exact interfaces.
+The [output pulse guide](pulses.md) covers timed DOUT values, blocking/NOWAIT,
+explicit polling and scheduler integration.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.

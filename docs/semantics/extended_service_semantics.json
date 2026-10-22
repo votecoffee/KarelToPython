@@ -1,5 +1,5 @@
 {
-  "version": "0.90.0",
+  "version": "0.91.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -130,5 +130,6 @@
   "calendar_clock": "calendar_clock_semantics.json",
   "task_inspection": "task_inspection_semantics.json",
   "file_comparison": "file_comparison_semantics.json",
-  "kinematic_assignment": "kinematic_assignment_semantics.json"
+  "kinematic_assignment": "kinematic_assignment_semantics.json",
+  "pulses": "pulse_semantics.json"
 }
