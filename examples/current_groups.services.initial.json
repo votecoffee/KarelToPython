@@ -1,0 +1,1 @@
+{"robot":{"groups":{"1":{"dh":[{"a":100}],"current":{"joints":{"type":["JOINTPOS",1],"value":[0.0]}}},"2":{"dh":[{"a":200}],"current":{"joints":{"type":["JOINTPOS",1],"value":[90.0]}}}},"active_group":2}}

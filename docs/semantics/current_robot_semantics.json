@@ -1,0 +1,35 @@
+{
+  "version": "0.84.0",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Manual API forms and authored offline tests; no robot, encoder or native task execution",
+  "sources": [
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[358,359],"topic":"CURJPOS and CURPOS output masks, optional groups, release-dependent masks and zero-discard example; CURR_PROG STRING[12]"}
+  ],
+  "implemented": {
+    "state":"Complete supplied Cartesian and/or joint snapshots, copied reads and atomic host updates; no implicit robot state",
+    "position":"Independent XYZWPREXT from explicit pose or current joints and configured DH model, base/frame/tool; explicit pose takes precedence",
+    "joints":"Independent JOINTPOS9; supplied one-to-nine-axis state retains width and unused result slots are zero padded",
+    "masks":"Exact disjoint INTEGER outputs or literal zero discard; supplied metadata 0..511 defaults zero; query validated before either output changes",
+    "groups":"Explicit configured group or root caller group; source IN GROUP/context active group; linked caller identity; flat contexts reject other groups",
+    "persistence":"State-only or model-backed context JSON preserves latest host updates and grouped snapshots; legacy model-only shape retained",
+    "program":"CURR_PROG bare/explicit returns executing module name truncated to 12; internal routines and ordinary declarations keep precedence"
+  },
+  "portable_choices": [
+    "Masks are explicit metadata rather than measured limits or overtravel, and zero is their portable default",
+    "Literal zero discards output masks, following the manual example; nonzero expressions cannot stand in for output storage",
+    "CURJPOS uses the translator's bare JOINTPOS9 result with zero padding for unused slots, not extra physical axes",
+    "A supplied pose and joints are not reconciled; supplied Cartesian data remains authoritative until cleared",
+    "Current-pose DH evaluation does not reject outside-limit joints; normal forward conversions still enforce configured limits",
+    "No inverse or callback frame defaults are inferred to manufacture missing current data",
+    "Default query group follows the calling root task while CURR_PROG names the executing library module"
+  ],
+  "remaining": [
+    "Native unused-axis representation, mask release behavior and physical encoder acquisition",
+    "Measured pose/joint consistency, robot calibration, collisions and certified reachability",
+    "Physical motion, continuous state evolution and suspended-program restoration",
+    "Strict mode and controller/runtime acceptance"
+  ],
+  "verification": ["tests/test_current_robot_state.py","tests/test_broad_services.py","examples/current_robot.kl","examples/current_groups.kl"],
+  "guide": "../current-robot-state.md"
+}

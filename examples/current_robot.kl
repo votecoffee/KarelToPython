@@ -1,0 +1,18 @@
+PROGRAM ROBOT_NOW
+VAR x,z,external_axis: REAL
+    limit_mask,travel_mask: INTEGER
+    name: STRING[12]
+    joints: JOINTPOS
+ROUTINE capture_x: REAL
+VAR point: XYZWPREXT
+BEGIN
+  point=CURPOS(limit_mask,travel_mask)
+  z=point.z
+  external_axis=point.ext1
+  RETURN point.x
+END capture_x
+BEGIN
+  name=CURR_PROG
+  x=capture_x()
+  joints=CURJPOS(0,0)
+END ROBOT_NOW

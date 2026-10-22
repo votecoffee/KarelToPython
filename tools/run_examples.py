@@ -108,7 +108,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 93, 'Update the expected example count when adding examples'
+    assert count == 95, 'Update the expected example count when adding examples'
     folder=ROOT/'examples/linked_project'
     instance=load_project(folder).instantiate()
     assert instance.run('MAIN')==read_json(folder/'expected.json'), 'linked project snapshot'

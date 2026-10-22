@@ -9,6 +9,8 @@ timing, file layout, task ABI or robot calibration. Strict mode remains a future
 milestone. The [service matrix](offline-services.md) describes the underlying
 procedures and the [semantic ledger](semantics/extended_service_semantics.json)
 retains source provenance and unresolved behavior.
+Version 0.84.0 adds [current robot snapshots and program queries](current-robot-state.md),
+including state-only contexts and current data alongside the existing models.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

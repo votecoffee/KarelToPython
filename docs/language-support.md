@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.83.0. Acceptance is specific to
+This is the supported prototype subset as of 0.84.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -61,6 +61,8 @@ records, runtime-failure observation and explicit powerup recovery.
 handler-aware task requests, ATR_FIELD reads and custom record terminators.
 [I/O and CALL parameters](io-and-call-parameters.md) adds indirect port access,
 simulation, register/port comments and supplied per-task GET_TPE_PRM arguments.
+[Current robot state](current-robot-state.md) adds supplied/model-derived CURPOS,
+CURJPOS, group snapshots, mask outputs and executing-module CURR_PROG queries.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.

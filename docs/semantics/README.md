@@ -116,3 +116,5 @@ The 0.82.0 [task and file guide](../task-and-file-extensions.md) extends those
 ledgers with scoped POST_ERR_L, queued task control and field/record reads.
 The 0.83.0 [I/O and argument ledger](io_parameter_semantics.json) adds explicit
 indirect port mappings, simulation, independent comments and per-task arguments.
+The 0.84.0 [current-state ledger](current_robot_semantics.json) records supplied
+robot snapshots, model-derived Cartesian queries, mask/group choices and CURR_PROG.

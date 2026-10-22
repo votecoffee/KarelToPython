@@ -298,6 +298,11 @@ simulation, comments, argument scope and portable status codes. See
 [I/O and CALL parameters](io-and-call-parameters.md) for CallParameters and the
 optional constructor/JSON fields for register and port metadata.
 
+`current_robot_policy` describes CURPOS, CURJPOS and CURR_PROG. RobotContext
+accepts `current=RobotState(...)`; typed context JSON can contain `robot.current`
+with or without a DH model. See [current robot state](current-robot-state.md) for
+mask discard arguments, group selection, host updates and persisted snapshots.
+
 `context=ExecutionContext(...)` adds strings, positions, ports, variables, files,
 robot adapters, external callback bindings and a task registry. Generated scripts
 accept `--context` JSON for serializable service state. See the

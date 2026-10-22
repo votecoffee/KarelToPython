@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.84.0 - 2026-10-22
+
+- Add RobotState with complete supplied pose/joints, defensive copies, atomic host
+  updates and persistence for current snapshots in state-only or modeled groups.
+- Add CURPOS and CURJPOS with optional groups, checked mask outputs or literal
+  zero discard. CURPOS can use configured DH/frame/tool math; CURJPOS pads unused
+  result slots to JOINTPOS9. Current-state math can observe outside-limit joints.
+- Add bare/explicit CURR_PROG reporting the executing module as STRING[12], with
+  ordinary declaration precedence and linked caller group behavior for queries.
+- Reject unconfigured groups in flat contexts and preserve latest state/active
+  group during serialization. Keep normal model conversion limit checks.
+- Add two authored examples, 39 integration tests, report policy and source-backed
+  semantic notes. Strict mode and physical acquisition/motion remain future.
+
 ## 0.83.0 - 2026-10-22
 
 - Add indirect port value/comment/simulation procedures with explicit port-type

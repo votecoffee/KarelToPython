@@ -1,0 +1,14 @@
+PROGRAM GROUP_NOW
+VAR first,second: REAL
+    name: STRING[12]
+ROUTINE measure(group_no: INTEGER): REAL
+VAR point: XYZWPREXT
+BEGIN
+  point=CURPOS(0,0,group_no)
+  RETURN point.y
+END measure
+BEGIN
+  first=measure(1)
+  second=measure(2)
+  name=CURR_PROG()
+END GROUP_NOW

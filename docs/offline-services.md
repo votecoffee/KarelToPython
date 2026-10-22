@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.83.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.84.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -40,6 +40,7 @@ source-located error. Strict mode remains a future milestone.
 | `MIRROR(point,plane,orient)` | Reflection about the plane frame's XZ plane | XYZWPREXT result; optional orientation reflection uses a documented proper-rotation convention. |
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
 | `JOINT2POS`, `POS2JOINT`, `IN_RANGE`, `J_IN_RANGE` | `RobotContext` adapters and supplied limits | Requires a supplied model or limits; no robot geometry, calibration or reachability is inferred. |
+| `CURPOS`, `CURJPOS`, `CURR_PROG` | Explicit current RobotState, optional configured DH math and executing module name | Independent results, optional groups and checked/discarded masks; no physical state acquisition. |
 
 ## Register, port and variable context
 
@@ -235,6 +236,12 @@ errors unwind frames while preserving prior writes. Linkage is explicit and
 does not imply native ABI or cross-program global storage discovery.
 
 ## Geometry and robot context
+
+CURPOS/CURJPOS use explicit current snapshots in RobotContext, with optional
+DH-based Cartesian evaluation. Host updates and grouped state persist as typed
+JSON. CURR_PROG names the executing module. See
+[current robot state](current-robot-state.md) for mask handling, unused joint
+slots, caller groups and the boundary between supplied and measured state.
 
 Whole assignments convert POSITION, XYZWPR and XYZWPREXT. Widening fills three
 external-axis fields with zero; narrowing drops them. Routine interfaces remain
