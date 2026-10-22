@@ -178,6 +178,20 @@ class CurrentGroupPersistenceTests(unittest.TestCase):
         config={'robot':{'groups':{'1':{'dh':[{'a':100}]},'2':{'dh':[{'a':200}]}},'active_group':2}}
         self.assertEqual(rt.ExecutionContext.from_config(config).to_config(),config)
 
+    def test_callback_only_context_is_not_serialized_as_an_empty_model(self):
+        child=rt.RobotContext(forward=lambda *args:None,active_group=2)
+        self.assertEqual(rt.ExecutionContext(robot=child).to_config(),{})
+        self.assertEqual(rt.ExecutionContext(robot=rt.RobotContext(groups={2:child},active_group=2)).to_config(),{})
+        mixed=rt.RobotContext(groups={1:child,2:rt.RobotContext(current=rt.RobotState(joints=[0.]))})
+        with self.assertRaises(ValueError): rt.ExecutionContext(robot=mixed).to_config()
+
+    def test_removing_current_state_does_not_restore_stale_snapshot(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{'dh':[{'a':100}],'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+        ctx.robot.current=None
+        self.assertEqual(ctx.to_config(),{'robot':{'dh':[{'a':100}]}})
+        ctx=rt.ExecutionContext.from_config({'robot':{'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+        ctx.robot.current=None;self.assertEqual(ctx.to_config(),{})
+
     def test_invalid_state_json_and_mixed_fields(self):
         for config in ({'current':{}},{'current':{'other':1}},{'current':{'joints':{'type':['REAL'],'value':1.}}},{'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}},'external_axes':1}):
             with self.subTest(config=config),self.assertRaises((ValueError,rt.KarelRuntimeError)): rt.RobotContext.from_config(config)

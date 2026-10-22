@@ -548,12 +548,16 @@ class RobotContext:
         config=deepcopy(self.model_config) if self.model_config is not None else {}
         if self.groups:
             groups={str(group):value.to_config() for group,value in self.groups.items()}
+            if not any(value is not None for value in groups.values()): return None
             if any(value is not None for value in groups.values()):
                 if any(value is None for value in groups.values()): raise ValueError('Cannot persist robot groups without a model or current state')
                 config['groups']=groups
                 if self.model_config is None: config['active_group']=self.active_group
             if self.active_group!=config.get('active_group',min(self.groups)): config['active_group']=self.active_group
         elif self.current is not None: config['current']=self.current.to_config()
+        else:
+            config.pop('current',None)
+            if 'dh' not in config: return None
         if not self.groups and self.active_group!=config.get('active_group',1): config['active_group']=self.active_group
         if self.model is not None:
             if self.active_frame!=config.get('frame',0): config['frame']=self.active_frame

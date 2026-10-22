@@ -11,7 +11,7 @@
   ordinary declaration precedence and linked caller group behavior for queries.
 - Reject unconfigured groups in flat contexts and preserve latest state/active
   group during serialization. Keep normal model conversion limit checks.
-- Add two authored examples, 39 integration tests, report policy and source-backed
+- Add two authored examples, 41 integration tests, report policy and source-backed
   semantic notes. Strict mode and physical acquisition/motion remain future.
 
 ## 0.83.0 - 2026-10-22

@@ -109,6 +109,9 @@ snapshot and the active group. Callback closures, call stacks, elapsed motion an
 live acquisition are not serialized. Model-only legacy contexts keep their
 existing configuration shape. This is value persistence, not program suspension
 or robot simulation over time.
+Setting `robot.current=None` removes its saved snapshot. Callback-only groups
+have no serializable model/state; a mix of serializable and callback-only groups
+raises rather than silently dropping a group.
 
 ## Program name
 
