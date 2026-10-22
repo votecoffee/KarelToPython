@@ -1,0 +1,14 @@
+PROGRAM OFFLINE_SEMAPHORES
+VAR observed,pending: INTEGER
+    timeout,empty: BOOLEAN
+BEGIN
+  observed=0
+  CONDITION[1]:
+    WHEN SEMAPHORE[1] DO observed=observed+1
+  ENDCONDITION
+  ENABLE CONDITION[1]
+  SIGNAL SEMAPHORE[1]
+  PEND_SEMA(1,0,timeout)
+  pending=SEMA_COUNT(1)
+  PEND_SEMA(2,0,empty)
+END OFFLINE_SEMAPHORES

@@ -22,7 +22,10 @@ def fail(message, line=None): raise runtime().KarelRuntimeError(message,line)
 def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
+COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR'}
 PROCEDURES = {
+    'CLEAR_SEMA':(I,), 'POST_SEMA':(I,), 'PEND_SEMA':(I,I,arg('BOOLEAN','o')),
+    'POST_ERR':(I,S,I,I),
     'CONT_TASK': (S,OI), 'PAUSE_TASK': (S,B,B,OI), 'ABORT_TASK': (S,B,B,OI),
     'RUN_TASK': (S,I,B,B,I,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
@@ -48,6 +51,7 @@ PROCEDURES = {
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
 }
 FUNCTIONS = {
+    'SEMA_COUNT':((I,),('INTEGER',)),
     'GET_POS_REG': ((I,OI,I),('XYZWPREXT',)),
     'GET_JPOS_REG': ((I,OI,I),('JOINTPOS',9)),
     'PATH_LEN': ((arg('PATH'),),('INTEGER',)),
@@ -421,12 +425,12 @@ def condition_control(state,operation,number,line=None):
     if operation=='ENABLE': state._handlers[number]['due']=None
 
 
-def checkpoint(state,line=None,*,force_pause=False):
+def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
     rt=runtime(); state.tick(line)
     # A library invocation owns its locals, while its caller still owns the
     # running task. Scan that task and honor its pause requests inside the call.
     parent=state._budget_parent
-    if parent is not None: yield from checkpoint(parent,line)
+    if parent is not None: yield from checkpoint(parent,line,_defer_control=True)
     if not state._in_handler:
         for number in list(state._handlers):
             handler=state._handlers.get(number)
@@ -437,6 +441,7 @@ def checkpoint(state,line=None,*,force_pause=False):
                 handler['due']=now+handler['scan_ms']*1000
             original,depth=state.local_frames,state.call_depth
             previous_scan=state._scanning_condition; state._scanning_condition=number
+            previous_error=state._current_error
             state.local_frames=list(handler['frames']); state.call_depth=len(state.local_frames); state._in_handler=True
             try:
                 for predicate,action in handler['clauses']:
@@ -450,10 +455,14 @@ def checkpoint(state,line=None,*,force_pause=False):
             finally:
                 state.local_frames=original; state.call_depth=depth; state._in_handler=False
                 state._scanning_condition=previous_scan
-    if state._pause_requested and (not state._in_handler or force_pause):
+                state._current_error=previous_error
+    if state._abort_requested and not state._in_handler and not _defer_control:
+        state.abort(state._abort_request_line or line)
+    if state._pause_requested and (not state._in_handler or force_pause) and not _defer_control:
         state.task_state='paused'; yield dict(kind='pause',line=line)
         state._pause_requested=False; state.task_state='running'
-    if state._scheduler is not None and parent is None: yield dict(kind='timeslice',line=line)
+        if state._abort_requested: state.abort(state._abort_request_line or line)
+    if state._scheduler is not None and not _defer_control: yield dict(kind='timeslice',line=line)
 
 
 def cooperative_test(state,predicate,line=None):
@@ -469,9 +478,8 @@ def pause_execution(state,line=None):
 
 
 def abort_execution(state,line=None):
-    state._abort_requested=True
+    state._abort_requested=True; state._abort_request_line=line
     yield from checkpoint(state,line)
-    state.abort(line)
 
 
 def drive(program):
@@ -519,13 +527,14 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,local_handlers=False):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,local_handlers=False):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
         self.externals=dict(externals or {}); self.entries={}
         self.tasks=tasks if tasks is not None else TaskRegistry()
         self.numeric=numeric; self.events=events
+        self.semaphores=semaphores; self.errors=errors
         if type(local_handlers) is not bool: raise TypeError('local_handlers must be BOOLEAN')
         self.local_handlers=local_handlers
     def to_config(self):
@@ -545,7 +554,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','local_handlers'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','local_handlers'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values'}),('positions',{'count','groups','values'}),('ports',{'counts','values'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -578,6 +587,12 @@ class ExecutionContext:
         if 'events' in config:
             from .scheduling import EventBank
             services['events']=EventBank(config['events'])
+        if 'semaphores' in config:
+            from .control import SemaphoreBank
+            services['semaphores']=SemaphoreBank.from_config(config['semaphores'])
+        if 'errors' in config:
+            from .control import ErrorHistory
+            services['errors']=ErrorHistory.from_config(config['errors'])
         return cls(**services)
     def invoke(self,state,name,arguments,line=None):
         rt=runtime(); args=list(arguments)
@@ -585,6 +600,12 @@ class ExecutionContext:
         if name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(1 if name!='SET_FILE_ATR' else 0)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('CLEAR_SEMA','POST_SEMA','SEMA_COUNT'):
+            bank=self.require('semaphores',line)
+            return (bank.clear if name=='CLEAR_SEMA' else bank.post if name=='POST_SEMA' else bank.value)(args[0],line)
+        if name in ('PEND_SEMA','POST_ERR'):
+            from .control import pend_semaphore,post_error
+            return (pend_semaphore if name=='PEND_SEMA' else post_error)(state,*args,line=line)
         if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST'):
             files=self.require('files',line)
             try:

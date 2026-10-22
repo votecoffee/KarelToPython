@@ -140,6 +140,7 @@ PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT'
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
     'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE','EVENT','WITH',
+    'SEMAPHORE','POWERUP','ERROR','NOABORT','NOPAUSE','NOMESSAGE',
     'PROGRAM', 'CONST', 'VAR', 'TYPE', 'BEGIN', 'IF', 'THEN', 'SELECT', 'OF',
     'FOR', 'TO', 'DOWNTO', 'DO', 'WHILE', 'REPEAT', 'RETURN', 'ROUTINE',
     'INTEGER', 'BOOLEAN', 'STRING', 'REAL', 'ARRAY', 'STRUCTURE', 'ENDSTRUCTURE', 'TRUE', 'FALSE',
@@ -216,6 +217,7 @@ class Parser:
         self.filename = filename
         self.mode = mode
         self.in_condition=False
+        self.in_handler_actions=False
 
     @property
     def current(self): return self.tokens[self.position]
@@ -563,8 +565,13 @@ class Parser:
                 self.expect('['); target=[self.expression()]; self.expect(']')
             return Statement('task_control',token,[name,*target])
         if self.mode=='pythonic' and name=='SIGNAL':
-            self.expect('EVENT'); self.expect('['); number=self.expression(); self.expect(']')
-            return Statement('signal_event',token,[number])
+            kind=self.take()
+            if kind.value not in ('EVENT','SEMAPHORE'): self.error('E_SYNTAX','SIGNAL requires EVENT or SEMAPHORE',kind)
+            self.expect('['); number=self.expression(); self.expect(']')
+            return Statement('signal_event' if kind.value=='EVENT' else 'signal_semaphore',token,[number])
+        if self.mode=='pythonic' and name in ('NOABORT','NOPAUSE','NOMESSAGE'):
+            if not self.in_handler_actions: self.error('E_CONDITION_ACTION',name+' requires a handler action',token)
+            return Statement('handler_action',token,[name])
         if self.mode=='pythonic' and name in ('CONNECT','DISCONNECT'):
             self.expect('TIMER')
             if name=='CONNECT': self.expect('TO')
@@ -581,8 +588,11 @@ class Parser:
                 try: condition=self.expression()
                 finally: self.in_condition=False
                 self.expect('DO'); self.skip_lines(); actions=[]
-                while self.current.value not in ('WHEN','ENDCONDITION'):
-                    actions.append(self.statement()); self.accept(','); self.skip_lines()
+                previous_actions=self.in_handler_actions; self.in_handler_actions=True
+                try:
+                    while self.current.value not in ('WHEN','ENDCONDITION'):
+                        actions.append(self.statement()); self.accept(','); self.skip_lines()
+                finally: self.in_handler_actions=previous_actions
                 clauses.append(Statement('condition_clause',when,[condition],actions))
             if not clauses: self.error('E_SYNTAX','CONDITION requires at least one WHEN clause')
             self.expect('ENDCONDITION')
@@ -838,9 +848,13 @@ class Parser:
     def expression(self, minimum=0, *, allow_relative=True):
         self.skip_lines()
         token = self.take()
-        if self.mode=='pythonic' and token.value=='EVENT':
-            self.expect('['); number=self.expression(); self.expect(']'); left=Expr('event',token,args=[number])
-        elif self.in_condition and token.value in ('PAUSE','ABORT','CONTINUE'):
+        if self.mode=='pythonic' and token.value in ('EVENT','SEMAPHORE'):
+            self.expect('['); number=self.expression(); self.expect(']'); left=Expr('event' if token.value=='EVENT' else 'semaphore',token,args=[number])
+        elif self.in_condition and token.value=='ERROR':
+            self.expect('[')
+            arguments=[] if self.accept('*') else [self.expression()]
+            self.expect(']'); left=Expr('error_condition',token,args=arguments)
+        elif self.in_condition and token.value in ('PAUSE','ABORT','CONTINUE','POWERUP'):
             left=Expr('task_event',token,token.value)
         elif token.kind == 'INT':
             digits = token.value.lstrip('0') or '0'
@@ -876,7 +890,7 @@ class Parser:
         elif token.kind == 'NAME' and token.value not in RESERVED:
             if self.accept('('): left = Expr('call', token, token.value, self.arguments())
             else: left = self.access(Expr('name', token, token.value))
-            if self.in_condition and left.kind=='call' and left.value=='EVAL':
+            if (self.in_condition or self.in_handler_actions) and left.kind=='call' and left.value=='EVAL':
                 if len(left.args)!=1: self.error('E_ARGUMENTS','EVAL requires one captured expression',token)
                 left.kind='eval'
         else:
@@ -909,7 +923,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event') or isinstance(node,Expr) and (node.kind in ('event','edge') or node.kind=='call' and node.value in ('PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK')) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         self.group_uses=[]
         self.using_scopes = []
         self.active_counters = set()
@@ -1704,6 +1718,13 @@ class Emitter:
         if expr.kind=='event':
             number=self.require_type(expr.args[0],'INTEGER'); key=(expr.token.line,expr.token.column)
             return f'_rt.event_condition(self._state,{number},{key!r},{expr.token.line})',('BOOLEAN',)
+        if expr.kind=='semaphore':
+            number=self.require_type(expr.args[0],'INTEGER'); self.features.add('SEMAPHORE condition')
+            return f'(self._state.execution.require("semaphores",{expr.token.line}).value({number},{expr.token.line})>0)',('BOOLEAN',)
+        if expr.kind=='error_condition':
+            number=self.require_type(expr.args[0],'INTEGER') if expr.args else 'None'
+            self.features.add('ERROR condition')
+            return f'_rt.error_condition(self._state,{number},{(expr.token.line,expr.token.column)!r},{expr.token.line})',('BOOLEAN',)
         if expr.kind=='edge':
             value=self.require_type(expr.args[0],'BOOLEAN'); key=(expr.token.line,expr.token.column)
             return f'_rt.edge_condition(self._state,{key!r},{value},{expr.value!r},{expr.token.line})',('BOOLEAN',)
@@ -2022,6 +2043,8 @@ class Emitter:
             codes.append(code)
         self.features.add(expr.value); self.features.add('extended services')
         self.service_uses.append(dict(operation=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,line=expr.token.line,column=expr.token.column))
+        if expr.value in ex.COOPERATIVE_PROCEDURES:
+            return f'(yield from _rt.cooperative_service(self._state,{expr.value!r},[{", ".join(codes)}],{expr.token.line}))'
         return f'self._state.extended_call({expr.value!r},[{", ".join(codes)}],{expr.token.line})'
 
     def numeric_register(self, expr):
@@ -2434,7 +2457,14 @@ class Emitter:
             return
         if kind=='signal_event':
             number=self.require_type(stmt.args[0],'INTEGER')
-            self.line(f'_rt.signal_event(self._state,{number},{line})',token); return
+            self.line(f'_rt.signal_event(self._state,{number},{line})',token)
+            self.line(f'yield from _rt.checkpoint(self._state,{line})',token); return
+        if kind=='signal_semaphore':
+            number=self.require_type(stmt.args[0],'INTEGER'); self.features.add('extended services')
+            self.line(f'self._state.extended_call("POST_SEMA",[{number}],{line})',token)
+            self.line(f'yield from _rt.checkpoint(self._state,{line})',token); return
+        if kind=='handler_action':
+            self.line(f'_rt.handler_action(self._state,{stmt.args[0]!r},{line})',token); return
         if kind in ('timer_connect','timer_disconnect'):
             target=stmt.args[0]
             if self.current_routine and self.root_name(target) in self.current_routine.local_types: self.error('E_TIMER_SCOPE','Connected timer storage must be global',target.token)
@@ -2449,7 +2479,7 @@ class Emitter:
         if kind=='condition':
             number=self.require_type(stmt.args[0],'INTEGER'); pairs=[]
             for clause in stmt.body:
-                for item in reversed(list(self.walk_nodes(clause.args))):
+                for item in reversed(list(self.walk_nodes([*clause.args,*clause.body]))):
                     if isinstance(item,Expr) and item.kind=='eval':
                         code,spec=self.expression(item.args[0]); temporary=self.fresh()
                         self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})',item.token)
@@ -2949,6 +2979,8 @@ class Emitter:
             self.line(f'@_rt._with_numeric_mode({self.mode!r})')
             self.line('def resume(self):'); self.indent=2
             self.line('return _rt.resume_cooperative(self)'); self.indent=1
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def powerup(self):'); self.indent=2; self.line('return _rt.powerup_cooperative(self)'); self.indent=1
             self.line('def pause(self):'); self.indent=2; self.line('self._state._pause_requested=True'); self.indent=1
             self.line('def stop(self):'); self.indent=2; self.line('return _rt.stop_cooperative(self)'); self.indent=1
             self.line('@property'); self.line('def task_state(self):'); self.indent=2; self.line('return self._state.task_state'); self.indent=1
@@ -2957,7 +2989,11 @@ class Emitter:
         self.indent = 2
         if self.cooperative: self.line('if False: yield None')
         if not self.cooperative: self.line('self._state.begin(max_steps)')
+        if self.cooperative: self.line('try:'); self.indent+=1
         self.emit_body(self.program.body)
+        if self.cooperative:
+            self.indent-=1; self.line('except _rt.KarelRuntimeError as _failure:'); self.indent+=1
+            self.line('yield from _rt.runtime_failure(self._state,_failure)'); self.line('raise'); self.indent-=1
         self.line('return self._state.snapshot()')
         self.indent = 0
         self.line()

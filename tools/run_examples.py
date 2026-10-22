@@ -63,12 +63,13 @@ def run_example(source, *, inject_write=False):
     services_expected = fixture / f'{name}.services.expected.json'
     if services is not None:
         observed = {}
-        for kind in ('strings','positions','ports','files'):
+        for kind in ('strings','positions','ports','files','semaphores'):
             service=getattr(services,kind)
             if service is None: continue
             observed[kind]={(':'.join(str(part) for part in key) if type(key) is tuple else str(key)):
                             ({'hex':value.hex()} if type(value) is bytes else snapshot_value(value))
                             for key,value in service.snapshot().items()}
+        if services.errors is not None: observed['errors']=services.errors.snapshot()
         assert observed == read_json(services_expected), name + ': offline service state'
     else:
         assert not services_expected.exists(), name + ': service expectation requires explicit initial context'
@@ -107,7 +108,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 86, 'Update the expected example count when adding examples'
+    assert count == 88, 'Update the expected example count when adding examples'
     folder=ROOT/'examples/linked_project'
     instance=load_project(folder).instantiate()
     assert instance.run('MAIN')==read_json(folder/'expected.json'), 'linked project snapshot'

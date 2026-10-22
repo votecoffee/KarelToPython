@@ -63,7 +63,7 @@ def delay_execution(state,milliseconds,line=None):
         deadline=state._scheduler.now_us+milliseconds*1000
         while state._scheduler.now_us<deadline:
             yield {'kind':'sleep','until':deadline,'line':line}
-            if state._pause_requested: yield from rt().checkpoint(state,line,force_pause=True)
+            if state._pause_requested or state._abort_requested: yield from rt().checkpoint(state,line,force_pause=True)
 
 
 @contextmanager
@@ -96,11 +96,14 @@ class TaskScheduler:
         if state._clock_us is None: state._clock_us=lambda:self.now_us; state._scheduler_clock=True
         state._pause_requested=paused; state.task_state='running'
         program._execution=program._execute(); self.waiting.pop(name,None); self.errors.pop(name,None)
-    def continue_task(self,name):
+    def continue_task(self,name,*,powerup=False):
+        if type(powerup) is not bool: raise TypeError('powerup must be BOOLEAN')
         program=self.tasks[name.upper()]
         if program._state.task_state!='paused': raise rt().KarelRuntimeError('Only a paused task can continue')
         program._state.task_state='running'; program._state._pause_requested=False
         program._state._lifecycle['CONTINUE']=program._state._lifecycle.get('CONTINUE',0)+1
+        if powerup: program._state._lifecycle['POWERUP']=program._state._lifecycle.get('POWERUP',0)+1
+    def powerup(self,name): self.continue_task(name,powerup=True)
     def stop(self,name):
         name=name.upper(); self.tasks[name].stop(); self.waiting.pop(name,None)
     def step(self):
@@ -109,7 +112,7 @@ class TaskScheduler:
             state=program._state
             if state.task_state=='waiting':
                 deadline=self.waiting.get(name,0)
-                if self.now_us<deadline and not state._pause_requested: continue
+                if self.now_us<deadline and not state._pause_requested and not state._abort_requested: continue
                 state.task_state='running'; self.waiting.pop(name,None)
             if state.task_state!='running' or getattr(program,'_execution',None) is None: continue
             progressed=True; state._driving=True

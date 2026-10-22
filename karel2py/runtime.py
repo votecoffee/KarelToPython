@@ -1873,6 +1873,25 @@ class NumericRegisters:
 
 
 class State:
+    @property
+    def _pause_requested(self): return self._budget_parent._pause_requested if self._budget_parent is not None else self._pause_flag
+    @_pause_requested.setter
+    def _pause_requested(self,value):
+        if self._budget_parent is not None: self._budget_parent._pause_requested=value
+        else: self._pause_flag=value
+    @property
+    def _abort_requested(self): return self._budget_parent._abort_requested if self._budget_parent is not None else self._abort_flag
+    @_abort_requested.setter
+    def _abort_requested(self,value):
+        if self._budget_parent is not None: self._budget_parent._abort_requested=value
+        else: self._abort_flag=value
+    @property
+    def _abort_request_line(self): return self._budget_parent._abort_request_line if self._budget_parent is not None else self._pending_abort_line
+    @_abort_request_line.setter
+    def _abort_request_line(self,value):
+        if self._budget_parent is not None: self._budget_parent._abort_request_line=value
+        else: self._pending_abort_line=value
+
     def __init__(self, declarations, constants, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None):
         if context is not None and type(context) is not ExecutionContext: raise TypeError('context must be ExecutionContext or None')
         self.execution=context if context is not None else ExecutionContext()
@@ -1883,7 +1902,8 @@ class State:
         self._handlers={}; self._in_handler=False; self._timers={}
         self._scheduler=None; self._scheduler_clock=False; self._budget_parent=None
         self._event_seen={}; self._edge_history={}; self._scanning_condition=None
-        self._abort_requested=False; self._lifecycle={'CONTINUE':0}
+        self._abort_requested=False; self._abort_request_line=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
+        self._current_error=None
         self.task_state='ready'; self._pause_requested=False; self._driving=False
         if joint_axes is not None and (type(joint_axes) is not int or not 1 <= joint_axes <= 9):
             raise ValueError('joint_axes must be None or an INTEGER in 1..9')
@@ -2020,7 +2040,7 @@ class State:
         self.register_requests.clear()
         self.service_requests.clear()
         self._handlers.clear(); self._timers.clear()
-        self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._lifecycle={'CONTINUE':0}
+        self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
 
     def extended_call(self,name,arguments,line=None):
         if not _pythonic(): raise KarelRuntimeError('Extended services require Pythonic mode',line)
@@ -2287,10 +2307,12 @@ class State:
 
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank,
                        VariableStore, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, file_piece,
-                       TaskRegistry, KarelPause, KarelStop, update_timers, connect_timer, disconnect_timer,
+                        TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles
 from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
                          signal_event,delay_execution,control_task,condition_scope)
+from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,cooperative_service,
+                      runtime_failure,powerup_cooperative)
