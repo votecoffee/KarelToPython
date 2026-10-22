@@ -1,4 +1,5 @@
 {
+  "queue_transfer_mode_note":"Since 0.99.0, ../queue-transfers.md extends GET_VAR/SET_VAR to whole logical queue snapshots; the earlier generic queue-copy exclusion below describes the 0.97.0 boundary.",
   "version":"0.97.0",
   "mode":"pythonic",
   "controller_validated":false,

@@ -170,7 +170,8 @@ def collection_payload(spec,value):
         if value.buffer is not None:
             buffer=value.buffer
             if (type(buffer) is not runtime.Array or len(runtime.array_dimensions(buffer.spec))!=1
-                    or buffer.spec[2]!=('INTEGER',) or len(buffer.values)!=math.prod(runtime.array_shape(buffer.spec))
+                    or buffer.spec[2]!=('INTEGER',) or buffer.shape!=runtime.array_shape(buffer.spec)
+                    or len(buffer.values)!=math.prod(runtime.array_shape(buffer.spec))
                     or len(entries)>len(buffer.values)):
                 raise ValueError('Queue backing ARRAY cannot hold its entries')
         return dict(initialized=value.initialized,sequence=sequence,entries=entries)

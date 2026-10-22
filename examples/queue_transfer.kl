@@ -1,0 +1,19 @@
+PROGRAM queue_transfer
+VAR
+  source,target: QUEUE_TYPE
+  a: ARRAY[3] OF INTEGER
+  old_buffer: ARRAY[1] OF INTEGER
+  b,view: ARRAY[4] OF INTEGER
+  entry,status,n,seq,count: INTEGER
+BEGIN
+  INIT_QUEUE(source)
+  APPEND_QUEUE(10,source,a,seq,status)
+  APPEND_QUEUE(20,source,a,seq,status)
+  DELETE_QUEUE(1,source,a,status)
+  INSERT_QUEUE(30,2,source,a,status)
+  INIT_QUEUE(target)
+  APPEND_QUEUE(99,target,old_buffer,seq,status)
+  GET_VAR(entry,'','SOURCE',target,status)
+  COPY_QUEUE(target,b,0,0,view,count,status)
+  GET_QUEUE(target,b,n,seq,status)
+END queue_transfer

@@ -295,6 +295,10 @@ the receiver tail. Typed SET sources and partial aggregates can transfer missing
 data. See [variable transfers](docs/variable-transfers.md) for type, ordering,
 unknown BYTE and status rules.
 
+Whole QUEUE_TYPE values also transfer logical contents and sequence counters
+through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue
+operation. See [queue transfers](docs/queue-transfers.md).
+
 PROG_LIST filters and pages attached programs and explicit catalog metadata,
 including program types, checked names and optional cursor pagination. See
 [program listing](docs/program-listing.md) for context setup and portable formats.

@@ -103,8 +103,9 @@ After binding, the existing same-buffer identity rule applies for that run.
 Ordinary status failures can still bind/synchronize the supplied buffer, as for
 a newly initialized queue. INIT_QUEUE deliberately clears saved entries, resets
 the sequence counter and releases the current binding. Queue values remain
-reference-only in source; persistence does not enable QUEUE assignments or
-generic GET_VAR/SET_VAR copies.
+reference-only in ordinary assignments and value interfaces. Since 0.99.0,
+[GET_VAR/SET_VAR queue transfers](queue-transfers.md) explicitly copy logical
+state and release the receiver binding using the same portable snapshot rules.
 
 ## Validation and boundaries
 

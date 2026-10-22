@@ -65,8 +65,10 @@ Non-ARRAY GET requires identical data types, with receiver-capacity truncation
 for STRING. Non-ARRAY SET also retains existing checked integral-family storage
 conversions and integral-to-REAL conversion. REAL-to-integer conversion remains
 explicit. Scalars, records and joints retain known value/range/config checks.
-Whole FILE, PATH and QUEUE_TYPE values and embedded resources remain excluded;
-static data fields and nodes can still be addressed individually.
+Since 0.99.0, whole QUEUE_TYPE values support independent
+[logical queue transfers](queue-transfers.md). Whole FILE/PATH and embedded
+resources remain excluded; static data fields and nodes can be addressed
+individually.
 
 ## Missing values
 
@@ -109,12 +111,14 @@ an independent typed source at its fourth argument, before the status selector.
 Generic STRING/ARRAY parameters inherit the actual source capacity/shape. GET
 resolves and snapshots the named global after output selectors have run.
 
-Source container/schema checks occur at capture. Known values in selected
+For data transfers, source container/schema checks occur at capture. Known values in selected
 transfer cells are checked after lookup. Untransferred numeric source tail cells
 are not read as values; structural checks still cover the source containers and
 declared STRING capacities. Destination structure is checked, then the complete
 replacement is prepared before publishing data, entry and status. Existing
 aggregate cells retain their identity when updated, preserving captured aliases.
+Whole [queue transfers](queue-transfers.md) validate their complete logical source
+at capture and retain the receiver object while releasing its buffer binding.
 
 Malformed storage, invalid known values, invalid output aliases and forbidden
 resources raise runtime errors. They preserve transfer outputs and storage;

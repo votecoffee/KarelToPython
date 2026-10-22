@@ -1,0 +1,26 @@
+{
+  "version":"0.99.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed broad GET_VAR/SET_VAR type contracts, existing queue operations and authored logical-copy, ownership, failure, ordering, linkage and persistence tests; no native queue-copy execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[420,556],"printed_pages":[370,506],"topic":"GET_VAR/SET_VAR accept any valid KAREL data type except whole PATH; static paths, missing value propagation and status 12311"},{"manual":"MARRC75KR07091E Rev N","pdf_pages":[311,412,434,444],"printed_pages":[261,362,384,394],"topic":"APPEND_QUEUE, GET_QUEUE, INIT_QUEUE and INSERT_QUEUE logical operations and explicit ARRAY argument"}],
+  "implemented":{
+    "source":"Whole QUEUE_TYPE global, attached/explicit binding or reference formal; typed source capture uses checked collection codec",
+    "state":"Initialization flag, ordered sequence/value pairs and counter, including deletion gaps and initialized empty queues",
+    "receiver":"Prepare both sides before commit; retain receiver object identity, replace entries with an independent list and release old buffer without ARRAY synchronization",
+    "binding":"First later queue operation binds an adequate explicit INTEGER ARRAY; preserve ordinary capacity and subsequent buffer-identity guards",
+    "host":"VariableStore.define accepts detached logical queues; typed context persistence retains copied contents/counter",
+    "observations":"queue_transfer_policy and value-free ordinary service records"
+  },
+  "portable_choices":[
+    "Logical independent copy rather than native queue descriptors or a shared backing ARRAY",
+    "Release receiver binding even on self-copy; source binding remains when source and receiver are distinct",
+    "Uninitialized flag copies an empty uninitialized queue with status 12311; whole missing host marker normalizes to that state",
+    "SET validates/captures source before later selectors; GET resolves source after selectors; prior completed effects survive later failure",
+    "Type mismatch returns status 3 with entry/receiver unchanged; malformed source or receiver raises before transfer writes",
+    "Do not enable ordinary resource assignments, value parameters, RETURN, embedded resources or general resource initialization queries"
+  ],
+  "remaining":["Native queue/VR layout and copy ownership","Exact status/cache and initialization equivalence","Controller message queue attachment","Whole FILE transfer","Strict mode","Controller acceptance"],
+  "verification":["tests/test_queue_transfers.py","tests/test_runtime_portability.py","examples/queue_transfer.kl","examples/queue_missing.kl"],
+  "guide":"../queue-transfers.md"
+}

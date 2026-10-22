@@ -54,7 +54,7 @@ internally and in the historical semantic notes.
 
 | Registers and ports | String/position/joint banks, digital/group/analog ports, static GET_VAR/SET_VAR paths | Explicit context, disjoint outputs and bounded same-rank ARRAY/missing-data transfers; attached foreign globals and explicit system roots; no live acquisition. |
 | FILE | OPEN/CLOSE, text/binary READ/WRITE, byte cursors, byte counts and status | MemoryFiles or explicit DirectoryFiles root; copy/delete/rename/list, ATR_UF binary, reverse byte order, EOL and interactive flush; no native device routing. |
-| PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queue procedures | One-based nodes, fixed backing-array capacity, portable status/sequence conventions and no native layout claim. |
+| PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queues and GET_VAR/SET_VAR logical queue transfers | One-based nodes, explicit buffer capacity/rebinding, portable status/sequence conventions and no native layout claim. |
 | Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |
 | Robot model | MIRROR, extended pose metadata, JOINT2POS/POS2JOINT, IN_RANGE/J_IN_RANGE | Explicit right-handed reflection convention, supplied callbacks/limits or standard-DH models with bounded IK, explicit groups/frames/tools and external joints; no inferred robot context or native reachability claim. |
 

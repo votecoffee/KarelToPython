@@ -42,8 +42,8 @@ PROCEDURES = {
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
-    'GET_VAR': (arg('INTEGER','o'),S,S,OA,OI),
-    'SET_VAR': (arg('INTEGER','o'),S,S,arg('ANY'),OI),
+    'GET_VAR': (arg('INTEGER','o'),S,S,arg('VARIABLE','o'),OI),
+    'SET_VAR': (arg('INTEGER','o'),S,S,arg('VARIABLE'),OI),
     'VAR_INFO': (S,S,arg('BOOLEAN','o'),OS,OI,arg('INT_ARRAY','r'),OI,OI),
     'VAR_LIST': (S,S,I,I,I,arg('STRING_ARRAY','r'),OI,OI),
     'PROG_LIST': (S,I,I,I,arg('STRING_ARRAY','r'),OI,OI,arg('INTEGER','r')),
@@ -99,6 +99,7 @@ def signature_for(name,arity):
 
 def matches(spec, kind):
     rt=runtime()
+    if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
     if kind=='GEOMETRY_POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
@@ -362,8 +363,9 @@ class VariableValue:
     def __init__(self,spec,value): self.spec,self.value=spec,value
 
 
-def _variable_data_spec(spec,line=None):
+def _variable_data_spec(spec,line=None,*,queue=False):
     rt=runtime();kind=spec[0]
+    if queue and spec==('QUEUE_TYPE',): return
     if kind=='ARRAY': _variable_data_spec(spec[2],line)
     elif kind in rt.RECORD_TYPES:
         for _,field in rt.record_fields(spec): _variable_data_spec(field,line)
@@ -395,11 +397,21 @@ def _variable_shape(spec,value,line=None):
     elif kind=='STRING' and (type(value) is not str or len(value)>spec[1]): fail('Variable transfer found invalid STRING capacity',line)
 
 
+def queue_variable_value(value,line=None):
+    """Checked logical queue snapshot; never retain its backing ARRAY."""
+    from .storage import collection_payload,restore_collection
+    rt=runtime()
+    if value is rt.UNINITIALIZED: value=rt.QueueValue()
+    try: return restore_collection(('QUEUE_TYPE',),collection_payload(('QUEUE_TYPE',),value))
+    except (ValueError,rt.KarelRuntimeError) as error: fail('Queue variable transfer: '+str(error),line)
+
+
 def variable_value(spec,value,line=None):
     """Capture source data once before later output-selector effects."""
     rt=runtime()
     if spec[0]=='ARRAY' and isinstance(value,rt.Array) and rt.parameter_accepts(spec,value.spec): spec=value.spec
-    _variable_data_spec(spec,line)
+    _variable_data_spec(spec,line,queue=True)
+    if spec==('QUEUE_TYPE',): return VariableValue(spec,queue_variable_value(value,line))
     _variable_shape(spec,value,line)
     return VariableValue(spec,deepcopy(value))
 
@@ -466,7 +478,11 @@ def _variable_array_targets(spec,value,limit):
 def variable_transfer(target,source,*,numeric=False,line=None):
     """Prepare one complete replacement, preserving an ARRAY's unused tail."""
     rt=runtime();spec=target.spec;arrays=spec[0]==source.spec[0]=='ARRAY'
-    _variable_data_spec(source.spec,line);_variable_data_spec(spec,line)
+    _variable_data_spec(source.spec,line,queue=True);_variable_data_spec(spec,line,queue=True)
+    if 'QUEUE_TYPE' in (spec[0],source.spec[0]):
+        if spec!=source.spec: return None
+        copied=queue_variable_value(source.value,line);queue_variable_value(target.raw(),line)
+        return copied,not copied.initialized
     _variable_shape(source.spec,source.value,line)
     if arrays:
         leaf=rt.array_leaf_spec(spec);source_leaf=rt.array_leaf_spec(source.spec)
@@ -501,7 +517,8 @@ class VariableStore:
         self.bindings[program.upper(),name.upper()]=reference
     def define(self,program,name,spec,value=...):
         rt=runtime()
-        with rt._numeric_scope('pythonic'): stored=rt.initial_value(spec) if value is ... else rt.checked(spec,value)
+        with rt._numeric_scope('pythonic'):
+            stored=rt.initial_value(spec) if value is ... else queue_variable_value(value) if spec==('QUEUE_TYPE',) else rt.checked(spec,value)
         reference=rt.Reference(spec,{'value':stored},'value'); self.bind(program,name,reference); return reference
 
 
@@ -1294,7 +1311,11 @@ class ExecutionContext:
         copied,missing=prepared
         key=(program.upper(),path.upper())
         if key not in self.entries: self.entries[key]=len(self.entries)+1
-        destination.storage[destination.key]=rt.replace_value(destination.raw(),copied)
+        current=destination.raw()
+        if type(current) is rt.QueueValue and type(copied) is rt.QueueValue:
+            current.initialized=copied.initialized;current.sequence=copied.sequence
+            current.entries=copied.entries;current.buffer=None
+        else: destination.storage[destination.key]=rt.replace_value(current,copied)
         entry.set(self.entries[key],line); status.set(12311 if missing else 0,line)
     def queue(self,name,args,line):
         rt=runtime()

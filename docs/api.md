@@ -385,6 +385,12 @@ types, preserved tails, status codes and validation boundaries. SET snapshots
 source references before later output selectors; GET snapshots the resolved
 global after selectors. See [variable transfers](variable-transfers.md).
 
+`queue_transfer_policy` describes whole QUEUE_TYPE logical copies, checked
+initialization/order/counter state and receiver buffer release. Explicit
+`VariableStore.define` queue values detach using the same codec. See
+[queue transfers](queue-transfers.md) for ordering, ownership and initialization
+choices; ordinary resource assignments remain excluded.
+
 `PROG_LIST` lists attached Programs and optional immutable
 `ExecutionContext(programs=ProgramCatalog(...))` metadata. Context JSON preserves
 explicit entries under `programs`. `program_listing_policy` records type filters,

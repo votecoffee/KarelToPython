@@ -299,9 +299,9 @@ class CollectionProgramPersistenceTests(unittest.TestCase):
     def test_plain_context_json_shape_stays_unchanged(self):
         self.assertEqual(rt.ExecutionContext().to_config(),{})
 
-    def test_whole_collection_get_var_remains_rejected(self):
+    def test_whole_path_and_file_get_var_remain_rejected(self):
         from karel2py.lexer import TranslationError
-        for kind in ('PATH','QUEUE_TYPE','FILE'):
+        for kind in ('PATH','FILE'):
             with self.subTest(kind=kind),self.assertRaises(TranslationError): compile_program("GET_VAR(e,'','VALUE',value,s)",decl='value: '+kind+' e,s: INTEGER')
 
 

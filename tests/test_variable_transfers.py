@@ -264,8 +264,8 @@ class DynamicTransferOrderAndGuardTests(unittest.TestCase):
     def test_active_for_counter_guard_remains(self):
         with self.assertRaises(TranslationError): compile_program('FOR n=1 TO 2 DO '+transfer('SET_VAR','A','7')+' ENDFOR',decl=BASE+' a: INTEGER')
 
-    def test_whole_resources_remain_rejected(self):
-        for kind in ('FILE','PATH','QUEUE_TYPE'):
+    def test_whole_file_and_path_resources_remain_rejected(self):
+        for kind in ('FILE','PATH'):
             with self.subTest(kind=kind),self.assertRaises(TranslationError): compile_program(transfer('SET_VAR','VALUE','value'),decl=BASE+' value: '+kind)
 
 

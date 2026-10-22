@@ -20,7 +20,7 @@ source-located error. Strict mode remains a future milestone.
 | `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT` | `PortBank` Boolean values | Host supplies inputs; translated assignments write output kinds only. |
 | `GIN/GOUT`, `AIN/AOUT` | Nonnegative checked `int`, finite `float` | Explicit counts and values; no zero-filled or hardware defaults. Analog float values are a portable choice. |
 | `PULSE DOUT[n] FOR ms [NOWAIT]` | Timed logical DOUT values | Checked rounded durations, explicit host polling or scheduler virtual time, caller ownership and terminal freeze. |
-| `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static global paths, bounded ARRAY prefixes and typed missing data; foreign programs use attached namespaces or explicit bindings. See [variable transfers](variable-transfers.md). |
+| `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static globals, bounded ARRAY/partial data and independent logical queue copies; foreign programs use attached namespaces or explicit bindings. See [variable transfers](variable-transfers.md) and [queue transfers](queue-transfers.md). |
 | `VAR_INFO`, `VAR_LIST` | Static global metadata and bounded name catalogs | Canonical type codes, ARRAY dimensions, capacities, portable flags and sorted/paged output; see [variable inspection](variable-inspection.md). |
 | `PROG_LIST` | Attached Programs and explicit immutable program metadata | Type filters, star patterns, sorted pages, 15/39-character formats and optional cursor; see [program listing](program-listing.md). |
 | `UNPOS` | Checked pose-value decomposition | POSITION/XYZWPREXT, expressions and model-backed joints; independent source capture and disjoint outputs; see [pose decomposition](pose-decomposition.md). |
@@ -104,8 +104,10 @@ tail. Typed missing/partial data propagates with status 12311; unknown BYTE rema
 distinct. Complete replacements are prepared before writes. See
 [variable transfers](variable-transfers.md) for capture timing and type rules.
 Foreign storage is supplied with `VariableStore.define(program,path,spec,value)`
-or `bind(program,path,reference)`. Files, queues, paths and protected positional
-fields are not generic variable outputs.
+or `bind(program,path,reference)`. Whole QUEUE_TYPE values copy logical state
+and release receiver buffer binding; an uninitialized queue copies with status
+12311. Files, paths and protected positional fields remain excluded as generic
+variable outputs. See [queue transfers](queue-transfers.md).
 
 Output/resource references must be ordinary writable exact types and disjoint,
 including aggregate descendants. Inputs and reference selectors are captured once

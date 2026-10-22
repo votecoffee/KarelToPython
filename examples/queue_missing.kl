@@ -1,0 +1,15 @@
+PROGRAM queue_missing
+VAR
+  source,target,missing: QUEUE_TYPE
+  a: ARRAY[2] OF INTEGER
+  b: ARRAY[3] OF INTEGER
+  entry,status,n,seq,copy_status,missing_status: INTEGER
+BEGIN
+  INIT_QUEUE(source)
+  APPEND_QUEUE(7,source,a,seq,status)
+  SET_VAR(entry,'','TARGET',source,status)
+  copy_status=status
+  SET_VAR(entry,'','SOURCE',missing,status)
+  missing_status=status
+  GET_QUEUE(target,b,n,seq,status)
+END queue_missing
