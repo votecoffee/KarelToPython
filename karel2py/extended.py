@@ -356,6 +356,139 @@ class ProgramCatalog:
     def to_config(self): return [dict(name=name,type=kind) for name,kind in self._entries]
 
 
+class VariableValue:
+    """Typed independent SET_VAR input, including missing data."""
+    __slots__=('spec','value')
+    def __init__(self,spec,value): self.spec,self.value=spec,value
+
+
+def _variable_data_spec(spec,line=None):
+    rt=runtime();kind=spec[0]
+    if kind=='ARRAY': _variable_data_spec(spec[2],line)
+    elif kind in rt.RECORD_TYPES:
+        for _,field in rt.record_fields(spec): _variable_data_spec(field,line)
+    elif kind not in ('JOINTPOS','INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING'):
+        fail('Variable transfers require data values without resources',line)
+
+
+def _variable_shape(spec,value,line=None):
+    rt=runtime();kind=spec[0]
+    if kind not in (*rt.RECORD_TYPES,'ARRAY','JOINTPOS','INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING'):
+        fail('Variable transfers require data values without resources',line)
+    if value is rt.UNINITIALIZED: return
+    if value is rt.UNKNOWN_BYTE:
+        if kind!='BYTE': fail('Unknown BYTE marker requires BYTE storage',line)
+        return
+    if kind=='ARRAY':
+        if (type(value) is not rt.Array or value.spec!=spec or value.shape!=rt.array_shape(spec)
+                or len(value.values)!=math.prod(rt.array_shape(spec))): fail('Variable transfer found malformed ARRAY storage',line)
+        for item in value.values: _variable_shape(spec[2],item,line)
+    elif kind in rt.RECORD_TYPES:
+        fields=dict(rt.record_fields(spec))
+        if type(value) is not rt.Structure or value.spec!=spec or value.types!=fields or set(value.values)!=set(fields):
+            fail('Variable transfer found malformed record storage',line)
+        for name,field in fields.items(): _variable_shape(field,value.values[name],line)
+    elif kind=='JOINTPOS':
+        if type(value) is not rt.JointPosition or value.spec!=spec or len(value.values)!=rt.joint_width(spec):
+            fail('Variable transfer found malformed joint storage',line)
+        for axis in value.values: _variable_shape(('REAL',),axis,line)
+    elif kind=='STRING' and (type(value) is not str or len(value)>spec[1]): fail('Variable transfer found invalid STRING capacity',line)
+
+
+def variable_value(spec,value,line=None):
+    """Capture source data once before later output-selector effects."""
+    rt=runtime()
+    if spec[0]=='ARRAY' and isinstance(value,rt.Array) and rt.parameter_accepts(spec,value.spec): spec=value.spec
+    _variable_data_spec(spec,line)
+    _variable_shape(spec,value,line)
+    return VariableValue(spec,deepcopy(value))
+
+
+def variable_reference(reference,line=None):
+    rt=runtime()
+    if not isinstance(reference,rt.Reference): fail('SET_VAR input requires a typed data reference',line)
+    return variable_value(reference.spec,reference.raw(),line)
+
+
+def _variable_compatible(target,source,*,numeric=False):
+    if target==source or target[0]==source[0]=='STRING': return True
+    return numeric and ((target[0]=='REAL' and source[0] in ('INTEGER','BYTE','SHORT'))
+                        or target[0] in ('INTEGER','BYTE','SHORT') and source[0] in ('INTEGER','BYTE','SHORT'))
+
+
+def _variable_copy(spec,value,line=None):
+    rt=runtime();kind=spec[0]
+    if value is rt.UNINITIALIZED: return value
+    if value is rt.UNKNOWN_BYTE:
+        if kind!='BYTE': fail('Unknown BYTE contents cannot be converted to another type',line)
+        return value
+    if kind=='ARRAY':
+        copied=rt.Array(spec);copied.values[:]=[_variable_copy(spec[2],item,line) for item in value.values];return copied
+    if kind in rt.RECORD_TYPES:
+        if kind in rt.DATA_RECORD_TYPES: rt._record_uninitialized(value,spec,line)
+        copied=rt.Structure(spec)
+        for name,field in rt.record_fields(spec): copied.values[name]=rt.replace_value(copied.values[name],_variable_copy(field,value.values[name],line))
+        return copied
+    if kind=='JOINTPOS':
+        copied=rt.JointPosition(spec);copied.values[:]=[_variable_copy(('REAL',),axis,line) for axis in value.values];return copied
+    return rt.checked(spec,value,line)
+
+
+def _variable_missing(value):
+    rt=runtime()
+    if value is rt.UNINITIALIZED: return True
+    if isinstance(value,(rt.Array,rt.JointPosition)): return any(_variable_missing(item) for item in value.values)
+    if isinstance(value,rt.Structure): return any(_variable_missing(item) for item in value.values.values())
+    return False
+
+
+def _variable_array_values(spec,value):
+    rt=runtime()
+    if value is rt.UNINITIALIZED:
+        for _ in range(math.prod(rt.array_dimensions(spec))): yield rt.UNINITIALIZED
+    elif spec[2][0]=='ARRAY':
+        for item in value.values: yield from _variable_array_values(spec[2],item)
+    else: yield from value.values
+
+
+def _variable_array_targets(spec,value,limit):
+    rt=runtime()
+    for index,item in enumerate(value.values):
+        if not limit: break
+        if spec[2][0]=='ARRAY':
+            width=math.prod(rt.array_dimensions(spec[2]));count=min(limit,width)
+            if item is rt.UNINITIALIZED: item=value.values[index]=rt.Array(spec[2])
+            yield from _variable_array_targets(spec[2],item,count);limit-=count
+        else:
+            yield rt.Reference(spec[2],value.values,index);limit-=1
+
+
+def variable_transfer(target,source,*,numeric=False,line=None):
+    """Prepare one complete replacement, preserving an ARRAY's unused tail."""
+    rt=runtime();spec=target.spec;arrays=spec[0]==source.spec[0]=='ARRAY'
+    _variable_data_spec(source.spec,line);_variable_data_spec(spec,line)
+    _variable_shape(source.spec,source.value,line)
+    if arrays:
+        leaf=rt.array_leaf_spec(spec);source_leaf=rt.array_leaf_spec(source.spec)
+        if (len(rt.array_dimensions(spec))!=len(rt.array_dimensions(source.spec))
+                or not _variable_compatible(leaf,source_leaf)): return None
+    elif not _variable_compatible(spec,source.spec,numeric=numeric): return None
+    _variable_shape(spec,target.raw(),line)
+    if source.value is rt.UNINITIALIZED: return rt.UNINITIALIZED,True
+    if not arrays:
+        copied=_variable_copy(spec,_variable_copy(source.spec,source.value,line),line)
+        return copied,_variable_missing(copied)
+    current=target.raw()
+    copied=rt.Array(spec) if current is rt.UNINITIALIZED else deepcopy(current)
+    count=min(math.prod(rt.array_dimensions(spec)),math.prod(rt.array_dimensions(source.spec)))
+    missing=False
+    for reference,item in zip(_variable_array_targets(spec,copied,count),_variable_array_values(source.spec,source.value)):
+        prepared=_variable_copy(reference.spec,_variable_copy(source_leaf,item,line),line)
+        missing|=_variable_missing(prepared)
+        reference.storage[reference.key]=rt.replace_value(reference.raw(),prepared)
+    return copied,missing
+
+
 class VariableStore:
     def __init__(self): self.bindings={}; self.programs={}
     def attach(self,name,state):
@@ -1146,17 +1279,23 @@ class ExecutionContext:
         try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line)
         except rt.KarelRuntimeError: status.set(1,line); return
         if type(target) is not rt.Reference: fail('Protected variable storage cannot be a GET_VAR/SET_VAR alias',line)
-        key=(program.upper(),path.upper())
-        if key not in self.entries: self.entries[key]=len(self.entries)+1
         if name=='GET_VAR':
-            raw=target.raw()
-            if raw is rt.UNINITIALIZED: value.clear(); entry.set(self.entries[key],line); status.set(12311,line); return
-            if not (value.spec==target.spec or value.spec[0]==target.spec[0]=='STRING'): status.set(3,line); return
-            copied=rt.checked(value.spec,raw,line); value.set(copied,line)
+            source=variable_value(target.spec,target.raw(),line);destination=value
         else:
             if rt._reference_cells(target) & (rt._reference_cells(entry)|rt._reference_cells(status)): fail('SET_VAR target overlaps entry/status',line)
-            copied=rt.checked(target.spec,value,line); target.set(copied,line)
-        entry.set(self.entries[key],line); status.set(0,line)
+            if type(value) is VariableValue: source=value
+            else:
+                spec=getattr(value,'spec',None) or (('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254) if type(value) is str else None)
+                if spec is None: fail('SET_VAR requires a typed data input',line)
+                source=variable_value(spec,value,line)
+            destination=target
+        prepared=variable_transfer(destination,source,numeric=name=='SET_VAR',line=line)
+        if prepared is None: status.set(3,line);return
+        copied,missing=prepared
+        key=(program.upper(),path.upper())
+        if key not in self.entries: self.entries[key]=len(self.entries)+1
+        destination.storage[destination.key]=rt.replace_value(destination.raw(),copied)
+        entry.set(self.entries[key],line); status.set(12311 if missing else 0,line)
     def queue(self,name,args,line):
         rt=runtime()
         if name=='INIT_QUEUE':

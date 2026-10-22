@@ -290,6 +290,11 @@ VAR_LIST filters and pages explicit global names with checked output formats.
 See [variable inspection](docs/variable-inspection.md) for static paths, supplied
 namespaces and portable resource/initialization choices.
 
+GET_VAR/SET_VAR copy bounded ARRAY prefixes across different sizes and preserve
+the receiver tail. Typed SET sources and partial aggregates can transfer missing
+data. See [variable transfers](docs/variable-transfers.md) for type, ordering,
+unknown BYTE and status rules.
+
 PROG_LIST filters and pages attached programs and explicit catalog metadata,
 including program types, checked names and optional cursor pagination. See
 [program listing](docs/program-listing.md) for context setup and portable formats.

@@ -1,0 +1,27 @@
+{
+  "version":"0.98.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed GET_VAR/SET_VAR manual contracts and authored offline transfer, ordering, alias, integration and persistence tests; no native execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[420,556],"printed_pages":[370,506],"topic":"Five arguments, static variable paths, smaller ARRAY/STRING transfer, exact STRUCTURE data, missing propagation and status 12311; whole PATH exclusion"}],
+  "implemented":{
+    "lookup":"Current/attached globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes",
+    "arrays":"Same logical rank and compatible terminal type; row-major minimum total element count; preserve destination tail; allow different outer ARRAY identities/extents and STRING capacities",
+    "missing":"Typed independent SET source capture includes missing references; propagate partial/missing record/joint/ARRAY data; distinct unknown BYTE markers",
+    "validation":"Full source/destination structural checks, selected known data checks, exact output/protection/overlap guards and prepared replacement before commit",
+    "observations":"variable_transfer_policy plus value-free source/runtime service records; existing typed persistence preserves transferred data"
+  },
+  "portable_choices":[
+    "Same logical rank with row-major sequential prefix across differing shapes; no rank flattening or ARRAY numeric element conversion",
+    "Outer ARRAY identity can differ for GET_VAR/SET_VAR while ordinary assignments and routine type rules remain unchanged",
+    "Missing status considers only copied cells; unknown BYTE remains unknown rather than an initialization flag",
+    "Whole missing source clears a compatible receiver; type/rank checks precede clearing",
+    "SET scalar storage conversions remain checked; incompatible GET/SET types return status 3 without allocating a cache ID",
+    "Capture SET source before later selectors; GET source lookup follows selectors; retain earlier effects on later failure",
+    "Context-local stable cache IDs are published only on completed transfers and are not persisted",
+    "Whole FILE/QUEUE_TYPE/PATH and embedded resources remain excluded; protected data can be read without granting writable aliases"
+  ],
+  "remaining":["Native layout/order/status/cache equivalence","Controller-system discovery and remote transfers","Whole resource transfer semantics","Strict mode","Controller acceptance"],
+  "verification":["tests/test_variable_transfers.py","tests/test_runtime_portability.py","examples/variable_prefix.kl","examples/variable_missing.kl"],
+  "guide":"../variable-transfers.md"
+}

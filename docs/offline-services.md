@@ -20,7 +20,7 @@ source-located error. Strict mode remains a future milestone.
 | `DIN/DOUT`, `RDI/RDO`, `RDIN/RDOUT` | `PortBank` Boolean values | Host supplies inputs; translated assignments write output kinds only. |
 | `GIN/GOUT`, `AIN/AOUT` | Nonnegative checked `int`, finite `float` | Explicit counts and values; no zero-filled or hardware defaults. Analog float values are a portable choice. |
 | `PULSE DOUT[n] FOR ms [NOWAIT]` | Timed logical DOUT values | Checked rounded durations, explicit host polling or scheduler virtual time, caller ownership and terminal freeze. |
-| `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static global paths such as `PARTS[2].VALUE`; foreign programs use attached namespaces or explicit bindings. No Python evaluation of paths. |
+| `GET_VAR`, `SET_VAR` | Checked references and `VariableStore` | Static global paths, bounded ARRAY prefixes and typed missing data; foreign programs use attached namespaces or explicit bindings. See [variable transfers](variable-transfers.md). |
 | `VAR_INFO`, `VAR_LIST` | Static global metadata and bounded name catalogs | Canonical type codes, ARRAY dimensions, capacities, portable flags and sorted/paged output; see [variable inspection](variable-inspection.md). |
 | `PROG_LIST` | Attached Programs and explicit immutable program metadata | Type filters, star patterns, sorted pages, 15/39-character formats and optional cursor; see [program listing](program-listing.md). |
 | `UNPOS` | Checked pose-value decomposition | POSITION/XYZWPREXT, expressions and model-backed joints; independent source capture and disjoint outputs; see [pose decomposition](pose-decomposition.md). |
@@ -98,8 +98,11 @@ axis counts, optional query groups, grouped clearing and logical unsimulation.
 `GET_VAR(entry,program,path,value,status)` and SET_VAR use five arguments.
 The entry output is a stable positive cache ID. An empty program string selects
 the current program's globals, independently of current routine-local shadows.
-Unknown paths return status 1; GET type mismatch returns 3. An uninitialized GET
-clears the destination and returns 12311. SET validates before replacing storage.
+Unknown paths return status 1; incompatible GET/SET types or ARRAY ranks return 3.
+Same-rank ARRAY transfers copy the smaller element count and preserve the receiver
+tail. Typed missing/partial data propagates with status 12311; unknown BYTE remains
+distinct. Complete replacements are prepared before writes. See
+[variable transfers](variable-transfers.md) for capture timing and type rules.
 Foreign storage is supplied with `VariableStore.define(program,path,spec,value)`
 or `bind(program,path,reference)`. Files, queues, paths and protected positional
 fields are not generic variable outputs.

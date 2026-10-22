@@ -38,7 +38,7 @@ typed partial PATH data and logical queue entries/sequences with explicit buffer
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |
-| Registers and I/O | Numeric/string/position banks and ports persist to typed JSON; timed DOUT pulses; position type/axes, grouped clearing and simulation lifecycle; attached program globals and explicitly supplied system roots resolve through GET_VAR/SET_VAR | Live I/O acquisition and automatic controller-system-variable discovery |
+| Registers and I/O | Numeric/string/position banks and ports persist to typed JSON; timed DOUT pulses; position type/axes, grouped clearing and simulation lifecycle; attached program globals and explicit system roots resolve through GET_VAR/SET_VAR with bounded ARRAY and missing-data transfers | Live I/O acquisition and automatic controller-system-variable discovery |
 | Files and collections | Explicit directory backend, copy/delete/rename/list/compare/print, ASCII/binary transfers, attributes, typed PATH/header and QUEUE_TYPE operations | Native devices, proprietary binary layouts, association records and native alarms |
 | Control and linkage | Deterministic task scheduler, virtual time, event broadcasts, port edges, EVAL capture, scan intervals, optional local handler lifetime, typed source-project linkage | Native interrupts/priorities, motion UNTIL handlers, native alarm dictionaries and external ABI |
 | Geometry | Explicit standard-DH model, forward/numerical inverse conversion, limits/reachability, external kinematic joints, groups/frames/tools, joint/Cartesian assignments and extended-pose comparisons | Robot-specific calibration/configuration branch selection, collisions and certified reachability |

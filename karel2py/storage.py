@@ -32,6 +32,13 @@ def typed_value(value, spec=None):
     return {'type':json.loads(json.dumps(spec)),'value':runtime.snapshot_value(value)}
 
 
+def array_state_values(shape,payload):
+    """Flatten only physical ARRAY dimensions; leave named element payloads intact."""
+    if type(payload) is not list or len(payload)!=shape[0]: raise ValueError('ARRAY state shape mismatch')
+    if len(shape)==1: return payload
+    return [value for row in payload for value in array_state_values(shape[1:],row)]
+
+
 def restore_value(spec, payload):
     runtime=rt(); spec=tuple_spec(spec)
     if spec[0]=='FILE': raise ValueError('FILE handles are not persistent values')
@@ -42,8 +49,15 @@ def restore_value(spec, payload):
         return runtime.UNKNOWN_BYTE
     if spec[0]=='ARRAY':
         result=runtime.Array(spec)
-        if type(payload) is not list or len(payload)!=len(result.values): raise ValueError('ARRAY state shape mismatch')
-        result.values[:]=[restore_value(spec[2],item) for item in payload]
+        try:
+            values=array_state_values(result.shape,payload)
+            restored=[restore_value(spec[2],item) for item in values]
+        except (ValueError,runtime.KarelRuntimeError):
+            # Earlier configurations accepted flat physical storage, including
+            # singleton dimensions. Keep that explicit representation readable.
+            if len(result.shape)==1 or type(payload) is not list or len(payload)!=len(result.values): raise
+            restored=[restore_value(spec[2],item) for item in payload]
+        result.values[:]=restored
         return result
     if spec[0]=='JOINTPOS':
         result=runtime.JointPosition(spec)
@@ -57,7 +71,8 @@ def restore_value(spec, payload):
         if type(payload) is not dict: raise ValueError('Record state must be an object')
         fields={key.upper():value for key,value in payload.items()}
         if set(fields)!=set(result.types): raise ValueError('Record state fields do not match its type')
-        result.values.update({key:restore_value(member,fields[key]) for key,member in result.types.items()})
+        for key,member in result.types.items():
+            result.values[key]=runtime.replace_value(result.values[key],restore_value(member,fields[key]))
         if runtime.fully_initialized(result): return runtime.checked(spec,result)
         return result
     return runtime.checked(spec,payload)

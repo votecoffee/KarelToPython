@@ -1,0 +1,22 @@
+PROGRAM variable_prefix
+VAR
+  entry,status,read_status,write_status: INTEGER
+  source: ARRAY[2,2] OF INTEGER
+  destination: ARRAY[2,3] OF INTEGER
+  labels: ARRAY[2] OF STRING[8]
+  short_labels: ARRAY[3] OF STRING[3]
+BEGIN
+  source[1,1]=10
+  source[1,2]=20
+  source[2,1]=30
+  source[2,2]=40
+  destination[2,2]=50
+  destination[2,3]=60
+  GET_VAR(entry,'','SOURCE',destination,status)
+  read_status=status
+  labels[1]='alpha'
+  labels[2]='beta'
+  short_labels[3]='end'
+  SET_VAR(entry,'','SHORT_LABELS',labels,status)
+  write_status=status
+END variable_prefix

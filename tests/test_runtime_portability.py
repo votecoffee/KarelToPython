@@ -80,7 +80,9 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('pose_decomposition', 'CONSTRUCTOR_X', 4.),
                     ('joint_decomposition', 'X', 100.),
                     ('collection_state', 'FIRST', 42),
-                    ('restored_collections', 'NEW_ID', 4)]
+                    ('restored_collections', 'NEW_ID', 4),
+                    ('variable_prefix', 'DESTINATION', [[10,20,30],[40,50,60]]),
+                    ('variable_missing', 'PARTIAL_STATUS', 12311)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

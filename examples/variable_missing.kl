@@ -1,0 +1,21 @@
+PROGRAM variable_missing
+VAR
+  entry,status,clear_status,partial_status,byte_status: INTEGER
+  missing,value: INTEGER
+  cleared: BOOLEAN
+  source: ARRAY[2] OF INTEGER
+  destination: ARRAY[3] OF INTEGER
+  bytes,byte_copy: ARRAY[1] OF BYTE
+BEGIN
+  value=99
+  SET_VAR(entry,'','VALUE',missing,status)
+  clear_status=status
+  cleared=UNINIT(value)
+  source[1]=7
+  destination[2]=8
+  destination[3]=9
+  GET_VAR(entry,'','SOURCE',destination,status)
+  partial_status=status
+  SET_VAR(entry,'','BYTE_COPY',bytes,status)
+  byte_status=status
+END variable_missing

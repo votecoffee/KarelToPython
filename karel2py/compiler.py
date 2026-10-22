@@ -2059,7 +2059,7 @@ class Emitter:
         self.check_for_call(expr.token)
         if expr.value=='SET_VAR' and self.active_counters: self.error('E_FOR_COUNTER','SET_VAR cannot indirectly write an active FOR counter',expr.token)
         codes=[]
-        for value,(mode,kind) in zip(expr.args,signature):
+        for index,(value,(mode,kind)) in enumerate(zip(expr.args,signature)):
             discarded=value
             while discarded.kind=='group': discarded=discarded.args[0]
             if mode=='m' and discarded.kind=='literal' and type(discarded.value) is int and discarded.value==0:
@@ -2071,11 +2071,16 @@ class Emitter:
                 if self.is_config_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG fields cannot be output aliases',value.token)
                 code,spec=self.reference(value)
             else:
-                code,spec=self.expression(value)
+                variable_input=expr.value=='SET_VAR' and index==3
+                reference_input=variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
+                if reference_input: code,spec=self.reference(discarded)
+                else: code,spec=self.expression(value)
                 if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
                 if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
                 if kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
-                if kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.assignment_value({code},{value.token.line})'
+                if reference_input: code=f'_rt.variable_reference({code},{value.token.line})'
+                elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line})'
+                elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.assignment_value({code},{value.token.line})'
             if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
             codes.append(code)
         self.features.add(expr.value); self.features.add('extended services')
@@ -3568,6 +3573,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         validation='Known finite/type/config/capacity data, canonical missing markers, 32767 nodes/entries and distinct positive queue IDs within the sequence counter; reject malformed/embedded resources before save writes',
         boundary='Portable logical values only; no controller VR/native collection layout, backing-array graph identity, queue capacity restoration, call stacks or suspended execution; strict deferred',
         guide='docs/collection-persistence.md',controller_validated=False)
+    report['variable_transfer_policy']=dict(
+        procedures=['GET_VAR','SET_VAR'],
+        lookup='Five arguments; current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',
+        arrays='Same logical rank and compatible terminal data type; row-major prefix of the smaller total element count; outer extents and ARRAY identities may differ; preserve receiver tail; STRING leaves truncate to receiver capacity',
+        capture='SET_VAR captures a typed independent input once before later selectors, including missing reference data; GET_VAR resolves and snapshots its source after output selectors; source structure checked at capture, transferred known data checked after lookup',
+        missing='Whole missing source clears a compatible receiver; partial missing leaves propagate in the transferred prefix; status 12311 reflects copied missing data only; unknown BYTE retained distinctly without inventing readable contents',
+        status='Portable 0 success, 1 lookup missing, 3 incompatible type/rank, 12311 transferred missing data; type guard precedes missing propagation; failed lookup/type writes status only; cache IDs published only after complete data validation',
+        outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
+        boundary='Resource-free data only; ordinary assignment/routine/RETURN nominal ARRAY rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
+        guide='docs/variable-transfers.md',controller_validated=False)
     report['variable_inspection_policy']=dict(
         procedures=['VAR_INFO','VAR_LIST'],type_codes=dict(VARIABLE_TYPE_CODES),
         lookup='Current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',

@@ -52,7 +52,7 @@ internally and in the historical semantic notes.
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
 
 
-| Registers and ports | String/position/joint banks, digital/group/analog ports, static GET_VAR/SET_VAR paths | Explicit context, checked values and disjoint outputs; attached foreign globals and explicit system roots; no live acquisition. |
+| Registers and ports | String/position/joint banks, digital/group/analog ports, static GET_VAR/SET_VAR paths | Explicit context, disjoint outputs and bounded same-rank ARRAY/missing-data transfers; attached foreign globals and explicit system roots; no live acquisition. |
 | FILE | OPEN/CLOSE, text/binary READ/WRITE, byte cursors, byte counts and status | MemoryFiles or explicit DirectoryFiles root; copy/delete/rename/list, ATR_UF binary, reverse byte order, EOL and interactive flush; no native device routing. |
 | PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queue procedures | One-based nodes, fixed backing-array capacity, portable status/sequence conventions and no native layout claim. |
 | Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |

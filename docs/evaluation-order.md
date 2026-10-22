@@ -84,6 +84,13 @@ independent source copy. Duplicate outputs and exact output type/protection
 checks still apply before writes. A failed source skips selectors; a later
 failure retains prior source/index effects without partial UNPOS outputs.
 
+Since 0.98.0, [SET_VAR](variable-transfers.md) captures its fourth argument as
+independent typed data before the status selector runs, including missing
+reference contents. It checks source structure at capture and selected known
+data after path lookup. GET_VAR resolves and captures the global after output
+selectors. Complete replacements are prepared before writes; earlier selector
+effects survive later failures.
+
 FOR evaluates the initial expression once, stores it in the counter, then
 evaluates the final expression once. The final expression can read the initialized
 counter. The resulting counter value and inclusive stop are captured for Python

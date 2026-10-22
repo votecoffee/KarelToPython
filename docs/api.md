@@ -379,6 +379,12 @@ context. They reuse ordinary output/reference checks and source-located
 codes, canonical ARRAY/alias metadata, portable flags, filters and pagination.
 See [variable inspection](variable-inspection.md) for complete signatures and statuses.
 
+`GET_VAR`/`SET_VAR` support bounded same-rank ARRAY prefix copies and typed
+missing/partial data. `variable_transfer_policy` records capture timing, compatible
+types, preserved tails, status codes and validation boundaries. SET snapshots
+source references before later output selectors; GET snapshots the resolved
+global after selectors. See [variable transfers](variable-transfers.md).
+
 `PROG_LIST` lists attached Programs and optional immutable
 `ExecutionContext(programs=ProgramCatalog(...))` metadata. Context JSON preserves
 explicit entries under `programs`. `program_listing_policy` records type filters,
