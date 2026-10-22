@@ -518,6 +518,7 @@ class RobotContext:
         self.current=current; self.active_frame=active_frame; self.active_tool=active_tool
         self.frames=dict(frames or {}); self.tools=dict(tools or {}); self.model_config=None; self.model=None
         self.joint_limits=tuple(joint_limits) if joint_limits is not None else None
+        if self.joint_limits is not None and not 1<=len(self.joint_limits)<=9: raise ValueError('Explicit limits require 1..9 joints')
         if self.joint_limits is not None and any(len(pair)!=2 or not all(type(x) in (int,float) and math.isfinite(x) for x in pair) or pair[0]>pair[1] for pair in self.joint_limits): raise ValueError('Invalid explicit joint limits')
     @classmethod
     def from_config(cls,config):
@@ -536,8 +537,7 @@ class RobotContext:
         if name=='CURJPOS':
             value=self.current.joints
             if value is None: fail('CURJPOS requires supplied current joints',line)
-            result=rt.JointPosition(('JOINTPOS',9)); result.values[:]=list(value.values)+[0.]*(9-len(value.values))
-            return rt.checked(result.spec,result,line)
+            return rt.padded_joints(value,line)
         value=self.current.position
         if value is None:
             if self.model is None: fail('CURPOS requires a supplied pose or current joints with a configured DH model',line)
@@ -546,6 +546,7 @@ class RobotContext:
         return pose_extended(rt.frame_value(value,line),line)
     def to_config(self):
         config=deepcopy(self.model_config) if self.model_config is not None else {}
+        if self.model is None and self.joint_limits is not None: config['joint_limits']=[list(pair) for pair in self.joint_limits]
         if self.groups:
             groups={str(group):value.to_config() for group,value in self.groups.items()}
             if not any(value is not None for value in groups.values()): return None
@@ -557,19 +558,33 @@ class RobotContext:
         elif self.current is not None: config['current']=self.current.to_config()
         else:
             config.pop('current',None)
-            if 'dh' not in config: return None
+            if 'dh' not in config and 'joint_limits' not in config: return None
         if not self.groups and self.active_group!=config.get('active_group',1): config['active_group']=self.active_group
         if self.model is not None:
+            from .storage import typed_value,decode_typed
+            from .kinematics import pose
+            identity=typed_value(pose())
+            for key,values,getter in (('frames',self.frames,self.frame),('tools',self.tools,self.tool)):
+                original=config.get(key,{})
+                observed={}
+                for number in values:
+                    row=typed_value(getter(number)); text=str(number)
+                    if number==0 and text not in original and row==identity: continue
+                    observed[text]=deepcopy(original[text]) if text in original and typed_value(decode_typed(original[text])[1])==row else row
+                if observed or key in config: config[key]=observed
+            self.frame(self.active_frame); self.tool(self.active_tool)
             if self.active_frame!=config.get('frame',0): config['frame']=self.active_frame
             if self.active_tool!=config.get('tool',0): config['tool']=self.active_tool
         if self.model_config is None and config and self.active_group!=1: config['active_group']=self.active_group
         return config or None
     def frame(self,number=0):
+        if type(number) is not int or not 0<=number<=32767: fail('Frame identifier must be an INTEGER in 0..32767')
         if number not in self.frames: fail('Requested frame is not configured')
-        return self.frames[number].clone()
+        with runtime()._numeric_scope('pythonic'): return runtime().frame_value(self.frames[number])
     def tool(self,number=0):
+        if type(number) is not int or not 0<=number<=32767: fail('Tool identifier must be an INTEGER in 0..32767')
         if number not in self.tools: fail('Requested tool is not configured')
-        return self.tools[number].clone()
+        with runtime()._numeric_scope('pythonic'): return runtime().frame_value(self.tools[number])
 
 
 class TaskRegistry:
@@ -911,7 +926,7 @@ class ExecutionContext:
             code,value=bank.read(number,group)
             if code==0:
                 if name=='GET_POS_REG' and value.spec[0]!='JOINTPOS': value=pose_extended(value,line)
-                elif name=='GET_JPOS_REG' and value.spec[0]=='JOINTPOS' and value.spec!=('JOINTPOS',9): code=3
+                elif name=='GET_JPOS_REG' and value.spec[0]=='JOINTPOS': value=rt.padded_joints(value,line)
                 elif (name=='GET_JPOS_REG')!=(value.spec[0]=='JOINTPOS'): code=3
             args[1].set(code,line)
             if code: fail('Position register is absent, out of range or has a different representation',line)
@@ -963,16 +978,17 @@ class ExecutionContext:
             args[-1].set(code,line); return
         if name=='MIRROR': return mirror(*args,line=line)
         if name in ('IN_RANGE','J_IN_RANGE'):
-            robot=self.require('robot',line).for_group(getattr(state,'robot_group',None)); value=args[0]
+            robot=self.require('robot',line).for_group(rt.task_root(state).robot_group); value=args[0]
             if name=='IN_RANGE':
                 if robot.reachable is None: fail('IN_RANGE requires an explicit reachability adapter',line)
                 pose=rt.frame_value(value,line)
                 try: answer=robot.reachable(pose)
                 except Exception as exc: raise rt.KarelRuntimeError('Reachability adapter failed: '+str(exc),line) from exc
                 return rt.boolean(answer,line)
-            if robot.joint_limits is None or len(robot.joint_limits)!=len(value.values): fail('J_IN_RANGE requires explicit limits for every joint',line)
-            return all(lo<=rt.real(axis,line)<=hi for axis,(lo,hi) in zip(value.values,robot.joint_limits))
-        if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=getattr(state,'robot_group',None))
+            if robot.joint_limits is None: fail('J_IN_RANGE requires explicit limits for every joint',line)
+            values=rt.joint_values(value,len(robot.joint_limits),line)
+            return all(lo<=axis<=hi for axis,(lo,hi) in zip(values,robot.joint_limits))
+        if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=rt.task_root(state).robot_group)
         fail('Unsupported extended operation '+name,line)
     def resolve(self,state,program,path,line=None):
         rt=runtime(); program=program.upper(); path=path.upper()
@@ -1073,6 +1089,10 @@ class ExecutionContext:
             args[4].set(position,line); args[5].set(config,line)
             for i,value in enumerate(external): array.set(i+1,value,line)
         else:
+            if robot.model is not None:
+                if args[7].spec not in (('JOINTPOS',robot.model.axes),('JOINTPOS',9)): fail('Inverse output must match the model axes or JOINTPOS9',line)
+                values=rt.joint_values(result,robot.model.axes,line)
+                result=rt.JointPosition(args[7].spec);result.values[:]=values+[0.]*(len(result.values)-len(values))
             result=rt.checked(args[7].spec,result,line); args[7].set(result,line)
         args[-1].set(0,line)
 

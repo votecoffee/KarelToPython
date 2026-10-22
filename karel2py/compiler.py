@@ -3488,6 +3488,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='State-only and model-backed contexts serialize latest snapshots and grouped state; no call stacks, motion or time evolution restored',
         boundary='Supplied/model-derived offline state only; no encoders, measured consistency, motion execution, mask authentication, calibrated geometry, native unused-axis encoding or controller acceptance',
         guide='docs/current-robot-state.md',controller_validated=False)
+    report['joint_interoperability_policy']=dict(
+        input='Model conversions and explicit joint-range contexts accept their exact axis width or complete JOINTPOS9 with zero-only unused slots; other widths and nonzero padding reject',
+        output='Model POS2JOINT can write the model width or JOINTPOS9; GET_JPOS_REG and CURJPOS return independent padded nine-slot values without changing stored widths',
+        values='Finite complete axes checked before conversion/range output; fractional Pythonic values retained; no discarded nonzero axes or global implicit JOINTPOS assignment conversion',
+        groups='Current-state, JOINT2POS/POS2JOINT, IN_RANGE and J_IN_RANGE use the calling root task group across linked routines',
+        frames='Loaded-model reachability reads current active frame/tool; latest valid frame/tool values and selections persist, preserving unchanged input representations and omitted default identity entries',
+        limits='Standalone explicit joint_limits contexts can be serialized with or without current snapshots; DH models retain limits in their rows, not a second joint_limits field',
+        boundary='Offline model/limit interoperability only; custom callbacks without a model keep exact output width; no physical axes inferred, native padding encoding, collision checking or controller acceptance',
+        guide='docs/joint-interoperability.md',controller_validated=False)
     report['cooperative_policy'] = dict(
         enabled=report['cooperative_execution'],
         generation='Automatic for task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',

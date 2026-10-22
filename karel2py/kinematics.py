@@ -120,8 +120,7 @@ class SerialRobotModel:
     def forward(self,joints,uframe,utool,config_ref=0,*,check_limits=True):
         if type(check_limits) is not bool: raise TypeError('check_limits must be BOOLEAN')
         if config_ref!=0: raise ValueError('Portable DH model supports config_ref=0')
-        values=[rt().real(value) for value in joints.values]
-        if len(values)!=self.axes: raise ValueError('Joint data does not match the explicit model')
+        values=rt().joint_values(joints,self.axes)
         if check_limits and not self.within_limits(values): raise ValueError('Joint values exceed model limits')
         result=multiply(inverse(matrix(uframe)),multiply(multiply(self.base,self.chain(values)),matrix(utool)))
         cfg=uframe.values['CONFIG_DATA'].clone()
@@ -166,11 +165,11 @@ class SerialRobotModel:
 
     def inverse(self,reference,position,uframe,utool,config_ref,config,external):
         if config_ref!=0: raise ValueError('Portable DH model supports config_ref=0')
-        values=[rt().real(value) for value in reference.values]
+        values=rt().joint_values(reference,self.axes)
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe),matrix(position)),inverse(matrix(utool))))
         fixed={}
         if self.external_axes:
-            axes=[rt().real(value) for value in external.values]
+            with rt()._numeric_scope('pythonic'): axes=[rt().real(value) for value in external.values]
             if len(axes)<self.external_axes: raise ValueError('External-axis input is shorter than the model')
             fixed={self.axes-self.external_axes+i:axes[i] for i in range(self.external_axes)}
         result=self.solve(target,values,fixed=fixed)
@@ -190,8 +189,9 @@ def robot_context_from_config(config):
     from .extended import RobotContext,RobotState
     from .storage import decode_typed
     if type(config) is not dict: raise ValueError('Robot context must be an object')
-    allowed={'groups','active_group','dh','external_axes','base','iterations','position_tolerance','orientation_tolerance','frames','tools','frame','tool','current'}
+    allowed={'groups','active_group','dh','external_axes','base','iterations','position_tolerance','orientation_tolerance','frames','tools','frame','tool','current','joint_limits'}
     if set(config)-allowed: raise ValueError('Unknown robot context fields')
+    if 'joint_limits' in config and type(config['joint_limits']) is not list: raise ValueError('joint_limits must be a list of explicit bounds')
     if 'groups' in config:
         if set(config)-{'groups','active_group'}: raise ValueError('Grouped model configuration cannot mix flat model fields')
         groups={int(k):robot_context_from_config(v) for k,v in config['groups'].items()}
@@ -201,8 +201,9 @@ def robot_context_from_config(config):
         context=RobotContext(groups=groups,active_group=active); context.model_config=deepcopy(config); return context
     current=RobotState.from_config(config['current']) if 'current' in config else None
     if 'dh' not in config:
-        if current is None or set(config)-{'current','active_group'}: raise ValueError('Robot context requires DH parameters or explicit current state')
-        context=RobotContext(current=current,active_group=config.get('active_group',1));context.model_config=deepcopy(config);return context
+        if (current is None and 'joint_limits' not in config) or set(config)-{'current','active_group','joint_limits'}: raise ValueError('Robot context requires DH parameters, explicit joint limits or current state')
+        context=RobotContext(current=current,joint_limits=config.get('joint_limits'),active_group=config.get('active_group',1));context.model_config=deepcopy(config);return context
+    if 'joint_limits' in config: raise ValueError('DH joint limits belong in the DH rows, not joint_limits')
     base=decode_typed(config['base'])[1] if 'base' in config else None
     model=SerialRobotModel(config['dh'],external_axes=config.get('external_axes',0),base=base,iterations=config.get('iterations',200),position_tolerance=config.get('position_tolerance',.01),orientation_tolerance=config.get('orientation_tolerance',.01))
     frames={int(k):decode_typed(v)[1] for k,v in config.get('frames',{}).items()}; tools={int(k):decode_typed(v)[1] for k,v in config.get('tools',{}).items()}
@@ -210,5 +211,10 @@ def robot_context_from_config(config):
     active_frame=config.get('frame',0); active_tool=config.get('tool',0)
     if active_frame not in frames or active_tool not in tools: raise ValueError('Active frame/tool must be supplied')
     for value in (*frames.values(),*tools.values()): matrix(value)
-    context=RobotContext(forward=model.forward,inverse=model.inverse,reachable=lambda p:model.reachable(p,frames[active_frame],tools[active_tool]),joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
-    context.model=model; context.model_config=deepcopy(config); return context
+    context=RobotContext(forward=model.forward,inverse=model.inverse,joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
+    context.model=model; context.model_config=deepcopy(config)
+    context.reachable=lambda p:model.reachable(p,context.frame(context.active_frame),context.tool(context.active_tool))
+    for number in context.frames: context.frame(number)
+    for number in context.tools: context.tool(number)
+    context.frame(active_frame);context.tool(active_tool)
+    return context

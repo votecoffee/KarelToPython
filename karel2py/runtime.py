@@ -452,6 +452,28 @@ class JointPosition:
         return result
 
 
+def joint_values(value, axes, line=None):
+    """Read explicit axes or JOINTPOS9 with zero-only unused slots."""
+    if type(axes) is not int or not 1<=axes<=9:
+        raise KarelRuntimeError('Joint context requires an axis count in 1..9',line)
+    if not isinstance(value,JointPosition) or len(value.values)!=joint_width(value.spec):
+        raise KarelRuntimeError('Malformed joint data',line)
+    width=joint_width(value.spec)
+    if width not in (axes,9): raise KarelRuntimeError('Joint width must match the explicit axes or use JOINTPOS9 padding',line)
+    with _numeric_scope('pythonic'): values=[real(axis,line) for axis in value.values]
+    if any(axis!=0. for axis in values[axes:]):
+        raise KarelRuntimeError('Unused JOINTPOS9 slots must be zero for the explicit axis context',line)
+    return values[:axes]
+
+
+def padded_joints(value, line=None):
+    """Return a complete independent nine-slot joint value."""
+    if not isinstance(value,JointPosition): raise KarelRuntimeError('Expected joint data',line)
+    values=joint_values(value,joint_width(value.spec),line)
+    result=JointPosition(('JOINTPOS',9)); result.values[:]=values+[0.]*(9-len(values))
+    return result
+
+
 class Structure:
     """A named aggregate with stable storage for its individual fields."""
     def __init__(self, spec):
