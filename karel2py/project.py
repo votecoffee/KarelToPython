@@ -2,7 +2,7 @@
 from pathlib import Path
 import inspect
 
-from . import translate, runtime as rt
+from . import __version__, translate, runtime as rt
 
 
 class LinkedRoutine:
@@ -103,8 +103,9 @@ def load_project(directory,*,array_shapes=None):
 
 
 def main(argv=None):
-    import argparse,json
-    parser=argparse.ArgumentParser(description=__doc__)
+    import argparse,json,sys
+    parser=argparse.ArgumentParser(description=f'KarelToPython {__version__} - {__doc__}')
+    parser.add_argument('--version',action='version',version=__version__)
     parser.add_argument('directory',type=Path)
     parser.add_argument('--entry',help='Explicitly execute this program after linking; otherwise check translation only')
     parser.add_argument('--context',type=Path)
@@ -112,6 +113,7 @@ def main(argv=None):
     parser.add_argument('--state-out',type=Path)
     parser.add_argument('--max-cycles',type=int,default=100000)
     args=parser.parse_args(argv)
+    print(f'KarelToPython {__version__}',file=sys.stderr)
     project=load_project(args.directory)
     context=rt.ExecutionContext.load(args.context) if args.context else rt.ExecutionContext()
     if args.filesystem_root: context.files=rt.DirectoryFiles(args.filesystem_root)

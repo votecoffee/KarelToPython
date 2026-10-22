@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "karel2py"
-version = "0.101.0"
+dynamic = ["version"]
 description = "Fail-closed KAREL source to Python translator prototype"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -20,3 +20,6 @@ karel2py = "karel2py.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["karel2py*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "karel2py.__version__"}

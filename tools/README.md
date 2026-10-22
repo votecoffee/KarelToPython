@@ -2,6 +2,21 @@
 
 Run tools from the repository root with Python 3.11 or later.
 
+## Release versions
+
+Set `karel2py.__version__` to the release's UTC timestamp in `YY.MMDD.HHmmss`
+format, for example `26.1011.172201` for 2026-10-11 at 17:22:01 UTC. Keep it
+constant for that release; imports, translation and package builds must not
+generate a new timestamp. Setuptools reads this constant for package metadata.
+Python package metadata may normalize leading zeroes in numeric version segments;
+the application retains the full display format.
+
+Update the current version in the README, language support guide, aggregate
+service ledger and changelog. Historical release entries and feature-specific
+ledgers keep their original versions. The application has a command-line
+interface: translator and linked-project commands display the version in their
+help and normal stderr banners, with `--version` available for direct lookup.
+
 ## Public checks
 
 ```sh

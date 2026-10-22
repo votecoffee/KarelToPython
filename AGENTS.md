@@ -1,6 +1,9 @@
 # Repository guidance
 
 - Keep the root README current and organized using the Standard Readme sections.
+- Release versions use a fixed UTC build timestamp, `YY.MMDD.HHmmss`, stored in
+  `karel2py.__version__`; packaging reads that constant. Keep the current README
+  version and visible CLI identity current. Preserve historical feature versions.
 - This is an offline translator. Keep uncertain source semantics explicit and
   fail closed; do not weaken generic checks or special-case individual programs.
 - Keep code in `karel2py/`, tests in `tests/`, authored inputs and fixtures in

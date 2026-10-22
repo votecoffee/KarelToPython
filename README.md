@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.101.0**. It is a
+tool are named **karel2py**. The current implementation is **26.1022.232239**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -58,6 +58,18 @@ private corpus or robot connection is needed to run the public tests and example
 ## Usage
 
 ### CLI
+
+The version uses a fixed UTC build timestamp in `YY.MMDD.HHmmss` format. It is
+displayed in normal command banners and `--help`; both command-line entry points
+also support `--version`:
+
+```sh
+python -m karel2py --version
+python -m karel2py.project --version
+```
+
+This application currently uses a command-line interface. Version banners go to
+stderr so translation summaries and linked-project JSON remain usable on stdout.
 
 Validate a KAREL source without generating or executing a module:
 

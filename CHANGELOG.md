@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1022.232239 - 2026-10-22
+
+- Switch release versions to fixed UTC build timestamps in YY.MMDD.HHmmss format.
+  Preserve historical feature/release versions in their original documentation.
+- Display the version in translator and linked-project command banners and help;
+  add --version to the linked-project command. Keep banners on stderr so stdout
+  summaries and JSON remain parseable.
+- Read package version metadata from karel2py.__version__ as the single source.
+
 ## 0.101.0 - 2026-10-22
 
 - Add GET_PORT_ASG, SET_PORT_ASG, GET_PORT_MOD, SET_PORT_MOD and IO_MOD_TYPE

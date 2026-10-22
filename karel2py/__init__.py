@@ -1,6 +1,7 @@
 """KAREL source conversion prototype; no robot connection is created."""
 
-__version__ = "0.101.0"
+# Fixed UTC release timestamp: YY.MMDD.HHmmss. Never derive it at import time.
+__version__ = "26.1022.232239"
 
 
 def translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False):

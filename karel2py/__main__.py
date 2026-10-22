@@ -31,7 +31,8 @@ def array_shape_option(value):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='KAREL-to-Python offline subset translator')
+    parser = argparse.ArgumentParser(prog='karel2py',
+                                     description=f'KarelToPython {__version__} - KAREL-to-Python offline subset translator')
     parser.add_argument('--version', action='version', version=__version__)
     parser.add_argument('source', type=Path, help='Input .kl source (UTF-8)')
     parser.add_argument('-o', '--output', type=Path, help='Generated Python module')
@@ -44,6 +45,7 @@ def main(argv=None):
     parser.add_argument('--array-shape', action='append', type=array_shape_option, default=[], metavar='NAME=DIM[,DIM]',
                         help='Explicit outer dimensions for a global ARRAY containing *; repeated for each variable, embedded during translation')
     args = parser.parse_args(argv)
+    print(f'KarelToPython {__version__}', file=sys.stderr)
     array_shapes = {}
     for name, shape in args.array_shape:
         if name in array_shapes: parser.error(f'Duplicate case-insensitive --array-shape name {name}')

@@ -1,5 +1,5 @@
 {
-  "version": "0.101.0",
+  "version": "26.1022.232239",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
