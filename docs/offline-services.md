@@ -49,6 +49,7 @@ source-located error. Strict mode remains a future milestone.
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
 | `JOINT2POS`, `POS2JOINT`, `IN_RANGE`, `J_IN_RANGE` | `RobotContext` adapters and supplied limits | Requires a supplied model or limits; no robot geometry, calibration or reachability is inferred. |
 | JOINTPOS/Cartesian whole assignment | Supplied forward/inverse model and selected frame/tool | Calling root group; inverse requires current-joint seed; no current-state update or physical motion. |
+| Joint geometry operands | Supplied forward model and selected frame/tool | Colon/INV/FRAME/MIRROR, axis queries and approximate comparison use independent Cartesian values; see [joint geometry](joint-geometry.md). |
 | `CURPOS`, `CURJPOS`, `CURR_PROG` | Explicit current RobotState, optional configured DH math and executing module name | Independent results, optional groups and checked/discarded masks; no physical state acquisition. |
 
 See [file comparison and printing](file-comparison.md) for report format,

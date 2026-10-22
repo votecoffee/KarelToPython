@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.94.0 - 2026-10-22
+
+- Accept JOINTPOS operands in colon, INV, FRAME, MIRROR, APPROACH, ORIENT and
+  approximate comparison through supplied forward kinematics and selected
+  root-task group/frame/tool. Joint frame results use Cartesian XYZWPREXT.
+- Snapshot and convert each joint once before later operands/arguments or target
+  selectors; retain exact interfaces, limits/padding, external metadata rules,
+  explicit tolerances and sticky abort without changing current robot state.
+- Add source/report policies, transitive service-effect reporting, 50 tests,
+  two modeled examples and runtime-only coverage. Document portable result/context
+  choices and retained native/strict boundaries.
+
 ## 0.93.0 - 2026-10-22
 
 - Add VAR_INFO over explicit static globals, fields, ARRAY elements and PATH

@@ -90,7 +90,8 @@ the equivalent direct field access. XYZWPR acceptance, the complete-pose guard,
 matrix tolerance and portable rotation convention are Pythonic choices.
 Independent quaternion checks and authored fixtures establish offline behavior.
 
-XYZWPREXT, JOINTPOS, VECTOR and other operand types remain unsupported. These
-queries do not acquire controller positions, discover frames, solve kinematics
-or validate robot configuration. Strict mode remains a future milestone; native
-compiler and controller acceptance are unverified.
+XYZWPREXT is supported; JOINTPOS uses supplied forward context under
+[joint geometry](joint-geometry.md). VECTOR and scalar operands remain blocked.
+Queries retain complete-pose checks and explicit context; controller acquisition,
+frame discovery and native configuration validity remain unverified. Strict mode
+remains a future milestone.

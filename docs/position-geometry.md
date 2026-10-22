@@ -97,6 +97,7 @@ quaternion calculations, synthetic invalid matrices and authored fixtures check
 the portable implementation. Mixed-type result selection, matrix tolerance,
 Euler convention and CONFIG copy choices are explicit offline policies.
 
-XYZWPREXT, JOINTPOS and VECTOR geometry operands remain unsupported. There is no
-controller frame discovery, external-axis handling, kinematics, native compiler
-acceptance or controller execution claim. Strict mode remains a future milestone.
+XYZWPREXT follows the [extended metadata rules](portable-projects.md#robot-models-and-extended-poses).
+JOINTPOS follows the explicit forward-model policy in [joint geometry](joint-geometry.md).
+VECTOR geometry remains blocked. Controller context discovery and native
+compiler/runtime acceptance remain unverified. Strict mode remains a future milestone.

@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.93.0. Acceptance is specific to
+This is the supported prototype subset as of 0.94.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -40,7 +40,7 @@ internally and in the historical semantic notes.
 | Time text | CNV_STR_TIME and CNV_TIME_STR on supplied packed date/time values | Gregorian 1980..2107, fixed English text, two-second precision and signed bit patterns; complete STRING capacity required; no clock/timezone access or native equivalence. |
 | Microsecond timers | GET_USEC_TIM host monotonic sampling and GET_USEC_SUB elapsed subtraction, with optional clock injection | Portable two-minute ring, one clock and intervals shorter than two minutes; no native encoding/tick precision or calendar clock access. |
 | Offline numeric registers | GET_REG, SET_INT_REG and SET_REAL_REG on an explicit in-memory NumericRegisters bank | Explicit count/initial values, exact checked outputs and portable missing/range statuses; typed JSON save/load; no controller backend or native status/count/persistence claim. |
-| Frame transforms | POSITION/XYZWPR/XYZWPREXT colon composition, INV inversion and three/four-point FRAME construction, including mixed operands | INV preserves representation; colon/FRAME prefer XYZWPREXT, then POSITION, then XYZWPR. Direct proper matrices or portable Z-Y-X/canonical Euler choices; FRAME retains 10 mm bounds. External axes follow the offline metadata policy; no JOINTPOS/VECTOR operands or frame discovery. |
+| Frame transforms | POSITION/XYZWPR/XYZWPREXT and model-backed JOINTPOS colon composition, INV inversion and three/four-point FRAME construction | JOINTPOS first becomes XYZWPREXT through supplied forward context; other types retain representation precedence. Proper matrices or portable Euler choices, existing external metadata and 10 mm FRAME bounds; no VECTOR frames or context discovery. |
 | Pose axis queries | APPROACH and ORIENT on POSITION/XYZWPR/XYZWPREXT return independent writable VECTOR values for positive Z/Y | Complete finite poses, checked CONFIG and proper POSITION matrices; no normalization, defaults, other positional operands or controller acquisition. |
 | Position comparison | Approximate >=< on POSITION/XYZWPR/XYZWPREXT, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle/external-axis tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |

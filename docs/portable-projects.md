@@ -27,6 +27,8 @@ explicit host polling and scheduler deadlines that survive normal completion/pau
 Version 0.92.0 adds [builtin-record initialization queries](initialization-queries.md).
 Version 0.93.0 adds [global variable inspection](variable-inspection.md), with
 canonical metadata, filtered name lists, pagination and checked formats.
+Version 0.94.0 adds [joint operands in geometry](joint-geometry.md), using supplied
+forward context for Cartesian frame operations, reflection, axes and comparisons.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

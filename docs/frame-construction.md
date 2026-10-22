@@ -69,11 +69,12 @@ The constructor does not impose POS coordinate bounds on a copied origin.
 
 ## Types, evaluation and ownership
 
-Every argument must be a complete, initialized POSITION or XYZWPR value, including
+Every Cartesian argument must be a complete, initialized POSITION, XYZWPR or XYZWPREXT value, including
 finite orientation and valid CONFIG fields even when those values do not determine
 the result. POSITION matrices must pass the [proper-matrix checks](position-geometry.md).
-This complete-value guard is an explicit offline choice. XYZWPREXT, JOINTPOS and
-VECTOR points remain blocked.
+This complete-value guard is an explicit offline choice. JOINTPOS arguments use
+supplied forward context under [joint geometry](joint-geometry.md); their presence
+makes the result XYZWPREXT. VECTOR points remain blocked.
 
 Arguments evaluate once from left to right. Each pose is validated and copied
 before the next expression runs, so later functions cannot change earlier

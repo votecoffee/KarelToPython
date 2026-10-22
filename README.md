@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.93.0**. It is a
+tool are named **karel2py**. The current implementation is **0.94.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -271,6 +271,11 @@ recorder or callback. Both use explicit memory or directory file context. See
 Whole JOINTPOS/Cartesian assignments use supplied robot models, selected frames
 and tools. Inverse assignments require supplied current joints as a seed. See
 [kinematic assignments](docs/kinematic-assignments.md) for the context and type rules.
+
+JOINTPOS operands also work in frame composition, INV, FRAME, MIRROR, axis queries
+and approximate comparisons through the supplied forward model. See
+[joint geometry](docs/joint-geometry.md) for Cartesian result types, ordered
+conversion, selected context and external-axis rules.
 
 PULSE supports blocking and NOWAIT digital outputs with checked durations,
 explicit host polling and scheduler deadlines. Pause, terminal state and later

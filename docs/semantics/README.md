@@ -139,3 +139,7 @@ restrictions; historical ledgers retain their version-bound scope.
 The 0.93.0 [variable inspection ledger](variable_inspection_semantics.json) records
 static metadata, type codes, aggregate/resource flag choices, sorted listings,
 pagination and output-format capacity checks.
+The 0.94.0 [joint geometry ledger](joint_geometry_semantics.json) records supplied
+forward conversion in geometry expressions, Cartesian results, ordered capture,
+metadata and comparison context. It supersedes older blanket JOINTPOS geometry
+exclusions; historical ledgers retain their version-bound scope.

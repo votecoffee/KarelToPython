@@ -378,3 +378,9 @@ context. They reuse ordinary output/reference checks and source-located
 `service_operations`/`service_requests`. `variable_inspection_policy` records type
 codes, canonical ARRAY/alias metadata, portable flags, filters and pagination.
 See [variable inspection](variable-inspection.md) for complete signatures and statuses.
+
+`joint_geometry` records model-backed JOINTPOS operands in supported geometry
+expressions; `joint_geometry_policy` describes explicit context and Cartesian
+results. Runtime `JOINT_GEOMETRY` records contain operation/line/outcome only.
+`routine_effects.potential_service_requests` includes implicit conversions and
+propagates through calls. See [joint geometry](joint-geometry.md).

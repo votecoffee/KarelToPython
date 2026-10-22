@@ -103,7 +103,8 @@ The Z-Y-X convention, canonical/singular Euler choices and composition's CONFIG
 copy rule are explicit offline policies. Tests compare the geometry against
 independent quaternion calculations; they do not establish native equivalence.
 
-XYZWPREXT, JOINTPOS and VECTOR transform operands remain blocked.
-There is no implicit interface conversion, external-axis handling, UFRAME/UTOOL
-discovery, kinematics, controller connection or native configuration claim.
+XYZWPREXT uses the [extended metadata rules](portable-projects.md#robot-models-and-extended-poses).
+JOINTPOS uses supplied forward context under [joint geometry](joint-geometry.md).
+VECTOR transforms remain blocked. Routine/RETURN/whole-array types remain exact;
+controller context discovery and native configuration validity remain unverified.
 Strict mode remains a future milestone and retains its earlier internal guards.

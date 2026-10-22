@@ -107,6 +107,7 @@ Since 0.80.0, XYZWPREXT comparisons use explicit `external_tolerance` values
 (scalar or three axes), with inclusive absolute difference limits. Plain poses
 supply zero external values in mixed comparisons. See
 [extended pose setup](portable-projects.md#robot-models-and-extended-poses).
-JOINTPOS, VECTOR and scalar operands remain unsupported. There is no implicit
-controller context, native metric equivalence or controller execution claim. Strict mode
-remains a future milestone.
+JOINTPOS uses supplied forward context under [joint geometry](joint-geometry.md)
+and the same explicit Cartesian/external tolerances. VECTOR and scalar operands
+remain blocked. Controller context and native metric equivalence remain
+unverified. Strict mode remains a future milestone.
