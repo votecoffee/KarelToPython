@@ -112,3 +112,5 @@ XYZWPREXT metadata and MIRROR; historical native-behavior questions remain open.
 See [control notifications](../control-notifications.md) and the
 [semaphore/error/lifecycle ledger](control_notification_semantics.json) for
 the 0.81.0 manual forms, portable choices and remaining native gaps.
+The 0.82.0 [task and file guide](../task-and-file-extensions.md) extends those
+ledgers with scoped POST_ERR_L, queued task control and field/record reads.

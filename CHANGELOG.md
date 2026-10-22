@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.82.0 - 2026-10-22
+
+- Add POST_ERR_L with eleven named portable ERSEV constants, explicit local/global
+  task scope, normalized offline effects and persistent source/severity metadata.
+- Deliver named/numeric pause and abort requests through target checkpoints,
+  including paused ABORT handlers and linked caller identity. Intentional child
+  ABORT/STOP in synchronous TaskRegistry calls returns control to the caller;
+  runtime failures still propagate. Final CONTINUE notifies handlers.
+- Implement ATR_FIELD capacity-sized STRING reads, custom ASCII EOL input and
+  exact byte cursors across mixed newlines. Failed text transfers preserve all
+  targets and the cursor; binary and write field conventions remain unchanged.
+- Add two authored examples, 42 integration tests and public semantic boundaries.
+  Native severity encodings, physical motion/servo effects and strict remain future.
+
 ## 0.81.0 - 2026-10-22
 
 - Add explicit FIFO counting semaphores, POST/CLEAR/COUNT/PEND procedures,

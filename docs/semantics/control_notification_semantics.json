@@ -1,22 +1,24 @@
 {
-  "version": "0.81.0",
+  "version": "0.82.0",
   "mode": "pythonic",
   "controller_validated": false,
   "evidence": "Manual forms and authored offline tests; no controller or native task execution",
   "sources": [
     {"manual":"MARRC75KR07091E Rev N","pdf_pages":[110,111,112,113,114],"topic":"ERROR, POWERUP, SEMAPHORE and miscellaneous handler actions; EVAL capture"},
-    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[329,475,482,483,533],"topic":"CLEAR_SEMA, PEND_SEMA, POST_ERR, POST_SEMA and SEMA_COUNT signatures"}
+    {"manual":"MARRC75KR07091E Rev N","pdf_pages":[329,475,482,483,533],"topic":"CLEAR_SEMA, PEND_SEMA, POST_ERR, POST_ERR_L severity names/scopes, POST_SEMA and SEMA_COUNT signatures"}
   ],
   "implemented": {
     "semaphores":"Explicit bank count; zero initial unspecified counters; FIFO wait tickets, atomic posting/consumption and negative queued-wait counts",
     "waits":"-1 indefinite, 0 immediate or positive milliseconds up to one day; BOOLEAN timeout; scheduler virtual clock or standalone 1 ms sleeper polling",
     "cleanup":"Stop/abort/failure removes waits, refunds unconsumed grants and preserves unrelated waiters by identity; active waits cannot be serialized",
     "errors":"POST_ERR code/parameter/cause/severity 0 warning, 1 global context pause, 2 global context abort; bounded defensive ErrorHistory",
+    "scoped_errors":"POST_ERR_L portable ERSEV identifiers 0..10, normalized warning/pause/abort, explicit root-task or shared-context scope; persisted operation, severity_name and posting source_program",
+    "requests":"Named/numeric remote pause/abort queued for target checkpoint; paused scheduler abort wakes to scan handlers; self identity follows linked caller; synchronous child intentional ABORT/STOP returns to caller",
     "conditions":"ERROR[n] and wildcard consume retained scoped records independently; POWERUP is an explicit recovery continuation; SEMAPHORE is non-consuming",
     "actions":"NOPAUSE and NOABORT clear pending control requests, including linked calls; NOMESSAGE marks retained history; EVAL actions capture at definition",
     "runtime_failures":"Cooperative KarelRuntimeError notifies code 1 with origin runtime after unwinding, then remains an exception; exhausted budgets skip handler execution",
     "powerup":"Program.powerup or scheduler.powerup continues a live paused instance and increments POWERUP plus CONTINUE; no lost-process restoration",
-    "signals":"EVENT and SEMAPHORE signal statements scan at their trailing checkpoint even as the final source statement"
+    "signals":"EVENT and SEMAPHORE signals and bare CONTINUE scan at their trailing checkpoint even as the final source statement"
   },
   "portable_differences": [
     "Record/event generations latch and coalesce until scanned, unlike native ephemeral error/event scans",
@@ -24,21 +26,26 @@
     "CLEAR_SEMA preserves queued waits and granted reservations; no native cancellation assertion",
     "FIFO ordering, one-day bounds, polling quantum and ticket refund rules are portable conventions",
     "POST_ERR global scope includes only active/paused registered Programs in one context; no motion or native alarm dictionary",
+    "ERSEV names follow manual forms but IDs are portable 0..10, not verified native encodings; STOP/SERVO variants normalize to offline pause and SYSTEM to global abort without controller lockout",
+    "PAUSE_TASK/ABORT_TASK accept no_wait but both values queue the same request; no native acknowledgment wait",
     "Scheduler raises at its first abort; remaining pending requests require the next drive; paused standalone targets require continuation",
     "NOMESSAGE preserves the suppressed audit record, rather than deleting history",
     "Handlers run sequentially with ordinary Pythonic actions; no native interrupt priority or routine-action ordering equivalence"
   ],
   "remaining": [
     "Native priorities and motion UNTIL/local interrupt handlers",
-    "POST_ERR_L native severity constants, alarm dictionaries and physical motion effects",
+    "Native severity encodings, alarm dictionaries and physical motion/servo effects",
     "Suspended-process/power-failure restoration and native persistent semaphores",
     "Strict mode and controller/runtime acceptance"
   ],
   "verification": [
     "tests/test_control_notifications.py",
     "tests/test_project_scheduler.py",
+    "tests/test_task_file_extensions.py",
     "examples/offline_semaphores.kl",
-    "examples/offline_error_handlers.kl"
+    "examples/offline_error_handlers.kl",
+    "examples/scoped_error.kl"
   ],
-  "guide": "../control-notifications.md"
+  "guide": "../control-notifications.md",
+  "extension_guide": "../task-and-file-extensions.md"
 }

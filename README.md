@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.81.0**. It is a
+tool are named **karel2py**. The current implementation is **0.82.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -226,7 +226,11 @@ python services.py --context examples/offline_services.services.initial.json
 
 Counting semaphores, ERROR/POWERUP conditions and NOPAUSE/NOABORT/NOMESSAGE
 actions are also supported. Runtime failures notify handlers while preserving
-the exception. See [control notifications](docs/control-notifications.md).
+the exception. POST_ERR_L adds named portable severities and task-local scope.
+Task pause/abort requests honor handlers across linked calls. FILE reads support
+capacity-sized ATR_FIELD strings and custom record terminators. See
+[control notifications](docs/control-notifications.md) and
+[task and file extensions](docs/task-and-file-extensions.md).
 
 Run a complete authored project with `python -m karel2py.project examples/linked_project --entry MAIN`.
 See [portable projects and model setup](docs/portable-projects.md) and the

@@ -114,12 +114,16 @@ and report paths must differ. Their parent directories must already exist.
 
 ExecutionContext accepts explicit `semaphores=SemaphoreBank(count,initial)` and
 `errors=ErrorHistory(limit=1000)` services, including typed JSON save/load.
-PEND_SEMA and POST_ERR enable cooperative generation automatically. ERROR
+PEND_SEMA, POST_ERR and POST_ERR_L enable cooperative generation automatically. ERROR
 conditions observe posted/host notifications or portable runtime-failure code 1.
 NOABORT/NOPAUSE clear pending requests; they cannot suppress an invalid runtime
 value. `Program.powerup()` and `scheduler.powerup(name)` explicitly continue a
 live paused instance. See [control notifications](control-notifications.md) for
 FIFO ordering, timeouts, error scope, suppression and recovery boundaries.
+`control_notification_policy.severity_constants` maps the portable ERSEV names
+to IDs, normalized effects and local scope. See
+[task and file extensions](task-and-file-extensions.md) for queued requests,
+POST_ERR_L metadata and TextInput terminator/field options with exact byte offsets.
 
 ## Generated Program
 

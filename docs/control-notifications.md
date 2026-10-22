@@ -95,7 +95,10 @@ END ERROR_DEMO
 This completes with MARKER=7 and a retained suppressed error record. It does not
 assert that native MOTN-018 can be recovered this way. A posted code is data in
 this runtime; native alarm side effects and severity encodings outside POST_ERR's
-0/1/2 form are not inferred. POST_ERR_L remains unsupported.
+0/1/2 form are not inferred. Version 0.82.0 adds POST_ERR_L using named portable
+ERSEV constants, local/global scopes and persisted source/severity metadata.
+See the [severity mapping](task-and-file-extensions.md#post_err_l) for all eleven
+names and their offline effects.
 
 ErrorHistory is created lazily, or supplied with `ExecutionContext(errors=...)`.
 `ErrorHistory(limit=1000)` retains the newest records with increasing IDs.
@@ -173,7 +176,7 @@ paused, still-live instance; it does not restore a process lost to actual power
 failure or reconstruct a call stack from JSON.
 
 Native interrupt priorities, motion UNTIL handlers, physical stop/resume,
-POST_ERR_L severity constants, alarm dictionaries and suspended-process recovery
+native severity encodings, alarm dictionaries and suspended-process recovery
 remain separate work. See [portable projects](portable-projects.md) for scheduling,
 linkage and persistence, and the
 [error-handler example](../examples/offline_error_handlers.kl) for expected state.

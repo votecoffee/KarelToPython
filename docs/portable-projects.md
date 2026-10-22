@@ -1,7 +1,8 @@
 # Portable projects, state, files and robot models
 
 Version 0.80.0 extended all four offline service areas; 0.81.0 adds
-[semaphores and error/lifecycle notifications](control-notifications.md). These are executable
+[semaphores and error/lifecycle notifications](control-notifications.md). Version
+0.82.0 adds [scoped errors, task requests and field reads](task-and-file-extensions.md). These are executable
 Pythonic conventions with authored tests; they do not assert native controller
 timing, file layout, task ABI or robot calibration. Strict mode remains a future
 milestone. The [service matrix](offline-services.md) describes the underlying
@@ -74,8 +75,9 @@ security boundary against another process racing filesystem changes.
 Writes buffer until CLOSE FILE, then replace the file atomically. `ATR_IA`
 enables interactive flush after each WRITE. `ATR_UF` selects unformatted/binary
 fields; `ATR_REVERSE` selects big-endian fields instead of the default little
-endian. `ATR_EOL` supplies the ASCII byte emitted by CR. `ATR_FIELD` is retained
-as metadata; explicit field widths govern transfers. These attribute identifiers
+endian. `ATR_EOL` supplies the ASCII record terminator emitted by CR and used on
+input. `ATR_FIELD` makes unformatted STRING reads consume the declared capacity;
+explicit widths override it. Numeric defaults remain token based. These attribute identifiers
 are package constants, not native numeric encodings. **0.80 corrects the earlier
 ATR_IA binary interpretation; use ATR_UF for binary data.**
 

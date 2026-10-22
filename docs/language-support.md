@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 0.81.0. Acceptance is specific to
+This is the supported prototype subset as of 0.82.0. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -57,6 +57,8 @@ contracts and remaining gaps; [portable projects](portable-projects.md) covers
 the project implementation and setup.
 [Control notifications](control-notifications.md) covers 0.81.0 semaphores, error
 records, runtime-failure observation and explicit powerup recovery.
+[Task and file extensions](task-and-file-extensions.md) adds scoped POST_ERR_L,
+handler-aware task requests, ATR_FIELD reads and custom record terminators.
 
 See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.

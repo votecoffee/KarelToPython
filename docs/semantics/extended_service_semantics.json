@@ -1,5 +1,5 @@
 {
-  "version": "0.81.0",
+  "version": "0.82.0",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -62,6 +62,11 @@
         506
       ],
       "topic": "EVAL, event/edge conditions, scan qualifiers, FILE_LIST and unformatted/interactive attributes"
+    },
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [120,122,130,131,132,133,134,135,482,483,539],
+      "topic": "ATR_FIELD and ASCII read defaults/formats, SET_FILE_ATR, POST_ERR_L severity names and local/global effects"
     }
   ],
   "implementation": {
@@ -74,6 +79,9 @@
   "portable_choices": {
     "status_codes": "Register/path/variable/queue status conventions documented in offline-services.md; they do not assert a native alarm mapping",
     "binary": "Little endian by default, ATR_REVERSE big endian; ATR_UF unformatted, ATR_IA interactive flush; identifiers are package constants",
+    "text_fields": "ATR_FIELD unformatted STRING consumes declared capacity, explicit width overrides and zero uses capacity; numeric defaults remain token based; short fields cannot cross records",
+    "text_records": "ATR_EOL ASCII byte recognized on read and emitted by CR; 10/13 accept CR/LF/CRLF, other codes select only that byte; exact cursor byte counts and failed-transfer target/cursor preservation",
+    "task_requests": "Named/numeric pause/abort queued for target handlers; linked self uses caller identity; no_wait does not change portable request delivery; intentional synchronous child termination is isolated",
     "analog": "Finite Python float ports",
     "stop": "Terminal offline task stop; native KAREL STOP/RESUME motion behavior is outside this implementation",
     "extended_axes": "Zero-fill on widening, drop on narrowing; preserve on inverse/MIRROR, rightmost extended operand on colon, origin metadata on FRAME",
@@ -89,7 +97,7 @@
     "GET_QUEUE syntax line swaps sequence/status relative to descriptions/example; implementation follows latter",
     "Native binary layouts, listing formats, device behavior, file status/alarm mapping and numeric attribute encodings",
     "Robot-specific calibrated dimensions, configuration branch selection, collisions and certified reachability",
-    "Native interrupt priorities, motion UNTIL/local handlers, POST_ERR_L and native alarm dictionaries",
+    "Native interrupt priorities, motion UNTIL/local handlers, severity encodings and native alarm dictionaries",
     "Native task scheduling/locks, external ABI, native persistent storage and suspended checkpoint restoration",
     "Obsolete STD_PTH_NODE association records, group-qualified node identity and physical NODE_SIZE",
     "Strict mode and native external-axis transformation/comparison conventions"
@@ -103,6 +111,9 @@
     "examples/offline_handlers_geometry.kl",
     "tests/test_broad_services.py",
     "tests/test_project_scheduler.py",
+    "tests/test_task_file_extensions.py",
+    "examples/file_fields.kl",
+    "examples/scoped_error.kl",
     "examples/linked_project/main.kl",
     "examples/file_management.kl",
     "examples/robot_dh.kl",
@@ -110,5 +121,6 @@
   ],
   "guide": "../offline-services.md",
   "extended_guide": "../portable-projects.md",
-  "control_notifications": "control_notification_semantics.json"
+  "control_notifications": "control_notification_semantics.json",
+  "extension_guide": "../task-and-file-extensions.md"
 }

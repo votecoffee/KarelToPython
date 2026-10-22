@@ -1,0 +1,16 @@
+PROGRAM FILE_FIELDS
+VAR handle: FILE
+    first,second,third,fourth: STRING[3]
+    status,first_end,second_end: INTEGER
+BEGIN
+  SET_FILE_ATR(handle,ATR_FIELD)
+  SET_FILE_ATR(handle,ATR_EOL,59)
+  OPEN FILE handle ('RW','fields.txt')
+  WRITE handle ('abc','def',CR,'ghi','jkl',CR)
+  SET_FILE_POS(handle,0,status)
+  READ handle (first,second,CR)
+  first_end=GET_FILE_POS(handle)
+  READ handle (third,fourth,CR)
+  second_end=GET_FILE_POS(handle)
+  CLOSE FILE handle
+END FILE_FIELDS

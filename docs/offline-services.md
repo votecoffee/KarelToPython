@@ -1,6 +1,6 @@
 # Offline services and cooperative execution
 
-Version 0.81.0 extends explicit Pythonic implementations for registers and ports,
+Version 0.82.0 extends explicit Pythonic implementations for registers and ports,
 files and collections, task control, external routines and robot-model calls.
 [Portable projects](portable-projects.md) documents persistence, directory files,
 events/scheduling, automatic source linkage and loadable DH models.
@@ -22,7 +22,7 @@ source-located error. Strict mode remains a future milestone.
 | `OPEN/CLOSE FILE`, `READ file`, `WRITE file` | `MemoryFiles`/`DirectoryFiles` and `FileHandle` | Byte buffers or an explicit directory root, cursors and checked scalar transfers. |
 | Binary FILE fields | Standard-library `struct` | Little endian; INTEGER 1/2/4 bytes, REAL 4/8, BOOLEAN/BYTE 1, SHORT 2, ASCII STRING with byte width. |
 | `GET_FILE_POS`, `SET_FILE_POS`, `BYTES_LEFT`, `BYTES_AHEAD`, `IO_STATUS`, `CLR_IO_STAT` | Checked cursor/status operations | Byte positions, seek within current contents; `-1` seeks to end. |
-| FILE attributes | ATR_IA interactive flush; ATR_UF binary; ATR_REVERSE byte order; ATR_EOL terminator | Portable package identifiers; ATR_FIELD metadata; `RB/WB/RWB/AB` also select binary. |
+| FILE attributes | ATR_IA interactive flush; ATR_UF binary; ATR_REVERSE byte order; ATR_EOL record terminator; ATR_FIELD capacity-sized STRING reads | Portable package identifiers; `RB/WB/RWB/AB` also select binary. |
 | COPY_FILE / DELETE_FILE / RENAME_FILE / FILE_LIST | Both backends | Synchronous operations, portable missing/exists/busy statuses and name listing format 0. |
 | `PATH` | Typed node list with optional header | One-based nodes; `NODEDATA` and `PATHHEADER` structures; direct field references. |
 | `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and deep copies | Empty paths have length zero; full or reversed partial copying; maximum 32767 nodes. |
@@ -107,7 +107,11 @@ set up to 64 MiB. Access modes are `RO/R`, `WO/W`, `RW/UD`, and `AP/A`; writes
 truncate in W and append in A. RW preserves existing contents. Handle assignment
 aliases the same open handle, including close and cursor state.
 
-Text transfers use the existing ASCII READ/WRITE formatters and CR maps to LF.
+Text transfers use the existing ASCII READ/WRITE formatters and CR defaults to LF.
+ATR_EOL selects a custom ASCII record boundary. ATR_FIELD reads unformatted
+STRINGs at declared capacity; explicit widths override it. Cursors count actual
+bytes and failed text transfers preserve destinations and cursor. See the
+[field and record guide](task-and-file-extensions.md#field-and-record-reads).
 Binary fields use `::width`; unformatted INTEGER/REAL use four bytes. Binary
 STRING writes default to content length and reads to destination capacity.
 Explicit widths truncate/pad STRINGs with NUL. Binary reads validate the entire
@@ -197,7 +201,9 @@ explicit ports, or `WHEN PAUSE` for a pending pause. Handler definitions retain
 their lexical frame references. Actions may call routines, assign values, control
 handlers or pause/abort; local jumps, RETURN and nested definitions are rejected.
 Handler reentry is suppressed. Actions for a pending pause run before suspension.
-Native scan intervals, edge/event syntax and interrupt priorities are not modeled.
+Scan intervals, event broadcasts and port edges follow the
+[portable project conventions](portable-projects.md). Native interrupt priorities
+and motion scanning are outside the model.
 
 Connected timers require global INTEGER storage. Updates carry fractional
 milliseconds and reject backward clocks or overflow. Timers poll at checkpoints,
@@ -209,7 +215,11 @@ Handlers/timers that could modify a FOR counter are conservatively rejected.
 `TaskRegistry.bind(name,program)` supplies named targets. RUN_TASK requires line
 0, no motion and lock mask 0. PAUSE_TASK/ABORT_TASK reject motion flags. CONT_TASK
 continues a paused target; task calls return status 1 for unknown names. Child
-tasks run synchronously until completion or pause. No source program can launch
+tasks run synchronously until completion, pause or intentional ABORT/STOP;
+runtime failures still propagate. Remote pause/abort requests are queued for
+target checkpoints so its handlers can suppress them. The no_wait flag does
+not change this portable behavior. See [task requests](task-and-file-extensions.md#task-requests).
+No source program can launch
 an arbitrary host process.
 
 External declarations use `ROUTINE name(parameters): result_type FROM library`.
