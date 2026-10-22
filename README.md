@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **0.99.0**. It is a
+tool are named **karel2py**. The current implementation is **0.100.0**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

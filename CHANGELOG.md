@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.100.0 - 2026-10-22
+
+- Add CHECK_NAME with a documented portable base-name grammar and status 0/2;
+  no file backend or existence lookup is required.
+- Add MOVE_FILE for closed RD/FR files over explicit MemoryFiles namespaces or
+  mapped DirectoryFiles roots. Support case-insensitive star filename/type
+  patterns, device-root separators and literal nonrecursive subdirectories.
+- Preflight complete batches for rooted paths, busy handles, destination/case/
+  alias collisions, duplicate targets, size and 32767-file limits. Preserve
+  exact bytes and filename case, and refresh moved directory cache data.
+- Move synchronously in sorted order with normal budget checks. Late OS, status
+  or budget failures retain completed per-file moves without automatic retry or
+  rollback; directory roots/mappings remain explicit host configuration.
+- Add 45 tests, two runnable examples, installed/runtime-only checks and public
+  selection/status/failure policies. Native name/flash behavior and strict mode
+  remain future work.
+
 ## 0.99.0 - 2026-10-22
 
 - Allow whole QUEUE_TYPE logical values through GET_VAR/SET_VAR. Copy FIFO
