@@ -31,6 +31,8 @@ Version 0.94.0 adds [joint operands in geometry](joint-geometry.md), using suppl
 forward context for Cartesian frame operations, reflection, axes and comparisons.
 Version 0.95.0 adds [program listing](program-listing.md), with attached Program
 identities, persisted explicit catalogs, filtered pages and an optional cursor.
+Version 0.96.0 adds [pose decomposition](pose-decomposition.md): UNPOS values,
+model-backed joints, captured-source aliases and default-mask current queries.
 
 | Area | Working Pythonic implementation | Remaining boundary |
 | --- | --- | --- |

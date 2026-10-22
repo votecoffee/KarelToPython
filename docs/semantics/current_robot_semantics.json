@@ -1,5 +1,6 @@
 {
   "version": "0.84.0",
+  "pose_decomposition_mode_note":"Since 0.96.0, bare CURPOS/CURJPOS value names and explicit zero-argument calls discard both masks and retain ordinary query context/shadowing rules; see ../pose-decomposition.md.",
   "mode": "pythonic",
   "controller_validated": false,
   "evidence": "Manual API forms and authored offline tests; no robot, encoder or native task execution",

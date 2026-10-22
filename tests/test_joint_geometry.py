@@ -160,8 +160,8 @@ class JointGeometryGuardTests(unittest.TestCase):
         for kind in ('VECTOR','CONFIG'):
             with self.subTest(kind=kind),self.assertRaises(TranslationError): compile_program('e=INV(value)',decl=DECL+' value: '+kind)
 
-    def test_unpos_retains_exact_source_interface(self):
-        with self.assertRaises(TranslationError): compile_program('UNPOS(j,x,y,z,w,p,r,cfg)',decl='j: JOINTPOS x,y,z,w,p,r: REAL cfg: CONFIG')
+    def test_legacy_unpos_retains_exact_source_interface(self):
+        with self.assertRaises(TranslationError): legacy_translate('PROGRAM T VAR j: JOINTPOS x,y,z,w,p,r: REAL cfg: CONFIG BEGIN UNPOS(j,x,y,z,w,p,r,cfg) END T')
 
     def test_routine_and_whole_array_interfaces_remain_exact(self):
         for body,routines in (('take(j)','ROUTINE take(value: POSITION) BEGIN END take'),('e=produce()','ROUTINE produce: POSITION BEGIN RETURN j END produce')):

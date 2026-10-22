@@ -1320,11 +1320,11 @@ class Emitter:
                             result_spec=routine.return_type))
                         self.features.add('bare zero-argument function call')
                         return Expr('call', node.token, node.value, [])
-                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG') and node.value not in self.routines:
+                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG','CURPOS','CURJPOS') and node.value not in self.routines:
                     local_names = (self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
                     if node.value not in self.types.keys() | self.constants.keys() | local_names:
                         self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                            name=node.value,line=node.token.line,column=node.token.column,result_spec=('INTEGER',) if node.value=='GET_USEC_TIM' else ('STRING',12)))
+                                                            name=node.value,line=node.token.line,column=node.token.column,result_spec=('INTEGER',) if node.value=='GET_USEC_TIM' else ex.FUNCTIONS[node.value][1]))
                         self.features.add('bare zero-argument function call')
                         return Expr('call',node.token,node.value,[])
                 if node.kind in ('index', 'field', 'read_item'):
@@ -2053,7 +2053,8 @@ class Emitter:
     def service_call(self,expr):
         signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
         minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST or expr.value in ex.OPTIONAL_GROUP)
-        if not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
+        default_masks=self.mode=='pythonic' and expr.value in ('CURPOS','CURJPOS') and not expr.args
+        if not default_masks and not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
         signature=ex.signature_for(expr.value,len(expr.args))
         self.check_for_call(expr.token)
         if expr.value=='SET_VAR' and self.active_counters: self.error('E_FOR_COUNTER','SET_VAR cannot indirectly write an active FOR counter',expr.token)
@@ -2187,6 +2188,7 @@ class Emitter:
     def unpos_procedure(self, expr):
         if len(expr.args) != 8:
             self.error('E_ARGUMENTS', 'UNPOS requires XYZWPR input, six REAL outputs and one CONFIG output', expr.token)
+        if self.mode=='pythonic': return self.unpos_value_procedure(expr)
         if self.mode == 'strict' and any(self.has_routine_call(argument) for argument in expr.args):
             self.error('E_EVALUATION_ORDER', 'UNPOS arguments containing routine calls need order validation', expr.token)
         self.check_for_call(expr.token)
@@ -2212,6 +2214,34 @@ class Emitter:
                                     line=expr.token.line, column=expr.token.column, output_parameters=list(range(2,9)),
                                     overlap='All eight references checked disjoint at runtime before output writes'))
         return f'_rt.unpos({codes[0]}, [{", ".join(codes[1:])}], line={expr.token.line})'
+
+    def unpos_value_procedure(self,expr):
+        self.check_for_call(expr.token)
+        source,spec=self.expression(expr.args[0])
+        if spec not in (('XYZWPR',),('POSITION',),('XYZWPREXT',)) and spec[0]!='JOINTPOS':
+            self.error('E_TYPE','UNPOS input requires a pose value or model-backed JOINTPOS',expr.args[0].token)
+        normalized=('XYZWPREXT',) if spec[0]=='JOINTPOS' else spec
+        if spec[0]=='JOINTPOS': source=self.geometry_operand(source,spec,expr.args[0].token,'UNPOS')
+        source=f'_rt.unpos_source({source},{normalized!r},{expr.token.line})'
+        outputs=[]
+        for argument,required in zip(expr.args[1:],[*(('REAL',) for _ in range(6)),('CONFIG',)]):
+            if argument.kind not in ('name','index','field') or self.root_name(argument) in self.visible_constants():
+                self.error('E_UNPOS_ARGUMENT','UNPOS outputs require writable variable/field/element references',argument.token)
+            if self.root_name(argument) in self.active_counters:
+                self.error('E_FOR_COUNTER','UNPOS cannot write an active FOR counter',argument.token)
+            if self.is_position_read_only_access(argument):
+                self.error('E_POSITION_READ_ONLY','UNPOS output cannot be a read-only POSITION orientation field',argument.token)
+            if self.is_config_subfield(argument):
+                self.error('E_CONFIG_OUTPUT','CONFIG scalar subfields cannot be UNPOS outputs',argument.token)
+            reference,actual=self.reference(argument)
+            if actual!=required: self.error('E_TYPE',f'UNPOS output requires exact {required[0]} storage',argument.token)
+            outputs.append(reference)
+        self.features.update(('UNPOS','multiple outputs by reference','pose value extraction'))
+        self.unpos_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+            line=expr.token.line,column=expr.token.column,output_parameters=list(range(2,9)),
+            source_type=spec,source_kind=expr.args[0].kind,source_snapshot=True,
+            overlap='Seven outputs checked disjoint at runtime; captured source may also be output storage'))
+        return f'_rt.unpos_value({source}, [{", ".join(outputs)}], line={expr.token.line})'
 
     def routine_call(self, expr):
         routine = self.routines[expr.value]
@@ -3592,7 +3622,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit RobotState position and/or complete joints per robot group; caller updates atomically; no pose/joints or live acquisition defaults',
         position='CURPOS returns an independent XYZWPREXT; supplied pose takes precedence; otherwise configured DH forward math uses current joints, active frame/tool and base without rejecting outside-limit observations',
         joints='CURJPOS returns independent JOINTPOS9 with zero-padded unused slots; supplied joint width remains unchanged; no inverse conversion inferred from a pose',
-        masks='Exact disjoint INTEGER output references or literal zero to discard; explicit metadata 0..511, default zero; validate query before writing either mask',
+        masks='Exact disjoint INTEGER output references or literal zero to discard; bare names and zero-argument calls discard both masks; explicit metadata 0..511, default zero; validate query before writing either mask',
         group='Optional explicit group or calling root task group; unconfigured groups reject, including flat contexts; linked calls inherit caller query group',
         program='CURR_PROG or CURR_PROG() returns executing module name as STRING[12], including library module during linked calls; ordinary declarations/internal functions retain precedence',
         persistence='State-only and model-backed contexts serialize latest snapshots and grouped state; no call stacks, motion or time evolution restored',
@@ -3643,6 +3673,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         controller_validated=False)
     report['bare_function_policy']['microsecond_clock'] = 'In Pythonic mode an unshadowed GET_USEC_TIM value name resolves as a zero-argument clock function; internal routines and local/global variables/constants retain precedence'
     report['bare_function_policy']['current_program'] = 'An unshadowed CURR_PROG value name resolves as a zero-argument STRING[12] function reporting the executing module; internal routines and local/global declarations retain precedence'
+    report['bare_function_policy']['current_robot'] = 'Unshadowed CURPOS/CURJPOS value names and explicit zero-argument calls discard both masks as literal zero and use the calling root group; internal routines and local/global declarations retain precedence'
     report['microsecond_timer_policy'] = dict(
         functions=sorted(TIMER_FUNCTIONS),
         counter='Portable two-minute ring: nonnegative host microseconds modulo 120000000; default time.monotonic_ns() // 1000; no calendar clock or controller epoch',
@@ -3734,7 +3765,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         arguments='Evaluate actuals once left to right; bare storage captures a live reference, grouped/expression actuals capture independent values',
         subscripts='Evaluate the array base, then subscripts once left to right; bounds/storage checks follow subscript evaluation',
         assignment='Evaluate and capture RHS first, then resolve target base/subscripts and assign; aggregates captured by checked independent copy',
-        conversions='Evaluate inputs and output references in source order before conversion; bare aggregate inputs remain live storage; existing overlap/type/context checks remain',
+        conversions='Evaluate inputs and output references in source order before conversion; ordinary bare aggregate inputs remain live storage; UNPOS snapshots and normalizes its source before selectors; existing output/type/context checks remain',
         for_bounds='Evaluate initial once and assign counter, then evaluate final once; capture resulting counter and inclusive stop for iteration',
         failure='Stop on the first runtime error or ABORT; retain earlier effects, skip later evaluations and unwind routine frames',
         controller_validated=False)
@@ -3807,8 +3838,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         names='Fallback procedures; explicit internal routines of the same name retain their signatures and effects',
         boundary='No robot validity, group masks/defaults, CNV_CNF_STRG, native status/alarm mapping or controller contact; strict remains future work',
         controller_validated=False)
-    report['unpos_policy']['input'] = 'XYZWPR storage; initialized finite REAL components and bounded CONFIG'
-    report['unpos_policy']['boundary'] = 'No POSITION/XYZWPREXT/JOINTPOS coercion, frame/kinematic conversion, controller config-validity, status or alarm mapping; UNPOS still requires captured source storage'
+    report['unpos_policy'].update(
+        input='XYZWPR, POSITION and XYZWPREXT values, groups, constructors and typed routine/service results; JOINTPOS through explicit forward-model context',
+        capture='Snapshot, validate and normalize the complete source once before evaluating output selectors; preserve source effects on failure; invalid source skips selectors and all outputs',
+        representations='XYZWPR/XYZWPREXT preserve six supplied components and CONFIG; validate but omit external axes; POSITION uses the existing proper-matrix and canonical Euler policy',
+        overlap='Seven exact writable outputs must be pairwise disjoint; source/output aliasing is allowed through the independent source snapshot',
+        kinematics='Joint operands use JOINT_GEOMETRY records, root task group, selected frame/tool and explicit forward model; no current-joint seed required for supplied joints',
+        boundary='No inferred robot context, robot-specific CONFIG validity, external-axis outputs, native error/write-order/status/alarm mapping or controller acceptance; strict retains its storage-only guards',
+        guide='docs/pose-decomposition.md')
     report['conversion_policy'].update(
         parse='Python int(text, 10); invalid numeric text clears output; checked INTEGER storage',
         real_parse='Python float(text), including whitespace and lowercase exponents; finite result required; invalid numeric text clears output',

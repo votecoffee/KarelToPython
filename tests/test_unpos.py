@@ -199,12 +199,12 @@ class UnposTranslationGuardTests(unittest.TestCase):
         return caught.exception.code
     def test_wrong_arity(self): self.assertEqual(self.reject('UNPOS(pose,x,y,z,w,p,cfg)'),'E_ARGUMENTS')
     def test_wrong_source_types(self):
-        for source_type in ('POSITION','XYZWPREXT','JOINTPOS3','VECTOR','CONFIG'):
+        for source_type in ('VECTOR','CONFIG','INTEGER'):
             with self.subTest(source_type=source_type):
                 self.assertEqual(self.reject(CALL,declarations=f'pose: {source_type}\nx,y,z,w,p,r: REAL\ncfg: CONFIG'),'E_TYPE')
     def test_no_scalar_output_promotion(self): self.assertEqual(self.reject(CALL,declarations='pose: XYZWPR\nx: INTEGER\ny,z,w,p,r: REAL\ncfg: CONFIG'),'E_TYPE')
     def test_output_expression_blocked(self): self.assertEqual(self.reject(CALL.replace(',x,',',x+1,')),'E_UNPOS_ARGUMENT')
-    def test_grouped_input_blocked(self): self.assertEqual(self.reject(CALL.replace('(pose,','((pose),')),'E_UNPOS_ARGUMENT')
+    def test_legacy_grouped_input_blocked(self): self.assertEqual(self.reject(CALL.replace('(pose,','((pose),'),_translator=legacy_translate),'E_UNPOS_ARGUMENT')
     def test_grouped_output_blocked(self): self.assertEqual(self.reject(CALL.replace(',x,',',(x),')),'E_UNPOS_ARGUMENT')
     def test_read_only_orientation_output_blocked(self):
         self.assertEqual(self.reject(CALL.replace(',x,',',frame.normal.x,'),declarations='pose: XYZWPR\nframe: POSITION\nx,y,z,w,p,r: REAL\ncfg: CONFIG'),'E_POSITION_READ_ONLY')

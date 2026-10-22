@@ -1,0 +1,18 @@
+PROGRAM decompose
+VAR
+  point: POSITION
+  e: XYZWPREXT
+  cfg,result_cfg: CONFIG
+  x,y,z,w,p,r,constructor_x,position_z: REAL
+  s: INTEGER
+BEGIN
+  CNV_STR_CONF('N',cfg,s)
+  UNPOS(POS(4,5,6,0,0,0,cfg),x,y,z,w,p,r,result_cfg)
+  constructor_x=x
+  point=POS(1,2,3,0,0,0,cfg)
+  UNPOS(INV(point),x,y,z,w,p,r,result_cfg)
+  position_z=z
+  e=point
+  e.ext1=25
+  UNPOS((e),e.y,e.x,z,w,p,r,e.config_data)
+END decompose

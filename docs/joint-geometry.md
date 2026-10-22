@@ -68,8 +68,9 @@ returning. Cartesian-only evaluation rules are retained.
 The resulting type is Cartesian. `INV(joints)` performs forward kinematics and
 frame inversion; a whole assignment back to JOINTPOS subsequently uses the
 ordinary inverse-assignment rules and requires an explicit current-joint seed.
-Routine arguments, RETURN types, whole ARRAY transfers, register interfaces and
-`UNPOS` keep their existing exact-type rules. POSITION orientation fields remain
+Routine arguments, RETURN types, whole ARRAY transfers and register interfaces
+keep their existing exact-type rules. Since 0.96.0, [UNPOS](pose-decomposition.md)
+also accepts joint inputs through this forward conversion. POSITION orientation fields remain
 protected. VECTOR/scalar frame operands remain rejected.
 
 ## External axes and comparisons

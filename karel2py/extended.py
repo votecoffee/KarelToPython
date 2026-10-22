@@ -930,6 +930,7 @@ class ExecutionContext:
         return cls(**services)
     def invoke(self,state,name,arguments,line=None):
         rt=runtime(); args=list(arguments)
+        if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
         elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS') else 0 if name=='SET_FILE_ATR' else 1)

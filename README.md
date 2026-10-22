@@ -277,6 +277,10 @@ and approximate comparisons through the supplied forward model. See
 [joint geometry](docs/joint-geometry.md) for Cartesian result types, ordered
 conversion, selected context and external-axis rules.
 
+UNPOS extracts pose expressions, POSITION/XYZWPREXT values and model-backed
+joint values with source capture and checked outputs. Bare CURPOS/CURJPOS queries
+use supplied offline state. See [pose decomposition](docs/pose-decomposition.md).
+
 PULSE supports blocking and NOWAIT digital outputs with checked durations,
 explicit host polling and scheduler deadlines. Pause, terminal state and later
 writes have documented ownership rules. See [output pulses](docs/pulses.md).

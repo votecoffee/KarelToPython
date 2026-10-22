@@ -10,6 +10,11 @@ a robot or establish that a snapshot matches a controller.
 | CURJPOS(limit_mask,travel_mask[,group]) | Independent JOINTPOS9 from supplied joints, with zero padding for unused slots. |
 | CURR_PROG / CURR_PROG() | Executing module name as STRING[12], including the library name inside a linked call. |
 
+Since 0.96.0, bare CURPOS/CURJPOS value names and explicit zero-argument calls
+discard both masks and use the root task's group, equivalent to `(0,0)` calls.
+Declarations and internal routines retain precedence over bare built-ins. See
+[pose decomposition](pose-decomposition.md) for UNPOS over current values.
+
 ## Supplied state
 
 `RobotState(position=...,joints=...,axis_limit_mask=0,overtravel_mask=0)` accepts

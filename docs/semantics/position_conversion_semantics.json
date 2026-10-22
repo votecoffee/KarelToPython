@@ -1,4 +1,5 @@
 {
+  "pose_decomposition_mode_note":"Since 0.96.0, UNPOS also accepts POSITION/XYZWPREXT values and model-backed joints; see ../pose-decomposition.md. Older UNPOS operand exclusions below describe the preceding contract.",
   "translator_version": "0.78.0",
   "date": "2026-10-21",
   "mode": "pythonic",

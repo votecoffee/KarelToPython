@@ -637,6 +637,23 @@ def _reference_cells(reference):
     return cells
 
 
+def unpos_source(value, expected, line=None):
+    """Snapshot and normalize a Pythonic pose before output selectors run."""
+    value=frame_value(value,line,expected=expected)
+    if value.spec==('POSITION',): return convert_position(('XYZWPR',),value,line)
+    result=Structure(('XYZWPR',))
+    result.values.update({name:value.values[name] for name in ('X','Y','Z','W','P','R')})
+    result.values['CONFIG_DATA']=positional_value(('CONFIG',),value.values['CONFIG_DATA'],line)
+    return result
+
+
+def unpos_value(source, outputs, line=None):
+    """Extract an independent prepared pose with the existing output guards."""
+    if not _pythonic(): raise KarelRuntimeError('UNPOS values require Pythonic mode',line)
+    source=positional_value(('XYZWPR',),source,line)
+    unpos(Reference(('XYZWPR',),{'source':source},'source'),outputs,line)
+
+
 def unpos(source, outputs, line=None):
     """Extract offline XYZWPR data; no inferred conversion or alias write order."""
     if not isinstance(outputs, (list, tuple)) or len(outputs) != 7:

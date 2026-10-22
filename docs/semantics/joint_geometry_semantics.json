@@ -1,5 +1,6 @@
 {
   "version":"0.94.0",
+  "pose_decomposition_mode_note":"Since 0.96.0, UNPOS also accepts model-backed joint inputs and pose values with independent source capture; see ../pose-decomposition.md. The older retained UNPOS interface statement below describes the preceding release.",
   "mode":"pythonic",
   "controller_validated":false,
   "evidence":"Reviewed positional operations and explicit forward-conversion interface plus authored model/adapter tests; joint-expression coercion is a portable extension, not native overload proof",

@@ -76,7 +76,9 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('joint_geometry', 'INVERSE_X', -200.),
                     ('joint_mirror', 'REFLECTED_Y', -100.),
                     ('program_catalog', 'COUNT', 1),
-                    ('program_pages', 'CURSOR_NO', 3)]
+                    ('program_pages', 'CURSOR_NO', 3),
+                    ('pose_decomposition', 'CONSTRUCTOR_X', 4.),
+                    ('joint_decomposition', 'X', 100.)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

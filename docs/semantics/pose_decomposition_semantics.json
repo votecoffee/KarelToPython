@@ -1,0 +1,28 @@
+{
+  "version":"0.96.0",
+  "mode":"pythonic",
+  "controller_validated":false,
+  "evidence":"Reviewed UNPOS input/output table and current-position example plus existing pose/current-query contracts and authored offline tests; no native execution",
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[571],"printed_pages":[521],"topic":"UNPOS: XYZWPR input, six REAL outputs, CONFIG output and current-position-expression example"}],
+  "implemented":{
+    "input":"XYZWPR, POSITION and XYZWPREXT values, groups, constructors, geometry and typed routine/service results; JOINTPOS through explicit forward context",
+    "capture":"Evaluate, snapshot and validate/convert source before capturing output selectors in order; source may also be output storage",
+    "outputs":"Retain seven exact writable output references, disjoint output footprints, protected storage and FOR guards; preflight entire output batch",
+    "representations":"XYZWPR/XYZWPREXT preserve supplied components; POSITION uses existing proper-matrix validation and canonical Euler conversion; external fields validated but omitted",
+    "joints":"Reuse JOINT_GEOMETRY forward conversion with selected root group/frame/tool, padding/limits and sticky abort; no current seed required for supplied joints",
+    "current":"Bare and explicit zero-argument CURPOS/CURJPOS discard both masks, retaining ordinary query context and shadowing priorities",
+    "observations":"unpos_calls, unpos_policy, existing direct/transitive writes, joint conversion sites/service effects and value-free request records"
+  },
+  "portable_choices":[
+    "Broader pose inputs and default-mask current-query shorthand are Pythonic choices",
+    "Fully capture source before later output selector effects; failed source skips selectors; later failures retain prior effects",
+    "Allow source/output aliases through a detached source snapshot; duplicate output aliases remain blocked",
+    "No angle normalization for direct XYZWPR/XYZWPREXT fields; POSITION follows existing Z-Y-X and gimbal conventions",
+    "Validate complete extended metadata without adding external-axis output slots",
+    "Cartesian-only extraction needs no service; joint/current inputs use explicit services without updating robot state",
+    "Preserve old strict compilation and the conservative runtime.unpos helper"
+  ],
+  "remaining":["Native alias/error/write-order behavior","Live controller acquisition and CONFIG validity","External-axis output API beyond direct field access","Strict mode"],
+  "verification":["tests/test_pose_decomposition.py","tests/test_unpos.py","tests/test_pythonic_order.py","tests/test_runtime_portability.py","examples/pose_decomposition.kl","examples/joint_decomposition.kl"],
+  "guide":"../pose-decomposition.md"
+}

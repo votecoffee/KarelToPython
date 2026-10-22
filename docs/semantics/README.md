@@ -36,6 +36,7 @@ are kept outside public documentation.
 
 | Topic | Ledger |
 | --- | --- |
+| Pose decomposition | [pose_decomposition_semantics.json](pose_decomposition_semantics.json) |
 | Program listing | [program_listing_semantics.json](program_listing_semantics.json) |
 | Pythonic CONFIG text | [config_text_semantics.json](config_text_semantics.json) |
 | Pythonic POS construction | [pos_constructor_semantics.json](pos_constructor_semantics.json) |

@@ -390,3 +390,10 @@ expressions; `joint_geometry_policy` describes explicit context and Cartesian
 results. Runtime `JOINT_GEOMETRY` records contain operation/line/outcome only.
 `routine_effects.potential_service_requests` includes implicit conversions and
 propagates through calls. See [joint geometry](joint-geometry.md).
+
+Pythonic `UNPOS` accepts pose values and model-backed joint inputs, capturing
+the complete source before output selectors. `unpos_calls` includes source type,
+kind and snapshot policy; `unpos_policy` records representations and alias rules.
+Bare or zero-argument CURPOS/CURJPOS discard both masks using the existing explicit
+context; their source sites appear in `bare_function_calls` and `service_operations`.
+See [pose decomposition](pose-decomposition.md).

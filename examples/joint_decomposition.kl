@@ -1,0 +1,11 @@
+PROGRAM joint_parts
+VAR
+  j: JOINTPOS
+  cfg: CONFIG
+  x,y,z,w,p,r,current_x: REAL
+BEGIN
+  UNPOS(CURPOS,x,y,z,w,p,r,cfg)
+  current_x=x
+  j=CURJPOS()
+  UNPOS(j,x,y,z,w,p,r,cfg)
+END joint_parts

@@ -78,9 +78,11 @@ Model-backed [joint/Cartesian assignments](kinematic-assignments.md) finish
 conversion and detach the RHS before evaluating the target selector. A failed
 conversion does not evaluate that selector; completed source/host effects remain.
 
-UNPOS overlap checks, exact output types and explicit joint-axis context still
-apply before output writes. An index function's earlier effects are retained if
-the subsequent procedure fails.
+Since 0.96.0, [UNPOS](pose-decomposition.md) captures and validates its pose value
+before output selectors run. This also permits source/output aliases through an
+independent source copy. Duplicate outputs and exact output type/protection
+checks still apply before writes. A failed source skips selectors; a later
+failure retains prior source/index effects without partial UNPOS outputs.
 
 FOR evaluates the initial expression once, stores it in the counter, then
 evaluates the final expression once. The final expression can read the initialized
