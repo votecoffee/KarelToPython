@@ -122,9 +122,13 @@ class NativeEditorTests(unittest.TestCase):
         self.app.source.edit_undo()
         self.root.update()
         self.assertEqual(self.app.source.get('1.0', 'end-1c'), 'one ONE\none')
+        self.assertEqual(self.app.document.text, 'one ONE\none')
+        self.assertFalse(self.app.document.dirty)
         self.app.source.edit_redo()
         self.root.update()
         self.assertEqual(self.app.source.get('1.0', 'end-1c'), 'two two\ntwo')
+        self.assertEqual(self.app.document.text, 'two two\ntwo')
+        self.assertTrue(self.app.document.dirty)
 
     def test_readonly_preview_can_be_searched_but_never_replaced(self):
         self.source('PROGRAM DEMO BEGIN END DEMO')

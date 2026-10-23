@@ -572,6 +572,7 @@ class Workbench:
         current = self.source.get('1.0', 'end-1c')
         if current != self.document.text:
             self.document.text = current
+            self.source.edit_modified(False)
             self.invalidate()
             self._title()
 
