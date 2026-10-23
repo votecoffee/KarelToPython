@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1023.123045 - 2026-10-23
+
+- Add CNV_CNF_STRG with status output and optional caller-rooted group selection.
+  Explicit ConfigTextFormats profiles select flags and turns; persist them in
+  ExecutionContext JSON without inferring native robot masks.
+- Preserve complete CONFIG capture, source-order evaluation, output capacity and
+  counter protections; add an authored example and CLI execution checks.
+- Protect CLI source/output/report hard-link aliases and reject symbolic-link
+  outputs. Share source protection and complete-file replacement with the GUI;
+  failed forced replacement retains the previous output.
+- Add subprocess CLI regressions for translation, generated-script execution,
+  report hashes, exit codes, source preservation and operation without GUI imports.
+
 ## 26.1023.115555 - 2026-10-23
 
 - Add line numbers, bounded KAREL/Python syntax coloring, cursor position,

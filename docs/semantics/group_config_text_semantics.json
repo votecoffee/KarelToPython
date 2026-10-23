@@ -1,0 +1,26 @@
+{
+  "version": "26.1023.123045",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [337, 338],
+    "documented": "CONFIG input, STRING/status outputs, optional group and sufficient target capacity; conversion uses the selected group's configuration mask",
+    "uncertainty": "The example omits the status parameter from the signature; native masks, error codes and failure output states are not authenticated"
+  },
+  "implementation_choices": {
+    "signature": "CNV_CNF_STRG(source,target,status[,group_no]); preserve internal routine precedence",
+    "context": "Explicit ConfigTextFormats profiles with selected flip/left/up/front flags and turn numbers 1..3; canonical order and defensive JSON copies",
+    "group": "Explicit group or calling root's group, including linked calls; unqualified root uses 1, requiring a supplied profile",
+    "status": "0 success; portable CONFIG_TEXT_GROUP_MISSING=1 for an absent group with text retained",
+    "guards": "Capture complete checked CONFIG before selectors; ordinary disjoint writable STRING/INTEGER outputs, enough capacity, ordered capture and normal FOR/frame cleanup",
+    "persistence": "ExecutionContext config_text object with canonical positive group keys, explicit flags and turns lists; no inference from robot geometry",
+    "reports": "service_operations and group_config_text_policy; value-free runtime service observations"
+  },
+  "retained_boundaries": [
+    "No native configuration masks, controller discovery, robot validity or status-code equivalence",
+    "Missing context and malformed source/capacity fail without conversion output writes",
+    "Existing context-free formatting and strict-mode rejection remain; strict is future work"
+  ],
+  "tests": ["tests/test_group_config_text.py", "tests/test_config_text.py", "tests/test_cli.py", "examples/group_config_text.kl"]
+}

@@ -29,6 +29,10 @@ independent CONFIG data and source-located `pos_constructors` report entries.
 [CONFIG text conversions](config-text.md) expose `config_text_conversions` and
 `config_text_policy`, including portable grammar, output guards and status behavior.
 
+[Group CONFIG formatting](group-config-text.md) adds `CNV_CNF_STRG`, supplied
+`runtime.ConfigTextFormats` profiles, the `ExecutionContext.config_text` service
+and `group_config_text_policy`. The service's profiles persist in context JSON.
+
 [Source directives](source-directives.md) retain raw `directives`, decoded
 `directive_metadata` and a `directive_policy` with `required_environments`.
 These are recorded requirements and attributes; they do not load definitions or

@@ -149,3 +149,8 @@ exclusions; historical ledgers retain their version-bound scope.
 The 0.101.0 [I/O configuration ledger](port_configuration_semantics.json) records
 explicit topology and module metadata, staged assignments/modes, host application,
 portable status/range choices and independence from logical signal values.
+
+The [group CONFIG text ledger](group_config_text_semantics.json) records
+CNV_CNF_STRG, explicit per-group field profiles, status/capacity handling and
+calling-root selection. It supersedes that procedure's exclusion in the older
+context-free CONFIG ledger while retaining native-mask and controller boundaries.

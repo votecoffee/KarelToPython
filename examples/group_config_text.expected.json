@@ -1,0 +1,10 @@
+{
+  "CFG": {
+    "CFG_TURN_NO1": -1, "CFG_TURN_NO2": 0, "CFG_TURN_NO3": 2,
+    "CFG_FLIP": true, "CFG_LEFT": true, "CFG_UP": true, "CFG_FRONT": true
+  },
+  "COMPLETE": "F L U T, -1, 0, 2",
+  "COMPACT": "F U T, -1, 2",
+  "CODE": 0,
+  "MISSING": 1
+}

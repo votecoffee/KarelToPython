@@ -13,6 +13,7 @@ source-located error. Strict mode remains a future milestone.
 
 | KAREL | Python implementation | Contract |
 | --- | --- | --- |
+| `CNV_CNF_STRG` | Explicit ConfigTextFormats group profiles | Selected flags/turns, optional caller-rooted group, portable missing-group status and persisted JSON; see [group CONFIG text](group-config-text.md). |
 | `GET_STR_REG`, `SET_STR_REG` | `StringRegisters` dictionary | Explicit count and ASCII capacity; reads copy and truncate to destination capacity. |
 | `GET_POS_REG`, `SET_POS_REG`, `SET_EPOS_REG` | `PositionRegisters` keyed by group and number | Complete independent Cartesian values; getter returns XYZWPREXT. |
 | `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter pads complete narrow joints to nine slots; stored width is retained. No implicit pose/joint conversion. |

@@ -174,7 +174,10 @@ class ConfigSourceGuardTests(unittest.TestCase):
     def test_legacy_rejections(self):
         for body in ("CNV_STR_CONF('N',cfg,status)",'CNV_CONF_STR(cfg,text)'):
             with self.subTest(body=body): self.reject(body,'E_CALL',translator=legacy_translate)
-    def test_masked_conversion_stays_unsupported(self): self.reject('CNV_CNF_STRG(cfg,text,status)','E_CALL')
+    def test_grouped_conversion_requires_explicit_profiles(self):
+        p,_=compile_program("CNV_STR_CONF('N',cfg,status) text='prior' status=7 CNV_CNF_STRG(cfg,text,status)")
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'config_text'): p.run()
+        self.assertEqual((p.snapshot()['TEXT'],p.snapshot()['STATUS']),('prior',7))
 
 
 class ConfigRuntimeGuardTests(unittest.TestCase):

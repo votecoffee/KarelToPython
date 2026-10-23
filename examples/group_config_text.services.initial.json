@@ -1,0 +1,6 @@
+{
+  "config_text": {
+    "1": {"flags": ["flip", "left", "up", "front"], "turns": [1, 2, 3]},
+    "2": {"flags": ["flip", "up", "front"], "turns": [1, 3]}
+  }
+}

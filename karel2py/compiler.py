@@ -3553,6 +3553,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['group_config_text_policy']=dict(
+        procedure='CNV_CNF_STRG',
+        context='Explicit ExecutionContext.config_text ConfigTextFormats profiles; per-group selected flags and turn numbers, never native mask discovery',
+        group='Explicit fourth INTEGER argument or calling root task group; unqualified root uses group 1, which still requires an explicit profile',
+        format='Complete checked CONFIG captured before output selectors; selected flags in flip/left/up/front order and selected turns in numeric order; omit unselected fields',
+        outputs='Exact writable STRING and INTEGER outputs; enough capacity for complete text; source failure skips later argument evaluation and all output writes',
+        status='0 success; portable CONFIG_TEXT_GROUP_MISSING=1 for an unconfigured group, retaining text; missing service, malformed source and insufficient capacity raise without output writes',
+        evaluation='Evaluate source, target, status and optional group once in source order; preserve prior effects, ordinary frame/FOR cleanup and transitive counter protection',
+        persistence='Detached JSON profiles with canonical positive group keys, explicit flags and turns lists; no masks inferred from a robot model',
+        guide='docs/group-config-text.md',controller_validated=False)
     report['port_configuration_policy']=dict(
         procedures=['GET_PORT_ASG','SET_PORT_ASG','GET_PORT_MOD','SET_PORT_MOD','IO_MOD_TYPE'],
         context='Explicit PortBank configuration: physical capacities/directions, module catalog, active and pending settings; logical type_codes required except IO_MOD_TYPE',
@@ -3893,7 +3903,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         formatting='CNV_CONF_STR snapshots complete initialized CONFIG before target capture; insufficient STRING capacity raises without truncation or mutation',
         evaluation='Source then target then status once; preflight output types/shape/disjointness before writes; preserve captured aggregate storage, prior effects and ordinary cleanup',
         names='Fallback procedures; explicit internal routines of the same name retain their signatures and effects',
-        boundary='No robot validity, group masks/defaults, CNV_CNF_STRG, native status/alarm mapping or controller contact; strict remains future work',
+        boundary='No robot validity, native group masks, status/alarm mapping or controller contact; CNV_CNF_STRG follows group_config_text_policy with explicit profiles; strict remains future work',
         controller_validated=False)
     report['unpos_policy'].update(
         input='XYZWPR, POSITION and XYZWPREXT values, groups, constructors and typed routine/service results; JOINTPOS through explicit forward-model context',

@@ -1,0 +1,13 @@
+PROGRAM GROUP_CONFIG_TEXT
+VAR
+  cfg: CONFIG
+  complete,compact: STRING[40]
+  code,missing: INTEGER
+BEGIN
+  CNV_STR_CONF('F L U T,-1,0,2',cfg,code)
+  IF code=0 THEN
+    CNV_CNF_STRG(cfg,complete,code)
+    CNV_CNF_STRG(cfg,compact,code,2)
+    CNV_CNF_STRG(cfg,compact,missing,3)
+  ENDIF
+END GROUP_CONFIG_TEXT

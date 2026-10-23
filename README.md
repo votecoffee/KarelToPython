@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.115555**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.123045**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -160,6 +160,11 @@ python -m karel2py examples/pythonic_numeric.kl --mode pythonic --check
 use Python `float`; structural and initialization checks remain. **Strict mode
 is a future milestone**; its previous exactness work is preserved internally.
 See the [equivalence matrix and mode roadmap](docs/numeric-modes.md).
+
+`CNV_CNF_STRG` formats CONFIG values using explicitly supplied per-group field
+profiles, with a status output and optional group argument. Profiles persist in
+service-context JSON and work with generated-script `--context` input. See
+[group CONFIG formatting](docs/group-config-text.md).
 
 Pythonic `WRITE` supports mixed text, signed numbers, REAL formatting and `CR`
 newlines, for example `WRITE('value=',value::0::3,CR)`. Requests are recorded or

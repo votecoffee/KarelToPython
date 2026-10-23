@@ -26,6 +26,7 @@ def service_snapshot(services):
     if services.errors is not None: observed['errors']=services.errors.snapshot()
     if services.calendar is not None: observed['calendar']=services.calendar.to_config()
     if services.programs is not None: observed['programs']=services.programs.to_config()
+    if services.config_text is not None: observed['config_text']=services.config_text.to_config()
     return observed
 
 
@@ -115,7 +116,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 127, 'Update the expected example count when adding examples'
+    assert count == 128, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
     assert len(projects)==3, 'Update the expected project count when adding projects'
     for folder in projects:

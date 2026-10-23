@@ -4,6 +4,10 @@ Since 0.67.0, Pythonic mode supports `CNV_STR_CONF(source,target,status)` and
 `CNV_CONF_STR(source,target)` as portable CONFIG text conversions. They let
 programs construct complete CONFIG values for [POS](pos-construction.md).
 
+`CNV_CNF_STRG` adds status-bearing formatting using supplied per-group field
+profiles. See [group CONFIG text](group-config-text.md) for its context, group
+selection and failure contract.
+
 ```karel
 PROGRAM CONFIG_TEXT
 VAR cfg: CONFIG pose: XYZWPR code: INTEGER text: STRING[40]
@@ -99,4 +103,5 @@ Robot configuration validity depends on controller-specific context. Accepted
 grammar, omitted values, canonical order, portable failure status and guarded
 failure behavior here are explicit offline choices. There is no robot/group mask,
 native status/alarm mapping, controller acceptance or reachability claim.
-Group-specific `CNV_CNF_STRG` remains unsupported. Strict mode remains future work.
+Group-specific `CNV_CNF_STRG` uses the separate explicit-profile contract above.
+Strict mode remains future work.

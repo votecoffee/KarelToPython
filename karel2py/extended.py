@@ -25,6 +25,7 @@ I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK'}
 PROCEDURES = {
+    'CNV_CNF_STRG': (arg('CONFIG'),OS,OI,I),
     'GET_TIME':(OI,), 'SET_TIME':(I,),
     'CLEAR_SEMA':(I,), 'POST_SEMA':(I,), 'PEND_SEMA':(I,I,arg('BOOLEAN','o')),
     'POST_ERR':(I,S,I,I), 'POST_ERR_L':(I,S,I,I),
@@ -85,7 +86,7 @@ FUNCTIONS = {
     'J_IN_RANGE': ((arg('JOINTPOS'),),('BOOLEAN',)),
     'MIRROR': ((arg('GEOMETRY_POSE'),arg('GEOMETRY_POSE'),B),('XYZWPREXT',)),
 }
-OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST'}
+OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG'}
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
@@ -1119,7 +1120,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1136,6 +1137,9 @@ class ExecutionContext:
         self.local_handlers=local_handlers
         if programs is not None and type(programs) is not ProgramCatalog: raise TypeError('programs must be ProgramCatalog or None')
         self.programs=programs
+        from .configtext import ConfigTextFormats
+        if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
+        self.config_text=config_text
     def to_config(self):
         from .storage import context_config
         return context_config(self)
@@ -1153,10 +1157,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'config_text' in config:
+            from .configtext import ConfigTextFormats
+            services['config_text']=ConfigTextFormats.from_config(config['config_text'])
         if 'programs' in config:
             if type(config['programs']) is not list: raise ValueError('programs must be a list of catalog entries')
             services['programs']=ProgramCatalog(config['programs'])
@@ -1218,12 +1225,22 @@ class ExecutionContext:
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
-        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS') else 0 if name=='SET_FILE_ATR' else 1)
+        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS','CNV_CNF_STRG') else 0 if name=='SET_FILE_ATR' else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name=='CNV_CNF_STRG':
+            group=rt.task_root(state).robot_group if args[3] is None else args[3]
+            code,text=self.require('config_text',line).render(args[0],1 if group is None else group,line)
+            if code==0:
+                capacity=args[1].spec[1]
+                if type(capacity) is not int or not 1<=capacity<=254: fail('CNV_CNF_STRG requires a concrete STRING capacity',line)
+                if len(text)>capacity: fail('CNV_CNF_STRG output capacity is too small for complete CONFIG text',line)
+                args[1].set(text,line)
+            args[2].set(code,line)
+            return
         if name in ('COMPARE_FILE','PRINT_FILE'):
             from .fileops import file_operation
             return file_operation(state,name,args,line)

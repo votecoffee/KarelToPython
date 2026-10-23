@@ -370,6 +370,7 @@ class DirectoryFiles:
 
 def context_config(context):
     result={}
+    if context.config_text is not None: result['config_text']=context.config_text.to_config()
     if context.programs is not None: result['programs']=context.programs.to_config()
     if context.calendar is not None: result['calendar']=context.calendar.to_config()
     if context.local_handlers: result['local_handlers']=True
