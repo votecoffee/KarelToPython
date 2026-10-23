@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.130323**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.132259**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -314,6 +314,11 @@ LOAD_STATUS checks attached code and any known global initialization.
 GET_ATTR_PRG/SET_ATTR_PRG read explicit program metadata and update owner, comment
 and source metadata with activity guards. See [program metadata](docs/program-metadata.md)
 for supplied snapshots, portable identifiers/statuses and the CLI example.
+
+Seventeen remote register/comment/port procedures use explicit offline PeerBanks,
+including numeric/string values, independent comments and simulation flags.
+Peer banks persist in context JSON and remain independent of local banks. See
+[remote banks](docs/remote-banks.md) for setup and the CLI example.
 
 COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
 report to an open FILE. PRINT_FILE sends validated ASCII to the existing output

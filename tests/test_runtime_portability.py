@@ -78,6 +78,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('program_catalog', 'COUNT', 1),
                     ('program_pages', 'CURSOR_NO', 3),
                     ('program_metadata', 'COMMENT', 'converted'),
+                    ('remote_banks', 'NUMBER', 42),
                     ('pose_decomposition', 'CONSTRUCTOR_X', 4.),
                     ('joint_decomposition', 'X', 100.),
                     ('collection_state', 'FIRST', 42),
@@ -96,7 +97,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py', 'configtext.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py', 'configtext.py', 'remote.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'

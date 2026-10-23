@@ -25,6 +25,7 @@ source-located error. Strict mode remains a future milestone.
 | `VAR_INFO`, `VAR_LIST` | Static global metadata and bounded name catalogs | Canonical type codes, ARRAY dimensions, capacities, portable flags and sorted/paged output; see [variable inspection](variable-inspection.md). |
 | `PROG_LIST` | Attached Programs and explicit immutable program metadata | Type filters, star patterns, sorted pages, 15/39-character formats and optional cursor; see [program listing](program-listing.md). |
 | `LOAD_STATUS`, `GET_ATTR_PRG`, `SET_ATTR_PRG` | Attached Programs and explicit ProgramAttributes snapshots | Any known global data, selected typed reads, four metadata writes, activity guards and persisted snapshots; see [program metadata](program-metadata.md). |
+| Remote `RGET_*` / `RSET_*` | Explicit PeerBanks numeric/string/position-comment/port banks | 17 procedures, isolated peer lookup, portable statuses and persisted updates; see [remote banks](remote-banks.md). |
 | `UNPOS` | Checked pose-value decomposition | POSITION/XYZWPREXT, expressions and model-backed joints; independent source capture and disjoint outputs; see [pose decomposition](pose-decomposition.md). |
 | `GET/SET_PORT_VAL`, `GET/SET_PORT_SIM`, `GET/SET_PORT_CMT` | Shared PortBank values plus simulation/comment metadata | Explicit INTEGER type-code mapping; outputs or simulated inputs can be written; bounded scalar conversions. |
 | `CLR_PORT_SIM` | Remove a logical simulation flag | Retain last supplied value/comment; subsequent indirect input writes require simulation again. |

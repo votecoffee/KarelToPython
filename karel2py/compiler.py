@@ -3559,6 +3559,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['remote_bank_policy']=dict(
+        procedures=dict(ex.REMOTE_SERVICES),
+        context='Explicit PeerBanks host-to-bank bindings; case-insensitive names select numeric, string, position-comment or port banks, never DNS or network connections',
+        values='Numeric INTEGER/REAL kinds and selected outputs preserved; STRING values follow bank/target capacities, comments limited to 16; remote simulation output is BOOLEAN and port values are INTEGER',
+        isolation='Use only the selected peer bank and its port type_codes; no caller-bank fallback, automatic peer creation or implicit native type-code tables',
+        status='Portable 0 success, 1 absent bank value, 2 invalid address, 3 invalid port conversion, 4 unsimulated input write, PEER_UNAVAILABLE=5 for an unbound host; missing service raises before writes',
+        evaluation='All arguments once in source order; exact disjoint writable outputs and ordinary transitive FOR/read-only protections; selected read values checked before output writes',
+        persistence='peers JSON contains bank snapshots only; detached exported mappings, host bindings deliberately share supplied bank objects; no nested contexts, files, tasks or credentials',
+        guide='docs/remote-banks.md',controller_validated=False)
     report['program_metadata_policy']=dict(
         procedures=['LOAD_STATUS','GET_ATTR_PRG','SET_ATTR_PRG'],
         constants=dict(ex.PROGRAM_CONSTANTS),

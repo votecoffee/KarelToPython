@@ -1,0 +1,1 @@
+{"peers":{"CELL_A":{"numeric":{"count":2,"values":{}},"strings":{"count":2,"capacity":16,"values":{}},"positions":{"count":1,"groups":[1],"values":{}},"ports":{"counts":{"DIN":1,"DOUT":1},"values":{},"type_codes":{"10":"DIN","20":"DOUT"}}}}}

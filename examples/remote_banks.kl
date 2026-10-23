@@ -1,0 +1,27 @@
+PROGRAM peer_io
+%ENVIRONMENT RPCC
+VAR
+  number,port_value,status: INTEGER
+  real_value: REAL
+  is_real,simulated: BOOLEAN
+  text,numeric_label,position_label,string_label,port_label: STRING[16]
+BEGIN
+  RSET_INT_REG('CELL_A',1,42,status)
+  RGET_REG('cell_a',1,is_real,number,real_value,status)
+  RSET_REALREG('CELL_A',1,2.5,status)
+  RGET_REG('CELL_A',1,is_real,number,real_value,status)
+  RSET_STR_REG('CELL_A',1,'ready',status)
+  RGET_STR_REG('CELL_A',1,text,status)
+  RSET_REG_CMT('CELL_A',1,'count',status)
+  RGET_REG_CMT('CELL_A',1,numeric_label,status)
+  RSET_PREGCMT('CELL_A',1,'waypoint',status)
+  RGET_PREGCMT('CELL_A',1,position_label,status)
+  RSET_SREGCMT('CELL_A',1,'message',status)
+  RGET_SREGCMT('CELL_A',1,string_label,status)
+  RSET_PORTCMT('CELL_A',20,1,'request',status)
+  RGET_PORTCMT('CELL_A',20,1,port_label,status)
+  RSET_PORTVAL('CELL_A',20,1,1,status)
+  RGET_PORTVAL('CELL_A',20,1,port_value,status)
+  RSET_PORTSIM('CELL_A',10,1,0,status)
+  RGET_PORTSIM('CELL_A',10,1,simulated,status)
+END peer_io

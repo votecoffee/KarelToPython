@@ -88,6 +88,22 @@ FUNCTIONS = {
     'J_IN_RANGE': ((arg('JOINTPOS'),),('BOOLEAN',)),
     'MIRROR': ((arg('GEOMETRY_POSE'),arg('GEOMETRY_POSE'),B),('XYZWPREXT',)),
 }
+REMOTE_SERVICES={
+    'RGET_REG':'GET_REG','RSET_INT_REG':'SET_INT_REG','RSET_REALREG':'SET_REAL_REG',
+    'RGET_STR_REG':'GET_STR_REG','RSET_STR_REG':'SET_STR_REG',
+    'RGET_REG_CMT':'GET_REG_CMT','RSET_REG_CMT':'SET_REG_CMT',
+    'RGET_PREGCMT':'GET_PREG_CMT','RSET_PREGCMT':'SET_PREG_CMT',
+    'RGET_SREGCMT':'GET_SREG_CMT','RSET_SREGCMT':'SET_SREG_CMT',
+    'RGET_PORTCMT':'GET_PORT_CMT','RSET_PORTCMT':'SET_PORT_CMT',
+    'RGET_PORTSIM':'GET_PORT_SIM','RSET_PORTSIM':'SET_PORT_SIM',
+    'RGET_PORTVAL':'GET_PORT_VAL','RSET_PORTVAL':'SET_PORT_VAL'}
+_REMOTE_SIGNATURES={'GET_REG':(I,arg('BOOLEAN','o'),OI,arg('REAL','o'),OI),
+                    'SET_INT_REG':(I,I,OI),'SET_REAL_REG':(I,R,OI),
+                    'GET_PORT_SIM':(I,I,arg('BOOLEAN','o'),OI),
+                    'GET_PORT_VAL':(I,I,OI,OI),'SET_PORT_VAL':(I,I,I,OI),
+                    'SET_PORT_SIM':(I,I,I,OI)}
+PROCEDURES.update({name:(S,*(_REMOTE_SIGNATURES[local] if local in _REMOTE_SIGNATURES else PROCEDURES[local]))
+                   for name,local in REMOTE_SERVICES.items()})
 OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG'}
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1}
@@ -461,6 +477,46 @@ def port_value(value,kind,line=None):
         if type(value) is float and not value.is_integer(): raise ValueError('Fractional analog port requires REAL output')
         return rt.checked(('INTEGER',),int(value),line)
     return rt.real(int(value) if type(value) is bool else value,line)
+
+
+PEER_UNAVAILABLE=5
+
+
+class PeerBanks:
+    """Explicit named in-memory peers, sharing only the supplied bank objects."""
+    def __init__(self,peers=None):
+        if peers is None: peers={}
+        if type(peers) is not dict: raise ValueError('Peers require a host-to-bank mapping')
+        self._peers={}
+        types={'numeric':runtime().NumericRegisters,'strings':StringRegisters,
+               'positions':PositionRegisters,'ports':PortBank}
+        for host,banks in peers.items():
+            if type(host) is not str or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,253}',host):
+                raise ValueError('Peer names require 1..254 ASCII host-label characters')
+            host=host.upper()
+            if host in self._peers: raise ValueError('Duplicate case-insensitive peer name')
+            if type(banks) is not dict or set(banks)-set(types): raise ValueError('Peers accept numeric, strings, positions and ports banks only')
+            if any(type(bank) is not types[name] for name,bank in banks.items()):
+                raise TypeError('Peer services require explicit typed bank objects')
+            self._peers[host]=dict(banks)
+
+    def lookup(self,host,line=None):
+        banks=self._peers.get(runtime().ascii_string(host,line).upper())
+        return None if banks is None else dict(banks)
+
+    def to_config(self):
+        return {host:ExecutionContext(**banks).to_config() for host,banks in self._peers.items()}
+
+    @classmethod
+    def from_config(cls,config):
+        if type(config) is not dict: raise ValueError('peers must be a host-to-bank mapping')
+        peers={}
+        for host,row in config.items():
+            if type(row) is not dict or set(row)-{'numeric','strings','positions','ports'}:
+                raise ValueError('Peer JSON accepts bank configurations only')
+            context=ExecutionContext.from_config(row)
+            peers[host]={name:getattr(context,name) for name in row}
+        return cls(peers)
 
 
 PROGRAM_TYPES={1:('VR',),2:('JB','PR','MR','TP'),3:('JB',),4:('PR',),
@@ -1191,7 +1247,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1210,6 +1266,8 @@ class ExecutionContext:
         self.programs=programs
         if program_attributes is not None and type(program_attributes) is not ProgramAttributes: raise TypeError('program_attributes must be ProgramAttributes or None')
         self.program_attributes=program_attributes
+        if peers is not None and type(peers) is not PeerBanks: raise TypeError('peers must be PeerBanks or None')
+        self.peers=peers
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1230,10 +1288,11 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'peers' in config: services['peers']=PeerBanks.from_config(config['peers'])
         if 'program_attributes' in config:
             if type(config['program_attributes']) is not dict: raise ValueError('program_attributes must be a program mapping')
             services['program_attributes']=ProgramAttributes(config['program_attributes'])
@@ -1307,6 +1366,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in REMOTE_SERVICES:
+            from .remote import invoke_peer
+            return invoke_peer(self,state,name,args,line)
         if name in ('LOAD_STATUS','GET_ATTR_PRG','SET_ATTR_PRG'):
             from .inspection import program_metadata
             return program_metadata(self,state,name,args,line)

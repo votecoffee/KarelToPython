@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1023.132259 - 2026-10-23
+
+- Add 17 RGET/RSET procedures over explicit PeerBanks for numeric/string
+  registers, register/port comments, port values and BOOLEAN simulation queries.
+- Preserve numeric kinds, selected outputs, bank capacities, ordinary port rules
+  and argument/counter protections; require each peer's own banks/type codes.
+- Persist detached peer snapshots and completed updates without networking,
+  controller discovery or local-bank fallback. Document manual signature conflicts.
+- Add an authored example covering all remote procedures, fresh CLI execution,
+  linked-source sharing, isolation, failure guards and runtime-only delivery checks.
+
 ## 26.1023.130323 - 2026-10-23
 
 - Add LOAD_STATUS for attached Programs and explicit load snapshots, counting

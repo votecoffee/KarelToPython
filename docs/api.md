@@ -423,6 +423,14 @@ validates a host metadata update. `program_metadata_policy` describes initializa
 selected outputs, the four writable fields and activity guards. See
 [program metadata](program-metadata.md).
 
+`ExecutionContext(peers=PeerBanks(...))` supplies explicit offline bank bindings
+for the 17 remote register and port procedures. `PeerBanks.lookup(host)` returns
+a copied mapping of shared bank objects; `to_config()` exports detached snapshots
+and `from_config()` restores bank-only JSON. Context JSON stores these under
+`peers`; `runtime.PEER_UNAVAILABLE` is portable status 5. Reports include
+`remote_bank_policy`. See [remote banks](remote-banks.md) for signatures, selected
+outputs, per-peer port mappings and retained network/position-transfer boundaries.
+
 `joint_geometry` records model-backed JOINTPOS operands in supported geometry
 expressions; `joint_geometry_policy` describes explicit context and Cartesian
 results. Runtime `JOINT_GEOMETRY` records contain operation/line/outcome only.

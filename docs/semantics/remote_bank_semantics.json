@@ -1,0 +1,28 @@
+{
+  "version": "26.1023.132259",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [510, 511, 512, 513, 514, 515, 516, 523, 524, 525, 526, 527, 528, 529],
+    "documented": "Named-host remote numeric/string registers, independent comments, logical port values and simulation; numeric selected outputs and BOOLEAN simulation query",
+    "conflicts": "Parameter tables label some register numbers BOOLEAN, numeric flag INTEGER, comment strings INTEGER and string-register write value output; details/examples support INTEGER numbers, BOOLEAN flag, STRING comments and input STRING writes"
+  },
+  "implementation_choices": {
+    "context": "Explicit PeerBanks host-to-bank mapping; numeric, strings, positions and ports only; no nested contexts, callbacks, credentials, files or tasks",
+    "identity": "Case-insensitive ASCII host labels, 1..254 characters, starting alphanumeric with underscore/dot/colon/hyphen allowed; no DNS or sockets",
+    "sharing": "Copied host/service mappings deliberately share supplied typed bank objects; JSON export is detached and reload creates fresh banks",
+    "values": "INTEGER/REAL numeric kinds and selected read outputs; peer/destination string capacities; 16-character comments; INTEGER port values with BOOLEAN 0/1 conversions and BOOLEAN simulation output",
+    "isolation": "Only selected peer bank and its explicit port type_codes; no caller-bank fallback or automatic peer creation",
+    "status": "Portable 0 success, 1 absent value, 2 invalid address, 3 invalid port conversion, 4 unsimulated input write, PEER_UNAVAILABLE=5 for unbound host; missing context/bank/mapping raises before mutation",
+    "guards": "Source-ordered once-only arguments, checked disjoint exact writable outputs, selected read preparation, read-only and transitive FOR protections; prior completed effects retained",
+    "persistence": "peers JSON uses existing typed bank schemas; preserves kinds, capacities, comments, positions and I/O state/configuration; no object identity, task state or pending pulses",
+    "reports": "remote_bank_policy, service_operations and defensive value-free service requests; no local numeric register request records for remote calls"
+  },
+  "retained_boundaries": [
+    "No real networking, controller discovery, native RPCC transport/error/timing equivalence or live acquisition",
+    "Position banks supply comments; remote position-value transfer and remote program/task execution remain separate gaps",
+    "Ordinary local behavior and guards remain; strict mode is a future milestone"
+  ],
+  "tests": ["tests/test_remote_services.py", "tests/test_runtime_portability.py", "examples/remote_banks.kl"]
+}

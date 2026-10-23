@@ -40,6 +40,7 @@ are kept outside public documentation.
 | Pose decomposition | [pose_decomposition_semantics.json](pose_decomposition_semantics.json) |
 | Program listing | [program_listing_semantics.json](program_listing_semantics.json) |
 | Program metadata | [program_metadata_semantics.json](program_metadata_semantics.json) |
+| Remote banks | [remote_bank_semantics.json](remote_bank_semantics.json) |
 | Pythonic CONFIG text | [config_text_semantics.json](config_text_semantics.json) |
 | Pythonic POS construction | [pos_constructor_semantics.json](pos_constructor_semantics.json) |
 | Pythonic READ formats | [read_format_semantics.json](read_format_semantics.json) |
