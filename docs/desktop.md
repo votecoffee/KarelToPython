@@ -107,6 +107,8 @@ without a display. `tests/test_gui.py` exercises real Tk widgets, worker complet
 invalidation, cancellation, navigation and source protection. `tests/test_editor.py`
 checks literal replacement, source maps and native editor behavior, including
 Unicode search ranges, Undo/Redo, scrolling and keyboard shortcuts. Native checks
-skip explicitly when Tk or a graphical display is unavailable. Linux CI uses a
-virtual desktop; Windows CI runs native Tk checks. These checks do not imply
+require explicit `KAREL2PY_GUI_TESTS=1` and skip when Tk or a graphical display
+is unavailable. Routine conversion tests and push/PR CI open no windows. The
+separate **GUI checks (manual)** workflow runs native checks with a virtual Linux
+display and a Windows desktop when explicitly dispatched. These checks do not imply
 controller acceptance.

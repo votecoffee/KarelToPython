@@ -31,6 +31,21 @@ class CommandLineTests(unittest.TestCase):
         return subprocess.run([sys.executable, '-X', 'utf8', '-m', 'karel2py', *map(str, args)],
                               cwd=ROOT, capture_output=True, text=True)
 
+    def test_default_desktop_test_discovery_does_not_import_tkinter(self):
+        probe='''import io,sys,unittest
+from pathlib import Path
+root=Path(sys.argv[1]);sys.path[:0]=[str(root),str(root/'tests')]
+loader=unittest.TestLoader();suite=unittest.TestSuite()
+for name in ('test_gui.py','test_editor.py'):
+    suite.addTests(loader.discover(str(root/'tests'),pattern=name))
+result=unittest.TextTestRunner(stream=io.StringIO()).run(suite)
+assert result.wasSuccessful() and len(result.skipped)==32
+assert 'tkinter' not in sys.modules
+'''
+        result=subprocess.run([sys.executable,'-I','-c',probe,str(ROOT)],cwd=self.root,
+                              env={**os.environ,'KAREL2PY_GUI_TESTS':'0'},capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
     def link(self, source, target):
         try: os.link(source, target)
         except OSError as exc: self.skipTest('Hard links unavailable: ' + str(exc))

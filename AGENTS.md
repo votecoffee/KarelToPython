@@ -16,6 +16,9 @@
   compiler evidence and controller-runtime behavior.
 - Run `python -m unittest discover -s tests`, `python tools/run_examples.py`, and
   `python tools/check_repository.py` for implementation or layout changes.
+- Routine conversion checks use the CLI and open no GUI windows. Native GUI
+  tests require explicit `KAREL2PY_GUI_TESTS=1`; use them only for GUI work or
+  an explicitly requested desktop check. Keep package acceptance window-free.
 - Generated Python and diagnostic reports are outputs; maintain the KAREL source
   and expected fixtures, rather than checking in generated example modules.
 - Commit completed, verified changes in small, cohesive checkpoints and push them

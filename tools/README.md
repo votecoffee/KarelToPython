@@ -31,6 +31,13 @@ checks run with `python -m unittest tests.test_cli tests.test_translation.CliTes
 they exercise generated-script execution, exit codes, report hashes, forced
 replacement, source aliases and operation without desktop imports.
 
+The default suite opens no windows. Native GUI/editor tests require explicit
+`KAREL2PY_GUI_TESTS=1`; headless editor/document helpers still run by default.
+Set that variable only for GUI work, then run discovery with `-p test_gui.py` or
+`-p test_editor.py`. Linux native tests also need a display such as `xvfb-run -a`.
+The separate **GUI checks (manual)** GitHub Actions workflow provides this opt-in
+coverage. Push/PR CI and routine installed-package acceptance use the CLI.
+
 The example runner compiles authored sources in memory and compares independent
 fixtures, using an injected delay callback. It writes no generated example modules
 or translation reports. It deliberately executes only the checked-in authored

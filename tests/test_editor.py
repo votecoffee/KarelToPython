@@ -1,5 +1,6 @@
 """Authored editor behavior, exact source navigation and native text operations."""
 import importlib.util
+import os
 import unittest
 from unittest.mock import patch
 
@@ -82,6 +83,7 @@ class EditorOperationsTests(unittest.TestCase):
         self.assertEqual(generated_lines(result.report['source_map'], 2), [])
 
 
+@unittest.skipUnless(os.environ.get('KAREL2PY_GUI_TESTS')=='1', 'Native GUI tests require KAREL2PY_GUI_TESTS=1')
 @unittest.skipUnless(importlib.util.find_spec('tkinter'), 'Python was installed without Tkinter')
 class NativeEditorTests(unittest.TestCase):
     def setUp(self):

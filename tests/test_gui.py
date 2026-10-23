@@ -1,5 +1,6 @@
 """Native Tk interaction checks; require a display, otherwise skip explicitly."""
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import threading
@@ -11,6 +12,7 @@ from karel2py import __version__
 from karel2py.workbench import Document, analyze_source
 
 
+@unittest.skipUnless(os.environ.get('KAREL2PY_GUI_TESTS')=='1', 'Native GUI tests require KAREL2PY_GUI_TESTS=1')
 @unittest.skipUnless(importlib.util.find_spec('tkinter'), 'Python was installed without Tkinter')
 class WorkbenchWindowTests(unittest.TestCase):
     def setUp(self):
