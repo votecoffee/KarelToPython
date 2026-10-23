@@ -77,6 +77,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('joint_mirror', 'REFLECTED_Y', -100.),
                     ('program_catalog', 'COUNT', 1),
                     ('program_pages', 'CURSOR_NO', 3),
+                    ('program_metadata', 'COMMENT', 'converted'),
                     ('pose_decomposition', 'CONSTRUCTOR_X', 4.),
                     ('joint_decomposition', 'X', 100.),
                     ('collection_state', 'FIRST', 42),

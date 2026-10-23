@@ -414,6 +414,15 @@ explicit entries under `programs`. `program_listing_policy` records type filters
 formats, atomic outputs and optional Pythonic cursor pagination; see
 [program listing](program-listing.md).
 
+`LOAD_STATUS` queries attached Programs or explicit load snapshots;
+`GET_ATTR_PRG`/`SET_ATTR_PRG` select typed attributes with portable identifiers
+from `runtime.PROGRAM_CONSTANTS`. `ExecutionContext(program_attributes=ProgramAttributes(...))`
+accepts detached named records, persisted under JSON `program_attributes`.
+`record(name)` and `to_config()` return defensive copies; `set_value(name,key,value)`
+validates a host metadata update. `program_metadata_policy` describes initialization,
+selected outputs, the four writable fields and activity guards. See
+[program metadata](program-metadata.md).
+
 `joint_geometry` records model-backed JOINTPOS operands in supported geometry
 expressions; `joint_geometry_policy` describes explicit context and Cartesian
 results. Runtime `JOINT_GEOMETRY` records contain operation/line/outcome only.

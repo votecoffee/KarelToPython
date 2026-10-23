@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.123045**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.130323**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -309,6 +309,11 @@ context JSON. See [calendar time](docs/calendar-clock.md).
 GET_TSK_INFO inspects explicitly registered tasks by name or number, including
 live state, active linked routines, checkpoints and supplied attributes. See
 [task inspection](docs/task-inspection.md) and its runnable two-task project.
+
+LOAD_STATUS checks attached code and any known global initialization.
+GET_ATTR_PRG/SET_ATTR_PRG read explicit program metadata and update owner, comment
+and source metadata with activity guards. See [program metadata](docs/program-metadata.md)
+for supplied snapshots, portable identifiers/statuses and the CLI example.
 
 COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
 report to an open FILE. PRINT_FILE sends validated ASCII to the existing output

@@ -25,6 +25,8 @@ I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK'}
 PROCEDURES = {
+    'LOAD_STATUS': (S,arg('BOOLEAN','o'),arg('BOOLEAN','o')),
+    'GET_ATTR_PRG': (S,I,OI,OS,OI), 'SET_ATTR_PRG': (S,I,I,S,OI),
     'CNV_CNF_STRG': (arg('CONFIG'),OS,OI,I),
     'GET_TIME':(OI,), 'SET_TIME':(I,),
     'CLEAR_SEMA':(I,), 'POST_SEMA':(I,), 'PEND_SEMA':(I,I,arg('BOOLEAN','o')),
@@ -464,6 +466,75 @@ def port_value(value,kind,line=None):
 PROGRAM_TYPES={1:('VR',),2:('JB','PR','MR','TP'),3:('JB',),4:('PR',),
                5:('MR',),6:('PC',),7:('VR','JB','PR','MR','TP','PC'),
                8:('JB','PR','MR','TP','PC')}
+
+
+# Portable package identifiers, deliberately independent of native enum numbers.
+PROGRAM_ATTRIBUTES={name:index for index,name in enumerate((
+    'AT_PROG_TYPE','AT_PROG_NAME','AT_OWNER','AT_COMMENT','AT_PROG_SIZE',
+    'AT_ALLC_SIZE','AT_NUM_LINE','AT_CRE_TIME','AT_MDFY_TIME','AT_SRC_NAME',
+    'AT_SRC_VRSN','AT_DEF_GROUP','AT_PROTECT','AT_STORAGE','AT_STK_SIZE',
+    'AT_TASK_PRI','AT_DURATION','AT_BUSY_OFF','AT_IGNR_ABRT','AT_IGNR_PAUS','AT_CONTROL'),1)}
+PROGRAM_KINDS={name:1001+index for index,name in enumerate((
+    'PT_KRLPRG','PT_MNE_UNDEF','PT_MNE_JOB','PT_MNE_PROC','PT_MNE_MACRO'))}
+PROGRAM_CONSTANTS={**PROGRAM_ATTRIBUTES,**PROGRAM_KINDS}
+PROGRAM_TEXT_ATTRIBUTES={'AT_PROG_NAME':12,'AT_OWNER':8,'AT_COMMENT':16,'AT_SRC_NAME':128}
+PROGRAM_WRITABLE_ATTRIBUTES=frozenset(('AT_OWNER','AT_COMMENT','AT_SRC_NAME','AT_SRC_VRSN'))
+
+
+class ProgramAttributes:
+    """Explicit offline load flags and metadata; these records do not load code."""
+    def __init__(self,programs=None):
+        if programs is None: programs={}
+        if type(programs) is not dict: raise ValueError('Program attributes require a program mapping')
+        self._records={}
+        for name,row in programs.items():
+            if type(name) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]{0,35}',name):
+                raise ValueError('Program metadata names require 1..36 ASCII identifier characters')
+            name=name.upper()
+            if name in self._records: raise ValueError('Duplicate case-insensitive program metadata name')
+            if type(row) is not dict or set(row)-{'loaded','initialized','active','attributes'}:
+                raise ValueError('Unknown program metadata fields')
+            if any(type(row[key]) is not bool for key in ('loaded','initialized','active') if key in row):
+                raise ValueError('Program load and active flags require BOOLEAN values')
+            if row.get('active',False) and not row.get('loaded',False):
+                raise ValueError('An explicitly active program must be marked loaded')
+            attrs=row.get('attributes',{})
+            if type(attrs) is not dict: raise ValueError('Program attributes must be a named mapping')
+            values={}
+            for key,value in attrs.items():
+                if type(key) is not str or key.upper() not in PROGRAM_ATTRIBUTES or key.upper() in values:
+                    raise ValueError('Unknown or duplicate program attribute')
+                key=key.upper()
+                if key=='AT_PROG_NAME': raise ValueError('Program identity comes from its metadata record key')
+                try:
+                    if key in PROGRAM_TEXT_ATTRIBUTES and type(value) is str and len(value)>PROGRAM_TEXT_ATTRIBUTES[key]:
+                        raise ValueError('Program attribute exceeds its STRING capacity')
+                    values[key]=self._value(key,value)
+                except runtime().KarelRuntimeError as exc: raise ValueError('Invalid program attribute '+key+': '+str(exc)) from exc
+            stored={key:row[key] for key in ('loaded','initialized','active') if key in row}
+            self._records[name]={**stored,'attributes':values}
+
+    @staticmethod
+    def _value(key,value,line=None):
+        rt=runtime()
+        spec=('STRING',PROGRAM_TEXT_ATTRIBUTES[key]) if key in PROGRAM_TEXT_ATTRIBUTES else ('INTEGER',)
+        value=rt.checked(spec,value,line)
+        if key=='AT_PROG_TYPE' and value not in PROGRAM_KINDS.values(): fail('Unknown portable program type',line)
+        if key=='AT_PROTECT' and value not in (1,2): fail('AT_PROTECT requires 1 or 2',line)
+        if key in ('AT_BUSY_OFF','AT_IGNR_ABRT','AT_IGNR_PAUS') and value not in (0,1): fail('Program flag attributes require 0 or 1',line)
+        if key in ('AT_PROG_SIZE','AT_ALLC_SIZE','AT_NUM_LINE','AT_STK_SIZE') and value<0: fail('Program sizes and line counts must be nonnegative',line)
+        return value
+
+    def record(self,name): return deepcopy(self._records.get(name.upper()))
+
+    def set_value(self,name,key,value,line=None):
+        name=runtime().ascii_string(name,line).upper()
+        if not re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}',name): fail('Invalid program metadata name',line)
+        if key not in PROGRAM_WRITABLE_ATTRIBUTES: fail('Program attribute is read-only or has no offline write behavior',line)
+        value=self._value(key,value,line)
+        self._records.setdefault(name,{'attributes':{}})['attributes'][key]=value
+
+    def to_config(self): return deepcopy(self._records)
 
 
 class ProgramCatalog:
@@ -1120,7 +1191,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1137,6 +1208,8 @@ class ExecutionContext:
         self.local_handlers=local_handlers
         if programs is not None and type(programs) is not ProgramCatalog: raise TypeError('programs must be ProgramCatalog or None')
         self.programs=programs
+        if program_attributes is not None and type(program_attributes) is not ProgramAttributes: raise TypeError('program_attributes must be ProgramAttributes or None')
+        self.program_attributes=program_attributes
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1157,10 +1230,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'program_attributes' in config:
+            if type(config['program_attributes']) is not dict: raise ValueError('program_attributes must be a program mapping')
+            services['program_attributes']=ProgramAttributes(config['program_attributes'])
         if 'config_text' in config:
             from .configtext import ConfigTextFormats
             services['config_text']=ConfigTextFormats.from_config(config['config_text'])
@@ -1231,6 +1307,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('LOAD_STATUS','GET_ATTR_PRG','SET_ATTR_PRG'):
+            from .inspection import program_metadata
+            return program_metadata(self,state,name,args,line)
         if name=='CNV_CNF_STRG':
             group=rt.task_root(state).robot_group if args[3] is None else args[3]
             code,text=self.require('config_text',line).render(args[0],1 if group is None else group,line)

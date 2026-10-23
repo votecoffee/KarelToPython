@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1023.123045. Acceptance is specific to
+This is the supported prototype subset as of 26.1023.130323. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -31,6 +31,7 @@ internally and in the historical semantic notes.
 | Initialization queries | UNINIT on supported scalar/joint storage and whole builtin records, including nested fields and individual ARRAY elements | Any missing builtin-record leaf means TRUE; read-only schema/type checks. Whole ARRAY, PATH, user STRUCTURE, FILE, QUEUE_TYPE and BYTE queries remain blocked. |
 | Variable inspection | VAR_INFO metadata and VAR_LIST filtered/paged global names | Current/attached declarations and explicit bindings; canonical types, bounded dimensions/formats, portable initialization flags and statuses; no local/controller discovery. |
 | Program listing | PROG_LIST with optional cursor | Attached Programs and explicit immutable metadata; type filters, sorted pages, checked formats and persisted catalogs; no program discovery or loading. |
+| Program metadata | LOAD_STATUS, GET_ATTR_PRG, SET_ATTR_PRG | Attached load/partial global initialization, explicit snapshots and typed attributes; four metadata writes with active-task guards, portable constants/statuses and persistence; no native loading or task-policy writes. |
 | Collection persistence | PATH and QUEUE_TYPE context variables | Typed partial PATH data, queue FIFO/sequence state and explicit buffer rebinding; portable logical snapshots without native layouts or task checkpoints. |
 | POSITION conversion | Whole assignments among XYZWPR, XYZWPREXT and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; exact interfaces and whole-array types; context-free Cartesian conversion only; model-backed joint assignments are listed below. Widening zeros external metadata; narrowing drops it. |
 | Output pulses | PULSE DOUT with blocking/NOWAIT statements and blocking handler actions | Explicit bank, rounded duration, host polling or scheduler virtual time; portable override/lifecycle rules. |

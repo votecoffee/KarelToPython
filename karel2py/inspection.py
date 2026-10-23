@@ -1,8 +1,9 @@
-"""Read-only metadata and bounded name queries over explicit program storage."""
+"""Bounded variable inspection and explicit offline program metadata."""
 import fnmatch
 import math
 import re
-from .extended import PROGRAM_TYPES
+from .extended import (PROGRAM_TYPES, PROGRAM_ATTRIBUTES, PROGRAM_KINDS,
+                       PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES)
 
 
 TYPE_CODES={'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'INTEGER':16,'REAL':17,
@@ -65,6 +66,106 @@ def assign(outputs,values,line):
     rt=runtime()
     prepared=[rt.checked(target.spec,value,line) for target,value in zip(outputs,values)]
     for target,value in zip(outputs,prepared): target.set(value,line)
+
+
+def any_initialized(value,spec,line=None,trail=()):
+    """Any known global content, validating all branches before returning."""
+    rt=runtime();kind=spec[0]
+    if value is rt.UNINITIALIZED: return False
+    if value is rt.UNKNOWN_BYTE:
+        if kind=='BYTE': return False
+        raise rt.KarelRuntimeError('Unknown BYTE marker requires BYTE storage',line)
+    if id(value) in trail or len(trail)>=128:
+        raise rt.KarelRuntimeError('Program initialization query found cyclic or excessive storage',line)
+    trail=trail+(id(value),)
+    if isinstance(value,rt.Reference):
+        if value.spec!=spec: raise rt.KarelRuntimeError('Program initialization query found mismatched reference',line)
+        return any_initialized(value.raw(),spec,line,trail)
+    if kind=='ARRAY':
+        if not isinstance(value,rt.Array) or value.spec!=spec or len(value.values)!=math.prod(rt.array_shape(spec)):
+            raise rt.KarelRuntimeError('Program initialization query found malformed ARRAY storage',line)
+        return any([any_initialized(item,spec[2],line,trail) for item in value.values])
+    if kind in rt.RECORD_TYPES:
+        fields=dict(rt.record_fields(spec))
+        if not isinstance(value,rt.Structure) or value.spec!=spec or set(value.values)!=set(fields):
+            raise rt.KarelRuntimeError('Program initialization query found malformed record storage',line)
+        if kind in rt.DATA_RECORD_TYPES: rt._record_uninitialized(value,spec,line)
+        return any([any_initialized(value.values[name],field,line,trail) for name,field in fields.items()])
+    if kind=='JOINTPOS':
+        if not isinstance(value,rt.JointPosition) or value.spec!=spec or len(value.values)!=rt.joint_width(spec):
+            raise rt.KarelRuntimeError('Program initialization query found malformed joint storage',line)
+        return any([any_initialized(axis,('REAL',),line,trail) for axis in value.values])
+    if kind=='FILE':
+        if not isinstance(value,rt.FileHandle): raise rt.KarelRuntimeError('Program initialization query requires FILE storage',line)
+        return value.owner is not None
+    if kind=='PATH':
+        if not isinstance(value,rt.PathValue) or value.spec!=spec or type(value.nodes) is not list or len(value.nodes)>32767:
+            raise rt.KarelRuntimeError('Program initialization query requires matching PATH storage',line)
+        flags=[any_initialized(node,value.node_spec,line,trail) for node in value.nodes]
+        if spec[2]: flags.append(any_initialized(value.data,spec[2],line,trail))
+        return bool(value.nodes) or any(flags)
+    if kind=='QUEUE_TYPE':
+        from .extended import queue_variable_value
+        return queue_variable_value(value,line).initialized
+    return rt.checked(spec,value,line) is not rt.UNINITIALIZED
+
+
+def attached_programs(context,state):
+    rt=runtime();owners={};seen=set()
+    pending=list(context.variables.programs.values())+[state]
+    pending.extend(program._state for program in context.tasks.tasks.values())
+    while pending:
+        owner=pending.pop()
+        if id(owner) in seen: continue
+        seen.add(id(owner));owners.setdefault(owner.program_name,[]).append(owner)
+        root=rt.task_root(owner)
+        if root is not owner: pending.append(root)
+        pending.extend(frame for frame,routine in root._task_frames)
+    return owners
+
+
+def program_metadata(context,state,operation,args,line=None):
+    rt=runtime();name=rt.ascii_string(args[0],line).upper()
+    valid=bool(re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}',name))
+    owners=attached_programs(context,state).get(name,[]) if valid else []
+    service=context.program_attributes
+    record=service.record(name) if valid and service is not None else None
+    if operation=='LOAD_STATUS':
+        if owners:
+            flags=[any_initialized(owner.values[key],spec,line) for owner in owners for key,spec in owner.types.items()]
+            loaded,initialized=True,any(flags)
+        else:
+            loaded,initialized=(record.get('loaded',False),record.get('initialized',False)) if record is not None else (False,False)
+        assign(args[1:],(loaded,initialized),line);return
+    selector=rt.integer(args[1],line);status=args[-1]
+    key=next((key for key,value in PROGRAM_ATTRIBUTES.items() if value==selector),None)
+    if key is None: status.set(2,line);return
+    if not owners and record is None: status.set(1,line);return
+    if operation=='GET_ATTR_PRG':
+        attrs=record['attributes'] if record is not None else {}
+        if key=='AT_PROG_NAME': value=name[:PROGRAM_TEXT_ATTRIBUTES[key]]
+        elif key=='AT_PROG_TYPE' and owners: value=PROGRAM_KINDS['PT_KRLPRG']
+        elif key in attrs: value=attrs[key]
+        elif key=='AT_COMMENT':
+            comments=[argument for owner in owners for directive,argument in owner.program.source_directives if directive=='%COMMENT']
+            if not comments: status.set(3,line);return
+            value=comments[0][:PROGRAM_TEXT_ATTRIBUTES[key]]
+        else: status.set(3,line);return
+        target=args[3] if key in PROGRAM_TEXT_ATTRIBUTES else args[2]
+        assign((target,status),(value,0),line);return
+    if key not in PROGRAM_WRITABLE_ATTRIBUTES: status.set(2,line);return
+    current=rt.task_root(state)
+    active=bool(record is not None and record.get('active',False))
+    for owner in owners:
+        root=rt.task_root(owner)
+        active|=(owner is state or owner is current or root._driving or root.task_state in ('running','waiting','paused'))
+        active|=any(frame.program_name==name for frame,routine in current._task_frames)
+    if active: status.set(4,line);return
+    if service is None: raise rt.KarelRuntimeError('SET_ATTR_PRG requires explicit ProgramAttributes context',line)
+    value=args[3] if key in PROGRAM_TEXT_ATTRIBUTES else args[2]
+    # Validate both the replacement and status before publishing metadata.
+    value=service._value(key,value,line);rt.checked(status.spec,0,line)
+    service.set_value(name,key,value,line);status.set(0,line)
 
 
 def variable_info(context,state,args,line=None):

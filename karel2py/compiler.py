@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
-                        **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS}
+                        **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
     'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE','EVENT','WITH',
@@ -3075,13 +3075,19 @@ class Emitter:
         self.line('def _execute(self):' if self.cooperative else 'def run(self, *, max_steps=100000):')
         self.indent = 2
         if self.cooperative: self.line('if False: yield None')
-        if not self.cooperative: self.line('self._state.begin(max_steps)')
+        if not self.cooperative:
+            self.line('self._state.begin(max_steps)')
+            self.line('self._state._driving=True')
+            self.line('try:'); self.indent+=1
         if self.cooperative: self.line('try:'); self.indent+=1
         self.emit_body(self.program.body)
         if self.cooperative:
             self.indent-=1; self.line('except _rt.KarelRuntimeError as _failure:'); self.indent+=1
             self.line('yield from _rt.runtime_failure(self._state,_failure)'); self.line('raise'); self.indent-=1
         self.line('return self._state.snapshot()')
+        if not self.cooperative:
+            self.indent-=1;self.line('finally:');self.indent+=1
+            self.line('self._state._driving=False')
         self.indent = 0
         self.line()
         self.line('if __name__ == "__main__":')
@@ -3553,6 +3559,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['program_metadata_policy']=dict(
+        procedures=['LOAD_STATUS','GET_ATTR_PRG','SET_ATTR_PRG'],
+        constants=dict(ex.PROGRAM_CONSTANTS),
+        identity='Case-insensitive bare program identifiers; attached source Programs and explicit ProgramAttributes records, never catalog-only entries, paths or Python imports',
+        load='Attached code is loaded; any known global scalar/aggregate content is initialized, excluding constants and routine locals; explicit snapshot flags apply only to unattached programs',
+        attributes='Derived attached KAREL type, 12-character identity and source COMMENT fallback; all sizes, timestamps and task policy values require explicit metadata',
+        writes='Only AT_OWNER, AT_COMMENT, AT_SRC_NAME and AT_SRC_VRSN; explicit metadata service required, active/paused tasks and linked frames guarded; no namespace rename or task-policy mutation',
+        evaluation='Every argument once in source order, including both SET value inputs; selected GET output only; exact disjoint writable outputs and normal transitive FOR checks',
+        status='Portable 0 success, 1 unknown program, 2 unknown/read-only/unmodeled selector, 3 unsupplied metadata, 4 active program; native enum and alarm numbers are not reused',
+        persistence='Detached program_attributes JSON mapping; metadata records do not load executable code or register tasks',
+        guide='docs/program-metadata.md',controller_validated=False)
     report['group_config_text_policy']=dict(
         procedure='CNV_CNF_STRG',
         context='Explicit ExecutionContext.config_text ConfigTextFormats profiles; per-group selected flags and turn numbers, never native mask discovery',

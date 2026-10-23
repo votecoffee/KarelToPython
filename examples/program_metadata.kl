@@ -1,0 +1,14 @@
+PROGRAM metadata
+VAR
+  loaded,initialized: BOOLEAN
+  prior,comment: STRING[16]
+  size,version,code: INTEGER
+BEGIN
+  LOAD_STATUS('stored',loaded,initialized)
+  GET_ATTR_PRG('stored',AT_COMMENT,size,prior,code)
+  GET_ATTR_PRG('stored',AT_PROG_SIZE,size,comment,code)
+  SET_ATTR_PRG('stored',AT_COMMENT,0,'converted',code)
+  GET_ATTR_PRG('stored',AT_COMMENT,size,comment,code)
+  SET_ATTR_PRG('stored',AT_SRC_VRSN,3,'',code)
+  GET_ATTR_PRG('stored',AT_SRC_VRSN,version,comment,code)
+END metadata

@@ -1,0 +1,30 @@
+{
+  "version": "26.1023.130323",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [399, 400, 454, 535, 536],
+    "documented": "LOAD_STATUS checks program code and any initialized variable; GET/SET_ATTR_PRG select INTEGER or STRING values with status; capacities and read-only/running restrictions are listed",
+    "uncertainty": "Native enum numbers, initialization of portable resources and complete failure output states are not authenticated"
+  },
+  "implementation_choices": {
+    "identity": "Case-insensitive ASCII program identifier, 1..36 characters; attached current/variable-store/task Programs and live linked frames; ProgramCatalog listings do not imply load state",
+    "initialization": "Any known global content across attached instances, partial aggregates and imported references; constants/locals excluded; all branches validated before either output; cycle/depth guards",
+    "resources": "Open FILE, a PATH node or known header content, and initialized QUEUE_TYPE count; unknown BYTE and SHORT sentinel do not",
+    "snapshots": "Explicit ProgramAttributes flags and named typed values; absent flags false; attached data overrides snapshot load flags; explicit active still blocks writes",
+    "attributes": "Derived attached KAREL type, normalized identity truncated to 12 and source COMMENT fallback; other reads require supplied metadata",
+    "writes": "Only owner, comment, source name and source version; explicit service, checked/truncated values, activity and live linked-frame guards; plain run activity cleared in finally",
+    "identifiers": "Named portable AT_* selectors and PT_* kinds, independent of native numbers",
+    "status": "0 success, 1 missing program, 2 unknown/read-only/unmodeled selector, 3 unsupplied read metadata, 4 active target; invalid selector checked first",
+    "evaluation": "Every argument once in source order including both SET values; selected GET value output only; generic exact/disjoint output checks and transitive FOR protection",
+    "persistence": "Detached program_attributes JSON mapping; metadata snapshots and completed writes only, no executable/task checkpoints",
+    "reports": "program_metadata_policy and source-located service_operations; value-free runtime service observations"
+  },
+  "retained_boundaries": [
+    "No controller discovery, file/module loading or implicit executable registration",
+    "No namespace rename, task priority/protection/abort/pause policy mutation, invented sizes or timestamps",
+    "No native enum/status, resource initialization or controller runtime equivalence claim; strict remains future work"
+  ],
+  "tests": ["tests/test_program_metadata.py", "tests/test_runtime_portability.py", "examples/program_metadata.kl"]
+}

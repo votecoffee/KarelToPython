@@ -2123,6 +2123,7 @@ class State:
             raise KarelRuntimeError(f'Execution step budget exceeded ({self.max_steps})', line)
 
     def begin(self, max_steps):
+        if self._driving: raise KarelRuntimeError('A Program cannot be driven recursively')
         if self._aborted: raise KarelAbort(self._abort_line)
         if type(max_steps) is not int or max_steps < 1:
             raise ValueError('max_steps must be a positive integer')
@@ -2430,7 +2431,7 @@ class State:
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 
-from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog,
+from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS,
                        VariableStore, variable_value, variable_reference, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, RobotState, file_piece,
                         TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,

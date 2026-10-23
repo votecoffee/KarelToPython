@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1023.130323 - 2026-10-23
+
+- Add LOAD_STATUS for attached Programs and explicit load snapshots, counting
+  any known global content including partial aggregates and imported references.
+- Add GET_ATTR_PRG with selected outputs, portable AT/PT constants, derived
+  identity/type/comment and explicit metadata for sizes/times/task settings.
+- Add SET_ATTR_PRG for owner, comment, source name and source version; persist
+  checked metadata and block writes to active/paused Programs and linked frames.
+- Track plain run activity through failure cleanup and reject recursive driving.
+  Add authored CLI execution, runtime-only packaging and metadata regressions.
+
 ## 26.1023.123045 - 2026-10-23
 
 - Add CNV_CNF_STRG with status output and optional caller-rooted group selection.

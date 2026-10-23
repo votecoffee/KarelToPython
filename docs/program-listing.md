@@ -5,6 +5,10 @@ task Programs and optional explicit program metadata. It supports type filters,
 star patterns, bounded result arrays and pagination. Listing needs no controller
 or filesystem adapter.
 
+Load flags and mutable attributes use the separate
+[program metadata service](program-metadata.md). Catalog entries alone do not
+count as loaded programs or provide attribute/readiness records.
+
 ```karel
 PROGRAM browse
 VAR
