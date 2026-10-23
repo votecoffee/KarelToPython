@@ -9,6 +9,13 @@ display the same version as the CLI and package.
 The GUI requires Python 3.11+ with Tkinter and a graphical display. It adds no
 third-party runtime packages. Use the existing CLI on machines without a desktop.
 
+The supplied icon set is bundled as original transparent PNGs at 16, 20, 24,
+32, 48, 64, 128 and 256 pixels. The header uses the 48-pixel image; the window
+manager chooses an appropriate supplied size for the application icon on supported
+platforms. Windows launches set a dedicated application identity for taskbar
+grouping. Resource loading uses installed package paths and does not depend on
+the working directory or the original ZIP file.
+
 ## Translate a file
 
 1. Choose **Open KAREL** or paste source into the left editor.

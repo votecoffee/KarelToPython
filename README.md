@@ -1,5 +1,7 @@
 # KarelToPython
 
+![KarelToPython icon](karel2py/assets/icons/karel_to_python_icon_64x64.png)
+
 KAREL source to Python translator with a checked offline runtime
 
 Translate a supported subset of FANUC KAREL into Python modules with a checked
@@ -7,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.134348**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.140206**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -68,6 +70,9 @@ python -m karel2py.gui
 The installed `karel2py-gui` launcher opens the same window. An optional source
 path, such as `python -m karel2py.gui examples/control_flow.kl`, opens a file at startup.
 The timestamp version is visible in the title bar and header.
+
+The supplied application icon appears in the header and window/taskbar where
+supported. All eight original PNG sizes are included in installed packages.
 
 Open or paste KAREL source, select **Validate** or **Translate to Python**, and
 review the Python, Diagnostics and Report tabs. Save generated Python or JSON

@@ -7,6 +7,7 @@ import sys
 import threading
 
 from . import __version__
+from .branding import application_icons, set_windows_app_id
 from .workbench import Document, MAX_SOURCE_BYTES, analyze_project, analyze_source
 from .editor import CodeView, find_literal, generated_lines, replace_literal, source_location, text_index
 
@@ -18,6 +19,7 @@ class Workbench:
         self.tk, self.ttk = tk, ttk
         self.dialog, self.message = filedialog, messagebox
         self.root = root
+        self.icon_images = application_icons(root,tk.PhotoImage)
         self.document = Document()
         self.analysis = None
         self.busy = False
@@ -83,10 +85,12 @@ class Workbench:
         self.actions = []
         header = ttk.Frame(self.root, style='Header.TFrame', padding=(22, 16))
         header.pack(fill='x')
-        ttk.Label(header, text='KarelToPython', style='Brand.TLabel').grid(row=0, column=0, sticky='w')
-        ttk.Label(header, text='A workspace for translating KAREL into Python', style='Header.TLabel').grid(row=1, column=0, sticky='w', pady=(3, 0))
-        header.columnconfigure(0, weight=1)
-        ttk.Label(header, text='Build ' + __version__, style='Build.TLabel').grid(row=0, column=1, rowspan=2, sticky='e')
+        self.brand_icon=ttk.Label(header,image=self.icon_images[48],style='Header.TLabel')
+        self.brand_icon.grid(row=0,column=0,rowspan=2,sticky='w',padx=(0,14))
+        ttk.Label(header, text='KarelToPython', style='Brand.TLabel').grid(row=0, column=1, sticky='w')
+        ttk.Label(header, text='A workspace for translating KAREL into Python', style='Header.TLabel').grid(row=1, column=1, sticky='w', pady=(3, 0))
+        header.columnconfigure(1, weight=1)
+        ttk.Label(header, text='Build ' + __version__, style='Build.TLabel').grid(row=0, column=2, rowspan=2, sticky='e')
         toolbar = ttk.Frame(self.root, padding=(20, 14, 20, 8))
         toolbar.pack(fill='x')
         self._button(toolbar, 'Open KAREL…', self.open_file).pack(side='left')
@@ -699,6 +703,7 @@ def main(argv=None):
     parser.add_argument('--version', action='version', version=__version__)
     parser.add_argument('source', nargs='?', type=Path, help='Optional KAREL source to open')
     args = parser.parse_args(argv)
+    set_windows_app_id()
     try:
         import tkinter as tk
         root = tk.Tk()

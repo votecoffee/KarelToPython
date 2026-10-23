@@ -26,3 +26,6 @@ include = ["karel2py*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "karel2py.__version__"}
+
+[tool.setuptools.package-data]
+karel2py = ["assets/icons/*.png"]

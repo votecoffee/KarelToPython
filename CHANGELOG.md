@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1023.140206 - 2026-10-23
+
+- Use the supplied transparent icon artwork in the workbench header and window
+  icon, with eight original sizes from 16 to 256 pixels and Windows taskbar identity.
+- Package the PNG assets unchanged in wheels and source distributions; retain
+  image references and apply the default icon to future application windows.
+- Add headless resource/window-wiring checks and a narrowly hashed binary-artwork
+  exception to repository validation; routine checks continue to open no windows.
+
 ## 26.1023.134348 - 2026-10-23
 
 - Add numeric and position register receive/send between explicit local/peer

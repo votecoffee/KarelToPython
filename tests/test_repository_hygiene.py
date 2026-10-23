@@ -58,6 +58,27 @@ class RepositoryHygieneTests(unittest.TestCase):
         _, errors = checker.check_repository(self.root)
         self.assertTrue(any('broken anchor' in error for error in errors))
 
+    def icon(self):
+        relative=next(iter(checker.APP_ICON_HASHES))
+        target=self.root/relative;target.parent.mkdir(parents=True)
+        target.write_bytes((TOOL.parents[1]/relative).read_bytes())
+        return target
+
+    def test_approved_application_artwork_is_allowed(self):
+        self.icon()
+        _,errors=checker.check_repository(self.root)
+        self.assertEqual(errors,[])
+
+    def test_unapproved_binary_images_remain_rejected(self):
+        icon=self.icon();(self.root/'unapproved.png').write_bytes(icon.read_bytes())
+        _,errors=checker.check_repository(self.root)
+        self.assertTrue(any('unexpected non-UTF-8' in error for error in errors))
+
+    def test_changed_application_artwork_requires_explicit_approval_in_policy(self):
+        icon=self.icon();icon.write_bytes(icon.read_bytes()+b'changed')
+        _,errors=checker.check_repository(self.root)
+        self.assertTrue(any('differs from approved original artwork' in error for error in errors))
+
 
 if __name__ == '__main__':
     unittest.main()

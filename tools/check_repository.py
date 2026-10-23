@@ -1,6 +1,7 @@
 """Check public Git contents, Python syntax and relative documentation links."""
 import argparse
 import ast
+import hashlib
 from pathlib import Path
 import re
 import subprocess
@@ -11,6 +12,17 @@ LOCAL_ROOTS = {'.local', '.venv', 'venv', 'work', 'outputs', 'build', 'dist', '_
 PRIVATE_SUFFIXES = {'.pdf', '.pc', '.zip', '.7z', '.log', '.pyc', '.pyo'}
 PROFILE_PATH = re.compile(r'(?i)(?:[a-z]:[/\\]+(?:users|documents and settings|~localwork)[/\\]|/(?:users|home)/[^/\s]+/)')
 LINK = re.compile(r'(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)')
+
+# The supplied application artwork is the only approved binary source content.
+APP_ICON_HASHES={f'karel2py/assets/icons/karel_to_python_icon_{size}x{size}.png':digest for size,digest in (
+    (16,'b3178ba6af12fe91416de8a76e9a841ee92eb2d26c38b5e9cf43a8db56ac30eb'),
+    (20,'06a75a956a543009077137aed72fc6bedfde2115f7d061390c596a1f1e95c077'),
+    (24,'15da02169e1de7d1df47ccb959278d321bb854a1adb5e5860da5c3e096b5dd19'),
+    (32,'b790c20f9bb9830a3d42a433ce73a79477250752f95faa8b108a5611465d433f'),
+    (48,'04c023e9d5557c4a01905c0795b179f6c8a91a43f3af56f0f40939aee61740b5'),
+    (64,'a76f5780ab26aea5da31118617e57d7b7a38052cb048f65d1a8e2008084feb33'),
+    (128,'0c53482a295f1b13f9574f628cd5bc3a7d7f0555884b03820ae8bdfc8fa07737'),
+    (256,'08f0ece9d4a24d76839e5446a42470837d8d45cd53f1d04a0019e83dd0b1c921'))}
 
 
 def public_files(root):
@@ -51,6 +63,10 @@ def check_repository(root=ROOT):
             continue
         if path.stat().st_size > 1_000_000:
             errors.append(relative + ': large artifact requires an explicit repository policy')
+            continue
+        if relative in APP_ICON_HASHES:
+            if hashlib.sha256(path.read_bytes()).hexdigest()!=APP_ICON_HASHES[relative]:
+                errors.append(relative + ': application icon differs from approved original artwork')
             continue
         try:
             text = path.read_text(encoding='utf-8')

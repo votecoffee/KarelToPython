@@ -49,6 +49,11 @@ paths and unsupported Python syntax, and checks local Markdown links. Ignored
 `.local/` content is excluded unless force-added to Git, in which case the check
 rejects it.
 
+The eight supplied application PNGs under `karel2py/assets/icons/` are the only
+approved binary assets. Their exact paths and SHA-256 values are checked;
+unrelated binary images and changed artwork remain rejected. The originals are
+packaged without resizing or recompression.
+
 ## Optional corpus scanners
 
 `audit_*_corpus.py` tools translate or scan an explicitly supplied KAREL corpus
