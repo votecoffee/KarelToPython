@@ -145,7 +145,7 @@ class ExportTests(unittest.TestCase):
     def test_failed_atomic_replace_keeps_old_output_and_cleans_temporary(self):
         output = self.root / 'result.py'
         output.write_text('keep')
-        with patch('karel2py.workbench.os.replace', side_effect=OSError('locked')):
+        with patch('karel2py.fileio.os.replace', side_effect=OSError('locked')):
             with self.assertRaises(OSError): self.result.export(output, 'python', overwrite=True)
         self.assertEqual(output.read_text(), 'keep')
         self.assertEqual(list(self.root.glob('.*.tmp')), [])

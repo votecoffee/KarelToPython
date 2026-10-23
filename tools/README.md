@@ -26,6 +26,11 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
+Use the CLI for development translation and validation. The focused subprocess
+checks run with `python -m unittest tests.test_cli tests.test_translation.CliTests`;
+they exercise generated-script execution, exit codes, report hashes, forced
+replacement, source aliases and operation without desktop imports.
+
 The example runner compiles authored sources in memory and compares independent
 fixtures, using an injected delay callback. It writes no generated example modules
 or translation reports. It deliberately executes only the checked-in authored

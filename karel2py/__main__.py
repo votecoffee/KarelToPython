@@ -8,12 +8,11 @@ import sys
 
 from . import __version__, translate
 from .lexer import TranslationError
+from .fileio import check_output, same_file, write_bytes
 
 
-def write_new(path, text, force):
-    # An explicit exclusive open avoids silently replacing user files.
-    with path.open('w' if force else 'x', encoding='utf-8', newline='\n') as stream:
-        stream.write(text)
+def write_new(path, text, force, *, protected=()):
+    write_bytes(path, text.encode('utf-8'), overwrite=force, protected=protected)
 
 
 def array_shape_option(value):
@@ -55,16 +54,13 @@ def main(argv=None):
     if not args.check and args.output is None:
         parser.error('Use --output or --check')
     paths = [p for p in (args.output, args.report) if p is not None]
-    if any(p.resolve() == args.source.resolve() for p in paths):
-        parser.error('Output/report must differ from source')
-    if len(paths) == 2 and paths[0].resolve() == paths[1].resolve():
-        parser.error('Output and report must differ')
     try:
+        if any(same_file(path, args.source) for path in paths):
+            parser.error('Output/report must differ from source, including file aliases')
+        if len(paths) == 2 and same_file(*paths):
+            parser.error('Output and report must differ, including file aliases')
         for path in paths:
-            if path.exists() and not args.force:
-                raise FileExistsError(f'{path} exists; use --force to replace it')
-            if not path.parent.is_dir():
-                raise FileNotFoundError(f'Output directory {path.parent} does not exist')
+            check_output(path, overwrite=args.force, protected=(args.source,))
         source_bytes = args.source.read_bytes()
         source = source_bytes.decode('utf-8-sig')
         try:
@@ -73,16 +69,16 @@ def main(argv=None):
             report = dict(status='rejected', translator_version=__version__,
                           source_file_sha256=hashlib.sha256(source_bytes).hexdigest(), diagnostics=[exc.as_dict()],
                           translation_context=dict(mode=args.mode, array_shapes={key: list(shape) for key, shape in sorted(array_shapes.items())}))
-            if args.report: write_new(args.report, json.dumps(report, indent=2) + '\n', args.force)
+            if args.report: write_new(args.report, json.dumps(report, indent=2) + '\n', args.force, protected=(args.source,))
             print(str(exc), file=sys.stderr)
             return 2
         result.report['source_file_sha256'] = hashlib.sha256(source_bytes).hexdigest()
-        if args.output: write_new(args.output, result.python_source, args.force)
-        if args.report: write_new(args.report, json.dumps(result.report, indent=2) + '\n', args.force)
+        if args.output: write_new(args.output, result.python_source, args.force, protected=(args.source,))
+        if args.report: write_new(args.report, json.dumps(result.report, indent=2) + '\n', args.force, protected=(args.source,))
         print(f'{result.report["program"]}: {"validated" if args.check else "translated"}; '
               f'{len(result.report["features"])} feature categories')
         return 0
-    except (OSError, UnicodeError) as exc:
+    except (OSError, UnicodeError, ValueError) as exc:
         print(f'karel2py: {exc}', file=sys.stderr)
         return 1
 

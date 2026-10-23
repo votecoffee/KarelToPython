@@ -2,13 +2,12 @@
 from dataclasses import dataclass
 import hashlib
 import json
-import os
 from pathlib import Path
-import tempfile
 
 from . import __version__, translate
 from .__main__ import array_shape_option
 from .lexer import TranslationError
+from .fileio import same_file, write_bytes
 
 
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
@@ -53,30 +52,6 @@ class Document:
         write_bytes(path, data, overwrite=overwrite)
         self.path = path.resolve()
         self.saved_text, self.original_bytes = self.text, data
-
-
-def same_file(left, right):
-    left, right = Path(left), Path(right)
-    return left.resolve() == right.resolve() or (left.exists() and right.exists() and os.path.samefile(left, right))
-
-
-def write_bytes(path, data, *, overwrite=False, protected=()):
-    """Protect source aliases and publish replacements only after a complete write."""
-    path = Path(path)
-    if any(same_file(path, source) for source in protected):
-        raise ValueError('Choose a different output file; KAREL source files are protected')
-    if path.is_symlink(): raise ValueError('Choose a regular output file, not a symbolic link')
-    if not overwrite:
-        with path.open('xb') as stream: stream.write(data)
-        return
-    if path.exists() and not path.is_file(): raise ValueError('Output must be a regular file')
-    # The temporary file lives beside the target, on the same filesystem.
-    descriptor, temporary = tempfile.mkstemp(prefix='.' + path.name + '.', suffix='.tmp', dir=path.parent)
-    try:
-        with os.fdopen(descriptor, 'wb') as stream: stream.write(data)
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary): os.unlink(temporary)
 
 
 @dataclass

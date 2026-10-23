@@ -113,6 +113,12 @@ new unless `--force` is specified. Exit codes are `0` for successful translation
 or validation, `2` for rejected source or invalid CLI arguments, and `1` for file
 or encoding errors. Translation does not execute the input program.
 
+Output/report paths must differ from the source and each other, including hard
+links and resolved aliases. Symbolic-link outputs are rejected. With `--force`,
+each file is replaced after a complete temporary write; a failed replacement
+retains that file's previous contents. Python and report publication are separate
+operations, so a later report failure can leave an already-written Python file.
+
 Generated modules print a snapshot of global values when run directly. For
 example, the control-flow example finishes with `TOTAL` equal to `200`.
 
