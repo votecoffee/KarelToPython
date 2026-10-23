@@ -23,11 +23,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           xvfb-run -a python -c "import tkinter as tk; root=tk.Tk(); root.withdraw(); root.destroy()"
-          xvfb-run -a python -m unittest discover -s tests
+          xvfb-run -a python -X faulthandler -m unittest discover -s tests
       - name: Test with native desktop
         if: runner.os == 'Windows'
         run: |
           python -c "import tkinter as tk; root=tk.Tk(); root.withdraw(); root.destroy()"
-          python -m unittest discover -s tests
+          python -X faulthandler -m unittest discover -s tests
       - run: python tools/run_examples.py
       - run: python tools/check_repository.py
