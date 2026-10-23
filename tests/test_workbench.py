@@ -226,7 +226,7 @@ class WorkbenchAnalysisTests(unittest.TestCase):
             path.write_text('PROGRAM BAD BEGIN UNKNOWN END BAD')
             result = analyze_project(root)
             self.assertFalse(result.accepted)
-            self.assertEqual(Path(result.diagnostics[0]['file']), path)
+            self.assertTrue(Path(result.diagnostics[0]['file']).samefile(path))
             self.assertEqual(result.diagnostics[0]['code'], 'E_CALL')
 
     def test_unresolved_project_link_is_a_reported_error(self):
