@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1023.115555 - 2026-10-23
+
+- Add line numbers, bounded KAREL/Python syntax coloring, cursor position,
+  Go to Line and font zoom to the desktop workbench.
+- Add literal Find/Replace with case selection, forward/backward wrapping and
+  search across source, Python and report views. Source replacements support
+  grouped Undo/Redo and check the UTF-8 size limit before editing.
+- Navigate both ways between source statements and generated Python using exact
+  compiler source-map entries; leave unmapped generated scaffolding explicit.
+- Preserve Unicode match boundaries and prioritize application shortcuts over
+  native text navigation bindings. Add native editor and headless helper checks.
+
 ## 26.1023.110723 - 2026-10-23
 
 - Add a Tkinter desktop workbench and karel2py-gui windowed launcher, with the

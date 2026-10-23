@@ -24,9 +24,37 @@ new operation completes. The worker runs separately from the GUI event loop;
 only one operation runs at a time. Editing/options are disabled while it runs.
 Closing during a job asks for confirmation and does not publish its results.
 
-The editor has standard Undo/Redo, Cut/Copy/Paste and Select All commands.
-Keyboard shortcuts are Ctrl+O for Open, Ctrl+N for New, Ctrl+S for Save Source As,
-F5 for Validate, and Ctrl+Enter for Translate.
+## Edit and navigate
+
+The KAREL editor has Undo/Redo, Cut/Copy/Paste and Select All commands. Source,
+Python and report views show line numbers; KAREL and Python also show syntax
+colors. Coloring is a bounded visual hint for the visible excerpt and can accept
+unfinished source. Validate or Translate determines language acceptance.
+
+Choose **Edit > Find / Replace** to search literal text. Select KAREL, Python or
+Report, optionally enable **Match case**, then choose Next or Previous. Search
+wraps at the end or beginning. Replacements apply to KAREL only. Replace All is
+one Undo operation; replacements exceeding the 4 MiB UTF-8 limit leave the editor
+unchanged. Changing source invalidates previous translation results.
+
+After translating, place the cursor on a KAREL statement and choose **Show
+Python →**. The matching generated lines are highlighted. In the Python preview,
+choose **← Show KAREL**, or Ctrl+click a line, to return to its source location.
+Navigation uses exact compiler source-map entries. Declarations and generated
+scaffolding without entries report that no location is mapped. Navigation is
+available for a single translated source, and does not modify the source.
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+O / Ctrl+N | Open / New |
+| Ctrl+S | Save Source As |
+| F5 / Ctrl+Enter | Validate / Translate |
+| Ctrl+F | Show Find/Replace |
+| F3 / Shift+F3 | Next / Previous match |
+| Escape | Close Find/Replace |
+| Ctrl+G | Go to KAREL line |
+| Ctrl++ / Ctrl+- | Increase / decrease code font size |
+| Alt+Right / Alt+Left | Show mapped Python / KAREL |
 
 ## Options and linked projects
 
@@ -76,6 +104,9 @@ and must be run explicitly with the required context outside the workbench.
 
 `tests/test_workbench.py` checks document, compiler, project and export behavior
 without a display. `tests/test_gui.py` exercises real Tk widgets, worker completion,
-invalidation, cancellation, navigation and source protection. It skips explicitly
-when Tk or a graphical display is unavailable. Linux CI uses a virtual desktop;
-Windows CI runs native Tk checks. These checks do not imply controller acceptance.
+invalidation, cancellation, navigation and source protection. `tests/test_editor.py`
+checks literal replacement, source maps and native editor behavior, including
+Unicode search ranges, Undo/Redo, scrolling and keyboard shortcuts. Native checks
+skip explicitly when Tk or a graphical display is unavailable. Linux CI uses a
+virtual desktop; Windows CI runs native Tk checks. These checks do not imply
+controller acceptance.

@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.110723**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.115555**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -73,6 +73,10 @@ Open or paste KAREL source, select **Validate** or **Translate to Python**, and
 review the Python, Diagnostics and Report tabs. Save generated Python or JSON
 with the export buttons. **Check project** validates source linkage for a folder
 without running the programs. See the [desktop guide](docs/desktop.md).
+
+The editors include line numbers, syntax coloring, Find/Replace, Go to Line and
+font zoom. After translation, navigate between a KAREL statement and its mapped
+Python lines using the arrow buttons or Alt+Right / Alt+Left.
 
 The GUI uses Tkinter, included with most Python installations. If unavailable,
 install Python's Tcl/Tk component or your distribution's Tkinter package.
