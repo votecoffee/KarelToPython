@@ -106,6 +106,9 @@ source details; save them locally rather than adding them to public source.
 The GUI constructs no controller connection and offers no source execution
 button. Generated modules retain the existing [offline runtime](offline-services.md)
 and must be run explicitly with the required context outside the workbench.
+A [future runner milestone](roadmap.md#python-runner-and-parameter-editor)
+will add a parameter tab or popup and execution results saved with the inputs
+in one JSON file. It is not implemented in the current workbench.
 
 ## Development checks
 
@@ -115,7 +118,8 @@ invalidation, cancellation, navigation and source protection. `tests/test_editor
 checks literal replacement, source maps and native editor behavior, including
 Unicode search ranges, Undo/Redo, scrolling and keyboard shortcuts. Native checks
 require explicit `KAREL2PY_GUI_TESTS=1` and skip when Tk or a graphical display
-is unavailable. Routine conversion tests and push/PR CI open no windows. The
-separate **GUI checks (manual)** workflow runs native checks with a virtual Linux
-display and a Windows desktop when explicitly dispatched. These checks do not imply
-controller acceptance.
+is unavailable. Routine conversion tests open no windows. Both GitHub Actions
+workflows require a manual **Run workflow** action; pushes and pull requests
+start no tests. **Tests (manual)** runs CLI checks, and **GUI checks (manual)**
+runs native checks with a virtual Linux display and a Windows desktop. These
+checks do not imply controller acceptance.

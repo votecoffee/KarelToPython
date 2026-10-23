@@ -14,6 +14,11 @@ python tools/run_examples.py
 python tools/check_repository.py
 ```
 
+GitHub Actions tests are manual-only. Pushes and pull requests do not start
+workflows. Run local checks before submitting changes; use **Actions** >
+**Tests (manual)** > **Run workflow** when hosted validation is wanted.
+Native desktop checks have a separate **GUI checks (manual)** workflow.
+
 Change generic parser, emitter or runtime behavior rather than special-casing an
 input program. Include a minimal authored reproducer and a test that distinguishes
 the intended behavior from a plausible incorrect implementation. Keep source

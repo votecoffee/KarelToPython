@@ -18,6 +18,7 @@ development prototype, with no claim of controller runtime equivalence.
 - [Install](#install)
 - [Usage](#usage)
 - [Supported Features](#supported-features)
+- [Roadmap](#roadmap)
 - [Development](#development)
 - [Repository Layout](#repository-layout)
 - [API](#api)
@@ -431,6 +432,19 @@ to supplied KAREL modules or explicit Python callbacks.
 Explicit offline services now model files/registers/I/O and cooperative tasks.
 Read the [support table and limitations](docs/language-support.md) before using a feature.
 
+## Roadmap
+
+Continue expanding functional Pythonic conversion coverage. A planned
+[Python runner and parameter editor](docs/roadmap.md#python-runner-and-parameter-editor)
+will extract registers, variables and other values read before they are written
+from generated Python, provide a tab or popup for editing those inputs, and
+save both inputs and execution results in one JSON file. This runner is a
+future milestone; the current workbench translates and reviews code.
+
+[Strict mode](docs/numeric-modes.md#compatibility-and-the-strict-milestone)
+remains a later milestone. See the [roadmap](docs/roadmap.md) for planned scope
+and acceptance criteria.
+
 ## Development
 
 Run from the repository root:
@@ -443,7 +457,12 @@ python tools/check_repository.py
 
 Routine checks open no GUI windows. Native GUI tests are opt-in via
 `KAREL2PY_GUI_TESTS=1`; see [developer tools](tools/README.md#public-checks) for
-focused commands and the separate manual GUI workflow.
+focused commands.
+
+GitHub Actions tests are **manual-only**. Pushes and pull requests do not start
+workflows. To run hosted checks, open the repository's **Actions** tab, select
+**Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
+Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
@@ -465,9 +484,9 @@ their inputs and generated reports are not part of this repository.
 karel2py/          Parser, lexer, code generator, CLI and checked runtime
 tests/            Unit tests and synthetic corpus audit fixtures
 examples/         Authored KAREL examples and expected results
-docs/             API, language support, references and semantic notes
+docs/             API, language support, roadmap, references and semantic notes
 tools/            Example runner, repository checks and optional corpus scanners
-.github/workflows/  Public test workflow
+.github/workflows/  Manually dispatched CLI and GUI test workflows
 ```
 
 Keep machine-specific notes, original robot files, private corpora, manual PDFs,

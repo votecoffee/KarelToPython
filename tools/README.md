@@ -35,8 +35,12 @@ The default suite opens no windows. Native GUI/editor tests require explicit
 `KAREL2PY_GUI_TESTS=1`; headless editor/document helpers still run by default.
 Set that variable only for GUI work, then run discovery with `-p test_gui.py` or
 `-p test_editor.py`. Linux native tests also need a display such as `xvfb-run -a`.
-The separate **GUI checks (manual)** GitHub Actions workflow provides this opt-in
-coverage. Push/PR CI and routine installed-package acceptance use the CLI.
+Both GitHub Actions workflows are manual-only: **Tests (manual)** runs the CLI,
+runtime, example and repository checks; **GUI checks (manual)** runs native
+desktop checks. Open the repository's **Actions** tab, select the desired
+workflow and choose **Run workflow** to request a hosted run. Pushes and pull
+requests do not start either workflow. Routine development and installed-package
+acceptance use local CLI checks; do not dispatch hosted tests automatically.
 
 The example runner compiles authored sources in memory and compares independent
 fixtures, using an injected delay callback. It writes no generated example modules

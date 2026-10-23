@@ -19,6 +19,9 @@
 - Routine conversion checks use the CLI and open no GUI windows. Native GUI
   tests require explicit `KAREL2PY_GUI_TESTS=1`; use them only for GUI work or
   an explicitly requested desktop check. Keep package acceptance window-free.
+- Keep GitHub Actions tests manual-only (`workflow_dispatch`). Pushes and pull
+  requests must not start workflows. Validate locally; dispatch a hosted test
+  workflow only when the user explicitly requests a GitHub Actions run.
 - Generated Python and diagnostic reports are outputs; maintain the KAREL source
   and expected fixtures, rather than checking in generated example modules.
 - Commit completed, verified changes in small, cohesive checkpoints and push them
