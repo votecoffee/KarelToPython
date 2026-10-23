@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1023.110723 - 2026-10-23
+
+- Add a Tkinter desktop workbench and karel2py-gui windowed launcher, with the
+  timestamp version in the title bar, header and About dialog.
+- Open/edit/save KAREL sources, validate or translate in a background worker,
+  review generated Python and located diagnostics, and export Python/JSON.
+- Check linked-project construction without running source bodies; share the
+  existing translator, linkage and literal ARRAY-shape parsing behavior.
+- Invalidate results after edits/options changes, protect source aliases during
+  export, confirm unsaved/overwrite choices and detect external source edits.
+- Add headless document/export tests and native Tk workflow tests, with explicit
+  display requirements and virtual-display coverage on Linux CI.
+
 ## 26.1022.232239 - 2026-10-22
 
 - Switch release versions to fixed UTC build timestamps in YY.MMDD.HHmmss format.

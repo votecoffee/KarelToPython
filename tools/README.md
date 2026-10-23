@@ -14,8 +14,9 @@ the application retains the full display format.
 Update the current version in the README, language support guide, aggregate
 service ledger and changelog. Historical release entries and feature-specific
 ledgers keep their original versions. The application has a command-line
-interface: translator and linked-project commands display the version in their
-help and normal stderr banners, with `--version` available for direct lookup.
+interface and a desktop workbench: commands display the version in their help
+and normal stderr banners, with `--version` available for direct lookup. The GUI
+displays it in the title, header and About dialog.
 
 ## Public checks
 

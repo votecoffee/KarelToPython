@@ -18,6 +18,9 @@ Issues = "https://github.com/votecoffee/KarelToPython/issues"
 [project.scripts]
 karel2py = "karel2py.__main__:main"
 
+[project.gui-scripts]
+karel2py-gui = "karel2py.gui:main"
+
 [tool.setuptools.packages.find]
 include = ["karel2py*"]
 

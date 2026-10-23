@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1022.232239**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.110723**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -57,6 +57,26 @@ private corpus or robot connection is needed to run the public tests and example
 
 ## Usage
 
+### Desktop GUI
+
+Launch the desktop workbench:
+
+```sh
+python -m karel2py.gui
+```
+
+The installed `karel2py-gui` launcher opens the same window. An optional source
+path, such as `python -m karel2py.gui examples/control_flow.kl`, opens a file at startup.
+The timestamp version is visible in the title bar and header.
+
+Open or paste KAREL source, select **Validate** or **Translate to Python**, and
+review the Python, Diagnostics and Report tabs. Save generated Python or JSON
+with the export buttons. **Check project** validates source linkage for a folder
+without running the programs. See the [desktop guide](docs/desktop.md).
+
+The GUI uses Tkinter, included with most Python installations. If unavailable,
+install Python's Tcl/Tk component or your distribution's Tkinter package.
+
 ### CLI
 
 The version uses a fixed UTC build timestamp in `YY.MMDD.HHmmss` format. It is
@@ -68,8 +88,8 @@ python -m karel2py --version
 python -m karel2py.project --version
 ```
 
-This application currently uses a command-line interface. Version banners go to
-stderr so translation summaries and linked-project JSON remain usable on stdout.
+CLI version banners go to stderr so translation summaries and linked-project
+JSON remain usable on stdout. The desktop GUI also displays the build version.
 
 Validate a KAREL source without generating or executing a module:
 
