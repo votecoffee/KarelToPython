@@ -325,10 +325,12 @@ class Workbench:
         revision = self.revision
         self._set_busy(True)
         self.status.set(message)
+        result_queue = self._queue
         def worker():
             try: result = operation()
             except Exception as exc: result = exc
-            self._queue.put((revision, result))
+            # Keep only data/queue references in the worker, including after close.
+            result_queue.put((revision, result))
         threading.Thread(target=worker, name='karel2py-translation', daemon=True).start()
         self._poll = self.root.after(50, self._receive)
 
