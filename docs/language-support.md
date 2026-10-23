@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1023.140206. Acceptance is specific to
+This is the supported prototype subset as of 26.1023.152301. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -67,6 +67,8 @@ The [initialization query guide](initialization-queries.md) covers whole builtin
 records, partial leaves, grouped storage and retained container exclusions.
 [Control notifications](control-notifications.md) covers 0.81.0 semaphores, error
 records, runtime-failure observation and explicit powerup recovery.
+The [error history guide](error-history.md) adds ERR_DATA traversal, latest lookup,
+checked outputs and persisted message/timestamp metadata.
 [Task and file extensions](task-and-file-extensions.md) adds scoped POST_ERR_L,
 handler-aware task requests, ATR_FIELD reads and custom record terminators.
 [I/O and CALL parameters](io-and-call-parameters.md) adds indirect port access,

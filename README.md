@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.140206**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.152301**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -412,6 +412,9 @@ source. Strict mode remains a future milestone.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
 - Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
+- Error-history queries through `ERR_DATA`, with sequential/latest lookup,
+  checked message outputs and optional persisted text/timestamps; see
+  [error history](docs/error-history.md).
 - Packed date/time text conversion with checked calendars and complete outputs.
 - Calendar GET_TIME/SET_TIME on an explicit frozen or advancing offline clock.
 - Host microsecond sampling and elapsed-time subtraction with an injectable clock.

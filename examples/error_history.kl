@@ -1,0 +1,16 @@
+PROGRAM error_history
+%ENVIRONMENT ERRS
+VAR
+  seq,code,cause,stamp,severity,total: INTEGER
+  message,reason: STRING[80]
+  owner: STRING[12]
+  time_text: STRING[20]
+BEGIN
+  POST_ERR(15018,'authored message',42,0)
+  POST_ERR(15019,'second message',0,0)
+  seq=0
+  ERR_DATA(seq,code,message,cause,reason,stamp,severity,owner)
+  total=code+cause
+  ERR_DATA(MAXINT,code,message,cause,reason,stamp,severity,owner)
+  CNV_TIME_STR(stamp,time_text)
+END error_history

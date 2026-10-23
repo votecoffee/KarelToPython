@@ -1,0 +1,30 @@
+{
+  "mode": "pythonic",
+  "controller_validated": false,
+  "source": {
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [388, 389],
+    "topic": "ERR_DATA parameters, sequence selectors, minimum message capacities, severity, packed time and posting visibility"
+  },
+  "implementation": {
+    "procedure": "ERR_DATA(sequence,error_code,error_string,cause_code,cause_string,time_int,severity,program_name)",
+    "traversal": "0 selects oldest; ordinary nonnegative cursors select the next strictly greater retained ID; end sets cursor to 0 and preserves all other outputs",
+    "latest": "MAXINT literal/predefined/named constant selects newest and discards sequence output; ordinary MAXINT storage remains rejected",
+    "outputs": "Disjoint ordinary exact-type references, message capacities 40..254, text right truncation and complete-field preflight",
+    "messages": "Explicit optional error_string/cause_string; fall back to parameter/empty string without native alarm lookup",
+    "time": "Explicit packed time or 0 unknown; source posting samples only a supplied calendar; queries and runtime-failure notifications do not acquire a clock",
+    "persistence": "Optional presentation metadata preserves old history records; checked monotonic IDs 1..2147483646; reject overflow before append",
+    "handlers": "Read all retained scopes including suppressed rows without consuming handler notifications"
+  },
+  "unresolved": [
+    "Native sequence matching and log timing, including asynchronous POST_ERR visibility",
+    "Controller alarm dictionaries, message expansion and native history acquisition",
+    "Native special-state MAXINT storage and native capacity/truncation behavior"
+  ],
+  "validation": [
+    "tests/test_error_history.py",
+    "tests/test_control_notifications.py",
+    "tests/test_task_file_extensions.py",
+    "examples/error_history.kl"
+  ]
+}

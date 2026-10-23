@@ -107,6 +107,11 @@ cause, severity, program scope, source line, origin and suppression state.
 ExecutionContext JSON save/load preserves the bounded history. Example context:
 `{"errors":{"limit":1000,"records":[]}}`.
 
+`ERR_DATA` reads this retained history without consuming handler notifications.
+Optional message and packed-time metadata persists with each record; source
+POST_ERR/POST_ERR_L records sample a supplied CalendarClock when available.
+See [error history queries](error-history.md) for traversal, outputs and defaults.
+
 For host notifications, `context.errors.post(17,program="MAIN")` records an event
 for that task. Omit program for a context-wide event. Its severity field records
 data; host insertion does not itself drive or control a task. Source POST_ERR

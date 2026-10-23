@@ -2062,6 +2062,13 @@ class Emitter:
         for index,(value,(mode,kind)) in enumerate(zip(expr.args,signature)):
             discarded=value
             while discarded.kind=='group': discarded=discarded.args[0]
+            if kind=='ERROR_CURSOR':
+                sentinel=None
+                if discarded.kind=='literal': sentinel=discarded.value
+                elif discarded.kind=='predefined': sentinel=PREDEFINED_CONSTANTS.get(discarded.value)
+                elif discarded.kind=='name': sentinel=self.visible_constants().get(discarded.value)
+                if type(sentinel) is int and sentinel==2147483647:
+                    codes.append('2147483647'); continue
             if mode=='m' and discarded.kind=='literal' and type(discarded.value) is int and discarded.value==0:
                 codes.append('0'); continue
             if mode in ('o','r','m'):
@@ -3748,6 +3755,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
         requests='Named/numeric remote pause/abort delivered at target checkpoints, including paused-task ABORT handlers; self identity follows linked caller; synchronous child ABORT/STOP does not terminate caller',
         guide='docs/offline-services.md',controller_validated=False)
+    report['error_history_policy']=dict(
+        procedure='ERR_DATA(sequence,error_code,error_string,cause_code,cause_string,time_int,severity,program_name)',
+        cursor='Ordinary INTEGER reference: 0 selects oldest, then select the next retained sequence; exhaustion sets only sequence to 0; MAXINT constant selects newest and discards returned sequence',
+        outputs='Disjoint exact writable references; both message capacities 40..254; preflight all fields before writing; right-truncate text to destination capacity',
+        presentation='Explicit error_string/cause_string/time_int metadata; missing error text uses parameter, missing cause text is empty, missing time is 0 unknown; source POST_ERR/POST_ERR_L sample an explicitly supplied calendar',
+        history='Shared retained history including suppressed records; lookup neither consumes notifications nor acquires a clock; sequence IDs 1..2147483646 do not wrap',
+        boundary='Offline messages, cursor progression and synchronous visibility; no controller alarm dictionary, native history or asynchronous log timing claim; ordinary MAXINT storage remains rejected',
+        guide='docs/error-history.md',controller_validated=False)
     report['control_notification_policy']=dict(
         semaphores='Explicit SemaphoreBank count and FIFO tickets; non-consuming conditions, negative queued counts, timed/indefinite waits, grant refund and cancellation cleanup',
         persistence='Quiescent semaphore counters and bounded scoped error history; outstanding wait tickets cannot be saved',

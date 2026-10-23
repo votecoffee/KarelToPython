@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1023.152301 - 2026-10-23
+
+- Add ERR_DATA queries over shared offline error history: oldest/next traversal,
+  latest-record MAXINT selector, output preflight and retained notification cursors.
+- Preserve optional error/cause text and packed timestamps in JSON history;
+  source error posting samples an explicitly supplied calendar when available.
+- Keep ordinary MAXINT storage guarded, reject sequence exhaustion before append,
+  and document missing messages, unknown time and native log-timing boundaries.
+- Add authored CLI execution, handler, persistence and output-protection checks.
+
 ## 26.1023.140206 - 2026-10-23
 
 - Use the supplied transparent icon artwork in the workbench header and window

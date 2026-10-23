@@ -93,9 +93,12 @@ class ErrorHistory:
         for row in records:
             required={'sequence','code','parameter','cause','severity','program','line','origin','suppressed'}
             metadata={'operation','severity_name','source_program'}
-            if type(row) is not dict or not required<=set(row) or set(row)-required-metadata: raise ValueError('Invalid error history record')
-            if type(row['sequence']) is not int or row['sequence']<=self.sequence: raise ValueError('Error history IDs must increase')
+            presentation={'error_string','cause_string','time_int'}
+            if type(row) is not dict or not required<=set(row) or set(row)-required-metadata-presentation: raise ValueError('Invalid error history record')
+            if any(row[key] is None for key in presentation if key in row): raise ValueError('Error history presentation fields cannot be null')
+            if type(row['sequence']) is not int or not self.sequence<row['sequence']<2147483647: raise ValueError('Error history IDs must increase within 1..2147483646')
             self.validate(row['code'],row['parameter'],row['cause'],row['severity'])
+            self.presentation(**{key:row[key] for key in presentation if key in row})
             if type(row['program']) is not str or row['line'] is not None and (type(row['line']) is not int or row['line']<1): raise ValueError('Invalid error source')
             if row['origin'] not in ('posted','runtime','host') or type(row['suppressed']) is not bool: raise ValueError('Invalid error record metadata')
             if metadata & set(row):
@@ -113,12 +116,35 @@ class ErrorHistory:
         severity=runtime.integer(severity,line)
         if severity not in (0,1,2): raise runtime.KarelRuntimeError('POST_ERR severity must be 0 warning, 1 pause or 2 abort',line)
 
-    def post(self,code,parameter='',cause=0,severity=0,*,program='',line=None,origin='host'):
+    def presentation(self,*,error_string=None,cause_string=None,time_int=None):
+        fields={}
+        for key,value in (('error_string',error_string),('cause_string',cause_string)):
+            if value is not None:
+                rt().ascii_string(value)
+                if len(value)>254: raise rt().KarelRuntimeError('Error history message exceeds 254 characters')
+                fields[key]=value
+        if time_int is not None:
+            value=rt().integer(time_int)
+            if value: rt()._unpack_time(value)
+            fields['time_int']=value
+        return fields
+
+    def post(self,code,parameter='',cause=0,severity=0,*,program='',line=None,origin='host',error_string=None,cause_string=None,time_int=None):
         self.validate(code,parameter,cause,severity,line)
         if type(program) is not str or origin not in ('posted','runtime','host'): raise ValueError('Invalid error origin/program')
+        fields=self.presentation(error_string=error_string,cause_string=cause_string,time_int=time_int)
+        if self.sequence>=2147483646: raise rt().KarelRuntimeError('Error history sequence exhausted',line)
         self.sequence+=1
         record=dict(sequence=self.sequence,code=code,parameter=parameter,cause=cause,severity=severity,program=program.upper(),line=line,origin=origin,suppressed=False)
+        record.update(fields)
         self.records.append(record); self.records=self.records[-self.limit:]; return record
+
+    def read_after(self,sequence,line=None):
+        sequence=rt().integer(sequence,line)
+        if sequence<0: raise rt().KarelRuntimeError('ERR_DATA sequence must be nonnegative',line)
+        if sequence==2147483647: record=self.records[-1] if self.records else None
+        else: record=next((row for row in self.records if row['sequence']>sequence),None)
+        return deepcopy(record)
 
     def latest(self,program,code=None):
         return next((record for record in reversed(self.records) if (not record['program'] or record['program']==program) and (code is None or record['code']==code)),None)
@@ -140,6 +166,27 @@ def task_root(state):
 def error_history(state):
     if state.execution.errors is None: state.execution.errors=ErrorHistory()
     return state.execution.errors
+
+
+def read_error_data(state,arguments,line=None):
+    """Read a retained record; preflight every output before publishing fields."""
+    runtime=rt()
+    for reference in (arguments[2],arguments[4]):
+        if type(reference.spec[1]) is not int or not 40<=reference.spec[1]<=254:
+            raise runtime.KarelRuntimeError('ERR_DATA message outputs require STRING capacity in 40..254',line)
+    cursor=arguments[0]
+    sequence=runtime.integer(cursor.raw() if type(cursor) is runtime.Reference else cursor,line)
+    if sequence<0: raise runtime.KarelRuntimeError('ERR_DATA sequence must be nonnegative',line)
+    history=state.execution.errors
+    record=None if history is None else history.read_after(sequence,line)
+    if record is None:
+        if type(cursor) is runtime.Reference: cursor.set(0,line)
+        return
+    values=(record['sequence'],record['code'],record.get('error_string',record['parameter']),
+            record['cause'],record.get('cause_string',''),record.get('time_int',0),
+            record['severity'],'' if record['origin']=='posted' else record['program'])
+    prepared=[(reference,runtime.checked(reference.spec,value,line)) for reference,value in zip(arguments,values) if type(reference) is runtime.Reference]
+    for reference,value in prepared: reference.set(value,line)
 
 
 def error_condition(state,code,key,line=None):
@@ -219,7 +266,8 @@ def post_error(state,code,parameter,cause,severity,line=None,*,severity_name=Non
         match=next(((name,effect,local) for name,(identifier,effect,local) in ERROR_SEVERITIES.items() if identifier==raw),None)
         if match is None: raise runtime.KarelRuntimeError('POST_ERR_L requires a portable ERSEV_* identifier in 0..10',line)
         severity_name,severity,local=match
-    record=error_history(state).post(code,parameter,cause,severity,program=root.program_name if local else '',line=line,origin='posted')
+    stamp=state.execution.calendar.read(line) if state.execution.calendar is not None else None
+    record=error_history(state).post(code,parameter,cause,severity,program=root.program_name if local else '',line=line,origin='posted',time_int=stamp)
     if severity_name is not None: record.update(operation='POST_ERR_L',severity_name=severity_name,source_program=state.program_name)
     targets=[root]
     if not local: targets.extend(program._state for program in state.execution.tasks.tasks.values() if program._state is not root and program._state.task_state in ('running','waiting','paused'))

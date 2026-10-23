@@ -20,6 +20,7 @@ def fail(message, line=None): raise runtime().KarelRuntimeError(message,line)
 
 # mode: i=value input, o=output reference, r=mutable resource/reference,
 # m=INTEGER mask output reference or literal zero to discard.
+# ERROR_CURSOR also accepts literal MAXINT to select newest without cursor output.
 def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
@@ -29,6 +30,7 @@ PROCEDURES = {
     'GET_ATTR_PRG': (S,I,OI,OS,OI), 'SET_ATTR_PRG': (S,I,I,S,OI),
     'CNV_CNF_STRG': (arg('CONFIG'),OS,OI,I),
     'GET_TIME':(OI,), 'SET_TIME':(I,),
+    'ERR_DATA':(arg('ERROR_CURSOR','r'),OI,OS,OI,OS,OI,OI,OS),
     'CLEAR_SEMA':(I,), 'POST_SEMA':(I,), 'PEND_SEMA':(I,I,arg('BOOLEAN','o')),
     'POST_ERR':(I,S,I,I), 'POST_ERR_L':(I,S,I,I),
     'CONT_TASK': (S,OI), 'PAUSE_TASK': (S,B,B,OI), 'ABORT_TASK': (S,B,B,OI),
@@ -128,6 +130,7 @@ def signature_for(name,arity):
 
 def matches(spec, kind):
     rt=runtime()
+    if kind=='ERROR_CURSOR': return spec==('INTEGER',)
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
@@ -142,6 +145,7 @@ def matches(spec, kind):
 def outputs_checked(signature, arguments, line=None):
     rt=runtime(); occupied=set()
     for (mode,kind), value in zip(signature,arguments):
+        if kind=='ERROR_CURSOR' and type(value) is int and value==2147483647: continue
         if mode=='m' and type(value) is int and value==0: continue
         if mode not in ('o','r','m'): continue
         if type(value) is not rt.Reference or not matches(value.spec,kind): fail('Service output requires an ordinary exact-type writable reference',line)
@@ -1393,6 +1397,9 @@ class ExecutionContext:
         if name=='GET_TSK_INFO':
             from .scheduling import get_task_info
             return get_task_info(state,args,line)
+        if name=='ERR_DATA':
+            from .control import read_error_data
+            return read_error_data(state,args,line)
         if name in ('GET_TIME','SET_TIME'):
             clock=self.require('calendar',line)
             if name=='GET_TIME': args[0].set(clock.read(line),line)

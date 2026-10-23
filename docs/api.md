@@ -107,6 +107,10 @@ datetime or packed value, optional elapsed-microsecond adapter and frozen restor
 The report's `calendar_clock_policy` records the contract. See
 [calendar time](calendar-clock.md) for setup, JSON and source examples.
 
+ErrorHistory supplies `read_after(sequence)` for defensive record queries and
+optional `post(..., error_string=..., cause_string=..., time_int=...)` metadata.
+Translated ERR_DATA reads the same history; see [error history](error-history.md).
+
 TaskRegistry and TaskScheduler accept `bind(name,program,attributes=None)` with
 optional named INTEGER metadata. GET_TSK_INFO uses registered identity, live
 caller-rooted execution data or that explicit metadata. `rt.TASK_CONSTANTS` and
