@@ -429,7 +429,13 @@ a copied mapping of shared bank objects; `to_config()` exports detached snapshot
 and `from_config()` restores bank-only JSON. Context JSON stores these under
 `peers`; `runtime.PEER_UNAVAILABLE` is portable status 5. Reports include
 `remote_bank_policy`. See [remote banks](remote-banks.md) for signatures, selected
-outputs, per-peer port mappings and retained network/position-transfer boundaries.
+outputs, per-peer port mappings and retained network boundaries.
+
+`remote_transfer_policy` describes RNUMREG/RPOSREG receive/send, also accepting
+RPREG position spellings. Transfers use the caller's numeric bank or
+`ExecutionContext.positions` and the selected peer bank, with explicit groups,
+selected value/comment copies and complete destination preflight. Existing
+context JSON retains completed updates. See [register transfers](register-transfers.md).
 
 `joint_geometry` records model-backed JOINTPOS operands in supported geometry
 expressions; `joint_geometry_policy` describes explicit context and Cartesian

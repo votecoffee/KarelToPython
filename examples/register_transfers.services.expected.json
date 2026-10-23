@@ -1,0 +1,1 @@
+{"positions":{"1:1":{"axes":[1.0,2.0,3.0]}},"peers":{"CELL_A":{"numeric":{"count":2,"values":{"1":2.5,"2":2.5},"comments":{"1":"peer count"}},"positions":{"count":2,"groups":[2],"values":{"2:1":{"type":["JOINTPOS",3],"value":{"axes":[1.0,2.0,3.0]}},"2:2":{"type":["JOINTPOS",3],"value":{"axes":[1.0,2.0,3.0]}}},"comments":{"1":"peer point"}}}}}

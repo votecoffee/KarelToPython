@@ -7,7 +7,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.132259**. It is a
+tool are named **karel2py**. The current implementation is **26.1023.134348**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -320,6 +320,11 @@ including numeric/string values, independent comments and simulation flags.
 Peer banks persist in context JSON and remain independent of local banks. See
 [remote banks](docs/remote-banks.md) for setup and the CLI example.
 
+RNUMREG/RPOSREG receive/send calls copy values and selected comments between
+local and peer banks, preserving numeric kind and positional representation.
+See [register transfers](docs/register-transfers.md) for direction, options,
+explicit groups, checked copies and RPREG spelling aliases.
+
 COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
 report to an open FILE. PRINT_FILE sends validated ASCII to the existing output
 recorder or callback. Both use explicit memory or directory file context. See
@@ -430,6 +435,10 @@ python -m unittest discover -s tests
 python tools/run_examples.py
 python tools/check_repository.py
 ```
+
+Routine checks open no GUI windows. Native GUI tests are opt-in via
+`KAREL2PY_GUI_TESTS=1`; see [developer tools](tools/README.md#public-checks) for
+focused commands and the separate manual GUI workflow.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination

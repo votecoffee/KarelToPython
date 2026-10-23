@@ -1,0 +1,9 @@
+PROGRAM register_transfers
+%ENVIRONMENT RPCC
+VAR status:INTEGER
+BEGIN
+  RNUMREG_RECV('CELL_A',1,1,0,status)
+  RNUMREG_SEND('CELL_A',2,1,1,status)
+  RPOSREG_RECV('CELL_A',1,2,1,1,0,status)
+  RPOSREG_SEND('CELL_A',2,2,1,1,1,status)
+END register_transfers

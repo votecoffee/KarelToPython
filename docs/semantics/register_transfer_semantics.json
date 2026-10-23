@@ -1,0 +1,28 @@
+{
+  "version": "26.1023.134348",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "reference_basis": {
+    "edition": "MARRC75KR07091E Rev N",
+    "pdf_pages": [518, 519, 520, 521, 522, 523],
+    "documented": "Numeric and group-qualified position register receive/send with selected value/comment options; SEND lists destination first",
+    "conflicts": "Status tables label the result input; positional headings use RPREG while syntax/examples use RPOSREG"
+  },
+  "implementation_choices": {
+    "signatures": "Four operations, accepting both RPREG and RPOSREG position spellings; writable INTEGER status and ordinary internal-routine precedence",
+    "banks": "Explicit caller numeric register bank or context.positions plus selected PeerBanks service; never infer or substitute missing local/peer banks",
+    "options": "Numeric 0 value/comment, 1 value, 2 comment only; position 0 value/comment and 1 value; invalid option status 3",
+    "copies": "Preserve numeric INTEGER/REAL kind and exact POSITION/XYZWPR/XYZWPREXT/JOINTPOS representation, configuration, external metadata and axis width; no robot conversion",
+    "preflight": "Snapshot selected source contents, validate both register addresses/groups and selected comment destination before publishing any transfer write; detach positional data",
+    "comments": "Independent comments, at most 16 characters and destination capacity; numeric comment-only requires no source value; value-only ignores comment storage",
+    "status": "Portable 0 success, 1 missing source value, 2 invalid address/group/comment address, 3 invalid option, 5 unbound peer; missing banks or malformed typed contents raise before writes",
+    "guards": "Arguments once in source order, exact writable status, read-only and transitive FOR protections; earlier completed argument effects retained",
+    "persistence": "Existing local and peers JSON bank schemas retain completed changes without task checkpoints, native layouts or network sessions",
+    "reports": "remote_transfer_policy and source-located/value-free service observations"
+  },
+  "retained_boundaries": [
+    "No networking, native RPC statuses/timing, robot compatibility, frame/tool conversion or implicit axis padding",
+    "No comment-only positional option, concurrent host-thread transaction or controller acceptance claim; strict remains future work"
+  ],
+  "tests": ["tests/test_register_transfers.py", "tests/test_runtime_portability.py", "examples/register_transfers.kl"]
+}

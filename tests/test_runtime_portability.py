@@ -79,6 +79,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('program_pages', 'CURSOR_NO', 3),
                     ('program_metadata', 'COMMENT', 'converted'),
                     ('remote_banks', 'NUMBER', 42),
+                    ('register_transfers', 'STATUS', 0),
                     ('pose_decomposition', 'CONSTRUCTOR_X', 4.),
                     ('joint_decomposition', 'X', 100.),
                     ('collection_state', 'FIRST', 42),

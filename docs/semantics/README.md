@@ -3,6 +3,9 @@
 Current POSITION geometry follows the [POSITION guide](../position-geometry.md);
 older blanket POSITION geometry exclusions retain the conservative contract.
 
+The [register transfer ledger](register_transfer_semantics.json) supersedes the
+remote-position-transfer exclusion in the historical remote-bank ledger.
+
 These JSON notes describe manual rules, conservative prototype contracts, test
 locations and unresolved behavior. They are implementation documentation, not
 native compiler or controller acceptance evidence. See [references](../references.md)
@@ -41,6 +44,7 @@ are kept outside public documentation.
 | Program listing | [program_listing_semantics.json](program_listing_semantics.json) |
 | Program metadata | [program_metadata_semantics.json](program_metadata_semantics.json) |
 | Remote banks | [remote_bank_semantics.json](remote_bank_semantics.json) |
+| Register transfers | [register_transfer_semantics.json](register_transfer_semantics.json) |
 | Pythonic CONFIG text | [config_text_semantics.json](config_text_semantics.json) |
 | Pythonic POS construction | [pos_constructor_semantics.json](pos_constructor_semantics.json) |
 | Pythonic READ formats | [read_format_semantics.json](read_format_semantics.json) |

@@ -97,6 +97,11 @@ REMOTE_SERVICES={
     'RGET_PORTCMT':'GET_PORT_CMT','RSET_PORTCMT':'SET_PORT_CMT',
     'RGET_PORTSIM':'GET_PORT_SIM','RSET_PORTSIM':'SET_PORT_SIM',
     'RGET_PORTVAL':'GET_PORT_VAL','RSET_PORTVAL':'SET_PORT_VAL'}
+REMOTE_TRANSFERS={'RNUMREG_RECV':('numeric','receive'),'RNUMREG_SEND':('numeric','send'),
+                  'RPOSREG_RECV':('positions','receive'),'RPOSREG_SEND':('positions','send'),
+                  'RPREG_RECV':('positions','receive'),'RPREG_SEND':('positions','send')}
+PROCEDURES.update({name:(S,*((I,)* (3 if kind=='numeric' else 5)),OI)
+                   for name,(kind,direction) in REMOTE_TRANSFERS.items()})
 _REMOTE_SIGNATURES={'GET_REG':(I,arg('BOOLEAN','o'),OI,arg('REAL','o'),OI),
                     'SET_INT_REG':(I,I,OI),'SET_REAL_REG':(I,R,OI),
                     'GET_PORT_SIM':(I,I,arg('BOOLEAN','o'),OI),
@@ -1366,7 +1371,7 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
-        if name in REMOTE_SERVICES:
+        if name in REMOTE_SERVICES or name in REMOTE_TRANSFERS:
             from .remote import invoke_peer
             return invoke_peer(self,state,name,args,line)
         if name in ('LOAD_STATUS','GET_ATTR_PRG','SET_ATTR_PRG'):

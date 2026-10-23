@@ -3568,6 +3568,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         evaluation='All arguments once in source order; exact disjoint writable outputs and ordinary transitive FOR/read-only protections; selected read values checked before output writes',
         persistence='peers JSON contains bank snapshots only; detached exported mappings, host bindings deliberately share supplied bank objects; no nested contexts, files, tasks or credentials',
         guide='docs/remote-banks.md',controller_validated=False)
+    report['remote_transfer_policy']=dict(
+        procedures=dict(ex.REMOTE_TRANSFERS),
+        context='Explicit PeerBanks numeric/position banks plus caller numeric register bank or ExecutionContext.positions; no native transport or implicit local-bank creation',
+        arguments='RECV orders source then destination; SEND orders destination then source; position calls include explicit source/destination groups',
+        options='Numeric 0 value/comment, 1 value, 2 comment only; position 0 value/comment, 1 value; all arguments captured once in source order',
+        values='Preserve numeric INTEGER/REAL kind and exact position/joint representation and axes; detach copies, check both addresses/groups and all selected contents before mutation; comments limited to 16 characters',
+        status='Portable 0 success, 1 absent source value, 2 invalid address/group/comment address, 3 invalid option, 5 unbound peer; missing banks and malformed contents raise before transfer writes',
+        persistence='Existing local and peers bank schemas retain completed transfers; no robot/frame conversion, native status or controller acceptance claim',
+        guide='docs/register-transfers.md',controller_validated=False)
     report['program_metadata_policy']=dict(
         procedures=['LOAD_STATUS','GET_ATTR_PRG','SET_ATTR_PRG'],
         constants=dict(ex.PROGRAM_CONSTANTS),

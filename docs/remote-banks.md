@@ -44,8 +44,8 @@ context = rt.ExecutionContext(peers=peers)
 
 Only `numeric`, `strings`, `positions` and `ports` bank objects are accepted per
 peer. Omitted banks remain unavailable. Files, tasks, variables, callbacks and
-nested contexts cannot become peer services. Position banks currently supply
-comments for this family; remote position-value transfer is a separate gap.
+nested contexts cannot become peer services. Position banks supply comments for
+RGET/RSET and values for the separate [register transfer calls](register-transfers.md).
 
 Names are case-insensitive ASCII labels of 1..254 characters. They start with a
 letter/digit and may include letters, digits, underscore, dot, colon and hyphen.
@@ -54,7 +54,7 @@ mappings are copied; the supplied bank objects are deliberately shared with the
 host. Hosts may explicitly share a bank across peers, but ordinary separately
 constructed banks remain independent.
 
-Peer numeric calls use the selected peer's numeric bank, including when the
+Peer numeric RGET/RSET calls use the selected peer's numeric bank, including when the
 calling Program has its own `registers` argument. Port calls use the selected
 peer's explicit `type_codes`; codes never fall back to the caller's mapping or a
 guessed native table.
@@ -139,6 +139,8 @@ register numbers, BOOLEAN kind flag, STRING comments and input STRING writes.
 No manual source or proprietary example is distributed here.
 
 The [semantic ledger](semantics/remote_bank_semantics.json) records those choices.
-Network transport, remote program/task execution, remote position-value transfers,
-native port codes/statuses, communication timing and controller runtime acceptance
+Numeric and position-value receive/send now use the separate
+[register transfer contract](register-transfers.md), including explicit local
+banks, group selection and preflight. Network transport, remote program/task
+execution, native port codes/statuses, communication timing and controller runtime acceptance
 remain outside this implementation. Strict mode remains a future milestone.

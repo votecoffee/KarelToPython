@@ -118,7 +118,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 130, 'Update the expected example count when adding examples'
+    assert count == 131, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
     assert len(projects)==3, 'Update the expected project count when adding projects'
     for folder in projects:

@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1023.134348 - 2026-10-23
+
+- Add numeric and position register receive/send between explicit local/peer
+  banks, with value/comment options, explicit groups and RPREG/RPOSREG aliases.
+- Preserve numeric kinds, Cartesian/joint representations and external axes;
+  snapshot and preflight selected values/comments before publishing transfers.
+- Add authored CLI execution, persistence, copy isolation, malformed-source,
+  destination-preflight and counter-protection regressions.
+- Make native GUI/editor tests opt-in and move desktop CI to a manual workflow.
+  Routine conversion tests and package acceptance open no windows.
+
 ## 26.1023.132259 - 2026-10-23
 
 - Add 17 RGET/RSET procedures over explicit PeerBanks for numeric/string
