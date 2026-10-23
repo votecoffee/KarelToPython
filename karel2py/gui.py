@@ -8,7 +8,7 @@ import threading
 
 from . import __version__
 from .workbench import Document, MAX_SOURCE_BYTES, analyze_project, analyze_source
-from .editor import CodeView, generated_lines, replace_literal, source_location, text_index
+from .editor import CodeView, find_literal, generated_lines, replace_literal, source_location, text_index
 
 
 class Workbench:
@@ -415,19 +415,17 @@ class Workbench:
         if self._search_signature == signature and self._last_match:
             start = self._last_match[0 if backwards else 1]
         else: start = text.index('insert')
-        stop = '1.0' if backwards else 'end-1c'
-        found = text.search(query, start, stopindex=stop, backwards=backwards, exact=True,
-                            nocase=not self.match_case.get())
-        wrapped = not bool(found)
-        if not found:
-            found = text.search(query, 'end-1c' if backwards else '1.0', stopindex=stop,
-                                backwards=backwards, exact=True, nocase=not self.match_case.get())
+        # Tk's native multiline Unicode search crashes on some supported builds.
+        current = text.get('1.0', 'end-1c')
+        offset = len(text.get('1.0', start))
+        match = find_literal(current, query, offset, backwards=backwards, match_case=self.match_case.get())
         text.tag_remove('search_match', '1.0', 'end')
-        if not found:
+        if match is None:
             self._search_signature, self._last_match = signature, None
             self.search_status.set('No matches')
             return None
-        end = text_index(text, found, query, len(query))
+        begin, finish, wrapped = match
+        found, end = (text_index(text, '1.0', current, offset) for offset in (begin, finish))
         text.tag_configure('search_match', background='#766219', foreground='#ffffff')
         text.tag_add('search_match', found, end)
         text.tag_raise('search_match')

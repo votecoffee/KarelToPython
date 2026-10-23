@@ -11,6 +11,8 @@
   compiler source-map entries; leave unmapped generated scaffolding explicit.
 - Preserve Unicode match boundaries and prioritize application shortcuts over
   native text navigation bindings. Add native editor and headless helper checks.
+- Match literal queries in Python to avoid native multi-line Unicode search
+  crashes on Linux Tk builds; keep Find and Replace All case rules consistent.
 
 ## 26.1023.110723 - 2026-10-23
 

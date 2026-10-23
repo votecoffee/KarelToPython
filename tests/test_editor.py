@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from karel2py import translate
-from karel2py.editor import MAX_COLOR_CHARS, generated_lines, replace_literal, source_location, syntax_spans
+from karel2py.editor import MAX_COLOR_CHARS, find_literal, generated_lines, replace_literal, source_location, syntax_spans
 from karel2py.workbench import Document, analyze_source
 
 
@@ -33,6 +33,25 @@ class EditorOperationsTests(unittest.TestCase):
     def test_literal_replacement_does_not_interpret_regex_or_backreferences(self):
         self.assertEqual(replace_literal('a.*b A.*B', 'a.*b', r'\1'), (r'\1 \1', 2))
         self.assertEqual(replace_literal('a A a', 'a', 'x', match_case=True), ('x A x', 2))
+
+    def test_literal_search_wraps_and_preserves_case_and_metacharacters(self):
+        self.assertEqual(find_literal('one ONE', 'one'), (0, 3, False))
+        self.assertEqual(find_literal('one ONE', 'one', 3), (4, 7, False))
+        self.assertEqual(find_literal('one ONE', 'one', 7), (0, 3, True))
+        self.assertEqual(find_literal('ONE one', 'one', match_case=True), (4, 7, False))
+        self.assertEqual(find_literal('a.*b', '.*'), (1, 3, False))
+
+    def test_reverse_literal_search_handles_overlaps_and_multiline_unicode(self):
+        self.assertEqual(find_literal('banana', 'ana', 6, backwards=True), (3, 6, False))
+        self.assertEqual(find_literal('banana', 'ana', 3, backwards=True), (1, 4, False))
+        self.assertEqual(find_literal('banana', 'ana', 0, backwards=True), (3, 6, True))
+        self.assertEqual(find_literal('first😀\nsecond', '😀\nsecond'), (5, 13, False))
+        self.assertEqual(find_literal('first😀\nsecond', '😀\nsecond', 13, backwards=True), (5, 13, False))
+
+    def test_empty_and_absent_searches_return_no_range(self):
+        for query in ('', 'missing'):
+            for backwards in (False, True):
+                self.assertIsNone(find_literal('source', query, backwards=backwards))
 
     def test_replacements_are_nonoverlapping_and_preserve_newlines(self):
         self.assertEqual(replace_literal('aaaa\naa', 'aa', 'z'), ('zz\nz', 3))

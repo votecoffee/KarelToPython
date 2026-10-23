@@ -34,6 +34,28 @@ def syntax_spans(text, language):
     return result
 
 
+def find_literal(text, query, start=0, *, backwards=False, match_case=False):
+    """Return Python offsets and wrapping state without Tk's native search API."""
+    if not query: return None
+    pattern = re.compile('(?=' + re.escape(query) + ')', 0 if match_case else re.IGNORECASE)
+    start = max(0, min(len(text), start))
+    match, wrapped = None, False
+    if backwards:
+        for candidate in pattern.finditer(text):
+            if candidate.start() >= start: break
+            match = candidate
+        if match is None:
+            wrapped = True
+            for candidate in pattern.finditer(text): match = candidate
+    else:
+        match = pattern.search(text, start)
+        if match is None:
+            wrapped = True
+            match = pattern.search(text)
+    if match is None: return None
+    return match.start(), match.start() + len(query), wrapped
+
+
 def replace_literal(text, query, replacement, *, match_case=False, limit=MAX_SOURCE_BYTES):
     """Prepare a literal nonoverlapping replacement before any editor mutation."""
     if not query: return text, 0
