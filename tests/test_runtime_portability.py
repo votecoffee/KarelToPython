@@ -79,6 +79,7 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('program_pages', 'CURSOR_NO', 3),
                     ('program_metadata', 'COMMENT', 'converted'),
                     ('teach_programs', 'AVAILABLE', 5),
+                    ('teach_registers', 'NUMBER', 42),
                     ('remote_banks', 'NUMBER', 42),
                     ('register_transfers', 'STATUS', 0),
                     ('pose_decomposition', 'CONSTRUCTOR_X', 4.),

@@ -1,0 +1,78 @@
+{
+  "version": "26.1024.151618",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "B-83144EN-1/02, R-30iA/B reference, updated TP local-register entries",
+      "pdf_pages": [
+        259,
+        260,
+        263,
+        264
+      ],
+      "topic": "Local numeric/string reads, position/joint functions and explicit TP caller scope; joint return-type heading is inconsistent with its JOINTPOS purpose"
+    },
+    {
+      "manual": "B-83144EN-1/02",
+      "pdf_pages": [
+        342,
+        352,
+        355,
+        356,
+        357
+      ],
+      "topic": "Local INTEGER/REAL, string and grouped Cartesian/extended/joint writes"
+    },
+    {
+      "manual": "B-83144EN-1/02",
+      "pdf_pages": [
+        365,
+        366
+      ],
+      "topic": "Local frame/tool and representation/axis queries, default groups and uninitialized-position sentinel"
+    }
+  ],
+  "implementation": {
+    "calls": [
+      "GET_TPE_JPOS_REG",
+      "GET_TPE_POS_REG",
+      "GET_TPE_REG",
+      "GET_TPE_STR_REG",
+      "SET_INT_TPE_REG",
+      "SET_REAL_TPE_REG",
+      "SET_TPE_EPOS_REG",
+      "SET_TPE_JPOS_REG",
+      "SET_TPE_POS_REG",
+      "SET_TPE_STR_REG",
+      "TPE_POS_REG_FRM",
+      "TPE_POS_REG_TYPE"
+    ],
+    "selection": "Explicit KAREL root name to existing TP record bindings; linked routines retain calling root, scheduler rename retains program identity; no selected-program/global-bank fallback",
+    "storage": "Per-record numeric and bounded ASCII string banks and independent grouped position registers; existing program positions/comments remain separate",
+    "access": "No open handle required; foreign handle rejection masks apply to read or read/write access, own root handles do not block",
+    "persistence": "Detached typed JSON with bindings/limits/values; copy detaches all local banks without rebinding callers; terminal execution retains values, omits handles",
+    "outputs": "GET_TPE_REG changes flag and selected numeric output only; complete string destination required; position functions return detached extended or padded nine-axis values"
+  },
+  "portable_choices": {
+    "limits": "Each register limit 1..32767, default 32767; ASCII string capacity 1..254, default 254; store groups remain explicit",
+    "groups": "Optional final group for position functions/setters and optional middle group for frame/type procedures; calling root default or group 1; host defaults to group 1",
+    "positions": "Cartesian normalization to requested representation, exact joint widths, no implicit kinematics, retained external axes and frame/tool IDs; new IDs 0/0",
+    "strings": "Source writes truncate to bank capacity; constructor strings must fit; undersized read destination preserves output and returns 8",
+    "status": "0 success; 1 numeric/string missing; 2 address/representation; 4 sharing; 8 small string destination; 9 no caller; 17038 position absent",
+    "failed_getters": "Publish status then raise without replacing assignment target"
+  },
+  "unresolved": [
+    "Native TP execution, implicit call-frame discovery and dynamic nested TP caller relationships",
+    "Native local register capacities, ownership/lock semantics and alarm mappings",
+    "Physical robot axes, implicit pose/joint conversion and native frame/tool defaults",
+    "Strict mode and suspended task/handle checkpoint persistence"
+  ],
+  "verification": [
+    "tests/test_teach_registers.py",
+    "tests/test_teach_programs.py",
+    "tests/test_runtime_portability.py",
+    "examples/teach_registers.kl"
+  ],
+  "guide": "../teach-registers.md"
+}

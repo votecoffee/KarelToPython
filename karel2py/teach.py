@@ -6,11 +6,14 @@ import re
 TPE_CONSTANTS={'TPE_RDACC':1,'TPE_RWACC':2,'TPE_NOREJ':0,'TPE_RDREJ':1,
     'TPE_WRTREJ':2,'TPE_RWREJ':3,'TPE_ALLREJ':4,'TPE_NOT_FOUND':1,
     'TPE_INVALID':2,'TPE_ACCESS':3,'TPE_BUSY':4,'TPE_EXISTS':5,'TPE_FULL':6,
-    'TPE_CMT_TRUNCATED':7,'TPE_CMT_CAPACITY':8,'TPE_UNINITIALIZED':17038}
+    'TPE_CMT_TRUNCATED':7,'TPE_CMT_CAPACITY':8,'TPE_NO_CALLER':9,'TPE_UNINITIALIZED':17038}
+TPE_REGISTER_NAMES=frozenset(('GET_TPE_REG','SET_INT_TPE_REG','SET_REAL_TPE_REG',
+    'GET_TPE_STR_REG','SET_TPE_STR_REG','GET_TPE_POS_REG','GET_TPE_JPOS_REG',
+    'SET_TPE_POS_REG','SET_TPE_EPOS_REG','SET_TPE_JPOS_REG','TPE_POS_REG_FRM','TPE_POS_REG_TYPE'))
 TPE_NAMES=frozenset(('OPEN_TPE','CLOSE_TPE','CREATE_TPE','COPY_TPE','SELECT_TPE',
     'AVL_POS_NUM','DEL_INST_TPE','GET_POS_FRM','GET_POS_TYP','GET_POS_TPE',
     'GET_JPOS_TPE','SET_POS_TPE','SET_EPOS_TPE','SET_JPOS_TPE','SET_TRNS_TPE',
-    'GET_TPE_CMT','SET_TPE_CMT'))
+    'GET_TPE_CMT','SET_TPE_CMT'))|TPE_REGISTER_NAMES
 KIND_NAMES={'TP':'PT_MNE_UNDEF','JB':'PT_MNE_JOB','PR':'PT_MNE_PROC','MR':'PT_MNE_MACRO'}
 
 
@@ -40,36 +43,53 @@ def cartesian_value(kind,value,line=None):
 
 class TeachPrograms:
     """Logical TP records; no native TP parser, execution, robot or filesystem."""
-    def __init__(self,programs=None,*,groups=(1,),position_limit=32767,program_limit=256,selected=None):
+    def __init__(self,programs=None,*,groups=(1,),position_limit=32767,program_limit=256,selected=None,
+                 register_limit=32767,string_register_limit=32767,position_register_limit=32767,
+                 string_capacity=254,callers=None):
         if type(groups) not in (tuple,list) or not groups or any(type(g) is not int or not 1<=g<=32 for g in groups) or len(set(groups))!=len(groups):
             raise ValueError('TP groups require distinct INTEGERs in 1..32')
         if type(position_limit) is not int or not 1<=position_limit<=32767: raise ValueError('TP position limit must be in 1..32767')
         if type(program_limit) is not int or not 1<=program_limit<=4096: raise ValueError('TP program limit must be in 1..4096')
+        for count in (register_limit,string_register_limit,position_register_limit):
+            if type(count) is not int or not 1<=count<=32767: raise ValueError('TP register limits must be in 1..32767')
+        if type(string_capacity) is not int or not 1<=string_capacity<=254: raise ValueError('TP string capacity must be in 1..254')
         if programs is None: programs={}
         if type(programs) is not dict or len(programs)>program_limit: raise ValueError('TP programs require a bounded name mapping')
         self.groups=tuple(groups);self.position_limit=position_limit;self.program_limit=program_limit
+        self.register_limit=register_limit;self.string_register_limit=string_register_limit
+        self.position_register_limit=position_register_limit;self.string_capacity=string_capacity
+        self._callers={}
         self._programs={};self._handles={};self._sequence=0;self.selected=None
         for name,row in programs.items():
             key=name_key(name)
             if key is None or key in self._programs: raise ValueError('Invalid or duplicate TP program name')
-            if type(row) is not dict or set(row)-{'type','instructions','positions','comments','attributes'}: raise ValueError('Unknown TP program fields')
+            if type(row) is not dict or set(row)-{'type','instructions','positions','comments','attributes','numeric_registers','string_registers','position_registers'}: raise ValueError('Unknown TP program fields')
             kind=row.get('type','TP')
             if type(kind) is not str or kind not in KIND_NAMES: raise ValueError('TP type must be TP, JB, PR or MR')
             instructions=row.get('instructions',[])
             if type(instructions) is not list or len(instructions)>32767: raise ValueError('TP instructions require a bounded list')
             if any(type(text) is not str or not text.isascii() or len(text)>254 or '\n' in text or '\r' in text for text in instructions):
                 raise ValueError('TP instructions require single-line ASCII text up to 254 characters')
-            program={'type':kind,'instructions':instructions.copy(),'positions':{},'comments':{},'attributes':{}}
-            positions=row.get('positions',[])
-            if type(positions) is not list or len(positions)>position_limit*len(groups): raise ValueError('Invalid TP position list')
-            for item in positions:
-                if type(item) is not dict or set(item)-{'group','number','value','uframe','utool'} or not {'group','number','value'}<=set(item): raise ValueError('Invalid TP position row')
-                group,number=item['group'],item['number']
-                if not self.address(group,number) or (group,number) in program['positions']: raise ValueError('Invalid or duplicate TP position address')
-                frame,tool=item.get('uframe',0),item.get('utool',0)
-                if any(type(n) is not int or not 0<=n<=32767 for n in (frame,tool)): raise ValueError('Invalid TP frame/tool identifiers')
-                value=self.position_value(item['value'])
-                program['positions'][group,number]={'value':value,'uframe':frame,'utool':tool}
+            program=self.empty_program(kind);program['instructions']=instructions.copy()
+            for field,limit in (('positions',position_limit),('position_registers',position_register_limit)):
+                positions=row.get(field,[])
+                if type(positions) is not list or len(positions)>limit*len(groups): raise ValueError('Invalid TP position list')
+                for item in positions:
+                    if type(item) is not dict or set(item)-{'group','number','value','uframe','utool'} or not {'group','number','value'}<=set(item): raise ValueError('Invalid TP position row')
+                    group,number=item['group'],item['number']
+                    if not self.address(group,number,limit) or (group,number) in program[field]: raise ValueError('Invalid or duplicate TP position address')
+                    frame,tool=item.get('uframe',0),item.get('utool',0)
+                    if any(type(n) is not int or not 0<=n<=32767 for n in (frame,tool)): raise ValueError('Invalid TP frame/tool identifiers')
+                    value=self.position_value(item['value'])
+                    program[field][group,number]={'value':value,'uframe':frame,'utool':tool}
+            for field in ('numeric_registers','string_registers'):
+                values=row.get(field,{})
+                if type(values) is not dict: raise ValueError('TP registers require canonical number keys')
+                for number,value in values.items():
+                    if type(number) is not str or not re.fullmatch(r'[1-9][0-9]{0,4}',number): raise ValueError('Invalid TP register number key')
+                    if field=='string_registers' and (type(value) is not str or not value.isascii() or len(value)>string_capacity):
+                        raise ValueError('TP initial strings must fit their ASCII capacity')
+                    if program[field].write(int(number),value): raise ValueError('Initial TP register is out of range')
             comments=row.get('comments',{})
             if type(comments) is not dict: raise ValueError('TP comments require position-number keys')
             for number,text in comments.items():
@@ -88,6 +108,61 @@ class TeachPrograms:
             if key not in self._programs: raise ValueError('Selected TP program is absent')
             self.selected=key
 
+        if callers is not None and type(callers) is not dict: raise ValueError('TP callers require a KAREL-name to TP-name mapping')
+        for caller,target in (callers or {}).items():
+            key=name_key(caller)
+            if key in self._callers or self.bind_caller(caller,target): raise ValueError('Invalid or duplicate TP caller binding')
+
+    def empty_program(self,kind):
+        from .extended import StringRegisters
+        return {'type':kind,'instructions':[],'positions':{},'comments':{},'attributes':{},
+                'numeric_registers':rt().NumericRegisters(self.register_limit),
+                'string_registers':StringRegisters(self.string_register_limit,capacity=self.string_capacity),
+                'position_registers':{}}
+
+    @property
+    def callers(self): return self._callers.copy()
+
+    def bind_caller(self,caller,target,line=None):
+        caller=name_key(caller,line);target=name_key(target,line)
+        if caller is None or target is None: return 2
+        if target not in self._programs: return 1
+        self._callers[caller]=target;return 0
+
+    def local_program(self,caller,owner=None,*,write=False,line=None):
+        target=self._callers.get(name_key(caller,line))
+        if target is None: return 9,None
+        access=3 if write else 1
+        for handle in self._handles.values():
+            if handle['name']==target and handle['owner'] is not owner and (handle['reject']==4 or handle['reject']&access): return 4,None
+        return 0,self._programs[target]
+
+    def read_register(self,caller,number,kind='numeric',group=1,*,owner=None,line=None):
+        number=rt().integer(number,line)
+        if kind not in ('numeric','string','position'): raise ValueError('Unknown TP register bank')
+        code,program=self.local_program(caller,owner,line=line)
+        if code: return code,None
+        if kind!='position': return program[kind+'_registers'].read(number)
+        group=rt().integer(group,line)
+        if not self.address(group,number,self.position_register_limit): return 2,None
+        row=program['position_registers'].get((group,number))
+        return (0,deepcopy(row)) if row is not None else (17038,None)
+
+    def write_register(self,caller,number,value,kind='numeric',group=1,*,owner=None,uframe=None,utool=None,line=None):
+        runtime=rt();number=runtime.integer(number,line)
+        if kind not in ('numeric','string','position'): raise ValueError('Unknown TP register bank')
+        code,program=self.local_program(caller,owner,write=True,line=line)
+        if code: return code
+        if kind!='position': return program[kind+'_registers'].write(number,value)
+        group=runtime.integer(group,line)
+        if not self.address(group,number,self.position_register_limit): return 2
+        old=program['position_registers'].get((group,number),{'uframe':0,'utool':0})
+        frame=old['uframe'] if uframe is None else runtime.integer(uframe,line)
+        tool=old['utool'] if utool is None else runtime.integer(utool,line)
+        if not 0<=frame<=32767 or not 0<=tool<=32767: return 2
+        value=self.position_value(value,line)
+        program['position_registers'][group,number]={'value':value,'uframe':frame,'utool':tool};return 0
+
     @staticmethod
     def position_value(value,line=None):
         runtime=rt();spec=getattr(value,'spec',())
@@ -96,8 +171,8 @@ class TeachPrograms:
         with runtime._numeric_scope('pythonic'):
             return runtime.checked(spec,value,line) if spec[0]=='JOINTPOS' else runtime.frame_value(value,line)
 
-    def address(self,group,number):
-        return type(group) is int and group in self.groups and type(number) is int and 1<=number<=self.position_limit
+    def address(self,group,number,limit=None):
+        return type(group) is int and group in self.groups and type(number) is int and 1<=number<=(self.position_limit if limit is None else limit)
 
     @staticmethod
     def recorded(program,number): return any(n==number for group,n in program['positions'])
@@ -115,7 +190,7 @@ class TeachPrograms:
         if name is None or kind not in KIND_NAMES: return 2
         if name in self._programs: return 5
         if len(self._programs)>=self.program_limit: return 6
-        self._programs[name]={'type':kind,'instructions':[],'positions':{},'comments':{},'attributes':{}}
+        self._programs[name]=self.empty_program(kind)
         return 0
 
     def copy(self,source,target,overwrite=False,line=None):
@@ -188,7 +263,7 @@ class TeachPrograms:
         if row is None: return None
         attrs={'AT_PROG_TYPE':PROGRAM_KINDS[KIND_NAMES[row['type']]],'AT_NUM_LINE':len(row['instructions']),
                'AT_OWNER':'','AT_COMMENT':'','AT_SRC_NAME':'','AT_SRC_VRSN':0,**row['attributes']}
-        return {'loaded':True,'initialized':bool(row['positions']),
+        return {'loaded':True,'initialized':bool(row['positions'] or row['position_registers'] or row['numeric_registers'].snapshot() or row['string_registers'].snapshot()),
                 'active':self.busy(name) or self.selected==name,'attributes':attrs}
 
     def set_metadata(self,name,key,value): self._programs[name]['attributes'][key]=value
@@ -202,20 +277,29 @@ class TeachPrograms:
                               'uframe':item['uframe'],'utool':item['utool']}
                              for (group,number),item in sorted(row['positions'].items())],
                 'comments':{str(n):v for n,v in sorted(row['comments'].items())},'attributes':row['attributes'].copy()}
+            for kind in ('numeric','string'):
+                values=row[kind+'_registers'].snapshot()
+                if values: programs[name][kind+'_registers']={str(n):v for n,v in sorted(values.items())}
+            if row['position_registers']:
+                programs[name]['position_registers']=[{'group':group,'number':number,'value':typed_value(item['value']),
+                    'uframe':item['uframe'],'utool':item['utool']} for (group,number),item in sorted(row['position_registers'].items())]
         result={'groups':list(self.groups),'position_limit':self.position_limit,'program_limit':self.program_limit,'programs':programs}
         if self.selected is not None: result['selected']=self.selected
+        for name,default in (('register_limit',32767),('string_register_limit',32767),('position_register_limit',32767),('string_capacity',254)):
+            if getattr(self,name)!=default: result[name]=getattr(self,name)
+        if self._callers: result['callers']=dict(sorted(self._callers.items()))
         return result
 
     @classmethod
     def from_config(cls,config):
         from .storage import decode_typed
-        if type(config) is not dict or set(config)-{'groups','position_limit','program_limit','programs','selected'}: raise ValueError('Unknown TP context fields')
+        if type(config) is not dict or set(config)-{'groups','position_limit','program_limit','programs','selected','register_limit','string_register_limit','position_register_limit','string_capacity','callers'}: raise ValueError('Unknown TP context fields')
         values=deepcopy(config)
         programs=values.get('programs',{})
         if type(programs) is not dict: raise ValueError('TP programs require a mapping')
         for row in programs.values():
-            if type(row) is not dict or type(row.get('positions',[])) is not list: raise ValueError('Malformed TP program')
-            for item in row.get('positions',[]):
+            if type(row) is not dict or any(type(row.get(field,[])) is not list for field in ('positions','position_registers')): raise ValueError('Malformed TP program')
+            for item in [*row.get('positions',[]),*row.get('position_registers',[])]:
                 if type(item) is not dict or 'value' not in item: raise ValueError('Malformed typed TP position')
                 typed=item['value']
                 if type(typed) is not dict or set(typed)!={'type','value'}: raise ValueError('TP positions require typed values')
@@ -229,8 +313,56 @@ class TeachPrograms:
         return cls(**values)
 
 
+def invoke_register(bank,owner,name,args,line=None):
+    runtime=rt();caller=owner.program_name
+    if name in ('GET_TPE_REG','GET_TPE_STR_REG'):
+        code,value=bank.read_register(caller,args[0],'numeric' if name=='GET_TPE_REG' else 'string',owner=owner,line=line)
+        if not code:
+            if name=='GET_TPE_REG':
+                real=type(value) is float
+                args[1].set(real,line);args[3 if real else 2].set(value,line)
+            else:
+                capacity=args[1].spec[1]
+                if type(capacity) is not int or not 1<=capacity<=254:
+                    raise runtime.KarelRuntimeError('TP strings require a concrete STRING output capacity',line)
+                if len(value)>capacity: code=8
+                else: args[1].set(value,line)
+        args[-1].set(code,line);return
+    if name in ('SET_INT_TPE_REG','SET_REAL_TPE_REG','SET_TPE_STR_REG'):
+        value=args[1]
+        if name=='SET_REAL_TPE_REG': value=runtime.checked(('REAL',),value,line)
+        args[2].set(bank.write_register(caller,args[0],value,'string' if name=='SET_TPE_STR_REG' else 'numeric',owner=owner,line=line),line);return
+    getter=name in ('GET_TPE_POS_REG','GET_TPE_JPOS_REG')
+    setter=name in ('SET_TPE_POS_REG','SET_TPE_EPOS_REG','SET_TPE_JPOS_REG')
+    group=(args[-1] if args[-1] is not None else owner.robot_group or 1) if getter or setter else args[1]
+    if setter:
+        value=args[1]
+        if name!='SET_TPE_JPOS_REG': value=cartesian_value('XYZWPREXT' if name=='SET_TPE_EPOS_REG' else 'XYZWPR',value,line)
+        args[2].set(bank.write_register(caller,args[0],value,'position',group,owner=owner,line=line),line);return
+    code,row=bank.read_register(caller,args[0],'position',group,owner=owner,line=line)
+    if getter:
+        value=None
+        if not code:
+            stored=row['value']
+            if (stored.spec[0]=='JOINTPOS')!=(name=='GET_TPE_JPOS_REG'): code=2
+            else:
+                with runtime._numeric_scope('pythonic'):
+                    value=runtime.padded_joints(stored,line) if name=='GET_TPE_JPOS_REG' else cartesian_value('XYZWPREXT',stored,line)
+        args[1].set(code,line)
+        if code: raise runtime.KarelRuntimeError('TP local position getter failed; inspect status before retrying',line)
+        return value
+    if not code:
+        if name=='TPE_POS_REG_FRM': values=row['uframe'],row['utool']
+        else:
+            value=row['value'];kind=value.spec[0]
+            values={'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'JOINTPOS':9}[kind],runtime.joint_width(value.spec) if kind=='JOINTPOS' else 3 if kind=='XYZWPREXT' else 0
+        args[2].set(values[0],line);args[3].set(values[1],line)
+    args[4].set(code,line)
+
+
 def invoke_teach(context,state,name,args,line=None):
     runtime=rt();bank=context.require('teach_programs',line);owner=runtime.task_root(state)
+    if name in TPE_REGISTER_NAMES: return invoke_register(bank,owner,name,args,line)
     if name=='CREATE_TPE':
         from .extended import PROGRAM_KINDS
         kind=next((kind for kind,key in KIND_NAMES.items() if PROGRAM_KINDS[key]==args[1]),None)

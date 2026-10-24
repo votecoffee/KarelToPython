@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1024.144946**. It is a
+tool are named **karel2py**. The current implementation is **26.1024.151618**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -328,6 +328,10 @@ Seventeen TP program calls share an explicit logical TeachPrograms store for
 program management, grouped positions, frame/tool metadata, comments and opaque
 instruction deletion. Values and selection persist in context JSON; native TP
 parsing/execution remains outside this store. See [TP program data](docs/teach-programs.md).
+Twelve TP caller-local register calls add separate numeric, string and grouped
+position banks through explicit KAREL-root to TP-program bindings. Linked calls,
+copying, pause/resume and JSON replay retain that scope; see
+[TP local registers](docs/teach-registers.md).
 
 LOAD_STATUS checks attached code and any known global initialization.
 GET_ATTR_PRG/SET_ATTR_PRG read explicit program metadata and update owner, comment
@@ -484,7 +488,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus three complete linked projects. It also checks that the unsupported-motion example is rejected.
+fixtures, plus five complete linked projects. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

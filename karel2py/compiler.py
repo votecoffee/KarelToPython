@@ -3737,7 +3737,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/file-comparison.md',controller_validated=False)
     report['teach_program_policy']=dict(
         calls=sorted(ex.TPE_NAMES),constants=dict(rt.TPE_CONSTANTS),
-        store='Explicit TeachPrograms logical records with TP/JB/PR/MR kinds, opaque instruction lines, complete grouped poses/joints, frame/tool IDs, position comments and four writable header fields',
+        store='Explicit TeachPrograms logical records with TP/JB/PR/MR kinds, opaque instructions, grouped program positions, frame/tool IDs, comments and headers; independent caller-local register banks described by teach_register_policy',
         access='Case-insensitive 1..36 letter-starting ASCII names; root-owned monotonic handles; none/read/read-write access and symmetric rejection masks between different owners; same-owner reopen allowed',
         positions='Explicit group or caller root default; Cartesian setters normalize to requested representation, joint widths retained; getters detach extended Cartesian or padded JOINTPOS9; metadata returns stored representation, axes and frame/tool IDs',
         status='Portable 0 success, 1 missing program, 2 invalid arguments/representation, 3 handle/access failure, 4 busy/rejected/selected, 5 existing destination, 6 capacity, 7 successful comment truncation, 8 insufficient comment output; absent position 17038',
@@ -3747,6 +3747,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='ExecutionContext JSON stores data, limits and selection; live handles, locks, owners and ID sequence are omitted; instruction deletion edits opaque one-based lines without executing or parsing TP syntax',
         boundary='Offline data model only; no native TP binary/text loader, generation, execution, motion references, controller status mapping, UI selection or robot discovery; strict remains future work',
         guide='docs/teach-programs.md',controller_validated=False)
+    from .teach import TPE_REGISTER_NAMES
+    report['teach_register_policy']=dict(
+        calls=sorted(TPE_REGISTER_NAMES),
+        selection='Explicit TeachPrograms callers map from stable calling KAREL root program name to logical TP program; linked routines and renamed scheduler bindings retain the root; no selected-program or global-bank fallback',
+        storage='Per-program numeric INTEGER/REAL, bounded ASCII strings and grouped complete position/joint registers, separate from global registers, program positions and GET_TPE_PRM arguments',
+        groups='Optional final group on position getters/setters and optional middle group on type/frame queries; default is caller root group or portable group 1; writes affect only selected group',
+        outputs='Numeric read writes flag and selected numeric output only; string reads require complete destination capacity; getters detach extended poses or padded JOINTPOS9 and reject implicit kinematics',
+        access='No OPEN_TPE handle required; foreign handles reject reads/writes through their explicit sharing masks, same-root handles allowed',
+        status='Portable 0 success, 1 absent numeric/string value, 2 out of range/representation, 4 foreign sharing rejection, 8 small string destination, 9 no caller binding; absent local position 17038; failed position functions set status then raise',
+        persistence='Typed JSON stores caller bindings, limits and all local banks; copying programs detaches local banks while caller bindings remain unchanged; pause/completion keep values',
+        boundary='Explicit offline caller association only; no TP execution, native register discovery, dynamically inferred call stack, physical controller access or strict equivalence',
+        guide='docs/teach-registers.md',controller_validated=False)
     report['task_rename_policy']=dict(
         procedure='SET_TSK_NAME(old_name,new_name,status)',
         identity='Case-insensitive registry binding names; empty old_name selects the uniquely registered calling root, including linked routines; preserve numeric slot, source module and namespaces',

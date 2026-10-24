@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 167 have a registered translation and 167 do not.
+Currently, 179 have a registered translation and 155 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -80,10 +80,12 @@ they are boundaries rather than promises to accept every such source form later.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;
   they do not establish network sessions, discover peers or convert robot poses.
-- Embedded TP-program register APIs remain distinct from ordinary register banks
-  and GET_TPE_PRM call parameters. Seventeen [TP program data calls](teach-programs.md)
-  now model logical programs, grouped positions, comments and metadata explicitly;
-  native TP files, execution and physical controller data remain unavailable.
+- Native TP caller-stack discovery and local register allocation remain unavailable.
+  Twelve [TP local register calls](teach-registers.md) now use explicit caller
+  bindings and per-program banks, distinct from ordinary registers, TP program
+  positions and GET_TPE_PRM parameters. Seventeen [TP program data calls](teach-programs.md)
+  model logical programs, grouped positions, comments and metadata; native TP
+  files, execution and physical controller data remain unavailable.
 
 ## Files and collections
 
@@ -232,21 +234,6 @@ does not assert a particular installed option or environment.
 - `V_SNAP_VIEW`
 - `V_START_VTRK`
 - `V_STOP_VTRK`
-
-### Teach-pendant programs and embedded registers (12)
-
-- `GET_TPE_JPOS_REG`
-- `GET_TPE_POS_REG`
-- `GET_TPE_REG`
-- `GET_TPE_STR_REG`
-- `SET_INT_TPE_REG`
-- `SET_REAL_TPE_REG`
-- `SET_TPE_EPOS_REG`
-- `SET_TPE_JPOS_REG`
-- `SET_TPE_POS_REG`
-- `SET_TPE_STR_REG`
-- `TPE_POS_REG_FRM`
-- `TPE_POS_REG_TYPE`
 
 ### Screens, windows, keyboard and dictionaries (40)
 

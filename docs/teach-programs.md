@@ -5,6 +5,11 @@ Version 26.1024.144946 adds 17 TP program calls over an explicitly supplied
 not parse, generate or execute native TP programs, connect to a pendant, perform
 motion or discover controller data.
 
+The store also supports twelve [caller-local register calls](teach-registers.md)
+through explicit calling-root bindings, with independent numeric/string/position
+banks and persisted values. Those calls address local registers without an open
+handle; the 17 operations below address logical program records.
+
 ## Calls and records
 
 | Calls | Pythonic behavior |

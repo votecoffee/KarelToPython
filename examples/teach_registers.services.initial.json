@@ -1,0 +1,76 @@
+{
+  "teach_programs": {
+    "groups": [
+      1,
+      2
+    ],
+    "position_limit": 10,
+    "program_limit": 4,
+    "programs": {
+      "CALLER": {
+        "type": "TP",
+        "instructions": [],
+        "positions": [],
+        "comments": {},
+        "attributes": {},
+        "position_registers": [
+          {
+            "group": 1,
+            "number": 1,
+            "value": {
+              "type": [
+                "XYZWPREXT"
+              ],
+              "value": {
+                "X": 1.0,
+                "Y": 2.0,
+                "Z": 3.0,
+                "W": 0.0,
+                "P": 0.0,
+                "R": 0.0,
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                },
+                "EXT1": 4.0,
+                "EXT2": 0.0,
+                "EXT3": 0.0
+              }
+            },
+            "uframe": 7,
+            "utool": 8
+          },
+          {
+            "group": 2,
+            "number": 1,
+            "value": {
+              "type": [
+                "JOINTPOS",
+                2
+              ],
+              "value": {
+                "axes": [
+                  10.0,
+                  20.0
+                ]
+              }
+            },
+            "uframe": 2,
+            "utool": 3
+          }
+        ]
+      }
+    },
+    "register_limit": 4,
+    "string_register_limit": 4,
+    "position_register_limit": 4,
+    "callers": {
+      "TPREGS": "CALLER"
+    }
+  }
+}

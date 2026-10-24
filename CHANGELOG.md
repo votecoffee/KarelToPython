@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1024.151618 - 2026-10-24
+
+- Add all twelve TP caller-local numeric, string, grouped position, frame and
+  representation APIs with explicit KAREL-root to TP-program bindings.
+- Keep local banks independent from global registers, program points and call
+  parameters; preserve linked-root scope, external axes and exact joint widths.
+- Persist limits, bindings and typed values; deep-copy local banks with programs
+  while retaining caller associations and values across task lifecycle changes.
+- Apply foreign TP handle rejection, selected numeric outputs, complete string
+  destination checks, optional groups and retained failure/counter protections.
+- Add an all-call CLI example and 32 regressions, refresh public guides and audit
+  the inventory to 179 registered built-in names with 155 still unregistered.
+
 ## 26.1024.144946 - 2026-10-24
 
 - Add 17 TP program management, position, frame/type and comment calls over an

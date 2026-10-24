@@ -1,0 +1,27 @@
+PROGRAM TPREGS
+%ENVIRONMENT REGOPE
+VAR
+  number,status,kind,axes,frame_no,tool_no: INTEGER
+  real_value: REAL
+  real_flag: BOOLEAN
+  text: STRING[16]
+  point: XYZWPREXT
+  joints: JOINTPOS9
+BEGIN
+  number=0
+  real_value=0
+  SET_INT_TPE_REG(1,42,status)
+  GET_TPE_REG(1,real_flag,number,real_value,status)
+  SET_REAL_TPE_REG(2,1.25,status)
+  GET_TPE_REG(2,real_flag,number,real_value,status)
+  SET_TPE_STR_REG(1,'local',status)
+  GET_TPE_STR_REG(1,text,status)
+  point=GET_TPE_POS_REG(1,status)
+  point.x=9
+  SET_TPE_POS_REG(2,point,status)
+  SET_TPE_EPOS_REG(3,point,status)
+  joints=GET_TPE_JPOS_REG(1,status,2)
+  SET_TPE_JPOS_REG(2,joints,status,2)
+  TPE_POS_REG_TYPE(1,2,kind,axes,status)
+  TPE_POS_REG_FRM(1,1,frame_no,tool_no,status)
+END TPREGS

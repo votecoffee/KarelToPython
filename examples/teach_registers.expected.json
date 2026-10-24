@@ -1,0 +1,44 @@
+{
+  "NUMBER": 42,
+  "STATUS": 0,
+  "KIND": 9,
+  "AXES": 2,
+  "FRAME_NO": 7,
+  "TOOL_NO": 8,
+  "REAL_VALUE": 1.25,
+  "REAL_FLAG": true,
+  "TEXT": "local",
+  "POINT": {
+    "X": 9.0,
+    "Y": 2.0,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    },
+    "EXT1": 4.0,
+    "EXT2": 0.0,
+    "EXT3": 0.0
+  },
+  "JOINTS": {
+    "axes": [
+      10.0,
+      20.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  }
+}

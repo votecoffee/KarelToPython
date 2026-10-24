@@ -58,6 +58,7 @@ source-located error. Strict mode remains a future milestone.
 | `SET_TSK_NAME` | In-place task binding rename | Stable task numbers, caller-rooted self lookup, retained waits/attributes/errors and collision preflight; see [task renaming](task-renaming.md). |
 | `SET_TSK_ATTR` and seven task directives | Applied task policies and bounded checkpoint traces | Nine checked settings, cooperative priority/slice effects, origin masks and explicit capability flags; see [task attributes](task-attributes.md). |
 | TP program management and position/comment calls | Explicit TeachPrograms logical store | 17 calls with root-owned access, grouped data, metadata integration and typed JSON; see [TP program data](teach-programs.md). |
+| TP caller-local registers | Twelve numeric/string/grouped position calls over explicit TP caller bindings | Independent per-program banks, linked-root scope, foreign handle rejection and typed JSON; see [TP local registers](teach-registers.md). |
 | `ROUTINE ... FROM library` | Python callback or source Project link | Typed references/results, shared imported globals; no native ABI. |
 | `MIRROR(point,plane,orient)` | Reflection about the plane frame's XZ plane | XYZWPREXT result; optional orientation reflection uses a documented proper-rotation convention. |
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
