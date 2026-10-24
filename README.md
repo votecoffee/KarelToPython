@@ -36,7 +36,8 @@ programs offline while preserving type, initialization and ownership checks.
 Translation acceptance, successful offline execution and controller behavior
 are separate results. Physical motion, live controller I/O and robot commissioning are outside
 the current implementation. See the [language support guide](docs/language-support.md)
-for specific restrictions and [reference notes](docs/references.md) for provenance.
+for specific restrictions, the [remaining-support inventory](docs/unsupported.md)
+for the complete audited gap list, and [reference notes](docs/references.md) for provenance.
 
 ## Install
 

@@ -4,6 +4,8 @@ This is the supported prototype subset as of 26.1024.133929. Acceptance is speci
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
+The [remaining-support inventory](unsupported.md) lists unimplemented built-ins,
+language forms, partial-service boundaries and future application milestones.
 
 Public translation uses [Pythonic numeric equivalents](numeric-modes.md).
 Strict mode is a future milestone; older exactness contracts are preserved
