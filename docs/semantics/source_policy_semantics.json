@@ -1,0 +1,56 @@
+{
+  "version": "26.1024.153206",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "B-83144EN-1/02",
+      "sections": [
+        "A.4.17",
+        "A.4.18",
+        "A.4.49",
+        "A.5.7",
+        "A.5.10",
+        "A.13.4",
+        "A.20.45",
+        "A.20.52",
+        "A.22.2"
+      ],
+      "topic": "CMOS/SHADOW storage defaults, CRT device, default/locked groups, periodic delay, stack words and uninitialized variables"
+    }
+  ],
+  "implementation": {
+    "directives": [
+      "%CMOS2SHADOW",
+      "%CMOSVARS",
+      "%CRTDEVICE",
+      "%DEFGROUP",
+      "%DELAY",
+      "%LOCKGROUP",
+      "%SHADOWVARS",
+      "%STACKSIZE",
+      "%UNINITVARS"
+    ],
+    "groups": "Explicit DEFGROUP overrides single-group type inference and RobotContext default; explicit call groups win; linked calls use root group; ordinary position bank calls share this default",
+    "io": "CRTDEVICE labels omitted-file READ metadata/observations and WRITE observations without changing callback signatures or opening devices",
+    "metadata": "Detached Program.source_settings plus immutable normalized source_directives; storage intent, group locks, stack words and periodic delay remain informational; UNINITVARS retains existing defaults without clearing values"
+  },
+  "portable_choices": {
+    "bounds": "DEFGROUP 1..32, LOCKGROUP distinct groups 1..32; STACKSIZE 1..32767 words; DELAY 0..86400000 ms",
+    "placement": "Before declarations, once per directive; CMOSVARS conflicts with SHADOWVARS, LOCKGROUP conflicts with NOLOCKGROUP",
+    "defaults": "Existing/inferred group or 1; unspecified locks, DRAM, CMOS mapping false, uninitialized true, TPDISPLAY, 8 ms periodic delay intent and 300 stack words"
+  },
+  "unresolved": [
+    "Native memory placement and power-cycle persistence",
+    "Native motion locks, periodic scheduling delays and stack allocation",
+    "Actual display/keyboard routing and environment/include loading",
+    "Strict mode and controller validation"
+  ],
+  "verification": [
+    "tests/test_source_policies.py",
+    "tests/test_directives.py",
+    "tests/test_runtime_portability.py",
+    "examples/source_policies.kl"
+  ],
+  "guide": "../source-directives.md"
+}

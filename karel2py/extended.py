@@ -76,6 +76,7 @@ PROCEDURES = {
     'APPEND_NODE': (arg('PATH','r'),OI), 'INSERT_NODE': (arg('PATH','r'),I,OI),
     'DELETE_NODE': (arg('PATH','r'),I,OI),
     'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
+    'INTSCT_VL_PL': (arg('VIEW_LINES'),arg('POSE'),arg('POINT_PATH','r'),OI),
     'COPY_FILE': (S,S,B,B,OI), 'DELETE_FILE': (S,B,OI), 'RENAME_FILE': (S,S,B,OI),
     'CHECK_NAME': (S,OI), 'MOVE_FILE': (S,OI),
     'COMPARE_FILE': (S,S,arg('FILE'),B,OI,OI), 'PRINT_FILE': (S,B,OI),
@@ -105,6 +106,7 @@ FUNCTIONS = {
     'GET_TPE_POS_REG': ((I,OI,I),('XYZWPREXT',)),
     'GET_TPE_JPOS_REG': ((I,OI,I),('JOINTPOS',9)),
     'PATH_LEN': ((arg('PATH'),),('INTEGER',)),
+    'NODE_SIZE': ((arg('PATH'),),('INTEGER',)),
     'GET_FILE_POS': ((arg('FILE'),),('INTEGER',)),
     'BYTES_LEFT': ((arg('FILE'),),('INTEGER',)),
     'IO_STATUS': ((arg('FILE'),),('INTEGER',)),
@@ -136,6 +138,7 @@ PROCEDURES.update({name:(S,*(_REMOTE_SIGNATURES[local] if local in _REMOTE_SIGNA
 OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG','CHECK_EPOS'}
 TPE_OPTIONAL_GROUP={'SET_POS_TPE','SET_EPOS_TPE','SET_JPOS_TPE','GET_POS_TPE','GET_JPOS_TPE',
     'SET_TPE_POS_REG','SET_TPE_EPOS_REG','SET_TPE_JPOS_REG','GET_TPE_POS_REG','GET_TPE_JPOS_REG'}
+POSITION_OPTIONAL_GROUP={'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG'}
 OPTIONAL_LAST.update(TPE_OPTIONAL_GROUP)
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
@@ -155,6 +158,7 @@ def signature_for(name,arity):
 
 def matches(spec, kind):
     rt=runtime()
+    if kind in ('VIEW_LINES','POINT_PATH'): return vision_path_schema(spec,kind)
     if kind=='ERROR_CURSOR': return spec==('INTEGER',)
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
@@ -967,6 +971,72 @@ class PathValue:
     def clone(self): return deepcopy(self)
 
 
+def path_node_size(spec,line=None):
+    """Packed portable leaf size, independent of initialized values and headers."""
+    rt=runtime();kind=spec[0]
+    if kind in ('BYTE','BOOLEAN'): return 1
+    if kind=='SHORT': return 2
+    if kind in ('INTEGER','REAL'): return 4
+    if kind=='STRING':
+        if type(spec[1]) is not int or not 1<=spec[1]<=254: fail('NODE_SIZE requires concrete STRING capacities',line)
+        return spec[1]
+    if kind=='JOINTPOS': return 4*rt.joint_width(spec)
+    if kind=='ARRAY': return math.prod(rt.array_shape(spec))*path_node_size(spec[2],line)
+    if kind in rt.RECORD_TYPES: return sum(path_node_size(field,line) for _,field in rt.record_fields(spec))
+    fail('NODE_SIZE requires resource-free concrete node data',line)
+
+
+def vision_path_schema(spec,kind):
+    if len(spec)!=3 or spec[0]!='PATH' or spec[1] is None or spec[2] is None: return False
+    if spec[1][0]!='STRUCTURE' or spec[2][0]!='STRUCTURE': return False
+    node={'DIR' if kind=='VIEW_LINES' else 'POS':('VECTOR',),'POL':('VECTOR',),'MODEL_ID':('INTEGER',)}
+    header={'GRP_NUM':('INTEGER',),'UFRM_NUM':('INTEGER',)}
+    if kind=='VIEW_LINES': header['FOCAL_POINT']=('VECTOR',)
+    return dict(spec[1][2])==node and dict(spec[2][2])==header
+
+
+def intersect_view_lines(state,source,frame,destination,status,line=None):
+    """Stage complete line/plane intersections before appending any PATH data."""
+    rt=runtime();target=destination.raw()
+    if not vision_path_schema(source.spec,'VIEW_LINES') or not vision_path_schema(target.spec,'POINT_PATH'):
+        fail('INTSCT_VL_PL requires the documented view-line and point PATH field schemas',line)
+    header=rt.checked(source.data.spec,source.data,line)
+    group=rt.integer(header.values['GRP_NUM'],line);uframe=rt.integer(header.values['UFRM_NUM'],line)
+    if not 1<=group<=32 or not 0<=uframe<=32767: fail('INTSCT_VL_PL header identifiers are out of range',line)
+    if target.nodes:
+        current=rt.checked(target.data.spec,target.data,line)
+        if (current.values['GRP_NUM'],current.values['UFRM_NUM'])!=(group,uframe): status.set(3,line);return
+    if len(target.nodes)+len(source.nodes)>32767: status.set(4,line);return
+    rotation,origin,_=rt._frame_parts(frame,line)
+    normal=tuple(rotation[i][2] for i in range(3))
+    focal=rt.vector_components(header.values['FOCAL_POINT'],line)
+    dot=lambda a,b: math.fsum(x*y for x,y in zip(a,b))
+    staged=[]
+    try:
+        offset=dot(normal,tuple(o-f for o,f in zip(origin,focal)))
+        for node in source.nodes:
+            state.tick(line)
+            node=rt.checked(source.node_spec,node,line)
+            direction=rt.vector_components(node.values['DIR'],line);polarity=rt.vector_components(node.values['POL'],line)
+            length=math.hypot(*direction)
+            if not length or not math.isfinite(length): status.set(2,line);return
+            direction=tuple(x/length for x in direction);denominator=dot(normal,direction)
+            if abs(denominator)<=1e-12: status.set(1,line);return
+            distance=offset/denominator
+            projected=tuple(p-d*dot(normal,polarity)/denominator for p,d in zip(polarity,direction))
+            length=math.hypot(*projected)
+            if not length or not math.isfinite(length) or not distance: status.set(2,line);return
+            point=rt.Structure(target.node_spec)
+            for axis,f,d,p in zip(('X','Y','Z'),focal,direction,projected):
+                point.values['POS'].values[axis]=rt.real(f+distance*d,line)
+                point.values['POL'].values[axis]=rt.real(math.copysign(1.,distance)*p/length,line)
+            point.values['MODEL_ID']=node.values['MODEL_ID'];staged.append(point)
+    except (ArithmeticError,ValueError) as exc:
+        raise rt.KarelRuntimeError('INTSCT_VL_PL numeric calculation failed: '+str(exc),line) from exc
+    target.data.values.update(GRP_NUM=group,UFRM_NUM=uframe)
+    target.nodes.extend(staged);status.set(0,line)
+
+
 class QueueValue:
     def __init__(self): self.spec=('QUEUE_TYPE',); self.initialized=False; self.entries=[]; self.sequence=0; self.buffer=None
     def bind(self,buffer,line=None):
@@ -1428,7 +1498,7 @@ class ExecutionContext:
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
-        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP else 0 if name=='SET_FILE_ATR' else 1)
+        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP|POSITION_OPTIONAL_GROUP else 0 if name=='SET_FILE_ATR' else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
@@ -1558,7 +1628,7 @@ class ExecutionContext:
                 if code==0: args[2].set(kind,line); args[3].set(axes,line)
             args[-1].set(code,line); return
         if name in ('GET_POS_REG','GET_JPOS_REG','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG'):
-            bank=self.require('positions',line); number=args[0]; group=args[-1]
+            bank=self.require('positions',line); number=args[0]; group=(rt.task_root(state).robot_group or 1) if args[-1] is None else args[-1]
             if name.startswith('SET_'):
                 code=bank.write(number,args[1],group); args[2].set(code,line); return
             code,value=bank.read(number,group)
@@ -1586,9 +1656,11 @@ class ExecutionContext:
                 direction=1 if end>=start else -1
                 copied.nodes=[copied.nodes[i-1] for i in range(start,end+direction,direction)]
             destination.set(copied,line); status.set(0,line); return
-        if name in ('APPEND_NODE','INSERT_NODE','DELETE_NODE','PATH_LEN'):
+        if name=='INTSCT_VL_PL': return intersect_view_lines(state,*args,line=line)
+        if name in ('APPEND_NODE','INSERT_NODE','DELETE_NODE','PATH_LEN','NODE_SIZE'):
             path=args[0].raw() if type(args[0]) is rt.Reference else args[0]
             if name=='PATH_LEN': return len(path.nodes)
+            if name=='NODE_SIZE': return rt.integer(path_node_size(path.node_spec,line),line)
             if name=='APPEND_NODE': code=path.append(line=line)
             elif name=='INSERT_NODE': code=path.append(args[1],line)
             else:

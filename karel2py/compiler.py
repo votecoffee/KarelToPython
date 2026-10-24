@@ -260,9 +260,36 @@ class Parser:
         name = head[0].upper() if head else ''
         argument = None
         disposition = 'Offline metadata only; no task/group ownership'
-        if content.upper() == '%NOLOCKGROUP': name = '%NOLOCKGROUP'
-        elif self.mode != 'pythonic' or name not in ('%ENVIRONMENT', '%COMMENT', '%ALPHABETIZE',*rt.TASK_DIRECTIVES):
+        if content.upper() == '%NOLOCKGROUP':
+            name = '%NOLOCKGROUP'
+            if any(row['name']=='%LOCKGROUP' for row in self.directive_metadata):
+                self.error('E_DIRECTIVE_VALUE','LOCKGROUP and NOLOCKGROUP cannot be combined',token)
+        elif self.mode != 'pythonic' or name not in ('%ENVIRONMENT', '%COMMENT', '%ALPHABETIZE',*rt.TASK_DIRECTIVES,*rt.SOURCE_DIRECTIVES):
             self.error('E_DIRECTIVE', 'Directive has no implemented runtime mapping', token)
+        elif name in rt.SOURCE_DIRECTIVES:
+            if declarations_started: self.error('E_DIRECTIVE_POSITION','Source policy directives must precede declarations',token)
+            previous={row['name'] for row in self.directive_metadata}
+            if name in previous: self.error('E_DIRECTIVE_DUPLICATE','Source policy directives cannot be repeated',token)
+            if name in rt.SOURCE_FLAG_DIRECTIVES:
+                if content.upper()!=name: self.error('E_DIRECTIVE_SYNTAX','Source flag directive accepts no arguments',token)
+            elif name=='%LOCKGROUP':
+                match=re.fullmatch(r'%LOCKGROUP\s*=\s*([0-9]{1,2}(?:\s*,\s*[0-9]{1,2}){0,31})',content,re.I)
+                if not match: self.error('E_DIRECTIVE_SYNTAX','LOCKGROUP requires a comma-separated group list',token)
+                argument=tuple(int(part.strip()) for part in match[1].split(','))
+                if any(not 1<=n<=32 for n in argument) or len(argument)!=len(set(argument)):
+                    self.error('E_DIRECTIVE_VALUE','LOCKGROUP requires distinct groups in 1..32',token)
+                if '%NOLOCKGROUP' in previous: self.error('E_DIRECTIVE_VALUE','LOCKGROUP and NOLOCKGROUP cannot be combined',token)
+            else:
+                match=re.fullmatch(r'%[A-Za-z]+\s*=\s*([0-9]{1,10})',content)
+                if not match: self.error('E_DIRECTIVE_SYNTAX','Source numeric directive requires one unsigned INTEGER literal',token)
+                argument=int(match[1]);lo,hi=rt.SOURCE_DIRECTIVE_RANGES[name]
+                if not lo<=argument<=hi: self.error('E_DIRECTIVE_VALUE','Source numeric directive exceeds its portable range',token)
+            if {name,*previous}>={'%CMOSVARS','%SHADOWVARS'}:
+                self.error('E_DIRECTIVE_VALUE','CMOSVARS and SHADOWVARS require distinct default storage policies',token)
+            disposition=('Set explicit offline default group' if name=='%DEFGROUP' else
+                'Label omitted-file READ/WRITE observations without device I/O' if name=='%CRTDEVICE' else
+                'Retain existing uninitialized defaults without clearing saved values' if name=='%UNINITVARS' else
+                'Retain source policy metadata only; no native storage, locks, periodic scheduling delay or stack allocation')
         elif name in rt.TASK_DIRECTIVES:
             if declarations_started: self.error('E_DIRECTIVE_POSITION','Task directives must precede declarations',token)
             if any(row['name']==name for row in self.directive_metadata):
@@ -3015,9 +3042,15 @@ class Emitter:
         self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, external_tolerance=external_tolerance, clock_us=clock_us, registers=registers, context=context)')
         self.line(f'self._state.program_name={self.program.name!r}')
         self.line('self._state.program=self')
-        if self.mode=='pythonic': self.line('_rt.configure_task(self._state,self.source_directives)')
         self.line('if len(self.source_groups)==1: self._state.robot_group=self.source_groups[0]')
+        if self.mode=='pythonic': self.line('_rt.configure_task(self._state,self.source_directives)')
         self.line('self._state.execution.variables.attach(self.source_program,self._state)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def source_settings(self):')
+        self.indent = 2
+        self.line('return self._state._source_settings.copy()')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -3932,14 +3965,26 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No XYZWPREXT/JOINTPOS/VECTOR transform operands, automatic parameter/RETURN coercion, external axes, UFRAME/UTOOL discovery, kinematics or native type/Euler/configuration equivalence; strict remains future work',
         controller_validated=False)
     report['directive_policy'] = dict(
-        allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP',*rt.TASK_DIRECTIVES],
-        scope='Syntax-checked top-level directives; seven task directives initialize task_attribute_policy before declarations; preserve source order, raw text and decoded values as immutable normalized Program.source_directives pairs',
+        allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP',*rt.TASK_DIRECTIVES,*sorted(rt.SOURCE_DIRECTIVES)],
+        scope='Syntax-checked top-level directives; seven task directives and nine source policy directives precede declarations; preserve source order, raw text and decoded immutable Program.source_directives pairs; Program.source_settings exposes detached effective metadata',
         environment='One bare ASCII letter-starting name, 1..36 characters, normalized uppercase; record requirements without loading definitions, files, modules or controller facilities; source symbols/calls still checked individually',
         comment='One decoded ASCII literal of at most 16 characters before CONST/TYPE/VAR/routines; preserve literal comment/ampersand characters and doubled apostrophes; duplicate attributes rejected',
         alphabetize='Record display-order request; offline storage/snapshot order remains declaration order',
         required_environments=list(dict.fromkeys(row['argument'] for row in report['directive_metadata'] if row['name'] == '%ENVIRONMENT')),
-        boundary='Other directives, includes, binary environment loading, implicit built-ins, native task/group ownership, native storage, preemption and device defaults remain blocked; strict remains future work',
+        defaults='DEFGROUP overrides single-group declaration inference and context default for caller-root services, including ordinary position registers; explicit call groups win. CRTDEVICE labels omitted-file READ/WRITE observations CRT/KB without changing callback signatures',
+        metadata='CMOSVARS/CMOS2SHADOW/SHADOWVARS retain logical storage intent; UNINITVARS retains existing uninitialized defaults without clearing values; LOCKGROUP, STACKSIZE and periodic DELAY retain metadata only',
+        checks='Distinct predeclaration policies; LOCKGROUP conflicts with NOLOCKGROUP, CMOSVARS conflicts with SHADOWVARS; explicit portable numeric/group bounds; includes and unknown directives remain blocked',
+        boundary='No binary environment/include loading, native storage/power-cycle behavior, group ownership, stack allocation, periodic task delay, device I/O or preemption; strict remains future work',
         controller_validated=False)
+    report['path_geometry_policy']=dict(
+        calls=['INTSCT_VL_PL','NODE_SIZE'],
+        node_size='Packed portable schema bytes: BYTE/BOOLEAN 1, SHORT 2, INTEGER/REAL 4, STRING declared capacity, JOINTPOS 4 per axis; ARRAY products and record field sums, no header/padding/native control data; contents need not be initialized',
+        schemas='Structurally checked view-line PATH: DIR/POL VECTOR and MODEL_ID INTEGER, header GRP_NUM/UFRM_NUM INTEGER and FOCAL_POINT VECTOR; output POS/POL VECTOR and MODEL_ID INTEGER with group/frame header',
+        intersection='Complete supplied lines in their application frame intersect the supplied plane XY surface; infinite lines, unit projected polarity with signed-distance direction, model IDs and explicit group/frame metadata retained; results append',
+        atomicity='Stage every result before changing destination/header; charge each line to step budget; nonempty output must share group/frame identifiers; invalid types/contents/matrices/budget raise',
+        status='Portable 0 success, 1 parallel within unit-direction denominator tolerance 1e-12, 2 degenerate direction/projected polarity or focal-plane distance, 3 output frame/group mismatch, 4 node capacity; failures retain destination',
+        boundary='No vision acquisition, camera calibration, background processing, proprietary PATH layout/file serializer or native status/geometry equivalence; strict remains future work',
+        guide='docs/path-geometry.md',controller_validated=False)
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
                                scope='Practical Python numeric, typed input, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')
     report['read_policy'] = dict(

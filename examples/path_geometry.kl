@@ -1,0 +1,34 @@
+PROGRAM PATH_GEOMETRY
+%NOLOCKGROUP
+%ENVIRONMENT CVIS
+TYPE
+  line_header=STRUCTURE grp_num: INTEGER ufrm_num: INTEGER focal_point: VECTOR ENDSTRUCTURE
+  line_node=STRUCTURE dir: VECTOR pol: VECTOR model_id: INTEGER ENDSTRUCTURE
+  point_header=STRUCTURE grp_num: INTEGER ufrm_num: INTEGER ENDSTRUCTURE
+  point_node=STRUCTURE pos: VECTOR pol: VECTOR model_id: INTEGER ENDSTRUCTURE
+VAR
+  lines: PATH NODEDATA=line_node,PATHHEADER=line_header
+  points: PATH NODEDATA=point_node,PATHHEADER=point_header
+  plane: POSITION
+  cfg: CONFIG
+  status,count,node_bytes: INTEGER
+BEGIN
+  WHILE PATH_LEN(lines)>0 DO DELETE_NODE(lines,1,status) ENDWHILE
+  WHILE PATH_LEN(points)>0 DO DELETE_NODE(points,1,status) ENDWHILE
+  lines.grp_num=2
+  lines.ufrm_num=3
+  lines.focal_point=VEC(0,0,10)
+  APPEND_NODE(lines,status)
+  lines[1].dir=VEC(0,0,-1)
+  lines[1].pol=VEC(1,0,0)
+  lines[1].model_id=7
+  APPEND_NODE(lines,status)
+  lines[2].dir=VEC(1,0,-1)
+  lines[2].pol=VEC(1,0,1)
+  lines[2].model_id=8
+  CNV_STR_CONF('N',cfg,status)
+  plane=POS(0,0,0,0,0,0,cfg)
+  INTSCT_VL_PL(lines,plane,points,status)
+  count=PATH_LEN(points)
+  node_bytes=NODE_SIZE(points)
+END PATH_GEOMETRY

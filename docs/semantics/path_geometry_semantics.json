@@ -1,0 +1,55 @@
+{
+  "version": "26.1024.153206",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        463,
+        464
+      ],
+      "topic": "NODE_SIZE includes node data and excludes header; native random-file layout is outside this implementation"
+    },
+    {
+      "manual": "B-83144EN-1/02",
+      "pdf_pages": [
+        285,
+        286,
+        287,
+        288,
+        289,
+        374,
+        375
+      ],
+      "topic": "INTSCT_VL_PL and V_FIND_VLINE record schemas, application frame, focal point, direction/polarity, IDs and appended results"
+    }
+  ],
+  "implementation": {
+    "calls": [
+      "INTSCT_VL_PL",
+      "NODE_SIZE"
+    ],
+    "node_size": "Packed concrete schema widths independent of values, node count and header; sum records, multiply each array dimension once",
+    "intersection": "Structural view-line and point PATH fields; complete supplied Cartesian plane; signed infinite-line intersections and normalized oblique-projected polarity; explicit group/frame metadata and model IDs",
+    "atomicity": "Stage all nodes before append/header mutation; retain existing nodes, check same-frame output and node capacity, charge each input to step budget; disjoint status/output checks"
+  },
+  "portable_choices": {
+    "sizes": "BYTE/BOOLEAN 1, SHORT 2, INTEGER/REAL 4, STRING capacity, JOINTPOS 4 per axis; records sum fields, no padding/prefix/native descriptors",
+    "tolerance": "Parallel when absolute plane-normal dot unit-direction <= 1e-12",
+    "status": "0 success, 1 parallel, 2 degenerate vector or zero focal-plane distance, 3 output frame/group mismatch, 4 capacity; invalid/uninitialized data/matrix/budget errors raise",
+    "geometry": "Infinite lines allow negative distances, which reverse normalized projected polarity; plane already expressed in same application frame; empty source copies valid header"
+  },
+  "unresolved": [
+    "Native PATH binary file layout, serializer and exact byte sizes",
+    "Vision acquisition, camera calibration, asynchronous processing and V_FIND_VLINE execution",
+    "Native numerical/status equivalence and strict mode",
+    "QUEUE_ATTACH belongs to native message attachments and remains unimplemented"
+  ],
+  "verification": [
+    "tests/test_path_geometry.py",
+    "tests/test_runtime_portability.py",
+    "examples/path_geometry.kl"
+  ],
+  "guide": "../path-geometry.md"
+}

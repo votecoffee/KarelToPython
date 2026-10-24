@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 179 have a registered translation and 155 do not.
+Currently, 181 have a registered translation and 153 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -17,12 +17,12 @@ they are boundaries rather than promises to accept every such source form later.
 
 ## Language and source forms
 
-- Directives other than `%ALPHABETIZE`, `%COMMENT`, `%ENVIRONMENT` and
-  `%NOLOCKGROUP` and the seven [task policy directives](task-attributes.md):
-  `%CMOS2SHADOW`, `%CMOSVARS`, `%CRTDEVICE`, `%DEFGROUP`, `%DELAY`, `%INCLUDE`,
-  `%LOCKGROUP`, `%SHADOWVARS`, `%STACKSIZE`, `%UNINITVARS`. Environment files,
-  include expansion, native storage placement and native task policies are not
-  loaded or applied. Supported task policies have explicit offline effects.
+- `%INCLUDE` and unknown directives. The four original metadata directives,
+  seven [task policies](task-attributes.md) and nine additional
+  [source policies](source-directives.md#additional-source-policies) are accepted.
+  DEFGROUP selects offline defaults and CRTDEVICE labels I/O requests; native
+  storage, group locks, periodic delay, stack allocation and real device routing
+  are not applied. Include expansion and binary environments remain unavailable.
 - Native motion statements: `MOVE TO`, `MOVE NEAR`, `MOVE AWAY`, `MOVE ABOUT`,
   `MOVE ALONG`, `MOVE AXIS`, `MOVE RELATIVE`; their `VIA`, motion `WITH`, `WHEN`
   and `UNTIL` clauses; motion ownership and hand control. `ATTACH`, `RELEASE`,
@@ -96,8 +96,9 @@ they are boundaries rather than promises to accept every such source form later.
   formats, device-specific parsing and controller file alarms. Text and binary
   scalar operations use the documented portable formats and bounded sizes;
   FILE_LIST supports name format 0.
-- Physical PATH node byte sizes, native association records and shared native
-  queue attachment. QUEUE_TYPE uses an explicitly bound fixed INTEGER buffer,
+- Physical PATH node byte sizes, native association records and native message
+  attachments. NODE_SIZE uses [portable packed schema widths](path-geometry.md).
+  QUEUE_ATTACH is a separate message-attachment API; QUEUE_TYPE uses a fixed INTEGER buffer,
   FIFO entries and portable sequence/status conventions.
 - Persisting live file handles, callbacks, connected clocks, queue buffer
   references, Python closures, generator/call stacks or suspended task execution.
@@ -278,7 +279,7 @@ does not assert a particular installed option or environment.
 - `WRITE_DICT`
 - `WRITE_DICT_V`
 
-### Communications and PC exchange (14)
+### Communications and PC exchange (15)
 
 - `ADD_BYNAMEPC`
 - `ADD_INTPC`
@@ -289,6 +290,7 @@ does not assert a particular installed option or environment.
 - `MSG_DISCO`
 - `MSG_PING`
 - `PIPE_CONFIG`
+- `QUEUE_ATTACH`
 - `RMCN_ALERT`
 - `RMCN_SEND`
 - `SEND_DATAPC`
@@ -331,12 +333,6 @@ does not assert a particular installed option or environment.
 - `RESET`
 - `SET_PERCH`
 - `UNLOCK_GROUP`
-
-### Geometry and collections (3)
-
-- `INTSCT_VL_PL`
-- `NODE_SIZE`
-- `QUEUE_ATTACH`
 
 ### Programs, dynamic variables and controller commands (20)
 

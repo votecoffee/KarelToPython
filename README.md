@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1024.151618**. It is a
+tool are named **karel2py**. The current implementation is **26.1024.153206**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -261,6 +261,12 @@ alongside NOLOCKGROUP. Environment requirements are recorded without loading
 definitions or enabling extra facilities. See [source directives](docs/source-directives.md).
 Seven task directives also initialize portable priority, time-slice and request
 policies; see [task attributes and traces](docs/task-attributes.md).
+Nine additional source policies cover an applied DEFGROUP default, CRTDEVICE
+request labels, uninitialized defaults and retained storage/lock/stack/delay
+intent. They are exposed through `Program.source_settings`; see
+[source directive policies](docs/source-directives.md#additional-source-policies).
+PATH helpers include portable NODE_SIZE and supplied view-line/plane intersections
+with staged append behavior; see [PATH geometry](docs/path-geometry.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

@@ -1,0 +1,118 @@
+{
+  "LINES": {
+    "nodes": [
+      {
+        "DIR": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": -1.0
+        },
+        "POL": {
+          "X": 1.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "MODEL_ID": 7
+      },
+      {
+        "DIR": {
+          "X": 1.0,
+          "Y": 0.0,
+          "Z": -1.0
+        },
+        "POL": {
+          "X": 1.0,
+          "Y": 0.0,
+          "Z": 1.0
+        },
+        "MODEL_ID": 8
+      }
+    ],
+    "data": {
+      "GRP_NUM": 2,
+      "UFRM_NUM": 3,
+      "FOCAL_POINT": {
+        "X": 0.0,
+        "Y": 0.0,
+        "Z": 10.0
+      }
+    }
+  },
+  "POINTS": {
+    "nodes": [
+      {
+        "POS": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "POL": {
+          "X": 1.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "MODEL_ID": 7
+      },
+      {
+        "POS": {
+          "X": 10.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "POL": {
+          "X": 1.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "MODEL_ID": 8
+      }
+    ],
+    "data": {
+      "GRP_NUM": 2,
+      "UFRM_NUM": 3
+    }
+  },
+  "PLANE": {
+    "NORMAL": {
+      "X": 1.0,
+      "Y": 0.0,
+      "Z": 0.0
+    },
+    "ORIENT": {
+      "X": 0.0,
+      "Y": 1.0,
+      "Z": 0.0
+    },
+    "APPROACH": {
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 1.0
+    },
+    "LOCATION": {
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 0.0
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "STATUS": 0,
+  "COUNT": 2,
+  "NODE_BYTES": 28
+}

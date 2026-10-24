@@ -288,7 +288,9 @@ class DelayRejectionTests(unittest.TestCase):
     def test_expression_result_delay(self): self.reject('x=DELAY(125)', 'E_EXPRESSION')
     def test_missing_duration(self): self.reject('DELAY\nEND T', 'E_EXPRESSION')
     def test_predefined_minimum_literal_rule(self): self.reject('DELAY -2147483648', 'E_MININT_LITERAL')
-    def test_directive_delay_remains_blocked(self): self.reject('x=7', 'E_DIRECTIVE', prefix='%DELAY=0')
+    def test_directive_delay_retains_metadata_without_statement_delay(self):
+        data,calls,program,_=execute('x=7',prefix='%DELAY=0')
+        self.assertEqual((data['X'],calls,program.source_settings['periodic_delay_ms']),(7,[],0))
     def test_incomplete_condition_handler_rejected(self): self.reject('CONDITION[1]:', 'E_SYNTAX')
     def test_motion_hold_remains_blocked(self): self.reject('HOLD', 'E_UNSUPPORTED')
     def test_legacy_task_targeted_abort_remains_blocked(self): self.reject('ABORT PROGRAM[1]', 'E_ABORT_TARGET', _translator=legacy_translate)

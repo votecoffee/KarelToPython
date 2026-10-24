@@ -22,6 +22,10 @@ TASK_DIRECTIVES={'%PRIORITY':'TSK_PRIORITY','%TIMESLICE':'TSK_TIMESLIC',
     '%NOABORT':'TSK_NOABORT','%NOPAUSE':'TSK_NOPAUSE',
     '%NOBUSYLAMP':'TSK_NOBUSY','%NOPAUSESHFT':'TSK_PAUSESFT','%TPMOTION':'TSK_TPMOTION'}
 TASK_FLAG_DIRECTIVES={'%NOBUSYLAMP':1,'%NOPAUSESHFT':0,'%TPMOTION':1}
+SOURCE_DIRECTIVES=frozenset(('%DEFGROUP','%LOCKGROUP','%STACKSIZE','%DELAY',
+    '%CMOSVARS','%CMOS2SHADOW','%SHADOWVARS','%UNINITVARS','%CRTDEVICE'))
+SOURCE_FLAG_DIRECTIVES={'%CMOSVARS','%CMOS2SHADOW','%SHADOWVARS','%UNINITVARS','%CRTDEVICE'}
+SOURCE_DIRECTIVE_RANGES={'%DEFGROUP':(1,32),'%STACKSIZE':(1,32767),'%DELAY':(0,86400000)}
 
 
 def valid_task_setting(attribute,value):
@@ -130,6 +134,23 @@ def set_task_attribute(registry,name,attribute,value,*,caller=None,line=None):
 
 
 def configure_task(state,directives):
+    settings=dict(default_group=state.robot_group or 1,lock_groups=None,storage='DRAM',
+        cmos_to_shadow=False,uninitialized_variables=True,default_io_device='TPDISPLAY',
+        periodic_delay_ms=8,stack_words=300)
+    values=dict(directives)
+    if '%DEFGROUP' in values:
+        state.robot_group=values['%DEFGROUP'];settings['default_group']=state.robot_group
+    if '%LOCKGROUP' in values: settings['lock_groups']=values['%LOCKGROUP']
+    elif '%NOLOCKGROUP' in values: settings['lock_groups']=()
+    if '%CMOSVARS' in values: settings['storage']='CMOS'
+    if '%CMOS2SHADOW' in values:
+        settings['cmos_to_shadow']=True
+        if settings['storage']=='CMOS': settings['storage']='SHADOW'
+    if '%SHADOWVARS' in values: settings['storage']='SHADOW'
+    if '%CRTDEVICE' in values: settings['default_io_device']='CRT/KB'
+    if '%DELAY' in values: settings['periodic_delay_ms']=values['%DELAY']
+    if '%STACKSIZE' in values: settings['stack_words']=values['%STACKSIZE']
+    state._source_settings=settings
     for name,value in directives:
         if name not in TASK_DIRECTIVES: continue
         key=TASK_DIRECTIVES[name];value=TASK_FLAG_DIRECTIVES.get(name,value)

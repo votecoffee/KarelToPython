@@ -1990,6 +1990,7 @@ class State:
         self.program_name=''
         self._task_frames=[];self._task_line=0;self._has_run=False
         self._task_settings={};self._task_trace=[];self._task_trace_sequence=0
+        self._source_settings={}
         self.service_requests=[]
         self._handlers={}; self._in_handler=False; self._timers={}
         self._scheduler=None; self._scheduler_clock=False; self._budget_parent=None
@@ -2207,6 +2208,7 @@ class State:
             raise KarelRuntimeError('READ requires one format list per scalar destination', line)
         formats = [read_formats(target.spec, item, line) for target, item in zip(targets, formats)]
         metadata = dict(line=line, targets=[dict(type=ref.spec[0], type_spec=ref.spec) for ref in targets])
+        if self._source_settings.get('default_io_device')=='CRT/KB': metadata['device']='CRT/KB'
         for target, item in zip(metadata['targets'], formats):
             if item: target['format_specifiers'] = item
         if line_breaks: metadata['line_breaks'] = list(line_breaks)
@@ -2248,6 +2250,7 @@ class State:
         """Record an offline request or call a supplied text sink; not device I/O."""
         text = _format_write_string(text, line, width=width, alignment=alignment)
         request = dict(text=text, line=line, adapter_outcome='recorded')
+        if self._source_settings.get('default_io_device')=='CRT/KB': request['device']='CRT/KB'
         self.write_requests.append(request)
         if self._write is None:
             return
@@ -2451,6 +2454,7 @@ from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
                          signal_event,delay_execution,control_task,condition_scope,TASK_CONSTANTS,
                          configure_task,TASK_DIRECTIVES,TASK_FLAG_DIRECTIVES,TASK_MASKS,
+                         SOURCE_DIRECTIVES,SOURCE_FLAG_DIRECTIVES,SOURCE_DIRECTIVE_RANGES,
                          TASK_SETTING_RANGES,valid_task_setting)
 from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,cooperative_service,
                       runtime_failure,powerup_cooperative,task_root,request_task_control,ERROR_SEVERITIES)

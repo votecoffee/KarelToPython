@@ -46,6 +46,7 @@ source-located error. Strict mode remains a future milestone.
 | `PATH` | Typed node list with optional header | One-based nodes; `NODEDATA` and `PATHHEADER` structures; direct field references. |
 | PATH/QUEUE persistence | Typed logical collection snapshots | Partial PATH data, queue order/sequence and explicit first-use buffer rebinding; see [collection persistence](collection-persistence.md). |
 | `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and deep copies | Empty paths have length zero; full or reversed partial copying; maximum 32767 nodes. |
+| `NODE_SIZE`, `INTSCT_VL_PL` | Packed portable node-schema bytes and supplied line/plane intersections | Structural view-line/point PATH schemas, staged append, normalized projected polarity and explicit frame/group metadata; see [PATH geometry](path-geometry.md). |
 | `QUEUE_TYPE` and seven queue procedures | FIFO entries with sequence IDs and an INTEGER backing array | Explicit INIT_QUEUE; fixed capacity; retain original backing-array identity. |
 | `CONDITION`, `WHEN`, `ENABLE/DISABLE/PURGE` | Ordered predicates and generator actions | Checkpoint/interval scanning, events/edges, EVAL capture, multiple WHEN clauses and explicit rearm. |
 | `CONNECT/DISCONNECT TIMER` | Monotonic elapsed milliseconds in global INTEGER references | Updated at execution checkpoints; injectable microsecond clock; fractional milliseconds carried forward. |

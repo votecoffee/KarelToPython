@@ -1,0 +1,33 @@
+{
+  "positions": {
+    "count": 1,
+    "groups": [
+      1,
+      2
+    ],
+    "values": {
+      "2:1": {
+        "type": [
+          "XYZWPR"
+        ],
+        "value": {
+          "X": 7.0,
+          "Y": 0.0,
+          "Z": 0.0,
+          "W": 0.0,
+          "P": 0.0,
+          "R": 0.0,
+          "CONFIG_DATA": {
+            "CFG_TURN_NO1": 0,
+            "CFG_TURN_NO2": 0,
+            "CFG_TURN_NO3": 0,
+            "CFG_FLIP": false,
+            "CFG_LEFT": false,
+            "CFG_UP": false,
+            "CFG_FRONT": false
+          }
+        }
+      }
+    }
+  }
+}

@@ -80,6 +80,8 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('program_metadata', 'COMMENT', 'converted'),
                     ('teach_programs', 'AVAILABLE', 5),
                     ('teach_registers', 'NUMBER', 42),
+                    ('source_policies', 'SIZE', 10),
+                    ('path_geometry', 'NODE_BYTES', 28),
                     ('remote_banks', 'NUMBER', 42),
                     ('register_transfers', 'STATUS', 0),
                     ('pose_decomposition', 'CONSTRUCTOR_X', 4.),

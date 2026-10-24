@@ -1,5 +1,5 @@
 {
-  "version": "26.1024.151618",
+  "version": "26.1024.153206",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -154,5 +154,7 @@
   "task_renaming": "task_rename_semantics.json",
   "task_attributes": "task_attribute_semantics.json",
   "teach_programs": "teach_program_semantics.json",
-  "teach_registers": "teach_register_semantics.json"
+  "teach_registers": "teach_register_semantics.json",
+  "source_policies": "source_policy_semantics.json",
+  "path_geometry": "path_geometry_semantics.json"
 }

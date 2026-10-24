@@ -1,0 +1,24 @@
+PROGRAM SOURCE_POLICIES
+%DEFGROUP=2
+%LOCKGROUP=1,2
+%CMOSVARS
+%CMOS2SHADOW
+%UNINITVARS
+%CRTDEVICE
+%DELAY=12
+%STACKSIZE=600
+TYPE
+  node_t=STRUCTURE value: INTEGER tag: STRING[5] ready: BOOLEAN ENDSTRUCTURE
+VAR
+  point: XYZWPREXT
+  records: PATH NODEDATA=node_t
+  status,size,untouched: INTEGER
+  result: REAL
+  fresh: BOOLEAN
+BEGIN
+  point=GET_POS_REG(1,status)
+  result=point.x
+  size=NODE_SIZE(records)
+  fresh=UNINIT(untouched)
+  WRITE('source policy')
+END SOURCE_POLICIES

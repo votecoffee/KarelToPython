@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1024.153206 - 2026-10-24
+
+- Accept nine additional checked source directives; apply DEFGROUP to caller-root
+  defaults and CRTDEVICE labels to omitted-file READ/WRITE requests.
+- Expose detached source settings for storage, locks, periodic-delay and stack
+  intent without adding native side effects or clearing restored values.
+- Make ordinary position-register calls honor the calling root's default group
+  when omitted, consistently with TP register and robot-context operations.
+- Add portable NODE_SIZE and staged INTSCT_VL_PL over documented structural PATH
+  data, preserving model IDs, projected polarity and explicit frame/group metadata.
+- Add 35 regressions and two authored CLI examples; refresh guides and the gap
+  inventory to 181 registered built-in names with 153 still unregistered.
+
 ## 26.1024.151618 - 2026-10-24
 
 - Add all twelve TP caller-local numeric, string, grouped position, frame and
