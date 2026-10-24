@@ -1,0 +1,29 @@
+PROGRAM TPE_DATA
+VAR h,s,k,a,frame_no,tool_no,available,lines,count: INTEGER
+    text: STRING[16]
+    point: XYZWPREXT
+    names: ARRAY[4] OF STRING[36]
+    loaded,initialized: BOOLEAN
+BEGIN
+  CREATE_TPE('scratch',PT_MNE_JOB,s)
+  COPY_TPE('seed','copy',TRUE,s)
+  OPEN_TPE('copy',TPE_RWACC,TPE_RWREJ,h,s)
+  GET_POS_TYP(h,1,1,k,a,s)
+  GET_POS_FRM(h,1,1,frame_no,tool_no,s)
+  point=GET_POS_TPE(h,1,s,1)
+  point.x=9
+  SET_POS_TPE(h,1,point,s,1)
+  SET_EPOS_TPE(h,3,point,s,1)
+  SET_TRNS_TPE(h,4,point,s)
+  SET_JPOS_TPE(h,2,GET_JPOS_TPE(h,1,s,2),s,2)
+  GET_TPE_CMT(h,1,text,s)
+  SET_TPE_CMT(h,3,'third',s)
+  AVL_POS_NUM(h,available,s)
+  DEL_INST_TPE(h,1,s)
+  CLOSE_TPE(h,s)
+  SET_ATTR_PRG('copy',AT_COMMENT,0,'authored copy',s)
+  GET_ATTR_PRG('copy',AT_NUM_LINE,lines,text,s)
+  LOAD_STATUS('copy',loaded,initialized)
+  SELECT_TPE('scratch',s)
+  PROG_LIST('*',7,0,1,names,count,s)
+END TPE_DATA

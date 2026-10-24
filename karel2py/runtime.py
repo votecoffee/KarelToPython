@@ -2139,6 +2139,10 @@ class State:
         self._handlers.clear(); self._timers.clear()
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
 
+    def finish_teach_programs(self):
+        bank=self.execution.teach_programs
+        if bank is not None: bank.release_owner(task_root(self))
+
     def extended_call(self,name,arguments,line=None):
         if not _pythonic(): raise KarelRuntimeError('Extended services require Pythonic mode',line)
         row=dict(operation=name,line=line,outcome='requested'); self.service_requests.append(row)
@@ -2439,6 +2443,7 @@ from .extended import (ExecutionContext, StringRegisters, PositionRegisters, Por
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles
+from .teach import TeachPrograms,TPE_CONSTANTS
 from .clocks import CalendarClock
 from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING
 from .pulses import pulse_execution

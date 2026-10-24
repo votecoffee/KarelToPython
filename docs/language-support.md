@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1024.141821. Acceptance is specific to
+This is the supported prototype subset as of 26.1024.144946. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -61,6 +61,7 @@ internally and in the historical semantic notes.
 | PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queues and GET_VAR/SET_VAR logical queue transfers | One-based nodes, explicit buffer capacity/rebinding, portable status/sequence conventions and no native layout claim. |
 | Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |
 | Task policies and traces | SET_TSK_ATTR, seven source directives, priority-ordered weighted turns, request-origin masks and bounded source checkpoint tracing | Nine checked settings, stable numeric IDs, explicit shift/TP-enable notifications and atomic CLI trace export; capability-only lamp/motion flags; no native CPU timing or preemption. |
+| TP program data | 17 management, position, frame/type and comment calls over explicit TeachPrograms, plus listing/load/header metadata integration | Logical records, grouped poses/joints, opaque one-based instruction deletion, access/reject handles and terminal cleanup; no native TP files, execution, embedded registers or motion linkage. |
 | Robot model | MIRROR, extended pose metadata, JOINT2POS/POS2JOINT, IN_RANGE/J_IN_RANGE and CHECK_EPOS | Explicit right-handed reflection convention, supplied callbacks/limits or standard-DH models with bounded IK, explicit groups/frames/tools and external joints; no inferred robot context or native reachability claim. |
 
 See the [offline service matrix and guide](offline-services.md) for the complete
@@ -90,6 +91,8 @@ The [task inspection guide](task-inspection.md) covers GET_TSK_INFO lookup,
 live execution data, portable constants and supplied attributes.
 The [task attribute guide](task-attributes.md) covers applied settings, directives,
 cooperative scheduling, mask effects and CLI trace export.
+The [TP program guide](teach-programs.md) covers the shared logical store,
+all 17 calls, permissions, JSON and retained native boundaries.
 The [file comparison and printing guide](file-comparison.md) covers COMPARE_FILE
 and PRINT_FILE with explicit backends, bounded reports and recorded/callback output.
 The [kinematic assignment guide](kinematic-assignments.md) covers model-backed

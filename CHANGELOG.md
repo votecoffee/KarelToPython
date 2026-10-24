@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1024.144946 - 2026-10-24
+
+- Add 17 TP program management, position, frame/type and comment calls over an
+  explicit shared TeachPrograms logical store, with bounded typed JSON data.
+- Apply root-owned access/reject handles, independent copies, selected/open
+  guards, retained pause state and automatic cleanup on terminal execution.
+- Preserve grouped Cartesian/joint data, external axes, frame/tool identifiers,
+  comment capacity rules and one-based opaque instruction deletion.
+- Integrate program listing, load status and four writable header fields; retain
+  native TP formats, execution, embedded registers and motion as explicit gaps.
+- Add an authored all-call CLI example, saved-context replay, runtime-only
+  dependency checks and access/lifecycle/metadata/serialization regressions.
+
 ## 26.1024.141821 - 2026-10-24
 
 - Add SET_TSK_ATTR with nine checked task settings and seven source directives

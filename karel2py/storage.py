@@ -370,6 +370,7 @@ class DirectoryFiles:
 
 def context_config(context):
     result={}
+    if context.teach_programs is not None: result['teach_programs']=context.teach_programs.to_config()
     if context.peers is not None: result['peers']=context.peers.to_config()
     if context.program_attributes is not None: result['program_attributes']=context.program_attributes.to_config()
     if context.config_text is not None: result['config_text']=context.config_text.to_config()

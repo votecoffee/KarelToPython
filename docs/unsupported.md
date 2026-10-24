@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 150 have a registered translation and 184 do not.
+Currently, 167 have a registered translation and 167 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -80,8 +80,10 @@ they are boundaries rather than promises to accept every such source form later.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;
   they do not establish network sessions, discover peers or convert robot poses.
-- Native TP-program registers and position records are distinct from the supported
-  ordinary register banks and GET_TPE_PRM call parameters; see the name catalog.
+- Embedded TP-program register APIs remain distinct from ordinary register banks
+  and GET_TPE_PRM call parameters. Seventeen [TP program data calls](teach-programs.md)
+  now model logical programs, grouped positions, comments and metadata explicitly;
+  native TP files, execution and physical controller data remain unavailable.
 
 ## Files and collections
 
@@ -139,8 +141,11 @@ they are boundaries rather than promises to accept every such source form later.
 
 ## Option-specific systems and application milestones
 
-- Teach-pendant program editing and embedded position records; controller screens,
-  windows, keyboard interaction, display controls, dictionaries and language packs.
+- Native TP parsing/generation/execution, motion instruction linkage and embedded
+  register APIs. The explicit TeachPrograms store supports logical position/comment
+  editing and opaque line deletion without those native behaviors.
+- Controller screens, windows, keyboard interaction, display controls, dictionaries
+  and language packs.
 - DAQ pipelines, PC data/event exchange, message/pipe/remote-monitor networking,
   KCL commands, controller XML services, vision and conveyor/vision tracking.
   These calls have no implicit Python or hardware fallback.
@@ -228,35 +233,18 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Teach-pendant programs and embedded registers (29)
+### Teach-pendant programs and embedded registers (12)
 
-- `AVL_POS_NUM`
-- `CLOSE_TPE`
-- `COPY_TPE`
-- `CREATE_TPE`
-- `DEL_INST_TPE`
-- `GET_JPOS_TPE`
-- `GET_POS_FRM`
-- `GET_POS_TPE`
-- `GET_POS_TYP`
-- `GET_TPE_CMT`
 - `GET_TPE_JPOS_REG`
 - `GET_TPE_POS_REG`
 - `GET_TPE_REG`
 - `GET_TPE_STR_REG`
-- `OPEN_TPE`
-- `SELECT_TPE`
-- `SET_EPOS_TPE`
 - `SET_INT_TPE_REG`
-- `SET_JPOS_TPE`
-- `SET_POS_TPE`
 - `SET_REAL_TPE_REG`
-- `SET_TPE_CMT`
 - `SET_TPE_EPOS_REG`
 - `SET_TPE_JPOS_REG`
 - `SET_TPE_POS_REG`
 - `SET_TPE_STR_REG`
-- `SET_TRNS_TPE`
 - `TPE_POS_REG_FRM`
 - `TPE_POS_REG_TYPE`
 

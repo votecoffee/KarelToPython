@@ -130,6 +130,16 @@ def program_metadata(context,state,operation,args,line=None):
     owners=attached_programs(context,state).get(name,[]) if valid else []
     service=context.program_attributes
     record=service.record(name) if valid and service is not None else None
+    teach=context.teach_programs
+    teach_record=teach.metadata(name) if valid and teach is not None else None
+    if teach_record is not None and not owners:
+        if record is None: record=teach_record
+        else:
+            record={**record,'active':record.get('active',False) or teach_record['active'],
+                    'loaded':True,'initialized':teach_record['initialized'],
+                    'attributes':{**teach_record['attributes'],**record['attributes'],
+                                  'AT_PROG_TYPE':teach_record['attributes']['AT_PROG_TYPE'],
+                                  'AT_NUM_LINE':teach_record['attributes']['AT_NUM_LINE']}}
     if operation=='LOAD_STATUS':
         if owners:
             flags=[any_initialized(owner.values[key],spec,line) for owner in owners for key,spec in owner.types.items()]
@@ -161,11 +171,14 @@ def program_metadata(context,state,operation,args,line=None):
         active|=(owner is state or owner is current or root._driving or root.task_state in ('running','waiting','paused'))
         active|=any(frame.program_name==name for frame,routine in current._task_frames)
     if active: status.set(4,line);return
-    if service is None: raise rt.KarelRuntimeError('SET_ATTR_PRG requires explicit ProgramAttributes context',line)
+    if service is None and (teach_record is None or owners): raise rt.KarelRuntimeError('SET_ATTR_PRG requires explicit ProgramAttributes context',line)
     value=args[3] if key in PROGRAM_TEXT_ATTRIBUTES else args[2]
     # Validate both the replacement and status before publishing metadata.
-    value=service._value(key,value,line);rt.checked(status.spec,0,line)
-    service.set_value(name,key,value,line);status.set(0,line)
+    from .extended import ProgramAttributes
+    value=ProgramAttributes._value(key,value,line);rt.checked(status.spec,0,line)
+    if teach_record is not None and not owners and (service is None or service.record(name) is None): teach.set_metadata(name,key,value)
+    else: service.set_value(name,key,value,line)
+    status.set(0,line)
 
 
 def variable_info(context,state,args,line=None):
@@ -238,6 +251,7 @@ def program_list(context,state,args,line=None):
     owners.extend(program._state for program in context.tasks.tasks.values())
     rows={(owner.program_name,'PC') for owner in owners}
     if context.programs is not None: rows.update(context.programs.entries)
+    if context.teach_programs is not None: rows.update(context.teach_programs.entries)
     rows=sorted(row for row in rows if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
     capacity=rt.array_dimensions(names.spec)[0]
     selected=rows[skip+offset:skip+offset+capacity];text=[]

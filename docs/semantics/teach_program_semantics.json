@@ -1,0 +1,35 @@
+{
+  "version": "26.1024.144946",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {"manual": "MARRC75KR07091E Rev N", "pdf_pages": [319,331,353,354,355,356,371,468,469,532,533], "topic": "TP program create/copy/open/close/select, free position and instruction deletion"},
+    {"manual": "MARRC75KR07091E Rev N", "pdf_pages": [402,403,409,410,411,415,416], "topic": "Position/joint getters, type/frame metadata and comment reads"},
+    {"manual": "MARRC75KR07091E Rev N", "pdf_pages": [538,541,542,550,553,554], "topic": "Cartesian/extended/joint/matrix writes and comments"}
+  ],
+  "implementation": {
+    "calls": ["AVL_POS_NUM","CLOSE_TPE","COPY_TPE","CREATE_TPE","DEL_INST_TPE","GET_JPOS_TPE","GET_POS_FRM","GET_POS_TPE","GET_POS_TYP","GET_TPE_CMT","OPEN_TPE","SELECT_TPE","SET_EPOS_TPE","SET_JPOS_TPE","SET_POS_TPE","SET_TPE_CMT","SET_TRNS_TPE"],
+    "store": "Explicit typed logical records, bounded opaque instruction text, complete grouped positions and frame/tool metadata, comments and four writable headers",
+    "access": "Root-owned monotonic handles, none/read/read-write access, symmetric reject masks, same-owner reopen and automatic terminal cleanup; pause/linked routine return retains handles",
+    "positions": "Independent extended/padded joint queries, normalization to requested Cartesian representation, exact stored joint widths and retained external metadata",
+    "catalog": "Explicit records join PROG_LIST/LOAD_STATUS and header attributes with activity guards, keeping attached KAREL namespace precedence",
+    "persistence": "Detached typed JSON values, limits and selection; handles, owners, locks and sequence omitted"
+  },
+  "portable_choices": {
+    "names": "Case-insensitive 1..36 letter-starting ASCII identifiers without paths/extensions",
+    "bounds": "Groups 1..32, positions 1..32767, programs 1..4096, 1024 open handles; default group 1, position limit 32767 and program limit 256",
+    "metadata": "POSITION type 1, XYZWPR 2, XYZWPREXT 6 and JOINTPOS 9; axis output is 0/3/joint width; new frame/tool IDs zero, replacement preserves IDs",
+    "copy": "Closed source/destination, selected-target guard, detached values and own headers, explicit overwrite",
+    "instructions": "One-based deletion of opaque ASCII lines without TP syntax or motion-reference analysis",
+    "status": "0 success; 1 missing; 2 invalid; 3 handle/access; 4 busy/reject/selected; 5 exists; 6 full; 7 successful comment truncation; 8 small comment output; 17038 absent position",
+    "failed_getters": "Set status then raise without replacing assignment target, matching offline position-register getter behavior"
+  },
+  "unresolved": [
+    "Native TP binary/text parsing, generation, execution, references, motion and UI behavior",
+    "Embedded TP register APIs, native access/ownership details, capacities and status encodings",
+    "Native POSITION type exposure and frame/tool association defaults",
+    "Strict mode and suspended-handle/task checkpoint persistence"
+  ],
+  "verification": ["tests/test_teach_programs.py","tests/test_runtime_portability.py","tests/test_program_metadata.py","tests/test_program_listing.py","tests/test_project_scheduler.py","examples/teach_programs.kl"],
+  "guide": "../teach-programs.md"
+}

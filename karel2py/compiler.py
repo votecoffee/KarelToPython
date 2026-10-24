@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
-                        **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS}
+                        **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
     'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE','EVENT','WITH',
@@ -3130,6 +3130,7 @@ class Emitter:
         if not self.cooperative:
             self.indent-=1;self.line('finally:');self.indent+=1
             self.line('self._state._driving=False')
+            self.line('self._state.finish_teach_programs()')
         self.indent = 0
         self.line()
         self.line('if __name__ == "__main__":')
@@ -3734,6 +3735,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         status='Portable 0 success, 1 missing input, 3 open/busy input; invalid context/path/ASCII/report capacity or callback errors raise; prior completed print callbacks remain effective',
         boundary='No native comparison/report/alignment/offset encoding, printer/device discovery, asynchronous execution or controller acceptance; strict remains future work',
         guide='docs/file-comparison.md',controller_validated=False)
+    report['teach_program_policy']=dict(
+        calls=sorted(ex.TPE_NAMES),constants=dict(rt.TPE_CONSTANTS),
+        store='Explicit TeachPrograms logical records with TP/JB/PR/MR kinds, opaque instruction lines, complete grouped poses/joints, frame/tool IDs, position comments and four writable header fields',
+        access='Case-insensitive 1..36 letter-starting ASCII names; root-owned monotonic handles; none/read/read-write access and symmetric rejection masks between different owners; same-owner reopen allowed',
+        positions='Explicit group or caller root default; Cartesian setters normalize to requested representation, joint widths retained; getters detach extended Cartesian or padded JOINTPOS9; metadata returns stored representation, axes and frame/tool IDs',
+        status='Portable 0 success, 1 missing program, 2 invalid arguments/representation, 3 handle/access failure, 4 busy/rejected/selected, 5 existing destination, 6 capacity, 7 successful comment truncation, 8 insufficient comment output; absent position 17038',
+        failure='Procedures preserve data outputs on failure except successful truncation warning; failed position functions publish status then raise without replacing assignment targets; exact disjoint output/counter checks remain',
+        lifetime='Pause retains root-owned handles including linked calls; normal completion, failure, abort and stop release only that root; copies detach data and selected/open destinations cannot be overwritten',
+        metadata='Explicit TP rows join PROG_LIST and LOAD_STATUS; derive type and instruction count, retain four writable header fields through GET/SET_ATTR_PRG with activity guards',
+        persistence='ExecutionContext JSON stores data, limits and selection; live handles, locks, owners and ID sequence are omitted; instruction deletion edits opaque one-based lines without executing or parsing TP syntax',
+        boundary='Offline data model only; no native TP binary/text loader, generation, execution, motion references, controller status mapping, UI selection or robot discovery; strict remains future work',
+        guide='docs/teach-programs.md',controller_validated=False)
     report['task_rename_policy']=dict(
         procedure='SET_TSK_NAME(old_name,new_name,status)',
         identity='Case-insensitive registry binding names; empty old_name selects the uniquely registered calling root, including linked routines; preserve numeric slot, source module and namespaces',

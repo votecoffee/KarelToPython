@@ -315,11 +315,13 @@ class TaskScheduler:
                         elif event['kind']!='timeslice': raise runtime.KarelRuntimeError('Unknown scheduler event')
                     except StopIteration:
                         program._execution=None; state.task_state='completed'; state._scheduler=None
+                        state.finish_teach_programs()
                         if getattr(state,'_scheduler_clock',False): state._clock_us=None; state._scheduler_clock=False
                     except BaseException as exc:
                         if getattr(program,'_execution',None) is not None: program._execution.close(); program._execution=None
                         state.task_state='stopped' if isinstance(exc,runtime.KarelStop) else 'aborted' if isinstance(exc,runtime.KarelAbort) else 'failed'
                         state._scheduler=None
+                        state.finish_teach_programs()
                         if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
                         self.errors[names[slot]]=exc; raise
                     finally: state._driving=False

@@ -29,6 +29,7 @@ def service_snapshot(services):
     if services.config_text is not None: observed['config_text']=services.config_text.to_config()
     if services.program_attributes is not None: observed['program_attributes']=services.program_attributes.to_config()
     if services.peers is not None: observed['peers']=services.peers.to_config()
+    if services.teach_programs is not None: observed['teach_programs']=services.teach_programs.to_config()
     return observed
 
 
@@ -118,7 +119,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 133, 'Update the expected example count when adding examples'
+    assert count == 134, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
     assert len(projects)==5, 'Update the expected project count when adding projects'
     for folder in projects:

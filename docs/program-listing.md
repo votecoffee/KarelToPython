@@ -4,6 +4,8 @@ Pythonic `PROG_LIST` lists the current program, attached KAREL programs, registe
 task Programs and optional explicit program metadata. It supports type filters,
 star patterns, bounded result arrays and pagination. Listing needs no controller
 or filesystem adapter.
+Explicit [TeachPrograms records](teach-programs.md) also contribute their current
+TP/JB/PR/MR names and types as logical data, without native program discovery.
 
 Load flags and mutable attributes use the separate
 [program metadata service](program-metadata.md). Catalog entries alone do not

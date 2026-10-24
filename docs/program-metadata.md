@@ -4,6 +4,10 @@ Pythonic mode supports `LOAD_STATUS`, `GET_ATTR_PRG` and `SET_ATTR_PRG` for
 attached Python Programs and explicitly supplied `ProgramAttributes` records.
 These queries do not discover controller programs, import Python modules or load
 files. `ProgramCatalog` remains an independent, immutable listing service.
+The explicit [TeachPrograms store](teach-programs.md) also supplies logical TP
+load/position-initialization state, program type, instruction count and four
+writable headers. Open/selected record guards apply; this does not load native TP
+files or execute their instructions.
 
 ```karel
 LOAD_STATUS('WORKER',loaded,initialized)

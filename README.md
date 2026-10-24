@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1024.141821**. It is a
+tool are named **karel2py**. The current implementation is **26.1024.144946**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -324,6 +324,10 @@ SET_TSK_ATTR updates nine checked settings, with cooperative scheduling, request
 masks and bounded checkpoint traces. The project CLI supports `--trace-out` for
 atomic trace JSON export, including partial traces on failure; see
 [task attributes](docs/task-attributes.md).
+Seventeen TP program calls share an explicit logical TeachPrograms store for
+program management, grouped positions, frame/tool metadata, comments and opaque
+instruction deletion. Values and selection persist in context JSON; native TP
+parsing/execution remains outside this store. See [TP program data](docs/teach-programs.md).
 
 LOAD_STATUS checks attached code and any known global initialization.
 GET_ATTR_PRG/SET_ATTR_PRG read explicit program metadata and update owner, comment

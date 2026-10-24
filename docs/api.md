@@ -130,6 +130,11 @@ attribute can be a named TSK key or package INTEGER ID. Program.task_settings an
 Program.task_trace return detached copies. `ProjectInstance.trace_snapshot()`
 provides the document exported by the project CLI's `--trace-out`. See
 [task attributes and tracing](task-attributes.md).
+`TeachPrograms` supplies logical TP records through
+`ExecutionContext(teach_programs=bank)`. Host APIs cover create/copy/select,
+root-token open/close, read/write positions, owner cleanup and detached JSON.
+Its records also participate in program listing/load/header metadata queries.
+See [TP program data](teach-programs.md) for all 17 source calls and access rules.
 
 COMPARE_FILE and PRINT_FILE require the explicit files service. Both backends
 expose `read_named(name)` returning `(status, detached_bytes_or_None)`. The

@@ -9,6 +9,7 @@ import re
 import struct
 import fnmatch
 import inspect
+from .teach import TPE_NAMES
 
 
 def runtime():
@@ -51,6 +52,13 @@ PROCEDURES = {
     'GET_TSK_INFO': (arg('STRING','r'),arg('INTEGER','r'),I,OI,OS,OI),
     'SET_TSK_NAME': (S,S,OI),
     'SET_TSK_ATTR': (S,I,I,OI),
+    'OPEN_TPE': (S,I,I,OI,OI), 'CLOSE_TPE': (I,OI),
+    'CREATE_TPE': (S,I,OI), 'COPY_TPE': (S,S,B,OI), 'SELECT_TPE': (S,OI),
+    'AVL_POS_NUM': (I,OI,OI), 'DEL_INST_TPE': (I,I,OI),
+    'GET_POS_FRM': (I,I,I,OI,OI,OI), 'GET_POS_TYP': (I,I,I,OI,OI,OI),
+    'GET_TPE_CMT': (I,I,OS,OI), 'SET_TPE_CMT': (I,I,S,OI),
+    'SET_POS_TPE': (I,I,arg('POSE'),OI,I), 'SET_EPOS_TPE': (I,I,arg('POSE'),OI,I),
+    'SET_JPOS_TPE': (I,I,arg('JOINTPOS'),OI,I), 'SET_TRNS_TPE': (I,I,arg('POSE'),OI),
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
@@ -86,6 +94,8 @@ FUNCTIONS = {
     'SEMA_COUNT':((I,),('INTEGER',)),
     'GET_POS_REG': ((I,OI,I),('XYZWPREXT',)),
     'GET_JPOS_REG': ((I,OI,I),('JOINTPOS',9)),
+    'GET_POS_TPE': ((I,I,OI,I),('XYZWPREXT',)),
+    'GET_JPOS_TPE': ((I,I,OI,I),('JOINTPOS',9)),
     'PATH_LEN': ((arg('PATH'),),('INTEGER',)),
     'GET_FILE_POS': ((arg('FILE'),),('INTEGER',)),
     'BYTES_LEFT': ((arg('FILE'),),('INTEGER',)),
@@ -116,6 +126,8 @@ _REMOTE_SIGNATURES={'GET_REG':(I,arg('BOOLEAN','o'),OI,arg('REAL','o'),OI),
 PROCEDURES.update({name:(S,*(_REMOTE_SIGNATURES[local] if local in _REMOTE_SIGNATURES else PROCEDURES[local]))
                    for name,local in REMOTE_SERVICES.items()})
 OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG','CHECK_EPOS'}
+TPE_OPTIONAL_GROUP={'SET_POS_TPE','SET_EPOS_TPE','SET_JPOS_TPE','GET_POS_TPE','GET_JPOS_TPE'}
+OPTIONAL_LAST.update(TPE_OPTIONAL_GROUP)
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
@@ -1256,7 +1268,9 @@ def drive(program):
         program._execution=None
         state.task_state='stopped' if isinstance(exc,KarelStop) else 'aborted' if isinstance(exc,runtime().KarelAbort) else 'failed'
         raise
-    finally: state._driving=False
+    finally:
+        state._driving=False
+        if state.task_state in ('completed','stopped','aborted','failed'): state.finish_teach_programs()
 
 
 def run_cooperative(program,max_steps=100000):
@@ -1280,12 +1294,13 @@ def stop_cooperative(program):
     if getattr(program,'_execution',None) is not None:
         program._execution.close(); program._execution=None
     state.task_state='stopped'
+    state.finish_teach_programs()
     state._scheduler=None
     if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1306,6 +1321,9 @@ class ExecutionContext:
         self.program_attributes=program_attributes
         if peers is not None and type(peers) is not PeerBanks: raise TypeError('peers must be PeerBanks or None')
         self.peers=peers
+        from .teach import TeachPrograms
+        if teach_programs is not None and type(teach_programs) is not TeachPrograms: raise TypeError('teach_programs must be TeachPrograms or None')
+        self.teach_programs=teach_programs
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1326,10 +1344,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'teach_programs' in config:
+            from .teach import TeachPrograms
+            services['teach_programs']=TeachPrograms.from_config(config['teach_programs'])
         if 'peers' in config: services['peers']=PeerBanks.from_config(config['peers'])
         if 'program_attributes' in config:
             if type(config['program_attributes']) is not dict: raise ValueError('program_attributes must be a program mapping')
@@ -1398,12 +1419,15 @@ class ExecutionContext:
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
-        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS') else 0 if name=='SET_FILE_ATR' else 1)
+        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP else 0 if name=='SET_FILE_ATR' else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in TPE_NAMES:
+            from .teach import invoke_teach
+            return invoke_teach(self,state,name,args,line)
         if name in REMOTE_SERVICES or name in REMOTE_TRANSFERS:
             from .remote import invoke_peer
             return invoke_peer(self,state,name,args,line)
