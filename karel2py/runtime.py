@@ -1989,6 +1989,7 @@ class State:
         self.robot_group=self.execution.robot.active_group if self.execution.robot is not None else None
         self.program_name=''
         self._task_frames=[];self._task_line=0;self._has_run=False
+        self._task_settings={};self._task_trace=[];self._task_trace_sequence=0
         self.service_requests=[]
         self._handlers={}; self._in_handler=False; self._timers={}
         self._scheduler=None; self._scheduler_clock=False; self._budget_parent=None
@@ -2129,6 +2130,7 @@ class State:
             raise ValueError('max_steps must be a positive integer')
         self.max_steps, self.steps = max_steps, 0
         self._task_frames.clear();self._task_line=0;self._has_run=True
+        self._task_trace.clear();self._task_trace_sequence=0
         self.write_requests.clear()
         self.read_requests.clear()
         self.clock_reads.clear()
@@ -2442,6 +2444,8 @@ from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING
 from .pulses import pulse_execution
 from .kinematics import SerialRobotModel
 from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,lifecycle_condition,
-                         signal_event,delay_execution,control_task,condition_scope,TASK_CONSTANTS)
+                         signal_event,delay_execution,control_task,condition_scope,TASK_CONSTANTS,
+                         configure_task,TASK_DIRECTIVES,TASK_FLAG_DIRECTIVES,TASK_MASKS,
+                         TASK_SETTING_RANGES,valid_task_setting)
 from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,cooperative_service,
                       runtime_failure,powerup_cooperative,task_root,request_task_control,ERROR_SEVERITIES)

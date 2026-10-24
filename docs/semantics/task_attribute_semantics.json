@@ -1,0 +1,39 @@
+{
+  "version": "26.1024.141821",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {"manual": "MARRC75KR07091E Rev N", "pdf_pages": [554,555], "topic": "SET_TSK_ATTR signature, calling task and nine writable attributes"},
+    {"manual": "MARRC75KR07091E Rev N", "pdf_pages": [463,466,467], "topic": "Request masks, self-control exclusions, busy lamp and shift directives"},
+    {"manual": "MARRC75KR07091E Rev N", "pdf_pages": [484,485,565,566], "topic": "Priority ordering, time-slice units and pendant motion directive"}
+  ],
+  "implementation": {
+    "settings": "Nine exact INTEGER policies validated before updates; empty source name selects uniquely registered calling root including linked routines",
+    "scheduling": "Stable lower-number-first round order and ceil(timeslice_ms/quantum_ms) checkpoint advances per turn; all runnable bindings retain turns and clock advances once per round",
+    "requests": "Distinct command/error origins plus explicit TP-enable/shift notifications; suppress new requests only and preserve history/notifications",
+    "trace": "Bounded caller-rooted source checkpoint records; defensive settings/trace properties; trace resets on begin and settings persist across runs/renames",
+    "directives": "Seven pre-declaration task directives with unique named mask flags, numeric literals and argument-free flags",
+    "cli": "Project --trace-out atomically exports detached versioned observations, including partial traces on execution failure",
+    "metadata": "NOBUSY/TPMOTION remain readable capability data; applied settings override informational bind metadata"
+  },
+  "portable_choices": {
+    "bounds": "Priority 1..99, slice 1..1000 ms, trace limit 1..10000; flags 0/1; unsupported masks reject",
+    "masks": {"PG_NP_ERROR": 1, "PG_NP_CMD": 2, "PG_NP_END": 4, "PG_NP_TPENB": 8},
+    "statuses": "0 success, 1 unknown task, 2 unknown attribute/invalid value, 3 read-only/unavailable or ambiguous self/foreign active scheduler",
+    "defaults": "One checkpoint per turn without an applied slice, ordering priority 50, enabling trace supplies limit 1000",
+    "persistence": "Settings/traces/continuations omitted from value-state snapshots; CLI trace JSON is a separate observation artifact"
+  },
+  "retained_guards": [
+    "Bare PAUSE/ABORT, runtime failures and host stop bypass persistent request masks",
+    "Exact types, initialization, output references and transitive FOR-counter protection",
+    "Budgets fixed at turn start; sleep/pause/failure/completion ends a turn; step/cycle limits remain",
+    "Source identity, numeric task order, linked ownership and rename state retention"
+  ],
+  "unresolved": [
+    "Native preemption, CPU slicing, priority starvation, interrupts and status enums",
+    "Native lock-group eligibility, physical lamps, shift/pendant acquisition and motion",
+    "Native trace format/capacity, suspended execution persistence and strict mode"
+  ],
+  "verification": ["tests/test_task_attributes.py", "tests/test_directives.py", "tests/test_task_inspection.py", "tests/test_task_renaming.py", "tests/test_project_scheduler.py", "tests/test_task_file_extensions.py", "tests/test_control_notifications.py", "examples/task_policies_project/main.kl"],
+  "guide": "../task-attributes.md"
+}

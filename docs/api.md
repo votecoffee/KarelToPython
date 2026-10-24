@@ -125,6 +125,11 @@ Both task containers expose `rename(old_name,new_name)`, returning a portable
 status. Translated SET_TSK_NAME also supports empty-name caller-root lookup.
 The report's `task_rename_policy` describes retained state and ownership; see
 [task renaming](task-renaming.md).
+`tasks.set_attribute(name,attribute,value)` applies one of nine checked policies;
+attribute can be a named TSK key or package INTEGER ID. Program.task_settings and
+Program.task_trace return detached copies. `ProjectInstance.trace_snapshot()`
+provides the document exported by the project CLI's `--trace-out`. See
+[task attributes and tracing](task-attributes.md).
 
 COMPARE_FILE and PRINT_FILE require the explicit files service. Both backends
 expose `read_named(name)` returning `(status, detached_bytes_or_None)`. The

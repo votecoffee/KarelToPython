@@ -180,6 +180,10 @@ RUN_TASK queues a registered Program; PAUSE_TASK and PAUSE PROGRAM[n] request
 pause at a checkpoint. CONT_TASK and CONTINUE PROGRAM[n] continue it. STOP and
 ABORT terminate and unwind the affected stack. Numeric task IDs follow binding
 order. The source-project loader binds in sorted filename order.
+Applied SET_TSK_ATTR/source-directive policies can order the next round by
+priority and give each turn a bounded checkpoint budget. Task IDs still follow
+binding order; time advances once per round. See
+[task policies and trace export](task-attributes.md).
 
 `scheduler.start(name)`, `step()`, `run(max_cycles=...)`, `continue_task(name)` and
 `stop(name)` support embedding. `run` returns when tasks have completed, stopped

@@ -1,5 +1,5 @@
 {
-  "version": "26.1024.135943",
+  "version": "26.1024.141821",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -151,5 +151,6 @@
   "program_metadata": "program_metadata_semantics.json",
   "remote_banks": "remote_bank_semantics.json",
   "register_transfers": "register_transfer_semantics.json",
-  "task_renaming": "task_rename_semantics.json"
+  "task_renaming": "task_rename_semantics.json",
+  "task_attributes": "task_attribute_semantics.json"
 }

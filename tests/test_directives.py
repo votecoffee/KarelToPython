@@ -108,9 +108,8 @@ class DirectiveBoundaryTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,code); self.assertEqual(caught.exception.filename,'directives.kl')
     def test_runtime_directives_stay_blocked(self):
         for item in ('%CMOSVARS','%CMOS2SHADOW','%SHADOWVARS','%UNINITVARS','%DEFGROUP=1',
-                     '%PRIORITY=20','%STACKSIZE=1000','%TIMESLICE=8','%NOABORT=ERROR',
-                     '%NOPAUSE=ERROR','%LOCKGROUP=1','%CRTDEVICE','%NOBUSYLAMP','%NOPAUSESHFT',
-                     '%TPMOTION','%DELAY=100','%INCLUDE KDOC','%BOGUS'):
+                     '%STACKSIZE=1000','%LOCKGROUP=1','%CRTDEVICE',
+                     '%DELAY=100','%INCLUDE KDOC','%BOGUS'):
             with self.subTest(item=item): self.reject(item,'E_DIRECTIVE')
     def test_missing_environment_name(self): self.reject('%ENVIRONMENT','E_DIRECTIVE_SYNTAX')
     def test_paths_extensions_lists_and_assignments_are_blocked(self):

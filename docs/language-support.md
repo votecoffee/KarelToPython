@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1024.135943. Acceptance is specific to
+This is the supported prototype subset as of 26.1024.141821. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -13,7 +13,7 @@ internally and in the historical semantic notes.
 
 | Area | Supported subset | Limits |
 | --- | --- | --- |
-| Source | Case-insensitive ASCII identifiers, comments, ENVIRONMENT/COMMENT/ALPHABETIZE/NOLOCKGROUP metadata, bounded complete-token continuations, doubled apostrophes | Environment requirements do not load definitions or grant extra calls. No arbitrary/runtime directives, token fusion, backslash escapes or multiline string literals. |
+| Source | Case-insensitive ASCII identifiers, comments, four metadata directives and seven task policy directives, bounded complete-token continuations, doubled apostrophes | Environment requirements do not load definitions or grant extra calls. Other directives, token fusion, backslash escapes and multiline string literals remain blocked. |
 | Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR calls must protect active counters through transitive write checks; read-only counter references allowed; initialized counters clear on all scope exits. Formal/nonlocal counters in parameterized routines require fresh locals. SELECT uses first matching case and errors without a match/ELSE. |
 | Labels | Restricted labels and unconditional GOTO | Jumps within the same block or to an ancestor; no arbitrary entry into nested control blocks. |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; existing FOR rules; typed FROM project/callback linkage; no native external ABI or local TYPE sections. |
@@ -60,6 +60,7 @@ internally and in the historical semantic notes.
 | FILE | OPEN/CLOSE, text/binary READ/WRITE, byte cursors/counts/status, CHECK_NAME and MOVE_FILE | MemoryFiles or explicit DirectoryFiles root; copy/delete/rename/list, preflighted RD/FR movement, ATR_UF binary, byte order, EOL and interactive flush; explicit routing without native device behavior. |
 | PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queues and GET_VAR/SET_VAR logical queue transfers | One-based nodes, explicit buffer capacity/rebinding, portable status/sequence conventions and no native layout claim. |
 | Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |
+| Task policies and traces | SET_TSK_ATTR, seven source directives, priority-ordered weighted turns, request-origin masks and bounded source checkpoint tracing | Nine checked settings, stable numeric IDs, explicit shift/TP-enable notifications and atomic CLI trace export; capability-only lamp/motion flags; no native CPU timing or preemption. |
 | Robot model | MIRROR, extended pose metadata, JOINT2POS/POS2JOINT, IN_RANGE/J_IN_RANGE and CHECK_EPOS | Explicit right-handed reflection convention, supplied callbacks/limits or standard-DH models with bounded IK, explicit groups/frames/tools and external joints; no inferred robot context or native reachability claim. |
 
 See the [offline service matrix and guide](offline-services.md) for the complete
@@ -87,6 +88,8 @@ The [calendar clock guide](calendar-clock.md) covers explicit GET_TIME/SET_TIME,
 elapsed-time adapters and frozen datetime snapshots.
 The [task inspection guide](task-inspection.md) covers GET_TSK_INFO lookup,
 live execution data, portable constants and supplied attributes.
+The [task attribute guide](task-attributes.md) covers applied settings, directives,
+cooperative scheduling, mask effects and CLI trace export.
 The [file comparison and printing guide](file-comparison.md) covers COMPARE_FILE
 and PRINT_FILE with explicit backends, bounded reports and recorded/callback output.
 The [kinematic assignment guide](kinematic-assignments.md) covers model-backed

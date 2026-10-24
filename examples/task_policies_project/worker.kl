@@ -1,0 +1,7 @@
+PROGRAM WORKER
+VAR count: INTEGER
+BEGIN
+  count=1
+  DELAY 20
+  count=2
+END WORKER

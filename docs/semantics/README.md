@@ -41,6 +41,7 @@ are kept outside public documentation.
 | --- | --- |
 | Explicit-frame position checks | [position_check_semantics.json](position_check_semantics.json) |
 | Task binding renaming | [task_rename_semantics.json](task_rename_semantics.json) |
+| Applied task attributes, directives and traces | [task_attribute_semantics.json](task_attribute_semantics.json) |
 | Error history queries | [error_history_semantics.json](error_history_semantics.json) |
 | Collection persistence | [collection_persistence_semantics.json](collection_persistence_semantics.json) |
 | Pose decomposition | [pose_decomposition_semantics.json](pose_decomposition_semantics.json) |

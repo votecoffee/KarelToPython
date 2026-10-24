@@ -83,7 +83,7 @@ host configuration and are not serialized by ExecutionContext value snapshots.
 | TSK_ROUTNAME | Active routine name, or empty outside routines |
 | TSK_LINENUM | Most recent source checkpoint line; zero before execution |
 | TSK_STACK | Number of active logical routine frames, not an allocated byte size |
-| TSK_TIMESLIC | Scheduler quantum in milliseconds, or zero for synchronous registry execution |
+| TSK_TIMESLIC | Applied slice value, otherwise scheduler quantum in milliseconds or zero for synchronous registry execution |
 
 The task state values are PG_RUNACCEPT (ready), PG_RUNNING, PG_PAUSED,
 PG_ABORTED and PG_ABORTING (an undelivered abort request). Pythonic extensions
@@ -102,16 +102,18 @@ additional active call frame merely by being retained.
 
 ## Supplied attributes and portable constants
 
-The remaining documented attributes require explicit INTEGER metadata on
+When no applied policy supplies a value, these attributes require INTEGER metadata on
 `bind(name,program,attributes={...})`: TSK_HOLDCOND, TSK_LOCKGRP, TSK_MCTL,
 TSK_NOABORT, TSK_NOBUSY, TSK_NOPAUSE, TSK_NUMCLDS, TSK_PARENT, TSK_PAUSESFT,
 TSK_PRIORITY, TSK_STEP, TSK_TPMOTION, TSK_TRACE and TSK_TRACELEN. Missing metadata
 returns status 3. Binding validates the entire mapping before replacing a task
-or its metadata. Live attributes cannot be overridden.
+or its metadata. Dynamic execution fields cannot be supplied as bind metadata.
 
 Metadata is informational: a priority value does not change scheduling, and
 TSK_NOABORT does not suppress abort requests. Use the existing handler actions
-and task APIs to change modeled behavior. Parent and child relationships are not
+and task APIs to change modeled behavior. SET_TSK_ATTR and seven task directives
+now apply explicit policies, overriding matching informational reads; see
+[task attributes](task-attributes.md). Parent and child relationships are not
 inferred from synchronous or scheduled launch history.
 
 All named TSK_/PG_ constants are package INTEGER identifiers, independent of
@@ -119,7 +121,9 @@ native controller enums. TSK attributes are 1..21 in the manual's listed order;
 state IDs are 100..108 in the order recorded by the report; program types
 PG_NOT_EXEC/PG_MNEMONIC/PG_AR_KAREL are 200/201/202. `rt.TASK_CONSTANTS` and
 `task_inspection_policy.constants` expose the full mapping. Use these named
-constants in portable source; predefined names cannot be redefined.
+constants in portable source; predefined names cannot be redefined. Four portable
+request-mask bits are also named: PG_NP_ERROR=1, PG_NP_CMD=2, PG_NP_END=4 and
+PG_NP_TPENB=8, with their separate uses documented in the task attribute guide.
 
 The [two-task example](../examples/task_inspection_project/main.kl) inspects a
 worker before launch, during pause and after completion:

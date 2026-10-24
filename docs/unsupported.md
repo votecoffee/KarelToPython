@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 149 have a registered translation and 185 do not.
+Currently, 150 have a registered translation and 184 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -18,11 +18,11 @@ they are boundaries rather than promises to accept every such source form later.
 ## Language and source forms
 
 - Directives other than `%ALPHABETIZE`, `%COMMENT`, `%ENVIRONMENT` and
-  `%NOLOCKGROUP`: `%CMOS2SHADOW`, `%CMOSVARS`, `%CRTDEVICE`, `%DEFGROUP`, `%DELAY`,
-  `%INCLUDE`, `%LOCKGROUP`, `%NOABORT`, `%NOBUSYLAMP`, `%NOPAUSE`, `%NOPAUSESHFT`,
-  `%PRIORITY`, `%SHADOWVARS`, `%STACKSIZE`, `%TIMESLICE`, `%TPMOTION`, `%UNINITVARS`.
-  Supported directives record metadata; environment files, include expansion,
-  storage placement and native task policies are not loaded or applied.
+  `%NOLOCKGROUP` and the seven [task policy directives](task-attributes.md):
+  `%CMOS2SHADOW`, `%CMOSVARS`, `%CRTDEVICE`, `%DEFGROUP`, `%DELAY`, `%INCLUDE`,
+  `%LOCKGROUP`, `%SHADOWVARS`, `%STACKSIZE`, `%UNINITVARS`. Environment files,
+  include expansion, native storage placement and native task policies are not
+  loaded or applied. Supported task policies have explicit offline effects.
 - Native motion statements: `MOVE TO`, `MOVE NEAR`, `MOVE AWAY`, `MOVE ABOUT`,
   `MOVE ALONG`, `MOVE AXIS`, `MOVE RELATIVE`; their `VIA`, motion `WITH`, `WHEN`
   and `UNTIL` clauses; motion ownership and hand control. `ATTACH`, `RELEASE`,
@@ -107,9 +107,11 @@ they are boundaries rather than promises to accept every such source form later.
 - Native STOP/RESUME motion behavior. Offline STOP is terminal; resume/continue
   acts on retained cooperative generators. Arbitrary start lines, motion flags
   and lock masks in task procedures remain outside their supported forms.
-- Writing native task policies with SET_TSK_ATTR; unsupported task attributes
-  require explicit informational metadata. SET_ATTR_PRG writes four documented
-  metadata fields and guards active tasks; it does not rewrite task policies.
+- Native task policy effects remain unavailable. SET_TSK_ATTR now has nine
+  [offline settings](task-attributes.md), including cooperative priority/slice
+  policies, request masks and bounded tracing. Other attributes remain read-only
+  or require explicit informational metadata. SET_ATTR_PRG retains its four
+  metadata writes and activity guards.
 - SET_TSK_NAME now has an [offline implementation](task-renaming.md), including
   stable task numbers and retained scheduler state. Native task naming rules and
   controller task identifiers remain unverified.
@@ -226,7 +228,7 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Teach-pendant programs and embedded registers (27)
+### Teach-pendant programs and embedded registers (29)
 
 - `AVL_POS_NUM`
 - `CLOSE_TPE`
@@ -234,7 +236,9 @@ does not assert a particular installed option or environment.
 - `CREATE_TPE`
 - `DEL_INST_TPE`
 - `GET_JPOS_TPE`
+- `GET_POS_FRM`
 - `GET_POS_TPE`
+- `GET_POS_TYP`
 - `GET_TPE_CMT`
 - `GET_TPE_JPOS_REG`
 - `GET_TPE_POS_REG`
@@ -342,7 +346,7 @@ does not assert a particular installed option or environment.
 - `PURGE_DEV`
 - `VOL_SPACE`
 
-### Motion and task management (9)
+### Motion and task management (8)
 
 - `CNCL_STP_MTN`
 - `LOCK_GROUP`
@@ -351,13 +355,10 @@ does not assert a particular installed option or environment.
 - `MOTION_CTL`
 - `RESET`
 - `SET_PERCH`
-- `SET_TSK_ATTR`
 - `UNLOCK_GROUP`
 
-### Geometry and collections (5)
+### Geometry and collections (3)
 
-- `GET_POS_FRM`
-- `GET_POS_TYP`
 - `INTSCT_VL_PL`
 - `NODE_SIZE`
 - `QUEUE_ATTACH`

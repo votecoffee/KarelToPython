@@ -261,8 +261,30 @@ class Parser:
         argument = None
         disposition = 'Offline metadata only; no task/group ownership'
         if content.upper() == '%NOLOCKGROUP': name = '%NOLOCKGROUP'
-        elif self.mode != 'pythonic' or name not in ('%ENVIRONMENT', '%COMMENT', '%ALPHABETIZE'):
+        elif self.mode != 'pythonic' or name not in ('%ENVIRONMENT', '%COMMENT', '%ALPHABETIZE',*rt.TASK_DIRECTIVES):
             self.error('E_DIRECTIVE', 'Directive has no implemented runtime mapping', token)
+        elif name in rt.TASK_DIRECTIVES:
+            if declarations_started: self.error('E_DIRECTIVE_POSITION','Task directives must precede declarations',token)
+            if any(row['name']==name for row in self.directive_metadata):
+                self.error('E_DIRECTIVE_DUPLICATE','Task directives cannot be repeated',token)
+            if name in rt.TASK_FLAG_DIRECTIVES:
+                if content.upper()!=name: self.error('E_DIRECTIVE_SYNTAX','Task flag directive accepts no arguments',token)
+            elif name in ('%NOABORT','%NOPAUSE'):
+                match=re.fullmatch(r'%[A-Za-z]+\s*=\s*([A-Za-z]+(?:\s*\+\s*[A-Za-z]+)*)',content)
+                if not match: self.error('E_DIRECTIVE_SYNTAX','Task mask requires named flags joined by +',token)
+                parts=[part.strip().upper() for part in match[1].split('+')]
+                masks={'ERROR':rt.TASK_MASKS['PG_NP_ERROR'],'COMMAND':rt.TASK_MASKS['PG_NP_CMD' if name=='%NOABORT' else 'PG_NP_END']}
+                if name=='%NOPAUSE': masks['TPENABLE']=rt.TASK_MASKS['PG_NP_TPENB']
+                if len(parts)!=len(set(parts)) or any(part not in masks for part in parts):
+                    self.error('E_DIRECTIVE_VALUE','Task mask contains an unknown or repeated flag',token)
+                argument=sum(masks[part] for part in parts)
+            else:
+                match=re.fullmatch(r'%[A-Za-z]+\s*=\s*([0-9]{1,10})',content)
+                if not match: self.error('E_DIRECTIVE_SYNTAX','Task numeric directive requires one unsigned INTEGER literal',token)
+                argument=int(match[1])
+                if not rt.valid_task_setting(rt.TASK_DIRECTIVES[name],argument):
+                    self.error('E_DIRECTIVE_VALUE','Task numeric directive exceeds its portable range',token)
+            disposition='Configure explicit offline task policy; no native scheduling, lamp or motion control'
         elif name == '%ENVIRONMENT':
             match = re.fullmatch(r'%ENVIRONMENT\s+([A-Za-z][A-Za-z_0-9]{0,35})', content, re.I)
             if not match: self.error('E_DIRECTIVE_SYNTAX', 'ENVIRONMENT requires one bare ASCII name of 1..36 characters; no paths or file loading', token)
@@ -931,6 +953,7 @@ class Emitter:
         self.indent, self.temporary = 0, 0
         self.current_routine = None
         self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        if mode=='pythonic' and any(row['name'] in rt.TASK_DIRECTIVES for row in program.directive_metadata): self.cooperative=True
         self.group_uses=[]
         self.using_scopes = []
         self.active_counters = set()
@@ -2992,6 +3015,7 @@ class Emitter:
         self.line(f'self._state = _rt.State({self.types!r}, {self.constants!r}, sleep=sleep, write=write, read=read, joint_axes=joint_axes, pose_tolerance=pose_tolerance, external_tolerance=external_tolerance, clock_us=clock_us, registers=registers, context=context)')
         self.line(f'self._state.program_name={self.program.name!r}')
         self.line('self._state.program=self')
+        if self.mode=='pythonic': self.line('_rt.configure_task(self._state,self.source_directives)')
         self.line('if len(self.source_groups)==1: self._state.robot_group=self.source_groups[0]')
         self.line('self._state.execution.variables.attach(self.source_program,self._state)')
         self.indent = 1
@@ -3029,6 +3053,17 @@ class Emitter:
         self.line('def service_requests(self):')
         self.indent = 2
         self.line('return tuple(request.copy() for request in self._state.service_requests)')
+        self.indent = 1
+        self.line()
+        self.line('@property')
+        self.line('def task_settings(self):')
+        self.indent = 2
+        self.line('return _rt.task_root(self._state)._task_settings.copy()')
+        self.indent = 1
+        self.line('@property')
+        self.line('def task_trace(self):')
+        self.indent = 2
+        self.line('return tuple(row.copy() for row in _rt.task_root(self._state)._task_trace)')
         self.indent = 1
         self.line()
         self.line('@property')
@@ -3075,7 +3110,7 @@ class Emitter:
             self.line('return _rt.resume_cooperative(self)'); self.indent=1
             self.line(f'@_rt._with_numeric_mode({self.mode!r})')
             self.line('def powerup(self):'); self.indent=2; self.line('return _rt.powerup_cooperative(self)'); self.indent=1
-            self.line('def pause(self):'); self.indent=2; self.line('self._state._pause_requested=True'); self.indent=1
+            self.line('def pause(self):'); self.indent=2; self.line("_rt.request_task_control(self._state,'PAUSE')"); self.indent=1
             self.line('def stop(self):'); self.indent=2; self.line('return _rt.stop_cooperative(self)'); self.indent=1
             self.line('@property'); self.line('def task_state(self):'); self.indent=2; self.line('return self._state.task_state'); self.indent=1
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
@@ -3707,12 +3742,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Live binding configuration only; no task bindings or suspended execution in value snapshots',
         boundary='Explicit offline registry/scheduler only; no host process rename, controller task IDs, module rename or native scheduling effect; strict mode remains future work',
         guide='docs/task-renaming.md',controller_validated=False)
+    report['task_attribute_policy']=dict(
+        procedure='SET_TSK_ATTR(task_name,attribute,value,status)',
+        attributes=dict(rt.TASK_SETTING_RANGES),masks=dict(rt.TASK_MASKS),
+        selection='Explicit case-insensitive binding or empty string for uniquely registered calling root; linked routines use caller, aliases share applied policy; foreign active scheduler writes reject',
+        status='Portable 0 success, 1 unknown task, 2 unknown attribute/invalid value, 3 read-only attribute or missing/ambiguous caller/foreign active scheduler',
+        scheduling='Explicit priority orders the next round stably; every runnable binding retains a turn. Time slice sets ceil(milliseconds/quantum_ms) checkpoints per turn, bounded at 1000; virtual clock still advances by one quantum per round',
+        requests='NOABORT error/command bits and NOPAUSE error/command/TP-enable bits suppress new requests by origin; PAUSESFT controls explicit shift notifications; bare PAUSE/ABORT, runtime failures and host stop bypass policy',
+        trace='TRACE enables caller-rooted bounded checkpoint records with source program/routine/line and monotonic sequence; TRACELEN 1..10000 trims newest records, default 1000; copied Program.task_trace, reset at begin',
+        flags='NOBUSY and TPMOTION are readable capability metadata only; no physical lamp or motion effects',
+        lifecycle='Applied settings persist on the Program across runs/renames, override informational bind metadata, and are omitted with live trace/bindings from value snapshots; setters do not drive tasks',
+        boundary='Portable cooperative policies, not native preemption, CPU time, lamp/pendant acquisition, motion, lock ownership or controller status enums; strict remains future work',
+        guide='docs/task-attributes.md',controller_validated=False)
     report['task_inspection_policy']=dict(
         procedure='GET_TSK_INFO(task_name,task_no,attribute,value_int,value_str,status)',
         constants=dict(rt.TASK_CONSTANTS),
         selection='Name lookup when task_no is uninitialized or zero; otherwise one-based registry insertion order, shared with numeric task controls; only selected identity/value outputs change on success',
         live='Program/routine names from active caller-rooted frames, latest source checkpoint line, logical routine-frame count, execution/program state and scheduler quantum',
-        metadata='Other documented TSK_* INTEGER attributes require explicit bind(name,program,attributes={...}); metadata is informational and does not change task behavior',
+        metadata='Applied task_attribute_policy settings override informational bind metadata; other documented TSK_* INTEGER attributes require explicit bind(name,program,attributes={...})',
         status='Portable 0 success, 1 unknown task, 2 invalid attribute/negative number, 3 unsupplied metadata; failure preserves identity and value outputs',
         boundary='Portable constants and additional completed/stopped/failed/waiting states; no native enum, stack byte size, priority/interrupt/motion behavior or controller acceptance; task bindings and continuations are not serialized',
         guide='docs/task-inspection.md',controller_validated=False)
@@ -3860,13 +3907,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No XYZWPREXT/JOINTPOS/VECTOR transform operands, automatic parameter/RETURN coercion, external axes, UFRAME/UTOOL discovery, kinematics or native type/Euler/configuration equivalence; strict remains future work',
         controller_validated=False)
     report['directive_policy'] = dict(
-        allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP'],
-        scope='Syntax-checked top-level metadata only; preserve source order, raw text and decoded values; generated Program.source_directives contains immutable normalized pairs',
+        allowed=['%ALPHABETIZE','%COMMENT','%ENVIRONMENT','%NOLOCKGROUP',*rt.TASK_DIRECTIVES],
+        scope='Syntax-checked top-level directives; seven task directives initialize task_attribute_policy before declarations; preserve source order, raw text and decoded values as immutable normalized Program.source_directives pairs',
         environment='One bare ASCII letter-starting name, 1..36 characters, normalized uppercase; record requirements without loading definitions, files, modules or controller facilities; source symbols/calls still checked individually',
         comment='One decoded ASCII literal of at most 16 characters before CONST/TYPE/VAR/routines; preserve literal comment/ampersand characters and doubled apostrophes; duplicate attributes rejected',
         alphabetize='Record display-order request; offline storage/snapshot order remains declaration order',
         required_environments=list(dict.fromkeys(row['argument'] for row in report['directive_metadata'] if row['name'] == '%ENVIRONMENT')),
-        boundary='No unknown/runtime directives, includes, binary environment loading, implicit built-ins, task/group ownership, persistence, scheduler or device-default mapping; strict remains future work',
+        boundary='Other directives, includes, binary environment loading, implicit built-ins, native task/group ownership, native storage, preemption and device defaults remain blocked; strict remains future work',
         controller_validated=False)
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
                                scope='Practical Python numeric, typed input, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')

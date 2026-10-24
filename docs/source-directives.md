@@ -3,6 +3,8 @@
 Since 0.68.0, Pythonic mode accepts a small set of top-level directives as
 syntax-checked metadata. This lets otherwise supported code retain its environment
 requirements and program attributes when translated.
+Version 26.1024.141821 adds seven task directives that initialize applied offline
+policies, described in [task attributes](task-attributes.md).
 
 ```karel
 PROGRAM DIRECTIVES
@@ -51,6 +53,13 @@ unsupported directive continuation.
 | `%COMMENT = 'text'` | Record the decoded program comment without changing runtime state. |
 | `%ALPHABETIZE` | Record the request to display static variables alphabetically. Offline storage and snapshots keep declaration order. |
 | `%NOLOCKGROUP` | Retain the existing offline metadata behavior without acquiring task/group ownership. |
+| `%PRIORITY = n` | Priority 1..99 orders the next cooperative round. |
+| `%TIMESLICE = n` | Slice 1..1000 ms determines the bounded checkpoint budget per turn. |
+| `%NOABORT = ERROR + COMMAND` | Unique selected flags suppress new error/command abort requests. |
+| `%NOPAUSE = ERROR + COMMAND + TPENABLE` | Unique selected flags suppress new pause requests by origin. |
+| `%NOBUSYLAMP` | Set readable TSK_NOBUSY capability metadata. |
+| `%NOPAUSESHFT` | Set TSK_PAUSESFT=0 for explicit shift notifications. |
+| `%TPMOTION` | Set readable TSK_TPMOTION capability metadata. |
 
 An environment name must start with an ASCII letter, then contain only ASCII
 letters, digits or underscores, with at most 36 characters. Custom names and
@@ -94,8 +103,10 @@ length/header placement and ENVIRONMENT definition loading. Metadata preservatio
 the portable name subset, duplicate policy and unchanged offline storage order
 are explicit implementation choices.
 
-Persistence, scheduling, task/group behavior, device defaults and INCLUDE still
-need runtime mappings. Their directives remain blocked. There is no native
-environment loading, controller attribute write or controller validation.
+The seven task directives require placement before declarations and reject
+duplicates. They configure the portable policies in the task attribute guide;
+they do not load native task/group ownership or native scheduler behavior.
+Native persistence/storage, device defaults, INCLUDE and other directives remain
+blocked. There is no native environment loading or controller validation.
 Strict mode remains a future milestone and retains its previous internal directive
 restrictions.

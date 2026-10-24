@@ -135,8 +135,10 @@ class AbortTranslationTests(unittest.TestCase):
     def test_abort_task_requires_explicit_registered_target(self):
         program,_=compile_program("ABORT_TASK('T',ON,OFF,value)")
         self.assertEqual(program.run()['VALUE'],1)
-    def test_noabort_directive_blocked(self):
-        with self.assertRaises(TranslationError): compile_program(prefix='%NOABORT=ERROR')
+    def test_noabort_directive_preserves_strict_boundary_and_bare_abort(self):
+        with self.assertRaises(TranslationError): compile_program(prefix='%NOABORT=ERROR',_translator=legacy_translate)
+        program,_=compile_program(prefix='%NOABORT=ERROR+COMMAND')
+        with self.assertRaises(rt.KarelAbort): program.run()
     def test_global_for_abort_blocked(self):
         with self.assertRaises(TranslationError) as caught: compile_program('FOR value=1 TO 3 DO ABORT ENDFOR', _translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_FOR_COUNTER')

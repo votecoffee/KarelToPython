@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1024.135943**. It is a
+tool are named **karel2py**. The current implementation is **26.1024.141821**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -259,6 +259,8 @@ initial state, portable statuses and the generated script's JSON context.
 ENVIRONMENT, COMMENT and ALPHABETIZE directives are retained as checked metadata
 alongside NOLOCKGROUP. Environment requirements are recorded without loading
 definitions or enabling extra facilities. See [source directives](docs/source-directives.md).
+Seven task directives also initialize portable priority, time-slice and request
+policies; see [task attributes and traces](docs/task-attributes.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with
@@ -318,6 +320,10 @@ live state, active linked routines, checkpoints and supplied attributes. See
 [task inspection](docs/task-inspection.md) and its runnable two-task project.
 SET_TSK_NAME and host task rename APIs retain numeric task order, paused/waiting
 execution and scheduler metadata; see [task renaming](docs/task-renaming.md).
+SET_TSK_ATTR updates nine checked settings, with cooperative scheduling, request
+masks and bounded checkpoint traces. The project CLI supports `--trace-out` for
+atomic trace JSON export, including partial traces on failure; see
+[task attributes](docs/task-attributes.md).
 
 LOAD_STATUS checks attached code and any known global initialization.
 GET_ATTR_PRG/SET_ATTR_PRG read explicit program metadata and update owner, comment

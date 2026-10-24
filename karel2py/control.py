@@ -210,8 +210,13 @@ def handler_action(state,action,line=None):
     else: raise rt().KarelRuntimeError('Unknown handler action',line)
 
 
-def request_task_control(target,action,line=None):
+def request_task_control(target,action,line=None,*,origin='command'):
     """Queue a request on a live task; terminal/inactive aborts have no frames."""
+    if action not in ('PAUSE','ABORT') or origin not in ('command','error','tpenable','shift'):
+        raise rt().KarelRuntimeError('Unsupported pending task request or origin',line)
+    target=task_root(target)
+    from .scheduling import task_request_suppressed
+    if task_request_suppressed(target,action,origin): return
     if target.task_state in ('stopped','aborted'): return
     if action=='PAUSE': target._pause_requested=True; return
     if action!='ABORT': raise rt().KarelRuntimeError('Unsupported pending task request',line)
@@ -229,7 +234,8 @@ def named_task_control(state,name,args,line=None):
     action='PAUSE' if name=='PAUSE_TASK' else 'ABORT'
     args[-1].set(0,line)
     if target._state is task_root(state):
-        yield from (runtime.pause_execution if action=='PAUSE' else runtime.abort_execution)(state,line)
+        request_task_control(target._state,action,line)
+        yield from runtime.checkpoint(state,line,force_pause=action=='PAUSE')
     else: request_task_control(target._state,action,line)
 
 
@@ -272,7 +278,7 @@ def post_error(state,code,parameter,cause,severity,line=None,*,severity_name=Non
     targets=[root]
     if not local: targets.extend(program._state for program in state.execution.tasks.tasks.values() if program._state is not root and program._state.task_state in ('running','waiting','paused'))
     for target in targets:
-        if severity: request_task_control(target,'PAUSE' if severity==1 else 'ABORT',line)
+        if severity: request_task_control(target,'PAUSE' if severity==1 else 'ABORT',line,origin='error')
     previous=state._current_error; state._current_error=record
     try: yield from runtime.checkpoint(state,line)
     finally: state._current_error=previous

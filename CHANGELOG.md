@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1024.141821 - 2026-10-24
+
+- Add SET_TSK_ATTR with nine checked task settings and seven source directives
+  for priority, slices, request masks and readable capability flags.
+- Apply stable priority ordering and bounded checkpoint budgets in cooperative
+  rounds while retaining virtual time, task IDs, rename state and step limits.
+- Distinguish command/error/explicit pendant and shift requests; retain bare
+  PAUSE/ABORT, runtime failures, pending-request and error-history behavior.
+- Add bounded caller-rooted source tracing, detached host observations and atomic
+  project CLI --trace-out export, including partial traces on failures.
+- Add a linked policy example and scheduling, mask, source, tracing and CLI
+  regressions; refresh the remaining-support inventory and current guides.
+
 ## 26.1024.135943 - 2026-10-24
 
 - Publish a comprehensive remaining-support inventory, including every audited

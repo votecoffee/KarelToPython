@@ -88,6 +88,12 @@ class ProjectInstance:
 
     def snapshot(self): return self.scheduler.snapshot()
 
+    def trace_snapshot(self):
+        return {'schema':'karel2py.task-trace.v1','version':__version__,
+                'tasks':{name:{'program':program.source_program,'state':program.task_state,
+                               'settings':program.task_settings,'trace':list(program.task_trace)}
+                         for name,program in self.scheduler.tasks.items()}}
+
 
 def translate_project(sources,*,array_shapes=None):
     return Project(sources,array_shapes=array_shapes)
@@ -111,14 +117,32 @@ def main(argv=None):
     parser.add_argument('--context',type=Path)
     parser.add_argument('--filesystem-root',type=Path)
     parser.add_argument('--state-out',type=Path)
+    parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')
     parser.add_argument('--max-cycles',type=int,default=100000)
     args=parser.parse_args(argv)
+    if args.trace_out:
+        if not args.entry: parser.error('--trace-out requires --entry')
+        target=args.trace_out.resolve()
+        inputs=[path.resolve() for path in args.directory.glob('*') if path.suffix.lower()=='.kl']
+        inputs.extend(path.resolve() for path in (args.context,args.state_out) if path is not None)
+        if target in inputs: parser.error('--trace-out must differ from source, context and state paths')
     print(f'KarelToPython {__version__}',file=sys.stderr)
     project=load_project(args.directory)
     context=rt.ExecutionContext.load(args.context) if args.context else rt.ExecutionContext()
     if args.filesystem_root: context.files=rt.DirectoryFiles(args.filesystem_root)
     instance=project.instantiate(context=context)
-    result=instance.run(args.entry,max_cycles=args.max_cycles) if args.entry else {'programs':sorted(project.classes),'linked':True}
+    def save_trace():
+        from .storage import atomic_bytes
+        payload=(json.dumps(instance.trace_snapshot(),indent=2,allow_nan=False)+'\n').encode('utf-8')
+        atomic_bytes(args.trace_out,payload)
+    try:
+        result=instance.run(args.entry,max_cycles=args.max_cycles) if args.entry else {'programs':sorted(project.classes),'linked':True}
+    except BaseException as failure:
+        if args.trace_out:
+            try: save_trace()
+            except Exception as write_error: failure.add_note('Task trace export failed: '+str(write_error))
+        raise
+    if args.trace_out: save_trace()
     if args.state_out: context.save(args.state_out)
     print(json.dumps(result,indent=2))
     return 0

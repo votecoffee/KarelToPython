@@ -1,0 +1,27 @@
+PROGRAM MAIN
+%PRIORITY=20
+%TIMESLICE=2
+%NOABORT=ERROR
+%NOPAUSE=ERROR
+%NOBUSYLAMP
+%NOPAUSESHFT
+%TPMOTION
+VAR task_name,text: STRING[16]
+    task_no,value,status,done: INTEGER
+BEGIN
+  SET_TSK_ATTR('',TSK_TRACE,1,status)
+  SET_TSK_ATTR('',TSK_TRACELEN,4,status)
+  SET_TSK_ATTR('WORKER',TSK_PRIORITY,10,status)
+  SET_TSK_ATTR('WORKER',TSK_TIMESLIC,3,status)
+  SET_TSK_ATTR('WORKER',TSK_NOABORT,PG_NP_ERROR+PG_NP_CMD,status)
+  RUN_TASK('WORKER',0,FALSE,FALSE,0,status)
+  DELAY 5
+  ABORT_TASK('WORKER',TRUE,FALSE,status)
+  POST_ERR(7,'authored task-policy example',0,2)
+  DELAY 40
+  task_name='WORKER'
+  text='retained'
+  task_no=0
+  GET_TSK_INFO(task_name,task_no,TSK_NOABORT,value,text,status)
+  done=1
+END MAIN

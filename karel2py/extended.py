@@ -25,7 +25,7 @@ def fail(message, line=None): raise runtime().KarelRuntimeError(message,line)
 def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
-COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK'}
+COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
 PROCEDURES = {
     'LOAD_STATUS': (S,arg('BOOLEAN','o'),arg('BOOLEAN','o')),
     'GET_ATTR_PRG': (S,I,OI,OS,OI), 'SET_ATTR_PRG': (S,I,I,S,OI),
@@ -50,6 +50,7 @@ PROCEDURES = {
     'GET_TPE_PRM': (I,OI,OI,arg('REAL','o'),OS,OI),
     'GET_TSK_INFO': (arg('STRING','r'),arg('INTEGER','r'),I,OI,OS,OI),
     'SET_TSK_NAME': (S,S,OI),
+    'SET_TSK_ATTR': (S,I,I,OI),
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
@@ -1109,6 +1110,9 @@ class TaskRegistry:
     def rename(self,old_name,new_name):
         from .scheduling import rename_task
         return rename_task(self,old_name,new_name)
+    def set_attribute(self,name,attribute,value):
+        from .scheduling import set_task_attribute
+        return set_task_attribute(self,name,attribute,value)
 
 
 class KarelPause(RuntimeError):
@@ -1176,6 +1180,9 @@ def condition_control(state,operation,number,line=None):
 
 def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
     rt=runtime(); state.tick(line)
+    if not _defer_control:
+        from .scheduling import record_task_trace
+        record_task_trace(state,line)
     # A library invocation owns its locals, while its caller still owns the
     # running task. Scan that task and honor its pause requests inside the call.
     parent=state._budget_parent
@@ -1422,6 +1429,10 @@ class ExecutionContext:
         if name=='SET_TSK_NAME':
             from .scheduling import rename_task
             args[2].set(rename_task(self.tasks,args[0],args[1],caller=state,line=line),line)
+            return
+        if name=='SET_TSK_ATTR':
+            from .scheduling import set_task_attribute
+            args[3].set(set_task_attribute(self.tasks,args[0],args[1],args[2],caller=state,line=line),line)
             return
         if name=='ERR_DATA':
             from .control import read_error_data
