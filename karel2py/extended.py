@@ -49,6 +49,7 @@ PROCEDURES = {
     'IO_MOD_TYPE': (I,I,OI,OI),
     'GET_TPE_PRM': (I,OI,OI,arg('REAL','o'),OS,OI),
     'GET_TSK_INFO': (arg('STRING','r'),arg('INTEGER','r'),I,OI,OS,OI),
+    'SET_TSK_NAME': (S,S,OI),
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
@@ -1105,6 +1106,9 @@ class TaskRegistry:
     def bind(self,name,program,*,attributes=None):
         from .scheduling import bind_task
         bind_task(self,name,program,attributes)
+    def rename(self,old_name,new_name):
+        from .scheduling import rename_task
+        return rename_task(self,old_name,new_name)
 
 
 class KarelPause(RuntimeError):
@@ -1415,6 +1419,10 @@ class ExecutionContext:
         if name=='GET_TSK_INFO':
             from .scheduling import get_task_info
             return get_task_info(state,args,line)
+        if name=='SET_TSK_NAME':
+            from .scheduling import rename_task
+            args[2].set(rename_task(self.tasks,args[0],args[1],caller=state,line=line),line)
+            return
         if name=='ERR_DATA':
             from .control import read_error_data
             return read_error_data(state,args,line)

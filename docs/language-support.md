@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1024.133929. Acceptance is specific to
+This is the supported prototype subset as of 26.1024.135943. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

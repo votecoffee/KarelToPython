@@ -82,6 +82,37 @@ def get_task_info(state,arguments,line=None):
     target.set(value,line);status.set(0,line)
 
 
+def rename_task(registry,old_name,new_name,*,caller=None,line=None):
+    """Rename one binding in place without changing its numeric slot or Program."""
+    runtime=rt()
+    old_name=runtime.ascii_string(old_name,line).upper()
+    new_name=runtime.ascii_string(new_name,line).upper()
+    if not new_name or len(new_name)>254: return 2
+    if not old_name:
+        if caller is None: return 3
+        root=runtime.task_root(caller)
+        matches=[name for name,program in registry.tasks.items() if program._state is root]
+        if len(matches)!=1: return 3
+        old_name=matches[0]
+    if old_name not in registry.tasks: return 1
+    if old_name==new_name: return 0
+    program=registry.tasks[old_name]
+    # A second registry cannot change an active scheduler's identity by alias.
+    owner=program._state._scheduler
+    if owner is not None and owner is not registry: return 3
+    mappings=[registry.tasks,registry.attributes]
+    if isinstance(registry,TaskScheduler): mappings.extend((registry.waiting,registry.errors))
+    if any(new_name in mapping for mapping in mappings): return 2
+    for mapping in mappings:
+        if old_name in mapping:
+            rows=[(new_name if name==old_name else name,value) for name,value in mapping.items()]
+            mapping.clear();mapping.update(rows)
+    batch=getattr(registry,'_step_names',None)
+    if batch is not None:
+        batch[:]=[new_name if name==old_name else name for name in batch]
+    return 0
+
+
 class EventBank:
     """Broadcast event generations; every consumer keeps its own cursor."""
     def __init__(self,initial=None):
@@ -155,8 +186,9 @@ class TaskScheduler:
         if type(quantum_ms) is not int or not 1<=quantum_ms<=1000: raise ValueError('Scheduler quantum must be in 1..1000 ms')
         if type(max_steps) is not int or max_steps<1: raise ValueError('Task step budget must be positive')
         self.tasks={}; self.attributes={}; self.quantum_us=quantum_ms*1000; self.max_steps=max_steps
-        self.now_us=0; self.waiting={}; self.errors={}; self._running=False
+        self.now_us=0; self.waiting={}; self.errors={}; self._running=False; self._step_names=None
     def bind(self,name,program,*,attributes=None): bind_task(self,name,program,attributes)
+    def rename(self,old_name,new_name): return rename_task(self,old_name,new_name)
     def start(self,name,*,paused=False):
         name=name.upper()
         if name not in self.tasks: raise KeyError(name)
@@ -185,31 +217,37 @@ class TaskScheduler:
         name=name.upper(); self.tasks[name].stop(); self.waiting.pop(name,None)
     def step(self):
         runtime=rt(); progressed=False
+        if self._step_names is not None: raise runtime.KarelRuntimeError('Scheduler cannot be stepped recursively')
         for bank in self._pulse_banks(): bank.poll_pulses()
-        for name,program in tuple(self.tasks.items()):
-            state=program._state
-            if state.task_state=='waiting':
-                deadline=self.waiting.get(name,0)
-                if self.now_us<deadline and not state._pause_requested and not state._abort_requested: continue
-                state.task_state='running'; self.waiting.pop(name,None)
-            if state.task_state!='running' or getattr(program,'_execution',None) is None: continue
-            progressed=True; state._driving=True
-            try:
-                with runtime._numeric_scope('pythonic'): event=next(program._execution)
-                if type(event) is not dict: raise runtime.KarelRuntimeError('Invalid scheduler event')
-                if event['kind']=='pause': state.task_state='paused'
-                elif event['kind']=='sleep': self.waiting[name]=event['until']; state.task_state='waiting'
-                elif event['kind']!='timeslice': raise runtime.KarelRuntimeError('Unknown scheduler event')
-            except StopIteration:
-                program._execution=None; state.task_state='completed'; state._scheduler=None
-                if getattr(state,'_scheduler_clock',False): state._clock_us=None; state._scheduler_clock=False
-            except BaseException as exc:
-                if getattr(program,'_execution',None) is not None: program._execution.close(); program._execution=None
-                state.task_state='stopped' if isinstance(exc,runtime.KarelStop) else 'aborted' if isinstance(exc,runtime.KarelAbort) else 'failed'
-                state._scheduler=None
-                if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
-                self.errors[name]=exc; raise
-            finally: state._driving=False
+        names=list(self.tasks); self._step_names=names
+        try:
+            for slot in range(len(names)):
+                name=names[slot]; program=self.tasks[name]
+                state=program._state
+                if state.task_state=='waiting':
+                    deadline=self.waiting.get(name,0)
+                    if self.now_us<deadline and not state._pause_requested and not state._abort_requested: continue
+                    state.task_state='running'; self.waiting.pop(name,None)
+                if state.task_state!='running' or getattr(program,'_execution',None) is None: continue
+                progressed=True; state._driving=True
+                try:
+                    with runtime._numeric_scope('pythonic'): event=next(program._execution)
+                    name=names[slot]
+                    if type(event) is not dict: raise runtime.KarelRuntimeError('Invalid scheduler event')
+                    if event['kind']=='pause': state.task_state='paused'
+                    elif event['kind']=='sleep': self.waiting[name]=event['until']; state.task_state='waiting'
+                    elif event['kind']!='timeslice': raise runtime.KarelRuntimeError('Unknown scheduler event')
+                except StopIteration:
+                    program._execution=None; state.task_state='completed'; state._scheduler=None
+                    if getattr(state,'_scheduler_clock',False): state._clock_us=None; state._scheduler_clock=False
+                except BaseException as exc:
+                    if getattr(program,'_execution',None) is not None: program._execution.close(); program._execution=None
+                    state.task_state='stopped' if isinstance(exc,runtime.KarelStop) else 'aborted' if isinstance(exc,runtime.KarelAbort) else 'failed'
+                    state._scheduler=None
+                    if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
+                    self.errors[names[slot]]=exc; raise
+                finally: state._driving=False
+        finally: self._step_names=None
         self.now_us+=self.quantum_us
         deadlines=[*self.waiting.values(),*self._pulse_deadlines()]
         if not progressed and deadlines: self.now_us=max(self.now_us,min(deadlines))

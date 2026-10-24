@@ -18,6 +18,8 @@ Otherwise the positive task_no selects a registered task and the call writes
 its uppercase binding name into task_name. Numbering follows the current
 one-based registry insertion order, the same order used by numeric task control.
 Rebinding an existing name retains its slot.
+SET_TSK_NAME also retains that slot while changing the binding name and moving
+its metadata and scheduler state; see [task renaming](task-renaming.md).
 
 TSK_PROGNAME and TSK_ROUTNAME write only value_str. Other attributes write only
 value_int. Unused value outputs retain their previous state. STRING results

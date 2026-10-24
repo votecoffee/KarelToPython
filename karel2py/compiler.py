@@ -3699,6 +3699,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         status='Portable 0 success, 1 missing input, 3 open/busy input; invalid context/path/ASCII/report capacity or callback errors raise; prior completed print callbacks remain effective',
         boundary='No native comparison/report/alignment/offset encoding, printer/device discovery, asynchronous execution or controller acceptance; strict remains future work',
         guide='docs/file-comparison.md',controller_validated=False)
+    report['task_rename_policy']=dict(
+        procedure='SET_TSK_NAME(old_name,new_name,status)',
+        identity='Case-insensitive registry binding names; empty old_name selects the uniquely registered calling root, including linked routines; preserve numeric slot, source module and namespaces',
+        retention='Rename task/attribute/waiting/error keys in place; preserve Program, generator, task state, wait deadline and scheduler iteration; aliases are separate bindings',
+        status='Portable 0 success, 1 unknown old name, 2 empty/oversized new name or collision, 3 unavailable/ambiguous caller or active task owned by another registry',
+        persistence='Live binding configuration only; no task bindings or suspended execution in value snapshots',
+        boundary='Explicit offline registry/scheduler only; no host process rename, controller task IDs, module rename or native scheduling effect; strict mode remains future work',
+        guide='docs/task-renaming.md',controller_validated=False)
     report['task_inspection_policy']=dict(
         procedure='GET_TSK_INFO(task_name,task_no,attribute,value_int,value_str,status)',
         constants=dict(rt.TASK_CONSTANTS),

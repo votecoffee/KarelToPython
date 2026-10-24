@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1024.133929**. It is a
+tool are named **karel2py**. The current implementation is **26.1024.135943**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -316,6 +316,8 @@ context JSON. See [calendar time](docs/calendar-clock.md).
 GET_TSK_INFO inspects explicitly registered tasks by name or number, including
 live state, active linked routines, checkpoints and supplied attributes. See
 [task inspection](docs/task-inspection.md) and its runnable two-task project.
+SET_TSK_NAME and host task rename APIs retain numeric task order, paused/waiting
+execution and scheduler metadata; see [task renaming](docs/task-renaming.md).
 
 LOAD_STATUS checks attached code and any known global initialization.
 GET_ATTR_PRG/SET_ATTR_PRG read explicit program metadata and update owner, comment

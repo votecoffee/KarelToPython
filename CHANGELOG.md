@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1024.135943 - 2026-10-24
+
+- Publish a comprehensive remaining-support inventory, including every audited
+  unimplemented built-in and partial language/service boundaries.
+- Add SET_TSK_NAME and host rename APIs with stable task numbers, caller-rooted
+  self lookup, collision preflight and preserved module/linkage identity.
+- Retain paused/waiting execution, deadlines, metadata and failure records across
+  scheduler renames, including changes during the current cooperative round.
+- Add an authored CLI project and registry, linked-call, scheduler, argument-order
+  and counter-protection regressions.
+
 ## 26.1024.133929 - 2026-10-24
 
 - Add CHECK_EPOS with complete Cartesian operands, explicit frame/tool values,

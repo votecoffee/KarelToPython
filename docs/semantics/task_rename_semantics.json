@@ -1,0 +1,40 @@
+{
+  "version": "26.1024.135943",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [555],
+      "topic": "SET_TSK_NAME input names, calling-task selection and status output"
+    }
+  ],
+  "implementation": {
+    "names": "Case-insensitive ASCII binding names, 1..254 characters; empty source old_name selects the uniquely registered caller root including FROM-linked routines",
+    "identity": "Rename in place without changing numeric task order, Program/source/module identity, namespaces, globals, linkage or execution state",
+    "scheduler": "Move attribute/waiting/error keys, retain delay deadlines, and update the current round's names so self/other rename neither duplicates nor loses a turn",
+    "statuses": "0 success/no-op; 1 unknown old name; 2 invalid new name/collision; 3 missing/ambiguous caller or foreign active scheduler ownership",
+    "preflight": "Check inputs, output reference and all destination keys before renaming; nonzero status leaves registry state unchanged",
+    "persistence": "Live task bindings and continuations remain excluded from JSON value snapshots"
+  },
+  "portable_choices": [
+    "Only the empty string selects self; space-containing names are literal",
+    "Explicit aliases are independent; ambiguous empty self lookup is rejected",
+    "Host rename APIs return portable statuses and have no implicit caller",
+    "Ready, active, paused, waiting and terminal task bindings can be renamed",
+    "Status values, name bounds and stable numeric numbering are offline contracts"
+  ],
+  "unresolved": [
+    "Native task name limits, identifier rules, alias behavior and error numbers",
+    "Native scheduling, group locks, task IDs, interrupts and controller execution",
+    "Strict mode and persistence of suspended execution"
+  ],
+  "verification": [
+    "tests/test_task_renaming.py",
+    "tests/test_task_inspection.py",
+    "tests/test_project_scheduler.py",
+    "examples/task_rename_project/main.kl",
+    "examples/task_rename_project/expected.json"
+  ],
+  "guide": "../task-renaming.md"
+}

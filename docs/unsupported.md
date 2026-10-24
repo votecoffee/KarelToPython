@@ -7,11 +7,13 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-At the start of this audit, 148 have a registered translation and 186 do not.
+Currently, 149 have a registered translation and 185 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
 below. The [support guide](language-support.md) describes accepted forms.
+Some exclusions, such as whole-array UNINIT, retain documented language rules;
+they are boundaries rather than promises to accept every such source form later.
 
 ## Language and source forms
 
@@ -108,6 +110,9 @@ below. The [support guide](language-support.md) describes accepted forms.
 - Writing native task policies with SET_TSK_ATTR; unsupported task attributes
   require explicit informational metadata. SET_ATTR_PRG writes four documented
   metadata fields and guards active tasks; it does not rewrite task policies.
+- SET_TSK_NAME now has an [offline implementation](task-renaming.md), including
+  stable task numbers and retained scheduler state. Native task naming rules and
+  controller task identifiers remain unverified.
 - Native program load/save/translate/backup/clear/restore, dynamic BYNAME calls,
   task discovery and implicit external linkage. Program catalogs and load status
   describe explicitly attached programs or supplied metadata.
@@ -337,7 +342,7 @@ does not assert a particular installed option or environment.
 - `PURGE_DEV`
 - `VOL_SPACE`
 
-### Motion and task management (10)
+### Motion and task management (9)
 
 - `CNCL_STP_MTN`
 - `LOCK_GROUP`
@@ -347,7 +352,6 @@ does not assert a particular installed option or environment.
 - `RESET`
 - `SET_PERCH`
 - `SET_TSK_ATTR`
-- `SET_TSK_NAME`
 - `UNLOCK_GROUP`
 
 ### Geometry and collections (5)

@@ -121,6 +121,10 @@ optional named INTEGER metadata. GET_TSK_INFO uses registered identity, live
 caller-rooted execution data or that explicit metadata. `rt.TASK_CONSTANTS` and
 the report's `task_inspection_policy` record the portable mappings. See
 [task inspection](task-inspection.md) for lookup/output rules and all attributes.
+Both task containers expose `rename(old_name,new_name)`, returning a portable
+status. Translated SET_TSK_NAME also supports empty-name caller-root lookup.
+The report's `task_rename_policy` describes retained state and ownership; see
+[task renaming](task-renaming.md).
 
 COMPARE_FILE and PRINT_FILE require the explicit files service. Both backends
 expose `read_named(name)` returning `(status, detached_bytes_or_None)`. The

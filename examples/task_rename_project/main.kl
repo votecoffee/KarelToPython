@@ -1,0 +1,17 @@
+PROGRAM MAIN
+VAR task_name,text: STRING[16]
+    task_no,value,status,paused: INTEGER
+BEGIN
+  SET_TSK_NAME('','CONTROLLER',status)
+  RUN_TASK('WORKER',0,FALSE,FALSE,0,status)
+  DELAY 20
+  SET_TSK_NAME('worker','RENAMED',status)
+  task_name='RENAMED'
+  task_no=0
+  GET_TSK_INFO(task_name,task_no,TSK_STATUS,value,text,status)
+  paused=value
+  CONT_TASK('RENAMED',status)
+  DELAY 20
+  GET_TSK_INFO(task_name,task_no,TSK_PROGNAME,value,text,status)
+  GET_TSK_INFO(task_name,task_no,TSK_STATUS,value,text,status)
+END MAIN

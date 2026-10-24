@@ -55,6 +55,7 @@ source-located error. Strict mode remains a future milestone.
 | `RESUME`, `UNPAUSE` | Clear a pending offline pause request | A suspended Program needs a host `resume()` or another registered task's CONT_TASK call. Native motion RESUME is not modeled. |
 | `RUN_TASK`, `PAUSE_TASK`, `CONT_TASK`, `ABORT_TASK` | Explicit `TaskRegistry` | TaskRegistry or deterministic TaskScheduler; no motion flags, lock masks or arbitrary start line. |
 | `GET_TSK_INFO` | Registered task lookup plus live execution data or supplied attributes | Directional name/number operands; selected output only; portable identifiers and statuses. |
+| `SET_TSK_NAME` | In-place task binding rename | Stable task numbers, caller-rooted self lookup, retained waits/attributes/errors and collision preflight; see [task renaming](task-renaming.md). |
 | `ROUTINE ... FROM library` | Python callback or source Project link | Typed references/results, shared imported globals; no native ABI. |
 | `MIRROR(point,plane,orient)` | Reflection about the plane frame's XZ plane | XYZWPREXT result; optional orientation reflection uses a documented proper-rotation convention. |
 | Extended pose assignments, `:`, `INV`, `FRAME`, `APPROACH`, `ORIENT` | Existing checked frame math plus external metadata | Three explicit external-axis REAL fields; propagation rules below. |
