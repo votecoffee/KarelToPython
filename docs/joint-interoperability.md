@@ -97,6 +97,8 @@ execution steps. These changes do not add a native frame-discovery service.
 Current-state queries, conversions, IN_RANGE and J_IN_RANGE all select the
 calling root task's group across linked routines. This prevents a library from
 querying one group's current state and converting it with another group's model.
+CHECK_EPOS uses this group too unless an explicit group is supplied; its
+[position check guide](position-checks.md) covers explicit frame/tool operands.
 Source declaration qualifiers retain their existing representation; there is no
 native grouped ABI or implicit model discovery.
 

@@ -13,6 +13,7 @@ source-located error. Strict mode remains a future milestone.
 
 | KAREL | Python implementation | Contract |
 | --- | --- | --- |
+| `CHECK_EPOS` | Explicit-frame RobotContext check | Supplied DH model or synchronous three-operand callback, selected group, portable 0/1 result and protected status; see [position checks](position-checks.md). |
 | `ERR_DATA` | Shared bounded ErrorHistory | Oldest/next/latest lookup, disjoint outputs, message capacities 40..254 and optional text/time metadata; see [error history](error-history.md). |
 | `CNV_CNF_STRG` | Explicit ConfigTextFormats group profiles | Selected flags/turns, optional caller-rooted group, portable missing-group status and persisted JSON; see [group CONFIG text](group-config-text.md). |
 | `GET_STR_REG`, `SET_STR_REG` | `StringRegisters` dictionary | Explicit count and ASCII capacity; reads copy and truncate to destination capacity. |

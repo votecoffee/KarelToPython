@@ -39,6 +39,7 @@ are kept outside public documentation.
 
 | Topic | Ledger |
 | --- | --- |
+| Explicit-frame position checks | [position_check_semantics.json](position_check_semantics.json) |
 | Error history queries | [error_history_semantics.json](error_history_semantics.json) |
 | Collection persistence | [collection_persistence_semantics.json](collection_persistence_semantics.json) |
 | Pose decomposition | [pose_decomposition_semantics.json](pose_decomposition_semantics.json) |

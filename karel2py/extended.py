@@ -8,6 +8,7 @@ import math
 import re
 import struct
 import fnmatch
+import inspect
 
 
 def runtime():
@@ -72,6 +73,7 @@ PROCEDURES = {
     'COPY_QUEUE': (arg('QUEUE_TYPE','r'),arg('INT_ARRAY','r'),I,I,arg('INT_ARRAY','r'),OI,OI),
     'SET_FILE_POS': (arg('FILE'),I,OI), 'BYTES_AHEAD': (arg('FILE'),OI,OI),
     'SET_FILE_ATR': (arg('FILE'),I,I), 'CLR_IO_STAT': (arg('FILE'),),
+    'CHECK_EPOS': (arg('POSE'),arg('POSE'),arg('POSE'),OI,I),
     'JOINT2POS': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),I,arg('POSITION','o'),arg('CONFIG','o'),arg('REAL_ARRAY','r'),OI),
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
 }
@@ -111,7 +113,7 @@ _REMOTE_SIGNATURES={'GET_REG':(I,arg('BOOLEAN','o'),OI,arg('REAL','o'),OI),
                     'SET_PORT_SIM':(I,I,I,OI)}
 PROCEDURES.update({name:(S,*(_REMOTE_SIGNATURES[local] if local in _REMOTE_SIGNATURES else PROCEDURES[local]))
                    for name,local in REMOTE_SERVICES.items()})
-OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG'}
+OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG','CHECK_EPOS'}
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
@@ -1001,10 +1003,15 @@ class RobotState:
 
 class RobotContext:
     """User-supplied offline kinematics/reachability, with no guessed robot model."""
-    def __init__(self,*,forward=None,inverse=None,reachable=None,joint_limits=None,groups=None,active_group=1,frames=None,tools=None,current=None,active_frame=0,active_tool=0):
-        for value in (forward,inverse,reachable):
+    def __init__(self,*,forward=None,inverse=None,reachable=None,check_position=None,joint_limits=None,groups=None,active_group=1,frames=None,tools=None,current=None,active_frame=0,active_tool=0):
+        for value in (forward,inverse,reachable,check_position):
             if value is not None and not callable(value): raise TypeError('Robot model adapters must be callable')
+        if check_position is not None:
+            candidates=(check_position,getattr(check_position,'__call__',None))
+            if any(inspect.iscoroutinefunction(value) or inspect.isasyncgenfunction(value) for value in candidates):
+                raise TypeError('Position check adapter must be synchronous')
         self.forward,self.inverse,self.reachable=forward,inverse,reachable
+        self.check_position=check_position
         self.groups=dict(groups or {}); self.active_group=active_group
         if type(active_group) is not int or active_group<1 or any(type(group) is not int or group<1 or type(value) is not RobotContext for group,value in self.groups.items()): raise ValueError('Explicit positive robot groups required')
         if self.groups and active_group not in self.groups: raise ValueError('Active robot group is not configured')
@@ -1019,13 +1026,24 @@ class RobotContext:
     def from_config(cls,config):
         from .kinematics import robot_context_from_config
         return robot_context_from_config(config)
-    def for_group(self,group=None):
+    def for_group(self,group=None,line=None):
         if not self.groups:
-            if group is not None and (type(group) is not int or group!=self.active_group): fail('Robot group has no configured model/state')
+            if group is not None and (type(group) is not int or group!=self.active_group): fail('Robot group has no configured model/state',line)
             return self
         group=self.active_group if group is None else group
-        if type(group) is not int or group not in self.groups: fail('Robot group has no configured model/state')
+        if type(group) is not int or group not in self.groups: fail('Robot group has no configured model/state',line)
         return self.groups[group]
+    def check_pose(self,position,uframe,utool,line=None):
+        rt=runtime()
+        if self.check_position is None: fail('CHECK_EPOS requires an explicit framed position check adapter or DH model',line)
+        with rt._numeric_scope('pythonic'):
+            inputs=tuple(rt.frame_value(value,line) for value in (position,uframe,utool))
+            try: answer=self.check_position(*inputs)
+            except Exception as exc: raise rt.KarelRuntimeError('Position check adapter failed: '+str(exc),line) from exc
+        if type(answer) is not bool:
+            if inspect.iscoroutine(answer) or inspect.isgenerator(answer): answer.close()
+            fail('Position check adapter must return a synchronous BOOLEAN',line)
+        return answer
     def current_value(self,name,line=None):
         rt=runtime()
         if self.current is None: fail(name+' requires explicit current robot state',line)
@@ -1369,7 +1387,7 @@ class ExecutionContext:
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
-        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS','CNV_CNF_STRG') else 0 if name=='SET_FILE_ATR' else 1)
+        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in ('CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS') else 0 if name=='SET_FILE_ATR' else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
@@ -1551,6 +1569,11 @@ class ExecutionContext:
             if not code: handle.position=position
             args[-1].set(code,line); return
         if name=='MIRROR': return mirror(*args,line=line)
+        if name=='CHECK_EPOS':
+            group=rt.task_root(state).robot_group if args[4] is None else rt.integer(args[4],line)
+            robot=self.require('robot',line).for_group(group,line)
+            answer=robot.check_pose(*args[:3],line=line)
+            args[3].set(0 if answer else 1,line); return
         if name in ('IN_RANGE','J_IN_RANGE'):
             robot=self.require('robot',line).for_group(rt.task_root(state).robot_group); value=args[0]
             if name=='IN_RANGE':

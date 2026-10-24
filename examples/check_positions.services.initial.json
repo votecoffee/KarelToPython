@@ -1,0 +1,1 @@
+{"robot":{"groups":{"1":{"dh":[{"a":100,"min":0,"max":0}]},"2":{"dh":[{"a":100,"min":0,"max":0},{"type":"prismatic","min":0,"max":100}],"external_axes":1}},"active_group":1}}

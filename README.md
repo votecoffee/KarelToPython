@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1023.152301**. It is a
+tool are named **karel2py**. The current implementation is **26.1024.133929**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -411,6 +411,8 @@ source. Strict mode remains a future milestone.
 - Read-only whole builtin-record UNINIT queries, including nested and partial values.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
 - Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
+- CHECK_EPOS with explicit frame/tool poses, selected robot group and a supplied
+  DH model or synchronous callback; see [position checks](docs/position-checks.md).
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Error-history queries through `ERR_DATA`, with sequential/latest lookup,
   checked message outputs and optional persisted text/timestamps; see

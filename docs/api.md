@@ -93,6 +93,11 @@ DirectoryFiles, TaskScheduler and SerialRobotModel provide optional explicit
 backends. See [portable projects](portable-projects.md) for complete examples,
 JSON formats, scheduling semantics and remaining boundaries.
 
+RobotContext accepts `check_position(position,frame,tool)` as a synchronous
+Boolean callback for CHECK_EPOS. Its `check_pose(position,frame,tool)` host API
+validates and detaches operands; loaded DH models provide this service on restore.
+See [position checks](position-checks.md) for explicit frames, groups and statuses.
+
 `PositionRegisters.describe(number,group=1)` returns `(status,kind,axes)`;
 `clear(number,group=1)` returns status, with group zero clearing all configured
 groups for that number. Source POS_REG_TYPE can omit its second group operand

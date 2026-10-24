@@ -211,7 +211,7 @@ def robot_context_from_config(config):
     active_frame=config.get('frame',0); active_tool=config.get('tool',0)
     if active_frame not in frames or active_tool not in tools: raise ValueError('Active frame/tool must be supplied')
     for value in (*frames.values(),*tools.values()): matrix(value)
-    context=RobotContext(forward=model.forward,inverse=model.inverse,joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
+    context=RobotContext(forward=model.forward,inverse=model.inverse,check_position=model.reachable,joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
     context.model=model; context.model_config=deepcopy(config)
     context.reachable=lambda p:model.reachable(p,context.frame(context.active_frame),context.tool(context.active_tool))
     for number in context.frames: context.frame(number)

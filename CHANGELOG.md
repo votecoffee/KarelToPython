@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1024.133929 - 2026-10-24
+
+- Add CHECK_EPOS with complete Cartesian operands, explicit frame/tool values,
+  optional groups and portable success/failure statuses over supplied models.
+- Provide a synchronous check_position callback and check_pose host API; loaded
+  DH contexts restore framed reachability with limits and external-axis checks.
+- Preserve source operands, current robot state, group selection, status outputs
+  and active FOR counters; reject asynchronous or non-Boolean adapter results.
+- Add an authored grouped/external-axis CLI example and focused mathematical,
+  callback, persistence, source-order and linked-root regressions.
+
 ## 26.1023.152301 - 2026-10-23
 
 - Add ERR_DATA queries over shared offline error history: oldest/next traversal,

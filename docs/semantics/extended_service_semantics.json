@@ -1,5 +1,5 @@
 {
-  "version": "26.1023.152301",
+  "version": "26.1024.133929",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -67,6 +67,11 @@
       "manual": "MARRC75KR07091E Rev N",
       "pdf_pages": [120,122,130,131,132,133,134,135,482,483,539],
       "topic": "ATR_FIELD and ASCII read defaults/formats, SET_FILE_ATR, POST_ERR_L severity names and local/global effects"
+    },
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [327,328],
+      "topic": "CHECK_EPOS target, explicit frame/tool, optional group and reachability status"
     }
   ],
   "implementation": {
@@ -74,7 +79,7 @@
     "files": "MemoryFiles or explicit DirectoryFiles root, atomic buffered close/interactive flush, attributes and synchronous file management",
     "collections": "Typed one-based PATH nodes/header and independent copies; initialized fixed-capacity FIFO queues tied to one backing array",
     "control": "Deterministic cooperative scheduler with virtual time, events, edges, EVAL, scan intervals and optional local lifetimes; typed supplied-source project linkage; FIFO semaphores, scoped errors and explicit POWERUP, pending suppression and EVAL actions",
-    "geometry": "Explicit standard-DH FK/numerical IK/reachability, limits/groups/frames/tools and external kinematic joints; extended per-axis comparison tolerances"
+    "geometry": "Explicit standard-DH FK/numerical IK/reachability, limits/groups/frames/tools and external kinematic joints; extended per-axis comparison tolerances; CHECK_EPOS uses explicit frame/tool operands and a supplied DH model or synchronous check_position adapter"
   },
   "portable_choices": {
     "status_codes": "Register/path/variable/queue status conventions documented in offline-services.md; they do not assert a native alarm mapping",

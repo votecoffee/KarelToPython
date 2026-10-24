@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1023.152301. Acceptance is specific to
+This is the supported prototype subset as of 26.1024.133929. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -58,7 +58,7 @@ internally and in the historical semantic notes.
 | FILE | OPEN/CLOSE, text/binary READ/WRITE, byte cursors/counts/status, CHECK_NAME and MOVE_FILE | MemoryFiles or explicit DirectoryFiles root; copy/delete/rename/list, preflighted RD/FR movement, ATR_UF binary, byte order, EOL and interactive flush; explicit routing without native device behavior. |
 | PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queues and GET_VAR/SET_VAR logical queue transfers | One-based nodes, explicit buffer capacity/rebinding, portable status/sequence conventions and no native layout claim. |
 | Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |
-| Robot model | MIRROR, extended pose metadata, JOINT2POS/POS2JOINT, IN_RANGE/J_IN_RANGE | Explicit right-handed reflection convention, supplied callbacks/limits or standard-DH models with bounded IK, explicit groups/frames/tools and external joints; no inferred robot context or native reachability claim. |
+| Robot model | MIRROR, extended pose metadata, JOINT2POS/POS2JOINT, IN_RANGE/J_IN_RANGE and CHECK_EPOS | Explicit right-handed reflection convention, supplied callbacks/limits or standard-DH models with bounded IK, explicit groups/frames/tools and external joints; no inferred robot context or native reachability claim. |
 
 See the [offline service matrix and guide](offline-services.md) for the complete
 contracts and remaining gaps; [portable projects](portable-projects.md) covers
@@ -69,6 +69,8 @@ records, partial leaves, grouped storage and retained container exclusions.
 records, runtime-failure observation and explicit powerup recovery.
 The [error history guide](error-history.md) adds ERR_DATA traversal, latest lookup,
 checked outputs and persisted message/timestamp metadata.
+The [position check guide](position-checks.md) adds CHECK_EPOS with explicit
+frame/tool operands, caller-rooted groups and model/adapter reachability.
 [Task and file extensions](task-and-file-extensions.md) adds scoped POST_ERR_L,
 handler-aware task requests, ATR_FIELD reads and custom record terminators.
 [I/O and CALL parameters](io-and-call-parameters.md) adds indirect port access,

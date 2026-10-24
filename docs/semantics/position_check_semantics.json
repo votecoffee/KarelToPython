@@ -1,0 +1,30 @@
+{
+  "mode": "pythonic",
+  "controller_validated": false,
+  "source": {
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [327, 328],
+    "topic": "CHECK_EPOS target, explicit frame/tool, optional group and successful reachability status"
+  },
+  "implementation": {
+    "procedure": "CHECK_EPOS(position,uframe,utool,status[,group])",
+    "types": "Accept complete POSITION/XYZWPR/XYZWPREXT operands; preserve initialization, finite data, CONFIG and matrix checks",
+    "group": "Explicit group overrides calling root task group; linked routines keep caller identity",
+    "status": "Portable 0 accepted, 1 rejected; runtime/context/adapter errors preserve previous status",
+    "model": "Existing configured DH reachability with explicit frame/tool, base, limits, external joints and bounded multi-seed search; no current snapshot needed",
+    "adapter": "Explicit check_position(position,frame,tool) must return synchronous bool; checked detached inputs; independent of one-argument IN_RANGE adapters",
+    "ownership": "Once-only ordered source argument capture; protect active FOR counters and source operands; no motion or robot-context updates",
+    "persistence": "DH JSON restores adapter; custom Python callbacks need explicit rebinding"
+  },
+  "unresolved": [
+    "Native controller status/alarm codes and motion-error guarantees",
+    "Calibrated robot configuration branches, measured state and collisions",
+    "Unmodeled external axes and completeness of bounded inverse search"
+  ],
+  "validation": [
+    "tests/test_check_position.py",
+    "tests/test_joint_interoperability.py",
+    "tests/test_broad_services.py",
+    "examples/check_positions.kl"
+  ]
+}

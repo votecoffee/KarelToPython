@@ -1,0 +1,98 @@
+{
+  "TARGET": {
+    "X": 95.0,
+    "Y": 0.0,
+    "Z": 42.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    },
+    "EXT1": 42.0,
+    "EXT2": 0.0,
+    "EXT3": 0.0
+  },
+  "FRAME": {
+    "LOCATION": {
+      "X": 10.0,
+      "Y": 0.0,
+      "Z": 0.0
+    },
+    "NORMAL": {
+      "X": 1.0,
+      "Y": 0.0,
+      "Z": 0.0
+    },
+    "ORIENT": {
+      "X": 0.0,
+      "Y": 1.0,
+      "Z": 0.0
+    },
+    "APPROACH": {
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 1.0
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "TOOL": {
+    "LOCATION": {
+      "X": 5.0,
+      "Y": 0.0,
+      "Z": 0.0
+    },
+    "NORMAL": {
+      "X": 1.0,
+      "Y": 0.0,
+      "Z": 0.0
+    },
+    "ORIENT": {
+      "X": 0.0,
+      "Y": 1.0,
+      "Z": 0.0
+    },
+    "APPROACH": {
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 1.0
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "STATUS": 0,
+  "VALID_STATUS": 0,
+  "UNREACHABLE_STATUS": 1,
+  "FRAMED_STATUS": 0,
+  "EXTERNAL_STATUS": 0,
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  }
+}

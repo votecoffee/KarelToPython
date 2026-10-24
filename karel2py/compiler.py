@@ -3563,7 +3563,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         values='Checked exact output references, disjoint resources, ordered input/selector capture; prior completed effects retained on error',
         files='MemoryFiles or explicit DirectoryFiles root; ASCII text, ATR_FIELD capacity-sized STRING reads, byte-accurate EOL cursors, ATR_UF binary, selectable byte order and interactive flush; bounded copy/delete/rename/list',
         collections='Typed one-based PATH nodes/header, full/reversed range copies and initialized fixed-capacity FIFO queues',
-        robot='JOINT2POS/POS2JOINT/IN_RANGE use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
+        robot='JOINT2POS/POS2JOINT/IN_RANGE/CHECK_EPOS use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
     report['remote_bank_policy']=dict(
@@ -4068,6 +4068,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
     report['position_axis_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT only; complete checked poses, no robot acquisition or orientation defaults'
     report['position_conversion_policy']['boundary'] = 'Whole POSITION/XYZWPR/XYZWPREXT assignments only; exact routine/array interfaces, checked proper matrices; widening zeros axes and narrowing drops axes'
+    report['position_check_policy']=dict(
+        procedure='CHECK_EPOS(position,uframe,utool,status[,group])',
+        types='Complete finite POSITION/XYZWPR/XYZWPREXT operands; explicit frame and tool override active selections',
+        group='Explicit INTEGER group or calling root task group, including linked routines; no discovery',
+        status='Portable 0 when the supplied model/adapter accepts the target, 1 when it rejects it; errors preserve status and prior completed effects',
+        adapter='RobotContext(check_position=callback) receives detached (position,frame,tool) and must return synchronous BOOLEAN; RobotContext.check_pose offers the host equivalent',
+        model='Loaded DH model reachability uses base, explicit frame/tool, joint limits, configured external axes and bounded multi-seed search; no current snapshot required',
+        ownership='Capture operands/selectors once left to right; validate all poses before callback; no current-state, frame/tool or motion updates',
+        boundary='Portable geometric/model result only; no controller motion-error guarantee, configuration branch validation, collision checks or native alarm codes',
+        guide='docs/position-checks.md',controller_validated=False)
     report['extended_geometry_policy'] = dict(
         types=['POSITION','XYZWPR','XYZWPREXT'],
         external_axes='Three REAL metadata fields; INV and MIRROR preserve; colon selects right extended operand else left; FRAME selects origin axes else zero',
