@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
                         **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,
-                        **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,
+                        **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
@@ -3779,6 +3779,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['program_archive_policy']=dict(
+        procedures=['SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR'],constants=dict(rt.ARCHIVE_CONSTANTS),
+        representation='Versioned portable JSON TP records including positions, comments, headers and TP-local registers; .TP suffix is a logical container for all four TP kinds; internal header preserves program identity',
+        graph='Explicit TeachPrograms calls mapping, case-insensitive names and bounded edges; iterative cycle-safe traversal, known macro references excluded; no instruction parsing or native code discovery',
+        files='Exact MemoryFiles/DeviceFiles only, complete batch preflight with busy/access/count/quota/retained-garbage checks; SAVE refuses existing targets, backup replaces changed files and skips identical content',
+        load='LOAD overwrite option 1; restore retains existing records and traverses their current explicit graph; prepare all new rows/files before commit; selected/open/bound/protected/source identities guard clear/overwrite',
+        selection='Portable PBR constants filter logical TP/JB/PR/MR rows; VR/PC-only selectors unsupported; backup write_prot controls protected inclusion, recursive clear skips protected rows',
+        limits='Shared archive byte budget, bounded JSON depth and explicit program/edge/record limits; max_size is a free-space hint rather than output size cap',
+        status='Portable 0 success, 1 missing, 2 invalid specification, 3 existing target, 4 busy/protected/access/unsupported form, 5 capacity, 6 invalid portable archive; whole batches preserve prior state on preflight failure',
+        persistence='TP call graph and optional archive budget round-trip with ordinary teach/file state; no handles or executable program restored',
+        boundary='TP forms only: no native TP/PC/VR/IO binaries, KAREL source unload, ordinary variable snapshots, controller storage or partial native retry semantics; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR')],
+        guide='docs/program-archives.md',controller_validated=False)
     report['remote_message_policy']=dict(
         procedures=['QUEUE_ATTACH','RMCN_ALERT','RMCN_SEND'],
         context='Explicit bounded RemoteMessages outbox, up to 32 supplied ZDT type names, alert defaults and a shared encoded-content byte budget',

@@ -57,7 +57,11 @@ and `attributes`. Each position row contains `group`, `number`, a checked runtim
 `value`, and optional `uframe`/`utool` integers in 0..32767. Comments map canonical
 decimal position-number strings to at most 16 ASCII characters and require an
 existing position in some group. Attributes accept AT_OWNER, AT_COMMENT,
-AT_SRC_NAME and AT_SRC_VRSN under the existing header capacities.
+AT_SRC_NAME and AT_SRC_VRSN under the existing header capacities. Host initial
+headers also accept read-only AT_PROTECT (1 off, 2 on) for archive clear/overwrite
+guards. Optional `calls` and `archive_limit` configure [portable TP archives](program-archives.md);
+COPY_TPE retains detached dependency metadata. Source SET_ATTR_PRG still
+rejects changes to AT_PROTECT.
 
 `to_config()` returns detached JSON-ready records; `from_config()` decodes typed
 position values. Context JSON uses the `teach_programs` key and includes group/

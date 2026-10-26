@@ -56,6 +56,8 @@ PROCEDURES = {
     'ADD_STRINGPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,OI),
     'ADD_BYNAMEPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,S,OI),
     'SEND_DATAPC': (I,arg('PC_BUFFER'),OI), 'SEND_EVENTPC': (I,OI),
+    'SAVE': (S,S,OI), 'LOAD': (S,I,OI), 'CLEAR': (S,OI),
+    'PROG_BACKUP': (S,I,I,B,OI), 'PROG_RESTORE': (S,OI), 'PROG_CLEAR': (S,I,OI),
     'QUEUE_ATTACH': (S,arg('STRING_ARRAY'),I,OI),
     'RMCN_ALERT': (S,S,S,S,OI), 'RMCN_SEND': (S,arg('STRING_ARRAY'),I,OI),
     'MSG_CONNECT': (S,OI), 'MSG_DISCO': (S,OI), 'MSG_PING': (S,OI),
@@ -1650,6 +1652,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR'):
+            from .archives import invoke
+            return invoke(state,name,args,line)
         if name in ('QUEUE_ATTACH','RMCN_ALERT','RMCN_SEND'):
             from .remote_messages import invoke
             return invoke(state,name,args,line)

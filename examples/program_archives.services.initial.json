@@ -1,0 +1,30 @@
+{
+  "teach_programs": {
+    "groups": [
+      1
+    ],
+    "position_limit": 32767,
+    "program_limit": 4,
+    "programs": {
+      "DEMO": {
+        "type": "JB",
+        "instructions": [
+          "Authored operation"
+        ],
+        "positions": [],
+        "comments": {},
+        "attributes": {},
+        "numeric_registers": {
+          "1": 7
+        },
+        "string_registers": {
+          "1": "part"
+        }
+      }
+    },
+    "calls": {
+      "DEMO": []
+    }
+  },
+  "files": {}
+}

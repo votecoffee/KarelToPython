@@ -1,0 +1,50 @@
+{
+  "teach_programs": {
+    "groups": [
+      1
+    ],
+    "position_limit": 32767,
+    "program_limit": 4,
+    "programs": {
+      "MAIN": {
+        "type": "TP",
+        "instructions": [
+          "Authored root"
+        ],
+        "positions": [],
+        "comments": {},
+        "attributes": {},
+        "numeric_registers": {
+          "1": 5
+        }
+      },
+      "WORKER": {
+        "type": "PR",
+        "instructions": [
+          "Authored child"
+        ],
+        "positions": [],
+        "comments": {},
+        "attributes": {},
+        "string_registers": {
+          "1": "ready"
+        }
+      }
+    },
+    "calls": {
+      "MAIN": [
+        "WORKER"
+      ],
+      "WORKER": []
+    },
+    "archive_limit": 8192
+  },
+  "files": {
+    "FR:batch/MAIN.TP": {
+      "hex": "7b2263616c6c73223a5b22574f524b4552225d2c22666f726d6174223a226b6172656c3270792d74656163682d70726f6772616d2d7631222c226e616d65223a224d41494e222c2270726f6772616d223a7b2261747472696275746573223a7b7d2c22636f6d6d656e7473223a7b7d2c22696e737472756374696f6e73223a5b22417574686f72656420726f6f74225d2c226e756d657269635f726567697374657273223a7b2231223a357d2c22706f736974696f6e73223a5b5d2c2274797065223a225450227d7d0a"
+    },
+    "FR:batch/WORKER.TP": {
+      "hex": "7b2263616c6c73223a5b5d2c22666f726d6174223a226b6172656c3270792d74656163682d70726f6772616d2d7631222c226e616d65223a22574f524b4552222c2270726f6772616d223a7b2261747472696275746573223a7b7d2c22636f6d6d656e7473223a7b7d2c22696e737472756374696f6e73223a5b22417574686f726564206368696c64225d2c22706f736974696f6e73223a5b5d2c22737472696e675f726567697374657273223a7b2231223a227265616479227d2c2274797065223a225052227d7d0a"
+    }
+  }
+}

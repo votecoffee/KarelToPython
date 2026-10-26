@@ -1,0 +1,18 @@
+PROGRAM ARCHIVE_DEMO
+VAR
+  status: INTEGER
+  done, loaded, initialized: BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    SAVE('DEMO','FR:DEMO.TP',status)
+    IF status=0 THEN
+      CLEAR('DEMO.TP',status)
+      IF status=0 THEN
+        LOAD('FR:DEMO.TP',0,status)
+        IF status=0 THEN done=TRUE ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
+  LOAD_STATUS('DEMO',loaded,initialized)
+END ARCHIVE_DEMO

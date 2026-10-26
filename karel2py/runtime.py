@@ -2463,6 +2463,7 @@ from .storage import DirectoryFiles
 from .devices import DeviceFiles,DEVICE_CONSTANTS,DEVICE_INFO
 from .programs import GroupLocks
 from .acquisition import Acquisition,DAQ_CONSTANTS
+from .archives import ARCHIVE_CONSTANTS
 from .remote_messages import RemoteMessages
 from .pc_exchange import PcExchange
 from .communications import Messaging,FilePipes,message_address,pipe_name as communication_pipe_name

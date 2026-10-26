@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.155345 - 2026-10-26
+
+- Add TP forms of SAVE/LOAD/CLEAR and PROG_BACKUP/PROG_RESTORE/PROG_CLEAR
+  using versioned portable archives with positions, headers and TP-local registers.
+- Add explicit bounded dependency graphs with cycle-safe recursive traversal,
+  kind filters, macro exclusion and detached COPY_TPE graph metadata.
+- Preflight full batches over memory/virtual-device files, including shared quota,
+  retained garbage, unchanged backups and free-space hints; retain failed batches.
+- Guard selected/open/bound/protected/source targets, preserve existing restore
+  records and refresh explicit load flags; native PC/VR/IO forms stay unsupported.
+- Add 43 regressions and two CLI examples; update guides and audit 227 registered
+  built-in names with 107 still unregistered.
+
 ## 26.1026.153257 - 2026-10-26
 
 - Add RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH over a bounded offline message

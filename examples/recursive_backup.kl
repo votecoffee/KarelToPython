@@ -1,0 +1,19 @@
+PROGRAM BACKUP_DEMO
+VAR
+  status: INTEGER
+  done, root_loaded, child_loaded, initialized: BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    PROG_BACKUP('FR:batch/MAIN',PBR_ALLTYPE,0,TRUE,status)
+    IF status=0 THEN
+      PROG_CLEAR('MAIN',PBR_ALLTYPE,status)
+      IF status=0 THEN
+        PROG_RESTORE('FR:batch/MAIN',status)
+        IF status=0 THEN done=TRUE ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
+  LOAD_STATUS('MAIN',root_loaded,initialized)
+  LOAD_STATUS('WORKER',child_loaded,initialized)
+END BACKUP_DEMO

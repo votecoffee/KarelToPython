@@ -1,0 +1,65 @@
+{
+  "version": "26.1026.155345",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.3.9 CLEAR",
+        "A.11.2 LOAD",
+        "A.15.21 PROG_BACKUP",
+        "A.15.22 PROG_CLEAR",
+        "A.15.24 PROG_RESTORE",
+        "A.18.1 SAVE"
+      ],
+      "topic": "TP save/load/clear forms, recursive references, kind/protection selection, free-space hints and existing-file behavior"
+    }
+  ],
+  "procedures": [
+    "SAVE",
+    "LOAD",
+    "CLEAR",
+    "PROG_BACKUP",
+    "PROG_RESTORE",
+    "PROG_CLEAR"
+  ],
+  "contract": {
+    "guide": "../program-archives.md",
+    "representation": "Versioned portable JSON logical TP records, typed positions and TP-local numeric/string/position registers; internal program identity retained",
+    "dependencies": "Explicit bounded case-insensitive calls graph; iterative cycle/shared-node traversal, known macro targets excluded, COPY_TPE copies detached graph metadata",
+    "selection": "Portable PBR constants filter TP/JB/PR/MR records; VR/PC-only forms unsupported; backup protected flag and clear skip behavior",
+    "guards": "Selected/open/bound/protected/active/source identities prevent writes; archive changes refresh explicit load flags and preserve overlay attributes",
+    "files": "Exact MemoryFiles/DeviceFiles; whole-batch preflight with quotas/retained garbage/free-space hints; unchanged backups skip writes",
+    "restore": "Existing programs retained with live dependency graph; complete validation before new records/files are published",
+    "persistence": "Optional graph/budget and logical records/file bytes round-trip; legacy default fields stay unchanged"
+  },
+  "limits": {
+    "max_programs": 4096,
+    "max_edges": 32767,
+    "max_archive_bytes": 67108864,
+    "default_archive_bytes": 16777216,
+    "max_json_depth": 32,
+    "max_reserve_kib": 65536
+  },
+  "portable_statuses": {
+    "success": 0,
+    "missing": 1,
+    "invalid": 2,
+    "exists": 3,
+    "busy_access_unsupported": 4,
+    "capacity": 5,
+    "archive_format": 6
+  },
+  "boundaries": [
+    "No native TP/PC/VR/IO binary support or ordinary KAREL variable snapshots",
+    "No source code unloading, instruction parsing/execution, selected/caller/handle restoration or controller access",
+    "Exact in-memory backends only; no DirectoryFiles/custom callbacks or host filesystem access",
+    "Whole-batch preflight differs from native partial progress; strict mode and native status parity deferred"
+  ],
+  "validation": [
+    "tests/test_program_archives.py",
+    "examples/program_archives.kl",
+    "examples/recursive_backup.kl"
+  ]
+}

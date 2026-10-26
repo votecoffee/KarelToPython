@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 221 have a registered translation and 113 do not.
+Currently, 227 have a registered translation and 107 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -164,7 +164,10 @@ they are boundaries rather than promises to accept every such source form later.
 
 - Native TP parsing/generation/execution, motion instruction linkage and embedded
   register APIs. The explicit TeachPrograms store supports logical position/comment
-  editing and opaque line deletion without those native behaviors.
+  editing and opaque line deletion without those native behaviors. Six
+  [program archive calls](program-archives.md) now support portable TP records,
+  recursive explicit graphs and guarded in-memory batches. Native TP/PC/VR/IO
+  files, ordinary variable archives and KAREL code unloading remain unavailable.
 - Controller screens, windows, keyboard interaction, display controls, dictionaries
   and language packs.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
@@ -316,19 +319,13 @@ does not assert a particular installed option or environment.
 - `RESET`
 - `SET_PERCH`
 
-### Programs, dynamic variables and controller commands (15)
+### Programs, dynamic variables and controller commands (9)
 
 - `CHECK_STACK`
-- `CLEAR`
 - `FORCE_LINK`
 - `KCL`
 - `KCL_NO_WAIT`
 - `KCL_STATUS`
-- `LOAD`
-- `PROG_BACKUP`
-- `PROG_CLEAR`
-- `PROG_RESTORE`
-- `SAVE`
 - `SAVE_DRAM`
 - `SET_DB_EVENT`
 - `SET_DEBUG`

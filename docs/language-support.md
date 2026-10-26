@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.153257. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.155345. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -315,3 +315,8 @@ circular plain PIP histories, distinct DAQ names and bounded saved state.
 QUEUE_ATTACH with explicit alert defaults, bounded XML outboxes, deferred
 attachment collection, MD retention and supplied ZDT types. SET_VAR has no
 implicit send trigger; no native delivery or host-filesystem deletion occurs.
+
+[Portable TP archives](program-archives.md) support SAVE/LOAD/CLEAR and
+PROG_BACKUP/PROG_RESTORE/PROG_CLEAR, with typed program data, explicit bounded
+dependency graphs, selection/protection/binding guards and complete batch
+preflight. Native PC/VR/IO files and KAREL source unloading remain unavailable.

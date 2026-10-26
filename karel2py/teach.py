@@ -45,7 +45,7 @@ class TeachPrograms:
     """Logical TP records; no native TP parser, execution, robot or filesystem."""
     def __init__(self,programs=None,*,groups=(1,),position_limit=32767,program_limit=256,selected=None,
                  register_limit=32767,string_register_limit=32767,position_register_limit=32767,
-                 string_capacity=254,callers=None):
+                 string_capacity=254,callers=None,calls=None,archive_limit=16*1024*1024):
         if type(groups) not in (tuple,list) or not groups or any(type(g) is not int or not 1<=g<=32 for g in groups) or len(set(groups))!=len(groups):
             raise ValueError('TP groups require distinct INTEGERs in 1..32')
         if type(position_limit) is not int or not 1<=position_limit<=32767: raise ValueError('TP position limit must be in 1..32767')
@@ -53,6 +53,9 @@ class TeachPrograms:
         for count in (register_limit,string_register_limit,position_register_limit):
             if type(count) is not int or not 1<=count<=32767: raise ValueError('TP register limits must be in 1..32767')
         if type(string_capacity) is not int or not 1<=string_capacity<=254: raise ValueError('TP string capacity must be in 1..254')
+        from .archives import call_graph
+        if type(archive_limit) is not int or not 1<=archive_limit<=64*1024*1024:raise ValueError('TP archive limit requires 1..64 MiB')
+        self.archive_limit=archive_limit;self._calls=call_graph(calls,program_limit)
         if programs is None: programs={}
         if type(programs) is not dict or len(programs)>program_limit: raise ValueError('TP programs require a bounded name mapping')
         self.groups=tuple(groups);self.position_limit=position_limit;self.program_limit=program_limit
@@ -98,7 +101,7 @@ class TeachPrograms:
                 program['comments'][int(number)]=text
             from .extended import ProgramAttributes,PROGRAM_WRITABLE_ATTRIBUTES
             attributes=row.get('attributes',{})
-            if type(attributes) is not dict or set(attributes)-PROGRAM_WRITABLE_ATTRIBUTES: raise ValueError('TP attributes require supported writable header keys')
+            if type(attributes) is not dict or set(attributes)-(PROGRAM_WRITABLE_ATTRIBUTES|{'AT_PROTECT'}): raise ValueError('TP attributes require supported header keys')
             for attr,value in attributes.items():
                 program['attributes'][attr]=ProgramAttributes._value(attr,value)
                 if type(value) is str and program['attributes'][attr]!=value: raise ValueError('TP header attribute exceeds its capacity')
@@ -199,9 +202,16 @@ class TeachPrograms:
         if source is None or target is None or source==target: return 2
         if source not in self._programs: return 1
         if self.busy(source) or self.busy(target) or self.selected==target: return 4
+        if target in self._programs and self._programs[target]['attributes'].get('AT_PROTECT',1)==2:return 4
         if target in self._programs and not overwrite: return 5
         if target not in self._programs and len(self._programs)>=self.program_limit: return 6
-        value=deepcopy(self._programs[source]);self._programs[target]=value;return 0
+        from .archives import call_graph
+        graph=deepcopy(self._calls)
+        if source in graph:graph[target]=list(graph[source])
+        else:graph.pop(target,None)
+        try:graph=call_graph(graph,self.program_limit)
+        except ValueError:return 6
+        value=deepcopy(self._programs[source]);self._programs[target]=value;self._calls=graph;return 0
 
     def select(self,name,line=None):
         name=name_key(name,line)
@@ -268,22 +278,27 @@ class TeachPrograms:
 
     def set_metadata(self,name,key,value): self._programs[name]['attributes'][key]=value
 
-    def to_config(self):
+    def program_config(self,name):
         from .storage import typed_value
-        programs={}
-        for name,row in sorted(self._programs.items()):
-            programs[name]={'type':row['type'],'instructions':row['instructions'].copy(),
-                'positions':[{'group':group,'number':number,'value':typed_value(item['value']),
-                              'uframe':item['uframe'],'utool':item['utool']}
-                             for (group,number),item in sorted(row['positions'].items())],
-                'comments':{str(n):v for n,v in sorted(row['comments'].items())},'attributes':row['attributes'].copy()}
-            for kind in ('numeric','string'):
-                values=row[kind+'_registers'].snapshot()
-                if values: programs[name][kind+'_registers']={str(n):v for n,v in sorted(values.items())}
-            if row['position_registers']:
-                programs[name]['position_registers']=[{'group':group,'number':number,'value':typed_value(item['value']),
-                    'uframe':item['uframe'],'utool':item['utool']} for (group,number),item in sorted(row['position_registers'].items())]
+        row=self._programs[name]
+        result={'type':row['type'],'instructions':row['instructions'].copy(),
+            'positions':[{'group':group,'number':number,'value':typed_value(item['value']),
+                          'uframe':item['uframe'],'utool':item['utool']}
+                         for (group,number),item in sorted(row['positions'].items())],
+            'comments':{str(n):v for n,v in sorted(row['comments'].items())},'attributes':row['attributes'].copy()}
+        for kind in ('numeric','string'):
+            values=row[kind+'_registers'].snapshot()
+            if values: result[kind+'_registers']={str(n):v for n,v in sorted(values.items())}
+        if row['position_registers']:
+            result['position_registers']=[{'group':group,'number':number,'value':typed_value(item['value']),
+                'uframe':item['uframe'],'utool':item['utool']} for (group,number),item in sorted(row['position_registers'].items())]
+        return result
+
+    def to_config(self):
+        programs={name:self.program_config(name) for name in sorted(self._programs)}
         result={'groups':list(self.groups),'position_limit':self.position_limit,'program_limit':self.program_limit,'programs':programs}
+        if self._calls:result['calls']=deepcopy(self._calls)
+        if self.archive_limit!=16*1024*1024:result['archive_limit']=self.archive_limit
         if self.selected is not None: result['selected']=self.selected
         for name,default in (('register_limit',32767),('string_register_limit',32767),('position_register_limit',32767),('string_capacity',254)):
             if getattr(self,name)!=default: result[name]=getattr(self,name)
@@ -293,7 +308,7 @@ class TeachPrograms:
     @classmethod
     def from_config(cls,config):
         from .storage import decode_typed
-        if type(config) is not dict or set(config)-{'groups','position_limit','program_limit','programs','selected','register_limit','string_register_limit','position_register_limit','string_capacity','callers'}: raise ValueError('Unknown TP context fields')
+        if type(config) is not dict or set(config)-{'groups','position_limit','program_limit','programs','selected','register_limit','string_register_limit','position_register_limit','string_capacity','callers','calls','archive_limit'}: raise ValueError('Unknown TP context fields')
         values=deepcopy(config)
         programs=values.get('programs',{})
         if type(programs) is not dict: raise ValueError('TP programs require a mapping')

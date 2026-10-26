@@ -1,0 +1,43 @@
+{
+  "teach_programs": {
+    "groups": [
+      1
+    ],
+    "position_limit": 32767,
+    "program_limit": 4,
+    "programs": {
+      "MAIN": {
+        "type": "TP",
+        "instructions": [
+          "Authored root"
+        ],
+        "positions": [],
+        "comments": {},
+        "attributes": {},
+        "numeric_registers": {
+          "1": 5
+        }
+      },
+      "WORKER": {
+        "type": "PR",
+        "instructions": [
+          "Authored child"
+        ],
+        "positions": [],
+        "comments": {},
+        "attributes": {},
+        "string_registers": {
+          "1": "ready"
+        }
+      }
+    },
+    "calls": {
+      "MAIN": [
+        "WORKER"
+      ],
+      "WORKER": []
+    },
+    "archive_limit": 8192
+  },
+  "files": {}
+}
