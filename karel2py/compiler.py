@@ -2131,7 +2131,7 @@ class Emitter:
                 if self.is_config_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG fields cannot be output aliases',value.token)
                 code,spec=self.reference(value)
             else:
-                variable_input=expr.value=='SET_VAR' and index==3
+                variable_input=(expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
                 reference_input=variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
                 if reference_input: code,spec=self.reference(discarded)
                 else: code,spec=self.expression(value)
@@ -3779,6 +3779,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['pc_exchange_policy']=dict(
+        procedures=['ADD_BYNAMEPC','ADD_INTPC','ADD_REALPC','ADD_STRINGPC','SEND_DATAPC','SEND_EVENTPC'],
+        buffers='One-dimensional ordinary BYTE ARRAY storage, 1..244 bytes; checked disjoint buffer/index/status references; builders retain untouched bytes and unknown tails, publish a complete item/marker batch and advance the 1-based index to the new marker',
+        encoding='Documented big-endian 16-bit type tags 16 INTEGER, 17 REAL32 and 209 STRING; signed INTEGER32, finite REAL32 rounding, one-byte ASCII length and explicit string NUL; two-byte zero end marker',
+        lookup='ADD_BYNAMEPC reads INTEGER/REAL/STRING from current executing module, attached globals or explicit static paths; blank program uses current module; system paths and other leaf types remain excluded',
+        capture='SEND_DATAPC captures an independent typed BYTE buffer once before later output-selector effects, including unknown unused tails; it is a read-only input in effect analysis',
+        delivery='Explicit bounded PcExchange outbox; event numbers 0..255, monotonic local publication sequence, event-only payload distinct from data; no callback, network, hardware or PC delivery',
+        formats='Default typed mode validates the common ADD_* envelope and publishes its used prefix through the end marker; raw mode requires all bytes initialized and publishes the complete buffer unchanged',
+        status='Portable 0 success, 1 missing named variable, 2 index/event, 3 item capacity, 4 data/type/encoding, 5 full or exhausted outbox; source type/protection/reference checks can raise before invocation; failures retain buffer/index/outbox',
+        persistence='Validated capacity/format, increasing event sequences and bounded packet hex round-trip with global variables; host drain returns detached rows and retains sequence history',
+        boundary='No native status/task timing, GEMM/session/transport or controller delivery equivalence; typed validation/used-prefix publishing are chosen offline policies, custom payloads require raw mode; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('ADD_BYNAMEPC','ADD_INTPC','ADD_REALPC','ADD_STRINGPC','SEND_DATAPC','SEND_EVENTPC')],
+        guide='docs/pc-exchange.md',controller_validated=False)
     report['data_acquisition_policy']=dict(
         procedures=sorted(('DAQ_REGPIPE','DAQ_START','DAQ_STOP','DAQ_UNREG','DAQ_CHECKP','DAQ_WRITE')),constants=dict(rt.DAQ_CONSTANTS),
         context='Explicit Acquisition with five numbered typed pipes, at most 32767 records per pipe and a shared configured byte limit; fixed portable resource-free schemas and unique PIP filenames',

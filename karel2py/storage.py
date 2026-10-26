@@ -417,6 +417,7 @@ def context_config(context):
     if context.events is not None: result['events']=context.events.snapshot()
     if context.group_locks is not None: result['group_locks']=context.group_locks.to_config()
     if context.acquisition is not None: result['acquisition']=context.acquisition.to_config()
+    if context.pc_exchange is not None: result['pc_exchange']=context.pc_exchange.to_config()
     if context.semaphores is not None: result['semaphores']=context.semaphores.to_config()
     if context.errors is not None: result['errors']=context.errors.to_config()
     if context.parameters is not None: result['parameters']=context.parameters.to_config()

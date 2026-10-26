@@ -2457,6 +2457,7 @@ from .storage import DirectoryFiles
 from .devices import DeviceFiles,DEVICE_CONSTANTS,DEVICE_INFO
 from .programs import GroupLocks
 from .acquisition import Acquisition,DAQ_CONSTANTS
+from .pc_exchange import PcExchange
 from .teach import TeachPrograms,TPE_CONSTANTS
 from .clocks import CalendarClock
 from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING

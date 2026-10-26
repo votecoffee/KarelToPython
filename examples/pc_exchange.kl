@@ -1,0 +1,23 @@
+PROGRAM PC_MESSAGES
+VAR
+  buffer: ARRAY[26] OF BYTE
+  cursor, value, status: INTEGER
+  data_sent, event_sent: BOOLEAN
+BEGIN
+  IF UNINIT(data_sent) THEN data_sent=FALSE ENDIF
+  IF UNINIT(event_sent) THEN event_sent=FALSE ENDIF
+  cursor=1
+  value=7
+  ADD_INTPC(buffer,cursor,5,status)
+  ADD_REALPC(buffer,cursor,1.5,status)
+  ADD_STRINGPC(buffer,cursor,'OK',status)
+  ADD_BYNAMEPC(buffer,cursor,'','value',status)
+  IF (status=0) AND NOT data_sent THEN
+    SEND_DATAPC(12,buffer,status)
+    IF status=0 THEN data_sent=TRUE ENDIF
+  ENDIF
+  IF (status=0) AND NOT event_sent THEN
+    SEND_EVENTPC(13,status)
+    IF status=0 THEN event_sent=TRUE ENDIF
+  ENDIF
+END PC_MESSAGES

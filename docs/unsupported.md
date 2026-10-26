@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 208 have a registered translation and 126 do not.
+Currently, 214 have a registered translation and 120 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -169,7 +169,10 @@ they are boundaries rather than promises to accept every such source form later.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.
-- PC data/event exchange, message/pipe/remote-monitor networking,
+- Native PC/GEMM transport and delivery. Six [PC data/event calls](pc-exchange.md)
+  now support typed buffer construction and explicit offline event outboxes;
+  custom payloads require raw mode and fully initialized bytes.
+- Message/pipe/remote-monitor networking,
   KCL commands, controller XML services, vision and conveyor/vision tracking.
   These calls have no implicit Python or hardware fallback.
 - The workbench currently validates/translates/reviews/exports. The planned Python
@@ -298,12 +301,8 @@ does not assert a particular installed option or environment.
 - `WRITE_DICT`
 - `WRITE_DICT_V`
 
-### Communications and PC exchange (13)
+### Communications and PC exchange (7)
 
-- `ADD_BYNAMEPC`
-- `ADD_INTPC`
-- `ADD_REALPC`
-- `ADD_STRINGPC`
 - `MSG_CONNECT`
 - `MSG_DISCO`
 - `MSG_PING`
@@ -311,8 +310,6 @@ does not assert a particular installed option or environment.
 - `QUEUE_ATTACH`
 - `RMCN_ALERT`
 - `RMCN_SEND`
-- `SEND_DATAPC`
-- `SEND_EVENTPC`
 
 ### Motion and task management (6)
 

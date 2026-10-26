@@ -1,0 +1,61 @@
+{
+  "version": "26.1026.143509",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.1.9 ADD_BYNAMEPC",
+        "A.1.11 ADD_INTPC",
+        "A.1.12 ADD_REALPC",
+        "A.1.13 ADD_STRINGPC",
+        "A.18.7 SEND_DATAPC",
+        "A.18.8 SEND_EVENTPC"
+      ],
+      "topic": "Bounded BYTE buffers, type tags, big-endian numeric examples, string length/NUL/end markers, advancing index, named scalars and event bounds"
+    }
+  ],
+  "procedures": [
+    "ADD_BYNAMEPC",
+    "ADD_INTPC",
+    "ADD_REALPC",
+    "ADD_STRINGPC",
+    "SEND_DATAPC",
+    "SEND_EVENTPC"
+  ],
+  "contract": {
+    "guide": "../pc-exchange.md",
+    "buffers": "One-dimensional BYTE ARRAY references, 1..244 bytes; disjoint index/status; complete prepared item/marker writes preserve unused data and unknown tails",
+    "encoding": "Big-endian tags 16/17/209, signed INTEGER32 and finite REAL32, one-byte ASCII text length plus NUL, two-byte zero end marker; returned index points at marker",
+    "named_data": "INTEGER/REAL/STRING leaves of explicit current/attached program roots and static paths; blank owner uses executing module; system paths excluded",
+    "send_capture": "Read-only typed independent buffer captured once before later output selectors; no accidental buffer-parameter write effect",
+    "typed_mode": "Validate common envelope and publish used prefix through its marker; unused unknown tails ignored",
+    "raw_mode": "Publish the complete fully initialized buffer unchanged; no custom-format decoding",
+    "outbox": "Explicit PcExchange with event 0..255, bounded queue, monotonic publication sequence and detached host drain; event-only data is null",
+    "persistence": "Checked format/capacity/history, ordered messages and bounded packet hex; no callback or executable consumer restored"
+  },
+  "limits": {
+    "max_buffer_bytes": 244,
+    "max_outbox_events": 32767,
+    "max_sequence": 2147483646
+  },
+  "portable_statuses": {
+    "success": 0,
+    "lookup": 1,
+    "index_event": 2,
+    "item_capacity": 3,
+    "data_format": 4,
+    "outbox_capacity_sequence": 5
+  },
+  "boundaries": [
+    "No GEMM/PC transport, callbacks, delivery, controller timing or native status equivalence",
+    "Typed send validation and used-prefix publishing are chosen offline policies; arbitrary protocols require raw mode",
+    "Direct argument/type/protection errors may raise before status writes; strict mode deferred"
+  ],
+  "validation": [
+    "tests/test_pc_exchange.py",
+    "examples/pc_exchange.kl",
+    "examples/pc_custom_payload.kl"
+  ]
+}

@@ -51,6 +51,11 @@ PROCEDURES = {
     'DAQ_REGPIPE': (I,I,I,S,S,S,I,OI), 'DAQ_START': (I,I,S,OI),
     'DAQ_STOP': (I,B,OI), 'DAQ_UNREG': (I,OI), 'DAQ_CHECKP': (I,OI,OI),
     'DAQ_WRITE': (I,S,S,OI),
+    'ADD_INTPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),I,OI),
+    'ADD_REALPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),R,OI),
+    'ADD_STRINGPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,OI),
+    'ADD_BYNAMEPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,S,OI),
+    'SEND_DATAPC': (I,arg('PC_BUFFER'),OI), 'SEND_EVENTPC': (I,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
     **{name:signature for family in ('REG','PREG','SREG') for name,signature in
        ((f'GET_{family}_CMT',(I,OS,OI)),(f'SET_{family}_CMT',(I,S,OI)))},
@@ -183,6 +188,10 @@ def signature_for(name,arity):
 
 def matches(spec, kind):
     rt=runtime()
+    if kind in ('BYTE_ARRAY','PC_BUFFER'):
+        if spec[0]!='ARRAY' or len(rt.array_dimensions(spec))!=1 or rt.array_leaf_spec(spec)!=('BYTE',):return False
+        size=rt.array_dimensions(spec)[0]
+        return size is None or type(size) is int and 1<=size<=244
     if kind in ('VIEW_LINES','POINT_PATH'): return vision_path_schema(spec,kind)
     if kind=='ERROR_CURSOR': return spec==('INTEGER',)
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or matches(spec,'ANY')
@@ -1462,7 +1471,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1494,6 +1503,9 @@ class ExecutionContext:
         from .acquisition import Acquisition
         if acquisition is not None and type(acquisition) is not Acquisition: raise TypeError('acquisition must be Acquisition or None')
         self.acquisition=acquisition
+        from .pc_exchange import PcExchange
+        if pc_exchange is not None and type(pc_exchange) is not PcExchange:raise TypeError('pc_exchange must be PcExchange or None')
+        self.pc_exchange=pc_exchange
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1514,7 +1526,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1575,6 +1587,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'pc_exchange' in config:
+            from .pc_exchange import PcExchange
+            services['pc_exchange']=PcExchange.from_config(config['pc_exchange'])
         if 'variables' in config:
             from .storage import decode_typed,tuple_spec
             variables=VariableStore()
@@ -1614,6 +1629,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('ADD_BYNAMEPC','ADD_INTPC','ADD_REALPC','ADD_STRINGPC','SEND_DATAPC','SEND_EVENTPC'):
+            from .pc_exchange import invoke
+            return invoke(state,name,args,line)
         if name in ('DAQ_REGPIPE','DAQ_START','DAQ_STOP','DAQ_UNREG','DAQ_CHECKP','DAQ_WRITE'):
             from .acquisition import invoke
             return invoke(state,name,args,line)

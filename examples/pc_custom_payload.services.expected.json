@@ -1,0 +1,8 @@
+{
+  "pc_exchange": {
+    "capacity": 8,
+    "format": "raw",
+    "sequence": 1,
+    "messages": [{"sequence": 1, "event": 33, "data": "000009ff01"}]
+  }
+}

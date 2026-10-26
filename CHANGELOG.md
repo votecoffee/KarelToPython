@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.143509 - 2026-10-26
+
+- Add ADD_INTPC/ADD_REALPC/ADD_STRINGPC/ADD_BYNAMEPC with documented big-endian
+  typed BYTE buffers, explicit string/end markers and atomic cursor updates.
+- Add SEND_DATAPC/SEND_EVENTPC over a bounded offline PcExchange outbox, with
+  checked typed-prefix sends, fully initialized raw payloads and event bounds.
+- Capture send buffers before later output-selector effects; preserve read-only
+  effect analysis, reference/counter guards, unknown unused tails and named types.
+- Persist checked outbox messages and sequence history; expose detached snapshots
+  and host draining without network access, callbacks or automatic delivery.
+- Add 40 focused regressions and two authored CLI examples; update guides and
+  audit 214 registered built-in names with 120 still unregistered.
+
 ## 26.1026.140703 - 2026-10-26
 
 - Add all six DAQ calls over explicit bounded typed acquisition pipes, with
