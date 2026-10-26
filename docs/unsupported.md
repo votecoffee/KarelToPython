@@ -43,8 +43,10 @@ they are boundaries rather than promises to accept every such source form later.
   definitions, cyclic ownership and native binary type environments remain blocked.
   Routine-local TYPE declarations
   remain prohibited by the KAREL language, rather than a planned extension.
-- `USING` selectors containing indexes, calls or grouping; builtin-record USING,
-  field FOR counters and dynamic caller scope. SELECT is INTEGER-only; a miss
+- `USING` function-result/computed selectors, whole ARRAY/resource/joint selectors,
+  field FOR counters and dynamic caller scope. [Captured USING selectors](using-selectors.md)
+  now accept indexed/grouped record storage and built-in records; calls inside
+  indexes use the one-time entry capture policy. SELECT is INTEGER-only; a miss
   without ELSE fails. Recursion is bounded at 64 calls.
 - Unicode/multilingual source, native graphic characters, multiline literals,
   backslash string escapes, token-splicing continuations and arbitrary native

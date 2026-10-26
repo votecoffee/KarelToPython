@@ -156,7 +156,7 @@ class PositionGuardTests(unittest.TestCase):
         program,_=compile_program('flag=UNINIT(p)')
         self.assertTrue(program.run()['FLAG']);self.assertEqual(program.snapshot()['P']['LOCATION']['X'],{'uninitialized':True})
         self.reject('flag=UNINIT(p)',code='E_TYPE',translator=legacy_translate)
-    def test_position_using_still_blocked(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE')
+    def test_position_using_still_blocked_in_legacy_parser(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE',translator=legacy_translate)
     def test_partial_position_copy_guard_preserves_destination(self):
         program,_=compile_program('q.location.x=9 p.location.x=1 q=p')
         with self.assertRaises(rt.KarelRuntimeError): program.run()

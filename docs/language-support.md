@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.174213. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.180251. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -29,7 +29,7 @@ internally and in the historical semantic notes.
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no ABI claim. |
 | TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases or local TYPE. BYTE/SHORT remain element/field-only. |
 | External types | Full TYPE name FROM owner definitions; supported aliases, structures, arrays and resource schemas | Standalone layout and owner metadata; source projects validate exact resolved schemas, self owners and acyclic reexports before allocation. No binary environments or native owner-qualified ABI. |
-| USING | Nested lexical scopes, named STRUCTURE variables and dotted selectors; inner/right-most field priority | Fields shadow constants; calls use call context. No indexed/call/grouped selectors, builtin record selectors, field FOR counters or dynamic caller scope. |
+| USING | Nested lexical scopes; dotted, indexed and grouped STRUCTURE/built-in record storage; one-time left-to-right reference capture | Inner/right-most field priority, handler reference capture and source-root effects; existing POSITION/CONFIG/output guards. No function-result/computed selectors, field FOR counters or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
 | Initialization queries | UNINIT on supported scalar/joint storage and whole builtin records, including nested fields and individual ARRAY elements | Any missing builtin-record leaf means TRUE; read-only schema/type checks. Whole ARRAY, PATH, user STRUCTURE, FILE, QUEUE_TYPE and BYTE queries remain blocked. |
 | Variable inspection | VAR_INFO metadata and VAR_LIST filtered/paged global names | Current/attached declarations and explicit bindings; canonical types, bounded dimensions/formats, portable initialization flags and statuses; no local/controller discovery. |
@@ -111,7 +111,8 @@ See [STRING operations](string-operations.md) for substring, search, length and
 character equivalents, evaluation order and retained input checks.
 See [Pythonic FOR](pythonic-for.md) for global-counter calls, read-only counter
 arguments, bounds and cleanup on early exits/errors.
-See [Pythonic USING](pythonic-using.md) for nested field paths and namespace choices.
+See [Pythonic USING](pythonic-using.md) and [captured selectors](using-selectors.md)
+for lexical lookup, indexed record storage, built-in fields and handler references.
 See [TYPE aliases](type-aliases.md) for transparent names, identity and bounded
 STRING routine interfaces.
 See [external types](external-types.md) for full FROM definitions, owner-source

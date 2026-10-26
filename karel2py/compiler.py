@@ -810,16 +810,18 @@ class Parser:
         if name == 'USING':
             variables = []
             while True:
-                variable = self.name()
-                selector = Expr('name', variable, variable.value)
                 if self.mode == 'pythonic':
-                    while self.accept('.'):
-                        member = self.name()
-                        selector = Expr('field', member, member.value, [selector])
-                if self.current.value in ('[', '.', '('):
-                    self.error('E_USING_TARGET', 'USING supports named STRUCTURE variables and dotted field paths; indexed/call selectors remain blocked'
-                               if self.mode == 'pythonic' else 'USING currently requires bare named STRUCTURE variables', variable)
-                variables.append(selector if self.mode == 'pythonic' else variable)
+                    selector = self.expression()
+                    root = selector
+                    while root.kind in ('group', 'field', 'index'): root = root.args[0]
+                    if root.kind != 'name' or self.current.value == '(':
+                        self.error('E_USING_TARGET', 'USING requires existing record storage; function-result and computed selectors are not supported', selector.token)
+                    variables.append(selector)
+                else:
+                    variable = self.name()
+                    if self.current.value in ('[', '.', '('):
+                        self.error('E_USING_TARGET', 'USING currently requires bare named STRUCTURE variables', variable)
+                    variables.append(variable)
                 if not self.accept(','): break
             self.expect('DO')
             body = self.block({'ENDUSING'})
@@ -1413,7 +1415,14 @@ class Emitter:
     def resolve_using_fields(self):
         """Resolve lexical field aliases before effect and control-flow analysis."""
         def path_text(expr):
-            return path_text(expr.args[0]) + '.' + expr.value if expr.kind == 'field' else expr.value
+            if expr.kind == 'using_ref': return expr.value[4]
+            if expr.kind == 'field': return path_text(expr.args[0])+'.'+expr.value
+            if expr.kind == 'index': return path_text(expr.args[0])+'['+','.join(path_text(arg) for arg in expr.args[1:])+']'
+            if expr.kind == 'group': return '('+path_text(expr.args[0])+')'
+            if expr.kind == 'call': return expr.value+'('+','.join(path_text(arg) for arg in expr.args)+')'
+            if expr.kind == 'binary': return '('+path_text(expr.args[0])+expr.value+path_text(expr.args[1])+')'
+            if expr.kind == 'unary': return expr.value+'('+path_text(expr.args[0])+')'
+            return str(expr.value)
 
         def copy_path(expr, token):
             # Insert absolute paths without revisiting their roots as aliases.
@@ -1447,9 +1456,16 @@ class Emitter:
                         # fields introduced by earlier selectors in this list.
                         selector = resolve(selector, bindings, scope)
                         spec = self.access_type(selector)
-                        if spec[0] != 'STRUCTURE':
-                            self.error('E_USING_TYPE', 'USING requires a named STRUCTURE variable or field path', selector.token)
-                        for name, _ in spec[2]: fields[name] = selector
+                        if spec[0] not in (RECORD_TYPES if self.mode == 'pythonic' else ('STRUCTURE',)):
+                            self.error('E_USING_TYPE', 'USING requires STRUCTURE or supported built-in record storage', selector.token)
+                        binding = selector
+                        if self.mode == 'pythonic':
+                            storage = selector
+                            while storage.kind == 'group': storage = storage.args[0]
+                            binding = Expr('using_ref',selector.token,
+                                (f'_using_{len(self.using_scopes)}_{len(selectors)}',spec,self.root_name(selector),
+                                 self.is_position_read_only_access(storage),path_text(selector)))
+                        for name, _ in rt.record_fields(spec): fields[name] = binding
                         selectors.append(selector)
                     parent = scope
                     scope = dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -1464,6 +1480,13 @@ class Emitter:
                     if parent: self.features.add('nested USING lexical scope')
                     if any(selector.kind == 'field' for selector in selectors): self.features.add('qualified USING selector')
                     node.args = selectors
+                    if self.mode == 'pythonic':
+                        node.using_captures = tuple(f'_using_{scope["id"]}_{index}' for index in range(len(selectors)))
+                        scope['capture_once'] = True
+                        self.features.add('captured USING storage selectors')
+                        if any(self.access_type(selector)[0] in DATA_RECORD_TYPES for selector in selectors):
+                            self.features.add('built-in record USING')
+                        scope['selector_types'] = [self.access_type(selector) for selector in selectors]
                     node.body = resolve(node.body, fields, scope)
                     return node
                 if bindings and node.kind == 'for' and node.args[0].value in bindings:
@@ -1666,7 +1689,7 @@ class Emitter:
     @staticmethod
     def root_name(expr):
         while expr.kind in ('index', 'field', 'group'): expr = expr.args[0]
-        return expr.value
+        return expr.value[2] if expr.kind == 'using_ref' else expr.value
 
     def member_type(self, spec, expr):
         if spec[0]=='PATH':
@@ -1686,6 +1709,7 @@ class Emitter:
     def access_type(self, expr):
         """Inspect receiver types without emitting calls or duplicate call-site reports."""
         if expr.kind == 'group': return self.access_type(expr.args[0])
+        if expr.kind == 'using_ref': return expr.value[1]
         if self.mode=='pythonic' and expr.kind=='call' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
             return ex.FUNCTIONS[expr.value][1]
         if expr.kind == 'call' and expr.value in self.routines and self.routines[expr.value].return_type:
@@ -1736,10 +1760,12 @@ class Emitter:
                     return True
             expr = expr.args[0]
             while expr.kind == 'group': expr = expr.args[0]
-        return False
+        return expr.kind == 'using_ref' and expr.value[3]
 
     def reference(self, expr):
         line = expr.token.line
+        if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
+        if expr.kind == 'group': return self.reference(expr.args[0])
         if expr.kind == 'name':
             return f'self._state.reference({expr.value!r}, {line})', self.symbol_type(expr)
         base, spec = self.expression(expr.args[0], raw=True)
@@ -1796,6 +1822,9 @@ class Emitter:
 
     def expression(self, expr, raw=False, *, allow_array_result=False):
         if expr.kind=='captured': return expr.value
+        if expr.kind=='using_ref':
+            code=f'{expr.value[0]}.raw()'
+            return (code if raw else f'_rt.require({code},{expr.token.line})'),expr.value[1]
         if expr.kind=='event':
             number=self.require_type(expr.args[0],'INTEGER'); key=(expr.token.line,expr.token.column)
             return f'_rt.event_condition(self._state,{number},{key!r},{expr.token.line})',('BOOLEAN',)
@@ -2092,7 +2121,7 @@ class Emitter:
         for argument, expected in zip(expr.args[1:], ('CONFIG','INTEGER') if parsing else ('STRING',)):
             base = argument
             while base.kind in ('field', 'index'): base = base.args[0]
-            if argument.kind not in ('name', 'field', 'index') or base.kind != 'name' or base.value in self.visible_constants():
+            if argument.kind not in ('name', 'field', 'index') or base.kind not in ('name','using_ref') or base.value in self.visible_constants():
                 self.error('E_OUTPUT_ARGUMENT', 'CONFIG conversion outputs require storage rooted in a variable', argument.token)
             if base.value in self.active_counters: self.error('E_FOR_COUNTER', 'CONFIG conversion cannot write an active FOR counter', argument.token)
             if self.is_position_read_only_access(argument): self.error('E_POSITION_READ_ONLY', 'CONFIG conversion output is read-only', argument.token)
@@ -2166,7 +2195,7 @@ class Emitter:
         for target, required in zip(targets,specs):
             base = target
             while base.kind in ('field','index'): base = base.args[0]
-            if target.kind not in ('name','field','index') or base.kind != 'name' or base.value in self.visible_constants():
+            if target.kind not in ('name','field','index') or base.kind not in ('name','using_ref') or base.value in self.visible_constants():
                 self.error('E_OUTPUT_ARGUMENT','Numeric register outputs require storage rooted in a variable',target.token)
             if base.value in self.active_counters: self.error('E_FOR_COUNTER','Numeric register output cannot write an active FOR counter',target.token)
             if self.is_position_read_only_access(target): self.error('E_POSITION_READ_ONLY','Numeric register output is read-only',target.token)
@@ -2202,7 +2231,7 @@ class Emitter:
         destination = expr.args[1]
         base = destination
         while base.kind in ('field','index'): base = base.args[0]
-        if destination.kind not in ('name','field','index') or base.kind != 'name' or base.value in self.visible_constants():
+        if destination.kind not in ('name','field','index') or base.kind not in ('name','using_ref') or base.value in self.visible_constants():
             self.error('E_OUTPUT_ARGUMENT','Time conversion output requires storage rooted in a variable',destination.token)
         if base.value in self.active_counters: self.error('E_FOR_COUNTER','Time conversion cannot write an active FOR counter',destination.token)
         if self.is_position_read_only_access(destination): self.error('E_POSITION_READ_ONLY','POSITION orientation cannot be a time conversion output',destination.token)
@@ -2527,6 +2556,7 @@ class Emitter:
                 if kind in ('label', 'goto', 'enter'):
                     self.features.add(stmt.kind)
                     if kind != 'label': self.line(f'self._state.tick({line})', token)
+                    if kind == 'enter' and stmt.kind == 'using': self.emit_using_entry(stmt)
                     self.line(f'{pc} = {node.targets[0]!r}')
                 elif kind in ('if', 'while_test', 'repeat_test'):
                     self.features.add(stmt.kind)
@@ -2566,6 +2596,22 @@ class Emitter:
             self.indent -= 3
         if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
         else: self.control_flow['program'] = report
+
+    def emit_using_entry(self,stmt):
+        if self.mode != 'pythonic': return
+        for name,selector in zip(stmt.using_captures,stmt.args):
+            reference,_=self.reference(selector)
+            self.line(f'{name} = {reference}',selector.token)
+
+    @staticmethod
+    def using_defaults(clauses):
+        # Handlers outlive a block entry. Freeze only enclosing references, never
+        # captures that an inner USING will allocate when its action later runs.
+        nodes=list(Emitter.walk_nodes(clauses))
+        local={name for node in nodes if isinstance(node,Statement) and node.kind=='using'
+               for name in getattr(node,'using_captures',())}
+        refs=sorted({node.value[0] for node in nodes if isinstance(node,Expr) and node.kind=='using_ref'}-local)
+        return ','.join(name+'='+name for name in refs)
 
     def test_code(self,code,line):
         return f'(yield from _rt.cooperative_test(self._state,lambda: {code},{line}))' if self.cooperative else f'self._state.test({code},{line})'
@@ -2650,8 +2696,9 @@ class Emitter:
                         self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
                 predicate=self.fresh(); action=self.fresh()
                 condition=self.require_type(clause.args[0],'BOOLEAN')
-                self.line(f'def {predicate}():'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
-                self.line(f'def {action}():'); self.indent+=1; self.line('if False: yield None')
+                defaults=self.using_defaults([clause.args,clause.body])
+                self.line(f'def {predicate}({defaults}):'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
+                self.line(f'def {action}({defaults}):'); self.indent+=1; self.line('if False: yield None')
                 self.block(clause.body); self.indent-=1; pairs.append(f'({predicate},{action})')
             scan=self.require_type(stmt.args[1],'INTEGER') if len(stmt.args)>1 else '0'
             self.line(f'_rt.define_condition(self._state,{number},[{", ".join(pairs)}],{line},scan_ms={scan})',token); return
@@ -2718,7 +2765,8 @@ class Emitter:
                 value = temporary
             self.line(f'{reference}.set({value}, {line})', token)
         elif kind == 'using':
-            self.block(stmt.body)  # Qualified fields need no dynamic runtime scope.
+            self.emit_using_entry(stmt)
+            self.block(stmt.body)
         elif kind == 'abort':
             if self.mode == 'strict' and self.active_counters and not self.has_fresh_active_counters():
                 self.error('E_FOR_COUNTER', 'ABORT inside FOR requires fresh routine-local counters; observable counter state on abort is unvalidated', token)
@@ -2842,7 +2890,7 @@ class Emitter:
                 format_exprs = item.args[1:] if item.kind == 'read_item' else []
                 base = target
                 while base.kind in ('field', 'index'): base = base.args[0]
-                if target.kind not in ('name', 'field', 'index') or base.kind != 'name':
+                if target.kind not in ('name', 'field', 'index') or base.kind not in ('name','using_ref'):
                     self.error('E_READ_ITEM', 'READ requires scalar storage rooted in a variable', target.token)
                 root = self.root_name(target)
                 if root in self.visible_constants(): self.error('E_CONST_ASSIGN', 'READ cannot write CONST', target.token)
@@ -4212,14 +4260,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         jumps_and_labels_inside_for='blocked', controller_validated=False)
     report['abort_policy']['for_boundary'] = 'Pythonic FOR scopes clear initialized counters during ABORT unwinding; prior non-counter effects remain'
     report['using_policy'] = dict(
-        selectors='Named STRUCTURE variables or dotted STRUCTURE field paths; resolve against enclosing aliases only; selectors in the same list do not affect one another',
+        selectors='Existing named STRUCTURE or supported built-in record storage; dotted, indexed and grouped paths; resolve against enclosing aliases only; selectors in the same list do not affect one another',
         priority='Inner fields override outer fields; right-most matching selector wins within one list; unmatched outer fields remain available; restore outer bindings after the block',
-        resolution='Expand bare aliases to copied absolute field paths before type, call, effect and control-flow checks; inserted roots are not resolved again; no dynamic caller scope',
+        resolution='Resolve lexical aliases before analysis; evaluate selector storage references once left-to-right on each entry and retain their source roots for effect checks; no dynamic caller scope',
+        capture='Index calls and selectors run even for empty blocks; index changes do not retarget fields; loop entries recapture, internal jumps and pause/resume retain references; handler callbacks freeze enclosing references at definition',
         nested_scopes='Lexical scopes; depth zero at the outermost USING; scope id, parent id, source selectors and resolved paths in using_scopes',
         call_name_collisions='Explicit expression calls and procedure call statements resolve routines; a bare expression resolves a matching field before a zero-argument function',
         constant_name_collisions='Matching fields shadow global/local constants only inside the scope; CASE labels still require compile-time constants',
         shadowed_for_counters='blocked; fields cannot own FOR counters',
-        boundary='Named user STRUCTURE types only; no indexed, grouped or function-result selectors, implicit nested-field search or native namespace/alias-lifetime claim',
+        boundary='No function-result/computed selectors, whole ARRAY/resource/joint selectors, implicit nested-field search, field FOR counters or native namespace/selection-timing/alias-lifetime claim',
+        guide='docs/using-selectors.md',
         controller_validated=False)
     report['numeric_policy'] = dict(
         mode=mode, real_model='python_float', arithmetic='Python float +, -, *, /; finite results required',
@@ -4376,7 +4426,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
     report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and in-loop jumps remain blocked')
-    report['limitations'].append('USING supports lexical nesting and dotted named STRUCTURE selectors; indexed/call/grouped selectors, builtin record selectors and field FOR counters remain blocked')
+    report['limitations'].append('USING supports lexical nesting and captured dotted/indexed/grouped record storage; function-result/computed selectors and field FOR counters remain blocked')
     report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax and local TYPE sections remain blocked; external types follow external_type_policy')
     report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
     report['position_axis_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT only; complete checked poses, no robot acquisition or orientation defaults'
@@ -4400,7 +4450,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/portable-projects.md',controller_validated=False)
     report['abort_policy']['source']='Bare ABORT, handler action or explicitly registered task target; sticky offline termination'
     report['abort_policy']['boundary']='NOABORT can cancel pending cooperative requests, but cannot undo sticky termination; no controller motion cancellation, native persistence or restart acceptance'
-    report['data_record_policy']['boundary'] = 'Checked positional data and whole pose conversions; registers and geometry use explicit services; no builtin USING, record I/O, motion or inferred group/frame context'
+    report['data_record_policy']['boundary'] = 'Checked positional data and whole pose conversions; registers and geometry use explicit services; builtin record USING follows using_policy; no record I/O, motion or inferred group/frame context'
     report['pos_policy']['boundary'] = 'POS returns exact XYZWPR; whole assignments can convert poses under position_conversion_policy; no implicit routine/array conversion, robot context, native configuration validity or native pause/status'
     report['frame_policy']['operands'] = 'Explicit complete POSITION/XYZWPR/XYZWPREXT; colon composition, INV and three/four-point FRAME use checked frame math and explicit external metadata'
     report['frame_policy']['result_type'] = 'INV preserves representation; colon/FRAME prefer XYZWPREXT, then POSITION, then XYZWPR; external metadata follows extended_geometry_policy'

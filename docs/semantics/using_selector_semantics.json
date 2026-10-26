@@ -1,0 +1,37 @@
+{
+  "version": "26.1026.180251",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.20.5 USING ... ENDUSING Statement"
+      ],
+      "topic": "Structure variable selectors, field priority and right-most lookup; dynamic capture timing and builtin forms are explicit Pythonic choices"
+    }
+  ],
+  "contract": {
+    "guide": "../using-selectors.md",
+    "selectors": "Existing named STRUCTURE or VECTOR/CONFIG/XYZWPR/XYZWPREXT/POSITION records; dotted, indexed and grouped storage; calls inside indexes only",
+    "capture": "Reference selection once left-to-right on each entry, even for an empty body; no data copy or field-initialization demand; prior effects survive later selector failure",
+    "control_flow": "Keep selection across internal jumps and pause/resume; recapture on block reentry; existing ancestor-only entry restrictions and routine cleanup",
+    "handlers": "Freeze enclosing references in predicate/action defaults at definition; inner handler USING captures on action execution",
+    "effects": "Retain source roots and once-per-entry selector calls for transitive global/formal writes and active-counter checks",
+    "protection": "Exact existing outputs, overlaps, capacities, initialization, CONFIG bounds and recursively protected POSITION orientation fields remain",
+    "reporting": "using_scopes adds capture_once and selector_types; preserve source paths, IDs, lexical bindings and original source mapping"
+  },
+  "boundaries": [
+    "No function-result/computed or whole ARRAY/resource/joint selectors, field FOR counters or dynamic caller scope",
+    "Captured PATH node identity does not imply automatic retargeting after collection removal or replacement",
+    "No native selector-timing, builtin-form, namespace, ABI or alias-lifetime claim; strict remains future work"
+  ],
+  "validation": [
+    "tests/test_using_selectors.py",
+    "tests/test_pythonic_using.py",
+    "tests/test_using.py",
+    "examples/indexed_using.kl",
+    "examples/record_using.kl",
+    "examples/using_selectors_project"
+  ]
+}

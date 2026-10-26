@@ -1,0 +1,22 @@
+PROGRAM RECORD_USING
+VAR pose:XYZWPREXT
+    converted:POSITION
+    cfg:CONFIG
+    normal_x:REAL
+    status:INTEGER
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  pose=POS(10,20,30,0,0,0,cfg)
+  USING pose DO
+    x=x+32
+    ext1=1
+    ext2=2
+    ext3=ext1+ext2
+    USING config_data DO cfg_up=ON ENDUSING
+  ENDUSING
+  converted=pose
+  USING converted DO
+    USING location DO x=x+1 ENDUSING
+    USING (normal) DO normal_x=x ENDUSING
+  ENDUSING
+END RECORD_USING

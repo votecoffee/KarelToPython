@@ -1,0 +1,10 @@
+PROGRAM MAIN
+TYPE entry_t FROM LIBRARY=STRUCTURE value:INTEGER ENDSTRUCTURE
+     rows_t FROM LIBRARY=ARRAY[2] OF entry_t
+VAR shared FROM LIBRARY:rows_t
+    result:INTEGER
+ROUTINE edit(rows:rows_t; slot:INTEGER):INTEGER FROM LIBRARY
+BEGIN
+  USING shared[1] DO value=20 ENDUSING
+  result=edit(shared,2)
+END MAIN

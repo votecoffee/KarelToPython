@@ -13,12 +13,13 @@
     "report": "using_scopes id/parent/depth, original source selectors, resolved selector paths, inherited field bindings and source-located resolved uses; using_policy describes the current contract"
   },
   "retained_boundaries": [
-    "No indexed, grouped, function-result or call selectors; named user STRUCTURE types only",
+    "No function-result or computed selectors; captured indexed/grouped and built-in record extension follows using_selector_semantics.json",
     "No implicit recursive field search or field-owned FOR counters",
     "Existing type, initialization, ASCII, capacity, ownership and POSITION protection checks",
     "No jumps into nested/sibling scopes or labels/jumps inside FOR bodies",
     "Conservative tests remain internal for the future strict milestone; no native namespace or dynamic caller-scope claim"
   ],
   "tests": ["tests/test_pythonic_using.py", "tests/test_using.py", "tests/test_structures.py", "tests/test_local_constants.py", "tests/test_runtime_portability.py", "examples/pythonic_using.kl"],
+  "current_selector_contract": "using_selector_semantics.json",
   "controller_validated": false
 }

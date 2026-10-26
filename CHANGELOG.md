@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1026.180251 - 2026-10-26
+
+- Add indexed and grouped USING storage selectors, including index calls and
+  supported built-in VECTOR, CONFIG, XYZWPR, XYZWPREXT and POSITION records.
+- Capture references once left-to-right at block entry; retain selections across
+  index changes, internal jumps and pause/resume, with fresh captures on reentry.
+- Freeze enclosing references in condition callbacks; retain source-root effects,
+  exact output interfaces and POSITION/CONFIG/active-counter protection.
+- Add 51 focused regressions, two standalone CLI examples and one linked project
+  combining external types, shared variables and indexed routine parameters.
+
 ## 26.1026.174213 - 2026-10-26
 
 - Add complete TYPE name FROM owner definitions for supported aliases, structures,

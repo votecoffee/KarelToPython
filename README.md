@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.174213**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.180251**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -209,9 +209,11 @@ the counters. Read-only counter references are supported, and initialized
 counters clear on RETURN, ABORT and errors. See [Pythonic FOR](docs/pythonic-for.md)
 for cleanup, argument passing and remaining restrictions.
 
-USING supports nested lexical scopes and dotted STRUCTURE selectors. Inner
-fields take precedence, with outer bindings restored afterward. See
-[Pythonic USING](docs/pythonic-using.md) for field, constant and routine lookup.
+USING supports nested lexical scopes and dotted, indexed or grouped record
+storage, including built-in records. Selectors capture references once per entry;
+index changes preserve the selected fields. Inner fields take precedence and
+handler callbacks retain their enclosing references. See [Pythonic USING](docs/pythonic-using.md)
+and [captured selectors](docs/using-selectors.md) for lookup and retained guards.
 
 TYPE aliases provide alternate names for supported types and keep original
 aggregate identities and capacities. Bounded STRING alias parameters accept

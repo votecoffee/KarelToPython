@@ -1,0 +1,14 @@
+PROGRAM LIBRARY
+TYPE entry_t FROM LIBRARY=STRUCTURE value:INTEGER ENDSTRUCTURE
+     rows_t FROM LIBRARY=ARRAY[2] OF entry_t
+VAR shared:rows_t
+ROUTINE edit(rows:rows_t; slot:INTEGER):INTEGER
+BEGIN
+  USING rows[slot] DO
+    value=42
+    RETURN value
+  ENDUSING
+  RETURN 0
+END edit
+BEGIN
+END LIBRARY

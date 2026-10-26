@@ -249,19 +249,19 @@ class UsingEffectsAndControlTests(unittest.TestCase):
 
 
 class UsingBoundaryAndReportTests(unittest.TestCase):
-    def test_unsupported_selector_forms_remain_blocked(self):
+    def test_legacy_complex_selector_forms_remain_blocked(self):
         for selector in ('items[1]', 'tree.section.child[1]', 'make()', 'tree.section.child()'):
             with self.subTest(selector=selector), self.assertRaises(TranslationError) as caught:
-                compile_program(f'USING {selector} DO ENDUSING')
+                compile_program(f'USING {selector} DO ENDUSING',translator=legacy_translate)
             self.assertEqual(caught.exception.code, 'E_USING_TARGET')
 
-    def test_grouped_selector_remains_blocked(self):
-        with self.assertRaises(TranslationError): compile_program('USING (left) DO ENDUSING')
+    def test_legacy_grouped_selector_remains_blocked(self):
+        with self.assertRaises(TranslationError): compile_program('USING (left) DO ENDUSING',translator=legacy_translate)
 
-    def test_scalar_array_and_builtin_records_not_selectors(self):
+    def test_legacy_scalar_array_and_builtin_records_not_selectors(self):
         for name, declaration in [('n','INTEGER'), ('n','ARRAY[1] OF INTEGER'), ('n','VECTOR'), ('n','XYZWPR')]:
             with self.subTest(declaration=declaration), self.assertRaises(TranslationError) as caught:
-                compile_program('USING n DO ENDUSING', declarations=f'n: {declaration}')
+                compile_program('USING n DO ENDUSING', declarations=f'n: {declaration}',translator=legacy_translate)
             self.assertEqual(caught.exception.code, 'E_USING_TYPE')
 
     def test_missing_field_has_source_diagnostic(self):

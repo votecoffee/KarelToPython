@@ -1,0 +1,4 @@
+{
+  "LIBRARY":{"state":"ready","values":{"SHARED":[{"VALUE":20},{"VALUE":42}]}},
+  "MAIN":{"state":"completed","values":{"SHARED":[{"VALUE":20},{"VALUE":42}],"RESULT":42}}
+}

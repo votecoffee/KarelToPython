@@ -1,5 +1,5 @@
 {
-  "version": "26.1026.174213",
+  "version": "26.1026.180251",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -170,5 +170,6 @@
   "program_archives": "program_archive_semantics.json",
   "includes": "include_semantics.json",
   "variable_archives": "variable_archive_semantics.json",
-  "external_types": "external_type_semantics.json"
+  "external_types": "external_type_semantics.json",
+  "using_selectors": "using_selector_semantics.json"
 }

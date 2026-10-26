@@ -1,0 +1,24 @@
+PROGRAM INDEXED_USING
+TYPE entry_t=STRUCTURE count:INTEGER label:STRING[5] ENDSTRUCTURE
+VAR rows:ARRAY[2] OF entry_t
+    slot,calls,total:INTEGER
+ROUTINE next_slot:INTEGER
+BEGIN
+  calls=calls+1
+  RETURN calls
+END next_slot
+BEGIN
+  calls=0
+  slot=1
+  USING rows[next_slot()] DO
+    count=20
+    label='first row'
+    slot=2
+    count=count+2
+  ENDUSING
+  USING (rows[slot]) DO
+    count=20
+    label='second row'
+  ENDUSING
+  total=rows[1].count+rows[2].count
+END INDEXED_USING
