@@ -1,13 +1,13 @@
 # Remaining Pythonic support
 
-Audited on 2026-10-24 against the 465-heading, multi-edition KAREL feature
+Audited on 2026-10-26 against the 465-heading, multi-edition KAREL feature
 inventory, the programmer reference and the implemented parser/runtime. This is
 a product backlog, not a controller compatibility certificate. The inventory
 contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 194 have a registered translation and 140 do not.
+Currently, 198 have a registered translation and 136 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -129,9 +129,11 @@ they are boundaries rather than promises to accept every such source form later.
 - SET_TSK_NAME now has an [offline implementation](task-renaming.md), including
   stable task numbers and retained scheduler state. Native task naming rules and
   controller task identifiers remain unverified.
-- Native program load/save/translate/backup/clear/restore, dynamic BYNAME calls,
-  task discovery and implicit external linkage. Program catalogs and load status
-  describe explicitly attached programs or supplied metadata.
+- Native program load/save/translate/backup/clear/restore, task discovery and
+  implicit external linkage. [Dynamic variables and BYNAME](dynamic-variables.md)
+  now have explicit offline forms; renaming compiled globals or attached program
+  namespaces, dynamic resource creation and native allocation remain unsupported.
+  Program catalogs and load status describe attached programs or supplied metadata.
 - Native alarm dictionaries, severity encodings, asynchronous history timing,
   power-cycle restoration and controller error recovery. POST_ERR, POST_ERR_L,
   ERR_DATA, semaphores and lifecycle conditions have explicit offline contracts.
@@ -323,14 +325,12 @@ does not assert a particular installed option or environment.
 - `SET_PERCH`
 - `UNLOCK_GROUP`
 
-### Programs, dynamic variables and controller commands (21)
+### Programs, dynamic variables and controller commands (17)
 
-- `BYNAME`
 - `CALL_PROG`
 - `CALL_PROGLIN`
 - `CHECK_STACK`
 - `CLEAR`
-- `CREATE_VAR`
 - `FORCE_LINK`
 - `KCL`
 - `KCL_NO_WAIT`
@@ -339,8 +339,6 @@ does not assert a particular installed option or environment.
 - `PROG_BACKUP`
 - `PROG_CLEAR`
 - `PROG_RESTORE`
-- `RENAME_VAR`
-- `RENAME_VARS`
 - `SAVE`
 - `SAVE_DRAM`
 - `SET_DB_EVENT`

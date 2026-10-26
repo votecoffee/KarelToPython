@@ -405,6 +405,8 @@ def context_config(context):
     if context.variables.bindings:
         result['variables']=[dict(program=program,path=path,**typed_value(reference.raw(),reference.spec)) for (program,path),reference in sorted(context.variables.bindings.items())]
     variables={(row['program'],row['path']):row for row in result.get('variables',[])}
+    for key,metadata in context.variables.metadata.items():
+        if key in variables: variables[key]['creation']=metadata.copy()
     for name,state in context.variables.programs.items():
         for path,spec in state.types.items():
             if spec[0]!='FILE':

@@ -1,0 +1,24 @@
+PROGRAM DYNAMIC_VARS
+TYPE packet = STRUCTURE
+  id: INTEGER
+  label: STRING[12]
+ENDSTRUCTURE
+VAR
+  entry, value, status, kind, width, count: INTEGER
+  empty: BOOLEAN
+  type_name: STRING[32]
+  dimensions: ARRAY[3] OF INTEGER
+  names: ARRAY[2] OF STRING[36]
+BEGIN
+  -- Restore names on a saved-context replay, then create or reuse the record.
+  RENAME_VARS('SAVED_CACHE','WORK_CACHE',status)
+  RENAME_VAR('WORK_CACHE','SAVED','PAYLOAD',status)
+  CREATE_VAR('WORK_CACHE','PAYLOAD','','packet',0,0,0,0,status,-1)
+  SET_VAR(entry,'WORK_CACHE','PAYLOAD.ID',13,status)
+  SET_VAR(entry,'WORK_CACHE','PAYLOAD.LABEL','portable',status)
+  RENAME_VAR('WORK_CACHE','PAYLOAD','SAVED',status)
+  RENAME_VARS('WORK_CACHE','SAVED_CACHE',status)
+  GET_VAR(entry,'SAVED_CACHE','SAVED.ID',value,status)
+  VAR_INFO('SAVED_CACHE','SAVED',empty,type_name,kind,dimensions,width,status)
+  VAR_LIST('SAVED_CACHE','*',0,0,2,names,count,status)
+END DYNAMIC_VARS

@@ -2103,6 +2103,7 @@ class Emitter:
         return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line})'
 
     def service_call(self,expr):
+        if expr.value=='BYNAME': self.error('E_BYNAME_CONTEXT','BYNAME is permitted only as a direct user routine argument',expr.token)
         signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
         minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST or expr.value in ex.OPTIONAL_GROUP)
         default_masks=self.mode=='pythonic' and expr.value in ('CURPOS','CURJPOS') and not expr.args
@@ -2316,6 +2317,22 @@ class Emitter:
         arguments = []
         for argument, (formal, expected) in zip(expr.args, routine.parameters):
             line = argument.token.line
+            if self.mode=='pythonic' and argument.kind=='call' and argument.value=='BYNAME' and 'BYNAME' not in self.routines:
+                if len(argument.args)!=3: self.error('E_ARGUMENTS','BYNAME requires three arguments',argument.token)
+                self.check_for_call(argument.token)
+                if self.active_counters: self.error('E_FOR_COUNTER','BYNAME cannot alias an active FOR counter',argument.token)
+                program=self.require_type(argument.args[0],'STRING');path=self.require_type(argument.args[1],'STRING')
+                entry=argument.args[2]
+                if entry.kind not in ('name','field','index') or self.root_name(entry) in self.visible_constants():
+                    self.error('E_OUTPUT_ARGUMENT','BYNAME entry requires writable INTEGER storage',entry.token)
+                if self.is_position_read_only_access(entry) or self.is_config_subfield(entry):
+                    self.error('E_OUTPUT_ARGUMENT','BYNAME entry requires ordinary writable INTEGER storage',entry.token)
+                code,spec=self.reference(entry)
+                if spec!=('INTEGER',): self.error('E_TYPE','BYNAME entry requires exact INTEGER storage',entry.token)
+                arguments.append(f'self._state.byname_argument({expected!r},{program},{path},{code},{line})')
+                self.features.update(('BYNAME','extended services','parameter by reference'))
+                self.service_uses.append(dict(operation='BYNAME',body=self.current_routine.name if self.current_routine else self.program.name,line=line,column=argument.token.column))
+                continue
             if self.is_position_read_only_access(argument):
                 self.error('E_POSITION_READ_ONLY_ARG', 'Bare POSITION orientation arguments need read-only passing evidence; use an explicit scalar expression for a value', argument.token)
             # Bare variable and indexed-variable arguments retain their storage.
@@ -3038,6 +3055,7 @@ class Emitter:
         self.line(f'imported_variables = {tuple(self.program.imported_variables)!r}')
         self.line(f'routine_interfaces = { {r.name:dict(parameters=tuple(spec for _,spec in r.parameters),result=r.return_type,external=r.external) for r in self.program.routines}!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
+        self.line(f'variable_types = {self.user_types!r}')
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
         self.line('def __init__(self, *, sleep=None, write=None, read=None, joint_axes=None, pose_tolerance=None, external_tolerance=None, clock_us=None, registers=None, context=None):')
         self.indent = 2
@@ -3761,6 +3779,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['dynamic_variable_policy']=dict(
+        procedures=['CREATE_VAR','RENAME_VAR','RENAME_VARS'],functions=['BYNAME'],
+        creation='Explicit context roots, portable scalars/records, fixed STRING capacities, JOINTPOS1..9, BYTE/SHORT arrays and attached user types; contiguous inner/middle/outer dimensions; 32767 aggregate created scalar leaves',
+        aliases='BYNAME only as a direct typed user-routine argument; resolve current/attached/explicit roots and static paths once, preserve uninitialized storage and true references across linked calls and pause; no system/protected fields or overlapping entry output',
+        names='Case-insensitive identifiers up to 36 characters; blank CREATE/RENAME program/type-program defaults to the current source program, blank BYNAME program to the calling root source; renames preserve references and entry caches; namespace moves require unattached ordinary root bindings',
+        status='Portable 0 success, 1 missing, 2 invalid name/pool, 3 collision, 4 compiled/protected namespace, 5 unsupported type/dimensions/group, 6 aggregate allocation limit; BYNAME lookup/type failures raise without entry writes',
+        persistence='Typed values and creation group/memory_pool metadata round-trip in context variables rows; no alias handles, type declarations or native memory pools persisted',
+        guards='Compile-time indirect FOR/effect/handler guards retained; renaming compiled globals/programs and resource-bearing dynamic types remains excluded',
+        boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
+        guide='docs/dynamic-variables.md',controller_validated=False)
     report['queue_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         snapshot='Whole QUEUE_TYPE only; independent checked initialization flag, ordered sequence/value pairs and last sequence counter; exclude source backing ARRAY reference and capacity',

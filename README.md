@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.124620**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.131437**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -275,6 +275,9 @@ Six device/storage calls share explicit virtual DeviceFiles volumes, including
 mount state, byte quotas, obsolete-storage reclamation, labels and supplied device
 information. These operations affect memory-backed data only; see
 [virtual devices](docs/virtual-devices.md).
+CREATE_VAR, RENAME_VAR and RENAME_VARS manage explicit variable namespaces;
+BYNAME passes checked named aliases into typed routines, including linked calls
+and cooperative pause/resume. See [dynamic variables](docs/dynamic-variables.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

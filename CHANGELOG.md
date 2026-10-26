@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1026.131437 - 2026-10-26
+
+- Add CREATE_VAR over bounded portable data and attached user types, with typed
+  context persistence and retained group/DRAM/CMOS intent metadata.
+- Add RENAME_VAR and RENAME_VARS for explicit variable roots/namespaces; preserve
+  references and caches while protecting compiled identities and system bindings.
+- Add BYNAME as a typed routine alias, including linked calls and pause/resume;
+  retain exact named types, disjoint entry outputs and indirect FOR/effect guards.
+- Normalize current-program variable cache keys, reject duplicate saved bindings,
+  add 42 focused regressions and two authored CLI examples; update support docs
+  and audit 198 registered built-in names with 136 still unregistered.
+
 ## 26.1026.124620 - 2026-10-26
 
 - Add all six device/storage calls over an explicit virtual DeviceFiles backend,

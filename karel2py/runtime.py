@@ -2154,6 +2154,10 @@ class State:
             raise
         row['outcome']='completed'; return result
 
+    def byname_argument(self,expected,program,path,entry,line=None):
+        from .dynamic import byname
+        return byname(self,expected,program,path,entry,line)
+
     def kinematic_assignment(self,target,value,line=None):
         if not _pythonic(): raise KarelRuntimeError('Kinematic assignments require Pythonic mode',line)
         return self._kinematic_conversion(target,value,line,'KINEMATIC_ASSIGNMENT')

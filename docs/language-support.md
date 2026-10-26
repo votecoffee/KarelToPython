@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.124620. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.131437. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -290,3 +290,7 @@ binary equality, controller ABI or robot behavior.
 Manual PDFs, private corpora, local audit results and controller files are not
 distributed here. Use the [reference descriptions](references.md) and the
 documents available for your controller release when evaluating source semantics.
+
+Dynamic creation, renaming and typed BYNAME routine aliases follow the
+[dynamic variable contract](dynamic-variables.md), including saved creation policy
+and explicit namespace guards. Compiled names and native memory pools stay fixed.

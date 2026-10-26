@@ -1,5 +1,5 @@
 {
-  "version": "26.1026.124620",
+  "version": "26.1026.131437",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -159,5 +159,6 @@
   "path_geometry": "path_geometry_semantics.json",
   "xml_input": "xml_input_semantics.json",
   "serial_attributes": "serial_attribute_semantics.json",
-  "virtual_devices": "virtual_device_semantics.json"
+  "virtual_devices": "virtual_device_semantics.json",
+  "dynamic_variables": "dynamic_variable_semantics.json"
 }

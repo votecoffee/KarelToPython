@@ -1,0 +1,17 @@
+PROGRAM NAMED_ARGS
+VAR
+  entry, status, number: INTEGER
+  values: ARRAY[2] OF INTEGER
+  text: STRING[12]
+ROUTINE update(item: INTEGER; items: ARRAY OF INTEGER; label: STRING)
+BEGIN
+  item=item+2
+  items[2]=items[1]+item
+  label=label+'!'
+END update
+BEGIN
+  number=5
+  values[1]=3
+  text='named'
+  update(BYNAME('','NUMBER',entry),BYNAME('','VALUES',status),BYNAME('','TEXT',entry))
+END NAMED_ARGS

@@ -1,0 +1,62 @@
+{
+  "version": "26.1026.131437",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "B-83144EN-1/02",
+      "sections": [
+        "A.3.2 BYNAME",
+        "A.4.48 CREATE_VAR",
+        "A.19.10 RENAME_VAR"
+      ],
+      "topic": "Named variable routine parameters, creation types/dimensions/pool intent and single-variable rename"
+    },
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "A.17.11 RENAME_VARS"
+      ],
+      "topic": "Move a complete variable namespace to a new program name"
+    }
+  ],
+  "procedures": [
+    "CREATE_VAR",
+    "RENAME_VAR",
+    "RENAME_VARS"
+  ],
+  "functions": [
+    "BYNAME"
+  ],
+  "contract": {
+    "guide": "../dynamic-variables.md",
+    "store": "Explicit context VariableStore, declared globals take precedence",
+    "created_limit_scalar_leaves": 32767,
+    "names": "Case-insensitive ASCII identifiers, 1..36 characters",
+    "creation": "Portable resource-free types and attached user declarations; contiguous inner/middle/outer dimensions; unknown/unsupported forms return status before allocation",
+    "rename": "Preserve binding identity, values, metadata and entry caches; protect compiled globals, attached namespaces and system paths",
+    "byname": "Direct typed user routine argument only; exact formal-compatible alias; calling-root default; disjoint entry; no system/protected paths or active FOR aliasing",
+    "persistence": "Typed values plus optional creation group and memory_pool metadata; reject duplicate rows; validate creation limits before array decode"
+  },
+  "portable_statuses": {
+    "success": 0,
+    "missing": 1,
+    "invalid": 2,
+    "collision": 3,
+    "protected": 4,
+    "unsupported_type_shape_group": 5,
+    "allocation_limit": 6
+  },
+  "boundaries": [
+    "Native variable IDs/layout/statuses/allocation and CMOS power-cycle behavior",
+    "Compiled variable and attached program namespace renames",
+    "Resource-bearing/proprietary dynamic types and extra dimensions around named arrays",
+    "BYNAME as value expressions, system/local-frame lookup or dynamic routine discovery",
+    "Strict mode"
+  ],
+  "validation": [
+    "tests/test_dynamic_variables.py",
+    "examples/dynamic_variables.kl",
+    "examples/byname_arguments.kl"
+  ]
+}

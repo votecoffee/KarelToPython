@@ -28,7 +28,7 @@ def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
-DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR'}
+DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
     'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
 SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
@@ -78,6 +78,8 @@ PROCEDURES = {
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
     'GET_VAR': (arg('INTEGER','o'),S,S,arg('VARIABLE','o'),OI),
     'SET_VAR': (arg('INTEGER','o'),S,S,arg('VARIABLE'),OI),
+    'CREATE_VAR': (S,S,S,S,I,I,I,I,OI,I),
+    'RENAME_VAR': (S,S,S,OI), 'RENAME_VARS': (S,S,OI),
     'VAR_INFO': (S,S,arg('BOOLEAN','o'),OS,OI,arg('INT_ARRAY','r'),OI,OI),
     'VAR_LIST': (S,S,I,I,I,arg('STRING_ARRAY','r'),OI,OI),
     'PROG_LIST': (S,I,I,I,arg('STRING_ARRAY','r'),OI,OI,arg('INTEGER','r')),
@@ -109,6 +111,7 @@ PROCEDURES = {
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
 }
 FUNCTIONS = {
+    'BYNAME': ((S,S,OI),('DYNAMIC_REFERENCE',)),
     'CURPOS':((arg('INTEGER','m'),arg('INTEGER','m'),I),('XYZWPREXT',)),
     'CURJPOS':((arg('INTEGER','m'),arg('INTEGER','m'),I),('JOINTPOS',9)),
     'CURR_PROG':((),('STRING',12)),
@@ -155,6 +158,7 @@ TPE_OPTIONAL_GROUP={'SET_POS_TPE','SET_EPOS_TPE','SET_JPOS_TPE','GET_POS_TPE','G
     'SET_TPE_POS_REG','SET_TPE_EPOS_REG','SET_TPE_JPOS_REG','GET_TPE_POS_REG','GET_TPE_JPOS_REG'}
 POSITION_OPTIONAL_GROUP={'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG'}
 OPTIONAL_LAST.update(TPE_OPTIONAL_GROUP)
+OPTIONAL_LAST.add('CREATE_VAR')
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
@@ -868,7 +872,7 @@ def variable_transfer(target,source,*,numeric=False,line=None):
 
 
 class VariableStore:
-    def __init__(self): self.bindings={}; self.programs={}
+    def __init__(self): self.bindings={}; self.programs={}; self.metadata={}
     def attach(self,name,state):
         name=name.upper(); self.programs.setdefault(name,state)
         for (program,path),reference in self.bindings.items():
@@ -1551,10 +1555,18 @@ class ExecutionContext:
             services['files']=MemoryFiles({name:bytes.fromhex(value['hex']) if type(value) is dict else value for name,value in config['files'].items()})
         if 'numeric' in config: services['numeric']=runtime().NumericRegisters.from_config(config['numeric'])
         if 'variables' in config:
-            from .storage import decode_typed
+            from .storage import decode_typed,tuple_spec
             variables=VariableStore()
             for row in config['variables']:
-                if set(row)!={'program','path','type','value'}: raise ValueError('Variable state requires program, path, type and value')
+                if (type(row) is not dict or not {'program','path','type','value'}<=set(row)
+                        or set(row)-{'program','path','type','value','creation'}): raise ValueError('Variable state requires program, path, type and value')
+                if type(row['program']) is not str or type(row['path']) is not str: raise ValueError('Variable program/path require strings')
+                if (row['program'].upper(),row['path'].upper()) in variables.bindings: raise ValueError('Duplicate variable binding')
+                if 'creation' in row:
+                    from .dynamic import restore_metadata
+                    spec=row['type']
+                    if type(spec) is str: spec=runtime().joint_spec(spec.upper()) if spec.upper() in runtime().JOINT_TYPE_NAMES else (spec.upper(),)
+                    restore_metadata(variables,row['program'],row['path'],row['creation'],tuple_spec(spec))
                 spec,value=decode_typed({'type':row['type'],'value':row['value']})
                 variables.bind(row['program'],row['path'],runtime().Reference(spec,{'value':value},'value'))
             services['variables']=variables
@@ -1575,12 +1587,15 @@ class ExecutionContext:
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
-        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP|POSITION_OPTIONAL_GROUP else 0 if name=='SET_FILE_ATR' else 1)
+        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP|POSITION_OPTIONAL_GROUP else 0 if name in ('SET_FILE_ATR','CREATE_VAR') else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('CREATE_VAR','RENAME_VAR','RENAME_VARS'):
+            from .dynamic import invoke
+            return invoke(self,state,name,args,line)
         if name in ('MOUNT_DEV','DISMOUNT_DEV','FORMAT_DEV','PURGE_DEV','VOL_SPACE','DOSFILE_INF'):
             from .devices import invoke_device
             return invoke_device(self,state,name,args,line)
@@ -1815,6 +1830,9 @@ class ExecutionContext:
             if candidates:
                 key,reference=max(candidates,key=lambda item:len(item[0])); rest=path[len(key):]
                 return self.descend(reference,rest,line,path_nodes=path_nodes)
+        if root is not None and (owner is None or root[0] not in owner.types):
+            reference=self.variables.bindings.get((selected,root[0])) or self.variables.bindings.get((program,root[0]))
+            if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes)
         if program not in ('',state.program_name):
             state=self.variables.programs.get(program)
             if state is None: fail('Variable program is not attached to the explicit context',line)
@@ -1857,7 +1875,7 @@ class ExecutionContext:
         prepared=variable_transfer(destination,source,numeric=name=='SET_VAR',line=line)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
-        key=(program.upper(),path.upper())
+        key=(program.upper() or state.program_name,path.upper())
         if key not in self.entries: self.entries[key]=len(self.entries)+1
         current=destination.raw()
         if type(current) is rt.QueueValue and type(copied) is rt.QueueValue:

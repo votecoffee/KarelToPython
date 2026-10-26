@@ -1,0 +1,12 @@
+{
+  "ENTRY": 1,
+  "VALUE": 13,
+  "STATUS": 0,
+  "KIND": 210,
+  "WIDTH": 0,
+  "COUNT": 1,
+  "EMPTY": false,
+  "TYPE_NAME": "PACKET",
+  "DIMENSIONS": [0, 0, 0],
+  "NAMES": ["SAVED", ""]
+}
