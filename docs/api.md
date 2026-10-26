@@ -18,11 +18,18 @@ else:
     report = result.report
 ```
 
-`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False)` accepts a KAREL
+`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False, includes=None)` accepts a KAREL
 source string. `filename` labels diagnostics and source locations. Translation
 does not run the program. The returned object exposes generated `python_source`
 and a JSON-serializable `report` with program/version information, source maps,
 hashes, features, effect analysis and feature-specific policies.
+
+`includes` accepts captured source text by filename or an explicit
+`karel2py.includes.IncludeLibrary`. [Source includes](includes.md) describe
+nested lookup, selected directories/device mappings, limits and source-file
+protection. Expanded reports add dependency hashes, physical-source spans and
+original-file diagnostics. The text API does not infer filesystem access from
+`filename`; the CLI explicitly selects the source directory and extra roots.
 
 Pythonic [POS construction](pos-construction.md) supplies checked XYZWPR values,
 independent CONFIG data and source-located `pos_constructors` report entries.
@@ -90,12 +97,16 @@ translation. They do not query or resize controller storage.
 
 ## Projects and persistent services
 
-`translate_project({filename: source_text})` and `load_project(directory)` return
-a Project with `translations`, `classes` and `instantiate(context=None,
+`translate_project(sources, *, array_shapes=None, includes=None)` and
+`load_project(directory, *, array_shapes=None, include_dirs=(), include_devices=None)`
+return a Project with `translations`, `classes`, captured filesystem `source_files`
+and `instantiate(context=None,
 options=None)`. Its instance exposes `programs`, `context`, `scheduler`,
 `run(entry,max_cycles=100000)` and `snapshot()`. FROM routines/imported globals
 link among explicitly supplied sources. `python -m karel2py.project directory`
-checks them; `--entry NAME` explicitly executes.
+checks them; `--entry NAME` explicitly executes. Both CLIs accept repeated
+`-I`/`--include-dir` and `--include-device DEVICE=DIRECTORY`. Directory projects
+exclude referenced top-level include fragments from standalone program entries.
 
 ExecutionContext supports typed `to_config`, `from_config`, `save` and `load`.
 DirectoryFiles, TaskScheduler and SerialRobotModel provide optional explicit
@@ -403,10 +414,10 @@ frames. Runtime errors, sticky KarelAbort and terminal KarelStop are distinct.
 `service_requests` returns copied operation/line/outcome records and resets on a
 new run. Services retain their explicit shared state.
 
-A minimal runtime-only distribution needs `karel2py/__init__.py`, `runtime.py`,
-`extended.py`, `storage.py`, `kinematics.py`, `scheduling.py`, `control.py`, `clocks.py`, `fileops.py`, `pulses.py` and `inspection.py`. Project loading
-also needs `project.py`, the compiler and lexer. Installing the package includes
-all of them.
+Install the complete `karel2py` package alongside generated modules. Runtime
+services share support modules; project translation additionally uses
+`project.py`, `compiler.py`, `lexer.py`, `includes.py` and `fileio.py`. Installing
+the package supplies those dependencies.
 
 `UNINIT` supports whole CONFIG, VECTOR, POSITION, XYZWPR and XYZWPREXT storage
 in Pythonic mode. Any missing nested leaf yields TRUE, with no storage mutation.
