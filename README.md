@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.170848**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.174213**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -216,6 +216,11 @@ fields take precedence, with outer bindings restored afterward. See
 TYPE aliases provide alternate names for supported types and keep original
 aggregate identities and capacities. Bounded STRING alias parameters accept
 checked references or private value copies. See [TYPE aliases](docs/type-aliases.md).
+External types retain their complete `TYPE name FROM owner = definition` layout.
+Linked projects check owner sources, exact schemas and reexport chains before
+allocating globals. Shared variables and external routines use those checked
+types. See [external types](docs/external-types.md) for standalone behavior and
+source-located linkage errors.
 
 VEC constructs independent VECTOR values from numeric components. Unary signs
 and left-associated cross/dot chains support composed calculations such as

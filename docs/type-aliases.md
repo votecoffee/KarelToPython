@@ -76,8 +76,9 @@ BYTE and SHORT aliases are useful for ARRAY elements and STRUCTURE fields.
 They remain prohibited as standalone globals, locals, parameters and results.
 Aliases preserve INTEGER range/MAXINT, narrow-element sentinel, ASCII, capacity,
 initialization, allocation, ownership and positional-context checks. Unsupported
-types, external FROM declarations, local TYPE sections, wildcard TYPE dimensions
-and inline anonymous nested ARRAY definitions remain outside this subset.
+types, local TYPE sections, wildcard TYPE dimensions and inline anonymous nested
+ARRAY definitions remain outside this subset. Full [external FROM declarations](external-types.md)
+retain owner metadata and receive exact source-layout checks in linked projects.
 
 `user_types` contains resolved type specs. `type_aliases` records each alias's
 name, immediate target, resolved spec and physical declaration location.

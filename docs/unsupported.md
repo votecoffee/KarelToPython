@@ -37,8 +37,11 @@ they are boundaries rather than promises to accept every such source form later.
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,
   asynchronous native interrupts and motion-local handlers are unavailable.
-- Arbitrary `GOTO` entry into nested blocks or across FOR scopes; external FROM
-  types and forward/self/cyclic type aliases. Routine-local TYPE declarations
+- Arbitrary `GOTO` entry into nested blocks or across FOR scopes; forward/self/
+  cyclic type aliases. Full [external FROM type declarations](external-types.md)
+  now use supplied source layouts and checked project ownership chains; missing
+  definitions, cyclic ownership and native binary type environments remain blocked.
+  Routine-local TYPE declarations
   remain prohibited by the KAREL language, rather than a planned extension.
 - `USING` selectors containing indexes, calls or grouping; builtin-record USING,
   field FOR counters and dynamic caller scope. SELECT is INTEGER-only; a miss

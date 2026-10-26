@@ -336,8 +336,8 @@ class StructureRejectionTests(unittest.TestCase):
             with self.subTest(spec=spec):
                 self.rejected(types=f'TYPE inner = STRUCTURE x: {spec} ENDSTRUCTURE', declarations='item: inner')
 
-    def test_external_type_definition_blocked(self):
-        self.rejected(types='TYPE inner FROM remote = STRUCTURE x: INTEGER ENDSTRUCTURE', declarations='item: inner', code='E_SYNTAX')
+    def test_external_type_definition_blocked_in_legacy_parser(self):
+        self.rejected(types='TYPE inner FROM remote = STRUCTURE x: INTEGER ENDSTRUCTURE', declarations='item: inner', code='E_SYNTAX', _translator=legacy_translate)
 
     def test_local_type_definition_blocked(self):
         self.rejected(routines='ROUTINE work TYPE local_t = STRUCTURE x: INTEGER ENDSTRUCTURE BEGIN END work', code='E_ROUTINE_LOCALS')

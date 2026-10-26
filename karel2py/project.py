@@ -4,7 +4,7 @@ import inspect
 
 from . import __version__, translate, runtime as rt
 from .includes import IncludeLibrary,expand,device_option
-from .lexer import TranslationError
+from .lexer import Token,TranslationError
 from .fileio import same_file
 
 
@@ -45,6 +45,41 @@ class Project:
             self.translations[name]=translation; self.classes[name]=cls
 
         self.source_files=tuple(library.paths)
+        self._link_types()
+
+    def _link_types(self):
+        # Work only with class/report metadata: no global allocation or KAREL body
+        # runs until every external type interface and ownership chain has been checked.
+        declarations={(program,row['name']):row for program,translation in self.translations.items()
+                      for row in translation.report['imported_types']}
+        links={key:(row['owner'],key[1]) for key,row in declarations.items() if row['owner']!=key[0]}
+
+        def fail(key,code,message):
+            row=declarations[key]
+            token=Token('NAME',key[1],row['source_line'],row['source_column'])
+            raise TranslationError(code,message,token,row['source_file'])
+
+        for key,target in links.items():
+            owner,name=target
+            if owner not in self.classes or name not in self.classes[owner].variable_types:
+                fail(key,'E_TYPE_LINK','Unresolved external type: '+'.'.join(target))
+            if self.classes[key[0]].variable_types[key[1]]!=self.classes[owner].variable_types[name]:
+                fail(key,'E_TYPE_LINK_TYPE','External type definition mismatch: '+'.'.join(key)+' FROM '+owner)
+        owners={(program,name):program for program,cls in self.classes.items()
+                for name in cls.variable_types if (program,name) not in links}
+        # Iterative traversal supports long reexport chains without Python recursion.
+        for start in links:
+            key=start;path=[];seen=set()
+            while key not in owners:
+                if key in seen:
+                    fail(key,'E_TYPE_LINK_CYCLE','Cyclic external type ownership: '+'.'.join(key))
+                seen.add(key);path.append(key);key=links[key]
+            terminal=owners[key]
+            for node in path: owners[node]=terminal
+        self.type_owners={program:{name:owners[program,name] for name in cls.variable_types}
+                          for program,cls in self.classes.items()}
+        for (program,name),row in declarations.items():
+            row.update(resolved_owner=owners[program,name],linkage='source-validated')
 
     def instantiate(self,*,context=None,options=None):
         return ProjectInstance(self,context=context,options=options)

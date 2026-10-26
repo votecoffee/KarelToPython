@@ -13,10 +13,11 @@
   },
   "retained_boundaries": [
     "No forward, self or cyclic aliases, duplicate names or alias declaration collisions",
-    "No external FROM linkage, local TYPE sections, wildcard TYPE dimensions, unsupported type aliases or inline anonymous nested ARRAY definitions",
+    "No local TYPE sections, wildcard TYPE dimensions, unsupported type aliases or inline anonymous nested ARRAY definitions",
     "No standalone BYTE/SHORT variables, parameters or results",
     "No new native compiler, type-registration, storage ABI or controller runtime claims; conservative tests retained for the future strict milestone"
   ],
   "tests": ["tests/test_pythonic_type_aliases.py", "tests/test_named_arrays.py", "tests/test_structures.py", "tests/test_runtime_portability.py", "examples/pythonic_type_aliases.kl"],
+  "external_type_extension": "external_type_semantics.json",
   "controller_validated": false
 }

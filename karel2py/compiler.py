@@ -70,6 +70,7 @@ class Program:
     user_types: list = field(default_factory=list)
     directive_metadata: list = field(default_factory=list)
     imported_variables: list = field(default_factory=list)
+    imported_types: list = field(default_factory=list)
 
 
 @dataclass
@@ -341,6 +342,7 @@ class Parser:
         self.expect('PROGRAM')
         name = self.name().value
         constants, declarations, routines, directives, user_types, imports = [], [], [], [], [], []
+        imported_types = []
         declarations_started = False
         while True:
             self.skip_lines()
@@ -361,6 +363,9 @@ class Parser:
                 self.skip_lines()
                 while self.current.kind == 'NAME' and self.current.value not in RESERVED:
                     key = self.name()
+                    if self.mode == 'pythonic' and self.accept('FROM'):
+                        owner = self.name()
+                        imported_types.append(dict(name=key.value, owner=owner.value, line=key.line, column=key.column))
                     self.expect('=')
                     if self.current.value == 'ARRAY' or (self.mode == 'pythonic' and self.current.value != 'STRUCTURE'):
                         user_types.append((key, self.type_spec()))
@@ -401,7 +406,7 @@ class Parser:
                 self.expect(name)
                 self.skip_lines()
                 self.expect('<EOF>')
-                return Program(name, constants, declarations, routines, body, directives, user_types, self.directive_metadata,imports)
+                return Program(name, constants, declarations, routines, body, directives, user_types, self.directive_metadata,imports,imported_types)
             else:
                 self.error('E_DECLARATION', 'Expected CONST, TYPE, VAR, ROUTINE or BEGIN; external declarations and controller types are not implemented')
 
@@ -3053,6 +3058,11 @@ class Emitter:
         self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
         self.line(f'source_groups = {tuple(sorted(set(row["group"] for row in self.group_uses)))!r}')
         self.line(f'imported_variables = {tuple(self.program.imported_variables)!r}')
+        self.line(f'imported_types = {tuple((row["name"], row["owner"]) for row in self.program.imported_types)!r}')
+        owners = {name:self.program.name for name in self.user_types}
+        owners.update((row['name'],row['owner']) for row in self.program.imported_types)
+        self.line(f'type_owners = {owners!r}')
+        if self.program.imported_types: self.features.add('source-linked TYPE FROM declaration')
         self.line(f'routine_interfaces = { {r.name:dict(parameters=tuple(spec for _,spec in r.parameters),result=r.return_type,external=r.external) for r in self.program.routines}!r}')
         self.line(f'external_array_shapes = {tuple(self.array_shapes.items())!r}')
         self.line(f'variable_types = {self.user_types!r}')
@@ -3494,6 +3504,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
+        imported_types=program.imported_types,
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
                                 identity='The declared type name is retained in storage, references and whole-copy checks',
                                 parameters='Same named type by reference; anonymous rank-matched ARRAY formals retain concrete caller identity',
@@ -4343,7 +4354,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         resolution='Transparent aliases to supported scalar, bounded STRING, data record, joint and previously defined named types; alias chains resolve eagerly in declaration order',
         identity='Aliases retain the original ARRAY/STRUCTURE identity; a fresh ARRAY or STRUCTURE definition still creates a distinct nominal type',
         capacity='Keep declared STRING capacities, ARRAY shapes and joint widths; bounded STRING alias formals require matching reference capacity and use private truncating value temporaries of that capacity',
-        boundary='No forward/self/cyclic aliases, external FROM types, local TYPE sections, wildcard TYPE dimensions or standalone BYTE/SHORT storage/formals/results',
+        boundary='No forward/self/cyclic aliases, local TYPE sections, wildcard TYPE dimensions or standalone BYTE/SHORT storage/formals/results',
         controller_validated=False)
     report['named_array_policy'].update(
         parameters='Same named type by reference or checked value copy; generic rank-matched ARRAY formals preserve the concrete actual identity',
@@ -4366,7 +4377,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
     report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and in-loop jumps remain blocked')
     report['limitations'].append('USING supports lexical nesting and dotted named STRUCTURE selectors; indexed/call/grouped selectors, builtin record selectors and field FOR counters remain blocked')
-    report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax, local TYPE sections and external FROM types remain blocked')
+    report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax and local TYPE sections remain blocked; external types follow external_type_policy')
     report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
     report['position_axis_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT only; complete checked poses, no robot acquisition or orientation defaults'
     report['position_conversion_policy']['boundary'] = 'Whole POSITION/XYZWPR/XYZWPREXT assignments only; exact routine/array interfaces, checked proper matrices; widening zeros axes and narrowing drops axes'
@@ -4447,7 +4458,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['position_comparison_policy']['operands']='POSITION/XYZWPR/XYZWPREXT and model-backed JOINTPOS under joint_geometry_policy'
     report['position_comparison_policy']['boundary']='Explicit pose and external tolerances, Cartesian metrics after joint conversion; no scalar/VECTOR or raw joint-coordinate comparisons, defaults or native equivalence'
     for key in ('vector_routine_policy','structure_routine_policy','positional_routine_policy','array_routine_policy'):
-        report[key]['boundary'] = report[key]['boundary'].replace('external routines or ', '').replace('external routines, ', '')
+        report[key]['boundary'] = report[key]['boundary'].replace('external routines or ', '').replace('external routines, ', '').replace('external types/routines, ', '')
     report['limitations'].append('New services follow explicit offline context and cooperative policies; binary file layout, task scheduling, handler timing, MIRROR orientation and external axes use documented portable conventions')
     report['include_policy']=dict(
         directive='%INCLUDE',lookup='Explicit text mapping or selected file roots/device mappings; .KL default, case-insensitive relative names, including-directory lookup before ordered roots',
@@ -4457,6 +4468,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         files='UTF-8/BOM decoding and case-insensitive component lookup in selected roots only; no traversal, symlink/junction following, device discovery or host environment search; CLI outputs protect all resolved input aliases',
         boundaries='No binary environments, macro substitution, native search/install discovery or continuation through directives; local TYPE remains prohibited by the KAREL language',
         guide='docs/includes.md',controller_validated=False)
+    report['external_type_policy']=dict(
+        syntax='TYPE name FROM owner = complete supported definition; owner may be the declaring program',
+        standalone='Retain declared layout and owner without loading or executing another program; external ownership is unverified',
+        project='Validate same-named types against supplied owner sources before instantiation; exact resolved layouts, capacities and nominal names; resolve reexports and reject cycles',
+        identity='Existing nominal ARRAY/STRUCTURE names and layouts remain; ownership metadata does not create a native owner-qualified ABI',
+        boundary='No binary environments, missing-definition imports, automatic source discovery, forward type aliases or routine-local TYPE',
+        guide='docs/external-types.md',controller_validated=False)
+    for row in report['imported_types']:
+        label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
+        row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack),
+                   linkage='self-declared' if row['owner']==report['program'] else 'unverified')
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1026.174213 - 2026-10-26
+
+- Add complete TYPE name FROM owner definitions for supported aliases, structures,
+  arrays and resource schemas; preserve declared owner and physical source metadata.
+- Validate linked-project type layouts before global allocation; support self-owned
+  declarations and transitive source reexports with missing-owner/schema/cycle errors.
+- Retain exact STRING capacities, array identities, nested field order and existing
+  variable/routine interface checks without changing persisted storage schemas.
+- Add 40 regressions, one standalone CLI example and one linked source project;
+  update the README, support guide and remaining-feature inventory.
+
 ## 26.1026.170848 - 2026-10-26
 
 - Add portable VR SAVE/LOAD/CLEAR for owned KAREL globals and explicit roots,

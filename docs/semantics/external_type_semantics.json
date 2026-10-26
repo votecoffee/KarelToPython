@@ -1,0 +1,36 @@
+{
+  "version": "26.1026.174213",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.6.8 FROM Clause",
+        "5.1.4 Scope of Variables"
+      ],
+      "topic": "Owner clauses on complete type declarations, self ownership, external PATH structure examples and no routine-local TYPE"
+    }
+  ],
+  "contract": {
+    "guide": "../external-types.md",
+    "syntax": "TYPE name FROM owner = complete supported definition",
+    "standalone": "Use declared layout with unverified external ownership; self-owned declarations are self-declared",
+    "source_project": "Before global allocation, validate same-named exported owner types by exact resolved schema; resolve self terminals and transitive reexports iteratively; reject missing sources/types, mismatches and cycles",
+    "schema": "Retain scalar behavior, bounded STRING capacity, fixed ARRAY dimensions and nominal names, ordered STRUCTURE fields, joint widths and supported resource schemas",
+    "metadata": "Program.imported_types and declared type_owners; report physical locations and source-validated terminal owners; Project.type_owners resolved metadata",
+    "persistence": "No runtime storage or archive schema change; ownership remains metadata alongside nominal names",
+    "diagnostics": "E_TYPE_LINK, E_TYPE_LINK_TYPE and E_TYPE_LINK_CYCLE at importer physical source location, including nested includes"
+  },
+  "boundaries": [
+    "No binary environments, missing-definition imports, renamed imports or automatic source/library discovery",
+    "No owner-qualified native ABI; existing group annotations remain source metadata outside schema identity",
+    "No forward/self/cyclic type aliases, local TYPE extension, resource fields or weakened variable/routine/copy/FOR guards",
+    "Source reexport resolution is a Pythonic linker policy; strict and native/controller equivalence deferred"
+  ],
+  "validation": [
+    "tests/test_external_types.py",
+    "examples/external_types.kl",
+    "examples/external_types_project"
+  ]
+}

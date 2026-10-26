@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.170848. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.174213. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -27,7 +27,8 @@ internally and in the historical semantic notes.
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. No unspecified STRING capacities, resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no ABI claim. |
-| TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases, local TYPE or external FROM types. BYTE/SHORT remain element/field-only. |
+| TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases or local TYPE. BYTE/SHORT remain element/field-only. |
+| External types | Full TYPE name FROM owner definitions; supported aliases, structures, arrays and resource schemas | Standalone layout and owner metadata; source projects validate exact resolved schemas, self owners and acyclic reexports before allocation. No binary environments or native owner-qualified ABI. |
 | USING | Nested lexical scopes, named STRUCTURE variables and dotted selectors; inner/right-most field priority | Fields shadow constants; calls use call context. No indexed/call/grouped selectors, builtin record selectors, field FOR counters or dynamic caller scope. |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
 | Initialization queries | UNINIT on supported scalar/joint storage and whole builtin records, including nested fields and individual ARRAY elements | Any missing builtin-record leaf means TRUE; read-only schema/type checks. Whole ARRAY, PATH, user STRUCTURE, FILE, QUEUE_TYPE and BYTE queries remain blocked. |
@@ -113,6 +114,8 @@ arguments, bounds and cleanup on early exits/errors.
 See [Pythonic USING](pythonic-using.md) for nested field paths and namespace choices.
 See [TYPE aliases](type-aliases.md) for transparent names, identity and bounded
 STRING routine interfaces.
+See [external types](external-types.md) for full FROM definitions, owner-source
+validation, reexports and physical linkage diagnostics.
 See [Pythonic vector expressions](pythonic-vectors.md) for construction, signs,
 product association and composed length calculations.
 See [Pythonic input](pythonic-read.md) for typed READ callbacks, input batches,

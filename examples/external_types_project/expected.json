@@ -1,0 +1,5 @@
+{
+  "BRIDGE": {"state": "ready", "values": {"SHARED": {"X": 42.0, "Y": 12.0}}},
+  "MAIN": {"state": "completed", "values": {"ROWS": [{"X": 20.0, "Y": 5.0}, {"X": 22.0, "Y": 7.0}], "RESULT": {"X": 42.0, "Y": 12.0}, "SHARED": {"X": 42.0, "Y": 12.0}, "ANSWER": 42.0}},
+  "GEOMLIB": {"state": "ready", "values": {"SHARED": {"X": 42.0, "Y": 12.0}}}
+}

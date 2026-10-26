@@ -97,7 +97,8 @@ python -m karel2py.project examples/include_project --entry MAIN
 The project CLI accepts the same include options. Its state and trace outputs
 cannot replace any program/include input, including file aliases. Program
 linkage, imported-variable identities and routine type matching retain their
-existing checks. Include expansion does not add external FROM type declarations.
+existing checks. Included [external FROM type declarations](external-types.md)
+retain physical source locations for project-link diagnostics.
 
 ## Provenance and errors
 

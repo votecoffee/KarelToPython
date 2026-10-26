@@ -1,0 +1,11 @@
+PROGRAM BRIDGE
+%INCLUDE types/geometry
+VAR shared FROM GEOMLIB: point_t
+ROUTINE bump(data: row_t): point_t
+BEGIN
+  shared.x=data[1].x+data[2].x
+  shared.y=data[1].y+data[2].y
+  RETURN shared
+END bump
+BEGIN
+END BRIDGE

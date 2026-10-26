@@ -1,0 +1,18 @@
+PROGRAM MAIN
+TYPE point_t FROM BRIDGE = STRUCTURE x: REAL y: REAL ENDSTRUCTURE
+     row_t FROM BRIDGE = ARRAY[2] OF point_t
+VAR rows: row_t
+    result: point_t
+    shared FROM BRIDGE: point_t
+    answer: REAL
+ROUTINE bump(data: row_t): point_t FROM BRIDGE
+BEGIN
+  shared.x=0
+  shared.y=0
+  rows[1].x=20
+  rows[1].y=5
+  rows[2].x=22
+  rows[2].y=7
+  result=bump(rows)
+  answer=result.x
+END MAIN

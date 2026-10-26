@@ -1,0 +1,21 @@
+PROGRAM EXTERNAL_TYPES
+TYPE count_t FROM MATHLIB = INTEGER
+     text_t FROM MATHLIB = STRING[5]
+     entry_t FROM TYPESLIB = STRUCTURE
+       count: count_t
+       label: text_t
+     ENDSTRUCTURE
+     entries_t FROM TYPESLIB = ARRAY[2] OF entry_t
+VAR rows: entries_t
+    total: count_t
+ROUTINE sum_rows(data: entries_t): count_t
+BEGIN
+  RETURN data[1].count+data[2].count
+END sum_rows
+BEGIN
+  rows[1].count=20
+  rows[1].label='first row'
+  rows[2].count=22
+  rows[2].label='second row'
+  total=sum_rows(rows)
+END EXTERNAL_TYPES
