@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.180251. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.182837. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -27,6 +27,7 @@ internally and in the historical semantic notes.
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. No unspecified STRING capacities, resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no ABI claim. |
+| Predefined structures | DISP_DAT_T SHORT fields/fixed arrays and portable STD_PTH_NODE NODE_POS; aliases, arrays, fields, routine interfaces and CREATE_VAR | Existing nominal STRUCTURE schemas and initialization/copy/output guards; no obsolete association fields, native UI execution or ABI claim. |
 | TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases or local TYPE. BYTE/SHORT remain element/field-only. |
 | External types | Full TYPE name FROM owner definitions; supported aliases, structures, arrays and resource schemas | Standalone layout and owner metadata; source projects validate exact resolved schemas, self owners and acyclic reexports before allocation. No binary environments or native owner-qualified ABI. |
 | USING | Nested lexical scopes; dotted, indexed and grouped STRUCTURE/built-in record storage; one-time left-to-right reference capture | Inner/right-most field priority, handler reference capture and source-root effects; existing POSITION/CONFIG/output guards. No function-result/computed selectors, field FOR counters or dynamic caller scope. |
@@ -59,7 +60,7 @@ internally and in the historical semantic notes.
 
 | Registers and ports | String/position/joint banks, digital/group/analog ports, static GET_VAR/SET_VAR paths, assignment/mode settings and module lookup | Explicit context, disjoint outputs and bounded same-rank ARRAY/missing-data transfers; attached foreign globals and explicit system roots; staged I/O configuration requires host apply; no live acquisition. |
 | FILE | OPEN/CLOSE, text/binary READ/WRITE, byte cursors/counts/status, CHECK_NAME and MOVE_FILE | MemoryFiles or explicit DirectoryFiles root; copy/delete/rename/list, preflighted RD/FR movement, ATR_UF binary, byte order, EOL and interactive flush; explicit routing without native device behavior. |
-| PATH / QUEUE_TYPE | Typed nodes/header, append/insert/delete/copy/length; initialized FIFO queues and GET_VAR/SET_VAR logical queue transfers | One-based nodes, explicit buffer capacity/rebinding, portable status/sequence conventions and no native layout claim. |
+| PATH / QUEUE_TYPE | Typed nodes/header, PATHHEADER/PATHDATA spellings, reflowed clauses, append/insert/delete/copy/length; initialized FIFO queues and GET_VAR/SET_VAR logical queue transfers | Default/explicit STD_PTH_NODE schemas canonicalize identically; one-based nodes, explicit queue capacity/rebinding and no native layout claim. |
 | Cooperative control | Multiple WHEN handlers/actions, controls, connected global timers, task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |
 | Task policies and traces | SET_TSK_ATTR, seven source directives, priority-ordered weighted turns, request-origin masks and bounded source checkpoint tracing | Nine checked settings, stable numeric IDs, explicit shift/TP-enable notifications and atomic CLI trace export; capability-only lamp/motion flags; no native CPU timing or preemption. |
 | TP program data | 17 management, position, frame/type and comment calls over explicit TeachPrograms, plus listing/load/header metadata integration | Logical records, grouped poses/joints, opaque one-based instruction deletion, access/reject handles and terminal cleanup; no native TP files, execution or motion linkage. |
@@ -113,6 +114,8 @@ See [Pythonic FOR](pythonic-for.md) for global-counter calls, read-only counter
 arguments, bounds and cleanup on early exits/errors.
 See [Pythonic USING](pythonic-using.md) and [captured selectors](using-selectors.md)
 for lexical lookup, indexed record storage, built-in fields and handler references.
+See [PATH declarations](path-declarations.md) for clause spellings, predefined
+record layouts, interfaces, dynamic creation and persistence.
 See [TYPE aliases](type-aliases.md) for transparent names, identity and bounded
 STRING routine interfaces.
 See [external types](external-types.md) for full FROM definitions, owner-source

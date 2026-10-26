@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.180251**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.182837**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -323,7 +323,10 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 
 Registers, ports and program globals share an explicit context with typed JSON
 save/load. FILE operations can use memory or a caller-selected directory. Typed
-PATH and QUEUE_TYPE collections work offline. A deterministic scheduler handles
+PATH and QUEUE_TYPE collections work offline. PATH declarations accept PATHHEADER
+and its PATHDATA compatibility spelling. Predefined DISP_DAT_T and portable
+STD_PTH_NODE records work in declarations, routine interfaces, CREATE_VAR and
+saved state. See [PATH declarations](docs/path-declarations.md). A deterministic scheduler handles
 events, timers, delays and task pause/continue/stop. Source projects automatically
 link typed external routines and imported globals. A configurable standard-DH
 robot model provides forward/inverse math, external joints and bounded

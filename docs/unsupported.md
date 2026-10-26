@@ -54,9 +54,11 @@ they are boundaries rather than promises to accept every such source form later.
 
 ## Types, expressions and interfaces
 
-- `COMMON_ASSOC`, `GROUP_ASSOC`, `DISP_DAT_T` and obsolete `STD_PTH_NODE`
-  association layouts. PATH supports authored NODEDATA/PATHHEADER structures;
-  it does not reconstruct native group-qualified association records.
+- `COMMON_ASSOC`, `GROUP_ASSOC` and the obsolete `STD_PTH_NODE.GROUP_DATA` /
+  `COMMON_DATA` association layouts. [Predefined structures](path-declarations.md)
+  now expose DISP_DAT_T data and the portable STD_PTH_NODE NODE_POS field; PATH
+  accepts authored NODEDATA and PATHHEADER/PATHDATA structures. Native group
+  associations, screen execution and display/recording behavior remain outside it.
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
   wildcard declarations require translation-time shapes; no VR auto-discovery.

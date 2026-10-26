@@ -217,6 +217,7 @@ class Parser:
         self.escaped_string_literals = []
         self.predefined_uses = []
         self.directive_metadata = []
+        self.path_clause_uses = []
         self.tokens = tokenize(source, filename, continuations=self.continuations)
         self.position = 0
         self.filename = filename
@@ -253,7 +254,8 @@ class Parser:
     def name(self):
         if self.current.value in PREDEFINED_CONSTANTS:
             self.error('E_PREDEFINED_NAME', 'Redefining predefined constants is blocked pending namespace evidence')
-        if self.current.kind != 'NAME' or self.current.value in RESERVED | BUILTINS or self.current.value.startswith('$'):
+        predefined_types = set(rt.PREDEFINED_STRUCTURES) if self.mode == 'pythonic' else set()
+        if self.current.kind != 'NAME' or self.current.value in RESERVED | BUILTINS | predefined_types or self.current.value.startswith('$'):
             self.error('E_NAME', 'Expected a non-reserved identifier')
         return self.take()
 
@@ -367,6 +369,7 @@ class Parser:
                         owner = self.name()
                         imported_types.append(dict(name=key.value, owner=owner.value, line=key.line, column=key.column))
                     self.expect('=')
+                    if self.mode == 'pythonic': self.skip_newlines()
                     if self.current.value == 'ARRAY' or (self.mode == 'pythonic' and self.current.value != 'STRUCTURE'):
                         user_types.append((key, self.type_spec()))
                         self.skip_lines()
@@ -411,19 +414,30 @@ class Parser:
                 self.error('E_DECLARATION', 'Expected CONST, TYPE, VAR, ROUTINE or BEGIN; external declarations and controller types are not implemented')
 
     def type_spec(self):
+        if self.mode == 'pythonic': self.skip_newlines()
         token = self.take()
         if self.mode=='pythonic' and token.value in ('FILE','QUEUE_TYPE'): return (token.value,)
         if self.mode=='pythonic' and token.value=='PATH':
             node=data=None
             seen=set()
-            while self.current.value in ('NODEDATA','PATHHEADER'):
-                key=self.take()
-                if key.value in seen: self.error('E_TYPE','Duplicate PATH clause',key)
-                seen.add(key.value); self.expect('='); item=self.type_spec()
-                if key.value=='NODEDATA': node=item
+            clauses={'NODEDATA':'NODEDATA','PATHHEADER':'PATHHEADER','PATHDATA':'PATHHEADER'}
+            self.skip_newlines()
+            while self.current.value in clauses and self.tokens[self.position+1].value=='=':
+                key=self.take();canonical=clauses[key.value]
+                if canonical in seen: self.error('E_TYPE','Duplicate PATH '+canonical+' clause',key)
+                seen.add(canonical);self.expect('=');item=self.type_spec()
+                if canonical=='NODEDATA': node=item
                 else: data=item
-                if not self.accept(','): break
-                self.skip_lines()
+                self.path_clause_uses.append(dict(clause=key.value,canonical=canonical,line=key.line,column=key.column))
+                separator=self.accept(',')
+                if separator:
+                    self.skip_newlines()
+                    if self.current.value not in clauses or self.tokens[self.position+1].value!='=':
+                        self.error('E_PATH_CLAUSE','A PATH clause comma requires another NODEDATA or PATHHEADER/PATHDATA clause',separator)
+                elif self.current.kind=='NL':
+                    checkpoint=self.position;self.skip_newlines()
+                    if self.current.value not in clauses or self.tokens[self.position+1].value!='=':
+                        self.position=checkpoint;break
             return ('PATH',node,data,token)
         if token.value in PREDEFINED_CONSTANTS:
             self.error('E_TYPE', 'Predefined constants cannot be used as data types', token)
@@ -560,6 +574,7 @@ class Parser:
                        local_declarations=local_declarations, string_result_defaulted=string_result_defaulted)
 
     def parameter_type(self):
+        if self.mode == 'pythonic': self.skip_newlines()
         if self.mode=='pythonic' and self.current.value in ('FILE','PATH','QUEUE_TYPE'): return self.type_spec()
         token = self.take()
         if token.value in PREDEFINED_CONSTANTS:
@@ -985,6 +1000,7 @@ class Emitter:
         self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
         self.type_aliases = []
+        self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
@@ -1106,6 +1122,8 @@ class Emitter:
         if spec[0] in ('FILE','QUEUE_TYPE'): return spec
         if spec[0]=='PATH':
             resolved=('PATH',self.resolve_spec(spec[1]) if spec[1] else None,self.resolve_spec(spec[2]) if spec[2] else None)
+            if resolved[1]==rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']:
+                resolved=('PATH',None,resolved[2])
             if any(item and item[0]!='STRUCTURE' for item in resolved[1:]):
                 self.error('E_TYPE','PATH NODEDATA and PATHHEADER require named STRUCTURE types',spec[3] if len(spec)>3 else Token('NAME','PATH',1,1))
             return resolved
@@ -1118,6 +1136,11 @@ class Emitter:
             return spec
         if spec[0] == 'NAMED':
             token = spec[1]
+            if self.mode == 'pythonic' and token.value in rt.PREDEFINED_STRUCTURES:
+                row=dict(name=token.value,line=token.line,column=token.column)
+                if row not in self.predefined_structure_uses: self.predefined_structure_uses.append(row)
+                self.features.add('predefined STRUCTURE data layout')
+                return rt.PREDEFINED_STRUCTURES[token.value]
             if token.value not in self.user_types:
                 self.error('E_TYPE', f'{token.value} is not a previously defined supported type', token)
             return self.user_types[token.value]
@@ -3553,6 +3576,9 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,
         imported_types=program.imported_types,
+        path_clause_uses=parser.path_clause_uses,
+        predefined_structure_uses=emitter.predefined_structure_uses,
+        predefined_structures={row['name']:rt.PREDEFINED_STRUCTURES[row['name']] for row in emitter.predefined_structure_uses},
         named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
                                 identity='The declared type name is retained in storage, references and whole-copy checks',
                                 parameters='Same named type by reference; anonymous rank-matched ARRAY formals retain concrete caller identity',
@@ -4529,6 +4555,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack),
                    linkage='self-declared' if row['owner']==report['program'] else 'unverified')
+    report['path_declaration_policy']=dict(
+        clauses='NODEDATA and PATHHEADER in either order; PATHDATA aliases PATHHEADER; comma or whitespace separates clauses; allow physical newline reflow',
+        schema='Resource-free named STRUCTURE components; explicit STD_PTH_NODE and its aliases canonicalize to the existing implicit default node schema',
+        predefined='DISP_DAT_T has documented SHORT fields and fixed arrays; STD_PTH_NODE exposes the existing portable NODE_POS POSITION field only; CREATE_VAR recognizes both names',
+        interfaces='Preserve exact PATH node/header types, nominal STRUCTURE identities, capacities, protected POSITION fields and existing reference/value rules',
+        persistence='Existing STRUCTURE/PATH tuple schemas and codecs; no new JSON format or native binary layout',
+        boundary='No obsolete COMMON_ASSOC/GROUP_ASSOC layouts, native screen execution, automatic UFRAME/UTOOL recording or controller storage/ABI claim',
+        guide='docs/path-declarations.md',controller_validated=False)
+    for row in [*report['path_clause_uses'],*report['predefined_structure_uses']]:
+        label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
+        row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

@@ -1,0 +1,26 @@
+PROGRAM PATH_DECLS
+TYPE node_t=STRUCTURE value:INTEGER tag:STRING[4] ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE
+     route_t=
+       PATH PATHDATA=header_t
+            NODEDATA=node_t
+VAR track:route_t
+    copied:PATH NODEDATA=node_t,PATHHEADER=header_t
+    status,total,portable_size:INTEGER
+ROUTINE sum_nodes(data:PATH PATHDATA=header_t NODEDATA=node_t):INTEGER
+BEGIN
+  RETURN data[1].value+data[2].value
+END sum_nodes
+BEGIN
+  APPEND_NODE(track,status)
+  APPEND_NODE(track,status)
+  track.count=2
+  track.label='demo'
+  track[1].value=20
+  track[1].tag='one'
+  track[2].value=22
+  track[2].tag='two'
+  COPY_PATH(track,0,0,copied,status)
+  total=sum_nodes(copied)
+  portable_size=NODE_SIZE(track)
+END PATH_DECLS

@@ -1073,7 +1073,7 @@ class PathValue:
     def __init__(self,spec): self.spec=spec; self.nodes=[]; self.data=runtime().initial_value(spec[2]) if spec[2] else None
     @property
     def node_spec(self):
-        return self.spec[1] or ('STRUCTURE','STD_PTH_NODE',(('NODE_POS',('POSITION',)),))
+        return self.spec[1] or runtime().PREDEFINED_STRUCTURES['STD_PTH_NODE']
     def node(self,index,line=None):
         index=runtime().integer(index,line)
         if not 1<=index<=len(self.nodes): fail('PATH node index out of range',line)

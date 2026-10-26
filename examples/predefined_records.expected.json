@@ -1,0 +1,150 @@
+{
+  "DISPLAY": {
+    "WIN_START": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "WIN_END": [
+      11,
+      12,
+      13,
+      14
+    ],
+    "CURS_ST_COL": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "CURS_EN_COL": [
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9
+    ],
+    "CURR_WIN": 0,
+    "CURSOR_ROW": 0,
+    "LINS_PER_PG": 0,
+    "CURR_FIELD": 0,
+    "LAST_FIELD": 0,
+    "CURR_IT_NUM": 42,
+    "SOB_IT_NUM": 0,
+    "EOB_IT_NUM": 0,
+    "LAST_IT_NUM": 0,
+    "MENU_ID": 0
+  },
+  "COPIED": {
+    "WIN_START": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "WIN_END": [
+      11,
+      12,
+      13,
+      14
+    ],
+    "CURS_ST_COL": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "CURS_EN_COL": [
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9
+    ],
+    "CURR_WIN": 0,
+    "CURSOR_ROW": 0,
+    "LINS_PER_PG": 0,
+    "CURR_FIELD": 0,
+    "LAST_FIELD": 0,
+    "CURR_IT_NUM": 42,
+    "SOB_IT_NUM": 0,
+    "EOB_IT_NUM": 0,
+    "LAST_IT_NUM": 0,
+    "MENU_ID": 0
+  },
+  "SAMPLE": {
+    "NODE_POS": {
+      "NORMAL": {
+        "X": 1.0,
+        "Y": 0.0,
+        "Z": 0.0
+      },
+      "ORIENT": {
+        "X": 0.0,
+        "Y": 1.0,
+        "Z": 0.0
+      },
+      "APPROACH": {
+        "X": 0.0,
+        "Y": 0.0,
+        "Z": 1.0
+      },
+      "LOCATION": {
+        "X": 1.0,
+        "Y": 2.0,
+        "Z": 3.0
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      }
+    }
+  },
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "TRACK": {
+    "nodes": [],
+    "data": null
+  },
+  "INDEX_VALUE": {
+    "uninitialized": true
+  },
+  "STATUS": 0,
+  "PICKED": 42,
+  "PORTABLE_SIZE": 76
+}

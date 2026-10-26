@@ -1,0 +1,40 @@
+PROGRAM RECORD_DATA
+VAR display,copied:DISP_DAT_T
+    sample:STD_PTH_NODE
+    cfg:CONFIG
+    track:PATH NODEDATA=DISP_DAT_T
+    index_value,status,picked,portable_size:INTEGER
+ROUTINE pick_item(data:DISP_DAT_T):INTEGER
+VAR prior:INTEGER
+BEGIN
+  prior=data.curr_it_num
+  data.curr_it_num=99
+  RETURN prior
+END pick_item
+BEGIN
+  FOR index_value=1 TO 4 DO
+    display.win_start[index_value]=index_value
+    display.win_end[index_value]=index_value+10
+  ENDFOR
+  FOR index_value=1 TO 10 DO
+    display.curs_st_col[index_value]=0
+    display.curs_en_col[index_value]=9
+  ENDFOR
+  USING display DO
+    curr_win=0
+    cursor_row=0
+    lins_per_pg=0
+    curr_field=0
+    last_field=0
+    curr_it_num=42
+    sob_it_num=0
+    eob_it_num=0
+    last_it_num=0
+    menu_id=0
+  ENDUSING
+  copied=display
+  picked=pick_item((copied))
+  CNV_STR_CONF('N',cfg,status)
+  sample.node_pos=POS(1,2,3,0,0,0,cfg)
+  portable_size=NODE_SIZE(track)
+END RECORD_DATA

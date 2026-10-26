@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1026.182837 - 2026-10-26
+
+- Add PATHDATA as a PATHHEADER compatibility spelling, clause order/whitespace
+  flexibility and physical newline reflow with duplicate and dangling-comma guards.
+- Add documented DISP_DAT_T data and explicit portable STD_PTH_NODE aliases across
+  declarations, arrays, structures, routine interfaces and dynamic CREATE_VAR.
+- Canonicalize explicit default nodes to the existing implicit PATH schema; retain
+  typed storage, SHORT limits, POSITION protection and context/VR persistence.
+- Record clause/type-use provenance and add 51 regressions, two standalone CLI
+  examples and a linked project with typed PATH and predefined-record interfaces.
+
 ## 26.1026.180251 - 2026-10-26
 
 - Add indexed and grouped USING storage selectors, including index calls and

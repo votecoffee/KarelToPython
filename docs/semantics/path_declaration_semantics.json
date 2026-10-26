@@ -1,0 +1,37 @@
+{
+  "version": "26.1026.182837",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.15.1 PATH Data Type",
+        "A.4.27 DISP_DAT_T Data Type",
+        "A.18.47 STD_PTH_NODE Data Type"
+      ],
+      "topic": "Canonical PATHHEADER and structure clauses; documented display record; default path node with obsolete association fields; PATHDATA spelling appears in introductory example"
+    }
+  ],
+  "contract": {
+    "guide": "../path-declarations.md",
+    "clauses": "NODEDATA and PATHHEADER in either order; PATHDATA compatibility alias; comma or whitespace/newline reflow; reject duplicates and dangling commas",
+    "predefined": "DISP_DAT_T ordered SHORT fields/fixed arrays (38 leaves); portable STD_PTH_NODE NODE_POS POSITION only; ordinary nominal STRUCTURE schemas",
+    "default_nodes": "Explicit STD_PTH_NODE or aliases normalize to the existing implicit default PATH schema; typed calls/copies preserve exact header/node identities",
+    "interfaces": "Declarations, fields, arrays, aliases and supported routine reference/value/results; CREATE_VAR recognizes both predefined names with existing allocation and exact output guards",
+    "persistence": "Existing typed STRUCTURE/PATH context and VR codecs; no new file format; partial data and protected positional storage retained",
+    "reports": "Original/canonical path_clause_uses, predefined_structure_uses and used schemas, with physical include origins"
+  },
+  "boundaries": [
+    "No obsolete COMMON_ASSOC/GROUP_ASSOC fields, native group association, automatic path-frame recording or motion",
+    "No native display/window/navigation implementation, controller field validation or binary alignment/ABI claim",
+    "SHORT 32767 sentinel and complete value/result copy rules remain; no implicit GET_VAR scalar-width coercion",
+    "PATHDATA and whitespace separation are Pythonic compatibility choices; strict and native/compiler/controller equivalence deferred"
+  ],
+  "validation": [
+    "tests/test_path_declarations.py",
+    "examples/path_declarations.kl",
+    "examples/predefined_records.kl",
+    "examples/path_declarations_project"
+  ]
+}

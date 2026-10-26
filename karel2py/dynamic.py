@@ -53,6 +53,8 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     text=rt.ascii_string(text,line).strip().upper()
     if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'):
         spec=(text,)
+    elif text in rt.PREDEFINED_STRUCTURES:
+        spec=rt.PREDEFINED_STRUCTURES[text]
     elif re.fullmatch(r'STRING(?:\[[0-9]{1,3}\])?',text):
         spec=('STRING',12 if text=='STRING' else int(text[7:-1]))
     elif re.fullmatch(r'JOINTPOS[1-9]?',text):

@@ -1,0 +1,37 @@
+{
+  "TRACK": {
+    "nodes": [
+      {
+        "VALUE": 20,
+        "TAG": "one"
+      },
+      {
+        "VALUE": 22,
+        "TAG": "two"
+      }
+    ],
+    "data": {
+      "COUNT": 2,
+      "LABEL": "demo"
+    }
+  },
+  "COPIED": {
+    "nodes": [
+      {
+        "VALUE": 20,
+        "TAG": "one"
+      },
+      {
+        "VALUE": 22,
+        "TAG": "two"
+      }
+    ],
+    "data": {
+      "COUNT": 2,
+      "LABEL": "demo"
+    }
+  },
+  "STATUS": 0,
+  "TOTAL": 42,
+  "PORTABLE_SIZE": 8
+}

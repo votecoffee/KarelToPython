@@ -49,6 +49,11 @@ including INIT_QUEUE, still executes when reached.
 
 ## PATH values
 
+PATHDATA is accepted as a compatibility spelling of PATHHEADER. Explicit
+STD_PTH_NODE components and aliases normalize to the existing implicit default
+node schema. The [declaration guide](path-declarations.md) covers these forms
+and predefined record data.
+
 A PATH row retains the complete resolved NODEDATA/PATHHEADER type schema and a
 value object with exactly `nodes` and `data`. Nodes remain in their stored order.
 A headerless path uses `data: null`. Omitted NODEDATA keeps the portable

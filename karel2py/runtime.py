@@ -112,6 +112,19 @@ DATA_RECORD_FIELDS = {
 }
 
 
+# Documented data layouts, represented with the existing nominal STRUCTURE
+# schema. The obsolete association fields of STD_PTH_NODE are not modeled.
+PREDEFINED_STRUCTURES = {
+    'STD_PTH_NODE': ('STRUCTURE','STD_PTH_NODE',(('NODE_POS',('POSITION',)),)),
+    'DISP_DAT_T': ('STRUCTURE','DISP_DAT_T',(
+        ('WIN_START',('ARRAY',4,SHORT)),('WIN_END',('ARRAY',4,SHORT)),
+        ('CURR_WIN',SHORT),('CURSOR_ROW',SHORT),('LINS_PER_PG',SHORT),
+        ('CURS_ST_COL',('ARRAY',10,SHORT)),('CURS_EN_COL',('ARRAY',10,SHORT)),
+        ('CURR_FIELD',SHORT),('LAST_FIELD',SHORT),('CURR_IT_NUM',SHORT),
+        ('SOB_IT_NUM',SHORT),('EOB_IT_NUM',SHORT),('LAST_IT_NUM',SHORT),('MENU_ID',SHORT))),
+}
+
+
 def record_fields(spec):
     if spec[0] in DATA_RECORD_TYPES:
         if len(spec) != 1: raise KarelRuntimeError('Data records do not accept group/frame metadata')

@@ -1,0 +1,16 @@
+PROGRAM LIBRARY
+TYPE header_t FROM LIBRARY=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t FROM LIBRARY=PATH NODEDATA=STD_PTH_NODE,PATHHEADER=header_t
+VAR shared:route_t
+ROUTINE fill(data:route_t; display:DISP_DAT_T):INTEGER
+VAR cfg:CONFIG status:INTEGER
+BEGIN
+  IF PATH_LEN(data)=0 THEN APPEND_NODE(data,status) ENDIF
+  CNV_STR_CONF('N',cfg,status)
+  data[1].node_pos=POS(42,0,0,0,0,0,cfg)
+  data.count=1
+  display.curr_it_num=42
+  RETURN display.curr_it_num
+END fill
+BEGIN
+END LIBRARY
