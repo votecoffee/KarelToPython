@@ -1,0 +1,13 @@
+{
+  "device_files": {
+    "limit": 8,
+    "volumes": {
+      "FR:": {
+        "capacity": 8
+      }
+    },
+    "files": {
+      "FR:data.bin": "abcd"
+    }
+  }
+}

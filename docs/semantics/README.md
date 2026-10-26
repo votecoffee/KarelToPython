@@ -48,6 +48,7 @@ are kept outside public documentation.
 | PATH sizing and intersections | [path_geometry_semantics.json](path_geometry_semantics.json) |
 | XML input | [xml_input_semantics.json](xml_input_semantics.json) |
 | Serial attributes | [serial_attribute_semantics.json](serial_attribute_semantics.json) |
+| Virtual devices and storage | [virtual_device_semantics.json](virtual_device_semantics.json) |
 | Error history queries | [error_history_semantics.json](error_history_semantics.json) |
 | Collection persistence | [collection_persistence_semantics.json](collection_persistence_semantics.json) |
 | Pose decomposition | [pose_decomposition_semantics.json](pose_decomposition_semantics.json) |

@@ -1,0 +1,57 @@
+{
+  "device_files": {
+    "limit": 16777216,
+    "volumes": {
+      "RD:": {
+        "capacity": 64,
+        "mounted": false,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": false,
+        "garbage": 0,
+        "info": {}
+      },
+      "FR:": {
+        "capacity": 64,
+        "mounted": true,
+        "label": "SEED",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 0,
+        "info": {}
+      },
+      "UD1:": {
+        "capacity": 32,
+        "mounted": true,
+        "label": "ABCDEFGHIJK",
+        "read_only": false,
+        "retain_deleted": false,
+        "garbage": 0,
+        "info": {
+          "DF_MANUFNAME": "Example",
+          "DF_SERIALNO": "SYNTHETIC"
+        }
+      },
+      "FROM:": {
+        "capacity": 256,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": false,
+        "garbage": 0,
+        "info": {}
+      }
+    },
+    "files": {
+      "RD:keep.txt": {
+        "hex": "73656564"
+      },
+      "RD:note.txt": {
+        "hex": "6869"
+      },
+      "FR:copied.txt": {
+        "hex": "6869"
+      }
+    }
+  }
+}

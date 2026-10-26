@@ -1,0 +1,66 @@
+{
+  "version": "26.1026.124620",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        383,
+        385,
+        397,
+        459,
+        493,
+        600,
+        601
+      ],
+      "topic": "Dismount, supplied DOS information, format, mount, garbage-only purge, volume queries and total-only memory outputs"
+    },
+    {
+      "manual": "B-83144EN-1/02",
+      "sections": [
+        "A.5.25",
+        "A.7.5",
+        "A.14.6",
+        "A.23.22"
+      ],
+      "topic": "Device lifecycle signatures, 11-character label truncation and RD/FR versus FROM/DRAM/CMOS query outputs"
+    }
+  ],
+  "implementation": {
+    "calls": [
+      "DISMOUNT_DEV",
+      "DOSFILE_INF",
+      "FORMAT_DEV",
+      "MOUNT_DEV",
+      "PURGE_DEV",
+      "VOL_SPACE"
+    ],
+    "backend": "Explicit DeviceFiles MemoryFiles subclass with configured virtual volumes; management refuses DirectoryFiles, plain MemoryFiles and absent backends",
+    "lifecycle": "Synchronous idempotent mount state, open-file guards for dismount/format/purge, per-volume format and atomic RD/FR combined purge via MF",
+    "accounting": "Live bytes plus retained obsolete bytes; FR retains overwritten/deleted bytes by default, other volumes release them unless configured otherwise; purge preserves all live files",
+    "integration": "Ordinary FILE, copy/delete/rename/list, XML and batch moves use same mount/quota namespace; complete batch destination growth preflight precedes MOVE_FILE mutations",
+    "persistence": "Detached device_files JSON contains all volumes, contents, labels, state flags, obsolete counters and metadata; live handles omitted; conflicts with ordinary files key"
+  },
+  "portable_choices": {
+    "bounds": "1..32 volumes; individual and combined capacities <=64 MiB, 32767 files, inherited 1..64 MiB per-file limit",
+    "paths": "Uppercase device IDs, case-sensitive relative POSIX paths; no OS paths, traversal, backslashes or host discovery; MF reserved for combined purge",
+    "format": "Only selected virtual media cleared; label truncated to 11 printable ASCII characters; both nowait values complete synchronously; preflight budget/busy failures leave files unchanged",
+    "queries": "RD/FR labels empty; FROM/DRAM/CMOS total only, preserving other outputs; DOS metadata supplied as named ASCII text fields",
+    "status": "0 success, 1 information absent, 2 invalid/unknown, 3 unmounted, 4 busy, 5 read-only, 7 small information output; documented no-garbage warning 85023; VOL_SPACE and ordinary FILE access/quota failures raise before outputs/mutations"
+  },
+  "unresolved": [
+    "Native filesystem/block layouts, allocation overhead and physical fragmentation",
+    "Host/controller mounts, format/purge, disk queries and automatic hardware metadata",
+    "Native timing, most status/enum equality and strict mode"
+  ],
+  "verification": [
+    "tests/test_device_files.py",
+    "tests/test_file_management.py",
+    "tests/test_xml_input.py",
+    "tests/test_runtime_portability.py",
+    "examples/virtual_devices.kl",
+    "examples/device_capacity.kl"
+  ],
+  "guide": "../virtual-devices.md"
+}

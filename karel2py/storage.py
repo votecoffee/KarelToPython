@@ -400,7 +400,8 @@ def context_config(context):
             for kind,number in sorted(context.ports.simulated): simulated.setdefault(kind,[]).append(number)
             result['ports']['simulated']=simulated
     if context.files is not None:
-        result['files']={name:{'hex':value.hex()} for name,value in context.files.snapshot().items()}
+        if type(context.files) is rt().DeviceFiles: result['device_files']=context.files.to_config()
+        else: result['files']={name:{'hex':value.hex()} for name,value in context.files.snapshot().items()}
     if context.variables.bindings:
         result['variables']=[dict(program=program,path=path,**typed_value(reference.raw(),reference.spec)) for (program,path),reference in sorted(context.variables.bindings.items())]
     variables={(row['program'],row['path']):row for row in result.get('variables',[])}

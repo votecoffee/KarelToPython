@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 188 have a registered translation and 146 do not.
+Currently, 194 have a registered translation and 140 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -89,9 +89,12 @@ they are boundaries rather than promises to accept every such source form later.
 
 ## Files and collections
 
-- Native device mounting/formatting/purging, sockets, serial devices, pipes,
-  device discovery and unrestricted absolute-path file access. Backends are
-  MemoryFiles or explicitly rooted DirectoryFiles.
+- Physical device mounting/formatting/purging, sockets, serial devices, pipes,
+  device discovery and unrestricted absolute-path file access. Six device/storage
+  calls now operate on [explicit virtual DeviceFiles volumes](virtual-devices.md),
+  with byte accounting and reclamation. MemoryFiles and explicitly rooted
+  DirectoryFiles retain their existing FILE behavior; management calls cannot
+  target those backends or host drives.
   GET_PORT_ATR/SET_PORT_ATR now retain [explicit serial configuration](serial-attributes.md)
   with seven checked attributes; they do not open ports or exchange serial data.
 - Proprietary PC/VR/native binary layouts, arbitrary FILE attributes/listing
@@ -242,7 +245,7 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Screens, windows, keyboard and dictionaries (40)
+### Screens, windows, keyboard and dictionaries (39)
 
 - `ACT_SCREEN`
 - `ACT_TBL`
@@ -250,7 +253,6 @@ does not assert a particular installed option or environment.
 - `ATT_WINDOW_D`
 - `ATT_WINDOW_S`
 - `CHECK_DICT`
-- `CLEAR`
 - `CNC_DYN_DISB`
 - `CNC_DYN_DISE`
 - `CNC_DYN_DISI`
@@ -310,15 +312,6 @@ does not assert a particular installed option or environment.
 - `DAQ_UNREG`
 - `DAQ_WRITE`
 
-### Native devices and storage (6)
-
-- `DISMOUNT_DEV`
-- `DOSFILE_INF`
-- `FORMAT_DEV`
-- `MOUNT_DEV`
-- `PURGE_DEV`
-- `VOL_SPACE`
-
 ### Motion and task management (8)
 
 - `CNCL_STP_MTN`
@@ -330,12 +323,13 @@ does not assert a particular installed option or environment.
 - `SET_PERCH`
 - `UNLOCK_GROUP`
 
-### Programs, dynamic variables and controller commands (20)
+### Programs, dynamic variables and controller commands (21)
 
 - `BYNAME`
 - `CALL_PROG`
 - `CALL_PROGLIN`
 - `CHECK_STACK`
+- `CLEAR`
 - `CREATE_VAR`
 - `FORCE_LINK`
 - `KCL`

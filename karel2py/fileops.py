@@ -91,6 +91,8 @@ def move_files(files,specification,*,check=None):
     if any(key(source) in busy or key(target) in busy for source,target in plan): return 3
     targets=[target.casefold() for _,target in plan]
     if len(set(targets))!=len(targets) or any(target in existing for target in targets): return 2
+    preflight=getattr(files,'preflight_moves',None)
+    if preflight is not None: preflight(plan)
     for source,target in plan:
         check()
         if directory:

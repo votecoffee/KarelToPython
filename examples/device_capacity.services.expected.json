@@ -1,0 +1,21 @@
+{
+  "device_files": {
+    "limit": 8,
+    "volumes": {
+      "FR:": {
+        "capacity": 8,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 0,
+        "info": {}
+      }
+    },
+    "files": {
+      "FR:data.bin": {
+        "hex": "7a7a6364"
+      }
+    }
+  }
+}

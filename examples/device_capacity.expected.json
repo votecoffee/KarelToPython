@@ -1,0 +1,15 @@
+{
+  "FILE_VAR": {
+    "file": "FR:data.bin",
+    "open": false,
+    "position": 2,
+    "binary": false,
+    "status": 0
+  },
+  "STATUS": 0,
+  "BLOCKED": 4,
+  "TOTAL": 8,
+  "FREE_BEFORE": 2,
+  "FREE_AFTER": 4,
+  "LABEL": ""
+}

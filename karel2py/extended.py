@@ -102,6 +102,8 @@ PROCEDURES = {
     'XML_SCAN': (arg('FILE'),OS,OI,OI,OI),
     'XML_GETDATA': (arg('FILE'),OI,arg('STRING_ARRAY','r'),arg('STRING_ARRAY','r'),OS,arg('BOOLEAN','o'),OI),
     'XML_SETVAR': (arg('FILE'),S,S,OI),
+    'MOUNT_DEV': (S,OI), 'DISMOUNT_DEV': (S,OI), 'FORMAT_DEV': (S,S,B,OI),
+    'PURGE_DEV': (S,OI), 'VOL_SPACE': (S,OI,OI,OS), 'DOSFILE_INF': (S,I,OS,OI),
     'CHECK_EPOS': (arg('POSE'),arg('POSE'),arg('POSE'),OI,I),
     'JOINT2POS': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),I,arg('POSITION','o'),arg('CONFIG','o'),arg('REAL_ARRAY','r'),OI),
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
@@ -1493,10 +1495,14 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'device_files' in config:
+            if 'files' in config: raise ValueError('Choose files or device_files, not both')
+            from .devices import DeviceFiles
+            services['files']=DeviceFiles.from_config(config['device_files'])
         if 'serial_ports' in config: services['serial_ports']=SerialPorts.from_config(config['serial_ports'])
         if 'teach_programs' in config:
             from .teach import TeachPrograms
@@ -1575,6 +1581,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('MOUNT_DEV','DISMOUNT_DEV','FORMAT_DEV','PURGE_DEV','VOL_SPACE','DOSFILE_INF'):
+            from .devices import invoke_device
+            return invoke_device(self,state,name,args,line)
         if name in XML_NAMES:
             from .xmlio import invoke_xml
             return invoke_xml(self,state,name,args,line)

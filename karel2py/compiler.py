@@ -138,6 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
                         **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,
+                        **rt.DEVICE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
@@ -3657,6 +3658,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Detached canonical port-number JSON attribute mappings; no handles, discovery, serial reads/writes or allocation of the modeled read-ahead buffer',
         boundary='Offline configuration metadata with portable constants only; no COM-port/hardware effects or native serial enum equivalence',
         guide='docs/serial-attributes.md',controller_validated=False)
+    report['virtual_device_policy']=dict(
+        calls=['DISMOUNT_DEV','DOSFILE_INF','FORMAT_DEV','MOUNT_DEV','PURGE_DEV','VOL_SPACE'],constants=dict(rt.DEVICE_CONSTANTS),
+        backend='Explicit DeviceFiles virtual MemoryFiles subclass only; never DirectoryFiles, plain MemoryFiles, host drives or controller devices; source FILE paths require configured device prefixes',
+        state='Canonical uppercase device IDs, case-sensitive relative file paths; explicit capacities, mount flags, labels, read-only flags, obsolete-byte counters and supplied DOS information',
+        accounting='Live bytes plus retained obsolete bytes; FR defaults to retain overwritten/deleted bytes, other volumes release them; writes/copies/cross-volume moves preflight capacity, batch moves check combined target growth before any move',
+        lifecycle='Mount state changes are synchronous/idempotent; dismount/format/purge reject open files; FORMAT clears only the selected virtual volume and truncates label to 11; PURGE reclaims garbage while preserving live data, MF preflights RD and FR together',
+        queries='VOL_SPACE returns configured total/free/label, with RD/FR empty labels and FROM/DRAM/CMOS total-only outputs; DOSFILE_INF returns only explicitly supplied metadata; complete output capacity and disjoint references required',
+        status='Management 0 success, 1 metadata absent, 2 invalid/unknown, 3 unmounted, 4 busy, 5 read-only, 7 small information output, DEV_NOTHING_TO_PURGE=85023; VOL_SPACE failures raise before outputs; FILE quota/access failures raise',
+        bounds='1..32 configured volumes, each/combined capacity at most 64 MiB, 32767 files, inherited 1..64 MiB per-file limit; file payloads and obsolete counts checked against capacity',
+        persistence='device_files context JSON retains all virtual volume configuration, mounted/unmounted contents and obsolete counters; conflicts with ordinary files key; live FILE handles omitted',
+        boundary='Portable byte accounting and synchronous nowait behavior, without native filesystem layout, block fragmentation, physical mounting/formatting, OS disk queries, controller memory discovery or strict equivalence',
+        guide='docs/virtual-devices.md',controller_validated=False)
     report['remote_bank_policy']=dict(
         procedures=dict(ex.REMOTE_SERVICES),
         context='Explicit PeerBanks host-to-bank bindings; case-insensitive names select numeric, string, position-comment or port banks, never DNS or network connections',

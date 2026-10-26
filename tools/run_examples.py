@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from karel2py import translate,load_project
 from karel2py.lexer import TranslationError
-from karel2py.runtime import KarelAbort, TextInput, NumericRegisters, ExecutionContext, snapshot_value
+from karel2py.runtime import KarelAbort, TextInput, NumericRegisters, ExecutionContext, snapshot_value, DeviceFiles
 
 
 def read_json(path):
@@ -21,6 +21,8 @@ def service_snapshot(services):
     for kind in ('strings','positions','ports','files','semaphores'):
         service=getattr(services,kind)
         if service is None: continue
+        if kind=='files' and type(service) is DeviceFiles:
+            observed['device_files']=service.to_config();continue
         observed[kind]={(':'.join(str(part) for part in key) if type(key) is tuple else str(key)):
                         ({'hex':value.hex()} if type(value) is bytes else snapshot_value(value))
                         for key,value in service.snapshot().items()}
@@ -120,7 +122,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 139, 'Update the expected example count when adding examples'
+    assert count == 141, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
     assert len(projects)==5, 'Update the expected project count when adding projects'
     for folder in projects:

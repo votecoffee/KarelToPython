@@ -1,0 +1,18 @@
+{
+  "FILE_VAR": {
+    "file": "FR:old.txt",
+    "open": false,
+    "position": 3,
+    "binary": false,
+    "status": 0
+  },
+  "TOTAL": 256,
+  "RAM_FREE": 58,
+  "FREE_BEFORE": 59,
+  "FREE_AFTER": 62,
+  "USB_FREE": 32,
+  "STATUS": 0,
+  "LABEL": "ABCDEFGHIJK",
+  "MANUFACTURER": "Example",
+  "SERIAL_NUMBER": "SYNTHETIC"
+}

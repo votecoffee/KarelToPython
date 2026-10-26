@@ -2447,6 +2447,7 @@ from .extended import (ExecutionContext, StringRegisters, PositionRegisters, Por
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles
+from .devices import DeviceFiles,DEVICE_CONSTANTS,DEVICE_INFO
 from .teach import TeachPrograms,TPE_CONSTANTS
 from .clocks import CalendarClock
 from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING

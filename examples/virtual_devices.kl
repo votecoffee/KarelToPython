@@ -1,0 +1,29 @@
+PROGRAM VIRTUAL_DEVICES
+%NOLOCKGROUP
+%ENVIRONMENT FDEV
+VAR
+  file_var: FILE
+  total,ram_free,free_before,free_after,usb_free,status: INTEGER
+  label,manufacturer,serial_number: STRING[16]
+BEGIN
+  MOUNT_DEV('RD:',status)
+  OPEN FILE file_var('RW','RD:note.txt')
+  WRITE file_var('hi')
+  CLOSE FILE file_var
+  VOL_SPACE('RD:',total,ram_free,label)
+  FORMAT_DEV('FR:','SEED',FALSE,status)
+  OPEN FILE file_var('WO','FR:old.txt')
+  WRITE file_var('old')
+  CLOSE FILE file_var
+  COPY_FILE('RD:note.txt','FR:copied.txt',FALSE,FALSE,status)
+  DELETE_FILE('FR:old.txt',FALSE,status)
+  VOL_SPACE('FR:',total,free_before,label)
+  PURGE_DEV('FR:',status)
+  VOL_SPACE('FR:',total,free_after,label)
+  DOSFILE_INF('UD1:',DF_MANUFNAME,manufacturer,status)
+  DOSFILE_INF('UD1:',DF_SERIALNO,serial_number,status)
+  FORMAT_DEV('UD1:','ABCDEFGHIJKLMNO',TRUE,status)
+  VOL_SPACE('UD1:',total,usb_free,label)
+  VOL_SPACE('FROM:',total,usb_free,label)
+  DISMOUNT_DEV('RD:',status)
+END VIRTUAL_DEVICES

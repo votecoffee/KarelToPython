@@ -41,6 +41,9 @@ NODE_SIZE and INTSCT_VL_PL with `path_geometry_policy` in the report.
 [XML input](xml-input.md) adds `xml_input_policy` and five checked FILE calls.
 `SerialPorts`, supplied as `ExecutionContext(serial_ports=bank)`, adds persisted
 [serial attributes](serial-attributes.md) and `serial_attribute_policy`.
+`DeviceFiles` supplies six [virtual device/storage calls](virtual-devices.md)
+through the ordinary files service, with `virtual_device_policy`. Context JSON
+uses `device_files` to preserve volumes, quotas and obsolete-storage counters.
 These are recorded requirements and attributes; they do not load definitions or
 enable additional source symbols or calls.
 

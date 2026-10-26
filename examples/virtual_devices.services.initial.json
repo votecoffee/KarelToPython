@@ -1,0 +1,29 @@
+{
+  "device_files": {
+    "volumes": {
+      "RD:": {
+        "capacity": 64,
+        "mounted": false
+      },
+      "FR:": {
+        "capacity": 64,
+        "garbage": 1
+      },
+      "UD1:": {
+        "capacity": 32,
+        "info": {
+          "DF_MANUFNAME": "Example",
+          "DF_SERIALNO": "SYNTHETIC"
+        }
+      },
+      "FROM:": {
+        "capacity": 256
+      }
+    },
+    "files": {
+      "RD:keep.txt": "seed",
+      "FR:discard.txt": "old",
+      "UD1:discard.bin": "blob"
+    }
+  }
+}

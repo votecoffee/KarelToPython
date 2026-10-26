@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.124620 - 2026-10-26
+
+- Add all six device/storage calls over an explicit virtual DeviceFiles backend,
+  with mount state, closed-file guards, labels and supplied device information.
+- Share ordinary FILE operations with per-volume byte quotas and retained obsolete
+  storage; purge reclaims garbage without deleting live files, including MF batches.
+- Preflight writes/copies/moves and complete MOVE_FILE batch growth before mutation;
+  preserve all format targets on budget failure or newly opened FILE guards.
+- Persist virtual contents, mount/read-only flags, labels and reclamation counters
+  in device_files JSON; management never targets host drives or DirectoryFiles.
+- Add 30 focused regressions and two authored CLI examples; refresh guides and
+  audit 194 registered built-in names with 140 still unregistered.
+
 ## 26.1026.121648 - 2026-10-26
 
 - Add all five XML input calls with checked registered-tag events, attribute and

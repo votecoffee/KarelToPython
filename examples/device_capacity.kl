@@ -1,0 +1,15 @@
+PROGRAM DEVICE_CAPACITY
+%NOLOCKGROUP
+VAR
+  file_var: FILE
+  status,blocked,total,free_before,free_after: INTEGER
+  label: STRING[16]
+BEGIN
+  OPEN FILE file_var('RW','FR:data.bin')
+  WRITE file_var('zz')
+  PURGE_DEV('FR:',blocked)
+  CLOSE FILE file_var
+  VOL_SPACE('FR:',total,free_before,label)
+  PURGE_DEV('FR:',status)
+  VOL_SPACE('FR:',total,free_after,label)
+END DEVICE_CAPACITY

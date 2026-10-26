@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.121648**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.124620**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -271,6 +271,10 @@ Five XML input calls provide registered-tag scanning, chunked text/attributes
 and checked structure updates over explicit FILE backends; see
 [XML input](docs/xml-input.md). GET_PORT_ATR/SET_PORT_ATR use a separate persisted
 offline serial-attribute bank; see [serial attributes](docs/serial-attributes.md).
+Six device/storage calls share explicit virtual DeviceFiles volumes, including
+mount state, byte quotas, obsolete-storage reclamation, labels and supplied device
+information. These operations affect memory-backed data only; see
+[virtual devices](docs/virtual-devices.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

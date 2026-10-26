@@ -1,5 +1,5 @@
 {
-  "version": "26.1026.121648",
+  "version": "26.1026.124620",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -158,5 +158,6 @@
   "source_policies": "source_policy_semantics.json",
   "path_geometry": "path_geometry_semantics.json",
   "xml_input": "xml_input_semantics.json",
-  "serial_attributes": "serial_attribute_semantics.json"
+  "serial_attributes": "serial_attribute_semantics.json",
+  "virtual_devices": "virtual_device_semantics.json"
 }

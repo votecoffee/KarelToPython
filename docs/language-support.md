@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.121648. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.124620. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -65,6 +65,7 @@ internally and in the historical semantic notes.
 | TP local registers | 12 numeric/string/grouped position calls with explicit caller bindings in TeachPrograms | Calling KAREL root scope through linked routines and scheduler rename, separate local banks, stored frame/tool metadata and typed JSON; no native caller-stack discovery. |
 | XML input | XML_ADDTAG, XML_REMTAG, XML_SCAN, XML_GETDATA, XML_SETVAR over explicit text RO FILEs | Bounded ASCII documents, registered events, text continuation and checked flat field updates; no DTD/entities, XML writing or native parser/status equivalence. |
 | Serial attributes | GET_PORT_ATR/SET_PORT_ATR over explicit SerialPorts | Seven checked attributes, canonical context JSON and portable constants; configuration metadata without serial/device effects. |
+| Virtual devices | MOUNT_DEV, DISMOUNT_DEV, FORMAT_DEV, PURGE_DEV, VOL_SPACE, DOSFILE_INF over DeviceFiles | Explicit memory-backed volumes, mount/closed-file guards, byte quotas/reclamation and supplied metadata; no host drive or native device operations. |
 | Robot model | MIRROR, extended pose metadata, JOINT2POS/POS2JOINT, IN_RANGE/J_IN_RANGE and CHECK_EPOS | Explicit right-handed reflection convention, supplied callbacks/limits or standard-DH models with bounded IK, explicit groups/frames/tools and external joints; no inferred robot context or native reachability claim. |
 
 See the [offline service matrix and guide](offline-services.md) for the complete
