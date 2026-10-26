@@ -241,7 +241,7 @@ class RegisterCLITests(unittest.TestCase):
         Program,result=compile_program(body)
         with tempfile.TemporaryDirectory() as folder:
             package=Path(folder)/'karel2py'; package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py'): (package/name).write_bytes((ROOT/'karel2py'/name).read_bytes())
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py'): (package/name).write_bytes((ROOT/'karel2py'/name).read_bytes())
             module=Path(folder)/'converted.py'; module.write_text(result.python_source,encoding='utf-8')
             initial=Path(folder)/'registers.json'; initial.write_text(config,encoding='utf-8')
             command=[sys.executable,str(module),* ([] if missing else ['--registers',str(initial)])]

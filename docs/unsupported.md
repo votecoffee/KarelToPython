@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 181 have a registered translation and 153 do not.
+Currently, 188 have a registered translation and 146 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -92,6 +92,8 @@ they are boundaries rather than promises to accept every such source form later.
 - Native device mounting/formatting/purging, sockets, serial devices, pipes,
   device discovery and unrestricted absolute-path file access. Backends are
   MemoryFiles or explicitly rooted DirectoryFiles.
+  GET_PORT_ATR/SET_PORT_ATR now retain [explicit serial configuration](serial-attributes.md)
+  with seven checked attributes; they do not open ports or exchange serial data.
 - Proprietary PC/VR/native binary layouts, arbitrary FILE attributes/listing
   formats, device-specific parsing and controller file alarms. Text and binary
   scalar operations use the documented portable formats and bounded sizes;
@@ -103,6 +105,10 @@ they are boundaries rather than promises to accept every such source form later.
 - Persisting live file handles, callbacks, connected clocks, queue buffer
   references, Python closures, generator/call stacks or suspended task execution.
   JSON stores values and logical collection state; it is not a task checkpoint.
+- XML writing, DTD/entity processing, Unicode, namespace interpretation and
+  native streaming/error equivalence. All five [XML input calls](xml-input.md)
+  now support bounded ASCII FILE scanning and checked flat structure updates;
+  live scanners and registrations are omitted from saved JSON.
 
 ## Tasks, handlers and programs
 
@@ -279,13 +285,12 @@ does not assert a particular installed option or environment.
 - `WRITE_DICT`
 - `WRITE_DICT_V`
 
-### Communications and PC exchange (15)
+### Communications and PC exchange (13)
 
 - `ADD_BYNAMEPC`
 - `ADD_INTPC`
 - `ADD_REALPC`
 - `ADD_STRINGPC`
-- `GET_PORT_ATR`
 - `MSG_CONNECT`
 - `MSG_DISCO`
 - `MSG_PING`
@@ -295,7 +300,6 @@ does not assert a particular installed option or environment.
 - `RMCN_SEND`
 - `SEND_DATAPC`
 - `SEND_EVENTPC`
-- `SET_PORT_ATR`
 
 ### Data acquisition (6)
 
@@ -305,14 +309,6 @@ does not assert a particular installed option or environment.
 - `DAQ_STOP`
 - `DAQ_UNREG`
 - `DAQ_WRITE`
-
-### XML (5)
-
-- `XML_ADDTAG`
-- `XML_GETDATA`
-- `XML_REMTAG`
-- `XML_SCAN`
-- `XML_SETVAR`
 
 ### Native devices and storage (6)
 

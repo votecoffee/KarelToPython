@@ -137,6 +137,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
+                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
@@ -1527,7 +1528,7 @@ class Emitter:
                         if name not in local_names: routine.side_effecting=True
                         if name in parameter_names: routine.parameter_writes.add(name)
                         if name in self.types and name not in local_names|parameter_names: routine.global_writes.add(name)
-                    if node.value=='SET_VAR': routine.global_writes.update(self.types)
+                    if node.value in ex.DYNAMIC_VARIABLE_WRITES: routine.global_writes.update(self.types)
                 if isinstance(node, Statement) and node.kind in ('assign', 'for'):
                     name = node.args[0].value if node.kind == 'for' else self.root_name(node.args[0])
                     if name not in local_names: routine.side_effecting = True
@@ -2107,7 +2108,7 @@ class Emitter:
         if not default_masks and not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
         signature=ex.signature_for(expr.value,len(expr.args))
         self.check_for_call(expr.token)
-        if expr.value=='SET_VAR' and self.active_counters: self.error('E_FOR_COUNTER','SET_VAR cannot indirectly write an active FOR counter',expr.token)
+        if expr.value in ex.DYNAMIC_VARIABLE_WRITES and self.active_counters: self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
         codes=[]
         for index,(value,(mode,kind)) in enumerate(zip(expr.args,signature)):
             discarded=value
@@ -2558,7 +2559,7 @@ class Emitter:
                     if isinstance(action, Statement) and action.kind == 'read':
                         if any(self.root_name(item.args[0] if item.kind == 'read_item' else item) == name for item in action.args if item.kind != 'read_cr'): return True
                     if not isinstance(action, Expr) or action.kind != 'call': continue
-                    if action.value == 'SET_VAR': return True
+                    if action.value in ex.DYNAMIC_VARIABLE_WRITES: return True
                     routine = self.routines.get(action.value)
                     if routine:
                         if name in routine.global_writes: return True
@@ -3635,6 +3636,27 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         robot='JOINT2POS/POS2JOINT/IN_RANGE/CHECK_EPOS use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; bounded numerical IK is not certified reachability',
         observations='Defensive value-free Program.service_requests operation/line/outcome records, reset at new run',
         guide='docs/offline-services.md',controller_validated=False)
+    report['xml_input_policy']=dict(
+        calls=sorted(ex.XML_NAMES),constants=dict(ex.XML_CONSTANTS),
+        forms='ADDTAG(file,name,numchar,caseflag,ident,status); REMTAG(file,name,status); SCAN(file,name,ident,function,status); GETDATA(file,numattr,names,values,text,textdone,status); SETVAR(file,program,path,status)',
+        input='ATR_XML/AR_XML before text RO OPEN on explicit MemoryFiles/DirectoryFiles; bounded ASCII XML prevalidated before event delivery, with DTD/entity declarations and external entities rejected',
+        limits='1 MiB input, 64 nested tags, 65536 events, 32 attributes per tag, 254-character names/attribute values and 128 registered tags; parsing/scanning charge ordinary execution steps',
+        events='Registered tags only, first matching registration wins; full case-sensitive or folded names/prefixes; self-closing tags report XML_END with attributes, ordinary END has no attributes; status XML_FUNCTION for delivery, zero for EOF, XML_SCANLIM after 50 skipped physical lines',
+        data='Complete attribute capacities required, unused array elements retained; text read in concrete destination-sized chunks, textdone signals exhaustion, subsequent scans return XML_TXCONT when a previously read event has more text',
+        writes='XML_SETVAR resolves explicit/attached user STRUCTURE storage, matches fields case-insensitively and prepares all INTEGER/REAL/BOOLEAN/STRING values before writes; unknown/duplicate/nested fields reject and unmentioned fields remain unchanged; indirect FOR guards retained',
+        lifecycle='Pause retains scanner; CLOSE/reopen releases registrations and pending data; no ordinary READ or seek on XML FILE; changed backend bytes reject; live parser state is excluded from context JSON',
+        status='Portable XML constants; registration/data/SETVAR zero success, SCAN zero EOF; XML_STATE=1, XML_INVALID=2, XML_CAPACITY=3, XML_PARSE=4, XML_LIMIT=5; parse failures publish XML_ERROR identifier; capacity failures preserve outputs/cursor for retry',
+        boundary='No XML writing, native parser/status equivalence, DTD/entity processing, Unicode/namespaced schema interpretation, asynchronous streaming or suspended parser checkpoints; strict remains future work',
+        guide='docs/xml-input.md',controller_validated=False)
+    report['serial_attribute_policy']=dict(
+        functions=['GET_PORT_ATR','SET_PORT_ATR'],constants=dict(ex.SERIAL_CONSTANTS),
+        context='Explicit SerialPorts mapping under ExecutionContext.serial_ports, independent of digital/group/analog PortBank and FILE attributes; configured port IDs 1..5 only',
+        attributes=dict(ex.SERIAL_ATTRIBUTES),
+        values='Read-ahead count 0..32767 units of 128 bytes; baud 1200/2400/4800/9600, parity none/odd/even, stop bits 1/1.5/2 through package INTEGER codes, data bits 5..8, XON/XOFF 0/1 and ASCII EOL 0..127',
+        status='Function return 0 success, 1 unset attribute, 2 unconfigured port, 3 invalid attribute/value; failed reads retain attribute output, failed writes retain settings; missing service raises',
+        persistence='Detached canonical port-number JSON attribute mappings; no handles, discovery, serial reads/writes or allocation of the modeled read-ahead buffer',
+        boundary='Offline configuration metadata with portable constants only; no COM-port/hardware effects or native serial enum equivalence',
+        guide='docs/serial-attributes.md',controller_validated=False)
     report['remote_bank_policy']=dict(
         procedures=dict(ex.REMOTE_SERVICES),
         context='Explicit PeerBanks host-to-bank bindings; case-insensitive names select numeric, string, position-comment or port banks, never DNS or network connections',

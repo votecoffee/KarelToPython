@@ -17,6 +17,7 @@ def read_json(path):
 
 def service_snapshot(services):
     observed = {}
+    if services.serial_ports is not None: observed['serial_ports']=services.serial_ports.to_config()
     for kind in ('strings','positions','ports','files','semaphores'):
         service=getattr(services,kind)
         if service is None: continue
@@ -119,7 +120,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 137, 'Update the expected example count when adding examples'
+    assert count == 139, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
     assert len(projects)==5, 'Update the expected project count when adding projects'
     for folder in projects:

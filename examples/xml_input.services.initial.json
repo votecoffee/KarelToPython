@@ -1,0 +1,5 @@
+{
+  "files": {
+    "input.xml": "<root><item count=\"42\" ratio=\"1.25\" enabled=\"true\" label=\"demo\">abcdefgh</item></root>"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "serial_ports": {
+    "2": {
+      "ATR_READAHD": 2,
+      "ATR_BAUD": 9600,
+      "ATR_PARITY": 2,
+      "ATR_SBITS": 15,
+      "ATR_DBITS": 8,
+      "ATR_XONOFF": 1,
+      "ATR_EOL": 10
+    }
+  }
+}

@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.121648 - 2026-10-26
+
+- Add all five XML input calls with checked registered-tag events, attribute and
+  text chunks, continuations, scan limits and atomic flat structure field updates.
+- Bound ASCII XML parsing over explicit text RO FILE backends; reject DTD/entity
+  declarations, malformed data, output aliases and indirect FOR-counter writes.
+- Preserve live scanning across pause, release it on close/reopen and retain
+  complete output/cursor state for capacity retries; omit scanners from JSON.
+- Add GET_PORT_ATR/SET_PORT_ATR with an explicit persisted SerialPorts bank,
+  seven checked attributes and portable constants, independent of physical I/O.
+- Add 39 focused regressions, two authored examples and runtime-only dependency
+  coverage; refresh guides and audit 188 registered built-in names, 146 remaining.
+
 ## 26.1024.153206 - 2026-10-24
 
 - Accept nine additional checked source directives; apply DEFGROUP to caller-root

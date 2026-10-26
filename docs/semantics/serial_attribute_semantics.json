@@ -1,0 +1,41 @@
+{
+  "version": "26.1026.121648",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "B-83144EN-1/02",
+      "sections": [
+        "A.8.6",
+        "A.20.22"
+      ],
+      "topic": "GET_PORT_ATR and SET_PORT_ATR status functions, port IDs and seven serial attributes"
+    }
+  ],
+  "implementation": {
+    "functions": [
+      "GET_PORT_ATR",
+      "SET_PORT_ATR"
+    ],
+    "context": "Explicit SerialPorts mapping, independent of PortBank/FILE and host COM ports",
+    "persistence": "Canonical port-number JSON mappings of validated named INTEGER settings; detached exports and no inferred defaults",
+    "failure": "Read output and settings retained on failure; exact inputs/outputs and counter guards remain"
+  },
+  "portable_choices": {
+    "ports": "Explicit configured IDs 1..5",
+    "values": "Read ahead 0..32767 units of 128 bytes; baud 1200/2400/4800/9600; parity 0/1/2; stop-bit codes 1/15/2; data bits 5..8; flow 0/1; ASCII EOL 0..127",
+    "status": "0 success, 1 unset attribute, 2 unconfigured port, 3 invalid attribute/value; missing service raises",
+    "constants": "Package enums and actual baud/bit counts where convenient; no native enum equivalence claim"
+  },
+  "unresolved": [
+    "Physical serial ports, device discovery, serial transfers and allocated read buffers",
+    "Native attribute/status enum equality and controller validation",
+    "Strict mode"
+  ],
+  "verification": [
+    "tests/test_serial_ports.py",
+    "tests/test_runtime_portability.py",
+    "examples/serial_attributes.kl"
+  ],
+  "guide": "../serial-attributes.md"
+}

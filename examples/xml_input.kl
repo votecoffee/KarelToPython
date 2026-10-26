@@ -1,0 +1,29 @@
+PROGRAM XML_INPUT
+%NOLOCKGROUP
+%ENVIRONMENT XML
+TYPE
+  settings_t=STRUCTURE count: INTEGER ratio: REAL enabled: BOOLEAN label: STRING[12] untouched: INTEGER ENDSTRUCTURE
+VAR
+  input_file: FILE
+  tag: STRING[32]
+  text,first_text: STRING[4]
+  names,values: ARRAY[4] OF STRING[32]
+  settings: settings_t
+  count,ident,code,status,continuation: INTEGER
+  done: BOOLEAN
+BEGIN
+  SET_FILE_ATR(input_file,ATR_XML)
+  OPEN FILE input_file('RO','input.xml')
+  XML_ADDTAG(input_file,'item',254,FALSE,7,status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  XML_GETDATA(input_file,count,names,values,text,done,status)
+  first_text=text
+  XML_SETVAR(input_file,'','settings',status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  continuation=code
+  XML_GETDATA(input_file,count,names,values,text,done,status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  XML_REMTAG(input_file,'item',status)
+  CLOSE FILE input_file
+END XML_INPUT

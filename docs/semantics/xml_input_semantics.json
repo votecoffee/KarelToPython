@@ -1,0 +1,64 @@
+{
+  "version": "26.1026.121648",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        539,
+        625,
+        626,
+        627,
+        628,
+        629
+      ],
+      "topic": "ATR_XML read-only input; five XML procedures and structure mapping; syntax headings contain omissions"
+    },
+    {
+      "manual": "A-97606-09410EN/01, R-50iA reference",
+      "pdf_pages": [
+        146,
+        147,
+        148,
+        149,
+        150
+      ],
+      "topic": "Chapter 10.4 worked example uses seven-argument GETDATA, five-argument SCAN and three-argument REMTAG; XML_FUNCTION deliveries, zero EOF and self-closing XML_END"
+    },
+    {
+      "evidence": "Accepted indexed compiler source forms across the reference campaign",
+      "topic": "Confirms procedure argument forms; does not establish native parser behavior"
+    }
+  ],
+  "implementation": {
+    "calls": [
+      "XML_ADDTAG",
+      "XML_GETDATA",
+      "XML_REMTAG",
+      "XML_SCAN",
+      "XML_SETVAR"
+    ],
+    "parser": "Bounded ASCII XML through standard-library Expat, DTD/entity declarations rejected; complete input validation before event delivery, no external resource loading",
+    "tags": "First registered name/prefix match, case-sensitive or folded; unique positive IDs; self-closing tags return XML_END with attributes; normal END has no attributes",
+    "data": "Complete attribute capacities, unused array slots retained; immediate following text in output-sized chunks, textdone and XML_TXCONT; scan-only callers can skip unread text",
+    "variables": "Resolve existing user STRUCTURE, convert targeted flat scalar fields atomically and preserve other values; duplicate folded/unknown/nested field targets reject; disjoint and transitive FOR protections"
+  },
+  "portable_choices": {
+    "limits": "1 MiB input, 64 nesting levels, 65536 events, 32 attributes, 254-character names/values and 128 registrations; each block/event charges execution budget",
+    "status": "XML_FUNCTION=1001 delivery, XML_SCANLIM=1002 continuation, 0 EOF for SCAN/success otherwise; 1 state, 2 invalid, 3 capacity, 4 parse, 5 limit; XML_ERROR=-1 parse identifier",
+    "functions": "XML_START=100, XML_END=101, XML_STEND=102 retained but not emitted, XML_TXCONT=103",
+    "lifetime": "CLOSE/reopen resets parser and registration; pause retains state; no ordinary READ/seek on XML FILE; changed backend bytes reject; JSON omits handles/scanners"
+  },
+  "unresolved": [
+    "Native streaming/chunk/cursor/status encoding equivalence",
+    "XML writing, DTD/general entities, Unicode and namespace interpretation",
+    "Live parser checkpoint restoration and strict mode"
+  ],
+  "verification": [
+    "tests/test_xml_input.py",
+    "tests/test_runtime_portability.py",
+    "examples/xml_input.kl"
+  ],
+  "guide": "../xml-input.md"
+}

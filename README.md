@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1024.153206**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.121648**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -267,6 +267,10 @@ intent. They are exposed through `Program.source_settings`; see
 [source directive policies](docs/source-directives.md#additional-source-policies).
 PATH helpers include portable NODE_SIZE and supplied view-line/plane intersections
 with staged append behavior; see [PATH geometry](docs/path-geometry.md).
+Five XML input calls provide registered-tag scanning, chunked text/attributes
+and checked structure updates over explicit FILE backends; see
+[XML input](docs/xml-input.md). GET_PORT_ATR/SET_PORT_ATR use a separate persisted
+offline serial-attribute bank; see [serial attributes](docs/serial-attributes.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

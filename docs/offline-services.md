@@ -37,6 +37,8 @@ source-located error. Strict mode remains a future milestone.
 | `GET_TPE_PRM` | Explicit per-root-task CallParameters | Arguments 1..10, type 1/2/3, unused outputs preserved, absent status 17042. |
 | `OPEN/CLOSE FILE`, `READ file`, `WRITE file` | `MemoryFiles`/`DirectoryFiles` and `FileHandle` | Byte buffers or an explicit directory root, cursors and checked scalar transfers. |
 | Binary FILE fields | Standard-library `struct` | Little endian; INTEGER 1/2/4 bytes, REAL 4/8, BOOLEAN/BYTE 1, SHORT 2, ASCII STRING with byte width. |
+| Five XML input calls | Explicit text RO FILE with ATR_XML | Bounded registered-tag scanning, attribute/text chunks and atomic flat structure updates; see [XML input](xml-input.md). |
+| GET_PORT_ATR / SET_PORT_ATR | Explicit SerialPorts configuration metadata | Seven attributes, ports 1..5, checked values and JSON persistence; see [serial attributes](serial-attributes.md). |
 | `GET_FILE_POS`, `SET_FILE_POS`, `BYTES_LEFT`, `BYTES_AHEAD`, `IO_STATUS`, `CLR_IO_STAT` | Checked cursor/status operations | Byte positions, seek within current contents; `-1` seeks to end. |
 | FILE attributes | ATR_IA interactive flush; ATR_UF binary; ATR_REVERSE byte order; ATR_EOL record terminator; ATR_FIELD capacity-sized STRING reads | Portable package identifiers; `RB/WB/RWB/AB` also select binary. |
 | COPY_FILE / DELETE_FILE / RENAME_FILE / FILE_LIST | Both backends | Synchronous operations, portable missing/exists/busy statuses and name listing format 0. |

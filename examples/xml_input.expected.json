@@ -1,0 +1,39 @@
+{
+  "INPUT_FILE": {
+    "file": "input.xml",
+    "open": false,
+    "position": 86,
+    "binary": false,
+    "status": 0
+  },
+  "TAG": "",
+  "TEXT": "efgh",
+  "FIRST_TEXT": "abcd",
+  "NAMES": [
+    "count",
+    "ratio",
+    "enabled",
+    "label"
+  ],
+  "VALUES": [
+    "42",
+    "1.25",
+    "true",
+    "demo"
+  ],
+  "SETTINGS": {
+    "COUNT": 42,
+    "RATIO": 1.25,
+    "ENABLED": true,
+    "LABEL": "demo",
+    "UNTOUCHED": {
+      "uninitialized": true
+    }
+  },
+  "COUNT": 4,
+  "IDENT": 0,
+  "CODE": 101,
+  "STATUS": 0,
+  "CONTINUATION": 103,
+  "DONE": true
+}

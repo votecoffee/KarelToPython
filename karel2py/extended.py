@@ -10,6 +10,7 @@ import struct
 import fnmatch
 import inspect
 from .teach import TPE_NAMES
+from .xmlio import XML_NAMES,XML_CONSTANTS
 
 
 def runtime():
@@ -27,6 +28,13 @@ def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
+DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR'}
+SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
+    'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
+SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
+    **{f'BAUD_{n}':n for n in (1200,2400,4800,9600)},
+    'PARITY_NONE':0,'PARITY_ODD':1,'PARITY_EVEN':2,'SBITS_1':1,'SBITS_15':15,'SBITS_2':2,
+    **{f'DBITS_{n}':n for n in (5,6,7,8)},'XF_NOT_USED':0,'XF_USED':1}
 PROCEDURES = {
     'LOAD_STATUS': (S,arg('BOOLEAN','o'),arg('BOOLEAN','o')),
     'GET_ATTR_PRG': (S,I,OI,OS,OI), 'SET_ATTR_PRG': (S,I,I,S,OI),
@@ -90,6 +98,10 @@ PROCEDURES = {
     'COPY_QUEUE': (arg('QUEUE_TYPE','r'),arg('INT_ARRAY','r'),I,I,arg('INT_ARRAY','r'),OI,OI),
     'SET_FILE_POS': (arg('FILE'),I,OI), 'BYTES_AHEAD': (arg('FILE'),OI,OI),
     'SET_FILE_ATR': (arg('FILE'),I,I), 'CLR_IO_STAT': (arg('FILE'),),
+    'XML_ADDTAG': (arg('FILE'),S,I,B,I,OI), 'XML_REMTAG': (arg('FILE'),S,OI),
+    'XML_SCAN': (arg('FILE'),OS,OI,OI,OI),
+    'XML_GETDATA': (arg('FILE'),OI,arg('STRING_ARRAY','r'),arg('STRING_ARRAY','r'),OS,arg('BOOLEAN','o'),OI),
+    'XML_SETVAR': (arg('FILE'),S,S,OI),
     'CHECK_EPOS': (arg('POSE'),arg('POSE'),arg('POSE'),OI,I),
     'JOINT2POS': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),I,arg('POSITION','o'),arg('CONFIG','o'),arg('REAL_ARRAY','r'),OI),
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
@@ -107,6 +119,7 @@ FUNCTIONS = {
     'GET_TPE_JPOS_REG': ((I,OI,I),('JOINTPOS',9)),
     'PATH_LEN': ((arg('PATH'),),('INTEGER',)),
     'NODE_SIZE': ((arg('PATH'),),('INTEGER',)),
+    'GET_PORT_ATR': ((I,I,OI),('INTEGER',)), 'SET_PORT_ATR': ((I,I,I),('INTEGER',)),
     'GET_FILE_POS': ((arg('FILE'),),('INTEGER',)),
     'BYTES_LEFT': ((arg('FILE'),),('INTEGER',)),
     'IO_STATUS': ((arg('FILE'),),('INTEGER',)),
@@ -243,6 +256,57 @@ class CallParameters:
                 converted[int(key)]=value
             values[name]=converted
         return cls(values)
+
+
+class SerialPorts:
+    """Explicit serial configuration metadata; no COM ports or device access."""
+    def __init__(self,ports=None):
+        if ports is None: ports={}
+        if type(ports) is not dict: raise ValueError('Serial ports require a port-number mapping')
+        self._ports={}
+        for number,values in ports.items():
+            if type(number) is not int or not 1<=number<=5 or type(values) is not dict:
+                raise ValueError('Serial ports require INTEGER port IDs 1..5 and attribute mappings')
+            row={}
+            for key,value in values.items():
+                if type(key) is not str or key.upper() not in SERIAL_ATTRIBUTES or key.upper() in row:
+                    raise ValueError('Unknown or duplicate serial attribute')
+                key=key.upper()
+                if not self.valid(key,value): raise ValueError('Invalid serial attribute value')
+                row[key]=value
+            self._ports[number]=row
+
+    @staticmethod
+    def valid(key,value):
+        if type(value) is not int: return False
+        return (0<=value<=32767 if key=='ATR_READAHD' else value in (1200,2400,4800,9600) if key=='ATR_BAUD' else
+            value in (0,1,2) if key=='ATR_PARITY' else value in (1,15,2) if key=='ATR_SBITS' else
+            value in (5,6,7,8) if key=='ATR_DBITS' else value in (0,1) if key=='ATR_XONOFF' else key=='ATR_EOL' and 0<=value<=127)
+
+    def attribute(self,number,attribute,line=None):
+        number=runtime().integer(number,line);attribute=runtime().integer(attribute,line)
+        key=next((key for key,value in SERIAL_ATTRIBUTES.items() if value==attribute),None)
+        return (2,None) if number not in self._ports else (3,None) if key is None else (0,key)
+
+    def read(self,number,attribute,line=None):
+        code,key=self.attribute(number,attribute,line)
+        if code: return code,None
+        row=self._ports[number]
+        return (0,row[key]) if key in row else (1,None)
+
+    def write(self,number,attribute,value,line=None):
+        value=runtime().integer(value,line);code,key=self.attribute(number,attribute,line)
+        if code: return code
+        if not self.valid(key,value): return 3
+        self._ports[number][key]=value;return 0
+
+    def to_config(self): return {str(n):dict(sorted(row.items())) for n,row in sorted(self._ports.items())}
+
+    @classmethod
+    def from_config(cls,config):
+        if type(config) is not dict or any(type(key) is not str or key not in ('1','2','3','4','5') for key in config):
+            raise ValueError('Serial JSON keys must be canonical port numbers 1..5')
+        return cls({int(key):value for key,value in config.items()})
 
 
 class StringRegisters:
@@ -821,6 +885,7 @@ class VariableStore:
 class FileHandle:
     def __init__(self):
         self.name=None; self.position=0; self.mode=''; self.binary=False; self.status=0; self.owner=None
+        self.xml=False;self.xml_session=None
         self.interactive=False; self.reverse=False; self.field=False; self.eol=10
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
@@ -851,6 +916,7 @@ def file_piece(handle,kind,value,formats,line=None):
 
 
 def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
+    if handle.xml: fail('Use XML_SCAN/XML_GETDATA for XML FILE input',line)
     rt=runtime(); handle.require_open(line); formats=formats if formats is not None else [()] * len(targets)
     for target in targets:
         if type(target) is not rt.Reference: fail('FILE READ requires ordinary writable scalar targets',line)
@@ -903,13 +969,15 @@ class MemoryFiles:
         binary='B' in mode or handle.binary; mode=mode.replace('B','')
         mode={'RO':'R','WO':'W','RW':'RW','UD':'RW','AP':'A'}.get(mode,mode)
         if mode not in ('R','W','RW','A'): fail('Unsupported memory file access mode',line)
+        if handle.xml and (mode!='R' or binary): fail('XML FILE requires text RO access',line)
         if mode=='R' and name not in self.files: fail('Memory file does not exist',line)
         if mode=='W' or name not in self.files: self.files[name]=bytearray()
         handle.name,handle.mode,handle.owner,handle.binary=name,mode,self,binary
         handle.position=len(self.files[name]) if mode=='A' else 0; handle.status=0
+        handle.xml_session=None
         self.handles.append(handle)
     def close(self,handle,line=None):
-        handle.require_open(line); handle.owner=None
+        handle.require_open(line); handle.owner=None;handle.xml_session=None
         self.handles=[item for item in self.handles if item is not handle]
     def _busy(self,name): return any(handle.owner is not None and handle.name==name for handle in self.handles)
     def write(self,handle,data,line=None):
@@ -1379,7 +1447,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1403,6 +1471,8 @@ class ExecutionContext:
         from .teach import TeachPrograms
         if teach_programs is not None and type(teach_programs) is not TeachPrograms: raise TypeError('teach_programs must be TeachPrograms or None')
         self.teach_programs=teach_programs
+        if serial_ports is not None and type(serial_ports) is not SerialPorts: raise TypeError('serial_ports must be SerialPorts or None')
+        self.serial_ports=serial_ports
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1423,10 +1493,11 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'serial_ports' in config: services['serial_ports']=SerialPorts.from_config(config['serial_ports'])
         if 'teach_programs' in config:
             from .teach import TeachPrograms
             services['teach_programs']=TeachPrograms.from_config(config['teach_programs'])
@@ -1504,6 +1575,15 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in XML_NAMES:
+            from .xmlio import invoke_xml
+            return invoke_xml(self,state,name,args,line)
+        if name in ('GET_PORT_ATR','SET_PORT_ATR'):
+            bank=self.require('serial_ports',line)
+            if name=='SET_PORT_ATR': return bank.write(*args,line=line)
+            code,value=bank.read(*args[:2],line=line)
+            if not code: args[2].set(value,line)
+            return code
         if name in TPE_NAMES:
             from .teach import invoke_teach
             return invoke_teach(self,state,name,args,line)
@@ -1680,10 +1760,12 @@ class ExecutionContext:
                 elif attribute==5:
                     if not 0<=args[2]<=127: fail('ATR_EOL requires an ASCII character code',line)
                     handle.eol=args[2]
+                elif attribute==6: handle.xml=True
                 else: fail('Unsupported portable file attribute',line)
                 return
             if name=='CLR_IO_STAT': handle.status=0; return
             if name=='IO_STATUS': return handle.status
+            if name=='SET_FILE_POS' and handle.xml: fail('Reopen XML FILE to reset its scanner',line)
             handle.require_open(line); length=len(handle.owner.files[handle.name])
             if name=='GET_FILE_POS': return handle.position
             if name=='BYTES_LEFT': return length-handle.position

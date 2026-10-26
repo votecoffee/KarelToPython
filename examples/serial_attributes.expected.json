@@ -1,0 +1,10 @@
+{
+  "STATUS": 0,
+  "READ_AHEAD": 2,
+  "BAUD": 9600,
+  "PARITY": 2,
+  "STOP_BITS": 15,
+  "DATA_BITS": 8,
+  "FLOW_CONTROL": 1,
+  "EOL": 10
+}

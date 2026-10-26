@@ -297,7 +297,7 @@ class DirectoryFiles:
         except (OSError,ValueError) as exc: raise rt().KarelRuntimeError('Filesystem flush failed: '+str(exc),line) from exc
 
     def close(self,handle,line=None):
-        self.flush(handle,line); handle.owner=None
+        self.flush(handle,line); handle.owner=None;handle.xml_session=None
         self.handles=[item for item in self.handles if item is not handle]
         self.memory.handles=[item for item in self.memory.handles if item is not handle]
 
@@ -370,6 +370,7 @@ class DirectoryFiles:
 
 def context_config(context):
     result={}
+    if context.serial_ports is not None: result['serial_ports']=context.serial_ports.to_config()
     if context.teach_programs is not None: result['teach_programs']=context.teach_programs.to_config()
     if context.peers is not None: result['peers']=context.peers.to_config()
     if context.program_attributes is not None: result['program_attributes']=context.program_attributes.to_config()

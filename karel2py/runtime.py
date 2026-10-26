@@ -2441,6 +2441,7 @@ class State:
 
 
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,
+                       SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,
                        VariableStore, variable_value, variable_reference, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, RobotState, file_piece,
                         TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,

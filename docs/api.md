@@ -38,6 +38,9 @@ and `group_config_text_policy`. The service's profiles persist in context JSON.
 `Program.source_settings` exposes detached source policy metadata, including
 DEFGROUP and CRTDEVICE behavior. [PATH geometry](path-geometry.md) adds
 NODE_SIZE and INTSCT_VL_PL with `path_geometry_policy` in the report.
+[XML input](xml-input.md) adds `xml_input_policy` and five checked FILE calls.
+`SerialPorts`, supplied as `ExecutionContext(serial_ports=bank)`, adds persisted
+[serial attributes](serial-attributes.md) and `serial_attribute_policy`.
 These are recorded requirements and attributes; they do not load definitions or
 enable additional source symbols or calls.
 
