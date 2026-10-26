@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.162834. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.170848. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -319,4 +319,7 @@ implicit send trigger; no native delivery or host-filesystem deletion occurs.
 [Portable TP archives](program-archives.md) support SAVE/LOAD/CLEAR and
 PROG_BACKUP/PROG_RESTORE/PROG_CLEAR, with typed program data, explicit bounded
 dependency graphs, selection/protection/binding guards and complete batch
-preflight. Native PC/VR/IO files and KAREL source unloading remain unavailable.
+preflight. [Variable archives](variable-archives.md) add portable VR forms,
+variable-only recursive batches and SAVE_DRAM save points, preserving typed
+partial data and ordinary aliases. Native PC/VR/IO binaries, code unloading and
+automatic native flash/power-up behavior remain unavailable.

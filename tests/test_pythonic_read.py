@@ -306,7 +306,7 @@ class ReadScriptAndExampleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); source=root/'converted.py'; data=root/'values.json'
             package=root/'karel2py'; package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py'):
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py'):
                 shutil.copyfile(Path(__file__).resolve().parents[1]/'karel2py'/name,package/name)
             source.write_text(result.python_source,encoding='utf-8')
             data.write_text(json.dumps(values),encoding='utf-8')

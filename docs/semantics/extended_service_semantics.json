@@ -1,5 +1,5 @@
 {
-  "version": "26.1026.162834",
+  "version": "26.1026.170848",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -168,5 +168,6 @@
   "communications": "communications_semantics.json",
   "remote_messages": "remote_message_semantics.json",
   "program_archives": "program_archive_semantics.json",
-  "includes": "include_semantics.json"
+  "includes": "include_semantics.json",
+  "variable_archives": "variable_archive_semantics.json"
 }

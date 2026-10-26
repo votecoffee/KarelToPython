@@ -1,0 +1,18 @@
+{
+  "variable_archives": {
+    "calls": {
+      "CACHE": []
+    }
+  },
+  "files": {},
+  "variables": [
+    {
+      "program": "CACHE",
+      "path": "VALUE",
+      "type": [
+        "INTEGER"
+      ],
+      "value": 17
+    }
+  ]
+}

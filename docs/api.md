@@ -109,6 +109,10 @@ checks them; `--entry NAME` explicitly executes. Both CLIs accept repeated
 exclude referenced top-level include fragments from standalone program entries.
 
 ExecutionContext supports typed `to_config`, `from_config`, `save` and `load`.
+Its optional `variable_archives=runtime.VariableArchives(...)` service supplies
+[portable VR files and SAVE_DRAM points](variable-archives.md). Host
+`bank.restore_dram(program._state, name)` explicitly restores a guarded snapshot;
+loading context does not automatically apply it or resume execution.
 DirectoryFiles, TaskScheduler and SerialRobotModel provide optional explicit
 backends. See [portable projects](portable-projects.md) for complete examples,
 JSON formats, scheduling semantics and remaining boundaries.

@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 227 have a registered translation and 107 do not.
+Currently, 228 have a registered translation and 106 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -170,7 +170,10 @@ they are boundaries rather than promises to accept every such source form later.
   editing and opaque line deletion without those native behaviors. Six
   [program archive calls](program-archives.md) now support portable TP records,
   recursive explicit graphs and guarded in-memory batches. Native TP/PC/VR/IO
-  files, ordinary variable archives and KAREL code unloading remain unavailable.
+  binaries and KAREL code unloading remain unavailable. [Portable variable
+  archives](variable-archives.md) now support VR data, variable-only recursive
+  batches and explicit SAVE_DRAM points. Mixed TP/VR PBR_ALLTYPE batches and
+  automatic native DRAM/flash restoration remain unavailable.
 - Controller screens, windows, keyboard interaction, display controls, dictionaries
   and language packs.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
@@ -322,14 +325,13 @@ does not assert a particular installed option or environment.
 - `RESET`
 - `SET_PERCH`
 
-### Programs, dynamic variables and controller commands (9)
+### Programs, dynamic variables and controller commands (8)
 
 - `CHECK_STACK`
 - `FORCE_LINK`
 - `KCL`
 - `KCL_NO_WAIT`
 - `KCL_STATUS`
-- `SAVE_DRAM`
 - `SET_DB_EVENT`
 - `SET_DEBUG`
 - `TRANSLATE`

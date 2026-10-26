@@ -1,0 +1,20 @@
+PROGRAM VARIABLE_ARCHIVE_DEMO
+VAR
+  done: BOOLEAN
+  status, entry, value: INTEGER
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    SAVE('CACHE','FR:CACHE.VR',status)
+    IF status=0 THEN
+      SET_VAR(entry,'CACHE','VALUE',99,status)
+      CLEAR('CACHE.VR',status)
+      LOAD('FR:CACHE.VR',0,status)
+      IF status=0 THEN
+        SAVE_DRAM('CACHE',status)
+        IF status=0 THEN done=TRUE ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
+  GET_VAR(entry,'CACHE','VALUE',value,status)
+END VARIABLE_ARCHIVE_DEMO

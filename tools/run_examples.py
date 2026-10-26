@@ -21,6 +21,7 @@ def service_snapshot(services):
     if services.serial_ports is not None: observed['serial_ports']=services.serial_ports.to_config()
     if services.group_locks is not None: observed['group_locks']=services.group_locks.to_config()
     if services.acquisition is not None: observed['acquisition']=services.acquisition.to_config()
+    if services.variable_archives is not None: observed['variable_archives']=services.variable_archives.to_config()
     if services.remote_messages is not None: observed['remote_messages']=services.remote_messages.to_config()
     if services.pc_exchange is not None: observed['pc_exchange']=services.pc_exchange.to_config()
     if services.messaging is not None: observed['messaging']=services.messaging.to_config()
@@ -130,7 +131,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 156, 'Update the expected example count when adding examples'
+    assert count == 158, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
     assert len(projects)==7, 'Update the expected project count when adding projects'
     for folder in projects:

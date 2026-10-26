@@ -1529,7 +1529,7 @@ class Emitter:
                         if name not in local_names: routine.side_effecting=True
                         if name in parameter_names: routine.parameter_writes.add(name)
                         if name in self.types and name not in local_names|parameter_names: routine.global_writes.add(name)
-                    if node.value in ex.DYNAMIC_VARIABLE_WRITES: routine.global_writes.update(self.types)
+                    if ex.variable_write_call(node.value,node.args): routine.global_writes.update(self.types)
                 if isinstance(node, Statement) and node.kind in ('assign', 'for'):
                     name = node.args[0].value if node.kind == 'for' else self.root_name(node.args[0])
                     if name not in local_names: routine.side_effecting = True
@@ -2110,7 +2110,7 @@ class Emitter:
         if not default_masks and not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
         signature=ex.signature_for(expr.value,len(expr.args))
         self.check_for_call(expr.token)
-        if expr.value in ex.DYNAMIC_VARIABLE_WRITES and self.active_counters: self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
+        if ex.variable_write_call(expr.value,expr.args) and self.active_counters: self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
         codes=[]
         for index,(value,(mode,kind)) in enumerate(zip(expr.args,signature)):
             discarded=value
@@ -2577,7 +2577,7 @@ class Emitter:
                     if isinstance(action, Statement) and action.kind == 'read':
                         if any(self.root_name(item.args[0] if item.kind == 'read_item' else item) == name for item in action.args if item.kind != 'read_cr'): return True
                     if not isinstance(action, Expr) or action.kind != 'call': continue
-                    if action.value in ex.DYNAMIC_VARIABLE_WRITES: return True
+                    if ex.variable_write_call(action.value,action.args): return True
                     routine = self.routines.get(action.value)
                     if routine:
                         if name in routine.global_writes: return True
@@ -3784,17 +3784,31 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['variable_archive_policy']=dict(
+        procedures=['SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM'],
+        forms='VR SAVE/LOAD/CLEAR; variable-only PBR_VRTYPE/PBR_PCTYPE backup/clear; explicit VR recursive restore; SAVE_DRAM with explicit VariableArchives',
+        data='Owned declared globals and ordinary explicit roots, exact concrete typed schemas and partial/unknown markers; arrays/records/joints/CONFIG and logical queues; imports, FILE and PATH excluded',
+        restoration='Exact types, retain unlisted roots, create missing ordinary roots and validated dynamic creation intent; preserve aggregate/queue object aliases, reset missing aggregate leaves and drop queue buffer association',
+        guards='Preflight complete batch; disjoint roots and status cells, ordinary dictionary/list reference storage, foreign active/paused tasks and aliases, connected timers and explicit protection/activity flags; possible VR writes retain direct/transitive/handler FOR guards',
+        clear='Reset owned values to initial missing/empty storage, preserve declarations, dynamic bindings/creation metadata and ordinary aliases; no code unload or namespace deletion',
+        recursion='Explicit bounded call graph archived per namespace, cycle/shared-node traversal and missing dependency failure; restore preflights every file/schema before any variable or graph mutation',
+        dram='Persist detached typed snapshots in a bounded offline flash bank; host restore_dram is explicit and guarded, no automatic POWERUP restoration or native DRAM/CMOS placement',
+        files='Existing exact MemoryFiles/DeviceFiles archive backend preflight, SAVE refuses existing files, backup replaces changed files with quota/garbage accounting; no native VR bytes or filesystem fallback',
+        status='Portable archive 0 success, 1 missing, 2 specification/name, 3 existing SAVE file, 4 overlap/busy/protected/unsupported storage/backend, 5 capacity, 6 schema/format; missing explicit services raise',
+        boundary='No PC/IO binaries, mixed TP plus VR PBR_ALLTYPE batch, native variable deletion/placement, stacks/resources or native flash/power-cycle behavior; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM')],
+        guide='docs/variable-archives.md',controller_validated=False)
     report['program_archive_policy']=dict(
         procedures=['SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR'],constants=dict(rt.ARCHIVE_CONSTANTS),
         representation='Versioned portable JSON TP records including positions, comments, headers and TP-local registers; .TP suffix is a logical container for all four TP kinds; internal header preserves program identity',
         graph='Explicit TeachPrograms calls mapping, case-insensitive names and bounded edges; iterative cycle-safe traversal, known macro references excluded; no instruction parsing or native code discovery',
         files='Exact MemoryFiles/DeviceFiles only, complete batch preflight with busy/access/count/quota/retained-garbage checks; SAVE refuses existing targets, backup replaces changed files and skips identical content',
         load='LOAD overwrite option 1; restore retains existing records and traverses their current explicit graph; prepare all new rows/files before commit; selected/open/bound/protected/source identities guard clear/overwrite',
-        selection='Portable PBR constants filter logical TP/JB/PR/MR rows; VR/PC-only selectors unsupported; backup write_prot controls protected inclusion, recursive clear skips protected rows',
+        selection='Portable PBR constants filter logical TP/JB/PR/MR rows; VR-only selectors use variable_archive_policy; backup write_prot controls protected inclusion, recursive clear skips protected rows',
         limits='Shared archive byte budget, bounded JSON depth and explicit program/edge/record limits; max_size is a free-space hint rather than output size cap',
         status='Portable 0 success, 1 missing, 2 invalid specification, 3 existing target, 4 busy/protected/access/unsupported form, 5 capacity, 6 invalid portable archive; whole batches preserve prior state on preflight failure',
         persistence='TP call graph and optional archive budget round-trip with ordinary teach/file state; no handles or executable program restored',
-        boundary='TP forms only: no native TP/PC/VR/IO binaries, KAREL source unload, ordinary variable snapshots, controller storage or partial native retry semantics; strict deferred',
+        boundary='TP forms only: no native TP/PC/VR/IO binaries, KAREL source unload, native variable binaries, controller storage or partial native retry semantics; portable VR forms use variable_archive_policy; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR')],
         guide='docs/program-archives.md',controller_validated=False)
     report['remote_message_policy']=dict(

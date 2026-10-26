@@ -1,0 +1,30 @@
+{
+  "variable_archives": {
+    "limit": 16777216,
+    "program_limit": 256,
+    "calls": {
+      "CACHE": []
+    },
+    "flash": {
+      "CACHE": {
+        "format": "karel2py-variables-v1",
+        "program": "CACHE",
+        "variables": {
+          "VALUE": {
+            "type": [
+              "INTEGER"
+            ],
+            "value": 17
+          }
+        },
+        "excluded": [],
+        "calls": []
+      }
+    }
+  },
+  "files": {
+    "FR:CACHE.VR": {
+      "hex": "7b2263616c6c73223a5b5d2c226578636c75646564223a5b5d2c22666f726d6174223a226b6172656c3270792d7661726961626c65732d7631222c2270726f6772616d223a224341434845222c227661726961626c6573223a7b2256414c5545223a7b2274797065223a5b22494e5445474552225d2c2276616c7565223a31377d7d7d0a"
+    }
+  }
+}

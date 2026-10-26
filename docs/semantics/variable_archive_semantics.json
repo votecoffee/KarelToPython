@@ -1,0 +1,67 @@
+{
+  "version": "26.1026.170848",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.3.9 CLEAR",
+        "A.11.2 LOAD",
+        "A.15.21 PROG_BACKUP",
+        "A.15.22 PROG_CLEAR",
+        "A.15.24 PROG_RESTORE",
+        "A.18.1 SAVE",
+        "A.18.2 SAVE_DRAM"
+      ],
+      "topic": "Variable file forms, recursive variable selection, overwrite behavior and DRAM-to-flash save intent"
+    }
+  ],
+  "procedures": [
+    "SAVE_DRAM"
+  ],
+  "extended_forms": [
+    "VR SAVE/LOAD/CLEAR",
+    "PBR_VRTYPE/PBR_PCTYPE backup and clear",
+    "Explicit VR PROG_RESTORE"
+  ],
+  "contract": {
+    "guide": "../variable-archives.md",
+    "data": "Owned declared globals and ordinary explicit roots, concrete nominal schemas, partial/unknown data and logical queues; imports/FILE/PATH excluded",
+    "restoration": "Exact schema, retain unlisted values, create missing roots with validated creation intent, preserve aggregate identities and disconnect queue buffer association",
+    "clear": "Reset values while retaining declarations, explicit bindings, metadata and aliases; no code unload or native allocation deletion",
+    "guards": "Full batch preflight, root/status overlap, exact ordinary reference storage, descendant binding identity, foreign active task aliases, connected timers and explicit active/protected flags",
+    "effects": "Possible VR write effects propagate through routines and condition handlers; proven TP literals/selectors retain existing FOR behavior",
+    "recursion": "Explicit graph archived per namespace and traversed cycle-safely; every dependency checked before variable/graph changes",
+    "dram": "Bounded persistent detached flash snapshots, guarded explicit host restore, no automatic power-up hook or native memory placement",
+    "files": "Shared exact memory/device archive preflight with quota, free-space hint and retained-garbage behavior"
+  },
+  "limits": {
+    "default_bytes": 16777216,
+    "max_bytes": 67108864,
+    "default_programs": 256,
+    "max_programs": 4096,
+    "max_namespace_leaves": 32767,
+    "max_edges": 32767,
+    "max_json_depth": 32
+  },
+  "portable_statuses": {
+    "success": 0,
+    "missing": 1,
+    "invalid_name": 2,
+    "exists": 3,
+    "busy_overlap_unsupported": 4,
+    "capacity": 5,
+    "schema_format": 6
+  },
+  "boundaries": [
+    "No native PC/VR/IO bytes, mixed TP/VR PBR_ALLTYPE batch, code unloading or native variable deletion",
+    "No live resources/import discovery, automatic DRAM/flash allocation or POWERUP restoration",
+    "In-memory preflight without crash/concurrency guarantees; strict mode and controller parity deferred"
+  ],
+  "validation": [
+    "tests/test_variable_archives.py",
+    "examples/variable_archives.kl",
+    "examples/recursive_variables.kl"
+  ]
+}

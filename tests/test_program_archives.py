@@ -54,7 +54,7 @@ class ProgramArchiveSourceTests(unittest.TestCase):
         self.assertEqual(set(ctx.files.files),{'FR:batch/A.TP','FR:batch/B.TP','FR:batch/C.TP'})
 
     def test_unsupported_native_types_do_not_mutate_logical_programs(self):
-        for suffix in ('PC','VR','IO'):
+        for suffix in ('PC','IO'):
             for body in (f"SAVE('A','FR:A.{suffix}',s)",f"LOAD('FR:A.{suffix}',0,s)",f"CLEAR('A.{suffix}',s)"):
                 ctx=context();before=ctx.teach_programs.to_config();self.assertEqual(execute(ctx,body),4)
                 self.assertEqual(ctx.teach_programs.to_config(),before);self.assertEqual(ctx.files.files,{})
@@ -198,8 +198,8 @@ class RecursiveProgramArchiveTests(unittest.TestCase):
             before=ctx.teach_programs.to_config();self.assertEqual(execute(ctx,"PROG_CLEAR('A',PBR_ALLTYPE,s)"),4)
             self.assertEqual(ctx.teach_programs.to_config(),before)
 
-    def test_vr_pc_only_and_unknown_filters_are_explicitly_unsupported(self):
-        for selector in ('PBR_VRTYPE','PBR_PCTYPE','99'):
+    def test_unknown_filters_are_explicitly_unsupported(self):
+        for selector in ('99',):
             ctx=chain();before=ctx.teach_programs.to_config()
             self.assertEqual(execute(ctx,f"PROG_BACKUP('FR:A',{selector},0,TRUE,s)"),4)
             self.assertEqual(execute(ctx,f"PROG_CLEAR('A',{selector},s)"),4);self.assertEqual(ctx.teach_programs.to_config(),before)

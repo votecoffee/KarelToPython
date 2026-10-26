@@ -8,8 +8,9 @@ banks. Instructions remain opaque text and are never executed.
 
 These are portable logical records. The `.TP` suffix identifies this chosen
 container for TP, JB, PR and MR kinds; the internal type is preserved. Native
-TP/PC/VR/IO binaries, KAREL source unloading, ordinary variable snapshots and
-controller storage formats remain unsupported.
+TP/PC/VR/IO binaries, KAREL source unloading and controller storage formats remain
+unsupported. [Variable archives](variable-archives.md) provide separate portable
+VR forms and SAVE_DRAM points for ordinary owned globals and explicit roots.
 
 ```python
 from karel2py.runtime import ExecutionContext, MemoryFiles, TeachPrograms
@@ -49,8 +50,9 @@ program to match that filename.
 LOAD accepts overwrite only when option equals 1. Other integer options refuse
 an existing program. CLEAR removes the logical record and its dependency list;
 it accepts a bare program name or `.TP`, without a device or directory.
-Associated TP-local register data is part of the record. `.PC`, `.VR` and `.IO`
-forms return unsupported status and preserve state.
+Associated TP-local register data is part of the record. `.VR` forms route to
+the explicit VariableArchives service. `.PC` and `.IO` forms return unsupported
+status and preserve state.
 
 Program names are case-insensitive ASCII identifiers, 1..36 characters, starting
 with a letter. File specifications have optional ordinary device prefixes and
@@ -85,11 +87,12 @@ The nine PBR names use portable numeric constants in
 | PBR_PRTYPE | PR |
 | PBR_MRTYPE | Explicit MR root |
 | PBR_NMRTYPE | TP, JB and PR |
-| PBR_VRTYPE, PBR_PCTYPE | Unsupported variable-only forms |
+| PBR_VRTYPE, PBR_PCTYPE | Separate [variable-only archive branch](variable-archives.md) |
 
 Filters apply after traversal, so a JB child can be selected through a TP root.
 PBR_ALLTYPE covers the logical TP records and their embedded register banks;
-it does not add ordinary KAREL `.VR` snapshots. PROG_BACKUP's final extension is
+it does not combine ordinary KAREL VR snapshots into that TP batch. Variable-only
+selectors use their separate branch. PROG_BACKUP's final extension is
 ignored. Each selected record is saved as `directory/PROGRAM.TP`.
 
 Backup replaces changed target files and leaves identical files untouched.

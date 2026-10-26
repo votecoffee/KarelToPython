@@ -49,7 +49,7 @@ def specification(value,*,wildcard=False):
     parts=path.split('/')
     if ':' in path or any(part in ('','.','..') or not re.fullmatch(r'[A-Za-z0-9_.-]+',part) for part in parts[:-1]):
         raise ValueError('Archive path must remain relative')
-    match=re.fullmatch(r'([A-Za-z][A-Za-z_0-9]{0,35}|\*)(?:\.([A-Za-z]{2}))?',parts[-1])
+    match=re.fullmatch(r'([A-Za-z_][A-Za-z_0-9]{0,35}|\*)(?:\.([A-Za-z]{2}))?',parts[-1])
     if not match or match[1]=='*' and not wildcard:raise ValueError('Archive requires a plain program file name')
     return prefix+('/'.join(parts[:-1])+'/' if len(parts)>1 else ''),match[1].upper(),(match[2] or '').upper()
 
@@ -85,17 +85,20 @@ def refresh_flags(context,bank,name):
 
 def encode(bank,name):
     envelope=dict(format=FORMAT,name=name,program=bank.program_config(name),calls=[target for target in bank._calls.get(name,[]) if bank._programs.get(target,{}).get('type')!='MR'])
+    return encode_json(envelope,bank.archive_limit)
+
+
+def encode_json(envelope,limit):
     output=bytearray()
     for chunk in json.JSONEncoder(ensure_ascii=True,allow_nan=False,sort_keys=True,separators=(',',':')).iterencode(envelope):
         data=chunk.encode('ascii')
-        if len(output)+len(data)+1>bank.archive_limit:raise ValueError('Archive exceeds byte budget')
+        if len(output)+len(data)+1>limit:raise ValueError('Archive exceeds byte budget')
         output.extend(data)
     return bytes(output)+b'\n'
 
 
-def decode(bank,data):
-    from .teach import TeachPrograms,name_key
-    if len(data)>bank.archive_limit:raise ValueError('Archive exceeds byte budget')
+def decode_json(data,limit):
+    if len(data)>limit:raise ValueError('Archive exceeds byte budget')
     # Bound nesting before the JSON decoder, respecting quoted punctuation.
     depth=0;quoted=escaped=False
     for char in data.decode('ascii'):
@@ -115,7 +118,12 @@ def decode(bank,data):
             row[key]=value
         return row
     def constant(value):raise ValueError('Nonfinite archive number')
-    row=json.loads(data,object_pairs_hook=pairs,parse_constant=constant)
+    return json.loads(data,object_pairs_hook=pairs,parse_constant=constant)
+
+
+def decode(bank,data):
+    from .teach import TeachPrograms,name_key
+    row=decode_json(data,bank.archive_limit)
     if type(row) is not dict or set(row)!={'format','name','program','calls'} or row['format']!=FORMAT:
         raise ValueError('Unsupported portable archive format')
     name=name_key(row['name']) if type(row['name']) is str else None
@@ -306,6 +314,8 @@ def restore(context,state,bank,spec):
 
 
 def invoke(state,operation,args,line=None):
+    from .variable_archives import variable_operation,invoke as invoke_variables
+    if variable_operation(operation,args):return invoke_variables(state,operation,args,line)
     context=state.execution;bank=context.require('teach_programs',line)
     if operation=='SAVE':code=save(context,state,bank,*args[:-1])
     elif operation=='LOAD':code=load(context,state,bank,args[0],args[1]==1)

@@ -1,0 +1,30 @@
+{
+  "variable_archives": {
+    "calls": {
+      "ROOT": [
+        "CHILD"
+      ],
+      "CHILD": []
+    }
+  },
+  "files": {},
+  "variables": [
+    {
+      "program": "ROOT",
+      "path": "VALUE",
+      "type": [
+        "INTEGER"
+      ],
+      "value": 23
+    },
+    {
+      "program": "CHILD",
+      "path": "TEXT",
+      "type": [
+        "STRING",
+        8
+      ],
+      "value": "ready"
+    }
+  ]
+}

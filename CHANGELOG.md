@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.170848 - 2026-10-26
+
+- Add portable VR SAVE/LOAD/CLEAR for owned KAREL globals and explicit roots,
+  retaining partial/unknown typed data, aggregate aliases and creation metadata.
+- Add variable-only recursive backup/clear/restore using archived dependency
+  graphs, complete batch preflight and the existing memory/device file policies.
+- Add SAVE_DRAM snapshots with persisted offline flash state and explicit guarded
+  host restoration; keep native power-up behavior and mixed TP/VR batches deferred.
+- Guard status/root overlaps, sparse bindings, callback storage, foreign active
+  tasks, timers and metadata; preserve FOR write proof for known TP forms.
+- Add 52 regressions and two authored CLI examples; update guides and audit
+  228 registered built-in names with 106 still unregistered.
+
 ## 26.1026.162834 - 2026-10-26
 
 - Add %INCLUDE expansion for declaration, routine, executable and whole-program

@@ -29,7 +29,7 @@ I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
 COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN'))
-DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN'}
+DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
     'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
 SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
@@ -56,6 +56,7 @@ PROCEDURES = {
     'ADD_STRINGPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,OI),
     'ADD_BYNAMEPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,S,OI),
     'SEND_DATAPC': (I,arg('PC_BUFFER'),OI), 'SEND_EVENTPC': (I,OI),
+    'SAVE_DRAM': (S,OI),
     'SAVE': (S,S,OI), 'LOAD': (S,I,OI), 'CLEAR': (S,OI),
     'PROG_BACKUP': (S,I,I,B,OI), 'PROG_RESTORE': (S,OI), 'PROG_CLEAR': (S,I,OI),
     'QUEUE_ATTACH': (S,arg('STRING_ARRAY'),I,OI),
@@ -181,6 +182,21 @@ OPTIONAL_GROUP = {'POS_REG_TYPE':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
 OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT'}
+
+
+def variable_write_call(name,arguments=()):
+    """Archive TP literals keep their read/write proof; dynamic VR forms may write."""
+    if name not in DYNAMIC_VARIABLE_WRITES:return False
+    if name not in ('LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'):return True
+    if not arguments:return True
+    selected=arguments[1] if name=='PROG_CLEAR' and len(arguments)>1 else arguments[0]
+    while getattr(selected,'kind',None)=='group':selected=selected.args[0]
+    kind=getattr(selected,'kind',None);value=getattr(selected,'value',None)
+    if name=='PROG_CLEAR':
+        if kind in ('name','predefined'):value=runtime().ARCHIVE_CONSTANTS.get(value)
+        if type(value) is int:return value in (1,6)
+    elif kind=='literal' and type(value) is str:return value.upper().endswith('.VR')
+    return True
 
 
 def signature_for(name,arity):
@@ -1478,7 +1494,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1516,6 +1532,9 @@ class ExecutionContext:
         from .remote_messages import RemoteMessages
         if remote_messages is not None and type(remote_messages) is not RemoteMessages:raise TypeError('remote_messages must be RemoteMessages or None')
         self.remote_messages=remote_messages
+        from .variable_archives import VariableArchives
+        if variable_archives is not None and type(variable_archives) is not VariableArchives:raise TypeError('variable_archives must be VariableArchives or None')
+        self.variable_archives=variable_archives
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1542,7 +1561,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1603,6 +1622,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'variable_archives' in config:
+            from .variable_archives import VariableArchives
+            services['variable_archives']=VariableArchives.from_config(config['variable_archives'])
         if 'remote_messages' in config:
             from .remote_messages import RemoteMessages
             services['remote_messages']=RemoteMessages.from_config(config['remote_messages'])
@@ -1652,7 +1674,7 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
-        if name in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR'):
+        if name in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM'):
             from .archives import invoke
             return invoke(state,name,args,line)
         if name in ('QUEUE_ATTACH','RMCN_ALERT','RMCN_SEND'):
