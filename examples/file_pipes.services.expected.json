@@ -1,0 +1,23 @@
+{
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {
+      "PIP:COUNT.DAT": {
+        "cmos": true,
+        "sectors": 1,
+        "record_size": 8,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {"hex": "1100000017000000"}
+      },
+      "PIP:TEXT.LOG": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {"hex": "68656c6c6f0a"}
+      }
+    }
+  }
+}

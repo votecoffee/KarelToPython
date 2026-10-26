@@ -1,0 +1,26 @@
+PROGRAM PIPE_DEMO
+VAR
+  first, last, status: INTEGER
+  text: STRING[8]
+ROUTINE transfer
+VAR
+  writer, reader, text_writer, text_reader: FILE
+BEGIN
+  OPEN FILE writer('WB','PIP:COUNT.DAT')
+  WRITE writer(17,23)
+  CLOSE FILE writer
+  OPEN FILE reader('RB','PIP:COUNT.DAT')
+  READ reader(first,last)
+  CLOSE FILE reader
+  OPEN FILE text_writer('WO','PIP:TEXT.LOG')
+  WRITE text_writer('hello',CR)
+  CLOSE FILE text_writer
+  OPEN FILE text_reader('RO','PIP:TEXT.LOG')
+  READ text_reader(text,CR)
+  CLOSE FILE text_reader
+END transfer
+BEGIN
+  PIPE_CONFIG('COUNT.DAT',TRUE,1,8,'',0,status)
+  PIPE_CONFIG('PIP:/TEXT.LOG',FALSE,1,0,'',0,status)
+  transfer
+END PIPE_DEMO

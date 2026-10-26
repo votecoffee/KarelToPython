@@ -2423,8 +2423,14 @@ class State:
         return file_read(self,handle,targets,line,**options)
 
     def file_open(self,handle,mode,name,line=None):
-        if ascii_string(name,line).upper().startswith('PIP:'):
-            return self.execution.require('acquisition',line).open_for(self,handle,mode,name,line)
+        name=ascii_string(name,line)
+        if message_address(name):return self.execution.require('messaging',line).open_for(self,handle,mode,name,line)
+        if name.upper().startswith('PIP:'):
+            try:key=communication_pipe_name(name)
+            except ValueError as exc:raise KarelRuntimeError(str(exc),line) from exc
+            banks=[bank for bank in (self.execution.acquisition,self.execution.file_pipes) if bank is not None and key in bank.files]
+            if len(banks)!=1:raise KarelRuntimeError('PIP FILE requires one explicitly configured acquisition or file_pipes entry',line)
+            return banks[0].open_for(self,handle,mode,key,line)
         self.execution.require('files',line).open(handle,mode,name,line)
 
     def file_close(self,handle,line=None):
@@ -2458,6 +2464,7 @@ from .devices import DeviceFiles,DEVICE_CONSTANTS,DEVICE_INFO
 from .programs import GroupLocks
 from .acquisition import Acquisition,DAQ_CONSTANTS
 from .pc_exchange import PcExchange
+from .communications import Messaging,FilePipes,message_address,pipe_name as communication_pipe_name
 from .teach import TeachPrograms,TPE_CONSTANTS
 from .clocks import CalendarClock
 from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING

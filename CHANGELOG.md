@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.151124 - 2026-10-26
+
+- Add MSG_CONNECT/MSG_DISCO/MSG_PING over configured offline endpoints, with
+  distinct RX/TX buffers, scripted ping results and socket-tag mount forms.
+- Route ordinary text/binary FILE I/O to connected endpoints; preserve input
+  on failed reads, enforce limits and support explicit host feed/output draining.
+- Add PIPE_CONFIG and circular PIP histories with concurrent readers/writers,
+  sector bounds, truncation/append modes and retained formatting/CMOS metadata.
+- Persist checked socket/pipe state while refusing live FILE saves; protect
+  separate plain/DAQ namespaces and preserve existing source/counter guards.
+- Add 40 focused regressions and two authored CLI examples; update guides and
+  audit 218 registered built-in names with 116 still unregistered.
+
 ## 26.1026.143509 - 2026-10-26
 
 - Add ADD_INTPC/ADD_REALPC/ADD_STRINGPC/ADD_BYNAMEPC with documented big-endian

@@ -5,6 +5,10 @@ MemoryFiles backend. They operate on supplied byte arrays and metadata. They
 never mount or format host drives, query OS disks, or act on a DirectoryFiles
 root. Plain MemoryFiles is also excluded from device-management calls.
 
+Socket-tag MOUNT_DEV/DISMOUNT_DEV forms use the separate explicit
+[Messaging service](communications.md). They change logical endpoint flags;
+the virtual-volume forms below continue to use DeviceFiles.
+
 | Call | Supported form |
 | --- | --- |
 | MOUNT_DEV / DISMOUNT_DEV | `(device, status)` |

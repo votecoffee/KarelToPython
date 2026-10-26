@@ -56,6 +56,8 @@ PROCEDURES = {
     'ADD_STRINGPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,OI),
     'ADD_BYNAMEPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,S,OI),
     'SEND_DATAPC': (I,arg('PC_BUFFER'),OI), 'SEND_EVENTPC': (I,OI),
+    'MSG_CONNECT': (S,OI), 'MSG_DISCO': (S,OI), 'MSG_PING': (S,OI),
+    'PIPE_CONFIG': (S,B,I,I,S,I,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
     **{name:signature for family in ('REG','PREG','SREG') for name,signature in
        ((f'GET_{family}_CMT',(I,OS,OI)),(f'SET_{family}_CMT',(I,S,OI)))},
@@ -940,6 +942,7 @@ def file_piece(handle,kind,value,formats,line=None):
 def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
     if handle.xml: fail('Use XML_SCAN/XML_GETDATA for XML FILE input',line)
     rt=runtime(); handle.require_open(line); formats=formats if formats is not None else [()] * len(targets)
+    if type(handle.owner) is rt.Messaging:handle.owner.before_read(handle,line)
     for target in targets:
         if type(target) is not rt.Reference: fail('FILE READ requires ordinary writable scalar targets',line)
     start=handle.position
@@ -970,7 +973,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
             handle.status=1; raise
         finally: state._read=previous
         handle.position=start+reader.offset
-    if type(handle.owner) is rt.Acquisition:handle.owner.after_read(handle,start,line)
+    if type(handle.owner) in (rt.Acquisition,rt.Messaging):handle.owner.after_read(handle,start,line)
     handle.status=0
 
 
@@ -1471,7 +1474,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1506,6 +1509,12 @@ class ExecutionContext:
         from .pc_exchange import PcExchange
         if pc_exchange is not None and type(pc_exchange) is not PcExchange:raise TypeError('pc_exchange must be PcExchange or None')
         self.pc_exchange=pc_exchange
+        from .communications import Messaging,FilePipes
+        if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
+        if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
+        self.messaging=messaging;self.file_pipes=file_pipes
+        if acquisition is not None and file_pipes is not None and set(acquisition.files)&set(file_pipes.files):
+            raise ValueError('DAQ and file-pipe names must be distinct')
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1526,7 +1535,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1590,6 +1599,10 @@ class ExecutionContext:
         if 'pc_exchange' in config:
             from .pc_exchange import PcExchange
             services['pc_exchange']=PcExchange.from_config(config['pc_exchange'])
+        if 'messaging' in config or 'file_pipes' in config:
+            from .communications import Messaging,FilePipes
+            if 'messaging' in config:services['messaging']=Messaging.from_config(config['messaging'])
+            if 'file_pipes' in config:services['file_pipes']=FilePipes.from_config(config['file_pipes'])
         if 'variables' in config:
             from .storage import decode_typed,tuple_spec
             variables=VariableStore()
@@ -1629,6 +1642,12 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('MSG_CONNECT','MSG_DISCO','MSG_PING','PIPE_CONFIG'):
+            from .communications import invoke
+            return invoke(state,name,args,line)
+        if name in ('MOUNT_DEV','DISMOUNT_DEV'):
+            from .communications import message_address,invoke
+            if message_address(rt.ascii_string(args[0],line)):return invoke(state,name,args,line)
         if name in ('ADD_BYNAMEPC','ADD_INTPC','ADD_REALPC','ADD_STRINGPC','SEND_DATAPC','SEND_EVENTPC'):
             from .pc_exchange import invoke
             return invoke(state,name,args,line)

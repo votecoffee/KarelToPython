@@ -1,0 +1,71 @@
+{
+  "version": "26.1026.151124",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.12.6 MSG_CONNECT",
+        "A.12.7 MSG_DISCO",
+        "A.12.8 MSG_PING",
+        "A.15.8 PIPE_CONFIG",
+        "10.2.3 File Pipes"
+      ],
+      "topic": "Client/server tags and ping result behavior; pipe sectors, circular overwrite, simultaneous FILE access and retained formatting/memory intent"
+    }
+  ],
+  "procedures": [
+    "MSG_CONNECT",
+    "MSG_DISCO",
+    "MSG_PING",
+    "PIPE_CONFIG"
+  ],
+  "extended_forms": [
+    "Socket-tag MOUNT_DEV/DISMOUNT_DEV",
+    "Configured socket/PIP FILE reads and writes"
+  ],
+  "contract": {
+    "guide": "../communications.md",
+    "messaging": "Explicit sixteen-tag Messaging bank, combined bounded input/output bytes, supplied host-result table and logical mounted/available/connected flags",
+    "socket_files": "One text/binary FILE per endpoint; distinct RX/TX; successful reads consume input, writes append output, failed reads retain data/outputs/cursor; EOF rather than transport waits",
+    "host_helpers": "Explicit feed and output drain, no implicit peer link or callback; availability loss disconnects",
+    "file_pipes": "Explicit circular byte histories, newest configured sector capacity retained, independent cursors adjusted on overwrite; W clears, A/RW append, reads retain history",
+    "metadata": "CMOS intent and formatting/record metadata retained; FILE field encoding remains explicit and no native formatting/alignment is applied",
+    "namespace": "Source, context load and FILE open protect distinct plain/DAQ PIP names; no filesystem fallback",
+    "persistence": "Checked schemas, logical flags, host results and bounded raw hex; refuse live FILE saves; no cursors or native transport restored"
+  },
+  "limits": {
+    "socket_tags": 16,
+    "scripted_hosts": 256,
+    "plain_pipe_names": 32,
+    "plain_pipe_handles": 32,
+    "max_bank_bytes": 67108864
+  },
+  "portable_statuses": {
+    "messaging": {
+      "success": 0,
+      "missing": 1,
+      "invalid": 2,
+      "busy": 3,
+      "unavailable": 4
+    },
+    "pipe_config": {
+      "success": 0,
+      "invalid": 2,
+      "busy_collision": 3,
+      "capacity_count_shrink": 5
+    }
+  },
+  "boundaries": [
+    "No actual sockets, DNS, ping, controller devices, transport callbacks or automatic peers",
+    "No blocking/wait/snapshot pipe attributes, formatted dictionary display or generic pipe file-operation routing",
+    "Offline connected flags and CMOS intent do not imply native sessions or power-cycle restoration",
+    "Native status/timing equivalence and strict mode remain future work"
+  ],
+  "validation": [
+    "tests/test_communications.py",
+    "examples/socket_messaging.kl",
+    "examples/file_pipes.kl"
+  ]
+}

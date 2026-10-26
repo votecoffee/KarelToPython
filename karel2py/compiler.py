@@ -3678,7 +3678,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/serial-attributes.md',controller_validated=False)
     report['virtual_device_policy']=dict(
         calls=['DISMOUNT_DEV','DOSFILE_INF','FORMAT_DEV','MOUNT_DEV','PURGE_DEV','VOL_SPACE'],constants=dict(rt.DEVICE_CONSTANTS),
-        backend='Explicit DeviceFiles virtual MemoryFiles subclass only; never DirectoryFiles, plain MemoryFiles, host drives or controller devices; source FILE paths require configured device prefixes',
+        backend='Virtual volume forms require explicit DeviceFiles; socket-tag MOUNT_DEV/DISMOUNT_DEV forms instead use explicit Messaging; never host drives or controller devices; virtual FILE paths require configured device prefixes',
         state='Canonical uppercase device IDs, case-sensitive relative file paths; explicit capacities, mount flags, labels, read-only flags, obsolete-byte counters and supplied DOS information',
         accounting='Live bytes plus retained obsolete bytes; FR defaults to retain overwritten/deleted bytes, other volumes release them; writes/copies/cross-volume moves preflight capacity, batch moves check combined target growth before any move',
         lifecycle='Mount state changes are synchronous/idempotent; dismount/format/purge reject open files; FORMAT clears only the selected virtual volume and truncates label to 11; PURGE reclaims garbage while preserving live data, MF preflights RD and FR together',
@@ -3779,6 +3779,28 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['socket_messaging_policy']=dict(
+        procedures=['MSG_CONNECT','MSG_DISCO','MSG_PING'],device_forms=['MOUNT_DEV','DISMOUNT_DEV'],
+        context='Explicit Messaging with at most sixteen C1:..C8:/S1:..S8: endpoints and supplied host-result table; combined RX/TX byte limit; no socket, DNS, operating-system ping or transport callback',
+        lifecycle='Logical mounted/available/connected flags; idempotent connect/disconnect, busy disconnect/dismount guard, supplied availability loss disconnects; mount forms route socket tags only',
+        files='One text/binary R/W/RW FILE per endpoint; distinct RX and TX queues; writes never echo into RX, successful reads consume RX only, failed reads retain outputs/data/cursor; empty input returns EOF rather than blocking',
+        host='Explicit feed appends supplied RX data; take_output drains detached TX bytes; no automatic peer or response discovery',
+        status='Portable 0 success, 1 missing configured tag/host, 2 invalid tag/host, 3 busy FILE, 4 unavailable/unmounted endpoint; configured ping codes pass through as data',
+        persistence='Bounded data and host results plus logical flags round-trip in messaging JSON; live FILEs prevent save, no native connection or cursor restored',
+        boundary='No actual TCP/client/server connection, DNS, ping, reconnect/wait, timeouts or native transport/status equivalence; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('MSG_CONNECT','MSG_DISCO','MSG_PING')],
+        guide='docs/communications.md',controller_validated=False)
+    report['file_pipe_policy']=dict(
+        procedures=['PIPE_CONFIG'],
+        context='Explicit FilePipes with up to 32 canonical PIP names and bounded combined configured sector capacities; zero sectors selects default eight KiB; DAQ and plain pipe names must be distinct',
+        files='Circular byte histories retain newest configured bytes; independent text/binary FILE read cursors adjust on overwrite; EOF is immediate, reads retain history, W/WO clears and resets cursors, A/AP/RW append',
+        metadata='CMOS intent, binary record_size and formatting dictionary/element retained; ordinary FILE field encoding controls data, no record padding/alignment or dictionary rendering applied',
+        guards='Busy reconfiguration, bounded names/capacities/handles/data and shrink checks; source registration and JSON context reject cross-bank PIP collisions, OPEN rejects ambiguity after host mutation',
+        status='Portable 0 success, 2 invalid configuration/name, 3 busy or DAQ name collision, 5 configured capacity/count/shrink limit; FILE/reference errors raise before mutation',
+        persistence='Configuration and bounded retained hex round-trip; live FILEs prevent save; no cursor/waiting process/native CMOS restored',
+        boundary='No ATR_PIPWAIT/snapshot attributes, blocking reads, native formatted pipe display, generic copy/list/delete routing or controller timing; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation']=='PIPE_CONFIG'],
+        guide='docs/communications.md',controller_validated=False)
     report['pc_exchange_policy']=dict(
         procedures=['ADD_BYNAMEPC','ADD_INTPC','ADD_REALPC','ADD_STRINGPC','SEND_DATAPC','SEND_EVENTPC'],
         buffers='One-dimensional ordinary BYTE ARRAY storage, 1..244 bytes; checked disjoint buffer/index/status references; builders retain untouched bytes and unknown tails, publish a complete item/marker batch and advance the 1-based index to the new marker',

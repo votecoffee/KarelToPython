@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.143509. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.151124. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -306,3 +306,7 @@ views, ring overflow, synchronous file batches and validated saved state.
 The six [PC data/event calls](pc-exchange.md) support big-endian typed BYTE
 buffers, named scalar insertion, captured read-only sends and bounded persisted
 outboxes. Custom payloads use the explicit raw packet mode; no transport is opened.
+
+[Offline communications](communications.md) covers MSG_CONNECT/MSG_DISCO/MSG_PING,
+socket-tag mount forms and PIPE_CONFIG, with scripted duplex FILE buffers,
+circular plain PIP histories, distinct DAQ names and bounded saved state.

@@ -265,7 +265,11 @@ def invoke(state,operation,args,line=None):
         program,path=args[3:5] if operation=='DAQ_REGPIPE' else args[1:3]
         try:reference=context.resolve(state,runtime.ascii_string(program,line).strip() or state.program_name,runtime.ascii_string(path,line),line)
         except runtime.KarelRuntimeError:args[-1].set(1,line);return
-        if operation=='DAQ_REGPIPE':code=bank.register(args[0],args[1],args[2],reference.spec,args[5],args[6],line)
+        if operation=='DAQ_REGPIPE':
+            try:key=pipe_name(args[5])
+            except (ValueError,runtime.KarelRuntimeError):args[-1].set(2,line);return
+            if context.file_pipes is not None and key in context.file_pipes.files:code=3
+            else:code=bank.register(args[0],args[1],args[2],reference.spec,args[5],args[6],line)
         else:code=bank.write_record(state,args[0],reference.spec,reference.raw(),context.files,line)
     elif operation=='DAQ_START':code=bank.start(*args[:3],context.files,line)
     elif operation=='DAQ_STOP':code=bank.stop(*args[:2],context.files,line)

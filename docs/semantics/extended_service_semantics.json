@@ -1,5 +1,5 @@
 {
-  "version": "26.1026.143509",
+  "version": "26.1026.151124",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -164,5 +164,6 @@
   "program_calls": "program_call_semantics.json",
   "group_locks": "group_lock_semantics.json",
   "data_acquisition": "data_acquisition_semantics.json",
-  "pc_exchange": "pc_exchange_semantics.json"
+  "pc_exchange": "pc_exchange_semantics.json",
+  "communications": "communications_semantics.json"
 }

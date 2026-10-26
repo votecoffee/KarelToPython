@@ -1,0 +1,26 @@
+PROGRAM SOCKET_DEMO
+VAR
+  answer, status, ping: INTEGER
+  complete: BOOLEAN
+ROUTINE exchange
+VAR
+  channel: FILE
+BEGIN
+  MOUNT_DEV('S1:',status)
+  MSG_CONNECT('S1:',status)
+  OPEN FILE channel('RW','S1:')
+  READ channel(answer,CR)
+  WRITE channel('ack',CR)
+  CLOSE FILE channel
+  MSG_DISCO('S1:',status)
+  DISMOUNT_DEV('S1:',status)
+END exchange
+BEGIN
+  IF UNINIT(complete) THEN complete=FALSE ENDIF
+  status=0
+  IF NOT complete THEN
+    exchange
+    IF status=0 THEN complete=TRUE ENDIF
+  ENDIF
+  MSG_PING('fixture',ping)
+END SOCKET_DEMO

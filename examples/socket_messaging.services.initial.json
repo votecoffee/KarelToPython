@@ -1,0 +1,6 @@
+{
+  "messaging": {
+    "ports": {"S1:": {"mounted": false, "input": "42\n"}},
+    "hosts": {"fixture": 0}
+  }
+}

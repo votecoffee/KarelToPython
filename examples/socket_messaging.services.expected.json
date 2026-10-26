@@ -1,0 +1,15 @@
+{
+  "messaging": {
+    "limit": 4194304,
+    "ports": {
+      "S1:": {
+        "mounted": false,
+        "available": true,
+        "connected": false,
+        "input": {"hex": ""},
+        "output": {"hex": "61636b0a"}
+      }
+    },
+    "hosts": {"fixture": 0}
+  }
+}
