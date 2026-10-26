@@ -1,0 +1,49 @@
+{
+  "version": "26.1026.185812",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARAIBKTP05011E Rev A",
+      "sections": [
+        "4.1 Setting Up Events",
+        "A.1.1 SET_DEBUG",
+        "A.1.2 SET_DB_EVENT",
+        "A.1.3 CHECK_STACK"
+      ],
+      "topic": "Diagnostic selection, task enable and current/low-water stack queries; initialize declaration/prose discrepancy and zero-discard example"
+    }
+  ],
+  "contract": {
+    "guide": "../diagnostics.md",
+    "procedures": [
+      "CHECK_STACK",
+      "SET_DEBUG",
+      "SET_DB_EVENT"
+    ],
+    "events": [
+      "LOG_ENABLE",
+      "LOG_DISABLE",
+      "START_K_LINE",
+      "CALL",
+      "RTN_FRM_RTN",
+      "TASK_START",
+      "TASK_END",
+      "PCODE_EXEC"
+    ],
+    "stack": "Explicit configured frame-cost model, including external source bridges; current/initialized low-water queries; BOOLEAN or 0/1 initializer and literal zero output discard",
+    "logging": "Global event selection/master gate and root-task enable flags; bounded value-free source/call/lifecycle ring; leaf-only checkpoint records",
+    "lifetime": "New run resets activation flags and low water; pause retains; one terminal event; source-linked calls retain caller task identity",
+    "persistence": "Configuration, global selected IDs, records and sequence only; no live task/frame or low-water checkpoint restoration"
+  },
+  "boundaries": [
+    "Portable IDs and source checkpoint approximation; no actual p-code or native stack memory/word layout",
+    "Only eight modeled events; no native hardware/motion/interrupt/packet events or diagnostic option claim",
+    "Strict/native compiler and controller acceptance deferred"
+  ],
+  "validation": [
+    "tests/test_diagnostics_commands.py",
+    "examples/diagnostics.kl",
+    "examples/diagnostics_commands_project"
+  ]
+}

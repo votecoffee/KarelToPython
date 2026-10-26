@@ -1,0 +1,14 @@
+{
+  "diagnostics": {
+    "stack_words": 256,
+    "frame_words": 16
+  },
+  "kcl": {
+    "replies": {
+      "SHOW PROGRAMS": {
+        "status": 17,
+        "delay_ms": 5
+      }
+    }
+  }
+}

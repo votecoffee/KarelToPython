@@ -1,0 +1,6 @@
+{
+  "diagnostics": {
+    "stack_words": 100,
+    "frame_words": 10
+  }
+}

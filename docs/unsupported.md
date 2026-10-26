@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 228 have a registered translation and 106 do not.
+Currently, 234 have a registered translation and 100 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -195,8 +195,10 @@ they are boundaries rather than promises to accept every such source form later.
 - Native mobile/ZDT delivery, message schemas and automatic SET_VAR triggers.
   RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH now have [offline outboxes and deferred
   attachments](remote-messages.md), with explicit host publication/collection.
-- KCL commands, controller XML services, vision and conveyor/vision tracking.
-  These calls have no implicit Python or hardware fallback.
+- Native KCL execution, unmodeled diagnostic events/native stack-word layouts,
+  controller XML services, vision and conveyor/vision tracking. KCL calls now use
+  an [explicit scripted channel](kcl-commands.md), and three diagnostic calls use
+  an [offline event/stack model](diagnostics.md). Neither executes native commands.
 - The workbench currently validates/translates/reviews/exports. The planned Python
   runner, input-parameter editor, read-before-write discovery and combined
   input/result JSON are still [future work](roadmap.md).
@@ -281,7 +283,7 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Screens, windows, keyboard and dictionaries (39)
+### Screens, windows, keyboard and dictionaries (40)
 
 - `ACT_SCREEN`
 - `ACT_TBL`
@@ -304,6 +306,7 @@ does not assert a particular installed option or environment.
 - `DISCTRL_PLMN`
 - `DISCTRL_SBMN`
 - `DISCTRL_TBL`
+- `FORCE_LINK`
 - `FORCE_SPMENU`
 - `INIT_TBL`
 - `INI_DYN_DISB`
@@ -332,13 +335,6 @@ does not assert a particular installed option or environment.
 - `RESET`
 - `SET_PERCH`
 
-### Programs, dynamic variables and controller commands (8)
+### Native program translation (1)
 
-- `CHECK_STACK`
-- `FORCE_LINK`
-- `KCL`
-- `KCL_NO_WAIT`
-- `KCL_STATUS`
-- `SET_DB_EVENT`
-- `SET_DEBUG`
 - `TRANSLATE`

@@ -1,0 +1,32 @@
+{
+  "kcl": {
+    "replies": {
+      "SHOW PROGRAMS": {
+        "status": 17,
+        "accept_status": 0,
+        "delay_ms": 0
+      }
+    },
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "KCL_DEMO",
+        "operation": "KCL_NO_WAIT",
+        "command": "SHOW PROGRAMS",
+        "phase": "completed",
+        "status": 17
+      },
+      {
+        "sequence": 2,
+        "program": "KCL_DEMO",
+        "operation": "KCL",
+        "command": "UNLISTED",
+        "phase": "unsupported",
+        "status": 1
+      }
+    ],
+    "sequence": 2,
+    "last_status": 1
+  }
+}

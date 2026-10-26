@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR initial_free,low_water,result:INTEGER
+ROUTINE probe:INTEGER FROM LIB
+BEGIN
+  CHECK_STACK(TRUE,FALSE,initial_free)
+  SET_DEBUG(TRUE)
+  result=probe()
+  CHECK_STACK(FALSE,TRUE,low_water)
+  SET_DEBUG(FALSE)
+END MAIN

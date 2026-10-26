@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.182837. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.185812. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -36,6 +36,8 @@ internally and in the historical semantic notes.
 | Variable inspection | VAR_INFO metadata and VAR_LIST filtered/paged global names | Current/attached declarations and explicit bindings; canonical types, bounded dimensions/formats, portable initialization flags and statuses; no local/controller discovery. |
 | Program listing | PROG_LIST with optional cursor | Attached Programs and explicit immutable metadata; type filters, sorted pages, checked formats and persisted catalogs; no program discovery or loading. |
 | Program metadata | LOAD_STATUS, GET_ATTR_PRG, SET_ATTR_PRG | Attached load/partial global initialization, explicit snapshots and typed attributes; four metadata writes with active-task guards, portable constants/statuses and persistence; no native loading or task-policy writes. |
+| Diagnostics | CHECK_STACK, SET_DEBUG, SET_DB_EVENT; eight portable source/call/lifecycle event labels | Explicit DiagnosticLog, bounded value-free records and configured frame-cost stack estimates; no native p-code, stack layout or diagnostic option equivalence. |
+| KCL | KCL, KCL_NO_WAIT and bare/called KCL_STATUS over explicit scripted replies | One shared accepted command, configured delays/statuses, bounded history and terminal-state persistence; no host/controller command execution or implicit replay of pending work. |
 | Remote banks | 17 RGET/RSET numeric/string/comment/port procedures and numeric/position receive/send | Explicit persisted PeerBanks, per-peer banks/type codes, selected outputs, simulation and checked register copies; explicit position groups and comment options; no networking or robot conversion. |
 | Collection persistence | PATH and QUEUE_TYPE context variables | Typed partial PATH data, queue FIFO/sequence state and explicit buffer rebinding; portable logical snapshots without native layouts or task checkpoints. |
 | POSITION conversion | Whole assignments among XYZWPR, XYZWPREXT and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; exact interfaces and whole-array types; context-free Cartesian conversion only; model-backed joint assignments are listed below. Widening zeros external metadata; narrowing drops it. |
@@ -301,6 +303,9 @@ documents available for your controller release when evaluating source semantics
 Dynamic creation, renaming and typed BYNAME routine aliases follow the
 [dynamic variable contract](dynamic-variables.md), including saved creation policy
 and explicit namespace guards. Compiled names and native memory pools stay fixed.
+
+See [diagnostics](diagnostics.md) for event selection and logical stack queries,
+and [KCL commands](kcl-commands.md) for explicit scripted acceptance/completion.
 
 CALL_PROG/CALL_PROGLIN support attached cooperative KAREL programs through
 [program calls](program-calls.md). [Logical group ownership](group-locks.md) adds

@@ -1,0 +1,39 @@
+{
+  "version": "26.1026.185812",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.10.1 KCL",
+        "A.10.2 KCL_NO_WAIT",
+        "A.10.3 KCL_STATUS"
+      ],
+      "topic": "Blocking result, nonblocking acceptance, later completion query and command length"
+    }
+  ],
+  "contract": {
+    "guide": "../kcl-commands.md",
+    "calls": [
+      "KCL",
+      "KCL_NO_WAIT",
+      "KCL_STATUS"
+    ],
+    "service": "Explicit exact-match reply scenarios; no command interpretation or host/controller execution",
+    "queue": "One accepted pending request; configured acceptance/completion codes and delay; portable unsupported=1/busy=2; 1..126 printable ASCII command text",
+    "waiting": "Captured standalone clock/sleeper or scheduler virtual sleep; query/blocking caller receives its captured accepted result without resubmission",
+    "lifetime": "Accepted jobs retained on caller stop/failure; explicit polling/collection; bounded history and finite sequence",
+    "persistence": "Terminal reply/history/last-status state only; pending context save rejected; no automatic replay"
+  },
+  "boundaries": [
+    "No shell, live KCL connection, native command parser or real task/program/file/variable operations",
+    "Reply codes and source wait behavior are configured offline scenarios rather than controller observations",
+    "Strict/native compiler/controller equivalence deferred"
+  ],
+  "validation": [
+    "tests/test_diagnostics_commands.py",
+    "examples/kcl_commands.kl",
+    "examples/diagnostics_commands_project"
+  ]
+}

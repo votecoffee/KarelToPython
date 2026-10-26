@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1026.185812 - 2026-10-26
+
+- Add CHECK_STACK, SET_DEBUG and SET_DB_EVENT with explicit logical stack costs,
+  low-water tracking, per-task enable flags and bounded portable event records.
+- Add scripted KCL/KCL_NO_WAIT/KCL_STATUS acceptance and completion, shared busy
+  handling, scheduler/standalone waits and terminal-only context persistence.
+- Retain accepted commands after caller stop/failure without resubmission; keep
+  pending state reviewable and require collection before saving context.
+- Add 58 regressions, two CLI examples and one linked project; refresh runtime-only
+  distribution checks and audit 234 registered built-in names with 100 remaining.
+
 ## 26.1026.182837 - 2026-10-26
 
 - Add PATHDATA as a PATHHEADER compatibility spelling, clause order/whitespace

@@ -1,0 +1,34 @@
+{
+  "diagnostics": {
+    "stack_words": 256,
+    "frame_words": 16,
+    "limit": 500,
+    "selected": [],
+    "logging_enabled": true,
+    "default_enabled": false,
+    "records": [],
+    "sequence": 0
+  },
+  "kcl": {
+    "replies": {
+      "SHOW PROGRAMS": {
+        "status": 17,
+        "accept_status": 0,
+        "delay_ms": 5
+      }
+    },
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "KCL",
+        "command": "SHOW PROGRAMS",
+        "phase": "completed",
+        "status": 17
+      }
+    ],
+    "sequence": 1,
+    "last_status": 17
+  }
+}

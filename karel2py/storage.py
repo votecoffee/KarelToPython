@@ -418,6 +418,8 @@ def context_config(context):
     if context.group_locks is not None: result['group_locks']=context.group_locks.to_config()
     if context.acquisition is not None: result['acquisition']=context.acquisition.to_config()
     if context.variable_archives is not None: result['variable_archives']=context.variable_archives.to_config()
+    if context.diagnostics is not None: result['diagnostics']=context.diagnostics.to_config()
+    if context.kcl is not None: result['kcl']=context.kcl.to_config()
     if context.remote_messages is not None: result['remote_messages']=context.remote_messages.to_config()
     if context.pc_exchange is not None: result['pc_exchange']=context.pc_exchange.to_config()
     if context.messaging is not None: result['messaging']=context.messaging.to_config()

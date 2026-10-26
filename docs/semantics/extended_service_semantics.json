@@ -1,5 +1,5 @@
 {
-  "version": "26.1026.182837",
+  "version": "26.1026.185812",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -172,5 +172,7 @@
   "variable_archives": "variable_archive_semantics.json",
   "external_types": "external_type_semantics.json",
   "using_selectors": "using_selector_semantics.json",
-  "path_declarations": "path_declaration_semantics.json"
+  "path_declarations": "path_declaration_semantics.json",
+  "diagnostics": "diagnostic_semantics.json",
+  "kcl_commands": "kcl_semantics.json"
 }

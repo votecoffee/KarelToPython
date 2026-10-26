@@ -1,0 +1,7 @@
+PROGRAM KCL_DEMO
+VAR accepted,result,unsupported:INTEGER
+BEGIN
+  KCL_NO_WAIT('SHOW PROGRAMS',accepted)
+  result=KCL_STATUS
+  KCL('UNLISTED',unsupported)
+END KCL_DEMO

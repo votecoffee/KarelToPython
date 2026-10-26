@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
-                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,
+                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,
                         **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
@@ -1380,6 +1380,9 @@ class Emitter:
             self.current_routine = None
         self.resolve_using_fields()
         self.resolve_bare_function_calls()
+        if self.mode=='pythonic' and any(isinstance(node,Expr) and node.kind=='call' and node.value in ex.COOPERATIVE_PROCEDURES
+                for body in (self.program.body,*[routine.body for routine in self.program.routines]) for node in self.walk_nodes(body)):
+            self.cooperative=True
         self.analyze_routine_effects()
 
     def resolve_bare_function_calls(self):
@@ -1402,7 +1405,7 @@ class Emitter:
                             result_spec=routine.return_type))
                         self.features.add('bare zero-argument function call')
                         return Expr('call', node.token, node.value, [])
-                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG','CURPOS','CURJPOS') and node.value not in self.routines:
+                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG','CURPOS','CURJPOS','KCL_STATUS') and node.value not in self.routines:
                     local_names = (self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
                     if node.value not in self.types.keys() | self.constants.keys() | local_names:
                         self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -4566,6 +4569,22 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     for row in [*report['path_clause_uses'],*report['predefined_structure_uses']]:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
+    report['diagnostic_policy']=dict(
+        procedures=['CHECK_STACK','SET_DB_EVENT','SET_DEBUG'],events=dict(rt.DIAGNOSTIC_CONSTANTS),
+        model='Explicit DiagnosticLog; selected global events and per-root-task enable flags; bounded value-free source checkpoint, call/return and lifecycle records',
+        stack='Configured stack_words minus frame_words per offline activation, including external bridge frames; zero floor, current/initialized low water; BOOLEAN or INTEGER 0/1 initializer and literal zero output discard',
+        lifetime='Reset task enable/low water on a new run; retain through pause; log one terminal event; linked modules share root-task controls and stack; parent budget scans do not duplicate leaf diagnostics',
+        persistence='Retain configuration, global selections, ring records and sequence; live activation flags and low-water state are not task checkpoints',
+        boundary='Portable event IDs; START_K_LINE/PCODE_EXEC describe offline checkpoints, not native p-code, memory words, tracing clocks or controller diagnostic option',
+        guide='docs/diagnostics.md',controller_validated=False)
+    report['kcl_policy']=dict(
+        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands scripted channel; no command interpretation or host/controller execution',
+        requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',
+        completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time or captured standalone clock/sleeper completion',
+        lifetime='Accepted jobs survive caller stop/failure; no resubmission on status collection; pending work cannot be serialized; explicit poll can collect elapsed work',
+        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2; unsubmitted/unconfigured last status raises',
+        boundary='No KCL parser, real task/program/file/variable mutation, shell, native command queue or automatic replay; shared channel status is context-wide',
+        guide='docs/kcl-commands.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

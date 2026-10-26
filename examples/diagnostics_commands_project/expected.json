@@ -1,0 +1,14 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "INITIAL_FREE": 256,
+      "LOW_WATER": 224,
+      "RESULT": 17
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

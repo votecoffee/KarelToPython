@@ -28,7 +28,7 @@ def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
-COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN'))
+COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS'))
 DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
     'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
@@ -94,6 +94,9 @@ PROCEDURES = {
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
+    'SET_DEBUG': (B,), 'SET_DB_EVENT': (I,B),
+    'CHECK_STACK': (arg('CHECK_INIT'),B,arg('INTEGER','m')),
+    'KCL': (S,OI), 'KCL_NO_WAIT': (S,OI),
     'GET_VAR': (arg('INTEGER','o'),S,S,arg('VARIABLE','o'),OI),
     'SET_VAR': (arg('INTEGER','o'),S,S,arg('VARIABLE'),OI),
     'CREATE_VAR': (S,S,S,S,I,I,I,I,OI,I),
@@ -133,6 +136,7 @@ FUNCTIONS = {
     'CURPOS':((arg('INTEGER','m'),arg('INTEGER','m'),I),('XYZWPREXT',)),
     'CURJPOS':((arg('INTEGER','m'),arg('INTEGER','m'),I),('JOINTPOS',9)),
     'CURR_PROG':((),('STRING',12)),
+    'KCL_STATUS':((),('INTEGER',)),
     'SEMA_COUNT':((I,),('INTEGER',)),
     'GET_POS_REG': ((I,OI,I),('XYZWPREXT',)),
     'GET_JPOS_REG': ((I,OI,I),('JOINTPOS',9)),
@@ -216,6 +220,7 @@ def matches(spec, kind):
         return size is None or type(size) is int and 1<=size<=244
     if kind in ('VIEW_LINES','POINT_PATH'): return vision_path_schema(spec,kind)
     if kind=='ERROR_CURSOR': return spec==('INTEGER',)
+    if kind=='CHECK_INIT': return spec[0] in ('BOOLEAN','INTEGER','SHORT','BYTE')
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
@@ -1385,7 +1390,7 @@ def condition_control(state,operation,number,line=None):
 
 
 def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
-    rt=runtime(); state.tick(line)
+    rt=runtime(); state.tick(line,_diagnostic=not _defer_control)
     if not _defer_control:
         from .scheduling import record_task_trace
         record_task_trace(state,line)
@@ -1494,7 +1499,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1535,6 +1540,11 @@ class ExecutionContext:
         from .variable_archives import VariableArchives
         if variable_archives is not None and type(variable_archives) is not VariableArchives:raise TypeError('variable_archives must be VariableArchives or None')
         self.variable_archives=variable_archives
+        from .diagnostics import DiagnosticLog
+        from .kcl import KclCommands
+        if diagnostics is not None and type(diagnostics) is not DiagnosticLog:raise TypeError('diagnostics must be DiagnosticLog or None')
+        if kcl is not None and type(kcl) is not KclCommands:raise TypeError('kcl must be KclCommands or None')
+        self.diagnostics=diagnostics;self.kcl=kcl
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1561,7 +1571,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1622,6 +1632,12 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'diagnostics' in config:
+            from .diagnostics import DiagnosticLog
+            services['diagnostics']=DiagnosticLog.from_config(config['diagnostics'])
+        if 'kcl' in config:
+            from .kcl import KclCommands
+            services['kcl']=KclCommands.from_config(config['kcl'])
         if 'variable_archives' in config:
             from .variable_archives import VariableArchives
             services['variable_archives']=VariableArchives.from_config(config['variable_archives'])
@@ -1674,6 +1690,8 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('SET_DEBUG','SET_DB_EVENT','CHECK_STACK'):return self.require('diagnostics',line).invoke(state,name,args,line)
+        if name in ('KCL','KCL_NO_WAIT','KCL_STATUS'):return self.require('kcl',line).invoke(state,name,args,line)
         if name in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM'):
             from .archives import invoke
             return invoke(state,name,args,line)

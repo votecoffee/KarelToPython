@@ -1,0 +1,52 @@
+{
+  "diagnostics": {
+    "stack_words": 100,
+    "frame_words": 10,
+    "limit": 500,
+    "selected": [
+      4,
+      5
+    ],
+    "logging_enabled": true,
+    "default_enabled": false,
+    "records": [
+      {
+        "sequence": 1,
+        "event": "CALL",
+        "task": "DIAG_DEMO",
+        "program": "DIAG_DEMO",
+        "routine": "PROBE",
+        "line": 7,
+        "depth": 1
+      },
+      {
+        "sequence": 2,
+        "event": "CALL",
+        "task": "DIAG_DEMO",
+        "program": "DIAG_DEMO",
+        "routine": "NESTED",
+        "line": 3,
+        "depth": 2
+      },
+      {
+        "sequence": 3,
+        "event": "RTN_FRM_RTN",
+        "task": "DIAG_DEMO",
+        "program": "DIAG_DEMO",
+        "routine": "NESTED",
+        "line": 5,
+        "depth": 2
+      },
+      {
+        "sequence": 4,
+        "event": "RTN_FRM_RTN",
+        "task": "DIAG_DEMO",
+        "program": "DIAG_DEMO",
+        "routine": "PROBE",
+        "line": 5,
+        "depth": 1
+      }
+    ],
+    "sequence": 4
+  }
+}

@@ -2126,9 +2126,9 @@ class State:
         self.register_requests.append(dict(procedure=name,register_no=number,line=line,operation='read' if reading else 'write',
                                            status=code,adapter_outcome='completed' if code == 0 else 'uninitialized' if code == REGISTER_UNINITIALIZED else 'out_of_range'))
 
-    def tick(self, line=None):
+    def tick(self, line=None, *, _diagnostic=True):
         if line is not None: task_root(self)._task_line=line
-        if self._budget_parent is not None: self._budget_parent.tick(line)
+        if self._budget_parent is not None: self._budget_parent.tick(line,_diagnostic=False)
         if self._aborted: raise KarelAbort(self._abort_line)
         if self.task_state=='stopped': raise KarelStop('Task is stopped')
         update_timers(self,line)
@@ -2136,6 +2136,7 @@ class State:
         self.steps += 1
         if self.steps > self.max_steps:
             raise KarelRuntimeError(f'Execution step budget exceeded ({self.max_steps})', line)
+        if _diagnostic and self.execution.diagnostics is not None:self.execution.diagnostics.checkpoint(self,line)
 
     def begin(self, max_steps):
         if self._driving: raise KarelRuntimeError('A Program cannot be driven recursively')
@@ -2152,8 +2153,10 @@ class State:
         self.service_requests.clear()
         self._handlers.clear(); self._timers.clear()
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
+        if self.execution.diagnostics is not None:self.execution.diagnostics.begin(self)
 
     def finish_teach_programs(self):
+        if self._budget_parent is None and self.execution.diagnostics is not None:self.execution.diagnostics.finish(self)
         bank=self.execution.teach_programs
         if bank is not None: bank.release_owner(task_root(self))
         if self.execution.group_locks is not None: self.execution.group_locks.release_owner(task_root(self))
@@ -2377,8 +2380,11 @@ class State:
         self.call_depth += 1
         self.local_frames.append((declarations, values))
         task_root(self)._task_frames.append((self,routine))
+        if self.execution.diagnostics is not None:
+            self.execution.diagnostics.observe(self);self.execution.diagnostics.record(self,'CALL',line)
 
     def leave_routine(self):
+        if self.execution.diagnostics is not None:self.execution.diagnostics.record(self,'RTN_FRM_RTN',task_root(self)._task_line or None)
         frame=self.local_frames[-1]
         for number,handler in list(self._handlers.items()):
             if handler.get('local_frame') is frame: self._handlers.pop(number,None)
@@ -2493,3 +2499,5 @@ from .scheduling import (TaskScheduler,EventBank,event_condition,edge_condition,
                          TASK_SETTING_RANGES,valid_task_setting)
 from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,cooperative_service,
                       runtime_failure,powerup_cooperative,task_root,request_task_control,ERROR_SEVERITIES)
+from .diagnostics import DiagnosticLog,DIAGNOSTIC_CONSTANTS
+from .kcl import KclCommands

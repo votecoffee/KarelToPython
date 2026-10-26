@@ -1,0 +1,19 @@
+PROGRAM DIAG_DEMO
+VAR current_free,deepest_free,low_water:INTEGER
+ROUTINE nested
+BEGIN
+  CHECK_STACK(FALSE,FALSE,deepest_free)
+END nested
+ROUTINE probe
+BEGIN
+  nested
+END probe
+BEGIN
+  SET_DB_EVENT(CALL,TRUE)
+  SET_DB_EVENT(RTN_FRM_RTN,TRUE)
+  SET_DEBUG(TRUE)
+  CHECK_STACK(TRUE,FALSE,current_free)
+  probe
+  CHECK_STACK(FALSE,TRUE,low_water)
+  SET_DEBUG(FALSE)
+END DIAG_DEMO
