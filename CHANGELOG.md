@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1026.193506 - 2026-10-26
+
+- Add ten offline pendant calls for links, menus, language labels, screens,
+  windows, attachments, activation and cursor positioning.
+- Add WD:name text FILE output with common/per-handle cursors, wrapping, scrolling,
+  screen composition and explicit closed-handle context persistence.
+- Support STRING-valued predefined language constants while retaining typed
+  argument/output guards and portable status/ID boundaries.
+- Add 61 regressions, two CLI examples and a linked project; audit 244 registered
+  built-in names with 90 remaining. No GUI or live-controller operations are added.
+
 ## 26.1026.185812 - 2026-10-26
 
 - Add CHECK_STACK, SET_DEBUG and SET_DB_EVENT with explicit logical stack costs,

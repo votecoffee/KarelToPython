@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR output:FILE status,result:INTEGER
+ROUTINE write_more(stream:FILE):INTEGER FROM LIB
+BEGIN
+  DEF_WINDOW('LOG',1,8,WD_COM_CURSR,status)
+  ATT_WINDOW_S('LOG','SYS',1,1,status)
+  OPEN FILE output('RW','WD:LOG')
+  SET_CURSOR(output,1,1,status)
+  WRITE output('A')
+  result=write_more(output)
+  CLOSE FILE output
+END MAIN

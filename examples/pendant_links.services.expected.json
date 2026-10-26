@@ -1,0 +1,73 @@
+{
+  "pendant": {
+    "rows": 4,
+    "cols": 16,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH",
+      "SPANISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "SPANISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {},
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {
+      "1": "/fr/operator.stm",
+      "2": "refresh=dual"
+    },
+    "menus": {
+      "1": {
+        "menu": 1010,
+        "screen": 2002
+      }
+    },
+    "history": [
+      {
+        "sequence": 1,
+        "program": "PEND_LINK",
+        "operation": "FORCE_LINK",
+        "data": {
+          "pane": 1,
+          "url": "/fr/operator.stm"
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "PEND_LINK",
+        "operation": "FORCE_LINK",
+        "data": {
+          "pane": 2,
+          "url": "refresh=dual"
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "PEND_LINK",
+        "operation": "FORCE_SPMENU",
+        "data": {
+          "pane": 1,
+          "menu": 1010,
+          "screen": 2002
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "PEND_LINK",
+        "operation": "SET_LANG",
+        "data": {
+          "language": "SPANISH"
+        }
+      }
+    ],
+    "sequence": 4
+  }
+}

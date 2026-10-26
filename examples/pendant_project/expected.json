@@ -1,0 +1,20 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "OUTPUT": {
+        "file": "WD:LOG",
+        "open": false,
+        "position": 2,
+        "binary": false,
+        "status": 0
+      },
+      "STATUS": 0,
+      "RESULT": 2
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

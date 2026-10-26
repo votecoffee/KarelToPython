@@ -1,0 +1,16 @@
+PROGRAM WINDOW_DEMO
+VAR file_var:FILE previous:STRING[4] status:INTEGER
+BEGIN
+  DEF_SCREEN('MAIN','TP',status)
+  DEF_WINDOW('INFO',3,12,WD_COM_CURSR+WD_SCROLLED,status)
+  ATT_WINDOW_S('INFO','MAIN',1,1,status)
+  FORCE_SPMENU(TP_PANEL,SPI_TPUSER,1)
+  ACT_SCREEN('MAIN',previous,status)
+  OPEN FILE file_var('RW','WD:INFO')
+  SET_CURSOR(file_var,1,1,status)
+  WRITE file_var('KAREL -> PY',CR)
+  WRITE file_var('value: 42')
+  SET_CURSOR(file_var,3,1,status)
+  WRITE file_var('ready')
+  CLOSE FILE file_var
+END WINDOW_DEMO

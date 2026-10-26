@@ -94,6 +94,11 @@ PROCEDURES = {
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
+    'FORCE_LINK': (I,S), 'FORCE_SPMENU': (I,I,I), 'SET_LANG': (S,OI),
+    'DEF_SCREEN': (S,S,OI), 'DEF_WINDOW': (S,I,I,I,OI),
+    'ACT_SCREEN': (S,OS,OI), 'ATT_WINDOW_D': (S,S,I,I,OS,OI),
+    'ATT_WINDOW_S': (S,S,I,I,OI), 'DET_WINDOW': (S,S,OI),
+    'SET_CURSOR': (arg('FILE'),I,I,OI),
     'SET_DEBUG': (B,), 'SET_DB_EVENT': (I,B),
     'CHECK_STACK': (arg('CHECK_INIT'),B,arg('INTEGER','m')),
     'KCL': (S,OI), 'KCL_NO_WAIT': (S,OI),
@@ -967,6 +972,7 @@ def file_piece(handle,kind,value,formats,line=None):
 def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
     if handle.xml: fail('Use XML_SCAN/XML_GETDATA for XML FILE input',line)
     rt=runtime(); handle.require_open(line); formats=formats if formats is not None else [()] * len(targets)
+    if type(handle.owner) is rt.PendantDisplay:fail('Window FILE provides output only; keyboard READ is not modeled',line)
     if type(handle.owner) is rt.Messaging:handle.owner.before_read(handle,line)
     for target in targets:
         if type(target) is not rt.Reference: fail('FILE READ requires ordinary writable scalar targets',line)
@@ -1499,7 +1505,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1545,6 +1551,9 @@ class ExecutionContext:
         if diagnostics is not None and type(diagnostics) is not DiagnosticLog:raise TypeError('diagnostics must be DiagnosticLog or None')
         if kcl is not None and type(kcl) is not KclCommands:raise TypeError('kcl must be KclCommands or None')
         self.diagnostics=diagnostics;self.kcl=kcl
+        from .pendant import PendantDisplay
+        if pendant is not None and type(pendant) is not PendantDisplay:raise TypeError('pendant must be PendantDisplay or None')
+        self.pendant=pendant
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1571,7 +1580,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1632,6 +1641,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'pendant' in config:
+            from .pendant import PendantDisplay
+            services['pendant']=PendantDisplay.from_config(config['pendant'])
         if 'diagnostics' in config:
             from .diagnostics import DiagnosticLog
             services['diagnostics']=DiagnosticLog.from_config(config['diagnostics'])
@@ -1690,6 +1702,10 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        from .pendant import PENDANT_CALLS
+        if name in PENDANT_CALLS:return self.require('pendant',line).invoke(state,name,args,line)
+        if self.pendant is not None and args and type(args[0]) is FileHandle and args[0].owner is self.pendant and name in ('SET_FILE_POS','BYTES_LEFT','BYTES_AHEAD'):
+            fail('Window FILE does not support byte seeking or input availability',line)
         if name in ('SET_DEBUG','SET_DB_EVENT','CHECK_STACK'):return self.require('diagnostics',line).invoke(state,name,args,line)
         if name in ('KCL','KCL_NO_WAIT','KCL_STATUS'):return self.require('kcl',line).invoke(state,name,args,line)
         if name in ('SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM'):
@@ -1913,8 +1929,9 @@ class ExecutionContext:
             if name=='CLR_IO_STAT': handle.status=0; return
             if name=='IO_STATUS': return handle.status
             if name=='SET_FILE_POS' and handle.xml: fail('Reopen XML FILE to reset its scanner',line)
-            handle.require_open(line); length=len(handle.owner.files[handle.name])
+            handle.require_open(line)
             if name=='GET_FILE_POS': return handle.position
+            length=len(handle.owner.files[handle.name])
             if name=='BYTES_LEFT': return length-handle.position
             if name=='BYTES_AHEAD': args[1].set(length-handle.position,line); args[2].set(0,line); return
             position=length if args[1]==-1 else args[1]

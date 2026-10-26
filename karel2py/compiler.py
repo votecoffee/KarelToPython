@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
-                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,
+                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,
                         **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
@@ -1879,6 +1879,7 @@ class Emitter:
         if expr.kind == 'predefined':
             value = PREDEFINED_CONSTANTS[expr.value]
             if type(value) is bool: return repr(value), ('BOOLEAN',)
+            if type(value) is str: return repr(value), ('STRING',len(value))
             return f'_rt.integer({value}, {line})', ('INTEGER',)
         if expr.kind == 'literal':
             spec = ('BOOLEAN',) if type(expr.value) is bool else ('INTEGER',) if type(expr.value) is int else ('STRING', len(expr.value))
@@ -4585,6 +4586,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2; unsubmitted/unconfigured last status raises',
         boundary='No KCL parser, real task/program/file/variable mutation, shell, native command queue or automatic replay; shared channel status is context-wide',
         guide='docs/kcl-commands.md',controller_validated=False)
+    report['pendant_policy']=dict(
+        calls=['FORCE_LINK','FORCE_SPMENU','SET_LANG','DEF_SCREEN','DEF_WINDOW','ACT_SCREEN','ATT_WINDOW_D','ATT_WINDOW_S','DET_WINDOW','SET_CURSOR'],
+        constants=dict(rt.PENDANT_CONSTANTS),service='Explicit PendantDisplay; headless character surfaces, screen attachments and bounded accepted-request history',
+        windows='WD:name text output FILEs; one-based common/per-handle cursors, deferred wrapping, optional vertical scrolling and layered screen composition',
+        requests='Pane 1..9 opaque locations and positive portable menu/screen IDs; configured language labels with STRING DP constants; no link fetching or language dictionaries',
+        limits='Display/window dimensions 1..256, at most 64 screens/windows, configured total cell budget and at most 256 live window handles',
+        persistence='Closed-handle context saves retain surfaces, common cursor, attachments, active screen, requests and history; no task checkpoint or automatic reopening',
+        statuses='Portable 0 success, 1 invalid, 2 duplicate, 3 missing, 4 unattached/non-window, 5 capacity; activation requires USER/USER2 menu (9093), unavailable language 33003',
+        boundary='Output only: no keyboard suffix/READ, binary/XML, byte seeking, native rendering, glyph styling, abort screen restoration or controller UI acceptance; strict deferred',
+        guide='docs/pendant-display.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

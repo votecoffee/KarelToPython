@@ -1,0 +1,57 @@
+{
+  "version": "26.1026.193506",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.6.4 FORCE_LINK",
+        "A.6.5 FORCE_SPMENU",
+        "A.4.8 DEF_SCREEN",
+        "A.4.9 DEF_WINDOW",
+        "A.1.7 ACT_SCREEN",
+        "A.1.24 ATT_WINDOW_D",
+        "A.1.25 ATT_WINDOW_S",
+        "A.4.16 DET_WINDOW",
+        "A.18.10 SET_CURSOR",
+        "A.18.18 SET_LANG",
+        "7.2.2 FILE names"
+      ],
+      "topic": "Pane requests, language selection, screen/window layout, cursor/scroll policies and WD endpoints"
+    }
+  ],
+  "contract": {
+    "guide": "../pendant-display.md",
+    "calls": [
+      "FORCE_LINK",
+      "FORCE_SPMENU",
+      "SET_LANG",
+      "DEF_SCREEN",
+      "DEF_WINDOW",
+      "ACT_SCREEN",
+      "ATT_WINDOW_D",
+      "ATT_WINDOW_S",
+      "DET_WINDOW",
+      "SET_CURSOR"
+    ],
+    "service": "Explicit headless PendantDisplay; no desktop/browser/network opening",
+    "requests": "Pane 1..9 opaque printable locations, positive portable SPI/SCR IDs, configured STRING language labels",
+    "surfaces": "Bounded printable ASCII grids, one-based attachments, overlay order and render() composition; 64 screens/windows, configurable cell budget",
+    "file": "WD:name text output; common or per-handle cursors, deferred wrap, optional bottom scrolling, LF/CR/FF/BS/TAB; logical bytes written",
+    "statuses": "Portable 0..5; documented activation 9093 and unavailable-language 33003 cases; typed disjoint outputs and preflighted capacity",
+    "history": "Bounded accepted request rows with finite sequence and root owner; FILE writes retain byte counts; sequence exhaustion still permits close",
+    "persistence": "Closed-handle logical data and shared cursors only; no reopening, automatic replay or source task checkpoint"
+  },
+  "boundaries": [
+    "No keyboard association/input, READ, binary/XML, byte seeking or input availability on window handles",
+    "No native UI/glyph/style rendering, dynamic controls, dictionaries or language packs",
+    "No native menu/option encodings, abort-time screen restoration or controller validation; strict mode deferred"
+  ],
+  "validation": [
+    "tests/test_pendant_display.py",
+    "examples/pendant_links.kl",
+    "examples/window_display.kl",
+    "examples/pendant_project"
+  ]
+}

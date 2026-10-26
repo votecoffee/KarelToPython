@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.185812**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.193506**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -294,6 +294,17 @@ bounded event history and configurable logical stack estimates. KCL,
 KCL_NO_WAIT and KCL_STATUS use a scripted command channel with acceptance,
 completion waits and saved completed results. See [diagnostics](docs/diagnostics.md)
 and [KCL commands](docs/kcl-commands.md) for setup and execution boundaries.
+
+Ten pendant calls now use an explicit headless display model: opaque link/menu
+requests, configured language selection, screen/window definitions, attachments,
+activation and cursor positioning. WD:name FILE output updates character grids
+with scrolling and common or per-handle cursors. Closed-window state persists
+through context JSON. See [pendant display](docs/pendant-display.md).
+
+```sh
+python -m karel2py examples/window_display.kl -o window_display.py
+python window_display.py --context examples/window_display.services.initial.json --state-out window-state.json
+```
 
 CALL_PROG/CALL_PROGLIN run attached KAREL main bodies in the calling task with
 separate cursors and shared module data; see [program calls](docs/program-calls.md).

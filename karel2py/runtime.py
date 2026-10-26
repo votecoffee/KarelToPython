@@ -2443,6 +2443,7 @@ class State:
 
     def file_open(self,handle,mode,name,line=None):
         name=ascii_string(name,line)
+        if name.upper().startswith('WD:'):return self.execution.require('pendant',line).open_for(self,handle,mode,name,line)
         if message_address(name):return self.execution.require('messaging',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('PIP:'):
             try:key=communication_pipe_name(name)
@@ -2501,3 +2502,4 @@ from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,
                       runtime_failure,powerup_cooperative,task_root,request_task_control,ERROR_SEVERITIES)
 from .diagnostics import DiagnosticLog,DIAGNOSTIC_CONSTANTS
 from .kcl import KclCommands
+from .pendant import PendantDisplay,PENDANT_CONSTANTS

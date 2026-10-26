@@ -1,0 +1,8 @@
+PROGRAM LIB
+ROUTINE write_more(stream:FILE):INTEGER
+BEGIN
+  WRITE stream('B')
+  RETURN 2
+END write_more
+BEGIN
+END LIB

@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.185812. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.193506. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -37,6 +37,7 @@ internally and in the historical semantic notes.
 | Program listing | PROG_LIST with optional cursor | Attached Programs and explicit immutable metadata; type filters, sorted pages, checked formats and persisted catalogs; no program discovery or loading. |
 | Program metadata | LOAD_STATUS, GET_ATTR_PRG, SET_ATTR_PRG | Attached load/partial global initialization, explicit snapshots and typed attributes; four metadata writes with active-task guards, portable constants/statuses and persistence; no native loading or task-policy writes. |
 | Diagnostics | CHECK_STACK, SET_DEBUG, SET_DB_EVENT; eight portable source/call/lifecycle event labels | Explicit DiagnosticLog, bounded value-free records and configured frame-cost stack estimates; no native p-code, stack layout or diagnostic option equivalence. |
+| Pendant display | FORCE_LINK, FORCE_SPMENU, SET_LANG, screen/window definitions, activation, attachments, detachment and SET_CURSOR; WD:name text output | Explicit headless PendantDisplay, portable IDs/statuses, character grids, common/per-handle cursors, scrolling and closed-handle persistence; no native UI, keyboard or dictionaries. |
 | KCL | KCL, KCL_NO_WAIT and bare/called KCL_STATUS over explicit scripted replies | One shared accepted command, configured delays/statuses, bounded history and terminal-state persistence; no host/controller command execution or implicit replay of pending work. |
 | Remote banks | 17 RGET/RSET numeric/string/comment/port procedures and numeric/position receive/send | Explicit persisted PeerBanks, per-peer banks/type codes, selected outputs, simulation and checked register copies; explicit position groups and comment options; no networking or robot conversion. |
 | Collection persistence | PATH and QUEUE_TYPE context variables | Typed partial PATH data, queue FIFO/sequence state and explicit buffer rebinding; portable logical snapshots without native layouts or task checkpoints. |
@@ -55,7 +56,7 @@ internally and in the historical semantic notes.
 | Position comparison | Approximate >=< on POSITION/XYZWPR/XYZWPREXT, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle/external-axis tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
-| WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles or a caller-rooted DirectoryFiles; no live devices or aggregate output. |
+| WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or aggregate output. |
 | READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; no live devices, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
 

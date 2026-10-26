@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 234 have a registered translation and 100 do not.
+Currently, 244 have a registered translation and 90 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -58,7 +58,9 @@ they are boundaries rather than promises to accept every such source form later.
   `COMMON_DATA` association layouts. [Predefined structures](path-declarations.md)
   now expose DISP_DAT_T data and the portable STD_PTH_NODE NODE_POS field; PATH
   accepts authored NODEDATA and PATHHEADER/PATHDATA structures. Native group
-  associations, screen execution and display/recording behavior remain outside it.
+  associations and native display/recording behavior remain outside those records.
+  The separate [headless display model](pendant-display.md) supports character
+  windows and screen composition without DISP_DAT_T-driven dynamic controls.
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
   wildcard declarations require translation-time shapes; no VR auto-discovery.
@@ -181,8 +183,11 @@ they are boundaries rather than promises to accept every such source form later.
   archives](variable-archives.md) now support VR data, variable-only recursive
   batches and explicit SAVE_DRAM points. Mixed TP/VR PBR_ALLTYPE batches and
   automatic native DRAM/flash restoration remain unavailable.
-- Controller screens, windows, keyboard interaction, display controls, dictionaries
-  and language packs.
+- Native controller rendering, keyboard interaction/associations, dynamic display
+  controls, dictionaries and language packs. Ten [pendant display calls](pendant-display.md)
+  now have headless request/surface models, including WD:name output, cursor
+  movement and scrolling. No keyboard input, native glyphs, abort-time screen
+  restoration, font/style handling or implicit language dictionaries are supplied.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.
@@ -283,13 +288,10 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Screens, windows, keyboard and dictionaries (40)
+### Screens, windows, keyboard and dictionaries (30)
 
-- `ACT_SCREEN`
 - `ACT_TBL`
 - `ADD_DICT`
-- `ATT_WINDOW_D`
-- `ATT_WINDOW_S`
 - `CHECK_DICT`
 - `CNC_DYN_DISB`
 - `CNC_DYN_DISE`
@@ -297,17 +299,12 @@ does not assert a particular installed option or environment.
 - `CNC_DYN_DISP`
 - `CNC_DYN_DISR`
 - `CNC_DYN_DISS`
-- `DEF_SCREEN`
-- `DEF_WINDOW`
-- `DET_WINDOW`
 - `DISCTRL_ALPH`
 - `DISCTRL_FORM`
 - `DISCTRL_LIST`
 - `DISCTRL_PLMN`
 - `DISCTRL_SBMN`
 - `DISCTRL_TBL`
-- `FORCE_LINK`
-- `FORCE_SPMENU`
 - `INIT_TBL`
 - `INI_DYN_DISB`
 - `INI_DYN_DISE`
@@ -321,8 +318,6 @@ does not assert a particular installed option or environment.
 - `READ_DICT_V`
 - `READ_KB`
 - `REMOVE_DICT`
-- `SET_CURSOR`
-- `SET_LANG`
 - `WRITE_DICT`
 - `WRITE_DICT_V`
 

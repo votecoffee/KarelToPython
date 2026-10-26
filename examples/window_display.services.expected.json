@@ -1,0 +1,172 @@
+{
+  "pendant": {
+    "rows": 4,
+    "cols": 16,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      },
+      "MAIN": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "INFO",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "INFO": {
+        "rows": 3,
+        "cols": 12,
+        "options": 3,
+        "lines": [
+          "KAREL -> PY ",
+          "value: 42   ",
+          "ready       "
+        ],
+        "cursor": {
+          "row": 3,
+          "col": 6,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "MAIN"
+    },
+    "links": {},
+    "menus": {
+      "1": {
+        "menu": 1001,
+        "screen": 1
+      }
+    },
+    "history": [
+      {
+        "sequence": 1,
+        "program": "WINDOW_DEMO",
+        "operation": "DEF_SCREEN",
+        "data": {
+          "screen": "MAIN",
+          "device": "TP"
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "WINDOW_DEMO",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "INFO",
+          "rows": 3,
+          "cols": 12,
+          "options": 3
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "WINDOW_DEMO",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "INFO",
+          "screen": "MAIN",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "WINDOW_DEMO",
+        "operation": "FORCE_SPMENU",
+        "data": {
+          "pane": 1,
+          "menu": 1001,
+          "screen": 1
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "WINDOW_DEMO",
+        "operation": "ACT_SCREEN",
+        "data": {
+          "screen": "MAIN",
+          "previous": "SYS"
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "WINDOW_DEMO",
+        "operation": "WINDOW_OPEN",
+        "data": {
+          "window": "INFO"
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "WINDOW_DEMO",
+        "operation": "SET_CURSOR",
+        "data": {
+          "window": "INFO",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "WINDOW_DEMO",
+        "operation": "WINDOW_WRITE",
+        "data": {
+          "window": "INFO",
+          "bytes": 12
+        }
+      },
+      {
+        "sequence": 9,
+        "program": "WINDOW_DEMO",
+        "operation": "WINDOW_WRITE",
+        "data": {
+          "window": "INFO",
+          "bytes": 9
+        }
+      },
+      {
+        "sequence": 10,
+        "program": "WINDOW_DEMO",
+        "operation": "SET_CURSOR",
+        "data": {
+          "window": "INFO",
+          "row": 3,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 11,
+        "program": "WINDOW_DEMO",
+        "operation": "WINDOW_WRITE",
+        "data": {
+          "window": "INFO",
+          "bytes": 5
+        }
+      },
+      {
+        "sequence": 12,
+        "program": "WINDOW_DEMO",
+        "operation": "WINDOW_CLOSE",
+        "data": {
+          "window": "INFO"
+        }
+      }
+    ],
+    "sequence": 12
+  }
+}

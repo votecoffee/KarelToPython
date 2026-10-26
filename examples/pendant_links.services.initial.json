@@ -1,0 +1,10 @@
+{
+  "pendant": {
+    "rows": 4,
+    "cols": 16,
+    "languages": [
+      "ENGLISH",
+      "SPANISH"
+    ]
+  }
+}
