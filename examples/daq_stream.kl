@@ -1,0 +1,22 @@
+PROGRAM DAQ_BATCH
+VAR
+  value, first, middle, last, flags, available, status: INTEGER
+  reader: FILE
+BEGIN
+  DELETE_FILE('RD:BATCH.BIN',FALSE,status)
+  DAQ_UNREG(2,status)
+  DAQ_REGPIPE(2,DAQ_CMOS,3,'','value','batch.bin',2,status)
+  DAQ_START(2,DAQ_STREAM,'RD:',status)
+  value=10
+  DAQ_WRITE(2,'','value',status)
+  value=20
+  DAQ_WRITE(2,'','value',status)
+  value=30
+  DAQ_WRITE(2,'','value',status)
+  DAQ_STOP(2,TRUE,status)
+  DAQ_UNREG(2,status)
+  DAQ_CHECKP(2,flags,available)
+  OPEN FILE reader('RB','RD:BATCH.BIN')
+  READ reader(first,middle,last)
+  CLOSE FILE reader
+END DAQ_BATCH

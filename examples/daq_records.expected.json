@@ -1,0 +1,11 @@
+{
+  "PACKET": {"SEQ": 2, "MEASURE": 2.5, "LABEL": "two"},
+  "RECEIVED": 1,
+  "BEFORE_READ": 22,
+  "FLAGS": 21,
+  "AVAILABLE": 11,
+  "STATUS": 0,
+  "MEASURED": 1.5,
+  "TEXT": "one",
+  "READER": {"file": "PIP:DEMO.DAT", "open": false, "position": 0, "binary": true, "status": 0}
+}

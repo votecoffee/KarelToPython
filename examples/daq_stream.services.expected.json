@@ -1,0 +1,4 @@
+{
+  "acquisition": {"limit": 16777216, "pipes": []},
+  "files": {"RD:BATCH.BIN": {"hex": "0a000000140000001e000000"}}
+}

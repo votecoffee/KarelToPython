@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.133752. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.140703. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -298,3 +298,7 @@ and explicit namespace guards. Compiled names and native memory pools stay fixed
 CALL_PROG/CALL_PROGLIN support attached cooperative KAREL programs through
 [program calls](program-calls.md). [Logical group ownership](group-locks.md) adds
 explicit LOCK_GROUP/UNLOCK_GROUP banks, partial acquisition and terminal cleanup.
+
+The six DAQ calls follow the [data-acquisition contract](data-acquisition.md):
+bounded typed pipes, binary PIP readers, reference-counted activation, snapshot
+views, ring overflow, synchronous file batches and validated saved state.

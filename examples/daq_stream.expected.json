@@ -1,0 +1,10 @@
+{
+  "VALUE": 30,
+  "FIRST": 10,
+  "MIDDLE": 20,
+  "LAST": 30,
+  "FLAGS": 0,
+  "AVAILABLE": 0,
+  "STATUS": 0,
+  "READER": {"file": "RD:BATCH.BIN", "open": false, "position": 12, "binary": true, "status": 0}
+}

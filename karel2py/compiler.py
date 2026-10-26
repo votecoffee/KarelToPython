@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
                         **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,
-                        **rt.DEVICE_CONSTANTS,
+                        **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
@@ -3779,6 +3779,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['data_acquisition_policy']=dict(
+        procedures=sorted(('DAQ_REGPIPE','DAQ_START','DAQ_STOP','DAQ_UNREG','DAQ_CHECKP','DAQ_WRITE')),constants=dict(rt.DAQ_CONSTANTS),
+        context='Explicit Acquisition with five numbered typed pipes, at most 32767 records per pipe and a shared configured byte limit; fixed portable resource-free schemas and unique PIP filenames',
+        records='Exact type identity, fully initialized scalar/array/record leaves; little-endian BYTE/SHORT/INTEGER/REAL32/BOOLEAN and fixed NUL-padded ASCII strings, field/array order without alignment; no native record layout claim',
+        lifecycle='Reference-counted start/stop and forced stop; active configuration cannot change, unregister requires stopped pipe and closed readers; completion does not stop global pipes',
+        reads='Binary read-only PIP FILE views; independent stream cursors consume complete records after all live readers advance; frozen bounded snapshot views refresh on reopen; host reads require closed FILE readers',
+        overflow='Keep newest complete ring records; lagging stream-reader cursors adjust and receive DAQ_OVFLOW; successful writer roots never observe that flag',
+        streaming='Positive stream_size batches append to explicitly supplied MemoryFiles/DeviceFiles/DirectoryFiles; preflight full batch, retain pending/ring/start count on failure, final stop flushes a partial batch',
+        status='Portable 0 success, 1 missing variable/pipe, 2 invalid configuration, 3 busy/duplicate, 4 schema/data representation, 5 capacity, 6 inactive, 7 sink/backend failure; invalid pipe numbers raise; CHECKP has checked disjoint outputs',
+        persistence='Validated schemas, bounded complete-record hex, lifecycle/memory intent and pending batches; live readers prevent save, and writer identities/handles/cursors are not restored',
+        boundary='Portable modes/memory constants, documented flag bit values and chosen FILE/retention behavior; no native binary/CMOS lifetime, controller acquisition, PC monitors, networking, asynchronous flush or strict equivalence',
+        calls=[row for row in report['service_operations'] if row['operation'].startswith('DAQ_')],
+        guide='docs/data-acquisition.md',controller_validated=False)
     report['program_call_policy']=dict(
         procedures=['CALL_PROG','CALL_PROGLIN'],
         linkage='Explicit attached cooperative KAREL Program objects; project inputs are cooperative automatically; opaque TP records, catalogs, native code and unlinked routines are not executable',

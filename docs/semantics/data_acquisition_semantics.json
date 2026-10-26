@@ -1,0 +1,72 @@
+{
+  "version": "26.1026.140703",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.4.1 DAQ_CHECKP",
+        "A.4.2 DAQ_REGPIPE",
+        "A.4.3 DAQ_START",
+        "A.4.4 DAQ_STOP",
+        "A.4.5 DAQ_UNREG",
+        "A.4.6 DAQ_WRITE"
+      ],
+      "topic": "Pipe registration schema/capacity, status flags, snapshot/stream modes, reference counts, forced stop, typed writes and output batching"
+    }
+  ],
+  "procedures": [
+    "DAQ_CHECKP",
+    "DAQ_REGPIPE",
+    "DAQ_START",
+    "DAQ_STOP",
+    "DAQ_UNREG",
+    "DAQ_WRITE"
+  ],
+  "constants": {
+    "DAQ_DRAM": 0,
+    "DAQ_CMOS": -1,
+    "DAQ_SNAPSHT": 1,
+    "DAQ_STREAM": 2,
+    "DAQ_PIPREG": 1,
+    "DAQ_ACTIVE": 2,
+    "DAQ_CREATD": 4,
+    "DAQ_SNAPSH": 8,
+    "DAQ_1STRD": 16,
+    "DAQ_OVFLOW": 32,
+    "DAQ_FLUSH": 64
+  },
+  "contract": {
+    "guide": "../data-acquisition.md",
+    "context": "Explicit Acquisition; five numbered pipes, 32767 records each, combined reserved byte limit",
+    "records": "Portable little-endian numeric leaves, finite REAL32, fixed NUL-padded ASCII strings, field/array order without alignment; exact concrete resource-free type identity",
+    "registration": "Uninitialized values may supply schema; unique uppercase plain PIP filenames; current executing source program default, including linked calls",
+    "lifecycle": "Reference-counted activation; forced/final stop flushes pending output; inactive/no-reader unregister; state retained across task completion",
+    "readers": "Binary read-only PIP FILEs; stream cursors release complete records after all readers advance; snapshots freeze at OPEN; bounded reader/view bytes; transactional failed READ",
+    "overflow": "Newest complete records retained; lagging open stream-reader flags sticky; successful writer-root overflow flags suppressed",
+    "output": "Synchronous append batches through explicit MemoryFiles, DeviceFiles or rooted DirectoryFiles; preflight and retain bank state on sink failure; no implicit backend or automatic retry",
+    "persistence": "Checked schemas/lifecycle and bounded whole-record hex; pending batches and start counts retained; live readers prevent save; no writer identity/cursor/monitor restoration"
+  },
+  "portable_statuses": {
+    "success": 0,
+    "missing": 1,
+    "options": 2,
+    "busy_duplicate": 3,
+    "schema_data": 4,
+    "capacity": 5,
+    "inactive": 6,
+    "sink_failure": 7
+  },
+  "boundaries": [
+    "No native record layout/status/mode enum equivalence, CMOS lifetime, robot sampling or PC monitor connections",
+    "No asynchronous flush, network transport, text/write PIP access or automatic acquisition",
+    "Snapshot refresh occurs on reopen; source FILE offsets are relative to retained data",
+    "DAQ_FLUSH is not externally observable; strict mode deferred"
+  ],
+  "validation": [
+    "tests/test_acquisition.py",
+    "examples/daq_records.kl",
+    "examples/daq_stream.kl"
+  ]
+}

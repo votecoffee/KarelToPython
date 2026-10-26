@@ -1626,7 +1626,7 @@ def builtin(name, arguments, line=None):
 
 
 def snapshot_value(value):
-    if isinstance(value,FileHandle): return dict(file=value.name,open=value.owner is not None,position=value.position,binary=value.binary,status=value.status)
+    if isinstance(value,FileHandle): return dict(file=value.logical_name or value.name,open=value.owner is not None,position=value.position,binary=value.binary,status=value.status)
     if isinstance(value,PathValue): return dict(nodes=[snapshot_value(node) for node in value.nodes],data=snapshot_value(value.data))
     if isinstance(value,QueueValue): return dict(initialized=value.initialized,entries=[list(pair) for pair in value.entries])
     if isinstance(value, JointPosition): return {'axes': [snapshot_value(x) for x in value.values]}
@@ -2423,6 +2423,8 @@ class State:
         return file_read(self,handle,targets,line,**options)
 
     def file_open(self,handle,mode,name,line=None):
+        if ascii_string(name,line).upper().startswith('PIP:'):
+            return self.execution.require('acquisition',line).open_for(self,handle,mode,name,line)
         self.execution.require('files',line).open(handle,mode,name,line)
 
     def file_close(self,handle,line=None):
@@ -2454,6 +2456,7 @@ from .extended import (ExecutionContext, StringRegisters, PositionRegisters, Por
 from .storage import DirectoryFiles
 from .devices import DeviceFiles,DEVICE_CONSTANTS,DEVICE_INFO
 from .programs import GroupLocks
+from .acquisition import Acquisition,DAQ_CONSTANTS
 from .teach import TeachPrograms,TPE_CONSTANTS
 from .clocks import CalendarClock
 from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING

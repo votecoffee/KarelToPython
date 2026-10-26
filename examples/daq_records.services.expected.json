@@ -1,0 +1,20 @@
+{
+  "acquisition": {
+    "limit": 16777216,
+    "pipes": [{
+      "memory": 0,
+      "capacity": 2,
+      "name": "PIP:DEMO.DAT",
+      "stream_size": 0,
+      "mode": 2,
+      "starts": 0,
+      "created": true,
+      "first_read": true,
+      "stream_dev": "",
+      "number": 1,
+      "schema": ["STRUCTURE", "SAMPLE", [["SEQ", ["INTEGER"]], ["MEASURE", ["REAL"]], ["LABEL", ["STRING", 3]]]],
+      "data": "020000000000204074776f",
+      "pending": ""
+    }]
+  }
+}

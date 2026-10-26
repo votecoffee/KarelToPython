@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 202 have a registered translation and 132 do not.
+Currently, 208 have a registered translation and 126 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -166,7 +166,10 @@ they are boundaries rather than promises to accept every such source form later.
   editing and opaque line deletion without those native behaviors.
 - Controller screens, windows, keyboard interaction, display controls, dictionaries
   and language packs.
-- DAQ pipelines, PC data/event exchange, message/pipe/remote-monitor networking,
+- Native DAQ sampling, timing and monitor integration. The six calls now have
+  an [offline pipe model](data-acquisition.md), with chosen record/view layouts
+  and explicit file streaming. No physical acquisition or native format is implied.
+- PC data/event exchange, message/pipe/remote-monitor networking,
   KCL commands, controller XML services, vision and conveyor/vision tracking.
   These calls have no implicit Python or hardware fallback.
 - The workbench currently validates/translates/reviews/exports. The planned Python
@@ -310,15 +313,6 @@ does not assert a particular installed option or environment.
 - `RMCN_SEND`
 - `SEND_DATAPC`
 - `SEND_EVENTPC`
-
-### Data acquisition (6)
-
-- `DAQ_CHECKP`
-- `DAQ_REGPIPE`
-- `DAQ_START`
-- `DAQ_STOP`
-- `DAQ_UNREG`
-- `DAQ_WRITE`
 
 ### Motion and task management (6)
 

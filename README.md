@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.133752**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.140703**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -282,6 +282,9 @@ CALL_PROG/CALL_PROGLIN run attached KAREL main bodies in the calling task with
 separate cursors and shared module data; see [program calls](docs/program-calls.md).
 LOCK_GROUP/UNLOCK_GROUP use configured logical ownership with contention and
 terminal cleanup; see [group locks](docs/group-locks.md).
+All six DAQ calls use explicit typed acquisition pipes with binary FILE readers,
+snapshot views, overflow tracking and batch output to supplied file backends.
+See [data acquisition](docs/data-acquisition.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

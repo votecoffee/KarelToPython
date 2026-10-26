@@ -19,6 +19,7 @@ def service_snapshot(services):
     observed = {}
     if services.serial_ports is not None: observed['serial_ports']=services.serial_ports.to_config()
     if services.group_locks is not None: observed['group_locks']=services.group_locks.to_config()
+    if services.acquisition is not None: observed['acquisition']=services.acquisition.to_config()
     for kind in ('strings','positions','ports','files','semaphores'):
         service=getattr(services,kind)
         if service is None: continue
@@ -123,7 +124,7 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 145, 'Update the expected example count when adding examples'
+    assert count == 147, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
     assert len(projects)==6, 'Update the expected project count when adding projects'
     for folder in projects:

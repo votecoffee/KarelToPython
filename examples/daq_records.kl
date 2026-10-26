@@ -1,0 +1,31 @@
+PROGRAM DAQ_RECORDS
+TYPE sample=STRUCTURE
+  seq: INTEGER
+  measure: REAL
+  label: STRING[3]
+ENDSTRUCTURE
+VAR
+  packet: sample
+  received, before_read, flags, available, status: INTEGER
+  measured: REAL
+  text: STRING[3]
+  reader: FILE
+BEGIN
+  DAQ_UNREG(1,status)
+  DAQ_REGPIPE(1,DAQ_DRAM,2,'','packet','demo.dat',0,status)
+  DAQ_START(1,DAQ_STREAM,'',status)
+  packet.seq=1
+  packet.measure=1.5
+  packet.label='one'
+  DAQ_WRITE(1,'','packet',status)
+  packet.seq=2
+  packet.measure=2.5
+  packet.label='two'
+  DAQ_WRITE(1,'','packet',status)
+  DAQ_CHECKP(1,flags,before_read)
+  OPEN FILE reader('RB','PIP:DEMO.DAT')
+  READ reader(received,measured,text::3)
+  CLOSE FILE reader
+  DAQ_STOP(1,FALSE,status)
+  DAQ_CHECKP(1,flags,available)
+END DAQ_RECORDS

@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.140703 - 2026-10-26
+
+- Add all six DAQ calls over explicit bounded typed acquisition pipes, with
+  reference-counted start/stop, forced shutdown, status flags and ring overflow.
+- Add binary read-only PIP FILEs, independent consuming stream cursors, frozen
+  snapshot views and complete-record reclamation when lagging readers close.
+- Stream whole batches through explicit memory, virtual-device or rooted disk
+  backends; preserve pipe state on failure and flush partial batches at final stop.
+- Persist validated pipe schemas, lifecycle and pending bytes; reject live-reader
+  saves, retain current module scope and expose logical FILE names in snapshots.
+- Add 40 focused regressions and two authored CLI examples; update guides and
+  audit 208 registered built-in names with 126 still unregistered.
+
 ## 26.1026.133752 - 2026-10-26
 
 - Add CALL_PROG/CALL_PROGLIN for attached cooperative KAREL main bodies, with

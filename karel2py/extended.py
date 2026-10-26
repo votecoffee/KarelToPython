@@ -48,6 +48,9 @@ PROCEDURES = {
     'RUN_TASK': (S,I,B,B,I,OI),
     'CALL_PROG': (S,OI), 'CALL_PROGLIN': (S,I,OI,B),
     'LOCK_GROUP': (I,OI), 'UNLOCK_GROUP': (I,OI),
+    'DAQ_REGPIPE': (I,I,I,S,S,S,I,OI), 'DAQ_START': (I,I,S,OI),
+    'DAQ_STOP': (I,B,OI), 'DAQ_UNREG': (I,OI), 'DAQ_CHECKP': (I,OI,OI),
+    'DAQ_WRITE': (I,S,S,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
     **{name:signature for family in ('REG','PREG','SREG') for name,signature in
        ((f'GET_{family}_CMT',(I,OS,OI)),(f'SET_{family}_CMT',(I,S,OI)))},
@@ -894,6 +897,7 @@ class VariableStore:
 class FileHandle:
     def __init__(self):
         self.name=None; self.position=0; self.mode=''; self.binary=False; self.status=0; self.owner=None
+        self.logical_name=None
         self.xml=False;self.xml_session=None
         self.interactive=False; self.reverse=False; self.field=False; self.eol=10
     def require_open(self,line=None):
@@ -957,6 +961,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
             handle.status=1; raise
         finally: state._read=previous
         handle.position=start+reader.offset
+    if type(handle.owner) is rt.Acquisition:handle.owner.after_read(handle,start,line)
     handle.status=0
 
 
@@ -982,6 +987,7 @@ class MemoryFiles:
         if mode=='R' and name not in self.files: fail('Memory file does not exist',line)
         if mode=='W' or name not in self.files: self.files[name]=bytearray()
         handle.name,handle.mode,handle.owner,handle.binary=name,mode,self,binary
+        handle.logical_name=None
         handle.position=len(self.files[name]) if mode=='A' else 0; handle.status=0
         handle.xml_session=None
         self.handles.append(handle)
@@ -1456,7 +1462,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1485,6 +1491,9 @@ class ExecutionContext:
         from .programs import GroupLocks
         if group_locks is not None and type(group_locks) is not GroupLocks: raise TypeError('group_locks must be GroupLocks or None')
         self.group_locks=group_locks
+        from .acquisition import Acquisition
+        if acquisition is not None and type(acquisition) is not Acquisition: raise TypeError('acquisition must be Acquisition or None')
+        self.acquisition=acquisition
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1505,7 +1514,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1563,6 +1572,9 @@ class ExecutionContext:
         if 'group_locks' in config:
             from .programs import GroupLocks
             services['group_locks']=GroupLocks.from_config(config['group_locks'])
+        if 'acquisition' in config:
+            from .acquisition import Acquisition
+            services['acquisition']=Acquisition.from_config(config['acquisition'])
         if 'variables' in config:
             from .storage import decode_typed,tuple_spec
             variables=VariableStore()
@@ -1602,6 +1614,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('DAQ_REGPIPE','DAQ_START','DAQ_STOP','DAQ_UNREG','DAQ_CHECKP','DAQ_WRITE'):
+            from .acquisition import invoke
+            return invoke(state,name,args,line)
         if name in ('CALL_PROG','CALL_PROGLIN'):
             from .programs import call_program
             return call_program(state,name,args,line)
