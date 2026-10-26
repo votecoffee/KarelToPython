@@ -1,0 +1,11 @@
+PROGRAM INCLUDE_DEMO
+%INCLUDE include_sources/definitions
+VAR
+  values: counts
+  total_value: INTEGER
+%INCLUDE include_sources/routines
+BEGIN
+  values[1]=seed
+  values[2]=4
+%INCLUDE include_sources/body
+END INCLUDE_DEMO

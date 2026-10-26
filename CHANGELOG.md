@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.162834 - 2026-10-26
+
+- Add %INCLUDE expansion for declaration, routine, executable and whole-program
+  fragments, with explicit text libraries, ordered directories and device maps.
+- Support three nested files, case-insensitive relative lookup, cycle detection,
+  bounded snapshots/expansions and source-preserving UTF-8/BOM file reads.
+- Record original/expanded/dependency hashes, compact physical source spans and
+  enriched source maps; remap compiler/lexer errors to included source locations.
+- Protect CLI outputs and project state/trace files from replacing any input or
+  hard-link alias; exclude referenced fragments from linked program entries.
+- Add 41 regressions, one CLI example and one linked project. Keep routine-local
+  TYPE prohibited under documented KAREL rules; built-in counts stay 227/107.
+
 ## 26.1026.155345 - 2026-10-26
 
 - Add TP forms of SAVE/LOAD/CLEAR and PROG_BACKUP/PROG_RESTORE/PROG_CLEAR

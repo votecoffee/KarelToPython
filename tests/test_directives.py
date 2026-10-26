@@ -107,7 +107,7 @@ class DirectiveBoundaryTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(header,**options)
         self.assertEqual(caught.exception.code,code); self.assertEqual(caught.exception.filename,'directives.kl')
     def test_runtime_directives_stay_blocked(self):
-        for item in ('%INCLUDE KDOC','%BOGUS'):
+        for item in ('%BOGUS',):
             with self.subTest(item=item): self.reject(item,'E_DIRECTIVE')
     def test_missing_environment_name(self): self.reject('%ENVIRONMENT','E_DIRECTIVE_SYNTAX')
     def test_paths_extensions_lists_and_assignments_are_blocked(self):

@@ -9,6 +9,7 @@ import sys
 from . import __version__, translate
 from .lexer import TranslationError
 from .fileio import check_output, same_file, write_bytes
+from .includes import IncludeLibrary,device_option
 
 
 def write_new(path, text, force, *, protected=()):
@@ -43,6 +44,8 @@ def main(argv=None):
     parser.add_argument('--cooperative', action='store_true', help='Enable host pause/resume even without source task-control statements')
     parser.add_argument('--array-shape', action='append', type=array_shape_option, default=[], metavar='NAME=DIM[,DIM]',
                         help='Explicit outer dimensions for a global ARRAY containing *; repeated for each variable, embedded during translation')
+    parser.add_argument('-I','--include-dir',type=Path,action='append',default=[],help='Additional include root, searched after the source directory')
+    parser.add_argument('--include-device',type=device_option,action='append',default=[],metavar='DEVICE=DIRECTORY',help='Explicit include device mapping; never discovers controller files')
     args = parser.parse_args(argv)
     print(f'KarelToPython {__version__}', file=sys.stderr)
     array_shapes = {}
@@ -53,6 +56,10 @@ def main(argv=None):
         parser.error('--check cannot be combined with --output')
     if not args.check and args.output is None:
         parser.error('Use --output or --check')
+    devices={}
+    for device,directory in args.include_device:
+        if device in devices:parser.error('Duplicate include device '+device)
+        devices[device]=directory
     paths = [p for p in (args.output, args.report) if p is not None]
     try:
         if any(same_file(path, args.source) for path in paths):
@@ -63,18 +70,21 @@ def main(argv=None):
             check_output(path, overwrite=args.force, protected=(args.source,))
         source_bytes = args.source.read_bytes()
         source = source_bytes.decode('utf-8-sig')
+        library=IncludeLibrary.from_directories([args.source.parent,*args.include_dir],devices=devices)
+        def protected():return (args.source,*library.paths)
         try:
-            result = translate(source, filename=str(args.source), array_shapes=array_shapes, mode=args.mode, cooperative=args.cooperative)
+            result = translate(source, filename=str(args.source), array_shapes=array_shapes, mode=args.mode, cooperative=args.cooperative,includes=library)
         except TranslationError as exc:
             report = dict(status='rejected', translator_version=__version__,
                           source_file_sha256=hashlib.sha256(source_bytes).hexdigest(), diagnostics=[exc.as_dict()],
                           translation_context=dict(mode=args.mode, array_shapes={key: list(shape) for key, shape in sorted(array_shapes.items())}))
-            if args.report: write_new(args.report, json.dumps(report, indent=2) + '\n', args.force, protected=(args.source,))
+            if args.report: write_new(args.report, json.dumps(report, indent=2) + '\n', args.force, protected=protected())
             print(str(exc), file=sys.stderr)
             return 2
+        for path in paths:check_output(path,overwrite=args.force,protected=protected())
         result.report['source_file_sha256'] = hashlib.sha256(source_bytes).hexdigest()
-        if args.output: write_new(args.output, result.python_source, args.force, protected=(args.source,))
-        if args.report: write_new(args.report, json.dumps(result.report, indent=2) + '\n', args.force, protected=(args.source,))
+        if args.output: write_new(args.output, result.python_source, args.force, protected=protected())
+        if args.report: write_new(args.report, json.dumps(result.report, indent=2) + '\n', args.force, protected=protected())
         print(f'{result.report["program"]}: {"validated" if args.check else "translated"}; '
               f'{len(result.report["features"])} feature categories')
         return 0

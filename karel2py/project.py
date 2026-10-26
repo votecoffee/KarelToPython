@@ -3,6 +3,9 @@ from pathlib import Path
 import inspect
 
 from . import __version__, translate, runtime as rt
+from .includes import IncludeLibrary,expand,device_option
+from .lexer import TranslationError
+from .fileio import same_file
 
 
 class LinkedRoutine:
@@ -29,16 +32,19 @@ class LinkedRoutine:
 
 class Project:
     """A set of translated sources. Construction executes no KAREL statements."""
-    def __init__(self,sources,*,array_shapes=None):
+    def __init__(self,sources,*,array_shapes=None,includes=None):
         if not sources: raise ValueError('A project requires at least one KAREL source')
         self.translations={}; self.classes={}
+        library=includes if type(includes) is IncludeLibrary else IncludeLibrary(includes)
         for filename,source in sources.items():
-            translation=translate(source,filename=str(filename),array_shapes=array_shapes,cooperative=True)
+            translation=translate(source,filename=str(filename),array_shapes=array_shapes,cooperative=True,includes=library)
             namespace={'__name__':'karel2py_project'}
             exec(compile(translation.python_source,str(filename)+'.py','exec'),namespace)
             cls=namespace['Program']; name=cls.source_program.upper()
             if name in self.classes: raise ValueError('Duplicate project program: '+name)
             self.translations[name]=translation; self.classes[name]=cls
+
+        self.source_files=tuple(library.paths)
 
     def instantiate(self,*,context=None,options=None):
         return ProjectInstance(self,context=context,options=options)
@@ -95,17 +101,25 @@ class ProjectInstance:
                          for name,program in self.scheduler.tasks.items()}}
 
 
-def translate_project(sources,*,array_shapes=None):
-    return Project(sources,array_shapes=array_shapes)
+def translate_project(sources,*,array_shapes=None,includes=None):
+    return Project(sources,array_shapes=array_shapes,includes=includes)
 
 
-def load_project(directory,*,array_shapes=None):
+def load_project(directory,*,array_shapes=None,include_dirs=(),include_devices=None):
     root=Path(directory).resolve(strict=True)
     if not root.is_dir(): raise ValueError('Project input must be a directory')
     files=sorted(path for path in root.iterdir() if path.suffix.lower()=='.kl')
     if any(path.is_symlink() or not path.is_file() or path.stat().st_size>4*1024*1024 for path in files):
         raise ValueError('Project sources must be regular .kl files of at most 4 MiB')
-    return Project({path.name:path.read_text(encoding='utf-8-sig') for path in files},array_shapes=array_shapes)
+    library=IncludeLibrary.from_directories([root,*include_dirs],devices=include_devices)
+    documents={path:library.read(path,root) for path in files}
+    referenced=set()
+    for path,document in documents.items():
+        expansion=expand(document.text,str(path),library)
+        referenced.update(Path(row['file']) for row in expansion.files)
+    sources={str(path):document.text for path,document in documents.items() if path not in referenced}
+    if not sources:raise ValueError('Project requires a top-level program not included by another source')
+    return Project(sources,array_shapes=array_shapes,includes=library)
 
 
 def main(argv=None):
@@ -119,7 +133,13 @@ def main(argv=None):
     parser.add_argument('--state-out',type=Path)
     parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')
     parser.add_argument('--max-cycles',type=int,default=100000)
+    parser.add_argument('-I','--include-dir',type=Path,action='append',default=[])
+    parser.add_argument('--include-device',type=device_option,action='append',default=[],metavar='DEVICE=DIRECTORY')
     args=parser.parse_args(argv)
+    devices={}
+    for device,directory in args.include_device:
+        if device in devices:parser.error('Duplicate include device '+device)
+        devices[device]=directory
     if args.trace_out:
         if not args.entry: parser.error('--trace-out requires --entry')
         target=args.trace_out.resolve()
@@ -127,7 +147,16 @@ def main(argv=None):
         inputs.extend(path.resolve() for path in (args.context,args.state_out) if path is not None)
         if target in inputs: parser.error('--trace-out must differ from source, context and state paths')
     print(f'KarelToPython {__version__}',file=sys.stderr)
-    project=load_project(args.directory)
+    try:project=load_project(args.directory,include_dirs=args.include_dir,include_devices=devices)
+    except TranslationError as exc:
+        print(str(exc),file=sys.stderr);return 2
+    except (OSError,UnicodeError,ValueError) as exc:
+        print('karel2py.project: '+str(exc),file=sys.stderr);return 1
+    for output in (args.state_out,args.trace_out):
+        if output is not None and any(same_file(output,source) for source in project.source_files):
+            parser.error('State/trace output must differ from all program and included source files, including aliases')
+    if args.trace_out and any(same_file(args.trace_out,path) for path in (args.context,args.state_out) if path is not None):
+        parser.error('--trace-out must differ from context and state paths, including aliases')
     context=rt.ExecutionContext.load(args.context) if args.context else rt.ExecutionContext()
     if args.filesystem_root: context.files=rt.DirectoryFiles(args.filesystem_root)
     instance=project.instantiate(context=context)

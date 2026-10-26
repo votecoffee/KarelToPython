@@ -151,7 +151,8 @@ The seven task directives require placement before declarations and reject
 duplicates. They configure the portable policies in the task attribute guide;
 they do not load native task/group ownership or native scheduler behavior.
 Native persistence/storage, group locks, periodic scheduling, stack allocation
-and actual device routing remain unavailable. INCLUDE and unknown directives
-remain blocked. There is no native environment loading or controller validation.
+and actual device routing remain unavailable. [Source includes](includes.md)
+now expand explicitly supplied text before parsing. Unknown directives stay
+blocked; there is no native environment loading or controller validation.
 Strict mode remains a future milestone and retains its previous internal directive
 restrictions.

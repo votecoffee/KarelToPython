@@ -1,0 +1,2 @@
+%INCLUDE constants
+TYPE counts=ARRAY[2] OF INTEGER

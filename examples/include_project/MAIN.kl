@@ -1,0 +1,9 @@
+PROGRAM MAIN
+%INCLUDE shared/types
+%INCLUDE globals
+ROUTINE total(data:pair):INTEGER FROM LIB
+BEGIN
+  point.left=7
+  point.right=5
+  answer=total(point)
+END MAIN

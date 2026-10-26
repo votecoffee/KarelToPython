@@ -17,12 +17,14 @@ they are boundaries rather than promises to accept every such source form later.
 
 ## Language and source forms
 
-- `%INCLUDE` and unknown directives. The four original metadata directives,
+- Unknown directives and binary environments. %INCLUDE now expands
+  [explicitly supplied source fragments](includes.md), with three nested files,
+  selected directory/device lookup and original-file diagnostics. The four original metadata directives,
   seven [task policies](task-attributes.md) and nine additional
   [source policies](source-directives.md#additional-source-policies) are accepted.
   DEFGROUP selects offline defaults and CRTDEVICE labels I/O requests; native
   storage, group locks, periodic delay, stack allocation and real device routing
-  are not applied. Include expansion and binary environments remain unavailable.
+  are not applied. Include search does not discover native support installations.
 - Native motion statements: `MOVE TO`, `MOVE NEAR`, `MOVE AWAY`, `MOVE ABOUT`,
   `MOVE ALONG`, `MOVE AXIS`, `MOVE RELATIVE`; their `VIA`, motion `WITH`, `WHEN`
   and `UNTIL` clauses; motion ownership and hand control. `ATTACH`, `RELEASE`,
@@ -35,8 +37,9 @@ they are boundaries rather than promises to accept every such source form later.
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,
   asynchronous native interrupts and motion-local handlers are unavailable.
-- Arbitrary `GOTO` entry into nested blocks or across FOR scopes; local TYPE
-  sections, external FROM types and forward/self/cyclic type aliases.
+- Arbitrary `GOTO` entry into nested blocks or across FOR scopes; external FROM
+  types and forward/self/cyclic type aliases. Routine-local TYPE declarations
+  remain prohibited by the KAREL language, rather than a planned extension.
 - `USING` selectors containing indexes, calls or grouping; builtin-record USING,
   field FOR counters and dynamic caller scope. SELECT is INTEGER-only; a miss
   without ELSE fails. Recursion is bounded at 64 calls.

@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {}},
+  "MAIN": {"state": "completed", "values": {"POINT": {"LEFT": 7, "RIGHT": 5}, "ANSWER": 12}}
+}

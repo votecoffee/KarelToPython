@@ -1,0 +1,4 @@
+ROUTINE total(data:counts):INTEGER
+BEGIN
+  RETURN data[1]+data[2]
+END total

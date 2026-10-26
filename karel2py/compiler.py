@@ -3636,15 +3636,20 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
     ))
 
 
-def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic', cooperative=False):
+def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic', cooperative=False, includes=None):
     """Translate using the public Pythonic contract; strict is a future milestone."""
     if type(mode) is not str or mode != 'pythonic':
         message = ('Strict mode is a future milestone; use mode="pythonic"'
                    if mode == 'strict' else 'Supported translation mode: pythonic')
         raise TranslationError('E_MODE', message, Token('NAME', '', 1, 1), filename)
     if type(cooperative) is not bool: raise ValueError('cooperative must be BOOLEAN')
-    with rt._numeric_scope(mode):
-        result = _translate(source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative)
+    from .includes import expand
+    expansion=expand(source,filename,includes)
+    try:
+        with rt._numeric_scope(mode):
+            result = _translate(expansion.source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative)
+    except TranslationError as exc:
+        raise expansion.remap(exc) from exc
     report = result.report
     report['service_policy'] = dict(
         procedures=sorted(ex.PROCEDURES), functions=sorted(ex.FUNCTIONS), ports=dict(ex.PORT_TYPES),
@@ -4430,4 +4435,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     for key in ('vector_routine_policy','structure_routine_policy','positional_routine_policy','array_routine_policy'):
         report[key]['boundary'] = report[key]['boundary'].replace('external routines or ', '').replace('external routines, ', '')
     report['limitations'].append('New services follow explicit offline context and cooperative policies; binary file layout, task scheduling, handler timing, MIRROR orientation and external axes use documented portable conventions')
+    report['include_policy']=dict(
+        directive='%INCLUDE',lookup='Explicit text mapping or selected file roots/device mappings; .KL default, case-insensitive relative names, including-directory lookup before ordered roots',
+        expansion='Full source fragments at declaration, routine or executable positions; three nested files, cycle detection, no token fusion across file boundaries',
+        limits='At most 256 include expansions, 4 MiB per include, 8 MiB expanded source and 100000 physical lines; source library snapshots are immutable text',
+        provenance='Main and expanded hashes, included text/file hashes, expansion records and compact physical source spans; diagnostics remap to original file/line, source_map retains flattened runtime lines plus physical origins',
+        files='UTF-8/BOM decoding and case-insensitive component lookup in selected roots only; no traversal, symlink/junction following, device discovery or host environment search; CLI outputs protect all resolved input aliases',
+        boundaries='No binary environments, macro substitution, native search/install discovery or continuation through directives; local TYPE remains prohibited by the KAREL language',
+        guide='docs/includes.md',controller_validated=False)
+    expansion.annotate(report)
+    if expansion.events:
+        report['expanded_source_sha256']=report['source_sha256']
+        report['source_sha256']=hashlib.sha256(source.encode('utf-8')).hexdigest()
+        report['features']=sorted(set(report['features'])|{'source %INCLUDE expansion'})
+        report['translation_context']['includes']=expansion.files
+        report['translation_context_sha256']=hashlib.sha256(json.dumps(report['translation_context'],sort_keys=True,separators=(',',':')).encode('ascii')).hexdigest()
     return result

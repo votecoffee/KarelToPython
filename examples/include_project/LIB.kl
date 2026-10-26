@@ -1,0 +1,8 @@
+PROGRAM LIB
+%INCLUDE shared/types
+ROUTINE total(data:pair):INTEGER
+BEGIN
+  RETURN data.left+data.right
+END total
+BEGIN
+END LIB

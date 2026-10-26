@@ -1,0 +1,50 @@
+{
+  "version": "26.1026.162834",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.8.3 %INCLUDE",
+        "5.1.4 Scope of Variables"
+      ],
+      "topic": "Include text insertion, default KL type, standalone directives, three nested files and prohibition of routine-local TYPE declarations"
+    }
+  ],
+  "directives": [
+    "%INCLUDE"
+  ],
+  "contract": {
+    "guide": "../includes.md",
+    "sources": "Explicit captured text mappings or selected directories/device mappings; no callbacks, native support/install or environment discovery",
+    "resolution": "Case-insensitive relative names with KL default, KH/INC extensions, including-directory before ordered roots; mapped devices and isolated root paths",
+    "expansion": "Declarations, routines, executable or full program text; repeated includes repeat, cycle-safe depth-three expansion with no token fusion",
+    "provenance": "Primary/expanded/text/raw-file hashes, resolved dependency fingerprint, expansion records, compact physical spans and enriched generated source maps",
+    "diagnostics": "Compiler/lexer errors remap to original file/line/column; runtime and other report lines retain expanded numbers with physical mapping available",
+    "publication": "Single-source output/report and linked-project state/trace aliases cannot replace resolved inputs; preflight both outputs before publishing either",
+    "projects": "Shared include provider, captured source files and exclusion of referenced top-level fragments from program entries"
+  },
+  "limits": {
+    "max_depth": 3,
+    "max_expansions": 256,
+    "max_library_entries": 256,
+    "max_file_bytes": 4194304,
+    "max_expanded_bytes": 8388608,
+    "max_physical_lines": 100000,
+    "max_file_cache_bytes": 67108864,
+    "max_roots": 32,
+    "max_devices": 32
+  },
+  "boundaries": [
+    "No native search/install discovery, binary environments, macros, traversal or included symlink/junction following",
+    "No cross-directive continuation, source token fusion or routine-local TYPE extension",
+    "Workbench text validation has no include-root editor; use CLI/API configuration",
+    "Original runtime file names are supplied through report mapping rather than automatic runtime source access; no controller equivalence claim"
+  ],
+  "validation": [
+    "tests/test_includes.py",
+    "examples/include_expansion.kl",
+    "examples/include_project/MAIN.kl"
+  ]
+}

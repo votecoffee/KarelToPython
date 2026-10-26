@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from karel2py import translate,load_project
 from karel2py.lexer import TranslationError
+from karel2py.includes import IncludeLibrary
 from karel2py.runtime import KarelAbort, TextInput, NumericRegisters, ExecutionContext, snapshot_value, DeviceFiles
 
 
@@ -47,6 +48,7 @@ def run_example(source, *, inject_write=False):
     fixture = source.parent
     context_file = fixture / f'{name}.translation_context.json'
     translation_context = read_json(context_file) if context_file.exists() else {}
+    translation_context.setdefault('includes',IncludeLibrary.from_directories([source.parent]))
     result = translate(source.read_text(encoding='utf-8'),
                        filename=source.relative_to(ROOT).as_posix(), **translation_context)
     namespace = {'__name__': 'checked_example'}
@@ -128,9 +130,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 155, 'Update the expected example count when adding examples'
+    assert count == 156, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==6, 'Update the expected project count when adding projects'
+    assert len(projects)==7, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None

@@ -1,0 +1,4 @@
+TYPE pair=STRUCTURE
+  left: INTEGER
+  right: INTEGER
+ENDSTRUCTURE

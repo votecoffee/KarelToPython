@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.155345**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.162834**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -265,6 +265,10 @@ Nine additional source policies cover an applied DEFGROUP default, CRTDEVICE
 request labels, uninitialized defaults and retained storage/lock/stack/delay
 intent. They are exposed through `Program.source_settings`; see
 [source directive policies](docs/source-directives.md#additional-source-policies).
+%INCLUDE expands supplied declaration/routine/body fragments, with nested
+lookup, explicit include directories/device mappings, physical-source diagnostics
+and input-file protection across CLI and linked projects. See
+[source includes](docs/includes.md).
 PATH helpers include portable NODE_SIZE and supplied view-line/plane intersections
 with staged append behavior; see [PATH geometry](docs/path-geometry.md).
 Five XML input calls provide registered-tag scanning, chunked text/attributes
@@ -556,8 +560,11 @@ maintained alongside example sources.
 ## API
 
 The main entry point is
-`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False)`.
-`translate_project(sources)` and `load_project(directory)` add typed project linkage. It returns a
+`translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False, includes=None)`.
+`translate_project(sources, *, array_shapes=None, includes=None)` adds typed project
+linkage. `load_project(directory, *, array_shapes=None, include_dirs=(),
+include_devices=None)` loads linked files with selected include roots/device maps.
+See [include configuration](docs/includes.md). Translation returns a
 translation containing `python_source` and `report`, or raises
 `karel2py.lexer.TranslationError`. See [docs/api.md](docs/api.md).
 

@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.155345. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.162834. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -13,7 +13,7 @@ internally and in the historical semantic notes.
 
 | Area | Supported subset | Limits |
 | --- | --- | --- |
-| Source | Case-insensitive ASCII identifiers, comments, four metadata directives, seven task policies and nine additional source policies, bounded complete-token continuations, doubled apostrophes | DEFGROUP selects offline defaults, CRTDEVICE labels requests; other new storage/lock/stack/delay intent is metadata. Includes, unknown directives, token fusion and multiline literals remain blocked. |
+| Source | Case-insensitive ASCII identifiers, comments, four metadata directives, seven task policies and nine additional source policies, explicit nested %INCLUDE expansion, bounded complete-token continuations, doubled apostrophes | DEFGROUP selects offline defaults, CRTDEVICE labels requests; other new storage/lock/stack/delay intent is metadata. Unknown directives, token fusion and multiline literals remain blocked; include sources require explicit mappings or selected roots. |
 | Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR calls must protect active counters through transitive write checks; read-only counter references allowed; initialized counters clear on all scope exits. Formal/nonlocal counters in parameterized routines require fresh locals. SELECT uses first matching case and errors without a match/ELSE. |
 | Labels | Restricted labels and unconditional GOTO | Jumps within the same block or to an ancestor; no arbitrary entry into nested control blocks. |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; existing FOR rules; typed FROM project/callback linkage; no native external ABI or local TYPE sections. |
