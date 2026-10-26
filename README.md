@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.151124**. It is a
+tool are named **karel2py**. The current implementation is **26.1026.153257**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -291,6 +291,10 @@ payload modes. See [PC data and events](docs/pc-exchange.md).
 MSG_CONNECT/MSG_DISCO/MSG_PING use configured offline socket buffers and host
 results; PIPE_CONFIG provides circular PIP FILE histories. Both support ordinary
 FILE I/O and saved state; see [communications](docs/communications.md).
+RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH provide bounded offline mobile-message
+outboxes and deferred ZDT attachment selection, with validated XML publication,
+MD retention, explicit host collection and saved-state replay. See
+[mobile messages and attachments](docs/remote-messages.md).
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

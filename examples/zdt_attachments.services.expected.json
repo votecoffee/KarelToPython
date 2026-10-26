@@ -1,0 +1,25 @@
+{
+  "remote_messages": {
+    "capacity": 8,
+    "limit": 4194304,
+    "message_types": [
+      "ALARM_MSG_P"
+    ],
+    "defaults": {
+      "address": "",
+      "subject": "iRConnect Alert",
+      "url": ""
+    },
+    "sequence": 0,
+    "pending": {
+      "ALARM_MSG_P": {
+        "attachments": [
+          "TD:batch.bin",
+          "MD:latest.dg"
+        ],
+        "priority": 1
+      }
+    },
+    "messages": []
+  }
+}

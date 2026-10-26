@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.153257 - 2026-10-26
+
+- Add RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH over a bounded offline message
+  outbox with explicit defaults, type catalog, priorities and deferred files.
+- Validate XML and publication limits before deleting the source XML; preflight
+  whole attachment collections, retain current MD files and preserve failures.
+- Support exact in-memory/device file backends with busy/access/quota accounting;
+  provide detached host collection and explicit opaque ZDT publication.
+- Persist checked alerts, XML/opaque bytes, pending selections and monotonic
+  sequences; keep SET_VAR behavior and source/counter/reference checks explicit.
+- Add 40 regressions and two authored CLI examples; update guides and audit
+  221 registered built-in names with 113 still unregistered.
+
 ## 26.1026.151124 - 2026-10-26
 
 - Add MSG_CONNECT/MSG_DISCO/MSG_PING over configured offline endpoints, with

@@ -1,0 +1,9 @@
+PROGRAM ZDT_ATTACHMENTS
+VAR
+  paths: ARRAY[2] OF STRING[40]
+  status: INTEGER
+BEGIN
+  paths[1]='TD:batch.bin'
+  paths[2]='MD:latest.dg'
+  QUEUE_ATTACH('ALARM_MSG_P',paths,1,status)
+END ZDT_ATTACHMENTS

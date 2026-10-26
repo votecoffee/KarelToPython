@@ -56,6 +56,8 @@ PROCEDURES = {
     'ADD_STRINGPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,OI),
     'ADD_BYNAMEPC': (arg('BYTE_ARRAY','r'),arg('INTEGER','r'),S,S,OI),
     'SEND_DATAPC': (I,arg('PC_BUFFER'),OI), 'SEND_EVENTPC': (I,OI),
+    'QUEUE_ATTACH': (S,arg('STRING_ARRAY'),I,OI),
+    'RMCN_ALERT': (S,S,S,S,OI), 'RMCN_SEND': (S,arg('STRING_ARRAY'),I,OI),
     'MSG_CONNECT': (S,OI), 'MSG_DISCO': (S,OI), 'MSG_PING': (S,OI),
     'PIPE_CONFIG': (S,B,I,I,S,I,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
@@ -1474,7 +1476,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1509,6 +1511,9 @@ class ExecutionContext:
         from .pc_exchange import PcExchange
         if pc_exchange is not None and type(pc_exchange) is not PcExchange:raise TypeError('pc_exchange must be PcExchange or None')
         self.pc_exchange=pc_exchange
+        from .remote_messages import RemoteMessages
+        if remote_messages is not None and type(remote_messages) is not RemoteMessages:raise TypeError('remote_messages must be RemoteMessages or None')
+        self.remote_messages=remote_messages
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1535,7 +1540,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1596,6 +1601,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'remote_messages' in config:
+            from .remote_messages import RemoteMessages
+            services['remote_messages']=RemoteMessages.from_config(config['remote_messages'])
         if 'pc_exchange' in config:
             from .pc_exchange import PcExchange
             services['pc_exchange']=PcExchange.from_config(config['pc_exchange'])
@@ -1642,6 +1650,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('QUEUE_ATTACH','RMCN_ALERT','RMCN_SEND'):
+            from .remote_messages import invoke
+            return invoke(state,name,args,line)
         if name in ('MSG_CONNECT','MSG_DISCO','MSG_PING','PIPE_CONFIG'):
             from .communications import invoke
             return invoke(state,name,args,line)

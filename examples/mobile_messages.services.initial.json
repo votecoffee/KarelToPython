@@ -1,0 +1,17 @@
+{
+  "remote_messages": {
+    "capacity": 8,
+    "defaults": {
+      "address": "operator@example.invalid",
+      "subject": "iRConnect Alert",
+      "url": "offline://messages"
+    }
+  },
+  "files": {
+    "TD:note.xml": "<message><value>7</value></message>",
+    "TD:batch.bin": {
+      "hex": "00ff17"
+    },
+    "MD:latest.dg": "latest"
+  }
+}

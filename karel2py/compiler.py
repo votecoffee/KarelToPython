@@ -3779,6 +3779,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['remote_message_policy']=dict(
+        procedures=['QUEUE_ATTACH','RMCN_ALERT','RMCN_SEND'],
+        context='Explicit bounded RemoteMessages outbox, up to 32 supplied ZDT type names, alert defaults and a shared encoded-content byte budget',
+        alerts='Blank address/subject/url use explicit defaults; default subject iRConnect Alert; unresolved address/url remain empty offline data',
+        xml='RMCN_SEND validates bounded UTF-8 XML without DTD/entities, queues its bytes and deletes the XML file only after publication preflight; schema is opaque',
+        attachments='One-dimensional STRING ARRAY of 1..32 entries, empty-string sentinel means none; names captured at queue time, contents deferred until explicit host collect; MD attachments retained with current contents',
+        zdt='QUEUE_ATTACH replaces the explicit type selection/priority; host publish snapshots it with opaque bytes; SET_VAR does not implicitly send or infer native ZDT structures',
+        files='Exact MemoryFiles/DeviceFiles only, relative names, busy/mount/read-only guards; collect preflights all attachments and bounded output before any deletion or queue removal',
+        status='Portable 0 queued/selected, 1 missing file/type, 2 invalid values, 3 busy FILE, 4 backend/XML/access/data, 5 capacity/sequence; ordinary type/initialization/protection errors can raise first',
+        persistence='Validated defaults, type names, pending selections, increasing sequences and alert/XML/opaque payloads round-trip; no automatic consumer, transport or delivery acknowledgement',
+        boundary='No email/SMS/mobile/ZDT connection, native message schema/SET_VAR trigger, filesystem deletion, scheduled priority dispatch or native status parity; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('QUEUE_ATTACH','RMCN_ALERT','RMCN_SEND')],
+        guide='docs/remote-messages.md',controller_validated=False)
     report['socket_messaging_policy']=dict(
         procedures=['MSG_CONNECT','MSG_DISCO','MSG_PING'],device_forms=['MOUNT_DEV','DISMOUNT_DEV'],
         context='Explicit Messaging with at most sixteen C1:..C8:/S1:..S8: endpoints and supplied host-result table; combined RX/TX byte limit; no socket, DNS, operating-system ping or transport callback',

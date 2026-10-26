@@ -1,0 +1,8 @@
+{
+  "remote_messages": {
+    "capacity": 8,
+    "message_types": [
+      "ALARM_MSG_P"
+    ]
+  }
+}

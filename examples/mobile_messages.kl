@@ -1,0 +1,19 @@
+PROGRAM MOBILE_MESSAGES
+VAR
+  paths: ARRAY[2] OF STRING[40]
+  status: INTEGER
+  alert_queued, xml_queued: BOOLEAN
+BEGIN
+  IF UNINIT(alert_queued) THEN alert_queued=FALSE ENDIF
+  IF UNINIT(xml_queued) THEN xml_queued=FALSE ENDIF
+  paths[1]='TD:batch.bin'
+  paths[2]='MD:latest.dg'
+  IF NOT alert_queued THEN
+    RMCN_ALERT('','','Batch ready','',status)
+    IF status=0 THEN alert_queued=TRUE ENDIF
+  ENDIF
+  IF NOT xml_queued THEN
+    RMCN_SEND('TD:note.xml',paths,1,status)
+    IF status=0 THEN xml_queued=TRUE ENDIF
+  ENDIF
+END MOBILE_MESSAGES

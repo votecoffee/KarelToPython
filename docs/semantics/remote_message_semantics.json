@@ -1,0 +1,65 @@
+{
+  "version": "26.1026.153257",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "A.18.26 RMCN_ALERT",
+        "A.18.27 RMCN_SEND"
+      ],
+      "topic": "Alert defaults and XML queue/deferred attachment lifecycle"
+    },
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.16.1 QUEUE_ATTACH"
+      ],
+      "topic": "Predefined message types, priority and deferred attachment/MD behavior"
+    }
+  ],
+  "procedures": [
+    "QUEUE_ATTACH",
+    "RMCN_ALERT",
+    "RMCN_SEND"
+  ],
+  "contract": {
+    "guide": "../remote-messages.md",
+    "alerts": "Explicit defaults and local outbox, blank default address/URL preserved as data",
+    "xml": "Bounded UTF-8 well-formed XML without DTD/entities; source deleted only after access/publication preflight; native schema opaque",
+    "attachments": "Capture paths now, read current bytes only on host collection; preflight full batch, delete ordinary files, retain MD",
+    "zdt": "Explicit types and replaceable selections; host publish snapshots attachments with opaque bytes; no implicit SET_VAR trigger",
+    "backends": "Exact MemoryFiles and DeviceFiles only; busy, mount and read-only checks; preserve device garbage accounting",
+    "limits": "Shared compact JSON content budget and bounded collection result; priority metadata only; monotonic bounded sequences",
+    "persistence": "Checked schemas, defaults, types, pending selections and all three outbox kinds; detached snapshots and explicit collection"
+  },
+  "limits": {
+    "max_messages": 32767,
+    "max_types": 32,
+    "max_attachments": 32,
+    "max_text_length": 254,
+    "max_type_length": 64,
+    "max_bank_bytes": 67108864,
+    "max_xml_depth": 64,
+    "max_xml_elements": 4096
+  },
+  "portable_statuses": {
+    "success": 0,
+    "missing": 1,
+    "invalid": 2,
+    "busy": 3,
+    "backend_xml_access": 4,
+    "capacity_sequence": 5
+  },
+  "boundaries": [
+    "No network, email, SMS, mobile application, native ZDT schema/trigger or controller access",
+    "No DirectoryFiles/custom file callback deletion, scheduled dispatch, transport acknowledgement or crash journal",
+    "No native status/timing equivalence; strict mode deferred"
+  ],
+  "validation": [
+    "tests/test_remote_messages.py",
+    "examples/mobile_messages.kl",
+    "examples/zdt_attachments.kl"
+  ]
+}

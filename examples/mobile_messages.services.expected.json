@@ -1,0 +1,43 @@
+{
+  "remote_messages": {
+    "capacity": 8,
+    "limit": 4194304,
+    "message_types": [],
+    "defaults": {
+      "address": "operator@example.invalid",
+      "subject": "iRConnect Alert",
+      "url": "offline://messages"
+    },
+    "sequence": 2,
+    "pending": {},
+    "messages": [
+      {
+        "sequence": 1,
+        "kind": "alert",
+        "address": "operator@example.invalid",
+        "subject": "iRConnect Alert",
+        "message": "Batch ready",
+        "url": "offline://messages"
+      },
+      {
+        "sequence": 2,
+        "kind": "xml",
+        "xml_file": "TD:note.xml",
+        "data": "3c6d6573736167653e3c76616c75653e373c2f76616c75653e3c2f6d6573736167653e",
+        "attachments": [
+          "TD:batch.bin",
+          "MD:latest.dg"
+        ],
+        "priority": 1
+      }
+    ]
+  },
+  "files": {
+    "TD:batch.bin": {
+      "hex": "00ff17"
+    },
+    "MD:latest.dg": {
+      "hex": "6c6174657374"
+    }
+  }
+}

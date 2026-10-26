@@ -1,0 +1,9 @@
+{
+  "PATHS": [
+    "TD:batch.bin",
+    "MD:latest.dg"
+  ],
+  "STATUS": 0,
+  "ALERT_QUEUED": true,
+  "XML_QUEUED": true
+}

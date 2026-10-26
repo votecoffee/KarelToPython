@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 218 have a registered translation and 116 do not.
+Currently, 221 have a registered translation and 113 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -103,8 +103,9 @@ they are boundaries rather than promises to accept every such source form later.
   FILE_LIST supports name format 0.
 - Physical PATH node byte sizes, native association records and native message
   attachments. NODE_SIZE uses [portable packed schema widths](path-geometry.md).
-  QUEUE_ATTACH is a separate message-attachment API; QUEUE_TYPE uses a fixed INTEGER buffer,
-  FIFO entries and portable sequence/status conventions.
+  QUEUE_ATTACH has a separate [offline message-attachment model](remote-messages.md);
+  QUEUE_TYPE uses a fixed INTEGER buffer, FIFO entries and portable
+  sequence/status conventions.
 - Persisting live file handles, callbacks, connected clocks, queue buffer
   references, Python closures, generator/call stacks or suspended task execution.
   JSON stores values and logical collection state; it is not a task checkpoint.
@@ -175,8 +176,10 @@ they are boundaries rather than promises to accept every such source form later.
 - Native socket connections, DNS/ping, pipe waits and formatted dictionaries.
   MSG_CONNECT/MSG_DISCO/MSG_PING and PIPE_CONFIG now have
   [offline FILE models](communications.md); plain and DAQ pipe names stay distinct.
-- QUEUE_ATTACH and remote-monitor networking,
-  KCL commands, controller XML services, vision and conveyor/vision tracking.
+- Native mobile/ZDT delivery, message schemas and automatic SET_VAR triggers.
+  RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH now have [offline outboxes and deferred
+  attachments](remote-messages.md), with explicit host publication/collection.
+- KCL commands, controller XML services, vision and conveyor/vision tracking.
   These calls have no implicit Python or hardware fallback.
 - The workbench currently validates/translates/reviews/exports. The planned Python
   runner, input-parameter editor, read-before-write discovery and combined
@@ -303,12 +306,6 @@ does not assert a particular installed option or environment.
 - `SET_LANG`
 - `WRITE_DICT`
 - `WRITE_DICT_V`
-
-### Communications and PC exchange (3)
-
-- `QUEUE_ATTACH`
-- `RMCN_ALERT`
-- `RMCN_SEND`
 
 ### Motion and task management (6)
 

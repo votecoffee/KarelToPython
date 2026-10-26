@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.151124. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.153257. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -310,3 +310,8 @@ outboxes. Custom payloads use the explicit raw packet mode; no transport is open
 [Offline communications](communications.md) covers MSG_CONNECT/MSG_DISCO/MSG_PING,
 socket-tag mount forms and PIPE_CONFIG, with scripted duplex FILE buffers,
 circular plain PIP histories, distinct DAQ names and bounded saved state.
+
+[Mobile-message calls](remote-messages.md) cover RMCN_ALERT/RMCN_SEND and
+QUEUE_ATTACH with explicit alert defaults, bounded XML outboxes, deferred
+attachment collection, MD retention and supplied ZDT types. SET_VAR has no
+implicit send trigger; no native delivery or host-filesystem deletion occurs.

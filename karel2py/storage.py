@@ -417,6 +417,7 @@ def context_config(context):
     if context.events is not None: result['events']=context.events.snapshot()
     if context.group_locks is not None: result['group_locks']=context.group_locks.to_config()
     if context.acquisition is not None: result['acquisition']=context.acquisition.to_config()
+    if context.remote_messages is not None: result['remote_messages']=context.remote_messages.to_config()
     if context.pc_exchange is not None: result['pc_exchange']=context.pc_exchange.to_config()
     if context.messaging is not None: result['messaging']=context.messaging.to_config()
     if context.file_pipes is not None: result['file_pipes']=context.file_pipes.to_config()
