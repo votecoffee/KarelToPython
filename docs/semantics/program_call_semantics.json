@@ -1,0 +1,40 @@
+{
+  "version": "26.1026.133752",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../program-calls.md",
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.3.1 CALL_PROG",
+        "A.3.2 CALL_PROGLIN"
+      ],
+      "topic": "Dynamic program selection, current-task execution, entry index, KAREL start behavior and pause entry"
+    }
+  ],
+  "procedures": [
+    "CALL_PROG",
+    "CALL_PROGLIN"
+  ],
+  "contract": {
+    "targets": "Explicitly attached cooperative KAREL Program objects; projects use cooperative generation",
+    "frames": "Independent cursors/stacks over shared module globals and imported references; target registered tasks/generators retained",
+    "scope": "Calling-root budget, lifecycle, observations, parameters, default groups and ownership; nested program inspection and traces",
+    "lines": "All nonnegative KAREL line hints start at the beginning; no TP execution",
+    "cache": "Exact writable INTEGER, initialized after target validation; stable context-local hints, not saved",
+    "control": "Entry/body pauses retain nested cursors; root stop/abort/error unwinds frames and terminal resources",
+    "call_depth_limit": 64,
+    "persistence": "Global values only; attach source again; no executable links, suspended frames or cache IDs"
+  },
+  "boundaries": [
+    "Noncooperative targets require cooperative regeneration",
+    "No compiled PC/TP execution, native stack ABI, motion or implicit discovery",
+    "Strict mode deferred"
+  ],
+  "validation": [
+    "tests/test_program_calls.py",
+    "examples/program_recursion.kl",
+    "examples/program_calls_project/main.kl"
+  ]
+}

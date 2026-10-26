@@ -1,0 +1,47 @@
+{
+  "version": "26.1026.133752",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../group-locks.md",
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        454,
+        455,
+        569,
+        570
+      ],
+      "topic": "Group bit masks, partial lock acquisition, busy unlock codes and automatic terminal unlock"
+    }
+  ],
+  "procedures": [
+    "LOCK_GROUP",
+    "UNLOCK_GROUP"
+  ],
+  "contract": {
+    "context": "Explicit groups in 1..31; optional supplied idle/executing/stopped labels",
+    "masks": "Bit n-1 selects group n; zero no-op; invalid/unconfigured mask fails before mutation",
+    "owners": "Stable calling-root object identity across calls and task renames; reentrant locks are idempotent",
+    "partial": "Lock acquires available groups; unlock releases eligible owned groups; first blocked group in ascending order supplies status",
+    "lifecycle": "Pause and nested returns retain; root completion/stop/abort/failure releases all owned groups",
+    "persistence": "Groups/motion labels only; live ownership prevents context save; no tasks or native locks restored"
+  },
+  "statuses": {
+    "success": 0,
+    "invalid_mask": 1,
+    "foreign_owner": 2,
+    "executing_label": 17039,
+    "stopped_label": 17040
+  },
+  "boundaries": [
+    "No native robot/servo locks, motion effects, lock waits or automatic directive acquisition",
+    "Supplied motion labels do not execute or observe motion",
+    "Strict mode deferred"
+  ],
+  "validation": [
+    "tests/test_program_calls.py",
+    "examples/group_locks.kl",
+    "examples/program_calls_project/main.kl"
+  ]
+}

@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR
+  call_index, count, status: INTEGER
+BEGIN
+  LOCK_GROUP(1,status)
+  CALL_PROG('WORKER',call_index)
+  CALL_PROGLIN('WORKER',300,call_index,FALSE)
+  GET_VAR(call_index,'WORKER','COUNT',count,status)
+  UNLOCK_GROUP(1,status)
+END MAIN

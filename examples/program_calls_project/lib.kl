@@ -1,0 +1,11 @@
+PROGRAM LIB
+VAR
+  visits: INTEGER
+ROUTINE bump(value: INTEGER)
+BEGIN
+  IF UNINIT(visits) THEN visits=0 ENDIF
+  visits=visits+1
+  value=value+1
+END bump
+BEGIN
+END LIB

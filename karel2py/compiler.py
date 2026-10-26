@@ -3779,6 +3779,26 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
         boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
+    report['program_call_policy']=dict(
+        procedures=['CALL_PROG','CALL_PROGLIN'],
+        linkage='Explicit attached cooperative KAREL Program objects; project inputs are cooperative automatically; opaque TP records, catalogs, native code and unlinked routines are not executable',
+        execution='Run a fresh invocation cursor/locals over the called module globals, including imported aliases; retain its registered task/generator; share caller-root budgets, lifecycle, services, observations and group ownership',
+        control='CALL_PROGLIN accepts nonnegative line hints but KAREL always starts at the beginning; pause-on-entry and body pauses retain the complete nested generator; root stop/abort/error closes frames and owned resources',
+        cache='Exact writable INTEGER prog_index output, no initialization required; stable context-local per-program hints; cache and executable links excluded from JSON',
+        guards='Combined program/routine depth capped at 64; indirect FOR/effect guards; true calling-root scope for BYNAME, TP arguments and group defaults; active program/routine inspection and traces include nested calls',
+        boundary='No TP instruction execution, arbitrary KAREL start lines, controller program tables/stack layout, native motion or implicit discovery; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('CALL_PROG','CALL_PROGLIN')],
+        guide='docs/program-calls.md',controller_validated=False)
+    report['group_lock_policy']=dict(
+        procedures=['LOCK_GROUP','UNLOCK_GROUP'],
+        context='Explicit GroupLocks with distinct configured groups in 1..31 and optional idle/executing/stopped motion labels; bit n-1 selects group n, zero is a no-op; no source directive or robot-context inference',
+        ownership='Stable calling root identity, including nested programs, linked routines and task renames; repeated locks are idempotent; contention partially acquires available selected groups',
+        release='Unlock releases owned idle groups while preserving foreign/busy groups; pause retains locks, terminal completion/stop/abort/failure releases all root ownership even with supplied busy labels',
+        status='Portable 0 success, 1 invalid/unconfigured mask, 2 foreign owner, 17039 executing label, 17040 stopped label; partial-operation status is the first blocked group in ascending order',
+        persistence='Configured groups/motion labels only; live ownership prevents JSON save; task identities and native locks are never restored',
+        boundary='No robot/motion effects, automatic directive locks, lock waits, servo/controller ownership or native scheduling/status equivalence',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('LOCK_GROUP','UNLOCK_GROUP')],
+        guide='docs/group-locks.md',controller_validated=False)
     report['dynamic_variable_policy']=dict(
         procedures=['CREATE_VAR','RENAME_VAR','RENAME_VARS'],functions=['BYNAME'],
         creation='Explicit context roots, portable scalars/records, fixed STRING capacities, JOINTPOS1..9, BYTE/SHORT arrays and attached user types; contiguous inner/middle/outer dimensions; 32767 aggregate created scalar leaves',

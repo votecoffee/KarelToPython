@@ -1,0 +1,5 @@
+{
+  "MAIN": {"state": "completed", "values": {"CALL_INDEX": 1, "COUNT": 4, "STATUS": 0}},
+  "WORKER": {"state": "ready", "values": {"COUNT": 4, "STATUS": 0}},
+  "LIB": {"state": "ready", "values": {"VISITS": 2}}
+}

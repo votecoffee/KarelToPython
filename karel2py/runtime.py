@@ -2143,6 +2143,7 @@ class State:
     def finish_teach_programs(self):
         bank=self.execution.teach_programs
         if bank is not None: bank.release_owner(task_root(self))
+        if self.execution.group_locks is not None: self.execution.group_locks.release_owner(task_root(self))
 
     def extended_call(self,name,arguments,line=None):
         if not _pythonic(): raise KarelRuntimeError('Extended services require Pythonic mode',line)
@@ -2452,6 +2453,7 @@ from .extended import (ExecutionContext, StringRegisters, PositionRegisters, Por
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles
 from .devices import DeviceFiles,DEVICE_CONSTANTS,DEVICE_INFO
+from .programs import GroupLocks
 from .teach import TeachPrograms,TPE_CONSTANTS
 from .clocks import CalendarClock
 from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING

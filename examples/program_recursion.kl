@@ -1,0 +1,11 @@
+PROGRAM RECURSIVE
+VAR
+  remaining, entry: INTEGER
+BEGIN
+  IF UNINIT(remaining) THEN remaining=3 ENDIF
+  IF remaining=0 THEN remaining=3 ENDIF
+  remaining=remaining-1
+  IF remaining>0 THEN
+    CALL_PROG('RECURSIVE',entry)
+  ENDIF
+END RECURSIVE

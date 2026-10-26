@@ -1,0 +1,13 @@
+PROGRAM LOGICAL_LOCK
+VAR
+  status, invalid_mask, stopped_motion: INTEGER
+BEGIN
+  LOCK_GROUP(1,status)
+  LOCK_GROUP(5,status)
+  UNLOCK_GROUP(4,status)
+  stopped_motion=status
+  LOCK_GROUP(8,status)
+  invalid_mask=status
+  UNLOCK_GROUP(1,status)
+  -- The retained stopped group releases at task completion.
+END LOGICAL_LOCK

@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1026.133752 - 2026-10-26
+
+- Add CALL_PROG/CALL_PROGLIN for attached cooperative KAREL main bodies, with
+  isolated cursors/stacks, shared globals and caller-root budgets and lifecycle.
+- Preserve nested pauses, runtime-selected targets, combined depth guards,
+  entry hints, task inspection and linked-routine/caller-parameter scope.
+- Add explicit GroupLocks for LOCK_GROUP/UNLOCK_GROUP, including partial
+  acquisition, contention, busy labels, task identity and terminal cleanup.
+- Persist configured groups/motion labels while refusing live-ownership saves;
+  keep compiled/TP execution, native locks and automatic source locks excluded.
+- Add 40 focused regressions, two CLI examples and a linked project; update
+  documentation and audit 202 registered built-ins with 132 still unregistered.
+
 ## 26.1026.131437 - 2026-10-26
 
 - Add CREATE_VAR over bounded portable data and attached user types, with typed

@@ -1,0 +1,10 @@
+PROGRAM WORKER
+VAR
+  count, status: INTEGER
+ROUTINE bump(value: INTEGER) FROM LIB
+BEGIN
+  IF UNINIT(count) THEN count=0 ENDIF
+  count=count+1
+  LOCK_GROUP(1,status)
+  bump(count)
+END WORKER

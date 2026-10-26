@@ -28,7 +28,8 @@ def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
-DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS'}
+COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN'))
+DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
     'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
 SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
@@ -45,6 +46,8 @@ PROCEDURES = {
     'POST_ERR':(I,S,I,I), 'POST_ERR_L':(I,S,I,I),
     'CONT_TASK': (S,OI), 'PAUSE_TASK': (S,B,B,OI), 'ABORT_TASK': (S,B,B,OI),
     'RUN_TASK': (S,I,B,B,I,OI),
+    'CALL_PROG': (S,OI), 'CALL_PROGLIN': (S,I,OI,B),
+    'LOCK_GROUP': (I,OI), 'UNLOCK_GROUP': (I,OI),
     'GET_STR_REG': (I,OS,OI), 'SET_STR_REG': (I,S,OI),
     **{name:signature for family in ('REG','PREG','SREG') for name,signature in
        ((f'GET_{family}_CMT',(I,OS,OI)),(f'SET_{family}_CMT',(I,S,OI)))},
@@ -1453,11 +1456,11 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
-        self.externals=dict(externals or {}); self.entries={}
+        self.externals=dict(externals or {}); self.entries={};self.program_entries={}
         self.tasks=tasks if tasks is not None else TaskRegistry()
         self.numeric=numeric; self.events=events
         self.semaphores=semaphores; self.errors=errors
@@ -1479,6 +1482,9 @@ class ExecutionContext:
         self.teach_programs=teach_programs
         if serial_ports is not None and type(serial_ports) is not SerialPorts: raise TypeError('serial_ports must be SerialPorts or None')
         self.serial_ports=serial_ports
+        from .programs import GroupLocks
+        if group_locks is not None and type(group_locks) is not GroupLocks: raise TypeError('group_locks must be GroupLocks or None')
+        self.group_locks=group_locks
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
@@ -1499,7 +1505,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1554,6 +1560,9 @@ class ExecutionContext:
         if 'files' in config:
             services['files']=MemoryFiles({name:bytes.fromhex(value['hex']) if type(value) is dict else value for name,value in config['files'].items()})
         if 'numeric' in config: services['numeric']=runtime().NumericRegisters.from_config(config['numeric'])
+        if 'group_locks' in config:
+            from .programs import GroupLocks
+            services['group_locks']=GroupLocks.from_config(config['group_locks'])
         if 'variables' in config:
             from .storage import decode_typed,tuple_spec
             variables=VariableStore()
@@ -1593,6 +1602,12 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name in ('CALL_PROG','CALL_PROGLIN'):
+            from .programs import call_program
+            return call_program(state,name,args,line)
+        if name in ('LOCK_GROUP','UNLOCK_GROUP'):
+            args[1].set(self.require('group_locks',line).update(state,name,args[0],line),line)
+            return
         if name in ('CREATE_VAR','RENAME_VAR','RENAME_VARS'):
             from .dynamic import invoke
             return invoke(self,state,name,args,line)

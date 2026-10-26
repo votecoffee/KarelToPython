@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.131437. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.133752. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -294,3 +294,7 @@ documents available for your controller release when evaluating source semantics
 Dynamic creation, renaming and typed BYNAME routine aliases follow the
 [dynamic variable contract](dynamic-variables.md), including saved creation policy
 and explicit namespace guards. Compiled names and native memory pools stay fixed.
+
+CALL_PROG/CALL_PROGLIN support attached cooperative KAREL programs through
+[program calls](program-calls.md). [Logical group ownership](group-locks.md) adds
+explicit LOCK_GROUP/UNLOCK_GROUP banks, partial acquisition and terminal cleanup.

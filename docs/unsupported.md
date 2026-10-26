@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 198 have a registered translation and 136 do not.
+Currently, 202 have a registered translation and 132 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -134,6 +134,12 @@ they are boundaries rather than promises to accept every such source form later.
   now have explicit offline forms; renaming compiled globals or attached program
   namespaces, dynamic resource creation and native allocation remain unsupported.
   Program catalogs and load status describe attached programs or supplied metadata.
+- CALL_PROG/CALL_PROGLIN now support [attached cooperative KAREL programs](program-calls.md)
+  in the calling task. Noncooperative targets, TP/native instruction execution,
+  persisted executable links and implicit program loading remain unsupported.
+- LOCK_GROUP/UNLOCK_GROUP now have [logical ownership banks](group-locks.md).
+  Automatic directive acquisition, native locks, lock waits and motion effects
+  remain unavailable; the configured bank requires explicit groups and busy labels.
 - Native alarm dictionaries, severity encodings, asynchronous history timing,
   power-cycle restoration and controller error recovery. POST_ERR, POST_ERR_L,
   ERR_DATA, semaphores and lifecycle conditions have explicit offline contracts.
@@ -314,21 +320,17 @@ does not assert a particular installed option or environment.
 - `DAQ_UNREG`
 - `DAQ_WRITE`
 
-### Motion and task management (8)
+### Motion and task management (6)
 
 - `CNCL_STP_MTN`
-- `LOCK_GROUP`
 - `MIXBG_RUN`
 - `MIXBG_STOP`
 - `MOTION_CTL`
 - `RESET`
 - `SET_PERCH`
-- `UNLOCK_GROUP`
 
-### Programs, dynamic variables and controller commands (17)
+### Programs, dynamic variables and controller commands (15)
 
-- `CALL_PROG`
-- `CALL_PROGLIN`
 - `CHECK_STACK`
 - `CLEAR`
 - `FORCE_LINK`

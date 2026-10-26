@@ -1,5 +1,5 @@
 {
-  "version": "26.1026.131437",
+  "version": "26.1026.133752",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -160,5 +160,7 @@
   "xml_input": "xml_input_semantics.json",
   "serial_attributes": "serial_attribute_semantics.json",
   "virtual_devices": "virtual_device_semantics.json",
-  "dynamic_variables": "dynamic_variable_semantics.json"
+  "dynamic_variables": "dynamic_variable_semantics.json",
+  "program_calls": "program_call_semantics.json",
+  "group_locks": "group_lock_semantics.json"
 }
