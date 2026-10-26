@@ -1,0 +1,12 @@
+{
+  "LINES": [
+    {
+      "uninitialized": true
+    },
+    "Hello",
+    "world"
+  ],
+  "LAST": 3,
+  "STATUS": 0,
+  "MISSING": 3
+}

@@ -1,0 +1,11 @@
+{
+  "dictionaries": {
+    "sources": {
+      "labels": "$1 \"%s=%d\""
+    }
+  },
+  "pendant": {
+    "rows": 2,
+    "cols": 16
+  }
+}

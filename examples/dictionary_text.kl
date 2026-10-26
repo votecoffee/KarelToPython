@@ -1,0 +1,10 @@
+PROGRAM DICT_TEXT
+VAR lines:ARRAY[3] OF STRING[16]
+    last,status,missing:INTEGER
+BEGIN
+  ADD_DICT('labels','USER',DP_DEFAULT,DP_DRAM,status)
+  CHECK_DICT('USER','Greeting',status)
+  READ_DICT('USER',1,lines,2,last,status)
+  REMOVE_DICT('USER',DP_DEFAULT,status)
+  CHECK_DICT('USER',1,missing)
+END DICT_TEXT

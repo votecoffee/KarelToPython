@@ -1,0 +1,124 @@
+{
+  "dictionaries": {
+    "sources": {
+      "LABELS.TX": "$1 &clear_win @1,1 \"Summary\" &new_line\n$2 \"%s: %04d\" &new_line"
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "USER": {
+          "source": "LABELS.TX",
+          "text": "$1 &clear_win @1,1 \"Summary\" &new_line\n$2 \"%s: %04d\" &new_line"
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 16,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "LOG",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "LOG": {
+        "rows": 3,
+        "cols": 16,
+        "options": 1,
+        "lines": [
+          "Summary         ",
+          "ready: 0042     ",
+          "                "
+        ],
+        "cursor": {
+          "row": 3,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "DICT_WIN",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "LOG",
+          "rows": 3,
+          "cols": 16,
+          "options": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "DICT_WIN",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "LOG",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "DICT_WIN",
+        "operation": "WINDOW_OPEN",
+        "data": {
+          "window": "LOG"
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "DICT_WIN",
+        "operation": "WINDOW_WRITE",
+        "data": {
+          "window": "LOG",
+          "bytes": 9
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "DICT_WIN",
+        "operation": "WINDOW_WRITE",
+        "data": {
+          "window": "LOG",
+          "bytes": 12
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "DICT_WIN",
+        "operation": "WINDOW_CLOSE",
+        "data": {
+          "window": "LOG"
+        }
+      }
+    ],
+    "sequence": 6
+  }
+}

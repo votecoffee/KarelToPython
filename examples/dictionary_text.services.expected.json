@@ -1,0 +1,13 @@
+{
+  "dictionaries": {
+    "sources": {
+      "LABELS.TX": "$1, Greeting \"Hello\" &new_line \"world\""
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {}
+  }
+}

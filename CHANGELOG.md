@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1026.195318 - 2026-10-26
+
+- Add all seven dictionary calls over supplied ASCII text catalogs and persisted
+  per-language loaded snapshots, with explicit CHECK_DICT signature compatibility.
+- Parse numbered/named elements, automatic numbering, comments, escapes and bounded
+  nesting; format static scalar variable paths with widths, precision and reordering.
+- Add ARRAY reads with last-row/truncation statuses and atomic window writes with
+  cursor positioning, clearing and control tokens; preserve failed-request state.
+- Add 63 regressions, two CLI examples and a linked project; refresh README and
+  audit 251 registered built-in names with 83 remaining.
+
 ## 26.1026.193506 - 2026-10-26
 
 - Add ten offline pendant calls for links, menus, language labels, screens,

@@ -1,0 +1,54 @@
+{
+  "version": "26.1026.195318",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.1.10 ADD_DICT",
+        "A.3.5 CHECK_DICT",
+        "A.17.2 READ_DICT",
+        "A.17.3 READ_DICT_V",
+        "A.17.8 REMOVE_DICT",
+        "A.22.5 WRITE_DICT",
+        "A.22.6 WRITE_DICT_V",
+        "11.1.1-11.1.9 Dictionary syntax and formatting"
+      ],
+      "topic": "Language loading/removal, ARRAY reads, window writes, nested text, controls and static-variable format paths"
+    }
+  ],
+  "contract": {
+    "guide": "../text-dictionaries.md",
+    "calls": [
+      "ADD_DICT",
+      "CHECK_DICT",
+      "READ_DICT",
+      "READ_DICT_V",
+      "REMOVE_DICT",
+      "WRITE_DICT",
+      "WRITE_DICT_V"
+    ],
+    "service": "Explicit supplied ASCII text catalogs and per-language/name loaded snapshots; no native TX decoding or filesystem discovery",
+    "syntax": "Unique numbered/named elements, automatic numbering, comments, escapes, five-level acyclic nesting, bounded text/control/style tokens",
+    "check": "INTEGER IDs and STRING decimal/name compatibility forms; manual STRING versus historical accepted INTEGER compiler-case discrepancy retained",
+    "formatting": "Checked static scalar variable paths, explicit attached owners, fields/ARRAY/PATH nodes; bounded Python percent formatting, 32-bit unsigned conversions and argument reordering",
+    "reads": "One-based STRING ARRAY row ranges, untouched prefix/tail, last row, right truncation 33008 and complete-render preflight",
+    "writes": "Open logical window FILE only; complete request stages grid/cursor/position and one accepted WINDOW_WRITE event before commit",
+    "languages": "Exact current pendant or dictionary-model language, explicit default and remove-all behavior; no fallback or implicit packs",
+    "limits": "64 source labels/loaded pairs, separate 1 MiB text budgets, 64 KiB per file, 4096 elements and 16384 expanded tokens/65536 output bytes",
+    "persistence": "Independent loaded/source text snapshots and language labels; parse on reload without ADD replay; window handles must close before context save"
+  },
+  "boundaries": [
+    "No native binary TX files, UTX compiler, form definitions, glyph/color/style rendering or automatic language installation",
+    "Portable DP_DRAM/status values and Python numeric formatting; no native ABI, placement or restart-retention claim",
+    "No keyboard input, dynamic display controls, strict/controller acceptance"
+  ],
+  "validation": [
+    "tests/test_dictionaries.py",
+    "tests/test_pendant_display.py",
+    "examples/dictionary_text.kl",
+    "examples/dictionary_window.kl",
+    "examples/dictionary_project"
+  ]
+}

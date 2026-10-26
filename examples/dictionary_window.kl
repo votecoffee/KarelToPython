@@ -1,0 +1,20 @@
+PROGRAM DICT_WIN
+VAR output:FILE
+    status,count:INTEGER
+    label:STRING[16]
+    values:ARRAY[2] OF STRING[32]
+    lines:ARRAY[2] OF STRING[32]
+BEGIN
+  ADD_DICT('labels','USER',DP_DEFAULT,DP_DRAM,status)
+  DEF_WINDOW('LOG',3,16,WD_COM_CURSR,status)
+  ATT_WINDOW_S('LOG','SYS',1,1,status)
+  OPEN FILE output('RW','WD:LOG')
+  label='ready'
+  count=42
+  values[1]='LABEL'
+  values[2]='COUNT'
+  READ_DICT_V('USER',2,values,lines,status)
+  WRITE_DICT(output,'USER',1,status)
+  WRITE_DICT_V(output,'USER',2,values,status)
+  CLOSE FILE output
+END DICT_WIN

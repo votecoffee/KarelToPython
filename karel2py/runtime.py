@@ -2503,3 +2503,4 @@ from .control import (SemaphoreBank,ErrorHistory,error_condition,handler_action,
 from .diagnostics import DiagnosticLog,DIAGNOSTIC_CONSTANTS
 from .kcl import KclCommands
 from .pendant import PendantDisplay,PENDANT_CONSTANTS
+from .dictionaries import TextDictionaries,DICTIONARY_CONSTANTS

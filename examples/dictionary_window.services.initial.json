@@ -1,0 +1,11 @@
+{
+  "dictionaries": {
+    "sources": {
+      "labels": "$1 &clear_win @1,1 \"Summary\" &new_line\n$2 \"%s: %04d\" &new_line"
+    }
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 16
+  }
+}

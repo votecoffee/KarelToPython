@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 244 have a registered translation and 90 do not.
+Currently, 251 have a registered translation and 83 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -184,10 +184,13 @@ they are boundaries rather than promises to accept every such source form later.
   batches and explicit SAVE_DRAM points. Mixed TP/VR PBR_ALLTYPE batches and
   automatic native DRAM/flash restoration remain unavailable.
 - Native controller rendering, keyboard interaction/associations, dynamic display
-  controls, dictionaries and language packs. Ten [pendant display calls](pendant-display.md)
+  controls, compressed dictionary files and language packs. Ten [pendant display calls](pendant-display.md)
   now have headless request/surface models, including WD:name output, cursor
   movement and scrolling. No keyboard input, native glyphs, abort-time screen
-  restoration, font/style handling or implicit language dictionaries are supplied.
+  restoration or font/style rendering is supplied. Seven [text dictionary calls](text-dictionaries.md)
+  now load explicitly supplied ASCII text, expand nested elements, format static
+  variables, read ARRAY rows and write atomic logical window controls. Native
+  compressed TX/UTX compiler workflows, forms and glyph encodings remain blocked.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.
@@ -288,11 +291,9 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Screens, windows, keyboard and dictionaries (30)
+### Screens, windows, keyboard and dictionaries (23)
 
 - `ACT_TBL`
-- `ADD_DICT`
-- `CHECK_DICT`
 - `CNC_DYN_DISB`
 - `CNC_DYN_DISE`
 - `CNC_DYN_DISI`
@@ -314,12 +315,7 @@ does not assert a particular installed option or environment.
 - `INI_DYN_DISS`
 - `POP_KEY_RD`
 - `PUSH_KEY_RD`
-- `READ_DICT`
-- `READ_DICT_V`
 - `READ_KB`
-- `REMOVE_DICT`
-- `WRITE_DICT`
-- `WRITE_DICT_V`
 
 ### Motion and task management (6)
 

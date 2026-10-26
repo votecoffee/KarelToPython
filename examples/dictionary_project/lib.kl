@@ -1,0 +1,14 @@
+PROGRAM LIB
+VAR label:STRING[16]
+    values:ARRAY[2] OF STRING[32]
+    status:INTEGER
+ROUTINE format_it(stream:FILE):INTEGER
+BEGIN
+  label='linked'
+  values[1]='LABEL'
+  values[2]='[MAIN]COUNT'
+  WRITE_DICT_V(stream,'USER',1,values,status)
+  RETURN status
+END format_it
+BEGIN
+END LIB

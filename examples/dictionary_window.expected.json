@@ -1,0 +1,22 @@
+{
+  "OUTPUT": {
+    "file": "WD:LOG",
+    "open": false,
+    "position": 21,
+    "binary": false,
+    "status": 0
+  },
+  "STATUS": 0,
+  "COUNT": 42,
+  "LABEL": "ready",
+  "VALUES": [
+    "LABEL",
+    "COUNT"
+  ],
+  "LINES": [
+    "ready: 0042",
+    {
+      "uninitialized": true
+    }
+  ]
+}

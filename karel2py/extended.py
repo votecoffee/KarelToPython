@@ -94,6 +94,11 @@ PROCEDURES = {
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
+    'ADD_DICT': (S,S,S,I,OI), 'CHECK_DICT': (S,arg('DICT_ELEMENT'),OI),
+    'READ_DICT': (S,I,arg('STRING_ARRAY','r'),I,OI,OI),
+    'READ_DICT_V': (S,I,arg('STRING_ARRAY'),arg('STRING_ARRAY','r'),OI),
+    'REMOVE_DICT': (S,S,OI), 'WRITE_DICT': (arg('FILE'),S,I,OI),
+    'WRITE_DICT_V': (arg('FILE'),S,I,arg('STRING_ARRAY'),OI),
     'FORCE_LINK': (I,S), 'FORCE_SPMENU': (I,I,I), 'SET_LANG': (S,OI),
     'DEF_SCREEN': (S,S,OI), 'DEF_WINDOW': (S,I,I,I,OI),
     'ACT_SCREEN': (S,OS,OI), 'ATT_WINDOW_D': (S,S,I,I,OS,OI),
@@ -225,6 +230,7 @@ def matches(spec, kind):
         return size is None or type(size) is int and 1<=size<=244
     if kind in ('VIEW_LINES','POINT_PATH'): return vision_path_schema(spec,kind)
     if kind=='ERROR_CURSOR': return spec==('INTEGER',)
+    if kind=='DICT_ELEMENT': return spec[0] in ('INTEGER','STRING')
     if kind=='CHECK_INIT': return spec[0] in ('BOOLEAN','INTEGER','SHORT','BYTE')
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
@@ -1505,7 +1511,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1554,6 +1560,9 @@ class ExecutionContext:
         from .pendant import PendantDisplay
         if pendant is not None and type(pendant) is not PendantDisplay:raise TypeError('pendant must be PendantDisplay or None')
         self.pendant=pendant
+        from .dictionaries import TextDictionaries
+        if dictionaries is not None and type(dictionaries) is not TextDictionaries:raise TypeError('dictionaries must be TextDictionaries or None')
+        self.dictionaries=dictionaries
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1580,7 +1589,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1641,6 +1650,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'dictionaries' in config:
+            from .dictionaries import TextDictionaries
+            services['dictionaries']=TextDictionaries.from_config(config['dictionaries'])
         if 'pendant' in config:
             from .pendant import PendantDisplay
             services['pendant']=PendantDisplay.from_config(config['pendant'])
@@ -1702,6 +1714,8 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        from .dictionaries import DICTIONARY_CALLS
+        if name in DICTIONARY_CALLS:return self.require('dictionaries',line).invoke(state,name,args,line)
         from .pendant import PENDANT_CALLS
         if name in PENDANT_CALLS:return self.require('pendant',line).invoke(state,name,args,line)
         if self.pendant is not None and args and type(args[0]) is FileHandle and args[0].owner is self.pendant and name in ('SET_FILE_POS','BYTES_LEFT','BYTES_AHEAD'):

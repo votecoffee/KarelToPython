@@ -148,6 +148,8 @@ python -m karel2py.project examples/pendant_project --entry MAIN --context examp
 
 The translation report's pendant_policy and the
 [semantics ledger](semantics/pendant_display_semantics.json) record this contract.
-Keyboard stacks/input, dynamic display controls, dictionaries, graphic styles,
-native language packs and controller acceptance remain future work. Strict mode
+[Text dictionaries](text-dictionaries.md) now provide a separate explicit service
+for dictionary reads and logical window writes. Keyboard stacks/input, dynamic
+display controls, compressed native dictionaries, graphic styles, native language
+packs and controller acceptance remain future work. Strict mode
 remains a later milestone.

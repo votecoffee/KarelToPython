@@ -205,10 +205,31 @@ class PendantDisplay:
         if self.sequence<2147483646:self.record(binding['state'],'WINDOW_CLOSE',window=binding['window'])
 
     def write(self,handle,data,line=None):
+        if type(data) is not bytes or len(data)>65536 or any(byte not in (8,9,10,12,13) and not 32<=byte<=126 for byte in data):raise rt().KarelRuntimeError('Window WRITE requires bounded supported ASCII text/controls',line)
+        return self.write_dictionary(handle,[('text',data.decode('ascii'))],line)
+
+    def write_dictionary(self,handle,tokens,line=None):
+        """Stage one complete text/control request before changing any surface."""
         self.reserve();binding=self._handles.get(handle)
         if handle.owner is not self or binding is None:raise rt().KarelRuntimeError('Window FILE is not open',line)
-        if type(data) is not bytes or len(data)>65536 or any(byte not in (8,9,10,12,13) and not 32<=byte<=126 for byte in data):raise rt().KarelRuntimeError('Window WRITE requires bounded supported ASCII text/controls',line)
+        if type(tokens) is not list or len(tokens)>16384:raise rt().KarelRuntimeError('Window operation budget exceeded',line)
         window=self.windows[binding['window']];lines=list(window['lines'])
+        count=0;controls={'newline':10,'lf':10,'cr':13,'clear':12,'bs':8,'tab':9}
+        for token in tokens:
+            if type(token) is not tuple or not token:raise rt().KarelRuntimeError('Invalid window operation',line)
+            op=token[0]
+            if op=='text':
+                if len(token)!=2 or type(token[1]) is not str or any(ord(c) not in (8,9,10,12,13) and not 32<=ord(c)<=126 for c in token[1]):raise rt().KarelRuntimeError('Window text requires supported ASCII',line)
+                count+=len(token[1])
+            elif op=='cursor':
+                if len(token)!=3 or any(type(v) is not int for v in token[1:]) or not 1<=token[1]<=window['rows'] or not 1<=token[2]<=window['cols']:raise rt().KarelRuntimeError('Dictionary cursor exceeds window bounds',line)
+            elif op=='style':
+                if len(token)!=2 or type(token[1]) is not str:raise rt().KarelRuntimeError('Invalid style token',line)
+            elif op in controls:
+                if len(token)!=1:raise rt().KarelRuntimeError('Invalid window control',line)
+                count+=1
+            elif op not in ('eol','eow','home','up') or len(token)!=1:raise rt().KarelRuntimeError('Unknown window operation',line)
+        if count>65536 or handle.position+count>2147483646:raise rt().KarelRuntimeError('Window text/position budget exceeded',line)
         cursor=(window['cursor'] if window['options']&1 else binding['cursor']).copy()
         rows,cols=window['rows'],window['cols']
         def newline():
@@ -222,21 +243,32 @@ class PendantDisplay:
             lines[row]=lines[row][:col]+char+lines[row][col+1:]
             if cursor['col']==cols:cursor['wrap']=True
             else:cursor['col']+=1
-        for byte in data:
-            if byte==10:newline()
-            elif byte==13:cursor.update(col=1,wrap=False)
-            elif byte==12:lines[:]=[' '*cols]*rows;cursor.update(row=1,col=1,wrap=False)
-            elif byte==8:
-                if cursor['wrap']:cursor['wrap']=False
-                else:cursor['col']=max(1,cursor['col']-1)
-            elif byte==9:
-                if cursor['wrap']:newline()
-                count=8-((cursor['col']-1)%8)
-                for _ in range(count):character(' ')
-            else:character(chr(byte))
+        def emit(data):
+            for byte in data:
+                if byte==10:newline()
+                elif byte==13:cursor.update(col=1,wrap=False)
+                elif byte==12:lines[:]=[' '*cols]*rows;cursor.update(row=1,col=1,wrap=False)
+                elif byte==8:
+                    if cursor['wrap']:cursor['wrap']=False
+                    else:cursor['col']=max(1,cursor['col']-1)
+                elif byte==9:
+                    if cursor['wrap']:newline()
+                    for _ in range(8-((cursor['col']-1)%8)):character(' ')
+                else:character(chr(byte))
+        for token in tokens:
+            op=token[0]
+            if op=='text':emit(token[1].encode('ascii'))
+            elif op in controls:emit(bytes([controls[op]]))
+            elif op=='cursor':cursor.update(row=token[1],col=token[2],wrap=False)
+            elif op=='home':cursor.update(row=1,col=1,wrap=False)
+            elif op=='up':cursor.update(row=max(1,cursor['row']-1),wrap=False)
+            elif op in ('eol','eow'):
+                row,col=cursor['row']-1,cursor['col']-1
+                lines[row]=lines[row][:col]+' '*(cols-col);cursor['wrap']=False
+                if op=='eow':lines[row+1:]=[' '*cols]*(rows-row-1)
         window['lines']=lines;window['cursor']=cursor.copy();binding['cursor']=cursor
-        handle.position+=len(data);handle.status=0
-        self.record(binding['state'],'WINDOW_WRITE',window=binding['window'],bytes=len(data))
+        handle.position+=count;handle.status=0
+        self.record(binding['state'],'WINDOW_WRITE',window=binding['window'],bytes=count)
 
     def render(self,screen=None):
         screen=self.active['TP'] if screen is None else ordinary_name(screen)

@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
-                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,
+                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,
                         **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
@@ -4596,6 +4596,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         statuses='Portable 0 success, 1 invalid, 2 duplicate, 3 missing, 4 unattached/non-window, 5 capacity; activation requires USER/USER2 menu (9093), unavailable language 33003',
         boundary='Output only: no keyboard suffix/READ, binary/XML, byte seeking, native rendering, glyph styling, abort screen restoration or controller UI acceptance; strict deferred',
         guide='docs/pendant-display.md',controller_validated=False)
+    report['dictionary_policy']=dict(
+        calls=['ADD_DICT','CHECK_DICT','READ_DICT','READ_DICT_V','REMOVE_DICT','WRITE_DICT','WRITE_DICT_V'],constants=dict(rt.DICTIONARY_CONSTANTS),
+        service='Explicit TextDictionaries with supplied ASCII text source labels; DP_DRAM loads immutable per-language snapshots; no native compressed TX decoding or host file access',
+        syntax='Bounded numbered/named elements, comments, quoted escapes, automatic numbering, five-level nesting, cursor/control tokens and recognized style attributes',
+        formats='Checked static scalar variable paths, explicit [PROGRAM] owners, fields/subscripts/PATH nodes; bounded percent formats and argument reordering; finite Python numeric formatting',
+        reads='One-dimensional STRING outputs; selected starting row, preserved prefix/tail, last used row, right truncation with status 33008; only new_line splits plain READ rows',
+        writes='Open pendant window FILE only; stage complete text/cursor/clear/control request before changing grid, cursor, logical byte position or accepted history',
+        language='Exact current pendant language when supplied, otherwise dictionary model current language; DEFAULT uses configured default; no automatic fallback or translation packs',
+        check='INTEGER IDs and STRING decimal/name lookups; manual STRING declaration and historical accepted INTEGER compiler-case discrepancy made explicit',
+        limits='64 source labels, 64 loaded language/name pairs, 64 KiB per text, separate 1 MiB source/loaded budgets; 4096 elements, 16384 expanded tokens and 65536 rendered text/control bytes',
+        persistence='Retain supplied sources, independent loaded snapshots and language configuration; reload parses logical text without ADD replay or native DRAM restoration',
+        boundary='Portable statuses/options; no binary TX, form compiler, glyph/style rendering, dynamic controls, keyboard input or controller acceptance; strict deferred',
+        guide='docs/text-dictionaries.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

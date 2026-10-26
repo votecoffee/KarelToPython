@@ -420,6 +420,7 @@ def context_config(context):
     if context.variable_archives is not None: result['variable_archives']=context.variable_archives.to_config()
     if context.diagnostics is not None: result['diagnostics']=context.diagnostics.to_config()
     if context.kcl is not None: result['kcl']=context.kcl.to_config()
+    if context.dictionaries is not None: result['dictionaries']=context.dictionaries.to_config()
     if context.pendant is not None: result['pendant']=context.pendant.to_config()
     if context.remote_messages is not None: result['remote_messages']=context.remote_messages.to_config()
     if context.pc_exchange is not None: result['pc_exchange']=context.pc_exchange.to_config()

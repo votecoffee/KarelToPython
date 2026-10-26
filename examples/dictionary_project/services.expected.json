@@ -1,0 +1,123 @@
+{
+  "dictionaries": {
+    "sources": {
+      "LABELS.TX": "$1 \"%s=%d\""
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "USER": {
+          "source": "LABELS.TX",
+          "text": "$1 \"%s=%d\""
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 2,
+    "cols": 16,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "LOG",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "LOG": {
+        "rows": 1,
+        "cols": 16,
+        "options": 1,
+        "lines": [
+          "linked=42       "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 10,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "LOG",
+          "rows": 1,
+          "cols": 16,
+          "options": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "LOG",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "WINDOW_OPEN",
+        "data": {
+          "window": "LOG"
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "operation": "SET_CURSOR",
+        "data": {
+          "window": "LOG",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "operation": "WINDOW_WRITE",
+        "data": {
+          "window": "LOG",
+          "bytes": 9
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "MAIN",
+        "operation": "WINDOW_CLOSE",
+        "data": {
+          "window": "LOG"
+        }
+      }
+    ],
+    "sequence": 6
+  }
+}

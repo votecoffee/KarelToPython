@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1026.193506. Acceptance is specific to
+This is the supported prototype subset as of 26.1026.195318. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -37,6 +37,7 @@ internally and in the historical semantic notes.
 | Program listing | PROG_LIST with optional cursor | Attached Programs and explicit immutable metadata; type filters, sorted pages, checked formats and persisted catalogs; no program discovery or loading. |
 | Program metadata | LOAD_STATUS, GET_ATTR_PRG, SET_ATTR_PRG | Attached load/partial global initialization, explicit snapshots and typed attributes; four metadata writes with active-task guards, portable constants/statuses and persistence; no native loading or task-policy writes. |
 | Diagnostics | CHECK_STACK, SET_DEBUG, SET_DB_EVENT; eight portable source/call/lifecycle event labels | Explicit DiagnosticLog, bounded value-free records and configured frame-cost stack estimates; no native p-code, stack layout or diagnostic option equivalence. |
+| Text dictionaries | Seven ADD/CHECK/READ/REMOVE/WRITE dictionary calls, plain and formatted, with nested text elements and static variable paths | Explicit supplied text catalogs, language snapshots, bounded formatting, ARRAY truncation and atomic logical window controls; no compressed TX decoding or form compilation. |
 | Pendant display | FORCE_LINK, FORCE_SPMENU, SET_LANG, screen/window definitions, activation, attachments, detachment and SET_CURSOR; WD:name text output | Explicit headless PendantDisplay, portable IDs/statuses, character grids, common/per-handle cursors, scrolling and closed-handle persistence; no native UI, keyboard or dictionaries. |
 | KCL | KCL, KCL_NO_WAIT and bare/called KCL_STATUS over explicit scripted replies | One shared accepted command, configured delays/statuses, bounded history and terminal-state persistence; no host/controller command execution or implicit replay of pending work. |
 | Remote banks | 17 RGET/RSET numeric/string/comment/port procedures and numeric/position receive/send | Explicit persisted PeerBanks, per-peer banks/type codes, selected outputs, simulation and checked register copies; explicit position groups and comment options; no networking or robot conversion. |
