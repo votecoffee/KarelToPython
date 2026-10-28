@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {}},
+  "MAIN": {"state": "completed", "values": {"OCTET": 200, "SIGNED": -123, "ENTRY": 2, "STATUS": 0}}
+}

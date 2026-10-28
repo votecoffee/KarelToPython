@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {}},
+  "MAIN": {"state": "completed", "values": {"RESULT": 42, "KEY": "ready", "AMOUNT": 2.5}}
+}

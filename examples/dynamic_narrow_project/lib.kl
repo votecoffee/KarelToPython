@@ -1,0 +1,12 @@
+PROGRAM LIB
+TYPE octet_t=BYTE signed_t=SHORT
+ROUTINE fill(item:BYTE;small:SHORT)
+BEGIN item=200 small=-123 END fill
+ROUTINE initialize(entry:INTEGER;status:INTEGER)
+BEGIN
+  CREATE_VAR('CACHE','CODE','LIB','octet_t',0,0,0,0,status)
+  CREATE_VAR('CACHE','SIGNED','LIB','signed_t',0,0,0,0,status,-1)
+  fill(BYNAME('CACHE','CODE',entry),BYNAME('CACHE','SIGNED',entry))
+END initialize
+BEGIN
+END LIB

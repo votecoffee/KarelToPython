@@ -53,6 +53,10 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     text=rt.ascii_string(text,line).strip().upper()
     if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'):
         spec=(text,)
+    elif text in ('BYTE','SHORT') and rt._pythonic():
+        # Standalone narrow types are an explicit Pythonic extension, using the
+        # same checked domains and initial markers as aggregate narrow leaves.
+        spec=(text,)
     elif text in rt.PREDEFINED_STRUCTURES:
         spec=rt.PREDEFINED_STRUCTURES[text]
     elif re.fullmatch(r'STRING(?:\[[0-9]{1,3}\])?',text):
@@ -73,6 +77,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if shape:
         if spec[0]=='ARRAY': return None
         spec=('ARRAY',shape[0] if len(shape)==1 else shape,spec)
+    if spec[0] in ('BYTE','SHORT') and not rt._pythonic(): return None
     if type(group) is not int or not 0<=group<=32: return None
     leaf=rt.array_leaf_spec(spec) if spec[0]=='ARRAY' else spec
     if leaf[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS') and group==0: return None

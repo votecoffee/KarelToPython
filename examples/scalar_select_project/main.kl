@@ -1,0 +1,4 @@
+PROGRAM MAIN
+VAR result:INTEGER key:STRING[8] amount:REAL
+ROUTINE classify(key:STRING;amount:REAL):INTEGER FROM LIB
+BEGIN key='ready' amount=2.5 result=classify(key,amount) END MAIN

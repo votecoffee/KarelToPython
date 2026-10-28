@@ -2722,29 +2722,43 @@ class Emitter:
             transfers.append(transfer)
         return bool(labels or jumps),transfers
 
-    def case_values(self, stmt):
+    def case_values(self,stmt,category=None):
         result = []
         for _, values, _ in stmt.args[1]:
             resolved = []
             for expr in values:
                 value = self.constant(expr)
-                if type(value) is not int or not -2147483648 <= value <= 2147483647:
-                    self.error('E_CASE', 'CASE values must be INTEGER constants', expr.token)
+                if self.mode=='pythonic':
+                    try:rt.select_scalar(value,category,expr.token.line)
+                    except rt.KarelRuntimeError as exc:self.error('E_CASE','CASE constant does not match SELECT '+category+' category: '+str(exc),expr.token)
+                elif type(value) is not int or not -2147483648 <= value <= 2147483647:
+                    self.error('E_CASE','CASE values must be INTEGER constants',expr.token)
                 resolved.append(value)
             result.append(tuple(resolved))
         return result
 
     def select_code(self, stmt):
-        selector = self.require_type(stmt.args[0], 'INTEGER')
-        cases = self.case_values(stmt)
+        category=None
+        if self.mode=='pythonic':
+            selector,spec=self.expression(stmt.args[0])
+            if spec[0] in (*INTEGRAL_TYPES,'REAL'):category='NUMERIC'
+            elif spec[0] in ('BOOLEAN','STRING'):category=spec[0]
+            else:self.error('E_TYPE','SELECT requires BOOLEAN, ASCII STRING or finite numeric scalar values',stmt.args[0].token)
+        else:selector=self.require_type(stmt.args[0],'INTEGER')
+        cases=self.case_values(stmt,category)
         self.select_scopes.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=stmt.token.line, column=stmt.token.column, case_values=cases,
                                        case_count=len(cases), has_else=stmt.has_else,
                                        empty_else=stmt.has_else and not stmt.alternate,
                                        no_match='else_clause' if stmt.has_else else 'KarelRuntimeError'))
+        if self.mode=='pythonic':
+            self.select_scopes[-1].update(selector_type=spec,comparison_category=category,
+                case_types=[['BOOLEAN' if type(value) is bool else 'INTEGER' if type(value) is int else 'REAL' if type(value) is float else 'STRING' for value in values] for values in cases])
+            if spec[0] in ('BOOLEAN','STRING','REAL'):self.features.add('Pythonic scalar SELECT')
         self.features.add('SELECT first matching CASE')
         self.features.add('SELECT no-match guard')
-        return f'_rt.select_case({selector}, {tuple(cases)!r}, {stmt.has_else!r}, {stmt.token.line})'
+        category_code=f',category={category!r}' if self.mode=='pythonic' else ''
+        return f'_rt.select_case({selector}, {tuple(cases)!r}, {stmt.has_else!r}, {stmt.token.line}{category_code})'
 
     def emit_body(self, statements):
         labelled,transfers=self.validate_labels(statements)
@@ -4031,6 +4045,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     except TranslationError as exc:
         raise expansion.remap(exc) from exc
     report = result.report
+    report['select_policy'].update(
+        selector='Finite numeric, BOOLEAN or bounded ASCII STRING expression evaluated once',
+        cases='Compatible compile-time constants; BOOLEAN/STRING/numeric categories remain separate; ordinary finite numeric equality without integer-to-float conversion')
+    report['scalar_select_policy']=dict(
+        selectors='INTEGER/BYTE/SHORT/finite REAL numeric values, BOOLEAN or ASCII STRING up to 254 characters; checked once before dispatch',
+        matching='First matching compatible constant clause only; numeric equality keeps integers intact, BOOLEAN is distinct from numbers and STRING comparison is exact without case folding or padding',
+        execution='Same structured/dispatcher/cooperative helper, source-located no-match errors, explicit empty ELSE, ordinary effects and frame/counter cleanup',
+        reports='selects adds selector_type, comparison_category and per-clause case_types; generated calls carry an explicit category and validate every case before matching',
+        boundary='No dynamic cases, mixed categories, aggregate/resource selectors, approximate numeric matching or native acceptance claim; legacy SELECT remains INTEGER-only',
+        guide='docs/scalar-select.md',controller_validated=False)
     report['service_policy'] = dict(
         procedures=sorted(ex.PROCEDURES), functions=sorted(ex.FUNCTIONS), ports=dict(ex.PORT_TYPES),
         context='Explicit ExecutionContext with bounded banks, typed JSON persistence and attached program namespaces; optional caller-rooted DirectoryFiles and configured DH model',
@@ -4305,15 +4329,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         selection='Case-insensitive star patterns in final basename only, nonrecursive sorted explicit-file/configured-plain-PIP batches; no socket/DAQ routing',
         substitution='Destination standalone star retains full basename; one star per stem/extension substitutes the full source stem/extension, not matched captures',
         pipes='Explicit plain FilePipes only; COPY requires preconfigured targets and overwrite permission without ring truncation; DELETE removes selected configurations/bytes; RENAME moves original configuration/bytes to unused names in the same bank',
-        rename='Explicit Pythonic extension, no overwrite, full sorted path/busy/alias/overlap/budget preflight; same ordinary bank and virtual volume or one plain PIP bank; memory/device/pipe moves preserve byte/configuration identities and same-volume quota/garbage',
+        rename='Explicit Pythonic extension, no overwrite, full sorted path/busy/alias/overlap/budget preflight; one ordinary bank including configured DeviceFiles volumes or one plain PIP bank; preserve byte/configuration identities and same-volume quota/garbage',
+        cross_volume='One DeviceFiles bank, both volumes mounted/writable; stage final file keys and retained source garbage, validate complete live-plus-garbage quotas and final file count, then publish without callbacks/checkpoints',
         publication='All source snapshots and predictable target/busy/alias/quota checks precede mutation; memory/device batches commit prepared state; rooted directory operations publish per file and host failure can leave a partial batch',
         limits='32767 scanned/matched entries, 64 MiB total COPY snapshots, ordinary backend byte and step budgets; both nowait values execute synchronously',
         status='Portable 0 success, 1 no matches/missing configured pipe target, 2 invalid template/collision/existing, 3 busy, 4 excess pipe replacement size; backend/path/quota/budget failures raise',
         calls=[row for row in report['service_operations'] if row['operation'] in ('COPY_FILE','DELETE_FILE','RENAME_FILE')],
-        guide='docs/wildcard-file-operations.md',rename_guide='docs/wildcard-rename.md',controller_validated=False)
+        guide='docs/wildcard-file-operations.md',rename_guide='docs/wildcard-rename.md',cross_volume_guide='docs/cross-volume-rename.md',controller_validated=False)
     report['dynamic_variable_policy']=dict(
         procedures=['CREATE_VAR','RENAME_VAR','RENAME_VARS'],functions=['BYNAME'],
-        creation='Explicit context roots, portable scalars/records, fixed STRING capacities, JOINTPOS1..9, BYTE/SHORT arrays and attached user types; contiguous inner/middle/outer dimensions; 32767 aggregate created scalar leaves',
+        creation='Explicit context roots, portable scalars/records including direct BYTE/SHORT and supplied transparent aliases, fixed STRING capacities, JOINTPOS1..9, narrow arrays and attached user types; contiguous inner/middle/outer dimensions; 32767 aggregate created scalar leaves',
         aliases='BYNAME only as a direct typed user-routine argument; resolve current/attached/explicit roots and static paths once, preserve uninitialized storage and true references across linked calls and pause; no system/protected fields or overlapping entry output',
         names='Case-insensitive identifiers up to 36 characters; blank CREATE/RENAME program/type-program defaults to the current source program, blank BYNAME program to the calling root source; renames preserve references and entry caches; namespace moves require unattached ordinary root bindings',
         status='Portable 0 success, 1 missing, 2 invalid name/pool, 3 collision, 4 compiled/protected namespace, 5 unsupported type/dimensions/group, 6 aggregate allocation limit; BYNAME lookup/type failures raise without entry writes',
@@ -4321,7 +4346,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guards='Compile-time indirect FOR/effect/handler guards retained; renaming compiled globals/programs and resource-bearing dynamic types remains excluded',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
-        guide='docs/dynamic-variables.md',controller_validated=False)
+        guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
     report['queue_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         snapshot='Whole QUEUE_TYPE only; independent checked initialization flag, ordered sequence/value pairs and last sequence counter; exclude source backing ARRAY reference and capacity',

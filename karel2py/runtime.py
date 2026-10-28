@@ -777,19 +777,47 @@ def value_argument(spec, value, line=None):
     return Reference(spec, {'value': checked(spec, value, line)}, 'value')
 
 
-def select_case(value, cases, has_else, line=None):
+def select_scalar(value,category,line=None):
+    """Validate one SELECT primitive without bool/numeric coercion or rounding."""
+    if type(category) is not str or category not in ('BOOLEAN','STRING','NUMERIC'):
+        raise KarelRuntimeError('Invalid generated SELECT comparison category',line)
+    if category=='BOOLEAN':return boolean(value,line)
+    if category=='STRING':
+        value=ascii_string(value,line)
+        if len(value)>254:raise KarelRuntimeError('SELECT STRING is limited to 254 ASCII characters',line)
+        return value
+    # Keep INTEGER operands as integers: converting them to float before equality
+    # could collapse otherwise distinct numeric values. bool is never a number.
+    if type(value) is int:return integer(value,line)
+    if type(value) is float:return real(value,line)
+    require(value,line)
+    raise KarelRuntimeError('SELECT numeric values require finite REAL or INTEGER',line)
+
+
+def select_case(value,cases,has_else,line=None,*,category=None):
     """Return the first matching clause index; missing ELSE is an execution error."""
-    value = integer(value, line)
-    if type(has_else) is not bool or type(cases) not in (list, tuple) or not 1 <= len(cases) <= 1000:
-        raise KarelRuntimeError('Invalid generated SELECT case table or ELSE flag', line)
+    pythonic=_pythonic()
+    if pythonic:
+        if category is None:
+            category='BOOLEAN' if type(value) is bool else 'STRING' if type(value) is str else 'NUMERIC'
+        value=select_scalar(value,category,line)
+    else:
+        if category is not None:raise KarelRuntimeError('Scalar SELECT categories require Pythonic mode',line)
+        value=integer(value,line)
+    if type(has_else) is not bool or type(cases) not in (list,tuple) or not 1<=len(cases)<=1000:
+        raise KarelRuntimeError('Invalid generated SELECT case table or ELSE flag',line)
+    # Validate every clause before comparison, including clauses after an earlier
+    # match. Tables never execute arbitrary equality on supplied objects.
     for values in cases:
-        if type(values) not in (list, tuple) or not values:
-            raise KarelRuntimeError('Invalid generated SELECT value list', line)
-        for candidate in values: integer(candidate, line)
-    for index, values in enumerate(cases):
-        if value in values: return index
-    if has_else: return len(cases)
-    raise KarelRuntimeError('No match in CASE', line)
+        if type(values) not in (list,tuple) or not values:
+            raise KarelRuntimeError('Invalid generated SELECT value list',line)
+        for candidate in values:
+            if pythonic:select_scalar(candidate,category,line)
+            else:integer(candidate,line)
+    for index,values in enumerate(cases):
+        if value in values:return index
+    if has_else:return len(cases)
+    raise KarelRuntimeError('No match in CASE',line)
 
 
 def _store_conversion_text(name, target, text, line):

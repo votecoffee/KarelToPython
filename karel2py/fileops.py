@@ -197,8 +197,8 @@ def wildcard_file_operation(state,operation,args,line=None):
             if matches:return 2
             if source.device:
                 first=name.split(':',1)[0];second=destination.split(':',1)[0]
-                if first!=second:return 2
                 source.bank.require_volume(first,write=True,line=line)
+                source.bank.require_volume(second,write=True,line=line)
             if not source.pipe and not source.directory:source.bank._check(destination,b'')
             before=source.signature(name);token=fingerprint(name,charge=True)
             if source.signature(name)!=before:raise runtime.KarelRuntimeError('Wildcard rename metadata changed during preflight',line)
@@ -214,7 +214,9 @@ def wildcard_file_operation(state,operation,args,line=None):
             if (source.signature(name)!=before or fingerprint(name,charge=False)!=token
                     or source.pipe and source.bank.pipes[name] is not configuration):
                 raise runtime.KarelRuntimeError('Wildcard rename bytes or metadata changed during preflight',line)
-            if source.device:source.bank.require_volume(name.split(':',1)[0],write=True,line=line)
+            if source.device:
+                source.bank.require_volume(name.split(':',1)[0],write=True,line=line)
+                source.bank.require_volume(destination.split(':',1)[0],write=True,line=line)
         bank=source.bank
         if source.directory:
             # All predictable checks and budget charges precede publication.
@@ -226,11 +228,22 @@ def wildcard_file_operation(state,operation,args,line=None):
                     if cached.casefold() in (name.casefold(),destination.casefold()) and cached!=destination:bank.files.pop(cached)
         else:
             staged=dict(bank.files);configurations=dict(bank.pipes) if source.pipe else None
+            garbage={volume:row['garbage'] for volume,row in bank._volumes.items()} if source.device else None
             for name,destination,_,_,_ in plan:
                 staged[destination]=staged.pop(name)
                 if source.pipe:configurations[destination]=configurations.pop(name)
+                if source.device:
+                    first=name.split(':',1)[0];second=destination.split(':',1)[0]
+                    if first!=second and bank._volumes[first]['retain_deleted']:garbage[first]+=len(staged[destination])
+            if source.device:
+                if len(staged)>32767:raise runtime.KarelRuntimeError('Virtual file count exceeded by complete wildcard rename batch',line)
+                for volume,row in bank._volumes.items():
+                    used=garbage[volume]+sum(len(data) for name,data in staged.items() if name.split(':',1)[0]==volume)
+                    if used>row['capacity']:raise runtime.KarelRuntimeError('Virtual device capacity exceeded by complete wildcard rename batch',line)
             bank.files.clear();bank.files.update(staged)
             if source.pipe:bank.pipes.clear();bank.pipes.update(configurations)
+            if source.device:
+                for volume,amount in garbage.items():bank._volumes[volume]['garbage']=amount
         return 0
     def execute():
         if operation=='RENAME_FILE':
@@ -250,7 +263,6 @@ def wildcard_file_operation(state,operation,args,line=None):
             else:
                 runtime.boolean(args[2],line)
                 if source.bank is not target.bank:return 2
-                if source.device and source.key(source_prefix+'__wildcard_probe__').split(':',1)[0]!=target.key(target_prefix+'__wildcard_probe__').split(':',1)[0]:return 2
         else:runtime.boolean(args[1],line)
         selected=source.source_names(source_folder,pattern)
         if not selected:return 1

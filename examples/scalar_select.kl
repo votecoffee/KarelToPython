@@ -1,0 +1,14 @@
+PROGRAM SCALAR_SELECT
+VAR code:STRING[8] enabled:BOOLEAN amount:REAL total,calls:INTEGER
+ROUTINE fetch:STRING[8]
+BEGIN calls=calls+1 RETURN code END fetch
+BEGIN
+  code='beta' enabled=TRUE amount=2.5 total=0 calls=0
+  SELECT fetch() OF
+    CASE('alpha'): total=1
+    CASE('beta','gamma'): total=7
+    ELSE: total=-1
+  ENDSELECT
+  SELECT enabled OF CASE(TRUE): total=total+1 CASE(FALSE): total=0 ENDSELECT
+  SELECT amount OF CASE(2,2.5): total=total+10 ELSE: total=0 ENDSELECT
+END SCALAR_SELECT

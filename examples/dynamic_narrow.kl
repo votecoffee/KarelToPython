@@ -1,0 +1,12 @@
+PROGRAM DYNAMIC_NARROW
+TYPE octet_t=BYTE
+VAR entry,status:INTEGER octet:BYTE signed:SHORT
+ROUTINE fill(item:BYTE;small:SHORT)
+BEGIN item=200 small=-123 END fill
+BEGIN
+  CREATE_VAR('CACHE','CODE','','octet_t',0,0,0,0,status)
+  CREATE_VAR('CACHE','SIGNED','','SHORT',0,0,0,0,status,-1)
+  fill(BYNAME('CACHE','CODE',entry),BYNAME('CACHE','SIGNED',entry))
+  GET_VAR(entry,'CACHE','CODE',octet,status)
+  GET_VAR(entry,'CACHE','SIGNED',signed,status)
+END DYNAMIC_NARROW

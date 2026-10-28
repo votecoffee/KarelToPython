@@ -171,10 +171,13 @@ class WildcardRenameDeviceTests(unittest.TestCase):
         self.assertIs(bank.files,mapping);self.assertIs(bank._volumes,volumes);self.assertIs(bank._volumes['FR'],row)
         self.assertIs(bank.files['FR:saved/a.py'],data);self.assertEqual((bank.used('FR'),row['garbage']),(7,3))
 
-    def test_cross_volume_wildcard_rejected_but_exact_rename_preserved(self):
-        bank=self.bank();before=deepcopy(bank.to_config())
-        self.assertEqual(rename(bank,'FR:*.kl','RD:*.py'),2);self.assertEqual(bank.to_config(),before)
-        self.assertEqual(rename(bank,'FR:a.kl','RD:a.py'),0);self.assertEqual(bank.files['RD:a.py'],b'aaa')
+    def test_cross_volume_wildcard_and_exact_rename_preserve_retention(self):
+        bank=self.bank()
+        self.assertEqual(rename(bank,'FR:*.kl','RD:*.py'),0)
+        self.assertEqual(bank.snapshot(),{'RD:a.py':b'aaa','RD:b.py':b'b'})
+        self.assertEqual(bank._volumes['FR']['garbage'],7)
+        exact=self.bank();self.assertEqual(rename(exact,'FR:a.kl','RD:a.py'),0)
+        self.assertEqual(exact.files['RD:a.py'],b'aaa');self.assertEqual(exact._volumes['FR']['garbage'],6)
 
     def test_readonly_and_unmounted_source_are_errors_without_mutation(self):
         for option in ({'read_only':True},{'mounted':False}):

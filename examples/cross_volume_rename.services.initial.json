@@ -1,0 +1,14 @@
+{
+  "device_files": {
+    "volumes": {
+      "FR:": {"capacity": 10, "garbage": 2},
+      "RD:": {"capacity": 8, "garbage": 1}
+    },
+    "files": {
+      "FR:partA.DAT": "abc",
+      "FR:partB.DAT": "de",
+      "FR:keep.TXT": "s",
+      "RD:keep.TXT": "d"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "NAMES": ["saved_partA.BAK", "saved_partB.BAK"],
+  "COUNT": 2,
+  "STATUS": 0,
+  "FR_TOTAL": 10,
+  "RD_TOTAL": 8,
+  "FR_FREE": 2,
+  "RD_FREE": 1,
+  "FR_LABEL": "",
+  "RD_LABEL": "",
+  "DONE": true
+}

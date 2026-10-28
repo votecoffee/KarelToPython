@@ -1,0 +1,13 @@
+PROGRAM CROSS_VOLUME_RENAME
+VAR names:ARRAY[2] OF STRING[40] count,status,fr_total,rd_total,fr_free,rd_free:INTEGER
+    fr_label,rd_label:STRING[12] done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    RENAME_FILE('FR:part*.DAT','RD:saved_*.BAK',FALSE,status)
+    VOL_SPACE('FR:',fr_total,fr_free,fr_label)
+    VOL_SPACE('RD:',rd_total,rd_free,rd_label)
+    FILE_LIST('RD:saved_*.BAK',0,3,names,count,status)
+    done=TRUE
+  ENDIF
+END CROSS_VOLUME_RENAME

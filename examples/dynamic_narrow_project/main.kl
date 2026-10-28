@@ -1,0 +1,8 @@
+PROGRAM MAIN
+VAR octet:BYTE signed:SHORT entry,status:INTEGER
+ROUTINE initialize(entry:INTEGER;status:INTEGER) FROM LIB
+BEGIN
+  initialize(entry,status)
+  GET_VAR(entry,'CACHE','CODE',octet,status)
+  GET_VAR(entry,'CACHE','SIGNED',signed,status)
+END MAIN
