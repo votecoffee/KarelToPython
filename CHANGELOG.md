@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1028.213122 - 2026-10-28
+
+- Add Pythonic labels/GOTO within active FOR loops, retained captured bounds,
+  nested-loop exits and counter cleanup across return, suspension, stop and
+  errors. Reject entry into new FOR or uncaptured USING scopes.
+- Add opt-in callee group scopes for called programs and defining routines,
+  preserving caller ownership, recursive grants and manual unlock/reacquisition.
+  Keep root-only directive behavior as the default.
+- Extend wildcard COPY_FILE/DELETE_FILE to configured plain PIP endpoints with
+  finite snapshots, complete preflight and no implicit configuration or circular
+  truncation. Keep socket/DAQ and wildcard rename boundaries explicit.
+- Add 168 regressions, two standalone examples and two linked projects, current
+  reports, support guides and semantic notes; retain historical strict restrictions.
+
 ## 26.1028.211044 - 2026-10-28
 
 - Add opt-in stored-source TRANSLATE over explicit file backends, producing

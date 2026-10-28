@@ -67,7 +67,13 @@ never loads or executes its products. Compiler imports are lazy for runtime-only
 deployments. [Wildcard COPY/DELETE](wildcard-file-operations.md) use that same
 backend and expose `wildcard_file_policy`.
 `GroupLocks(..., apply_directives=True)` enables [root directive acquisition](directive-group-locks.md);
-`group_lock_policy` records the opt-in, root-only scope and startup failure rules.
+`group_lock_policy` records the opt-in, root entry and startup failure rules.
+Adding `callee_scopes=True` enables [nested module scopes](scoped-group-locks.md)
+with additional-grant cleanup on return; the default retains root-only behavior.
+[Plain pipe wildcard batches](pipe-wildcard-files.md) extend `wildcard_file_policy`
+without creating missing pipe configurations or truncating snapshots.
+The [FOR jump contract](for-jumps.md) adds active-loop transfers and exited-counter
+cleanup to the dispatcher, with explicit rejection of entry into new FOR scopes.
 
 [Frame transforms](frame-transforms.md) expose `frame_operations` for explicit
 POSITION/XYZWPR composition/inversion and `frame_policy` for matrix/Euler conventions,

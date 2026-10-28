@@ -46,8 +46,10 @@ it does not count as a write to that global.
 | Formal counter, or nonlocal counter in a parameterized routine | Still rejected; use a fresh local counter. |
 
 Fresh local counters remain usable in any internal routine. The existing
-direct-counter-assignment, nested-counter-reuse and in-loop label/jump guards
-remain. Conversion outputs cannot write active counters. The analysis covers
+direct-counter-assignment and nested-counter-reuse guards remain.
+[Labels and jumps](for-jumps.md) now retain active loop bounds and clear counters
+when leaving their scope; entering an unstarted FOR remains blocked.
+Conversion outputs cannot write active counters. The analysis covers
 translated KAREL calls; host callbacks retain their ordinary external side effects.
 
 ## Bounds and cleanup

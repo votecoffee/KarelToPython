@@ -166,6 +166,9 @@ generic DAQ/socket routing and native controller timing remain unsupported.
 [Plain PIP file management](pipe-file-management.md) now routes explicit
 COPY_FILE/DELETE_FILE/RENAME_FILE/FILE_LIST calls using finite closed-file snapshots,
 checked configurations and ordinary backend quota/path guards.
+[Wildcard pipe batches](pipe-wildcard-files.md) add bounded COPY/DELETE selection
+and templates over configured plain endpoints, preserving finite snapshot and
+complete destination-capacity guarantees.
 DAQ keeps its own typed record, snapshot and stream-consumption contract.
 
 ## Persistence and CLI examples

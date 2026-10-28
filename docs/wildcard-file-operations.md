@@ -108,10 +108,12 @@ contract. These outcomes do not assert native alarm-code equivalence.
 The nowait flag remains accepted intent; both values execute synchronously in
 this offline model.
 
-PIP, socket and DAQ wildcard operands are rejected explicitly and never fall
-through to an ordinary literal filename or another service. Existing finite
-exact [pipe file operations](pipe-file-management.md) retain their separate
-contract. Native binary program translation, physical device management, native
+Configured plain PIP operands now use the separate
+[pipe wildcard contract](pipe-wildcard-files.md), with complete capacity checks
+and no automatic pipe creation. Socket and DAQ wildcard operands remain rejected
+and never fall through to ordinary literal filenames. Existing finite exact
+[pipe file operations](pipe-file-management.md) retain their separate contract.
+Native binary program translation, physical device management, native
 scheduling and strict behavior remain outside this feature.
 
 Source forms are grounded in MARRC75KR07091E Rev N A.3.46 COPY_FILE, A.4.12

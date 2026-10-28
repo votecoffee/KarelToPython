@@ -1,0 +1,45 @@
+{
+  "version": "26.1028.213122",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": ["FOR and GOTO statements", "17.3 motion-group ownership", "A.3.46 COPY_FILE", "A.4.12 DELETE_FILE", "10.2.4 PIP device"],
+      "evidence_limit": "FOR jumps are a deliberate Pythonic extension; scope cleanup, statuses and finite pipe snapshots are offline contracts, not native scheduling or controller equivalence"
+    }
+  ],
+  "contracts": {
+    "for_jumps": {
+      "guide": "../for-jumps.md",
+      "transfers": "Labels and jumps within active FOR scopes retain their captured bounds and iteration state; exiting scopes clear their counters before target execution",
+      "guards": "No entry into unstarted FOR or uncaptured USING scopes, cross-body jumps, active-counter writes or nested counter reuse",
+      "lifetime": "Preserve normal and DOWNTO iteration, bound evaluation order, pause/resume and cleanup on RETURN, ABORT, runtime error, budget exhaustion and stop"
+    },
+    "scoped_group_locks": {
+      "guide": "../scoped-group-locks.md",
+      "configuration": "Additional callee_scopes flag defaults false and requires apply_directives=true; both true flags persist, ownership and live scope frames do not",
+      "entry": "Defining source module policy at called-program/internal-routine/FROM-definition entry; atomically acquire additional groups under the stable caller root",
+      "cleanup": "Release only eligible additional grants owned by the scope; retain caller groups, recursive grants, manual unlock/reacquisition and foreign owners; pause retains scope",
+      "boundary": "No inferred bank, native wait, physical motion or servo ownership; legacy root-only mode remains available"
+    },
+    "pipe_wildcards": {
+      "guide": "../pipe-wildcard-files.md",
+      "selection": "Bounded configured plain pipe COPY/DELETE batches, with finite retained-byte snapshots and portable destination templates; no real IPC or producer waiting",
+      "publication": "Preflight complete source/target aliases, busy/pending state, configuration, capacity and ordinary backend quotas before mutation; no circular truncation or implicit configuration",
+      "boundary": "Socket/DAQ routes and wildcard RENAME remain unavailable; rooted host publication retains its explicit per-file partial-failure boundary"
+    }
+  },
+  "validation": [
+    "tests/test_for_jumps.py",
+    "tests/test_scoped_group_locks.py",
+    "tests/test_pipe_wildcard_files.py",
+    "tests/test_conversion_scope_integration.py",
+    "examples/for_jumps.kl",
+    "examples/pipe_wildcards.kl",
+    "examples/for_jumps_project",
+    "examples/scoped_locks_project"
+  ],
+  "historical_notes": "Supersedes blanket FOR-body jump, callee directive-scope and plain PIP wildcard exclusions; historical per-feature ledger versions and internal strict restrictions remain preserved.",
+  "strict_mode": "Future milestone"
+}

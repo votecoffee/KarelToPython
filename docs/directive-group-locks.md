@@ -69,17 +69,24 @@ Same-task CALL_PROG/CALL_PROGLIN, recursion and linked FROM routines share that
 owner. Returning from a called program or routine does not release caller locks.
 Manual lock/unlock calls made inside them still operate on the calling root.
 
-**Automatic directive acquisition in this implementation is root-only.** A called
+**With the default `callee_scopes=False`, automatic acquisition is root-only.** A called
 program or linked library's own directive does not acquire additional groups or
 release caller groups. For example, a root with NOLOCKGROUP calling a program
 with LOCKGROUP=1 remains unlocked unless code explicitly calls LOCK_GROUP.
 Likewise, a root holding group 1 can call a module declaring group 2 even when
 only group 1 is configured; the callee's deferred directive is not applied.
 
+`GroupLocks(..., apply_directives=True, callee_scopes=True)` additionally enables
+[scoped module acquisitions](scoped-group-locks.md). Called programs, internal
+routines and defining FROM modules acquire their own requirements while keeping
+the caller's groups. Scope return releases eligible additional grants. The
+second flag is explicit and requires `apply_directives=True`; default root-only
+behavior and saved configurations remain compatible.
+
 MARRC75KR07091E Rev N sections 17.3, A.12.4, A.12.5 and A.14.5 describe native
 program/routine acquisition, additional callee scopes, native pause/readiness
 conditions and return-time release. This root-only portable choice does not
-implement those additional callee acquisitions, native lock waits, servo/e-stop
+implement native lock waits, servo/e-stop
 readiness, parent group transfer or physical motion. An unavailable automatic
 request raises instead of entering a native pause or wait.
 

@@ -66,11 +66,12 @@ root's groups, including groups with busy labels. Finishing one task preserves
 other owners. By default `%LOCKGROUP` and `%NOLOCKGROUP` remain source policy
 metadata. `GroupLocks(..., apply_directives=True)` opts into atomic root startup
 acquisition; see [directive group locks](directive-group-locks.md) for default
-selection, lifecycle, contention and deferred callee scopes.
+selection, lifecycle and contention. A second opt-in, `callee_scopes=True`, adds
+[scoped acquisitions](scoped-group-locks.md) for called programs and routines.
 
 `bank.snapshot()` returns detached configured groups, motion labels and owner
 source names for inspection. JSON persists configured groups, motion labels and
-the true `apply_directives` flag. Saving context while ownership is live raises
+the true `apply_directives` and `callee_scopes` flags. Saving context while ownership is live raises
 rather than writing a state that
 could appear to restore task ownership. Finish or explicitly unlock before
 saving; source and task frames are never restored by this configuration.

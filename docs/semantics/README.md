@@ -252,3 +252,8 @@ The [source services ledger](source_services_semantics.json) adds opt-in stored
 source to Python translation, bounded wildcard COPY/DELETE and root directive
 group acquisition. It supersedes those older exclusions while retaining native
 PC, physical motion, callee lock scopes and host batch failure boundaries.
+
+The [control and file scope ledger](control_file_scope_semantics.json) adds
+active FOR transfers, opt-in callee lock scopes and configured plain pipe
+wildcard batches. It supersedes those earlier exclusions while preserving
+scope-entry proofs, caller ownership and explicit offline service boundaries.

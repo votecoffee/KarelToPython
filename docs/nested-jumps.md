@@ -68,12 +68,15 @@ Right-most field priority, protected POSITION columns, ordinary aliases and
 handler capture rules remain unchanged.
 
 Only IF, WHILE, REPEAT and SELECT are admitted as newly entered block kinds.
+An already active FOR can contain labels and transfers under the
+[FOR jump contract](for-jumps.md); a transfer cannot enter a new FOR scope.
 Other future block kinds require an explicit entry contract before acceptance.
 
 ## Retained checks and execution
 
-- Labels and jumps inside FOR bodies remain rejected, including nested branches.
-  Jumping over an entire FOR statement is allowed and leaves its counter untouched.
+- Labels and jumps within active FOR bodies preserve their captured bounds and
+  iteration state; exits clear the counters of exited loops. Entry into any new
+  FOR scope remains rejected. Jumping over an entire FOR leaves its counter untouched.
 - A target must exist in the same program/routine body. Duplicate labels and
   conflicts with declared identifiers still reject. Calls use the callee's labels.
 - Condition actions cannot contain labels, GOTO or RETURN. A normal body can jump

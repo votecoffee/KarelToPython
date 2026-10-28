@@ -25,7 +25,8 @@ they are boundaries rather than promises to accept every such source form later.
   DEFGROUP selects offline defaults and CRTDEVICE labels I/O requests; native
   storage, periodic delay, stack allocation and real device routing are not applied.
   An opted-in GroupLocks bank applies root LOCKGROUP/NOLOCKGROUP policies;
-  callee scopes and native waits remain deferred. Include search does not discover native support installations.
+  a second opt-in enables [callee scopes](scoped-group-locks.md), while native
+  waits remain unavailable. Include search does not discover native support installations.
 - Native motion statements: `MOVE TO`, `MOVE NEAR`, `MOVE AWAY`, `MOVE ABOUT`,
   `MOVE ALONG`, `MOVE AXIS`, `MOVE RELATIVE`; their `VIA`, motion `WITH`, `WHEN`
   and `UNTIL` clauses; motion ownership and hand control. `ATTACH`, `RELEASE`,
@@ -38,8 +39,10 @@ they are boundaries rather than promises to accept every such source form later.
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,
   asynchronous native interrupts and motion-local handlers are unavailable.
-- Labels/jumps inside FOR bodies, transfers across program/routine bodies, and
-  entry into an uncaptured USING scope. [Nested/sibling label transfers](nested-jumps.md)
+- Transfers across program/routine bodies and entry into an uncaptured USING or
+  unstarted FOR scope. [FOR jumps](for-jumps.md) now support same-loop labels,
+  nested active-loop transfers and exits with counter cleanup under an explicit
+  Pythonic extension. [Nested/sibling label transfers](nested-jumps.md)
   now support IF/WHILE/REPEAT/SELECT targets with normal loop continuations.
   Forward/self/cyclic type aliases remain blocked. Full [external FROM type declarations](external-types.md)
   now use supplied source layouts and checked project ownership chains; missing
@@ -125,7 +128,10 @@ they are boundaries rather than promises to accept every such source form later.
   40-column size records and blank timestamps; native metadata formats remain open.
   [Wildcard COPY/DELETE](wildcard-file-operations.md) now support bounded final-name
   star patterns and full-stem templates. Recursive/glob directories, wildcard
-  RENAME, PIP/socket/DAQ batches and cross-file atomic host transactions remain unsupported.
+  RENAME, socket/DAQ batches and cross-file atomic host transactions remain unsupported.
+  [Plain PIP batches](pipe-wildcard-files.md) now copy/delete finite snapshots with
+  explicit configured destinations; automatic pipe creation and ring truncation
+  during copying remain unavailable.
 - Physical PATH node byte sizes, native association records and native message
   attachments. NODE_SIZE uses [portable packed schema widths](path-geometry.md).
   QUEUE_ATTACH has a separate [offline message-attachment model](remote-messages.md);
@@ -172,8 +178,9 @@ they are boundaries rather than promises to accept every such source form later.
   persisted executable links and implicit program loading remain unsupported.
 - LOCK_GROUP/UNLOCK_GROUP now have [logical ownership banks](group-locks.md).
   [Opt-in root directive acquisition](directive-group-locks.md) is available;
-  callee acquisition/release scopes, native locks, lock waits and motion effects
-  remain unavailable. The configured bank requires explicit groups and busy labels.
+  a second opt-in adds [callee acquisition/release scopes](scoped-group-locks.md).
+  Native locks, lock waits and motion effects remain unavailable. The configured
+  bank requires explicit groups and busy labels.
 - Native alarm dictionaries, severity encodings, asynchronous history timing,
   power-cycle restoration and controller error recovery. POST_ERR, POST_ERR_L,
   ERR_DATA, semaphores and lifecycle conditions have explicit offline contracts.

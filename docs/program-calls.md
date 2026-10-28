@@ -58,7 +58,12 @@ Body pauses also retain the complete nested generator. Continue through
 The root owns stop, abort and failure outcomes. Closing a stopped invocation
 unwinds its frames; abort and runtime failures propagate to the calling task.
 Returning from a called program retains task-owned resources, including TP
-handles and [logical group locks](group-locks.md). Root completion, stop, abort
+access and manual group ownership. With an explicitly opted-in
+`GroupLocks(..., apply_directives=True, callee_scopes=True)` bank, called-module
+directives can also acquire additional logical groups for that invocation.
+[Scoped group locks](scoped-group-locks.md) describe return/stop/error cleanup
+and preservation of caller grants. Existing root-only behavior remains the default.
+Root completion, stop, abort
 or failure performs terminal cleanup. FILE variables keep their ordinary
 explicit-close contract.
 

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.211044**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.213122**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -291,10 +291,13 @@ policies; see [task attributes and traces](docs/task-attributes.md).
 Nine additional source policies cover an applied DEFGROUP default, CRTDEVICE
 request labels, uninitialized defaults and retained storage/lock/stack/delay
 intent. An explicitly configured GroupLocks bank can opt into atomic root
-directive acquisition; nested callee directives remain deferred. See
+directive acquisition; nested callee directives are deferred by default. See
 [directive group locks](docs/directive-group-locks.md). Policies are exposed
 through `Program.source_settings`; see
 [source directive policies](docs/source-directives.md#additional-source-policies).
+An additional `callee_scopes=True` setting acquires module-required groups for
+called programs and routines, then releases that scope's additional grants on
+return. Caller ownership survives; see [scoped group locks](docs/scoped-group-locks.md).
 %INCLUDE expands supplied declaration/routine/body fragments, with nested
 lookup, explicit include directories/device mappings, physical-source diagnostics
 and input-file protection across CLI and linked projects. See
@@ -304,6 +307,10 @@ an explicitly supplied file backend. It preserves source and never loads or runs
 the products; see [source translations](docs/source-translations.md).
 COPY_FILE and DELETE_FILE accept bounded, nonrecursive star batches with checked
 destination templates and preflight; see [wildcard files](docs/wildcard-file-operations.md).
+The same operations support configured plain pipes with finite snapshots and
+complete destination-capacity checks; see [pipe wildcard files](docs/pipe-wildcard-files.md).
+Labels and GOTO can remain inside an active FOR loop or exit it with counter
+cleanup. Direct entry into a new FOR scope stays blocked; see [FOR jumps](docs/for-jumps.md).
 Linked projects accept program-qualified ARRAY shapes, so modules can specialize
 the same variable name independently. See [project ARRAY shapes](docs/project-array-shapes.md)
 for API and CLI examples, including validation without executing source.
