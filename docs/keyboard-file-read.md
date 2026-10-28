@@ -91,11 +91,12 @@ Lines are limited to 254 printable characters; each statement processes at most
 256 handles, finite sequence IDs and bounded history limits also apply.
 IO_STATUS uses portable success/error outcomes; these are not native alarm codes.
 
-Generic typed READ rejects binary/XML, `ATR_PASSALL` and custom `ATR_EOL` values
-other than LF/CR before consuming input. The native passall contract ignores the
-normal line terminator and may expose control-key encodings; use READ_KB for
-its documented injected key/mask model. Raw native transfer, physical keyboard
-input, native error recovery and strict mode remain outside this feature.
+Generic typed READ retains its line-parsing rules. A separate
+[raw keyboard contract](keyboard-raw-read.md) now supports bounded PASSALL ASCII
+STRING fields, and printable ATR_EOL delimiters are an explicit keyboard
+extension. Binary/XML, unsupported nonprintable delimiters and native key
+encodings remain excluded. Raw native transfer, physical keyboard input, native
+error recovery and strict mode remain outside this feature.
 
 This guide uses MARRC75KR07091E Rev N sections 7.2.1, 7.4 and 7.7 for source and
 format context. Authored verification is in

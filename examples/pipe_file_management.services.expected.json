@@ -1,0 +1,17 @@
+{
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {}
+  },
+  "files": {
+    "seed.dat": {
+      "hex": "616263"
+    },
+    "snapshot.dat": {
+      "hex": "616263"
+    },
+    "copied.dat": {
+      "hex": "616263"
+    }
+  }
+}

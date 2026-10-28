@@ -1,0 +1,51 @@
+{
+  "keyboard": {
+    "events": [
+      {
+        "key": "2"
+      },
+      {
+        "key": "A"
+      },
+      {
+        "key": " "
+      },
+      {
+        "key": "r"
+      },
+      {
+        "key": "e"
+      },
+      {
+        "key": "a"
+      },
+      {
+        "key": "d"
+      },
+      {
+        "key": "y"
+      },
+      {
+        "key": ";"
+      },
+      {
+        "key": "A"
+      },
+      {
+        "key": "B"
+      },
+      {
+        "key": "C"
+      },
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "DELETE"
+      },
+      {
+        "key": "REFRESH"
+      }
+    ]
+  }
+}

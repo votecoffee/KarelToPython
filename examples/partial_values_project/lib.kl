@@ -1,0 +1,12 @@
+PROGRAM LIB
+TYPE sample_t=STRUCTURE
+       id:INTEGER point:VECTOR labels:ARRAY[2] OF STRING[8]
+     ENDSTRUCTURE
+VAR shared:sample_t
+ROUTINE enrich(item:sample_t):sample_t
+BEGIN
+  item.id=item.id+1 item.point.y=9 item.labels[2]='private'
+  RETURN item
+END enrich
+BEGIN
+END LIB

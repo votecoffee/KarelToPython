@@ -50,7 +50,9 @@ Constructed vectors can be assigned to VECTOR variables, alias types, fields
 and elements, returned from functions, passed as writable private value
 arguments and used in arithmetic. `VEC(1,2,3).x` reads a component; passing that
 component to a writable REAL formal refers to private constructed storage.
-Whole VECTOR values retain complete-initialization and ownership checks.
+Whole VECTOR copies retain ownership and known-component checks while preserving
+missing fields; see [partial aggregate values](partial-aggregate-values.md).
+VECTOR arithmetic and geometry still require complete initialized components.
 
 ## Signs and product chains
 

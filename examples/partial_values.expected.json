@@ -1,0 +1,177 @@
+{
+  "ORIGINAL": {
+    "ID": 7,
+    "POINT": {
+      "X": 1.0,
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      }
+    },
+    "LABELS": [
+      "old",
+      {
+        "uninitialized": true
+      }
+    ]
+  },
+  "COPIED": {
+    "ID": 7,
+    "POINT": {
+      "X": 1.0,
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      }
+    },
+    "LABELS": [
+      "old",
+      {
+        "uninitialized": true
+      }
+    ]
+  },
+  "EDITED": {
+    "ID": 7,
+    "POINT": {
+      "X": 1.0,
+      "Y": 8.0,
+      "Z": {
+        "uninitialized": true
+      }
+    },
+    "LABELS": [
+      "old",
+      "new"
+    ]
+  },
+  "ROWS": [
+    {
+      "ID": 7,
+      "POINT": {
+        "X": 1.0,
+        "Y": {
+          "uninitialized": true
+        },
+        "Z": {
+          "uninitialized": true
+        }
+      },
+      "LABELS": [
+        "old",
+        {
+          "uninitialized": true
+        }
+      ]
+    },
+    {
+      "ID": {
+        "uninitialized": true
+      },
+      "POINT": {
+        "X": {
+          "uninitialized": true
+        },
+        "Y": {
+          "uninitialized": true
+        },
+        "Z": {
+          "uninitialized": true
+        }
+      },
+      "LABELS": [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    }
+  ],
+  "BACKUP": [
+    {
+      "ID": 9,
+      "POINT": {
+        "X": 1.0,
+        "Y": {
+          "uninitialized": true
+        },
+        "Z": {
+          "uninitialized": true
+        }
+      },
+      "LABELS": [
+        "old",
+        {
+          "uninitialized": true
+        }
+      ]
+    },
+    {
+      "ID": {
+        "uninitialized": true
+      },
+      "POINT": {
+        "X": {
+          "uninitialized": true
+        },
+        "Y": {
+          "uninitialized": true
+        },
+        "Z": {
+          "uninitialized": true
+        }
+      },
+      "LABELS": [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    }
+  ],
+  "DIRECTION": {
+    "X": 2.0,
+    "Y": {
+      "uninitialized": true
+    },
+    "Z": {
+      "uninitialized": true
+    }
+  },
+  "DETACHED": {
+    "X": 2.0,
+    "Y": {
+      "uninitialized": true
+    },
+    "Z": {
+      "uninitialized": true
+    }
+  },
+  "JOINTS": {
+    "axes": [
+      1.0,
+      {
+        "uninitialized": true
+      },
+      3.0
+    ]
+  },
+  "JOINT_COPY": {
+    "axes": [
+      1.0,
+      {
+        "uninitialized": true
+      },
+      3.0
+    ]
+  },
+  "RESULT": 16
+}

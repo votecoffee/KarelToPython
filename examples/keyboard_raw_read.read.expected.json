@@ -1,0 +1,54 @@
+[
+  {
+    "line": 7,
+    "targets": [
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ],
+        "format_specifiers": [
+          2,
+          16
+        ]
+      },
+      {
+        "type": "STRING",
+        "type_spec": [
+          "STRING",
+          12
+        ]
+      }
+    ],
+    "line_breaks": [
+      2
+    ],
+    "adapter_outcome": "callback_completed"
+  },
+  {
+    "line": 11,
+    "targets": [
+      {
+        "type": "STRING",
+        "type_spec": [
+          "STRING",
+          12
+        ],
+        "format_specifiers": [
+          3
+        ]
+      },
+      {
+        "type": "STRING",
+        "type_spec": [
+          "STRING",
+          12
+        ],
+        "format_specifiers": [
+          3
+        ]
+      }
+    ],
+    "adapter_outcome": "callback_completed"
+  }
+]

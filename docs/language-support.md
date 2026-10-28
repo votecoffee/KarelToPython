@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1028.200539. Acceptance is specific to
+This is the supported prototype subset as of 26.1028.202845. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -23,10 +23,10 @@ internally and in the historical semantic notes.
 | Trig | General degree SIN/COS/TAN/ASIN/ACOS and ATAN2 | Inverse/domain checks remain. ATAN2 uses KAREL `(x,y)` order, all quadrants and Python -180..180 degree output. |
 | STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison, clipped SUB_STR and INDEX including empty searches | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. SUB_STR returns at most 254; positive start and nonnegative count. |
 | BYTE/SHORT | Aggregate storage, range checks and numeric value promotion | Initial BYTE data is unknown; BYTE initialization queries are blocked. SHORT 32767 means uninitialized. |
-| Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference/value arguments and named subarrays | Prototype bound of 32767 scalar leaves; value arguments require known initialized leaves; nominal identity and exact shape are retained. |
+| Arrays | One-based fixed/named arrays up to logical rank three, exact whole copies, reference/value arguments and named subarrays | Copies preserve missing markers with 32767 scalar leaves and 64 schema levels; nominal identity, exact shape and known scalar validation remain. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
-| ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Every scalar leaf known/initialized; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. No unspecified STRING capacities, resize or flattening. |
-| Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal type identity, complete known initialization and capacity checks; no ABI claim. |
+| ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Missing markers preserved and known leaves validated; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. No unspecified STRING capacities, resize or flattening. |
+| Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal identity, known scalar/capacity checks and missing-marker preservation; no ABI claim. |
 | Predefined structures | DISP_DAT_T SHORT fields/fixed arrays, portable COL_DESC_T/XWORK_T and STD_PTH_NODE NODE_POS; aliases, arrays, fields, routine interfaces and CREATE_VAR | Existing nominal STRUCTURE schemas and initialization/copy/output guards; no obsolete association fields, native UI execution or ABI claim. |
 | TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases or local TYPE. BYTE/SHORT remain element/field-only. |
 | External types | Full TYPE name FROM owner definitions; supported aliases, structures, arrays and resource schemas | Standalone layout and owner metadata; source projects validate exact resolved schemas, self owners and acyclic reexports before allocation. No binary environments or native owner-qualified ABI. |
@@ -228,8 +228,8 @@ checks that concrete capacity against the declared result. The result never
 infers a capacity or truncates elements to reconcile a mismatch. Ordinary writes
 to source storage still apply the existing right-truncation rule.
 
-Empty initialized elements are valid. Uninitialized, non-ASCII or malformed
-oversized host values fail before result assignment. See the authored
+Empty initialized elements are valid; missing markers are preserved. Known
+non-ASCII or malformed oversized host values fail before result assignment. See the authored
 [STRING ARRAY example](../examples/string_array_functions.kl). Direct STRING
 results follow the [Pythonic STRING contract](pythonic-strings.md); this ARRAY subset is an offline
 composition of the documented array and bounded-string rules, without native
@@ -237,8 +237,9 @@ compiler or controller validation.
 
 Return copies complete before local frames unwind and retain record names,
 nested array identities/shapes, STRING field capacities and joint widths. All
-scalar leaves must be initialized and known; this is a conservative prototype
-guard. The 32767 scalar-leaf limit includes nested fields and joint axes.
+known scalar leaves are validated, while missing markers remain missing; see
+[partial aggregate values](partial-aggregate-values.md). Copies are bounded to
+32767 scalar leaves and 64 schema levels, including nested fields/joint axes.
 Failure leaves the destination intact while retaining earlier independent effects.
 
 Use a bare zero-argument function name or an explicit call. Results compose in

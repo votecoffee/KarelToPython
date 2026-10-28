@@ -383,6 +383,9 @@ examples and the compatibility changes introduced in 0.54.0.
 
 `array_value_arguments` records private ARRAY copy sites with formal and source
 type specs. `array_function_uses` records ARRAY-valued expression calls.
+`aggregate_copy_policy` describes validated partial data transfers, complete-only
+geometry/service boundaries and the retained strict restrictions. See
+[partial aggregate values](partial-aggregate-values.md).
 `array_value_policy` describes checked ownership and `aggregate_access_policy`
 describes subscripts/fields on explicit calls and groups. ARRAY formal
 `passing_modes` includes reference and value; see the

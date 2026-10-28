@@ -1,0 +1,15 @@
+PROGRAM PIPE_FILE_MANAGEMENT
+VAR names:ARRAY[2] OF STRING[20]
+    metadata:ARRAY[1] OF STRING[40] count,detail_count,status:INTEGER
+BEGIN
+  PIPE_CONFIG('WORK.DAT',FALSE,1,0,'',0,status)
+  PIPE_CONFIG('SPARE.DAT',FALSE,1,0,'',0,status)
+  COPY_FILE('seed.dat','PIP:WORK.DAT',TRUE,FALSE,status)
+  COPY_FILE('PIP:WORK.DAT','snapshot.dat',TRUE,FALSE,status)
+  RENAME_FILE('PIP:WORK.DAT','PIP:RENAMED.DAT',FALSE,status)
+  FILE_LIST('PIP:*',0,3,names,count,status)
+  FILE_LIST('PIP:RENAMED.DAT',0,4,metadata,detail_count,status)
+  DELETE_FILE('PIP:SPARE.DAT',FALSE,status)
+  COPY_FILE('PIP:RENAMED.DAT','copied.dat',TRUE,TRUE,status)
+  DELETE_FILE('PIP:RENAMED.DAT',TRUE,status)
+END PIPE_FILE_MANAGEMENT

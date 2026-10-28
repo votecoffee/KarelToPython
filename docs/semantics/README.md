@@ -241,3 +241,9 @@ unfinished-stream parsing. It supersedes older blanket exclusions while retainin
 explicit input, atomic publication and suspended-state boundaries. The
 [VT tray ledger](vt_tray_semantics.json) adds supplied cell geometry, independent
 allocation/routing and portable ordering without claiming native calibration.
+
+The [data copy expansion ledger](data_copy_expansion_semantics.json) adds
+validated partial aggregate transfers, bounded raw keyboard fields/printable
+delimiters and explicit PIP file management. It supersedes the older exclusions
+while retaining missing-value reads, complete geometry/service inputs, ownership,
+native evidence boundaries and internal strict rejection coverage.

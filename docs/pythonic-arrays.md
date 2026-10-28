@@ -40,15 +40,16 @@ The final arrays are `ORIGINAL=[1,2]` and `EDITED=[99,2]`, with `FIRST=99` and
 
 Value copies retain concrete dimensions, nominal array and record identities,
 STRING capacities, narrow integer element types and joint widths. Flat and named
-multidimensional arrays are supported up to logical rank three. Copies require
-every scalar leaf to be known, initialized and valid; they do not resize arrays,
-coerce element types or truncate corrupt STRING contents. The existing prototype
-limit of 32767 scalar leaves applies.
+multidimensional arrays are supported up to logical rank three. Copies validate
+every known scalar leaf and preserve missing/unknown markers; they do not resize
+arrays, coerce element types or truncate corrupt STRING contents. The limits are
+32767 scalar leaves and 64 schema levels; see
+[partial aggregate values](partial-aggregate-values.md).
 
 A copy is made once at its argument position in left-to-right evaluation. A
 later actual can change caller storage without changing an earlier private
-copy. Bare references remain live. An uninitialized array is still a legal bare
-output argument; its grouped value copy fails before entering the callee.
+copy. Bare references remain live. An uninitialized array is a legal bare output
+argument; its grouped value copy now retains those markers in independent storage.
 
 Forwarding a private parameter bare shares the private storage. Grouping it again
 makes another copy. Changes never copy back to the original, including after

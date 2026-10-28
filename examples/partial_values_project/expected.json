@@ -1,0 +1,142 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SHARED": {
+        "ID": 7,
+        "POINT": {
+          "X": 2.0,
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "LABELS": [
+          "seed",
+          {
+            "uninitialized": true
+          }
+        ]
+      }
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "SHARED": {
+        "ID": 7,
+        "POINT": {
+          "X": 2.0,
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "LABELS": [
+          "seed",
+          {
+            "uninitialized": true
+          }
+        ]
+      },
+      "RESULT": {
+        "ID": 8,
+        "POINT": {
+          "X": 2.0,
+          "Y": 9.0,
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "LABELS": [
+          "seed",
+          "private"
+        ]
+      },
+      "ROWS": [
+        {
+          "ID": 8,
+          "POINT": {
+            "X": 2.0,
+            "Y": 9.0,
+            "Z": {
+              "uninitialized": true
+            }
+          },
+          "LABELS": [
+            "seed",
+            "private"
+          ]
+        },
+        {
+          "ID": {
+            "uninitialized": true
+          },
+          "POINT": {
+            "X": {
+              "uninitialized": true
+            },
+            "Y": {
+              "uninitialized": true
+            },
+            "Z": {
+              "uninitialized": true
+            }
+          },
+          "LABELS": [
+            {
+              "uninitialized": true
+            },
+            {
+              "uninitialized": true
+            }
+          ]
+        }
+      ],
+      "BACKUP": [
+        {
+          "ID": 8,
+          "POINT": {
+            "X": 99.0,
+            "Y": 9.0,
+            "Z": {
+              "uninitialized": true
+            }
+          },
+          "LABELS": [
+            "seed",
+            "private"
+          ]
+        },
+        {
+          "ID": {
+            "uninitialized": true
+          },
+          "POINT": {
+            "X": {
+              "uninitialized": true
+            },
+            "Y": {
+              "uninitialized": true
+            },
+            "Z": {
+              "uninitialized": true
+            }
+          },
+          "LABELS": [
+            {
+              "uninitialized": true
+            },
+            {
+              "uninitialized": true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1028.202845 - 2026-10-28
+
+- Preserve missing scalar leaves in Pythonic resource-free ARRAY, STRUCTURE,
+  built-in record and JOINTPOS copies, private arguments and function results.
+  Validate complete storage/schema and known contents before publishing outputs;
+  retain scalar-read, geometry/kinematics/vision and internal strict guards.
+- Add bounded PASSALL ASCII STRING fields and printable keyboard record
+  delimiters, with explicit control-byte mappings, atomic output, retained pending
+  prefixes, shared-pane arbitration and ordinary cooperative cleanup.
+- Route COPY_FILE/DELETE_FILE/RENAME_FILE/FILE_LIST for explicit plain PIP names.
+  Cross-backend copies use finite closed-file snapshots, configured capacities,
+  ordinary quota/path checks and atomic destination replacement without ring loss.
+- Add 160 regressions, three standalone examples and a linked partial-value
+  project. Preserve historical strict cases and per-feature ledger versions;
+  update current reports, README, support guides and semantic notes.
+
 ## 26.1028.200539 - 2026-10-28
 
 - Enable cooperative FILE READ with captured destinations/formats. Add typed

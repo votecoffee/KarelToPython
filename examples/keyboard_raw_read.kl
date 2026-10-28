@@ -1,0 +1,14 @@
+PROGRAM KEYBOARD_RAW_READ
+VAR line_file,raw_file:FILE number,status:INTEGER
+    label,prefix,controls:STRING[12]
+BEGIN
+  SET_FILE_ATR(line_file,ATR_EOL,59)
+  OPEN FILE line_file('RO','KB:TPKB')
+  READ line_file(number::2::16,label,CR)
+  CLOSE FILE line_file
+  SET_FILE_ATR(raw_file,ATR_PASSALL)
+  OPEN FILE raw_file('RO','KB:TPKB')
+  READ raw_file(prefix::3,controls::3)
+  status=IO_STATUS(raw_file)
+  CLOSE FILE raw_file
+END KEYBOARD_RAW_READ

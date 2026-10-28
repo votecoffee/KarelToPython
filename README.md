@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.200539**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.202845**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -205,6 +205,9 @@ for reference aliasing and compatibility changes.
 Whole ARRAY value arguments use private checked copies. ARRAY results can be
 passed onward, forwarded by RETURN, or read directly with `make()[1]`.
 See the [ARRAY values guide](docs/pythonic-arrays.md) for ownership and limits.
+Resource-free aggregate copies now preserve missing scalar fields across
+assignments, private arguments and returns. Reads and geometry still reject
+unavailable components; see [partial aggregate values](docs/partial-aggregate-values.md).
 Results also support named types and fixed or wildcard matrix/cube dimensions.
 `ARRAY_LEN` returns the first dimension, like Python `len`. See
 [ARRAY result shapes](docs/array-result-shapes.md).
@@ -372,6 +375,8 @@ dictionary-backed subwindow/pull-up menus share that headless event model. See
 Ordinary typed FILE READ now uses the same injected keyboard service, with
 submitted lines, numeric/quoted formats, buffered suffixes and atomic outputs;
 see [keyboard FILE reads](docs/keyboard-file-read.md).
+[Raw keyboard fields](docs/keyboard-raw-read.md) add bounded PASSALL ASCII STRINGs
+and printable delimiters, using the same injected events and lifetime guards.
 
 Twelve dynamic-display calls watch static scalar/enum variables and supplied
 ports, updating logical window fields at deterministic checkpoint intervals.
@@ -401,6 +406,8 @@ FILE I/O and saved state; see [communications](docs/communications.md).
 Plain pipes also support explicit wait/snapshot and overflow attributes, with
 cooperative text/binary reads and scripted producers; see
 [pipe attributes](docs/pipe-attributes.md).
+[Pipe file management](docs/pipe-file-management.md) adds finite snapshot copies,
+configuration-preserving rename, deletion and listing over explicit PIP names.
 RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH provide bounded offline mobile-message
 outboxes and deferred ZDT attachment selection, with validated XML publication,
 MD retention, explicit host collection and saved-state replay. See

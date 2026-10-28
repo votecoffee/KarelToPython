@@ -73,9 +73,11 @@ they are boundaries rather than promises to accept every such source form later.
 - Standalone BYTE/SHORT variables and routine interfaces; they remain aggregate
   field/element and file forms. BYTE unknown contents cannot be queried with
   UNINIT. SHORT 32767 is the retained uninitialized sentinel.
-- Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries; arbitrary
-  partial aggregate copies/results, flattening, nominal-type coercion, unspecified
-  STRING result-element capacities and resource fields in structures.
+- Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries; flattening,
+  nominal-type coercion, unspecified STRING result-element capacities and resource
+  fields in structures. [Partial data copies](partial-aggregate-values.md) now
+  preserve missing scalar leaves across assignments, private arguments and results;
+  malformed known data, resource-bearing values and schemas above64 levels remain blocked.
 - VECTOR left frames and VECTOR inputs to INV/FRAME; direct joint field/index access; implicit
   pose/joint conversions in exact routine, RETURN and whole-array interfaces.
   POSITION orientation columns remain recursively read-only source storage.
@@ -214,7 +216,9 @@ they are boundaries rather than promises to accept every such source form later.
   Native key codes, soft-key editing widgets, raw binary transfer and native form
   widgets remain outside that contract. [Typed keyboard FILE READ](keyboard-file-read.md)
   now parses submitted ASCII lines with buffered suffixes and atomic outputs;
-  generic PASSALL/custom-EOL transfer remains unsupported. Four
+  [bounded PASSALL ASCII fields and printable EOL](keyboard-raw-read.md) are now
+  supported. Numeric/raw binary transfer, nonprintable custom delimiters and native
+  key encodings remain unsupported. Four
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.
   [DISCTRL_FORM](forms.md) now accepts supplied FTX forms with typed scalar/port
@@ -234,6 +238,9 @@ they are boundaries rather than promises to accept every such source form later.
   [offline FILE models](communications.md); plain and DAQ pipe names stay distinct.
   Explicit [plain-pipe attributes](pipe-attributes.md) add cooperative waiting
   reads, captured snapshot boundaries and checked overflow recovery.
+  [Pipe file management](pipe-file-management.md) now covers finite COPY/DELETE/
+  RENAME/LIST operations with explicit configurations and ordinary backend guards;
+  generic DAQ/socket routing and native formatted dictionary output remain open.
 - Native mobile/ZDT delivery, message schemas and automatic SET_VAR triggers.
   RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH now have [offline outboxes and deferred
   attachments](remote-messages.md), with explicit host publication/collection.

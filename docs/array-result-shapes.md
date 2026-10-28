@@ -66,7 +66,8 @@ capacities or identities are checked at RETURN before destination assignment.
 For example, a named result may accept a generic parameter bound to that exact
 named type, while anonymous storage passed through the same parameter fails.
 
-Every scalar leaf must be known, initialized and valid. Copies retain STRING
+Every known scalar leaf is validated, and missing markers are preserved under
+the [partial aggregate policy](partial-aggregate-values.md). Copies retain STRING
 capacities, narrow numeric element types, record identities, joint widths and
 POSITION protection. An error or ABORT keeps earlier effects and unwinds frames;
 an unsuccessful result does not replace its caller's destination.

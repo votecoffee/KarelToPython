@@ -161,8 +161,11 @@ backend is used as a fallback for an unconfigured PIP or socket address.
 
 Explicit [pipe attributes](pipe-attributes.md) now add cooperative waiting reads,
 captured snapshot boundaries and checked overflow policies. Unconfigured handles
-retain the original behavior above. Formatted dictionary display, generic
-copy/list/delete routing and native controller timing remain unsupported.
+retain the original behavior above. Formatted dictionary display,
+generic DAQ/socket routing and native controller timing remain unsupported.
+[Plain PIP file management](pipe-file-management.md) now routes explicit
+COPY_FILE/DELETE_FILE/RENAME_FILE/FILE_LIST calls using finite closed-file snapshots,
+checked configurations and ordinary backend quota/path guards.
 DAQ keeps its own typed record, snapshot and stream-consumption contract.
 
 ## Persistence and CLI examples

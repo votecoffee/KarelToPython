@@ -1,0 +1,23 @@
+PROGRAM PARTIAL_VALUES
+TYPE sample_t=STRUCTURE
+       id:INTEGER point:VECTOR labels:ARRAY[2] OF STRING[8]
+     ENDSTRUCTURE
+VAR original,copied,edited:sample_t rows,backup:ARRAY[2] OF sample_t
+    direction,detached:VECTOR joints,joint_copy:JOINTPOS3
+    result:INTEGER
+ROUTINE enrich(item:sample_t):sample_t
+BEGIN
+  item.point.y=8
+  item.labels[2]='new'
+  RETURN item
+END enrich
+BEGIN
+  original.id=7 original.point.x=1 original.labels[1]='old'
+  copied=original
+  edited=enrich((original))
+  rows[1]=original backup=rows
+  backup[1].id=9
+  direction.x=2 detached=direction
+  joint_copy=joints
+  result=edited.id+backup[1].id
+END PARTIAL_VALUES

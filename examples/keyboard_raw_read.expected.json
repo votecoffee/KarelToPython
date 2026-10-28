@@ -1,0 +1,21 @@
+{
+  "LINE_FILE": {
+    "file": "KB:TPKB",
+    "open": false,
+    "position": 9,
+    "binary": false,
+    "status": 0
+  },
+  "RAW_FILE": {
+    "file": "KB:TPKB",
+    "open": false,
+    "position": 6,
+    "binary": false,
+    "status": 0
+  },
+  "NUMBER": 42,
+  "STATUS": 0,
+  "LABEL": " ready",
+  "PREFIX": "ABC",
+  "CONTROLS": "\r\b\u0017"
+}

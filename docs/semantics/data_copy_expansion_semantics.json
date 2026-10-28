@@ -1,0 +1,45 @@
+{
+  "version": "26.1028.202845",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": ["ARRAY/STRUCTURE data and routine declarations", "7.3 FILE attributes", "7.7.4 STRING input", "10.2.4 PIP device"],
+      "evidence_limit": "Partial-copy semantics and printable keyboard delimiters are explicit portable choices; these sources do not establish native equivalence"
+    }
+  ],
+  "contracts": {
+    "partial_values": {
+      "guide": "../partial-aggregate-values.md",
+      "transfers": "Resource-free aggregate assignment, private arguments and exact results preserve missing scalar and BYTE-only unknown markers in independent storage",
+      "validation": "Canonical bounded concrete schemas/storage, nominal identity, shape, capacities, joint widths and every known scalar domain before output mutation; maximum32767leaves and64schema levels",
+      "reads": "Missing scalar reads and complete geometry/kinematics/vision consumers still fail; no zero/default synthesis or resource-copy extension",
+      "compatibility": "Preserve destination aliases and checked evaluation/failure order; internal strict complete-value restrictions remain"
+    },
+    "raw_keyboard": {
+      "guide": "../keyboard-raw-read.md",
+      "transfer": "PASSALL reads exact bounded ASCII STRING widths/default capacities, at most4096bytes; known ENTER13/DELETE8/REFRESH23 are literal bytes, with no edit/echo interpretation",
+      "delimiters": "Printable ATR_EOL submits edited records; LF/CR retain ENTER; other nonprintable delimiters and native key layouts remain unavailable",
+      "lifetime": "Atomic target/cursor publication, retained failure prefixes and explicit pending-mode separation; ordinary pane/suspension/pause/cleanup/save guards"
+    },
+    "pipe_files": {
+      "guide": "../pipe-file-management.md",
+      "routing": "COPY/DELETE/RENAME/LIST with explicit PIP operands target configured plain FilePipes; ordinary calls retain existing routing",
+      "publication": "Finite closed-file snapshots, full target capacity/quota/path preflight and no ring truncation; existing configured PIP destinations require explicit overwrite",
+      "lifetime": "Rename preserves configuration and bytes, delete removes both, pending/open handles are busy; no implicit creation, cross-bank rename, DAQ/socket generic routing or generic PIP MOVE_FILE"
+    }
+  },
+  "validation": [
+    "tests/test_partial_aggregate_values.py",
+    "tests/test_partial_service_boundaries.py",
+    "tests/test_keyboard_raw_read.py",
+    "tests/test_pipe_file_management.py",
+    "examples/partial_values.kl",
+    "examples/keyboard_raw_read.kl",
+    "examples/pipe_file_management.kl",
+    "examples/partial_values_project"
+  ],
+  "historical_notes": "Supersedes earlier blanket partial-copy, generic keyboard PASSALL/custom-EOL and PIP management exclusions; historical per-feature ledger versions and strict regressions remain preserved.",
+  "strict_mode": "Future milestone"
+}

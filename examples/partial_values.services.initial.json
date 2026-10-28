@@ -1,0 +1,21 @@
+{
+  "variables": [
+    {
+      "program": "PARTIAL_VALUES",
+      "path": "JOINTS",
+      "type": [
+        "JOINTPOS",
+        3
+      ],
+      "value": {
+        "axes": [
+          1.0,
+          {
+            "uninitialized": true
+          },
+          3.0
+        ]
+      }
+    }
+  ]
+}

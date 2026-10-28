@@ -1,0 +1,13 @@
+PROGRAM MAIN
+TYPE sample_t FROM LIB=STRUCTURE
+       id:INTEGER point:VECTOR labels:ARRAY[2] OF STRING[8]
+     ENDSTRUCTURE
+VAR shared FROM LIB:sample_t
+    result:sample_t rows,backup:ARRAY[2] OF sample_t
+ROUTINE enrich(item:sample_t):sample_t FROM LIB
+BEGIN
+  shared.id=7 shared.point.x=2 shared.labels[1]='seed'
+  result=enrich((shared))
+  rows[1]=result backup=rows
+  backup[1].point.x=99
+END MAIN
