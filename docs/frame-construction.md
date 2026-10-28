@@ -4,6 +4,10 @@ Version 0.79.0 extends the base contract below with XYZWPREXT operands and
 explicit external-axis metadata. The [offline service guide](offline-services.md)
 defines the added conversions, propagation rules and remaining boundaries.
 
+[VECTOR point inputs](vector-translation-frames.md) now supply point locations
+while the first or explicit fourth pose origin supplies CONFIG. An all-VECTOR
+FRAME has no configured origin and remains rejected.
+
 Since 0.70.0, `FRAME(a,b,c)` and `FRAME(a,b,c,origin)` construct independent
 XYZWPR frames from explicit XYZWPR points. The result can be composed or inverted
 with the existing [frame operators](frame-transforms.md). Since 0.72.0,

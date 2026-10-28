@@ -43,10 +43,13 @@ value)` returns status. `to_config()` creates a detached canonical mapping;
 `from_config()` rejects unknown/duplicate attributes and invalid values. Context
 JSON uses `serial_ports`, mapping canonical string IDs `"1"`..`"5"` to named
 attribute mappings. It persists settings without opening devices or allocating
-resources.
+resources. Separate [finite serial streams](serial-streams.md) now model explicit
+`P1:`..`P5:` RX/TX data through FILE statements; they do not infer these attributes
+or access operating-system ports.
 
 The [authored example](../examples/serial_attributes.kl) sets and reads all seven
 attributes, using an [explicit initial bank](../examples/serial_attributes.services.initial.json).
 The [semantic ledger](semantics/serial_attribute_semantics.json) records manual
-provenance and portable choices. There is no COM-port discovery, serial data
-transfer, physical I/O or controller validation.
+provenance and portable choices. This attribute bank alone transfers no bytes.
+Neither service discovers COM ports, performs physical I/O or establishes
+controller validation.

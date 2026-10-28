@@ -1,0 +1,46 @@
+{
+  "version": "26.1028.215956",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": ["A.6.3 FOR", "A.20.5 USING", "3.2.4 VECTOR and relative operations", "FRAME and INV", "7.2.3 FILE access modes", "16.3 serial input/output"],
+      "evidence_limit": "Reference capture, VECTOR translation offsets and finite P-device buffers are explicit Pythonic choices; no native compiler, serial timing, controller or physical motion equivalence is established"
+    }
+  ],
+  "contracts": {
+    "reference_for_counters": {
+      "guide": "../reference-for-counters.md",
+      "capture": "Ordinary writable INTEGER field/ARRAY/USING storage captured once before initialization, retained despite later index changes and used for every iteration and cleanup",
+      "protection": "Conservative aggregate-root writes/reuse, formal/nonlocal parameterized aliases, domain-constrained/resource roots and unproven global-aggregate external effects remain blocked",
+      "lifetime": "Structured and dispatcher loops preserve bound order, nested scope checks, pause/resume and initialized-counter cleanup on every exit; initial capture/assignment failures preserve previous storage"
+    },
+    "vector_translation_frames": {
+      "guide": "../vector-translation-frames.md",
+      "offsets": "VECTOR left operands add translation to complete VECTOR/pose values; pose representation, orientation, CONFIG and external metadata remain detached and unchanged",
+      "inverse": "INV(VECTOR) returns an independent negative translation vector without synthesizing pose configuration",
+      "construction": "FRAME accepts complete VECTOR point locations but requires a pose/model-backed joint origin for CONFIG; retain existing geometry bounds and full pose validation"
+    },
+    "serial_streams": {
+      "guide": "../serial-streams.md",
+      "routing": "Explicit SerialStreams reserves numeric P-device prefixes and accepts configured canonical P1:..P5: endpoints only; no fallback, operating-system discovery or port opening",
+      "transfer": "Finite ASCII/binary FILE input, append-only separate TX, close-time RX prefix consumption, exclusive validated handles and ordinary atomic typed-read checks",
+      "persistence": "Bounded remaining RX, retained TX and capacities after close; live handles reject saving; no native connection or suspended reader is restored",
+      "boundary": "Manual P1..P4 hardware descriptions do not establish physical P5 availability; no implicit SerialPorts settings, producer waiting, seek, XML/PASSALL or native serial timing"
+    }
+  },
+  "validation": [
+    "tests/test_reference_for_counters.py",
+    "tests/test_vector_translation_frames.py",
+    "tests/test_serial_streams.py",
+    "tests/test_reference_geometry_serial_integration.py",
+    "examples/reference_for_counters.kl",
+    "examples/vector_translation_frames.kl",
+    "examples/serial_streams.kl",
+    "examples/reference_geometry_project",
+    "examples/serial_streams_project"
+  ],
+  "historical_notes": "Supersedes earlier blanket field-counter, VECTOR-frame and serial-data exclusions; retain original per-feature ledger versions and strict regressions.",
+  "strict_mode": "Future milestone"
+}

@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1028.215956 - 2026-10-28
+
+- Add captured writable INTEGER fields, ARRAY elements and USING fields as
+  Pythonic FOR counters, with stable selection, aggregate-root protection and
+  cleanup in both structured and labelled/cooperative execution.
+- Add VECTOR translation-left operands, independent VECTOR inversion and FRAME
+  point inputs with explicit pose origins. Preserve complete-value checks and
+  right-pose representation, CONFIG and external metadata.
+- Add finite serial FILE streams with supplied RX/TX data, text/binary transfer,
+  close-time input consumption, bounded persistence and exclusive handles.
+  No host device is opened and SerialPorts metadata remains independent.
+- Add 169 regressions, three standalone examples and two linked projects,
+  current support guides and semantic notes; preserve historical strict behavior.
+
 ## 26.1028.213122 - 2026-10-28
 
 - Add Pythonic labels/GOTO within active FOR loops, retained captured bounds,

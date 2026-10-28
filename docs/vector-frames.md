@@ -3,8 +3,10 @@
 Pythonic mode accepts `pose : vector` when the left operand is POSITION,
 XYZWPR, XYZWPREXT or model-backed JOINTPOS and the right operand is VECTOR.
 It returns an exact independent VECTOR. This extends
-[pose frame composition](frame-transforms.md) without adding VECTOR frames or
-implicit conversions between VECTOR and positional types.
+[pose frame composition](frame-transforms.md). Separate
+[VECTOR translation frames](vector-translation-frames.md) now accept offset left
+operands, VECTOR inversion and checked FRAME point inputs; exact routine types
+remain unchanged.
 
 ```karel
 CNV_STR_CONF('N',cfg,status)
@@ -50,8 +52,8 @@ or units/frame metadata is attached to VECTOR storage.
 | JOINTPOS1..9 `: VECTOR` | VECTOR after explicit forward conversion and affine transform. |
 | `(a:b):v` or `a:(b:v)` | VECTOR, using ordinary colon precedence and rounding. |
 | `(a:v).x` | REAL component of the temporary VECTOR result. |
-| VECTOR `: pose` or VECTOR `: VECTOR` | Rejected: VECTOR is not a frame. |
-| `INV(vector)` or `FRAME(...vector...)` | Rejected; those operations keep their pose inputs. |
+| VECTOR `: pose` or VECTOR `: VECTOR` | Translation offset under the [expanded contract](vector-translation-frames.md). |
+| `INV(vector)` or FRAME VECTOR points | Independent negative offset; FRAME requires a pose origin for CONFIG. |
 
 VECTOR results contain only X/Y/Z. They do not acquire CONFIG, external axes,
 robot group, frame or tool fields. Extended pose metadata is still validated on

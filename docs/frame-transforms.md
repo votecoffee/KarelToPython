@@ -106,7 +106,8 @@ independent quaternion calculations; they do not establish native equivalence.
 XYZWPREXT uses the [extended metadata rules](portable-projects.md#robot-models-and-extended-poses).
 JOINTPOS uses supplied forward context under [joint geometry](joint-geometry.md).
 A right VECTOR now selects [affine point transformation](vector-frames.md),
-returning VECTOR after rotation and translation. VECTOR left frames and INV/FRAME
-vector inputs remain rejected. Routine/RETURN/whole-array types remain exact;
+returning VECTOR after rotation and translation. [VECTOR translation frames](vector-translation-frames.md)
+add left offsets, VECTOR inversion and FRAME points with an explicit pose origin.
+Routine/RETURN/whole-array types remain exact;
 controller context discovery and native configuration validity remain unverified.
 Strict mode remains a future milestone and retains its earlier internal guards.

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.213122**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.215956**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -311,6 +311,14 @@ The same operations support configured plain pipes with finite snapshots and
 complete destination-capacity checks; see [pipe wildcard files](docs/pipe-wildcard-files.md).
 Labels and GOTO can remain inside an active FOR loop or exit it with counter
 cleanup. Direct entry into a new FOR scope stays blocked; see [FOR jumps](docs/for-jumps.md).
+FOR counters can also capture writable INTEGER record fields, ARRAY elements or
+USING fields once per entry, with conservative aggregate-write protection; see
+[reference counters](docs/reference-for-counters.md).
+VECTOR values can act as translation offsets, with negation through INV and
+checked FRAME point inputs using an explicit pose origin; see
+[VECTOR translation frames](docs/vector-translation-frames.md).
+Finite `P1:` through `P5:` FILE endpoints use explicitly supplied RX/TX data,
+including text and binary transfers; see [serial streams](docs/serial-streams.md).
 Linked projects accept program-qualified ARRAY shapes, so modules can specialize
 the same variable name independently. See [project ARRAY shapes](docs/project-array-shapes.md)
 for API and CLI examples, including validation without executing source.

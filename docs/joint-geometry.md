@@ -72,8 +72,10 @@ Routine arguments, RETURN types, whole ARRAY transfers and register interfaces
 keep their existing exact-type rules. Since 0.96.0, [UNPOS](pose-decomposition.md)
 also accepts joint inputs through this forward conversion. POSITION orientation fields remain
 protected. A [right VECTOR point](vector-frames.md) now produces a VECTOR after
-forward conversion and affine transformation. VECTOR left frames, scalar frames
-and VECTOR inputs to INV/FRAME remain rejected.
+forward conversion and affine transformation. [VECTOR translation frames](vector-translation-frames.md)
+also accept left offsets and FRAME point locations, using the existing explicit
+joint conversion for pose origins. Scalar frames and VECTOR-only FRAME origins
+remain rejected.
 
 ## External axes and comparisons
 

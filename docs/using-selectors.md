@@ -65,7 +65,8 @@ scope. Explicit calls retain routine lookup; bare names use matching fields.
 
 Captured field aliases retain the original source root for global/formal write
 analysis. Calls in indexes cannot hide writes to active FOR counters. Field-owned
-FOR counters remain blocked. Existing output-overlap, read-only/formal, exact
+FOR counters now use the [reference-counter contract](reference-for-counters.md),
+including whole-root write protection and one-time capture. Existing output-overlap, read-only/formal, exact
 schema, STRING capacity, initialization and numeric checks continue to apply.
 
 POSITION NORMAL, ORIENT and APPROACH fields and their descendants remain

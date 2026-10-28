@@ -46,7 +46,8 @@ storage. Dotted paths, subscripts (including calls inside indexes) and grouping
 are accepted. Each selector reference is evaluated once, left-to-right, before
 the body; changing an index later does not retarget the selected fields.
 Function-result and computed aggregate selectors remain unsupported. Only direct fields of selected structures are exposed; nested fields
-need a dotted path or another USING. A field cannot act as a FOR counter. CASE
+need a dotted path or another USING. Writable INTEGER fields can be captured as
+[FOR counters](reference-for-counters.md), subject to aggregate-root protection. CASE
 labels still require compile-time constants: a name shadowed by a field cannot
 become a runtime CASE label; use a noncolliding constant name.
 

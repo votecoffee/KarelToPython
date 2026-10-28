@@ -66,10 +66,11 @@ lexical field bindings. A jump cannot capture a new selector, even if it names
 the same record storage as an earlier USING.
 
 Every source statement remains type/effect checked, including unreachable or
-skipped statements. FOR counters remain direct INTEGER globals in permitted
-parameter-free contexts or fresh routine-local INTEGER variables. Formal counters,
-nonlocal counters in parameterized routines, shared nested counters and shadowing
-USING fields remain rejected. Direct/indirect output writes, potentially writable
+skipped statements. FOR counters can be direct INTEGER globals in permitted
+parameter-free contexts, fresh routine locals, or captured
+[INTEGER storage selectors](reference-for-counters.md). Aggregate selectors use
+conservative root-write/reuse guards. Formal counters and nonlocal roots in
+parameterized routines remain rejected. Direct/indirect output writes, potentially writable
 reference arguments, transitive global writes and handler/timer counter writes
 retain the same protections as structured FORs. Readonly counter observations
 remain usable.

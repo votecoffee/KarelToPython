@@ -257,3 +257,8 @@ The [control and file scope ledger](control_file_scope_semantics.json) adds
 active FOR transfers, opt-in callee lock scopes and configured plain pipe
 wildcard batches. It supersedes those earlier exclusions while preserving
 scope-entry proofs, caller ownership and explicit offline service boundaries.
+
+The [reference, geometry and serial ledger](reference_geometry_serial_semantics.json)
+adds captured INTEGER storage counters, VECTOR translation-frame equivalents and
+finite P-device streams. It retains aggregate-write protection, explicit origin
+CONFIG, bounded byte buffers and separate native/controller evidence boundaries.

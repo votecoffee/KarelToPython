@@ -75,6 +75,15 @@ without creating missing pipe configurations or truncating snapshots.
 The [FOR jump contract](for-jumps.md) adds active-loop transfers and exited-counter
 cleanup to the dispatcher, with explicit rejection of entry into new FOR scopes.
 
+`runtime.SerialStreams`, supplied as `ExecutionContext(serial_streams=...)`, adds
+[finite serial FILE endpoints](serial-streams.md). The JSON field `serial_streams`
+retains remaining RX and accumulated TX data after explicit FILE close; it opens
+no host devices. `SerialPorts` attribute metadata remains independent.
+[Reference FOR counters](reference-for-counters.md) capture selected INTEGER
+storage once and protect the aggregate root. [VECTOR translation frames](vector-translation-frames.md)
+add offset colon operands, VECTOR inversion and FRAME point arguments with an
+explicit pose origin; ordinary exact routine interfaces remain unchanged.
+
 [Frame transforms](frame-transforms.md) expose `frame_operations` for explicit
 POSITION/XYZWPR composition/inversion and `frame_policy` for matrix/Euler conventions,
 configuration handling, capture order and retained controller boundaries.

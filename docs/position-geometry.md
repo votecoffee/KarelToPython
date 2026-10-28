@@ -100,6 +100,7 @@ Euler convention and CONFIG copy choices are explicit offline policies.
 XYZWPREXT follows the [extended metadata rules](portable-projects.md#robot-models-and-extended-poses).
 JOINTPOS follows the explicit forward-model policy in [joint geometry](joint-geometry.md).
 A right VECTOR now selects [affine point transformation](vector-frames.md),
-with a VECTOR result. VECTOR left frames and INV/FRAME vector inputs remain
-rejected. Controller context discovery and native
+with a VECTOR result. [VECTOR translation frames](vector-translation-frames.md)
+add offset/inversion and FRAME point forms with explicit pose origins.
+Controller context discovery and native
 compiler/runtime acceptance remain unverified. Strict mode remains a future milestone.

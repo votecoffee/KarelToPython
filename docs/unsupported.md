@@ -49,8 +49,11 @@ they are boundaries rather than promises to accept every such source form later.
   definitions, cyclic ownership and native binary type environments remain blocked.
   Routine-local TYPE declarations
   remain prohibited by the KAREL language, rather than a planned extension.
-- `USING` function-result/computed selectors, whole ARRAY/resource/joint selectors,
-  field FOR counters and dynamic caller scope. [Captured USING selectors](using-selectors.md)
+- `USING` function-result/computed selectors, whole ARRAY/resource/joint selectors
+  and dynamic caller scope. [Reference FOR counters](reference-for-counters.md)
+  now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
+  CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
+  calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)
   now accept indexed/grouped record storage and built-in records; calls inside
   indexes use the one-time entry capture policy. SELECT is INTEGER-only; a miss
   without ELSE fails. Recursion is bounded at 64 calls.
@@ -82,9 +85,12 @@ they are boundaries rather than promises to accept every such source form later.
   fields in structures. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
-- VECTOR left frames and VECTOR inputs to INV/FRAME; direct joint field/index access; implicit
+- Direct joint field/index access; implicit
   pose/joint conversions in exact routine, RETURN and whole-array interfaces.
   POSITION orientation columns remain recursively read-only source storage.
+  [VECTOR translation frames](vector-translation-frames.md) now support left
+  offsets, independent INV negation and FRAME points. A VECTOR-only origin cannot
+  supply CONFIG; complete pose/model context remains mandatory for that role.
 - Unbounded/Unicode strings, lengths above 254, implicit numeric-to-BOOLEAN
   truthiness, arbitrary-size INTEGERs, MAXINT as ordinary initialized storage,
   NaN/Infinity and exact native numeric/storage/rounding equivalence. Public
@@ -121,6 +127,9 @@ they are boundaries rather than promises to accept every such source form later.
   target those backends or host drives.
   GET_PORT_ATR/SET_PORT_ATR now retain [explicit serial configuration](serial-attributes.md)
   with seven checked attributes; they do not open ports or exchange serial data.
+  Separate [finite serial streams](serial-streams.md) now expose supplied RX/TX
+  through P1:..P5: FILEs. Hardware ports, automatic attribute application,
+  asynchronous producer waiting and native serial timing remain unavailable.
 - Proprietary PC/VR/native binary layouts, arbitrary FILE attributes/listing
   formats, device-specific parsing and controller file alarms. Text and binary
   scalar operations use the documented portable formats and bounded sizes;

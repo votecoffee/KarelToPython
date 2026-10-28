@@ -49,12 +49,17 @@ Fresh local counters remain usable in any internal routine. The existing
 direct-counter-assignment and nested-counter-reuse guards remain.
 [Labels and jumps](for-jumps.md) now retain active loop bounds and clear counters
 when leaving their scope; entering an unstarted FOR remains blocked.
+[Reference counters](reference-for-counters.md) additionally support captured
+INTEGER fields, ARRAY elements and USING fields, with conservative aggregate-root
+write/reuse guards. Formal/nonlocal roots in parameterized routines and unproven
+external calls over global aggregate counters remain rejected.
 Conversion outputs cannot write active counters. The analysis covers
 translated KAREL calls; host callbacks retain their ordinary external side effects.
 
 ## Bounds and cleanup
 
 Bounds retain the chosen [evaluation order](evaluation-order.md): evaluate the
+counter selector first for reference counters under their capture contract, then the
 initial expression once, store it in the counter, then evaluate the final
 expression once. Capture the resulting counter/start and inclusive stop for
 Python range iteration. A final-bound function may read or change the newly
