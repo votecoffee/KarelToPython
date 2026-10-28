@@ -160,14 +160,24 @@ class FormControls(TableControls):
             attributes=tokens[0][1],error='',help_offset=None,help_lines=[],choice=None,function_labels=None,function_source=None,
             pendant=pendant,attached=None,owns_attachment=False,work=None,work_value=None)
         row=col=1;data_index=0;select_index=0;tree=None;last_selector=None;continuation=False;ended=False
+        # Included complete forms are sequential fragments, not nested tree groups.
+        # A fragment inherits its predecessor's open tree only through .tree.
+        fragments=[None]
         for token in tokens[1:]:
             op=token[0]
             if ended:invalid('Unexpected content after form end')
-            if op=='endform':ended=True;continue
-            if op=='form':invalid('Nested/concatenated forms require explicit expansion into one form')
-            if op in ('tree','endtree'):
-                if op=='tree':invalid('Concatenated .tree forms are not modeled; use a tree data item')
-                tree=None;continue
+            if op=='endform':
+                if len(fragments)==1:ended=True
+                else:fragments.pop()
+                continue
+            if op=='form':
+                if set(token[1])-set(session['attributes']):invalid('Fragment attributes conflict with the outer form')
+                fragments.append(tree);tree=None;continue
+            if op=='tree':
+                if tree is None:tree=fragments[-1]
+                if tree is None:invalid('.tree requires an open preceding tree')
+                continue
+            if op=='endtree':tree=None;fragments[-1]=None;continue
             if op=='function_keys':
                 if session['function_labels'] is not None:invalid('Duplicate form function-key declaration')
                 labels=self.lines(state,dictionary,token[1])
@@ -202,7 +212,11 @@ class FormControls(TableControls):
                 number(data_index+1,1,256)
                 path=rt().ascii_string(rt().require(paths.values[data_index]),line)
                 column=self.column(state,dictionary,content,path,changes,data_index,resources,line);data_index+=1
-                if column['conversion']=='t':tree=data_index;session['trees'][tree]=bool(column['cells'][0].read() is True)
+                if column['conversion']=='t':
+                    # A new tree replaces the preceding group; its own selector is
+                    # never hidden by that group's collapsed state.
+                    item_group=None;tree=data_index;session['trees'][tree]=bool(column['cells'][0].read() is True)
+                    session['groups'][row]=None
                 width=column['width']+len(column['suffix'])
             else:
                 if content.startswith('%%'):content=content[1:]
@@ -228,6 +242,7 @@ class FormControls(TableControls):
             session['groups'].setdefault(row,item_group)
             session['segments'].append(dict(row=row,col=col,text=content if column is None else None,item=item,column=column,group=item_group))
             col+=width
+        if not ended or len(fragments)!=1:invalid('Unbalanced concatenated form fragments')
         if continuation:invalid('Unfinished selectable continuation')
         occupied=set()
         for resource in resources:occupied.update(rt()._reference_cells(resource))

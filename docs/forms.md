@@ -124,8 +124,48 @@ An editable `-%t` latches its BOOLEAN initial state; ENTER toggles it and writes
 the result. A display-only `%t` monitors the BOOLEAN during repaints. Each tree
 controls following body rows until another tree or `.endtree`. Hidden children
 cannot be selected. REFRESH (`KY_REFRESH`, the portable Ctrl-W event) resamples
-all tree values. Nested trees and concatenated `.tree` form fragments remain
-unsupported.
+all tree values. A new `%t` ends the preceding group, so its own selector stays
+visible even when the preceding group is collapsed. Tree items never nest.
+
+Complete FTX forms can be concatenated through ordinary `+element` dictionary
+references. Each included `.form` / `.endform` pair is a sequential fragment;
+these markers do not create nested tree items. Field paths, change flags and
+selectable item numbers continue across fragments. Dictionary nesting retains
+its existing five-level and expanded-token bounds.
+
+A fragment starts outside the preceding tree. Use `.tree` to inherit the open
+tree from the preceding text; `.endtree` closes that inheritance. An intervening
+fragment without `.tree` ends the previous grouping, and `.tree` with no open
+preceding tree is rejected. A new `%t` replaces the current group. For example,
+this authored form keeps the amount field inside the editable switch's group:
+
+```text
+.form unnumber
+$1,editor
+&home "Settings" &new_line "Values" &new_line
+"-%t Details" &new_line
++2
+.endtree
+"- Done"
+.endform
+.form
+$2,details
+.tree
+"Amount " "-%4d(0,10)" &new_line
+.endform
+```
+
+The corresponding paths are the BOOLEAN switch followed by the INTEGER amount.
+A collapsed group skips the included field during selection and editing. An
+editable tree latches its initial BOOLEAN across every inherited fragment until
+ENTER or REFRESH; a display tree uses the existing logical repaint policy.
+
+The outer form owns `unnumber` and `noclear`; a fragment may omit attributes or
+repeat a subset of the outer attributes. Conflicting attributes fail preparation.
+Text, newlines and forward cursor controls are concatenated literally. Headers
+are not implicitly stripped, merged or rebased, and a fragment cannot backtrack
+to replace the outer title. This is a portable composition contract, not a claim
+about native compressed-form association records or layout.
 
 ## Lifetime, limits and CLI
 

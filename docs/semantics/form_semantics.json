@@ -29,6 +29,13 @@
     "No compressed binary TX/VR association inference, Data ID discovery or host/controller input",
     "No nested/concatenated .tree fragments; strict mode and native ABI remain future work"
   ],
+  "concatenation_mode_note": {
+    "guide": "../forms.md",
+    "validation": "tests/test_form_fragments.py",
+    "supersedes": "The historical no-concatenated-.tree restriction above is superseded by explicit Pythonic FTX fragment composition; the original version and observations remain historical.",
+    "contract": "Outer attributes own rendering; fragment attributes must be a subset. Layout is literal and forward. Explicit .tree inherits an open preceding group; fragments without .tree end inheritance. New %t groups replace preceding groups, never nest.",
+    "boundary": "No native header merging, compressed association layout or nested tree items; strict mode and native ABI remain future work."
+  },
   "validation": [
     "tests/test_forms.py",
     "tests/test_dictionaries.py",
