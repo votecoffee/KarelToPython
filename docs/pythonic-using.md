@@ -76,7 +76,8 @@ RETURN, errors and ABORT use ordinary routine cleanup and retain earlier writes.
 Jumps out to ancestors restore the outer lexical bindings. [Nested/sibling
 structured transfers](nested-jumps.md) can enter IF/WHILE/REPEAT/SELECT bodies
 while retaining existing captures. Entering a new USING scope without its capture
-and labels/jumps inside FOR bodies remain blocked. See
+remains blocked. [FOR jumps](for-jumps.md) retain active captures and clear exited
+counters; [private counters](private-using-counters.md) use isolated capture roots. See
 [evaluation order](evaluation-order.md) and [STRING values](pythonic-strings.md).
 
 ## Reports and compatibility

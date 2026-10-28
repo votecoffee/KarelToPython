@@ -14,7 +14,8 @@ DELETE_FILE('src/old*.DAT',FALSE,status)
 The manual explicitly permits star specifications for COPY_FILE and DELETE_FILE.
 It does not define a complete destination expansion algorithm. The following
 mapping is a documented portable choice, without a native DOS/controller
-wildcard-equivalence claim. RENAME_FILE with a star returns portable status 2.
+wildcard-equivalence claim. [Wildcard RENAME_FILE](wildcard-rename.md) is a
+separate Pythonic extension with no overwrite and same-bank/volume preflight.
 
 ## Patterns and destination templates
 
@@ -99,7 +100,7 @@ still apply. These guards run before any planned file mutation.
 | --- | --- |
 | 0 | Complete batch succeeded |
 | 1 | No source matches |
-| 2 | Target exists, aliases/targets overlap, unsupported template or star RENAME |
+| 2 | Target exists, aliases/targets overlap or unsupported template |
 | 3 | A selected source or target is open/busy |
 
 Unsafe paths, service-route violations, byte/count limits, quota failures,

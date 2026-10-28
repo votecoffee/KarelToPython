@@ -51,8 +51,9 @@ they are boundaries rather than promises to accept every such source form later.
   remain prohibited by the KAREL language, rather than a planned extension.
 - Whole ARRAY/resource/joint USING selectors and dynamic caller scope.
   [Computed record selectors](computed-using.md) now capture checked private values;
-  their FOR counters and connected timers remain blocked without declared-root
-  proof. [Reference FOR counters](reference-for-counters.md)
+  [private INTEGER counters](private-using-counters.md) now use internal lexical
+  whole-root identities. Retained writable aliases and private connected timers
+  remain blocked. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
   CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
   calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)
@@ -79,9 +80,10 @@ they are boundaries rather than promises to accept every such source form later.
   wildcard declarations require translation-time shapes; no VR auto-discovery.
   Linked projects now route common or [program-qualified shapes](project-array-shapes.md)
   to the declared wildcard storage, including differing module-local dimensions.
-- Standalone BYTE/SHORT variables and routine interfaces; they remain aggregate
-  field/element and file forms. BYTE unknown contents cannot be queried with
-  UNINIT. SHORT 32767 is the retained uninitialized sentinel.
+- BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
+  uninitialized sentinel. [Scalar BYTE/SHORT](scalar-narrow.md) now support
+  variables, aliases and typed interfaces; numeric narrowing makes checked private
+  values. Narrow FOR counters and scalar CREATE_VAR allocation remain blocked.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries; flattening,
   nominal-type coercion, unspecified STRING result-element capacities and resource
   fields in structures. [Partial data copies](partial-aggregate-values.md) now
@@ -140,8 +142,10 @@ they are boundaries rather than promises to accept every such source form later.
   FILE_LIST supports [formats 0 through 4](file-listing.md), with portable
   40-column size records and blank timestamps; native metadata formats remain open.
   [Wildcard COPY/DELETE](wildcard-file-operations.md) now support bounded final-name
-  star patterns and full-stem templates. Recursive/glob directories, wildcard
-  RENAME, socket/DAQ batches and cross-file atomic host transactions remain unsupported.
+  star patterns and full-stem templates. [Wildcard RENAME](wildcard-rename.md)
+  now moves same-bank/volume closed files or plain PIP configurations without
+  overwrite. Recursive/glob directories, cross-bank/volume wildcard renames,
+  socket/DAQ batches and cross-file atomic host transactions remain unsupported.
   [Plain PIP batches](pipe-wildcard-files.md) now copy/delete finite snapshots with
   explicit configured destinations; automatic pipe creation and ring truncation
   during copying remain unavailable.

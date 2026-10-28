@@ -97,10 +97,10 @@ earlier completed effects intact and prevents entry to the body.
 - Computed selected records must contain data without FILE/PATH/QUEUE resources.
   Existing reference selectors keep their original behavior, including PATH
   node record references.
-- A FOR counter rooted in a private computed USING temporary is rejected with
-  `E_FOR_COUNTER`: the current counter proof requires declared storage roots.
-  Ordinary declared counters can run inside the scope. Captured INTEGER fields
-  of declared storage retain [their existing support](reference-for-counters.md).
+- Exact INTEGER fields in isolated private captures can now serve as
+  [FOR counters](private-using-counters.md), with internal whole-root protection
+  identities and conservative retained-alias checks. The public source root
+  remains null and counter edits never copy back to the source.
 - Connected timers require a declared global storage root; private computed
   fields fail `E_TIMER_SCOPE`. Other services keep their individual scope and
   alias restrictions.

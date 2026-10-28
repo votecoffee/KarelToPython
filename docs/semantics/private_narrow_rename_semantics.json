@@ -1,0 +1,44 @@
+{
+  "version": "26.1028.231128",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence_limit": "Authored translation and offline runtime contracts. Private counters, scalar narrow interfaces and wildcard rename mappings are explicit Pythonic extensions without native compiler, ABI, filesystem transaction or controller acceptance claims.",
+  "contracts": {
+    "private_using_counters": {
+      "guide": "../private-using-counters.md",
+      "identity": "Each independent computed capture owns an internal whole-root protection identity; nested live references inherit it and public source_root remains null",
+      "protection": "Exact INTEGER leaf only; reject direct, service, handler and writable alias effects against the entire active root, including retained external/handler aliases",
+      "lifetime": "Capture reference and bounds once; preserve iteration across same-loop jumps and pause; clear initialized selected leaf on scope exit, error, RETURN, ABORT or stop",
+      "boundary": "No source copy-back, synthetic global variable, private connected timer, direct function-result counter syntax or serialized suspended stack"
+    },
+    "scalar_narrow": {
+      "guide": "../scalar-narrow.md",
+      "storage": "Pythonic BYTE/SHORT globals, locals, transparent aliases, formals and initialized results; preserve existing aggregate domains",
+      "domains": "BYTE 0..255 and initial unknown marker with UNINIT blocked; SHORT -32768..32766 with 32767 clearing storage",
+      "arguments": "Exact matching bare storage keeps reference aliasing; mismatched integral actuals create checked private writable cells without copy-back; INTEGER/REAL promotions remain values",
+      "results": "Scalar narrow RETURN requires initialized checked data; SHORT 32767 cannot escape as a missing scalar result",
+      "binary_read": "Validate raw decoded values before publication and let setters normalize SHORT 32767 once across ordinary, pipe and serial FILE readers; incomplete or invalid reads preserve outputs and cursor",
+      "boundary": "Narrow FOR counters and scalar CREATE_VAR remain blocked; strict legacy declarations/interfaces retain aggregate-only restrictions"
+    },
+    "wildcard_rename": {
+      "guide": "../wildcard-rename.md",
+      "selection": "Sorted bounded nonrecursive final-name stars and whole-stem/extension templates, including standalone star for extensionless names",
+      "preflight": "No overwrite; validate every source, target, busy handle, path, alias, overlap, collision and budget before mutation; require one ordinary bank/virtual volume or one plain PIP bank",
+      "publication": "Memory/device/pipe publication retains original byte/configuration objects and bank dictionary identities; same-volume device quota/garbage is unchanged",
+      "directory": "Each rooted directory rename is atomic under its existing backend; late host failure may retain earlier completed renames and does not promise rollback",
+      "boundary": "Cross-bank/volume, DAQ/socket routes, native wildcard semantics and filesystem transactions remain unsupported"
+    }
+  },
+  "validation": [
+    "tests/test_private_using_counters.py",
+    "tests/test_scalar_narrow.py",
+    "tests/test_wildcard_rename.py",
+    "tests/test_private_narrow_rename_integration.py",
+    "examples/private_using_counters.kl",
+    "examples/scalar_narrow.kl",
+    "examples/wildcard_rename.kl",
+    "examples/private_counter_project",
+    "examples/scalar_narrow_project"
+  ],
+  "strict_mode": "Future milestone; preserve legacy tests and historical semantic ledgers"
+}

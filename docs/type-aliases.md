@@ -72,8 +72,9 @@ active FOR-counter protection still apply.
 
 ## Boundaries and reports
 
-BYTE and SHORT aliases are useful for ARRAY elements and STRUCTURE fields.
-They remain prohibited as standalone globals, locals, parameters and results.
+BYTE and SHORT aliases support ARRAY elements, STRUCTURE fields and Pythonic
+[scalar storage and routine interfaces](scalar-narrow.md). Exact bare references
+retain their type; numeric conversion creates a checked private value.
 Aliases preserve INTEGER range/MAXINT, narrow-element sentinel, ASCII, capacity,
 initialization, allocation, ownership and positional-context checks. Unsupported
 types, local TYPE sections, wildcard TYPE dimensions and inline anonymous nested

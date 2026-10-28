@@ -66,13 +66,16 @@ unchanged in that case. Both nowait values execute synchronously.
 | --- | --- |
 | 0 | Complete batch succeeded |
 | 1 | No source match or a destination pipe is not configured |
-| 2 | Overwrite disabled, collision/overlap or unsupported template/star RENAME |
+| 2 | Overwrite disabled, collision/overlap or unsupported template |
 | 3 | Selected file/pipe is open or has a pending read |
 | 4 | A destination pipe cannot hold its complete snapshot |
 
 Unsafe paths, limits, quota failures, preflight changes and unresolved read
 identities raise. These outcomes are portable and do not assert native alarm IDs.
-Wildcard RENAME remains unavailable for both ordinary and pipe endpoints.
+[Wildcard RENAME](wildcard-rename.md) is now a separate Pythonic extension for
+ordinary same-volume files or a single plain PIP bank. It moves original bytes
+and pipe metadata to previously unused names; it never replaces an existing pipe.
+COPY still requires configured destinations under the contract above.
 
 Socket wildcard operands are rejected before routing. A pipe source pattern that
 also matches a DAQ PIP name rejects the entire request, including a DAQ-only

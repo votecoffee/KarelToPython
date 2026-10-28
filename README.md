@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.223057**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.231128**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -320,7 +320,12 @@ checked FRAME point inputs using an explicit pose origin; see
 Finite `P1:` through `P5:` FILE endpoints use explicitly supplied RX/TX data,
 including text and binary transfers; see [serial streams](docs/serial-streams.md).
 Computed USING selectors capture independent record temporaries once, with no
-copy-back; see [computed USING](docs/computed-using.md). Serial streams can opt
+copy-back; see [computed USING](docs/computed-using.md). Isolated INTEGER fields
+in those captures can serve as [private FOR counters](docs/private-using-counters.md),
+with whole-root alias protection and cleanup. [Scalar BYTE/SHORT](docs/scalar-narrow.md)
+add typed variables, aliases and routine interfaces with checked private numeric
+conversions. [Wildcard renames](docs/wildcard-rename.md) move closed files or plain
+pipe configurations after batch preflight, without overwrite. Serial streams can opt
 into cooperative reads fed by the host, with explicit EOF and cancellation;
 see [serial waiting](docs/serial-waiting.md). Supplied vision images now retain
 grayscale/RGB alpha in PNG and 32-bit BMP exports; see [alpha images](docs/vision-alpha-images.md).

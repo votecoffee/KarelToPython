@@ -267,3 +267,8 @@ The [computed, serial and alpha ledger](computed_serial_alpha_semantics.json)
 adds checked private USING records, opt-in host-fed serial waits and supplied
 alpha-channel image exports. It preserves storage identity, atomic typed input,
 explicit FILE lifetime and independent image-format evidence.
+
+The [private counter, narrow scalar and rename ledger](private_narrow_rename_semantics.json)
+adds isolated computed-record counters, checked BYTE/SHORT scalar interfaces and
+preflighted same-bank wildcard renames. It supersedes their earlier exclusions
+while preserving missing markers, source ownership and partial host-failure evidence.

@@ -87,7 +87,13 @@ explicit pose origin; ordinary exact routine interfaces remain unchanged.
 [Computed USING](computed-using.md) adds checked private record captures for
 function/constructor/operator results. `using_scopes[].selector_captures` records
 storage/computed provenance, ownership and copy-back policy; `computed_using_policy`
-describes the remaining private-counter and timer restrictions.
+describes capture lifetime and timer restrictions.
+[Private INTEGER counters](private-using-counters.md) add internal protection
+identities, retained-alias checks and `private_using_counter_policy` without
+publishing synthetic source variables. [Scalar BYTE/SHORT](scalar-narrow.md)
+add narrow globals, locals, TYPE aliases and typed routine interfaces, with exact
+bare references or checked private numeric conversions. [Wildcard renames](wildcard-rename.md)
+extend `wildcard_file_policy` with no overwrite and same-bank/volume preflight.
 [Waiting serial reads](serial-waiting.md) use per-port `wait`/`final` flags and
 `SerialStreams.finish_input(port)`, retaining finite defaults and explicit FILE
 lifetime. [Alpha images](vision-alpha-images.md) add packed GA/RGBA data and

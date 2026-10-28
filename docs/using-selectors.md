@@ -77,8 +77,9 @@ USING does not make protected fields ordinary unconstrained scalar outputs.
 [Computed record selectors](computed-using.md), including `USING make()`, now
 create explicitly private checked temporaries. Named and grouped storage still
 capture live references. Computed captures have no copy-back or original source
-root; private FOR counters and connected timers remain rejected where the
-required storage proof is unavailable. Method-like field calls, native ABI,
+root. [Private INTEGER counters](private-using-counters.md) use separate internal
+protection identities and reject retained writable aliases; connected timers
+still require declared global storage. Method-like field calls, native ABI,
 asynchronous selection timing, dynamic caller scope and strict mode remain outside
 this contract.
 

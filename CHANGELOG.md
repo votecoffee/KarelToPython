@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1028.231128 - 2026-10-28
+
+- Add isolated private computed-USING INTEGER counters with whole-root protection,
+  retained-alias checks and cleanup across structured, labelled and cooperative
+  execution, without source copy-back or invented public variables.
+- Add Pythonic BYTE/SHORT variables, aliases and typed routine interfaces, with
+  exact references, checked private numeric conversions and initialized results.
+  Preserve unknown/missing markers and legacy aggregate-only restrictions.
+- Add preflighted wildcard renames within ordinary banks/volumes and plain pipe
+  banks, preserving bytes/configuration and rejecting overwrite or alias overlap.
+  Retain the explicit partial-publication boundary for late directory failures.
+- Fix atomic binary SHORT sentinel publication in ordinary, pipe and serial FILE
+  readers. Validate every decoded field before publishing the original raw values.
+- Add 175 regressions, three standalone examples and two linked projects,
+  current support reports, public guides and semantic notes. Strict remains future work.
+
 ## 26.1028.223057 - 2026-10-28
 
 - Add computed USING selectors with independent checked record temporaries,

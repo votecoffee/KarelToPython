@@ -1,8 +1,9 @@
 # Captured INTEGER FOR counters
 
-[Computed USING records](computed-using.md) are private values without declared
-storage roots. Their fields remain unavailable as FOR counters under the current
-alias/effect proof; ordinary named/grouped record fields retain the contract below.
+[Computed USING records](computed-using.md) can now supply isolated private
+INTEGER counters under the [private counter contract](private-using-counters.md).
+They use internal whole-root protection identities without inventing declared
+storage or copying back. Named record fields retain the contract below.
 
 Pythonic mode accepts exact INTEGER scalar storage as a FOR counter: a declared
 variable, STRUCTURE field, ARRAY element, indexed record field or bare field

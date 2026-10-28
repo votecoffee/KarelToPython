@@ -102,7 +102,9 @@ existing RD/FR-only contract; it does not move PIP configurations or data.
 
 [Wildcard COPY/DELETE](pipe-wildcard-files.md) additionally select bounded batches
 from explicitly configured plain pipes. Every pipe target must already exist,
-and all snapshots must fit without circular truncation. RENAME remains exact.
+and all snapshots must fit without circular truncation.
+[Wildcard RENAME](wildcard-rename.md) instead moves closed plain pipe bytes and
+configuration to new names within the same bank, without overwrite.
 
 FilePipes JSON retains renamed configurations and complete replacement bytes,
 and omits deleted entries. Live handles and pending READs must still close/finish
