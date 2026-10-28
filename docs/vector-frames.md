@@ -89,7 +89,8 @@ unchanged. Source projects use the same checked operations across linked modules
 
 ```sh
 python -m karel2py examples/vector_frames.kl -o vector_frames.py
-python vector_frames.py
+python vector_frames.py --state-out vector-state.json
+python vector_frames.py --context vector-state.json --state-out vector-state.json
 python -m karel2py examples/joint_vector_frames.kl -o joint_vector_frames.py
 python joint_vector_frames.py --context examples/joint_vector_frames.services.initial.json --state-out joint-state.json
 python -m karel2py.project examples/vector_frame_project --entry MAIN

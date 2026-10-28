@@ -3309,7 +3309,7 @@ class Emitter:
         self.line()
         self.line('if __name__ == "__main__":')
         self.indent = 1
-        if self.features & (JOINT_PROCEDURES | REGISTER_PROCEDURES) or self.features & {'read','operator >=<','extended services','ports','memory files'}:
+        if self.mode=='pythonic' or self.features & (JOINT_PROCEDURES | REGISTER_PROCEDURES) or self.features & {'read','operator >=<','extended services','ports','memory files'}:
             self.line('import argparse as _argparse')
             self.line('_parser = _argparse.ArgumentParser(description="Explicit offline execution context; no controller connection")')
             if self.features & JOINT_PROCEDURES:

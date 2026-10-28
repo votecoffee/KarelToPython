@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1028.184931 - 2026-10-28
+
+- Enable the existing --help/--context/--state-out argument handling for every
+  generated Pythonic script, including pure arithmetic and Cartesian geometry.
+  Previously those programs ran a minimal entrypoint that ignored arguments.
+- Restore explicit global inputs, preserve supplied banks and save successful
+  state consistently; reject unknown flags and invalid context before execution.
+- Add nine runtime-only CLI regressions, including saved-state replay, and update
+  README and the VECTOR example commands. Legacy strict entrypoints are unchanged.
+
 ## 26.1028.183029 - 2026-10-28
 
 - Add pose:VECTOR affine point transforms for POSITION, XYZWPR, XYZWPREXT and

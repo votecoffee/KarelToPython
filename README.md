@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.183029**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.184931**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -149,6 +149,20 @@ from converted import Program
 snapshot = Program().run(max_steps=100_000)
 assert snapshot["TOTAL"] == 200
 ```
+
+Every generated Pythonic script accepts `--help`, `--context` and `--state-out`,
+including programs with only arithmetic or geometry. A context supplies declared
+globals before execution; normal source initializations still run. State output
+saves globals and supplied banks after successful completion. Unknown arguments
+and invalid contexts are rejected before execution.
+
+```sh
+python converted.py --state-out run-state.json
+python converted.py --context run-state.json --state-out run-state.json
+```
+
+The script prints its final variable snapshot. WRITE requests remain recorded;
+host code can supply a write callback through the Program API.
 
 Generated Python needs `karel2py` on its import path. See the [API guide](docs/api.md)
 for translation options, runtime callbacks, diagnostics and execution limits.
