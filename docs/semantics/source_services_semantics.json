@@ -1,0 +1,46 @@
+{
+  "version": "26.1028.211044",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": ["A.3.46 COPY_FILE", "A.4.12 DELETE_FILE", "A.20.4 TRANSLATE", "17.3 program/routine group ownership"],
+      "evidence_limit": "Python output, wildcard template substitution, statuses, atomic root lock entry and bounded persistence are explicit offline choices; native forms and timing are not established"
+    }
+  ],
+  "contracts": {
+    "source_translation": {
+      "guide": "../source-translations.md",
+      "service": "Explicit opt-in SourceTranslations plus ordinary FILE backend; force .KL lookup and accept captured includes/shapes only",
+      "products": "Sibling .py and optional .LS, source unchanged, explicit overwrite permission and bounded byte/history budgets",
+      "publication": "Full product preflight, listing first and Python last; each rooted host replacement atomic, listing-only partial failure is recorded",
+      "persistence": "Configuration and bounded source/product hashes/history only; no loading, attachment, execution, native PC output or compiler requirement for runtime-only import"
+    },
+    "wildcard_files": {
+      "guide": "../wildcard-file-operations.md",
+      "selection": "Nonrecursive final-basename star COPY/DELETE over explicit MemoryFiles, DirectoryFiles or DeviceFiles; case-insensitive matching and deterministic order",
+      "templates": "Standalone destination star preserves basename; at most one star per stem/extension substitutes whole source components",
+      "publication": "Snapshot/preflight complete batch; memory/device prepared mutations, host directory per-file publication with explicit partial IO failure boundary",
+      "limits": "32767 scanned/matched entries, 64 MiB total COPY snapshots and ordinary byte/step/quota/busy/alias checks; no PIP/socket/DAQ wildcard batches or wildcard RENAME"
+    },
+    "directive_locks": {
+      "guide": "../directive-group-locks.md",
+      "entry": "GroupLocks apply_directives defaults false; true atomically requests root LOCKGROUP selection, NOLOCKGROUP none or all configured groups when unspecified",
+      "lifetime": "Stable root ownership, pause retention, resume without reacquisition and terminal cleanup; startup conflict raises before body mutation and preserves prior owners",
+      "boundary": "Root-only acquisition; nested program/routine directives do not acquire/release scopes; no bank inference, native lock waiting, motion or servo ownership"
+    }
+  },
+  "validation": [
+    "tests/test_source_translations.py",
+    "tests/test_wildcard_file_operations.py",
+    "tests/test_directive_group_locks.py",
+    "examples/stored_translation.kl",
+    "examples/wildcard_files.kl",
+    "examples/directive_group_locks.kl",
+    "examples/directive_locks_project"
+  ],
+  "inventory": "334 of 334 audited distinct built-in names now have a registered Pythonic form; this does not establish all overloads or native equivalence",
+  "historical_notes": "Supersedes earlier blanket TRANSLATE, COPY/DELETE star and root directive acquisition exclusions; preserve original per-feature ledger versions and internal strict guards.",
+  "strict_mode": "Future milestone"
+}

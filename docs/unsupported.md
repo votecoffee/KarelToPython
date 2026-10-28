@@ -7,11 +7,11 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 333 have a registered translation and one does not.
+Currently, all 334 have a registered Pythonic translation form.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
-this reference set can also be rejected. The complete remaining name list is
-below. The [support guide](language-support.md) describes accepted forms.
+this reference set can also be rejected. There are no unregistered names in this
+audited set. The [support guide](language-support.md) describes accepted forms.
 Some exclusions, such as whole-array UNINIT, retain documented language rules;
 they are boundaries rather than promises to accept every such source form later.
 
@@ -23,8 +23,9 @@ they are boundaries rather than promises to accept every such source form later.
   seven [task policies](task-attributes.md) and nine additional
   [source policies](source-directives.md#additional-source-policies) are accepted.
   DEFGROUP selects offline defaults and CRTDEVICE labels I/O requests; native
-  storage, group locks, periodic delay, stack allocation and real device routing
-  are not applied. Include search does not discover native support installations.
+  storage, periodic delay, stack allocation and real device routing are not applied.
+  An opted-in GroupLocks bank applies root LOCKGROUP/NOLOCKGROUP policies;
+  callee scopes and native waits remain deferred. Include search does not discover native support installations.
 - Native motion statements: `MOVE TO`, `MOVE NEAR`, `MOVE AWAY`, `MOVE ABOUT`,
   `MOVE ALONG`, `MOVE AXIS`, `MOVE RELATIVE`; their `VIA`, motion `WITH`, `WHEN`
   and `UNTIL` clauses; motion ownership and hand control. `ATTACH`, `RELEASE`,
@@ -122,6 +123,9 @@ they are boundaries rather than promises to accept every such source form later.
   scalar operations use the documented portable formats and bounded sizes;
   FILE_LIST supports [formats 0 through 4](file-listing.md), with portable
   40-column size records and blank timestamps; native metadata formats remain open.
+  [Wildcard COPY/DELETE](wildcard-file-operations.md) now support bounded final-name
+  star patterns and full-stem templates. Recursive/glob directories, wildcard
+  RENAME, PIP/socket/DAQ batches and cross-file atomic host transactions remain unsupported.
 - Physical PATH node byte sizes, native association records and native message
   attachments. NODE_SIZE uses [portable packed schema widths](path-geometry.md).
   QUEUE_ATTACH has a separate [offline message-attachment model](remote-messages.md);
@@ -160,12 +164,16 @@ they are boundaries rather than promises to accept every such source form later.
   now have explicit offline forms; renaming compiled globals or attached program
   namespaces, dynamic resource creation and native allocation remain unsupported.
   Program catalogs and load status describe attached programs or supplied metadata.
+  [TRANSLATE](source-translations.md) now generates sibling Python and optional
+  listings from explicit stored source; native PC output, implicit include discovery,
+  program attachment/execution and asynchronous native timing remain unsupported.
 - CALL_PROG/CALL_PROGLIN now support [attached cooperative KAREL programs](program-calls.md)
   in the calling task. Noncooperative targets, TP/native instruction execution,
   persisted executable links and implicit program loading remain unsupported.
 - LOCK_GROUP/UNLOCK_GROUP now have [logical ownership banks](group-locks.md).
-  Automatic directive acquisition, native locks, lock waits and motion effects
-  remain unavailable; the configured bank requires explicit groups and busy labels.
+  [Opt-in root directive acquisition](directive-group-locks.md) is available;
+  callee acquisition/release scopes, native locks, lock waits and motion effects
+  remain unavailable. The configured bank requires explicit groups and busy labels.
 - Native alarm dictionaries, severity encodings, asynchronous history timing,
   power-cycle restoration and controller error recovery. POST_ERR, POST_ERR_L,
   ERR_DATA, semaphores and lifecycle conditions have explicit offline contracts.
@@ -285,11 +293,6 @@ older conservative ledgers can contain restrictions superseded by Pythonic guide
 
 ## Built-ins with no registered translation
 
-This list is exhaustive for distinct built-in names in the audited inventory.
-An explicit user routine can use one of these names, but that does not implement
-the corresponding controller built-in. Names are grouped by purpose; grouping
-does not assert a particular installed option or environment.
-
-### Native program translation (1)
-
-- `TRANSLATE`
+None in the audited 334-name inventory. This is registration coverage, not full
+source-form coverage or native/controller equivalence. The sections above retain
+the remaining restrictions, partial services and future milestones.

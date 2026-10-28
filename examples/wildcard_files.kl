@@ -1,0 +1,7 @@
+PROGRAM WILDCARD_FILES
+VAR names:ARRAY[2] OF STRING[40] count,copy_status,status:INTEGER
+BEGIN
+  COPY_FILE('SRC:part*.DAT','DST:copy_*.BAK',TRUE,FALSE,copy_status)
+  FILE_LIST('DST:*',0,0,names,count,status)
+  DELETE_FILE('DST:copy_*.BAK',FALSE,status)
+END WILDCARD_FILES

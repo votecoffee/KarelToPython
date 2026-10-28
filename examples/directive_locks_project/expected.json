@@ -1,0 +1,17 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "OWNED_BY_MAIN": false,
+      "STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "OWNED": true
+    }
+  }
+}

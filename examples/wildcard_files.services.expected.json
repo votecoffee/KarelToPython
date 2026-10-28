@@ -1,0 +1,13 @@
+{
+  "files": {
+    "SRC:partA.DAT": {
+      "hex": "616c706861"
+    },
+    "SRC:partB.DAT": {
+      "hex": "62657461"
+    },
+    "SRC:skip.TXT": {
+      "hex": "6b656570"
+    }
+  }
+}

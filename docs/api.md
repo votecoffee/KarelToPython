@@ -59,6 +59,16 @@ uses `device_files` to preserve volumes, quotas and obsolete-storage counters.
 These are recorded requirements and attributes; they do not load definitions or
 enable additional source symbols or calls.
 
+`runtime.SourceTranslations`, supplied as `ExecutionContext(source_translations=...)`,
+enables [stored-source TRANSLATE](source-translations.md), with JSON configuration,
+bounded artifact history and `stored_source_translation_policy` in reports.
+It uses the ordinary `files` backend, produces `.py` plus optional `.LS` and
+never loads or executes its products. Compiler imports are lazy for runtime-only
+deployments. [Wildcard COPY/DELETE](wildcard-file-operations.md) use that same
+backend and expose `wildcard_file_policy`.
+`GroupLocks(..., apply_directives=True)` enables [root directive acquisition](directive-group-locks.md);
+`group_lock_policy` records the opt-in, root-only scope and startup failure rules.
+
 [Frame transforms](frame-transforms.md) expose `frame_operations` for explicit
 POSITION/XYZWPR composition/inversion and `frame_policy` for matrix/Euler conventions,
 configuration handling, capture order and retained controller boundaries.

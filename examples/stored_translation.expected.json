@@ -1,0 +1,17 @@
+{
+  "OUTPUT_FILE": {
+    "file": "child.py",
+    "open": false,
+    "position": 93,
+    "binary": false,
+    "status": 0
+  },
+  "NAMES": [
+    "child.py"
+  ],
+  "HEADER": "",
+  "TRANSLATION_STATUS": 0,
+  "COUNT": 1,
+  "STATUS": 0,
+  "PYTHON_HEADER": true
+}

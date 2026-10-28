@@ -247,3 +247,8 @@ validated partial aggregate transfers, bounded raw keyboard fields/printable
 delimiters and explicit PIP file management. It supersedes the older exclusions
 while retaining missing-value reads, complete geometry/service inputs, ownership,
 native evidence boundaries and internal strict rejection coverage.
+
+The [source services ledger](source_services_semantics.json) adds opt-in stored
+source to Python translation, bounded wildcard COPY/DELETE and root directive
+group acquisition. It supersedes those older exclusions while retaining native
+PC, physical motion, callee lock scopes and host batch failure boundaries.

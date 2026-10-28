@@ -1,0 +1,41 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {},
+    "apply_directives": true
+  },
+  "controller": {
+    "background": {},
+    "perch_counts": {},
+    "perches": {},
+    "resets": [],
+    "limit": 500,
+    "sequence": 2,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 2,
+          "owned": false
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "WORKER",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 2,
+          "owned": true
+        }
+      }
+    ],
+    "elapsed_ms": 0
+  }
+}

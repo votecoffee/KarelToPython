@@ -1,0 +1,9 @@
+PROGRAM MAIN
+%NOLOCKGROUP
+VAR ready FROM WORKER:BOOLEAN owned_by_main:BOOLEAN status:INTEGER
+BEGIN
+  ready=FALSE
+  RUN_TASK('WORKER',0,FALSE,FALSE,0,status)
+  owned_by_main=MOTION_CTL(2)
+  WAIT FOR ready
+END MAIN

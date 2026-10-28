@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1028.211044 - 2026-10-28
+
+- Add opt-in stored-source TRANSLATE over explicit file backends, producing
+  sibling Python and optional listings with source protection, overwrite/quota/
+  alias guards and bounded artifact history. Never load or execute products;
+  runtime-only imports remain independent of the compiler.
+- Add nonrecursive star COPY_FILE/DELETE_FILE batches, portable destination
+  templates, complete snapshot/preflight and backend-specific publication.
+  Retain wildcard RENAME, PIP/socket/DAQ and native file boundaries.
+- Add opt-in atomic root LOCKGROUP/NOLOCKGROUP acquisition, scheduler contention
+  checks, retained pause ownership and terminal cleanup; callee directive scopes
+  and native waits remain deferred.
+- Add 149 regressions, three standalone examples and a linked directive-lock
+  project. Update reports, public guides and remaining-support inventory:
+  all 334 audited built-in names now have a registered Pythonic form, with
+  overload and native behavior restrictions still explicit.
+
 ## 26.1028.202845 - 2026-10-28
 
 - Preserve missing scalar leaves in Pythonic resource-free ARRAY, STRUCTURE,

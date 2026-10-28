@@ -1,0 +1,62 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2,
+      3
+    ],
+    "motion": {},
+    "apply_directives": true
+  },
+  "controller": {
+    "background": {},
+    "perch_counts": {},
+    "perches": {},
+    "resets": [],
+    "limit": 500,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "DIRECTIVE_GROUP_LOCKS",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 5,
+          "owned": true
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "DIRECTIVE_GROUP_LOCKS",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 1,
+          "owned": true
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "DIRECTIVE_GROUP_LOCKS",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 2,
+          "owned": false
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "DIRECTIVE_GROUP_LOCKS",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 1,
+          "owned": false
+        }
+      }
+    ],
+    "elapsed_ms": 0
+  }
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "line": 9,
+    "targets": [
+      {
+        "type": "STRING",
+        "type_spec": [
+          "STRING",
+          120
+        ]
+      }
+    ],
+    "line_breaks": [
+      1
+    ],
+    "adapter_outcome": "callback_completed"
+  }
+]

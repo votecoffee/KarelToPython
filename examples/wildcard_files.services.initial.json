@@ -1,0 +1,7 @@
+{
+  "files": {
+    "SRC:partA.DAT": "alpha",
+    "SRC:partB.DAT": "beta",
+    "SRC:skip.TXT": "keep"
+  }
+}

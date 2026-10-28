@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.202845**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.211044**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -290,12 +290,20 @@ Seven task directives also initialize portable priority, time-slice and request
 policies; see [task attributes and traces](docs/task-attributes.md).
 Nine additional source policies cover an applied DEFGROUP default, CRTDEVICE
 request labels, uninitialized defaults and retained storage/lock/stack/delay
-intent. They are exposed through `Program.source_settings`; see
+intent. An explicitly configured GroupLocks bank can opt into atomic root
+directive acquisition; nested callee directives remain deferred. See
+[directive group locks](docs/directive-group-locks.md). Policies are exposed
+through `Program.source_settings`; see
 [source directive policies](docs/source-directives.md#additional-source-policies).
 %INCLUDE expands supplied declaration/routine/body fragments, with nested
 lookup, explicit include directories/device mappings, physical-source diagnostics
 and input-file protection across CLI and linked projects. See
 [source includes](docs/includes.md).
+Stored-source `TRANSLATE` can generate sibling Python and optional listings over
+an explicitly supplied file backend. It preserves source and never loads or runs
+the products; see [source translations](docs/source-translations.md).
+COPY_FILE and DELETE_FILE accept bounded, nonrecursive star batches with checked
+destination templates and preflight; see [wildcard files](docs/wildcard-file-operations.md).
 Linked projects accept program-qualified ARRAY shapes, so modules can specialize
 the same variable name independently. See [project ARRAY shapes](docs/project-array-shapes.md)
 for API and CLI examples, including validation without executing source.

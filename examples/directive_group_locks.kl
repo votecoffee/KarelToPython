@@ -1,0 +1,10 @@
+PROGRAM DIRECTIVE_GROUP_LOCKS
+%LOCKGROUP=1,3
+VAR selected,first,second,after_unlock:BOOLEAN status:INTEGER
+BEGIN
+  selected=MOTION_CTL
+  first=MOTION_CTL(1)
+  second=MOTION_CTL(2)
+  UNLOCK_GROUP(1,status)
+  after_unlock=MOTION_CTL(1)
+END DIRECTIVE_GROUP_LOCKS
