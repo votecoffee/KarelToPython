@@ -1,0 +1,152 @@
+{
+  "table_controls": {
+    "window": "TABL",
+    "limit": 64,
+    "sequence": 0
+  },
+  "pendant": {
+    "rows": 2,
+    "cols": 12,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "LIST",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "LIST": {
+        "rows": 2,
+        "cols": 12,
+        "options": 0,
+        "lines": [
+          "Second      ",
+          "Third       "
+        ],
+        "cursor": {
+          "row": 2,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "RES_LIST",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "LIST",
+          "rows": 2,
+          "cols": 12,
+          "options": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "RES_LIST",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "LIST",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "RES_LIST",
+        "operation": "WINDOW_OPEN",
+        "data": {
+          "window": "LIST"
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "RES_LIST",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "LIST",
+          "fields": 2,
+          "bytes": 24
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "RES_LIST",
+        "operation": "SET_CURSOR",
+        "data": {
+          "window": "LIST",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "RES_LIST",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "LIST",
+          "fields": 2,
+          "bytes": 24
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "RES_LIST",
+        "operation": "SET_CURSOR",
+        "data": {
+          "window": "LIST",
+          "row": 2,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "RES_LIST",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "LIST",
+          "fields": 2,
+          "bytes": 24
+        }
+      },
+      {
+        "sequence": 9,
+        "program": "RES_LIST",
+        "operation": "SET_CURSOR",
+        "data": {
+          "window": "LIST",
+          "row": 2,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 10,
+        "program": "RES_LIST",
+        "operation": "WINDOW_CLOSE",
+        "data": {
+          "window": "LIST"
+        }
+      }
+    ],
+    "sequence": 10
+  }
+}

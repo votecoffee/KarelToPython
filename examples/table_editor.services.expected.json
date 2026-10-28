@@ -1,0 +1,190 @@
+{
+  "table_controls": {
+    "window": "TABL",
+    "limit": 64,
+    "sequence": 1
+  },
+  "keyboard": {
+    "events": [],
+    "event_sequence": 4,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "TABLE_EDIT",
+        "operation": "DISCTRL_TBL",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 55,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 2,
+        "program": "TABLE_EDIT",
+        "operation": "DISCTRL_TBL",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 3,
+        "request": 3,
+        "program": "TABLE_EDIT",
+        "operation": "DISCTRL_TBL",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 1004,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 4,
+        "request": 4,
+        "program": "TABLE_EDIT",
+        "operation": "DISCTRL_TBL",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 1102,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 4,
+    "request_sequence": 4
+  },
+  "dictionaries": {
+    "sources": {
+      "HEADERS.TX": "$1 \"Counts\""
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "HEAD": {
+          "source": "HEADERS.TX",
+          "text": "$1 \"Counts\""
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 16,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {
+      "TABL": {
+        "rows": 3,
+        "cols": 16,
+        "options": 0,
+        "lines": [
+          "Counts          ",
+          "7               ",
+          "20              "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "TABLE_EDIT",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "TABL",
+          "rows": 3,
+          "cols": 16,
+          "options": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "TABLE_EDIT",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "TABL",
+          "fields": 3,
+          "bytes": 48
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "TABLE_EDIT",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "TABL",
+          "fields": 3,
+          "bytes": 48
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "TABLE_EDIT",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "TABL",
+          "fields": 3,
+          "bytes": 48
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "TABLE_EDIT",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "TABL",
+          "fields": 3,
+          "bytes": 48
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "TABLE_EDIT",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "TABL",
+          "fields": 3,
+          "bytes": 48
+        }
+      }
+    ],
+    "sequence": 6
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "STREAM": {
+    "file": "WD:LIST",
+    "open": false,
+    "position": 0,
+    "binary": false,
+    "status": 0
+  },
+  "DISPLAY_DATA": {
+    "WIN_START": [
+      1,
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    "WIN_END": [
+      2,
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    "CURR_WIN": 0,
+    "CURSOR_ROW": 2,
+    "LINS_PER_PG": 2,
+    "CURS_ST_COL": [
+      0,
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    "CURS_EN_COL": [
+      11,
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    "CURR_FIELD": 0,
+    "LAST_FIELD": 0,
+    "CURR_IT_NUM": 3,
+    "SOB_IT_NUM": 1,
+    "EOB_IT_NUM": 4,
+    "LAST_IT_NUM": 4,
+    "MENU_ID": {
+      "uninitialized": true
+    }
+  },
+  "ITEMS": [
+    "First",
+    "Second",
+    "Third",
+    "Fourth"
+  ],
+  "STATUS": 0
+}

@@ -1,0 +1,121 @@
+{
+  "table_controls": {
+    "window": "TABL",
+    "limit": 64,
+    "sequence": 1
+  },
+  "keyboard": {
+    "events": [],
+    "event_sequence": 1,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "MAIN",
+        "operation": "ACT_TBL",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 1004,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 1,
+    "request_sequence": 1
+  },
+  "dictionaries": {
+    "sources": {
+      "HEADERS.TX": "$1 \"Linked counts\""
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "HEAD": {
+          "source": "HEADERS.TX",
+          "text": "$1 \"Linked counts\""
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 16,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {
+      "TABL": {
+        "rows": 3,
+        "cols": 16,
+        "options": 0,
+        "lines": [
+          "Linked counts   ",
+          "3               ",
+          "4               "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "TABL",
+          "rows": 3,
+          "cols": 16,
+          "options": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "TABL",
+          "fields": 3,
+          "bytes": 48
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "TABL",
+          "fields": 3,
+          "bytes": 48
+        }
+      }
+    ],
+    "sequence": 3
+  }
+}

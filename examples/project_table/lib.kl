@@ -1,0 +1,8 @@
+PROGRAM LIB
+VAR counts:ARRAY[2] OF INTEGER
+ROUTINE initialize
+BEGIN
+  counts[1]=3 counts[2]=4
+END initialize
+BEGIN
+END LIB

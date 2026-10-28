@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 269 have a registered translation and 65 do not.
+Currently, 273 have a registered translation and 61 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -60,7 +60,9 @@ they are boundaries rather than promises to accept every such source form later.
   accepts authored NODEDATA and PATHHEADER/PATHDATA structures. Native group
   associations and native display/recording behavior remain outside those records.
   The separate [headless display model](pendant-display.md) supports character
-  windows and screen composition without DISP_DAT_T-driven dynamic controls.
+  windows and screen composition. [List/table controls](table-controls.md) now use
+  DISP_DAT_T resident-list metadata and portable COL_DESC_T/XWORK_T records; native
+  memory layouts and widget rendering remain unverified.
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
   wildcard declarations require translation-time shapes; no VR auto-discovery.
@@ -199,7 +201,11 @@ they are boundaries rather than promises to accept every such source form later.
   buffers, masks, pane capture, cooperative waits and PUSH/POP suspension; combined
   WD/TPKB echo and dictionary-backed entry/subwindow/pull-up controls are modeled.
   Native key codes, soft-key editing widgets, generic keyboard FILE READ, binary
-  transfer and form/table/list managers remain outside that contract.
+  transfer and native form widgets remain outside that contract. Four
+  [list/table controls](table-controls.md) now support resident lists and typed
+  array-backed editors with injected keys, port cells and explicit session guards.
+  DISCTRL_FORM, native table headers/help/soft-key syntax and native binary
+  layouts remain unsupported.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.
@@ -300,13 +306,9 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Screens, windows, keyboard and dictionaries (5)
+### Screens, windows, keyboard and dictionaries (1)
 
-- `ACT_TBL`
 - `DISCTRL_FORM`
-- `DISCTRL_LIST`
-- `DISCTRL_TBL`
-- `INIT_TBL`
 
 ### Motion and task management (6)
 

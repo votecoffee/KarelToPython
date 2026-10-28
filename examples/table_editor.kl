@@ -1,0 +1,19 @@
+PROGRAM TABLE_EDIT
+VAR status,chosen,key:INTEGER
+    columns:ARRAY[1] OF COL_DESC_T
+    inactive:ARRAY[1] OF BOOLEAN
+    changed:ARRAY[2,1] OF BOOLEAN
+    names:ARRAY[1] OF STRING[12]
+    counts:ARRAY[2] OF INTEGER
+BEGIN
+  DEF_WINDOW('TABL',3,16,0,status)
+  ADD_DICT('headers','HEAD',DP_DEFAULT,DP_DRAM,status)
+  columns[1].item_type=TPX_INT_ITEM
+  columns[1].start_col=1
+  columns[1].field_width=8
+  columns[1].min_integer=0
+  columns[1].max_integer=100
+  names[1]='COUNTS'
+  counts[1]=10 counts[2]=20 chosen=1
+  DISCTRL_TBL('HEAD',1,2,1,columns,inactive,changed,chosen,key,KC_FUNC_KEY,names,TRUE,status)
+END TABLE_EDIT

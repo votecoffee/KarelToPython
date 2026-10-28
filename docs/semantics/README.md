@@ -171,3 +171,8 @@ The [group CONFIG text ledger](group_config_text_semantics.json) records
 CNV_CNF_STRG, explicit per-group field profiles, status/capacity handling and
 calling-root selection. It supersedes that procedure's exclusion in the older
 context-free CONFIG ledger while retaining native-mask and controller boundaries.
+
+The [list/table ledger](table_control_semantics.json) adds resident DISP_DAT_T
+list navigation and portable COL_DESC_T/XWORK_T table editing over injected keys.
+It supersedes older blanket list/table exclusions; native forms/layouts remain
+outside the implementation.

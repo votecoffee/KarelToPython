@@ -71,7 +71,7 @@ class KeyboardInput:
         for row in history:
             if type(row) is not dict or set(row)!={'sequence','request','program','operation','pane','outcome','data'}:raise ValueError('Malformed keyboard history row')
             if type(row['sequence']) is not int or not previous<row['sequence']<=sequence or type(row['request']) is not int or not 1<=row['request']<=request_sequence:raise ValueError('Invalid keyboard history IDs')
-            if not printable(row['program']) or type(row['operation']) is not str or row['operation'] not in KEYBOARD_CALLS or row['outcome'] not in ('completed','timeout','cancelled','failed') or type(row['pane']) is not int or not 1<=row['pane']<=9:raise ValueError('Invalid keyboard history metadata')
+            if not printable(row['program']) or type(row['operation']) is not str or row['operation'] not in KEYBOARD_CALLS|{'ACT_TBL','DISCTRL_TBL'} or row['outcome'] not in ('completed','timeout','cancelled','failed') or type(row['pane']) is not int or not 1<=row['pane']<=9:raise ValueError('Invalid keyboard history metadata')
             data=row['data']
             if type(data) is not dict or len(data)>8 or any(type(k) is not str or len(k)>32 for k in data):raise ValueError('Invalid keyboard history data')
             for value in data.values():

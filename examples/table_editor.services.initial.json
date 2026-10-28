@@ -1,0 +1,28 @@
+{
+  "table_controls": {},
+  "pendant": {
+    "rows": 3,
+    "cols": 16
+  },
+  "dictionaries": {
+    "sources": {
+      "headers": "$1 \"Counts\""
+    }
+  },
+  "keyboard": {
+    "events": [
+      {
+        "key": "7"
+      },
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "F2"
+      }
+    ]
+  }
+}

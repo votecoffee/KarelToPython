@@ -1,0 +1,45 @@
+{
+  "version": "26.1028.144536",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.1.8 ACT_TBL",
+        "A.4.22 DISCTRL_LIST",
+        "A.4.25 DISCTRL_TBL",
+        "A.4.27 DISP_DAT_T",
+        "A.8.12 INIT_TBL"
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../table-controls.md",
+    "calls": [
+      "DISCTRL_LIST",
+      "INIT_TBL",
+      "ACT_TBL",
+      "DISCTRL_TBL"
+    ],
+    "service": "Explicit TableControls, PendantDisplay, plain TextDictionaries and injected KeyboardInput; no native UI",
+    "binding": "Captured ordinary typed static global array cells, attached-program paths and supplied BOOLEAN/INTEGER ports; output/resource overlap rejected",
+    "editing": "Typed finite/range checked commits; bounded insertion/cursors, enums by numeric index, BOOL toggles, inactive columns and prefix change grids",
+    "lifetime": "Root and record-owned sessions, explicit cancellation and NEW_MENU release; internal loop finally cleanup and active-session save guard",
+    "lists": "Resident absolute item numbers, validated selected viewport and zero-based field columns; atomic preflight for paint plus FILE cursor",
+    "limits": "64 sessions, 40 columns, 16384 cells, 32766 rows, 254 input characters and 4096 loop events",
+    "persistence": "Inactive manager window/limit/finite sequence only; pendant and keyboard preserve ordinary closed state"
+  },
+  "boundaries": [
+    "Portable constants/statuses, COL_DESC_T schema, opaque XWORK_T ID and logical vptr ordinals; no native ABI or controller validation",
+    "Plain headers and numeric enum selection; no native help/function-key/form grammar, DISCTRL_FORM or glyph/highlight rendering",
+    "No background display task or resident list fetching; logical repaint at keys and budgeted waits",
+    "Strict mode remains deferred"
+  ],
+  "validation": [
+    "tests/test_table_controls.py",
+    "examples/table_editor.kl",
+    "examples/resident_list.kl",
+    "examples/project_table"
+  ]
+}

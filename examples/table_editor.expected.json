@@ -1,0 +1,55 @@
+{
+  "STATUS": 0,
+  "CHOSEN": 2,
+  "KEY": 1102,
+  "COLUMNS": [
+    {
+      "ITEM_TYPE": 1,
+      "START_COL": 1,
+      "FIELD_WIDTH": 8,
+      "ENUM_ELE": {
+        "uninitialized": true
+      },
+      "ENUM_DICT": {
+        "uninitialized": true
+      },
+      "FORMAT_SPEC": {
+        "uninitialized": true
+      },
+      "MIN_INTEGER": 0,
+      "MAX_INTEGER": 100,
+      "MIN_REAL": {
+        "uninitialized": true
+      },
+      "MAX_REAL": {
+        "uninitialized": true
+      },
+      "CLEAR_FLAG": {
+        "uninitialized": true
+      },
+      "LOWER_CASE": {
+        "uninitialized": true
+      }
+    }
+  ],
+  "INACTIVE": [
+    {
+      "uninitialized": true
+    }
+  ],
+  "CHANGED": [
+    [
+      true
+    ],
+    [
+      false
+    ]
+  ],
+  "NAMES": [
+    "COUNTS"
+  ],
+  "COUNTS": [
+    7,
+    20
+  ]
+}

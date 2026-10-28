@@ -229,7 +229,7 @@ class PositionComparisonCliTests(unittest.TestCase):
         source=source or 'PROGRAM T VAR cfg: CONFIG a: XYZWPR near: BOOLEAN BEGIN '+INIT+' a=POS(0,0,0,0,0,0,cfg) near=a>=<a END T'
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder); package=root/'karel2py'; package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py'): shutil.copyfile(ROOT/'karel2py'/name,package/name)
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py'): shutil.copyfile(ROOT/'karel2py'/name,package/name)
             script=root/'converted.py'; script.write_text(translate(source).python_source,encoding='utf-8')
             (root/'input.json').write_text('[[7]]',encoding='utf-8')
             return subprocess.run([sys.executable,str(script),*arguments],cwd=root,capture_output=True,text=True)

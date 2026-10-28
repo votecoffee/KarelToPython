@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
-                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,**rt.KEYBOARD_CONSTANTS,
+                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,**rt.KEYBOARD_CONSTANTS,**rt.TABLE_CONSTANTS,
                         **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
@@ -2176,6 +2176,10 @@ class Emitter:
         for index,(value,(mode,kind)) in enumerate(zip(expr.args,signature)):
             discarded=value
             while discarded.kind=='group': discarded=discarded.args[0]
+            if kind=='TABLE_ACTION' and (discarded.kind not in ('name','field','index') or self.root_name(discarded) in self.visible_constants()):
+                code,spec=self.expression(value)
+                if spec!=('INTEGER',):self.error('E_TYPE','ACT_TBL action requires INTEGER',value.token)
+                codes.append(code);continue
             if kind=='ERROR_CURSOR':
                 sentinel=None
                 if discarded.kind=='literal': sentinel=discarded.value
@@ -4638,6 +4642,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='4096 queued/processed events, 64 active requests/frames, 256 open handles, bounded history and finite IDs; cleanup remains possible after history exhaustion',
         boundary='Portable key/mask/attribute/status codes and timing; no native keyboard capture, glyphs, soft-key rendering, forms/tables, controller acceptance or strict-mode equivalence',
         guide='docs/keyboard-input.md',controller_validated=False)
+    report['table_control_policy']=dict(
+        calls=sorted(rt.TABLE_CALLS),constants=dict(rt.TABLE_CONSTANTS),
+        service='Explicit TableControls plus headless PendantDisplay, plain TextDictionaries and injected KeyboardInput; no GUI or host input',
+        binding='Capture typed static global array cells, attached-program paths and supplied BOOLEAN/INTEGER ports; reject protected storage, short arrays and output/resource overlap',
+        editing='Numeric ranges, bounded strings/cursor edits, numeric enum indices, Boolean toggles, inactive columns and prefix change grids; indirect writes conservatively guard active FOR scopes',
+        sessions='Opaque root/record-owned XWORK_T session IDs, logical pointer-grid ordinals, explicit cancel or NEW_MENU, owned attachment cleanup and internal-loop finally release',
+        lists='DISP_DAT_T resident viewport/field navigation, checked absolute item bounds, scrolling and preflighted paint/FILE cursor changes; no implicit fetch',
+        persistence='Reject active sessions; retain only manager window/limit/finite sequence and ordinary closed pendant/keyboard state; no live references or edit replay',
+        limits='64 sessions, 40 columns, 16384 cells, 32766 rows, 254 input characters and 4096 loop events',
+        boundary='Portable layouts/codes, plain headers and logical repaint timing; no DISCTRL_FORM, native header/help/soft-key syntax, styling, background display task, controller acceptance or strict equivalence',
+        guide='docs/table-controls.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

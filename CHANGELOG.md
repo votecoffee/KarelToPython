@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1028.144536 - 2026-10-28
+
+- Add DISCTRL_LIST resident paging and all three table calls: INIT_TBL, ACT_TBL
+  and DISCTRL_TBL, with explicit headless windows and injected key events.
+- Add portable COL_DESC_T/XWORK_T records, static array and typed port cells,
+  numeric/string/enum/Boolean editing, range/format checks and change grids.
+- Add session ownership, cancellation, save guards, cursor preservation and
+  conservative indirect-write checks through active FOR scopes.
+- Add 56 focused regressions, two CLI examples and a linked project; refresh
+  the README and audit 273 registered built-in names with 61 remaining.
+
 ## 26.1028.140226 - 2026-10-28
 
 - Add READ_KB, PUSH_KEY_RD and POP_KEY_RD with explicit key events, pane capture,

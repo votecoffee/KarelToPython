@@ -162,5 +162,7 @@ python -m karel2py.project examples/keyboard_project --entry MAIN --context exam
 ```
 
 Reports expose keyboard_policy and a [semantics ledger](semantics/keyboard_semantics.json).
-Native keyboard capture, soft-key widgets, generic keyboard FILE READ, form/table/
-list managers, controller acceptance and strict equivalence remain future work.
+Native keyboard capture, soft-key widgets, generic keyboard FILE READ, forms,
+controller acceptance and strict equivalence remain future work. The separate
+[list/table service](table-controls.md) uses the same injected keyboard events
+for resident navigation and array-backed typed editing.

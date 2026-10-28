@@ -1,0 +1,19 @@
+{
+  "table_controls": {},
+  "pendant": {
+    "rows": 3,
+    "cols": 16
+  },
+  "dictionaries": {
+    "sources": {
+      "headers": "$1 \"Linked counts\""
+    }
+  },
+  "keyboard": {
+    "events": [
+      {
+        "key": "DOWN"
+      }
+    ]
+  }
+}

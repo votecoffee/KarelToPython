@@ -1,0 +1,22 @@
+PROGRAM RES_LIST
+VAR stream:FILE
+    display_data:DISP_DAT_T
+    items:ARRAY[4] OF STRING[12]
+    status:INTEGER
+BEGIN
+  DEF_WINDOW('LIST',2,12,0,status)
+  ATT_WINDOW_S('LIST','SYS',1,1,status)
+  OPEN FILE stream('WO','WD:LIST')
+  display_data.curr_win=0
+  display_data.win_start[1]=1 display_data.win_end[1]=2
+  display_data.cursor_row=1 display_data.lins_per_pg=2
+  display_data.curs_st_col[1]=0 display_data.curs_en_col[1]=11
+  display_data.curr_field=0 display_data.last_field=0
+  display_data.curr_it_num=1 display_data.sob_it_num=1
+  display_data.eob_it_num=4 display_data.last_it_num=4
+  items[1]='First' items[2]='Second' items[3]='Third' items[4]='Fourth'
+  DISCTRL_LIST(stream,display_data,items,DC_DISP,status)
+  DISCTRL_LIST(stream,display_data,items,DC_DN,status)
+  DISCTRL_LIST(stream,display_data,items,DC_DN,status)
+  CLOSE FILE stream
+END RES_LIST

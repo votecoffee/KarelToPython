@@ -1,0 +1,82 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "COUNTS": [
+        3,
+        4
+      ]
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "STATUS": 0,
+      "CHOSEN": 2,
+      "KEY": 0,
+      "ACTION": 1004,
+      "ATTACH": true,
+      "COLUMNS": [
+        {
+          "ITEM_TYPE": 1,
+          "START_COL": 1,
+          "FIELD_WIDTH": 8,
+          "ENUM_ELE": {
+            "uninitialized": true
+          },
+          "ENUM_DICT": {
+            "uninitialized": true
+          },
+          "FORMAT_SPEC": {
+            "uninitialized": true
+          },
+          "MIN_INTEGER": {
+            "uninitialized": true
+          },
+          "MAX_INTEGER": {
+            "uninitialized": true
+          },
+          "MIN_REAL": {
+            "uninitialized": true
+          },
+          "MAX_REAL": {
+            "uninitialized": true
+          },
+          "CLEAR_FLAG": {
+            "uninitialized": true
+          },
+          "LOWER_CASE": {
+            "uninitialized": true
+          }
+        }
+      ],
+      "INACTIVE": [
+        {
+          "uninitialized": true
+        }
+      ],
+      "CHANGED": [
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "NAMES": [
+        "[LIB]COUNTS"
+      ],
+      "POINTERS": [
+        [
+          1
+        ],
+        [
+          2
+        ]
+      ],
+      "WORK": {
+        "SESSION": 0
+      }
+    }
+  }
+}

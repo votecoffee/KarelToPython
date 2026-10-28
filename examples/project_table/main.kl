@@ -1,0 +1,23 @@
+PROGRAM MAIN
+VAR status,chosen,key,action:INTEGER
+    attach:BOOLEAN
+    columns:ARRAY[1] OF COL_DESC_T
+    inactive:ARRAY[1] OF BOOLEAN
+    changed:ARRAY[2,1] OF BOOLEAN
+    names:ARRAY[1] OF STRING[20]
+    pointers:ARRAY[2,1] OF INTEGER
+    work:XWORK_T
+ROUTINE initialize FROM LIB
+BEGIN
+  initialize()
+  DEF_WINDOW('TABL',3,16,0,status)
+  ADD_DICT('headers','HEAD',DP_DEFAULT,DP_DRAM,status)
+  columns[1].item_type=TPX_INT_ITEM
+  columns[1].start_col=1 columns[1].field_width=8
+  names[1]='[LIB]COUNTS' chosen=1 attach=TRUE
+  INIT_TBL('HEAD',1,2,1,columns,inactive,changed,names,pointers,work,status)
+  ACT_TBL(KY_DISP_UPDT,chosen,work,key,attach,status)
+  action=KY_REISSUE
+  ACT_TBL(action,chosen,work,key,attach,status)
+  ACT_TBL(KY_CANCEL,chosen,work,key,attach,status)
+END MAIN

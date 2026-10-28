@@ -116,6 +116,12 @@ DATA_RECORD_FIELDS = {
 # schema. The obsolete association fields of STD_PTH_NODE are not modeled.
 PREDEFINED_STRUCTURES = {
     'STD_PTH_NODE': ('STRUCTURE','STD_PTH_NODE',(('NODE_POS',('POSITION',)),)),
+    'XWORK_T': ('STRUCTURE','XWORK_T',(('SESSION',INTEGER),)),
+    'COL_DESC_T': ('STRUCTURE','COL_DESC_T',tuple((name,spec) for name,spec in (
+        ('ITEM_TYPE',INTEGER),('START_COL',INTEGER),('FIELD_WIDTH',INTEGER),('ENUM_ELE',INTEGER),
+        ('ENUM_DICT',('STRING',4)),('FORMAT_SPEC',('STRING',80)),
+        ('MIN_INTEGER',INTEGER),('MAX_INTEGER',INTEGER),('MIN_REAL',REAL),('MAX_REAL',REAL),
+        ('CLEAR_FLAG',INTEGER),('LOWER_CASE',INTEGER)))),
     'DISP_DAT_T': ('STRUCTURE','DISP_DAT_T',(
         ('WIN_START',('ARRAY',4,SHORT)),('WIN_END',('ARRAY',4,SHORT)),
         ('CURR_WIN',SHORT),('CURSOR_ROW',SHORT),('LINS_PER_PG',SHORT),
@@ -2508,3 +2514,4 @@ from .pendant import PendantDisplay,PENDANT_CONSTANTS
 from .dictionaries import TextDictionaries,DICTIONARY_CONSTANTS
 from .dynamic_display import DynamicDisplays,DYNAMIC_DISPLAY_CALLS
 from .keyboard import KeyboardInput,KEYBOARD_CONSTANTS,KEYBOARD_CALLS
+from .table_controls import TableControls,TABLE_CONSTANTS,TABLE_CALLS
