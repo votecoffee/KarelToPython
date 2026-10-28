@@ -89,7 +89,8 @@ class ArrayResultFailureTests(unittest.TestCase):
             self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY{dimensions} OF INTEGER BEGIN END make', _translator=legacy_translate)
     def test_other_array_element_result_types_are_blocked(self):
         for element in ('STRING','FILE','PATH','ARRAY'):
-            self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY OF {element} BEGIN END make')
+            self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY OF {element} BEGIN END make',
+                          _translator=legacy_translate if element=='STRING' else translate)
     def test_named_array_result_declaration_remains_blocked(self):
         self.rejected('','E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[3] OF INTEGER',routines='ROUTINE make: row_t BEGIN END make', _translator=legacy_translate)
     def test_multidimensional_return_source_blocked(self):
