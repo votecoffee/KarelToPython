@@ -1,0 +1,19 @@
+{
+  "forms": {"rows": 6, "cols": 28},
+  "pendant": {"rows": 6, "cols": 28},
+  "dictionaries": {
+    "sources": {
+      "fragments": ".form unnumber\n$1,main\n\"Composite settings\" &new_line \"Fragments\" &new_line\n\"-%t Details\" &new_line +2\n.endtree\n\"- Done\"\n.endform\n.form\n$2,details\n.tree\n\"Amount \" \"-%4d(0,20)\" &new_line\n.endform\n"
+    }
+  },
+  "keyboard": {
+    "events": [
+      {"key": "ENTER"},
+      {"key": "DOWN"},
+      {"key": "8"},
+      {"key": "ENTER"},
+      {"key": "DOWN"},
+      {"key": "ENTER"}
+    ]
+  }
+}

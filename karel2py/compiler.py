@@ -4744,17 +4744,27 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 sessions, 40 columns, 16384 cells, 32766 rows, 254 input characters and 4096 loop events',
         boundary='Portable table layouts/codes and logical repaint timing; FTX uses the separate form service; no native table header/help/soft-key syntax, styling, background display task, controller acceptance or strict equivalence',
         guide='docs/table-controls.md',controller_validated=False)
+    report['file_listing_policy']=dict(
+        calls=['FILE_LIST'],formats=[0,1,2,3,4],
+        selection='Backend wildcard/device rules and sorted complete keys; nonnegative skip and one-dimensional STRING output capacity',
+        names='0 preserves the backend key; 1 stem, 2 final extension, 3 basename; formatted names omit device/directories and preserve case',
+        metadata='Format4 has 40 columns: 8.3 name, byte count in columns21..25 and blank date/time; unrepresentable fields reject without truncation',
+        publication='Validate and stage the complete page before changing names/count; preserve unused slots and all data outputs on failure',
+        status='Portable 0 success, 1 disappeared selected metadata, 2 invalid format/skip/name, 3 insufficient output or metadata capacity; backend/budget/protection failures can raise',
+        boundary='Explicit MemoryFiles/DirectoryFiles/DeviceFiles only; no native timestamp, directory-order, alarm or controller-equivalence claim; strict deferred',
+        guide='docs/file-listing.md',controller_validated=False)
     report['form_policy']=dict(
         calls=sorted(rt.FORM_CALLS),
         service='Explicit FormControls, TextDictionaries FTX source, headless PendantDisplay and injected KeyboardInput; USER2 menu required',
-        source='Own-line .form/.endform, unnumber/noclear, labels/cursor/style intent, editable/selectable/display-only items, dictionary help/function keys and nonnested tree groups',
+        source='Own-line .form/.endform, unnumber/noclear, complete +element form fragments, explicit .tree inheritance, labels/cursor/style intent, editable/selectable/display-only items and dictionary help/function keys',
         binding='Capture typed static scalar paths, attached program fields/subscripts and explicit indexed BOOLEAN/INTEGER ports; reject protected edit storage and output/resource overlap',
         editing='Decimal/base INTEGER, finite REAL, BYTE/SHORT, bounded strings, Boolean/port/simulation toggles, function/subwindow/variable enums and supplied program-name choices; failed entries retain live data and can be corrected',
         navigation='Continuous default item, inactive items, fixed two-line headers, scrolling/paging, help/choice overlays, latched editable trees, live display trees and explicit REFRESH',
         lifetime='Prepare complete form before changing flags/window state; finally release keyboard reads and owned attachments, including stop/budget/history exhaustion; reject active saves',
         persistence='Retain only inactive manager configuration and finite IDs plus ordinary dictionary/pendant/keyboard state; no native compression, VR association inference or edit replay',
         limits='64 sessions, 256 logical rows/data/selectable items, 254 edit characters, 35 enum choices, 10 function labels, 48 help lines and 4096 key-loop events',
-        boundary='Portable single-window layout, key/status codes and repaint timing; no nested/concatenated .tree fragments, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
+        concatenation='Literal forward layout with shared data/selection indices, root-owned attributes and nonnested sequential tree groups; each fragment clears grouping unless .tree inherits an open predecessor',
+        boundary='Portable single-window layout, key/status codes and repaint timing; no nested trees, implicit native header merging, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
         guide='docs/forms.md',controller_validated=False)
     from .vision import VISION_IO_PROCEDURES,VISION_TRACKING_PROCEDURES,VISION_TRACKING_FUNCTIONS,VT_QUEUE_PROCEDURES
     report['vt_queue_policy']=dict(

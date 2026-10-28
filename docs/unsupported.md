@@ -68,6 +68,8 @@ they are boundaries rather than promises to accept every such source form later.
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
   wildcard declarations require translation-time shapes; no VR auto-discovery.
+  Linked projects now route common or [program-qualified shapes](project-array-shapes.md)
+  to the declared wildcard storage, including differing module-local dimensions.
 - Standalone BYTE/SHORT variables and routine interfaces; they remain aggregate
   field/element and file forms. BYTE unknown contents cannot be queried with
   UNINIT. SHORT 32767 is the retained uninitialized sentinel.
@@ -116,7 +118,8 @@ they are boundaries rather than promises to accept every such source form later.
 - Proprietary PC/VR/native binary layouts, arbitrary FILE attributes/listing
   formats, device-specific parsing and controller file alarms. Text and binary
   scalar operations use the documented portable formats and bounded sizes;
-  FILE_LIST supports name format 0.
+  FILE_LIST supports [formats 0 through 4](file-listing.md), with portable
+  40-column size records and blank timestamps; native metadata formats remain open.
 - Physical PATH node byte sizes, native association records and native message
   attachments. NODE_SIZE uses [portable packed schema widths](path-geometry.md).
   QUEUE_ATTACH has a separate [offline message-attachment model](remote-messages.md);
@@ -213,10 +216,11 @@ they are boundaries rather than promises to accept every such source form later.
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.
   [DISCTRL_FORM](forms.md) now accepts supplied FTX forms with typed scalar/port
-  editing, numeric/variable/program enums, help, function labels and nonnested tree
-  groups. Native binary form/VR associations, nested/concatenated .tree fragments,
-  Data ID discovery, native table header syntax and exact widget/layout semantics
-  remain unsupported.
+  editing, numeric/variable/program enums, help, function labels and sequential tree
+  groups, including concatenated complete fragments with explicit .tree inheritance.
+  Native binary form/VR associations, Data ID discovery, native table header syntax
+  and exact widget/layout semantics remain unsupported. Nested tree groups retain
+  the documented language prohibition.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.

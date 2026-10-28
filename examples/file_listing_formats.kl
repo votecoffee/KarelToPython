@@ -1,0 +1,14 @@
+PROGRAM FILE_LISTING_FORMATS
+VAR names:ARRAY[3] OF STRING[12]
+    kinds:ARRAY[3] OF STRING[4]
+    complete:ARRAY[3] OF STRING[16]
+    raw_names:ARRAY[3] OF STRING[20]
+    details:ARRAY[1] OF STRING[40]
+    listed,detail_count,status:INTEGER
+BEGIN
+  FILE_LIST('RD:*',0,1,names,listed,status)
+  FILE_LIST('RD:*',0,2,kinds,listed,status)
+  FILE_LIST('RD:*',0,3,complete,listed,status)
+  FILE_LIST('RD:*',0,0,raw_names,listed,status)
+  FILE_LIST('RD:*',1,4,details,detail_count,status)
+END FILE_LISTING_FORMATS

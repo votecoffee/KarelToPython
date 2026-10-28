@@ -1,0 +1,49 @@
+{
+  "version": "26.1028.194447",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": ["A.6.2 FILE_LIST", "Chapter 2 variable-sized ARRAY declarations"]
+    },
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": ["11.2.6 Tree view", "11.2.7 Dynamic forms using tree view"]
+    }
+  ],
+  "contracts": {
+    "file_listing": {
+      "guide": "../file-listing.md",
+      "forms": "FILE_LIST formats0..4 over explicitly supplied file backends",
+      "choices": "Sorted complete backend keys before pagination/formatting; case-preserving final-extension split; format4 uses bounded 8.3 names, five byte-count columns and blank timestamps",
+      "publication": "Preflight complete page and preserve all names/count outputs on failure, including insufficient format0 STRING capacity; retain unused slots",
+      "boundaries": "Portable statuses and layout; no native timestamp/order/alarm equivalence or host drive discovery"
+    },
+    "form_fragments": {
+      "guide": "../forms.md",
+      "forms": "Complete +element FTX fragments with explicit .tree inheritance",
+      "choices": "Literal forward layout, shared data/selection indices, root-owned attributes; fragment entry clears grouping unless .tree inherits an open predecessor; a new tree replaces its predecessor",
+      "publication": "Prepare all typed resources and bounded layout before acquiring a session; preserve ordinary overlap, cleanup and active-save guards",
+      "boundaries": "No nested tree groups, inferred native header merging, compressed form/VR ABI, host input or widget/timing equivalence"
+    },
+    "project_array_shapes": {
+      "guide": "../project-array-shapes.md",
+      "forms": "Project API array_shapes and project CLI --array-shape accept NAME or PROGRAM.NAME",
+      "choices": "Route common names only to parsed direct global wildcard declarations; qualification follows PROGRAM names; reject common/qualified overlap even for equal dimensions",
+      "validation": "Expand supplied includes and parse without running KAREL; retain compiler rank, fixed-size, type, leaf-limit and exact imported-global linkage checks",
+      "metadata": "Project.array_shapes normalized per program; local report context/hash and generated external_array_shapes retain concrete local dimensions",
+      "boundaries": "Explicit translation-time specialization only; no VR discovery, resizing, ragged storage, dynamic allocation or task checkpoint restoration"
+    }
+  },
+  "validation": [
+    "tests/test_file_listing_formats.py",
+    "tests/test_form_fragments.py",
+    "tests/test_project_array_shapes.py",
+    "examples/file_listing_formats.kl",
+    "examples/form_fragments.kl",
+    "examples/array_shape_project"
+  ],
+  "historical_notes": "These choices supersede older format0-only, concatenated-form exclusion and project-wide flat shape routing notes. Historical per-feature ledger versions and native evidence boundaries remain preserved.",
+  "strict_mode": "Future milestone; public translation remains Pythonic"
+}

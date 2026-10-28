@@ -1,0 +1,245 @@
+{
+  "forms": {
+    "window": "FORM",
+    "rows": 6,
+    "cols": 28,
+    "limit": 64,
+    "sequence": 1
+  },
+  "keyboard": {
+    "events": [],
+    "event_sequence": 6,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 2,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 1004,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 3,
+        "request": 3,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 56,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 4,
+        "request": 4,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 5,
+        "request": 5,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 1004,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 6,
+        "request": 6,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 3,
+          "term": 13,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 6,
+    "request_sequence": 6
+  },
+  "dictionaries": {
+    "sources": {
+      "FRAGMENTS.TX": ".form unnumber\n$1,main\n\"Composite settings\" &new_line \"Fragments\" &new_line\n\"-%t Details\" &new_line +2\n.endtree\n\"- Done\"\n.endform\n.form\n$2,details\n.tree\n\"Amount \" \"-%4d(0,20)\" &new_line\n.endform\n"
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "FORM": {
+          "source": "FRAGMENTS.TX",
+          "text": ".form unnumber\n$1,main\n\"Composite settings\" &new_line \"Fragments\" &new_line\n\"-%t Details\" &new_line +2\n.endtree\n\"- Done\"\n.endform\n.form\n$2,details\n.tree\n\"Amount \" \"-%4d(0,20)\" &new_line\n.endform\n"
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 6,
+    "cols": 28,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {
+      "FORM": {
+        "rows": 6,
+        "cols": 28,
+        "options": 0,
+        "lines": [
+          "Composite settings          ",
+          "Fragments                   ",
+          "- Details                   ",
+          "Amount    8                 ",
+          " Done                       ",
+          "                            "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {
+      "1": {
+        "menu": 1002,
+        "screen": 1
+      }
+    },
+    "history": [
+      {
+        "sequence": 1,
+        "program": "FORM_FRAGMENTS",
+        "operation": "FORCE_SPMENU",
+        "data": {
+          "pane": 1,
+          "menu": 1002,
+          "screen": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "FORM_FRAGMENTS",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      }
+    ],
+    "sequence": 8
+  }
+}

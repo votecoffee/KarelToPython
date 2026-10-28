@@ -1,0 +1,11 @@
+PROGRAM FORM_FRAGMENTS
+VAR amount,chosen,key,status:INTEGER expanded:BOOLEAN
+    names:ARRAY[2] OF STRING[12]
+    inactive:ARRAY[1] OF BOOLEAN changed:ARRAY[2] OF BOOLEAN
+BEGIN
+  ADD_DICT('fragments','FORM',DP_DEFAULT,DP_DRAM,status)
+  FORCE_SPMENU(TP_PANEL,SPI_TPUSER2,1)
+  amount=3 expanded=FALSE chosen=1
+  names[1]='EXPANDED' names[2]='AMOUNT'
+  DISCTRL_FORM('FORM',1,names,inactive,changed,KC_FUNC_KEY OR KC_PREV_KEY,chosen,key,status)
+END FORM_FRAGMENTS

@@ -120,10 +120,11 @@ ATR_IA binary interpretation; use ATR_UF for binary data.**
 COPY_FILE, DELETE_FILE and RENAME_FILE are synchronous even when `nowait` is true.
 Portable statuses are 0 success, 1 missing, 2 destination exists and 3 open/busy.
 COPY_FILE overwrites only when its explicit overwrite Boolean is true. FILE_LIST
-accepts format 0, nonnegative skip and shell-style `*`/`?` name patterns; it writes
-sorted names up to the output array capacity and preserves unused elements.
-Parent-directory creation, native listing formats and native alarm codes remain
-outside this contract. See [file management](../examples/file_management.kl).
+accepts formats 0 through 4, nonnegative skip and the backend's name patterns.
+It validates each complete page before updating outputs and preserves unused
+elements. Metadata records use a portable 40-column size layout with blank
+timestamps; see [file listings](file-listing.md). Parent-directory creation and
+native alarm codes remain outside this contract.
 
 Generated service scripts accept `--filesystem-root data`, `--context state.json`
 and `--state-out updated.json`. A state output file is written after successful

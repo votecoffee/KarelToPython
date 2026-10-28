@@ -228,3 +228,9 @@ IF/WHILE/REPEAT/SELECT target entry. It supersedes older blanket structured-entr
 exclusions while retaining FOR-body, routine/handler and USING capture barriers.
 Per-body transfer reports describe source/target paths; direct entry skips header
 dispatch and follows the ordinary target continuation and loop back edges.
+
+The [portable expansion ledger](portable_expansion_semantics.json) adds atomic
+FILE_LIST formats 0 through 4, concatenated FTX tree fragments and linked-project
+ARRAY shape routing. It supersedes the corresponding older exclusions while
+preserving historical versions, explicit dimensions, nonnested trees, portable
+metadata/status choices and controller evidence boundaries.

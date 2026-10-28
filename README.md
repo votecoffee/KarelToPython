@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.191850**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.194447**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -293,6 +293,9 @@ intent. They are exposed through `Program.source_settings`; see
 lookup, explicit include directories/device mappings, physical-source diagnostics
 and input-file protection across CLI and linked projects. See
 [source includes](docs/includes.md).
+Linked projects accept program-qualified ARRAY shapes, so modules can specialize
+the same variable name independently. See [project ARRAY shapes](docs/project-array-shapes.md)
+for API and CLI examples, including validation without executing source.
 PATH helpers include portable NODE_SIZE and supplied view-line/plane intersections
 with staged append behavior; see [PATH geometry](docs/path-geometry.md).
 Five XML input calls provide registered-tag scanning, chunked text/attributes
@@ -303,6 +306,9 @@ Six device/storage calls share explicit virtual DeviceFiles volumes, including
 mount state, byte quotas, obsolete-storage reclamation, labels and supplied device
 information. These operations affect memory-backed data only; see
 [virtual devices](docs/virtual-devices.md).
+`FILE_LIST` supports name, extension, complete-name and portable 40-column size
+formats, with whole-page validation before outputs change. See
+[file listings](docs/file-listing.md).
 CREATE_VAR, RENAME_VAR and RENAME_VARS manage explicit variable namespaces;
 BYNAME passes checked named aliases into typed routines, including linked calls
 and cooperative pause/resume. See [dynamic variables](docs/dynamic-variables.md).
@@ -348,7 +354,9 @@ background slots for attached cooperative KAREL tasks. Explicit panel I/O banks
 include OPIN/OPOUT and TPIN/TPOUT, including address zero.
 
 The [FTX form service](docs/forms.md) adds DISCTRL_FORM with typed editing,
-enumerations, help/choice overlays, tree groups and injected navigation.
+enumerations, help/choice overlays, sequential tree groups and injected navigation.
+Complete form fragments can be concatenated through dictionary references;
+`.tree` explicitly inherits the preceding group. Layout uses headless windows.
 
 Four [list/table controls](docs/table-controls.md) add resident-list paging and
 array-backed typed table edits, including port cells, range checks and explicit

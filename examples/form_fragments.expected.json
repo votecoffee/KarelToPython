@@ -1,0 +1,10 @@
+{
+  "AMOUNT": 8,
+  "CHOSEN": 3,
+  "KEY": 1008,
+  "STATUS": 0,
+  "EXPANDED": true,
+  "NAMES": ["EXPANDED", "AMOUNT"],
+  "INACTIVE": [{"uninitialized": true}],
+  "CHANGED": [true, true]
+}

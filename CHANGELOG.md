@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1028.194447 - 2026-10-28
+
+- Add FILE_LIST formats 1 through 4 while retaining format 0 backend keys.
+  Return stems, extensions, basenames or portable 40-column size records with
+  blank timestamps. Validate complete pages before changing names/counts;
+  capacity errors now preserve outputs instead of truncating format 0 names.
+- Compose complete FTX form fragments through dictionary references, including
+  explicit .tree inheritance, shared data/selection indices and root-owned
+  attributes. A new tree now remains selectable when its predecessor is collapsed;
+  nested groups retain the documented language prohibition.
+- Route common and program-qualified wildcard ARRAY shapes in linked projects.
+  Add project CLI --array-shape and normalized per-program metadata; preserve
+  compiler rank/fixed-size/linkage checks and reject ambiguous/unused shapes.
+- Add 101 regressions, two authored CLI examples and a linked ARRAY project.
+  Refresh reports, README, support guides and semantic notes. All behavior is
+  offline; strict mode, native widgets and controller acceptance remain future work.
+
 ## 26.1028.191850 - 2026-10-28
 
 - Add nested and sibling GOTO entry into IF, WHILE, REPEAT and SELECT bodies.

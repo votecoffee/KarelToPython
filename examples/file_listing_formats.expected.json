@@ -1,0 +1,10 @@
+{
+  "NAMES": ["JOB", "PART", "README"],
+  "KINDS": ["KL", "DAT", ""],
+  "COMPLETE": ["JOB.KL", "PART.DAT", "README"],
+  "RAW_NAMES": ["RD:JOB.KL", "RD:PART.DAT", "RD:README"],
+  "DETAILS": ["PART    .DAT        3                   "],
+  "LISTED": 3,
+  "DETAIL_COUNT": 1,
+  "STATUS": 0
+}

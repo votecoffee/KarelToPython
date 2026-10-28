@@ -1,0 +1,14 @@
+PROGRAM LIB
+VAR values:ARRAY[*] OF INTEGER
+ROUTINE total(items:ARRAY[*,*] OF INTEGER):INTEGER
+VAR row:INTEGER sum:INTEGER
+BEGIN
+  values[1]=ARRAY_LEN(items) values[2]=2
+  sum=0
+  FOR row=1 TO values[1] DO
+    sum=sum+items[row,1]+items[row,2]
+  ENDFOR
+  RETURN sum
+END total
+BEGIN
+END LIB
