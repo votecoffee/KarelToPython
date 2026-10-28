@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR count,status,result:INTEGER
+ROUTINE show_count:INTEGER FROM LIB
+BEGIN
+  DEF_WINDOW('LOG',1,16,WD_COM_CURSR,status)
+  ATT_WINDOW_S('LOG','SYS',1,1,status)
+  count=1
+  result=show_count
+END MAIN

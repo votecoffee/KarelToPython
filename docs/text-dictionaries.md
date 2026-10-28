@@ -164,5 +164,5 @@ python -m karel2py.project examples/dictionary_project --entry MAIN --context ex
 
 Reports expose dictionary_policy and a [semantics ledger](semantics/text_dictionary_semantics.json).
 Native compressed formats, dictionary/form compilation, glyph rendering,
-dynamic controls, keyboard input, strict mode and controller acceptance remain
+interactive form/list/table controls, keyboard input, strict mode and controller acceptance remain
 future work.

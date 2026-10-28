@@ -94,6 +94,18 @@ PROCEDURES = {
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
+    'INI_DYN_DISB': (arg('BOOLEAN','s'),)+(S,I,I,I,I,I,I)+(arg('STRING_ARRAY','s'),OI),
+    'CNC_DYN_DISB': (arg('BOOLEAN','s'),S,OI),
+    'INI_DYN_DISE': (arg('INTEGER','s'),)+(S,I,I,I,I,I,I)+(arg('STRING_ARRAY','s'),OI),
+    'CNC_DYN_DISE': (arg('INTEGER','s'),S,OI),
+    'INI_DYN_DISI': (arg('INTEGER','s'),)+(S,I,I,I,I,I,I)+(I,S,OI),
+    'CNC_DYN_DISI': (arg('INTEGER','s'),S,OI),
+    'INI_DYN_DISR': (arg('REAL','s'),)+(S,I,I,I,I,I,I)+(I,S,OI),
+    'CNC_DYN_DISR': (arg('REAL','s'),S,OI),
+    'INI_DYN_DISS': (arg('STRING','s'),)+(S,I,I,I,I,I,I)+(I,S,OI),
+    'CNC_DYN_DISS': (arg('STRING','s'),S,OI),
+    'INI_DYN_DISP': (I,I,S,I,I,I,I,I,I,arg('STRING_ARRAY','s'),OI),
+    'CNC_DYN_DISP': (I,I,S,OI),
     'ADD_DICT': (S,S,S,I,OI), 'CHECK_DICT': (S,arg('DICT_ELEMENT'),OI),
     'READ_DICT': (S,I,arg('STRING_ARRAY','r'),I,OI,OI),
     'READ_DICT_V': (S,I,arg('STRING_ARRAY'),arg('STRING_ARRAY','r'),OI),
@@ -248,6 +260,9 @@ def outputs_checked(signature, arguments, line=None):
     for (mode,kind), value in zip(signature,arguments):
         if kind=='ERROR_CURSOR' and type(value) is int and value==2147483647: continue
         if mode=='m' and type(value) is int and value==0: continue
+        if mode=='s':
+            if not isinstance(value,rt.Reference) or not matches(value.spec,kind):fail('Service static input requires an exact typed reference',line)
+            continue
         if mode not in ('o','r','m'): continue
         if type(value) is not rt.Reference or not matches(value.spec,kind): fail('Service output requires an ordinary exact-type writable reference',line)
         cells=rt._reference_cells(value)
@@ -1511,7 +1526,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1563,6 +1578,9 @@ class ExecutionContext:
         from .dictionaries import TextDictionaries
         if dictionaries is not None and type(dictionaries) is not TextDictionaries:raise TypeError('dictionaries must be TextDictionaries or None')
         self.dictionaries=dictionaries
+        from .dynamic_display import DynamicDisplays
+        if dynamic_display is not None and type(dynamic_display) is not DynamicDisplays:raise TypeError('dynamic_display must be DynamicDisplays or None')
+        self.dynamic_display=dynamic_display
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1589,7 +1607,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1650,6 +1668,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'dynamic_display' in config:
+            from .dynamic_display import DynamicDisplays
+            services['dynamic_display']=DynamicDisplays.from_config(config['dynamic_display'])
         if 'dictionaries' in config:
             from .dictionaries import TextDictionaries
             services['dictionaries']=TextDictionaries.from_config(config['dictionaries'])
@@ -1714,6 +1735,8 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        from .dynamic_display import DYNAMIC_DISPLAY_CALLS
+        if name in DYNAMIC_DISPLAY_CALLS:return self.require('dynamic_display',line).invoke(state,name,args,line)
         from .dictionaries import DICTIONARY_CALLS
         if name in DICTIONARY_CALLS:return self.require('dictionaries',line).invoke(state,name,args,line)
         from .pendant import PENDANT_CALLS

@@ -1,0 +1,12 @@
+PROGRAM LIB
+VAR count FROM MAIN:INTEGER
+    status:INTEGER
+ROUTINE show_count:INTEGER
+BEGIN
+  INI_DYN_DISI(count,'LOG',0,0,0,1,1,1,0,'%d',status)
+  count=42
+  CNC_DYN_DISI(count,'LOG',status)
+  RETURN status
+END show_count
+BEGIN
+END LIB

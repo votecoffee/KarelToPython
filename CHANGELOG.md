@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1028.133057 - 2026-10-28
+
+- Add all twelve dynamic display initiation/cancellation calls for static scalar
+  variables, enum labels and supplied BOOLEAN/INTEGER ports.
+- Capture typed read-only storage once; support unknown-value markers, live labels,
+  bounded formatting, field padding/clipping and deterministic checkpoint intervals.
+- Paint fields atomically without moving FILE cursors; cancel by storage identity,
+  restore overlapping survivors and retain cleanup at exhausted display limits.
+- Reject active-binding context saves; retain closed logical clock/settings and
+  visual state. Add 62 regressions, two CLI examples and a linked project.
+- Refresh README/support inventory: 263 registered built-in names, 71 remaining.
+
 ## 26.1026.195318 - 2026-10-26
 
 - Add all seven dictionary calls over supplied ASCII text catalogs and persisted

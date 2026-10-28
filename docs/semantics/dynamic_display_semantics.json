@@ -1,0 +1,57 @@
+{
+  "version": "26.1028.133057",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.8.5 INI_DYN_DISB",
+        "A.8.6 INI_DYN_DISE",
+        "A.8.7 INI_DYN_DISI",
+        "A.8.8 INI_DYN_DISP",
+        "A.8.9 INI_DYN_DISR",
+        "A.8.10 INI_DYN_DISS",
+        "A.3.19-A.3.24 CNC_DYN_DISB/E/I/P/R/S"
+      ],
+      "topic": "Static variable/label lifetime, formatting, field layout, intervals and cancellation"
+    }
+  ],
+  "contract": {
+    "guide": "../dynamic-displays.md",
+    "calls": [
+      "INI_DYN_DISB",
+      "INI_DYN_DISE",
+      "INI_DYN_DISI",
+      "INI_DYN_DISP",
+      "INI_DYN_DISR",
+      "INI_DYN_DISS",
+      "CNC_DYN_DISB",
+      "CNC_DYN_DISE",
+      "CNC_DYN_DISI",
+      "CNC_DYN_DISP",
+      "CNC_DYN_DISR",
+      "CNC_DYN_DISS"
+    ],
+    "service": "Explicit DynamicDisplays, PendantDisplay and supplied port banks; no native display task",
+    "bindings": "Exact typed read references to static global scalar/field/index/USING storage, captured once; locals/formals/computed values rejected; read-only counter/POSITION observation allowed",
+    "values": "Live Boolean/enum labels and Pythonic numeric/string formatting; stars for unknown data and question marks for invalid indexes/data",
+    "fields": "Bounded one-row fields, fixed-width truncation/padding or width-zero partial text, atomic batches without FILE cursor changes; style intent recognized without native glyph effects",
+    "clock": "Logical quantum per leaf checkpoint while active, explicit host advance/force, positive minimum intervals and one sample without catch-up; finite saturating clock",
+    "cancellation": "Family/storage-or-port/window identity; all matching locations; clear positive width, retain zero width, restore surviving last samples; cleanup at exhausted history sequence",
+    "persistence": "Reject active-binding save; keep closed settings, elapsed time and registration sequence plus pendant grids/history; no automatic subscriptions or execution restoration"
+  },
+  "boundaries": [
+    "Portable statuses and checkpoint clock rather than controller scheduling/native background execution",
+    "No routine-local/formal bindings, implicit task-end cancellation, font/color/size rendering or native port-type discovery",
+    "No form/list/table managers, keyboard input, active-reference serialization, strict/controller equivalence"
+  ],
+  "validation": [
+    "tests/test_dynamic_display.py",
+    "tests/test_pendant_display.py",
+    "tests/test_dictionaries.py",
+    "examples/dynamic_values.kl",
+    "examples/dynamic_ports.kl",
+    "examples/dynamic_display_project"
+  ]
+}

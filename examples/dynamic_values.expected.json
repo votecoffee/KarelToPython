@@ -1,0 +1,13 @@
+{
+  "FLAG": true,
+  "CHOICE": 1,
+  "COUNT": 42,
+  "STATUS": 0,
+  "REAL_VALUE": 1.25,
+  "TEXT": "ready",
+  "LABELS": [
+    "OFF",
+    "ON",
+    "ERR"
+  ]
+}

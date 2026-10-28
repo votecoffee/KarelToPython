@@ -1,0 +1,168 @@
+{
+  "dynamic_display": {
+    "quantum_ms": 1,
+    "elapsed_ms": 9,
+    "limit": 256,
+    "sequence": 5
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 24,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "VAL",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "VAL": {
+        "rows": 3,
+        "cols": 24,
+        "options": 1,
+        "lines": [
+          "                        ",
+          "                        ",
+          "ready                   "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "DYN_VAL",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "VAL",
+          "rows": 3,
+          "cols": 24,
+          "options": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "DYN_VAL",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "VAL",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 1,
+          "bytes": 3
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 1,
+          "bytes": 3
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 1,
+          "bytes": 4
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 1,
+          "bytes": 4
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 1,
+          "bytes": 5
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 5,
+          "bytes": 19
+        }
+      },
+      {
+        "sequence": 9,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 4,
+          "bytes": 16
+        }
+      },
+      {
+        "sequence": 10,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 3,
+          "bytes": 13
+        }
+      },
+      {
+        "sequence": 11,
+        "program": "DYN_VAL",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "VAL",
+          "fields": 2,
+          "bytes": 9
+        }
+      }
+    ],
+    "sequence": 11
+  }
+}

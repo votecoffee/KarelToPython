@@ -1,0 +1,28 @@
+PROGRAM DYN_VAL
+VAR flag:BOOLEAN
+    choice,count,status:INTEGER
+    real_value:REAL
+    text:STRING[12]
+    labels:ARRAY[3] OF STRING[8]
+BEGIN
+  DEF_WINDOW('VAL',3,24,WD_COM_CURSR,status)
+  ATT_WINDOW_S('VAL','SYS',1,1,status)
+  labels[1]='OFF'
+  labels[2]='ON'
+  labels[3]='ERR'
+  flag=TRUE
+  choice=1
+  count=42
+  real_value=1.25
+  text='ready'
+  INI_DYN_DISB(flag,'VAL',3,0,0,1,1,1000,labels,status)
+  INI_DYN_DISE(choice,'VAL',3,0,0,1,6,1000,labels,status)
+  INI_DYN_DISI(count,'VAL',4,0,0,2,1,1000,0,'%04d',status)
+  INI_DYN_DISR(real_value,'VAL',4,0,0,2,8,1000,0,'%.2f',status)
+  INI_DYN_DISS(text,'VAL',0,0,0,3,1,1000,0,'%s',status)
+  CNC_DYN_DISB(flag,'VAL',status)
+  CNC_DYN_DISE(choice,'VAL',status)
+  CNC_DYN_DISI(count,'VAL',status)
+  CNC_DYN_DISR(real_value,'VAL',status)
+  CNC_DYN_DISS(text,'VAL',status)
+END DYN_VAL

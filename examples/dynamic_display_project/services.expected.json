@@ -1,0 +1,106 @@
+{
+  "dynamic_display": {
+    "quantum_ms": 1,
+    "elapsed_ms": 2,
+    "limit": 256,
+    "sequence": 1
+  },
+  "pendant": {
+    "rows": 2,
+    "cols": 16,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "LOG",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "LOG": {
+        "rows": 1,
+        "cols": 16,
+        "options": 1,
+        "lines": [
+          "42              "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "LOG",
+          "rows": 1,
+          "cols": 16,
+          "options": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "LOG",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "LOG",
+          "fields": 1,
+          "bytes": 1
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "LOG",
+          "fields": 1,
+          "bytes": 1
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "LOG",
+          "fields": 1,
+          "bytes": 2
+        }
+      }
+    ],
+    "sequence": 5
+  }
+}

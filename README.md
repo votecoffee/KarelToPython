@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1026.195318**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.133057**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -305,6 +305,12 @@ through context JSON. See [pendant display](docs/pendant-display.md).
 python -m karel2py examples/window_display.kl -o window_display.py
 python window_display.py --context examples/window_display.services.initial.json --state-out window-state.json
 ```
+
+Twelve dynamic-display calls watch static scalar/enum variables and supplied
+ports, updating logical window fields at deterministic checkpoint intervals.
+Cancellation matches storage identity and clears fixed-width fields while
+preserving ordinary FILE cursors. Cancel active bindings before saving context.
+See [dynamic displays](docs/dynamic-displays.md).
 
 Seven dictionary calls now load supplied text catalogs, read numbered/named
 elements, format static variable values and write to logical windows. Nested

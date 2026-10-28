@@ -1,0 +1,25 @@
+{
+  "dynamic_display": {},
+  "pendant": {
+    "rows": 2,
+    "cols": 16
+  },
+  "ports": {
+    "counts": {
+      "DOUT": 1,
+      "GOUT": 1
+    },
+    "type_codes": {
+      "10": "DOUT",
+      "20": "GOUT"
+    },
+    "values": {
+      "DOUT": {
+        "1": false
+      },
+      "GOUT": {
+        "1": 0
+      }
+    }
+  }
+}

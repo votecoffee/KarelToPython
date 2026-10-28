@@ -1,0 +1,17 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "COUNT": 42,
+      "STATUS": 0,
+      "RESULT": 0
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "COUNT": 42,
+      "STATUS": 0
+    }
+  }
+}

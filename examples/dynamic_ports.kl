@@ -1,0 +1,16 @@
+PROGRAM DYN_PORT
+VAR labels:ARRAY[3] OF STRING[8]
+    status:INTEGER
+BEGIN
+  DEF_WINDOW('PORT',2,16,WD_COM_CURSR,status)
+  ATT_WINDOW_S('PORT','SYS',1,1,status)
+  labels[1]='OFF'
+  labels[2]='RUN'
+  labels[3]='TWO'
+  INI_DYN_DISP(10,1,'PORT',0,0,0,1,1,1,labels,status)
+  INI_DYN_DISP(20,1,'PORT',0,0,0,2,1,1,labels,status)
+  DOUT[1]=TRUE
+  GOUT[1]=2
+  CNC_DYN_DISP(10,1,'PORT',status)
+  CNC_DYN_DISP(20,1,'PORT',status)
+END DYN_PORT

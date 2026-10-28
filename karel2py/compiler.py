@@ -2185,7 +2185,12 @@ class Emitter:
                     codes.append('2147483647'); continue
             if mode=='m' and discarded.kind=='literal' and type(discarded.value) is int and discarded.value==0:
                 codes.append('0'); continue
-            if mode in ('o','r','m'):
+            if mode=='s':
+                root=self.root_name(discarded)
+                if discarded.kind not in ('name','field','index','using_ref') or root not in self.types or root in self.visible_constants() or self.current_routine and root in self.current_routine.local_types:
+                    self.error('E_STATIC_ARGUMENT','Dynamic display requires static global storage',value.token)
+                code,spec=self.reference(discarded)
+            elif mode in ('o','r','m'):
                 if value.kind not in ('name','field','index') or self.root_name(value) in self.visible_constants(): self.error('E_OUTPUT_ARGUMENT','Service output requires writable storage',value.token)
                 if self.root_name(value) in self.active_counters: self.error('E_FOR_COUNTER','Service output cannot write an active FOR counter',value.token)
                 if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
@@ -4609,6 +4614,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Retain supplied sources, independent loaded snapshots and language configuration; reload parses logical text without ADD replay or native DRAM restoration',
         boundary='Portable statuses/options; no binary TX, form compiler, glyph/style rendering, dynamic controls, keyboard input or controller acceptance; strict deferred',
         guide='docs/text-dictionaries.md',controller_validated=False)
+    report['dynamic_display_policy']=dict(
+        calls=sorted(rt.DYNAMIC_DISPLAY_CALLS),
+        service='Explicit DynamicDisplays plus PendantDisplay; read-only static global references and supplied port banks; no background threads or native display task',
+        binding='Capture scalar/field/index/USING storage once; typed read references allow uninitialized data and active-counter observation; local/formal/computed sources rejected',
+        values='BOOLEAN/enum labels from live static STRING arrays; checked INTEGER/REAL/STRING formats; supplied BOOLEAN/INTEGER port type_codes; stars for missing data, question marks for invalid enum/data',
+        fields='One-line window fields, fixed-width truncation/padding or width-zero variable text; atomic batches preserve FILE cursors; recognized attribute/size intent has no glyph effect',
+        clock='Deterministic quantum_ms per leaf source/call-entry checkpoint while active; explicit host advance/force polling; minimum intervals without catch-up bursts or wall-clock discovery; bounded clock saturates',
+        cancellation='Match type, storage or bank/port identity and window; cancel all locations; clear nonzero widths and restore surviving last samples; cleanup permitted at exhausted history sequence',
+        limits='At most 256 bindings and 512 field changes per batch, finite binding/history sequences; background repaint failures retain surfaces and expose watch status without blocking source cleanup',
+        persistence='Active bindings must be cancelled before saving; retain logical clock/settings and sequence only, plus pendant grid/history; no live reference rebinding or task restoration',
+        boundary='Portable statuses and checkpoint timing; no form/list/table managers, keyboard input, native styling/preemption/controller acceptance or strict-mode equivalence',
+        guide='docs/dynamic-displays.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

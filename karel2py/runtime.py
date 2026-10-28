@@ -2137,6 +2137,7 @@ class State:
         if self.steps > self.max_steps:
             raise KarelRuntimeError(f'Execution step budget exceeded ({self.max_steps})', line)
         if _diagnostic and self.execution.diagnostics is not None:self.execution.diagnostics.checkpoint(self,line)
+        if _diagnostic and self.execution.dynamic_display is not None:self.execution.dynamic_display.checkpoint(self,line)
 
     def begin(self, max_steps):
         if self._driving: raise KarelRuntimeError('A Program cannot be driven recursively')
@@ -2504,3 +2505,4 @@ from .diagnostics import DiagnosticLog,DIAGNOSTIC_CONSTANTS
 from .kcl import KclCommands
 from .pendant import PendantDisplay,PENDANT_CONSTANTS
 from .dictionaries import TextDictionaries,DICTIONARY_CONSTANTS
+from .dynamic_display import DynamicDisplays,DYNAMIC_DISPLAY_CALLS

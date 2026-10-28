@@ -106,7 +106,7 @@ class PendantDisplay:
             if type(item) is not dict or set(item)!={'sequence','program','operation','data'}:raise ValueError('Malformed display history')
             if type(item['sequence']) is not int or not previous<item['sequence']<=sequence:raise ValueError('History sequence must increase')
             if type(item['program']) is not str or not item['program'].isascii() or len(item['program'])>254:raise ValueError('Display owner must be bounded ASCII')
-            if type(item['operation']) is not str or item['operation'] not in PENDANT_CALLS|{'WINDOW_WRITE','WINDOW_OPEN','WINDOW_CLOSE'}:raise ValueError('Unknown display history operation')
+            if type(item['operation']) is not str or item['operation'] not in PENDANT_CALLS|{'WINDOW_WRITE','WINDOW_OPEN','WINDOW_CLOSE','DYNAMIC_WRITE'}:raise ValueError('Unknown display history operation')
             data=item['data']
             if type(data) is not dict or len(data)>8 or any(type(key) is not str or len(key)>32 for key in data):raise ValueError('Invalid display history data')
             if any(not (printable(value) or type(value) is int and -2147483648<=value<=2147483646) for value in data.values()):raise ValueError('History values require bounded printable text or INTEGERs')
@@ -269,6 +269,19 @@ class PendantDisplay:
         window['lines']=lines;window['cursor']=cursor.copy();binding['cursor']=cursor
         handle.position+=count;handle.status=0
         self.record(binding['state'],'WINDOW_WRITE',window=binding['window'],bytes=count)
+
+    def paint_fields(self,state,window,fields,line=None,*,cleanup=False):
+        """Paint fixed character fields without moving source FILE cursors."""
+        if not cleanup:self.reserve()
+        if window not in self.windows or type(fields) is not list or len(fields)>512:raise rt().KarelRuntimeError('Invalid dynamic field batch',line)
+        surface=self.windows[window];lines=list(surface['lines']);count=0
+        for field in fields:
+            if type(field) is not tuple or len(field)!=3:raise rt().KarelRuntimeError('Invalid dynamic field',line)
+            row,col,text=field
+            if type(row) is not int or type(col) is not int or not 1<=row<=surface['rows'] or not 1<=col<=surface['cols'] or not printable(text,0,256) or len(text)>surface['cols']-col+1:raise rt().KarelRuntimeError('Dynamic field exceeds window bounds',line)
+            lines[row-1]=lines[row-1][:col-1]+text+lines[row-1][col-1+len(text):];count+=len(text)
+        surface['lines']=lines
+        if self.sequence<2147483646:self.record(state,'DYNAMIC_WRITE',window=window,fields=len(fields),bytes=count)
 
     def render(self,screen=None):
         screen=self.active['TP'] if screen is None else ordinary_name(screen)
