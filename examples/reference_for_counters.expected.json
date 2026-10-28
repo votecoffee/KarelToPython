@@ -1,0 +1,8 @@
+{
+  "ROW": {"COUNT": {"uninitialized": true}},
+  "COUNTERS": [{"uninitialized": true}, 99],
+  "SLOT": 2,
+  "TOTAL": 12,
+  "FIELD_CLEARED": true,
+  "ELEMENT_CLEARED": true
+}

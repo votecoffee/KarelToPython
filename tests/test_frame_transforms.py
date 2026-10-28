@@ -202,7 +202,10 @@ class FrameGuardTests(unittest.TestCase):
     def test_other_relative_operand_types_stay_blocked(self):
         for kind in ('VECTOR','CONFIG','INTEGER'):
             with self.subTest(kind=kind): self.reject('result=x:y',declarations=DECLARATIONS+f' x,y: {kind}')
-    def test_vector_cannot_be_a_relative_frame(self): self.reject('result=VEC(1,2,3):a')
+    def test_vector_translation_frame_is_pythonic_only(self):
+        state=execute('a=POS(10,20,30,0,0,90,cfg) result=VEC(1,2,3):a')
+        self.assertEqual([state['RESULT'][field] for field in FIELDS],[11,22,33,0,0,90])
+        with self.assertRaises(TranslationError):compile_program('result=VEC(1,2,3):a',translator=legacy_translate)
     def test_other_inverse_operand_types_stay_blocked(self):
         for kind in ('VECTOR','CONFIG','INTEGER'):
             with self.subTest(kind=kind): self.reject('result=INV(x)',declarations=DECLARATIONS+f' x: {kind}')

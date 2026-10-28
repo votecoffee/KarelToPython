@@ -1042,7 +1042,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
     rt=runtime(); handle.require_open(line); formats=formats if formats is not None else [()] * len(targets)
     if type(handle.owner) is rt.KeyboardInput:fail('Keyboard FILE requires READ_KB',line)
     if type(handle.owner) is rt.PendantDisplay:fail('Window FILE provides output only; keyboard READ is not modeled',line)
-    if type(handle.owner) is rt.Messaging:handle.owner.before_read(handle,line)
+    if type(handle.owner) in (rt.Messaging,rt.SerialStreams):handle.owner.before_read(handle,line)
     for target in targets:
         if type(target) is not rt.Reference: fail('FILE READ requires ordinary writable scalar targets',line)
     start=handle.position
@@ -1574,7 +1574,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1600,6 +1600,9 @@ class ExecutionContext:
         self.teach_programs=teach_programs
         if serial_ports is not None and type(serial_ports) is not SerialPorts: raise TypeError('serial_ports must be SerialPorts or None')
         self.serial_ports=serial_ports
+        from .serial_io import SerialStreams
+        if serial_streams is not None and type(serial_streams) is not SerialStreams:raise TypeError('serial_streams must be SerialStreams or None')
+        self.serial_streams=serial_streams
         from .programs import GroupLocks
         if group_locks is not None and type(group_locks) is not GroupLocks: raise TypeError('group_locks must be GroupLocks or None')
         self.group_locks=group_locks
@@ -1673,10 +1676,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'serial_streams' in config:
+            from .serial_io import SerialStreams
+            services['serial_streams']=SerialStreams.from_config(config['serial_streams'])
         if 'source_translations' in config:
             from .source_translations import SourceTranslations
             services['source_translations']=SourceTranslations.from_config(config['source_translations'])
@@ -2084,6 +2090,12 @@ class ExecutionContext:
             if name=='IO_STATUS': return handle.status
             if name=='SET_FILE_POS' and handle.xml: fail('Reopen XML FILE to reset its scanner',line)
             handle.require_open(line)
+            if type(handle.owner) is rt.SerialStreams:
+                if name=='SET_FILE_POS':args[-1].set(handle.owner.seek(handle,args[1],line),line);return
+                available=handle.owner.bytes_ahead(handle,line)
+                if name=='GET_FILE_POS':return handle.position
+                if name=='BYTES_LEFT':return available
+                args[1].set(available,line);args[2].set(0,line);return
             if name=='GET_FILE_POS': return handle.position
             if type(handle.owner) is rt.FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None) and name=='SET_FILE_POS':
                 args[-1].set(handle.owner.seek(handle,args[1],line),line);return

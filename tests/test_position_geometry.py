@@ -207,11 +207,15 @@ class PositionGeometryGuardTests(unittest.TestCase):
     def test_destination_orientation_stays_protected(self):
         self.reject('p.normal.x=INV(q).normal.x','E_POSITION_READ_ONLY')
 
-    def test_other_operand_types_stay_blocked(self):
-        for kind in ('VECTOR','CONFIG','INTEGER'):
+    def test_other_operand_types_and_exact_vector_pose_interfaces_stay_blocked(self):
+        for kind in ('CONFIG','INTEGER'):
             for expression in ('p:x','x:p','INV(x)','FRAME(p,q,x)'):
                 with self.subTest(kind=kind,expression=expression):
                     self.reject('r='+expression,declarations=DECLARATIONS+' x: '+kind)
+        for expression in ('p:x','INV(x)'):
+            self.reject('r='+expression,declarations=DECLARATIONS+' x:VECTOR')
+        for expression in ('x:p','FRAME(p,q,x)'):
+            compile_program('r='+expression,declarations=DECLARATIONS+' x:VECTOR')
 
     def test_exact_routine_interface_retained(self):
         self.reject('take(p:p)',routines='ROUTINE take(v: XYZWPR) BEGIN END take')

@@ -137,13 +137,17 @@ class VectorFrameLanguageTests(unittest.TestCase):
     def test_read_write_grouped_expression_formats(self):
         p,_=compile_program(SETUP+"WRITE((a:v).x::0::1,CR)",decl=DECL);p.run();self.assertEqual(p.write_requests[0]['text'],' 7.0\n')
 
-    def test_vector_cannot_be_a_frame_in_either_vector_or_pose_pair(self):
-        for expression in ('v:a','v:v','VEC(1,2,3):p'):
-            with self.subTest(expression=expression),self.assertRaises(TranslationError):compile_program(SETUP+'res='+expression,decl=DECL)
+    def test_vector_left_frames_use_explicit_pythonic_translation(self):
+        values=execute('res=v:v b=v:a p=VEC(1,2,3):p')
+        self.assertEqual(values['RES'],dict(X=4.,Y=6.,Z=8.))
+        self.assertEqual((values['B']['X'],values['B']['Y'],values['B']['Z'],values['B']['R']),(12.,23.,34.,90.))
+        self.assertEqual(values['P']['LOCATION'],dict(X=11.,Y=22.,Z=33.))
 
-    def test_frame_construction_and_inverse_do_not_gain_vector_operands(self):
-        for expression in ('INV(v)','FRAME(a,b,v)','FRAME(v,a,b)'):
-            with self.subTest(expression=expression),self.assertRaises(TranslationError):compile_program(SETUP+'res='+expression,decl=DECL)
+    def test_vector_inverse_and_frame_points_require_pose_origin(self):
+        values=execute('res=INV(v) b=FRAME(a,VEC(30,20,30),VEC(10,40,30))')
+        self.assertEqual(values['RES'],dict(X=-2.,Y=-3.,Z=-4.))
+        self.assertEqual((values['B']['X'],values['B']['Y'],values['B']['Z'],values['B']['R']),(10.,20.,30.,0.))
+        with self.assertRaises(TranslationError):compile_program(SETUP+'b=FRAME(v,a,b)',decl=DECL)
 
     def test_pose_and_vector_routine_return_interfaces_remain_exact(self):
         for routines,body in [('ROUTINE take(point:POSITION) BEGIN END take','take(a:v)'),('ROUTINE point:POSITION BEGIN RETURN a:v END point','p=point()')]:

@@ -1,0 +1,19 @@
+PROGRAM REFERENCE_FOR_COUNTERS
+TYPE row_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+VAR row:row_t counters:ARRAY[2] OF INTEGER slot,total:INTEGER
+    field_cleared,element_cleared:BOOLEAN
+BEGIN
+  total=0
+  FOR row.count=1 TO 3 DO total=total+row.count ENDFOR
+  counters[2]=99
+  slot=1
+  FOR counters[slot]=1 TO 2 DO
+    total=total+counters[1]
+    slot=2
+  ENDFOR
+  USING row DO
+    FOR count=2 DOWNTO 1 DO total=total+count ENDFOR
+  ENDUSING
+  field_cleared=UNINIT(row.count)
+  element_cleared=UNINIT(counters[1])
+END REFERENCE_FOR_COUNTERS

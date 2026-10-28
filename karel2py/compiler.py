@@ -87,6 +87,19 @@ class FlowNode:
     for_scopes: tuple = ()
 
 
+def counter_text(value):
+    """Describe source storage without evaluating a captured counter selector."""
+    if not isinstance(value,Expr):return value.value
+    if value.kind=='using_ref':return value.value[4]
+    if value.kind=='field':return counter_text(value.args[0])+'.'+value.value
+    if value.kind=='index':return counter_text(value.args[0])+'['+','.join(counter_text(item) for item in value.args[1:])+']'
+    if value.kind=='group':return '('+counter_text(value.args[0])+')'
+    if value.kind=='call':return value.value+'('+','.join(counter_text(item) for item in value.args)+')'
+    if value.kind=='binary':return '('+counter_text(value.args[0])+value.value+counter_text(value.args[1])+')'
+    if value.kind=='unary':return value.value+'('+counter_text(value.args[0])+')'
+    return str(value.value)
+
+
 class FlowGraph:
     """Lower branches and explicit Pythonic FOR lifetime scopes to dispatch nodes."""
     def __init__(self, statements, *, lower_for=False):
@@ -145,7 +158,7 @@ class FlowGraph:
                                 karel_column=node.statement.token.column, successors=node.targets)
                            for i, node in enumerate(self.nodes)])
         if self.for_scopes:
-            report['for_scopes']=[dict(id=scope,counter=stmt.args[0].value,line=stmt.token.line,column=stmt.token.column,
+            report['for_scopes']=[dict(id=scope,counter=counter_text(stmt.args[0]),line=stmt.token.line,column=stmt.token.column,
                 parents=list(self.nodes[scope].for_scopes)) for scope,stmt in self.for_scopes.items()]
             for node,metadata in zip(self.nodes,report['nodes']):metadata['for_scopes']=list(node.for_scopes)
         return report
@@ -723,7 +736,7 @@ class Parser:
             self.expect('UNTIL')
             return Statement('repeat', token, [self.expression()], body)
         if name == 'FOR':
-            counter = self.name()
+            counter = self.storage_selector() if self.mode=='pythonic' else self.name()
             self.expect('=')
             initial = self.expression()
             direction = self.take()
@@ -1026,6 +1039,8 @@ class Emitter:
         self.group_uses=[]
         self.using_scopes = []
         self.active_counters = set()
+        self.reference_for_uses=[]
+        self.external_write_routines=set()
         self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
         self.subarray_uses = []
@@ -1532,7 +1547,7 @@ class Emitter:
                         scope['selector_types'] = [self.access_type(selector) for selector in selectors]
                     node.body = resolve(node.body, fields, scope)
                     return node
-                if bindings and node.kind == 'for' and node.args[0].value in bindings:
+                if self.mode!='pythonic' and bindings and node.kind == 'for' and node.args[0].value in bindings:
                     self.error('E_USING_FOR_COUNTER', 'FOR counters shadowed by USING fields need field-counter semantics', node.args[0])
                 node.args = [resolve(argument, bindings, scope) for argument in node.args]
                 node.body = resolve(node.body, bindings, scope)
@@ -1602,7 +1617,7 @@ class Emitter:
                         if name in self.types and name not in local_names|parameter_names: routine.global_writes.add(name)
                     if ex.variable_write_call(node.value,node.args): routine.global_writes.update(self.types)
                 if isinstance(node, Statement) and node.kind in ('assign', 'for'):
-                    name = node.args[0].value if node.kind == 'for' else self.root_name(node.args[0])
+                    name = self.root_name(node.args[0])
                     if name not in local_names: routine.side_effecting = True
                     if name in parameter_names: routine.parameter_writes.add(name)
                     if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
@@ -1693,6 +1708,13 @@ class Emitter:
                             routine.global_writes.add(name)
                             changed = True
 
+        unknown={routine.name for routine in self.program.routines if routine.external}
+        while True:
+            inherited={name for name,targets in edges.items() if targets&unknown}
+            if inherited<=unknown:break
+            unknown.update(inherited)
+        self.external_write_routines=unknown
+
     def has_external_effect_call(self, expr):
         return any(isinstance(node, Expr) and node.kind == 'call' and node.value in self.routines
                    and (self.routines[node.value].side_effecting or self.routines[node.value].may_delay
@@ -1715,6 +1737,9 @@ class Emitter:
                 conflict = (self.active_counters - locals_only) & routine.global_writes
                 if conflict:
                     self.error('E_FOR_COUNTER', 'Routine may write active global FOR counter(s): ' + ', '.join(sorted(conflict)), token)
+                aggregate_roots={root for root in self.active_counters-locals_only if self.types[root][0]!='INTEGER'}
+                if aggregate_roots and routine.name in self.external_write_routines:
+                    self.error('E_FOR_COUNTER','External routine effects cannot prove active aggregate counter roots unchanged',token)
             if self.has_fresh_active_counters(): self.features.add('routine call inside FOR with fresh local counters')
             if self.mode == 'pythonic': self.features.add('routine call inside FOR with checked counter effects')
 
@@ -1761,7 +1786,7 @@ class Emitter:
             if expr.value in ('INV','FRAME'):
                 if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4)):
                     self.error('E_ARGUMENTS', 'INV requires one pose; FRAME requires three or four poses', expr.token)
-                return self.frame_result_type([self.access_type(argument) for argument in expr.args], expr.token)
+                return self.frame_call_result_type(expr.value,[self.relative_operand_type(argument) for argument in expr.args],expr.token)
             if expr.value in rt.POSITION_AXIS_FUNCTIONS:
                 if len(expr.args) != 1: self.error('E_ARGUMENTS', f'{expr.value} requires one pose', expr.token)
                 self.frame_result_type([self.access_type(expr.args[0])], expr.token)
@@ -1807,12 +1832,24 @@ class Emitter:
         return self.access_type(expr)
 
     def relative_result_type(self,specs,token):
+        if len(specs)==2 and specs[0]==('VECTOR',):
+            return ('VECTOR',) if specs[1]==('VECTOR',) else self.frame_result_type(specs[1:],token)
         if len(specs)==2 and specs[1]==('VECTOR',):
             self.frame_result_type(specs[:1],token)
             return ('VECTOR',)
         return self.frame_result_type(specs,token)
 
+    def frame_call_result_type(self,operation,specs,token):
+        if operation=='INV' and specs==[('VECTOR',)]:return ('VECTOR',)
+        if operation=='FRAME':
+            if specs[0 if len(specs)==3 else 3]==('VECTOR',):
+                self.error('E_TYPE','FRAME origin requires a pose or supplied joint frame with CONFIG',token)
+            return self.frame_result_type([spec for spec in specs if spec!=('VECTOR',)],token)
+        return self.frame_result_type(specs,token)
+
     def geometry_operand(self,code,spec,token,operation):
+        if self.mode=='pythonic' and spec==('VECTOR',) and operation in (':','INV','FRAME'):
+            return f'_rt.vector_value({code},{token.line})'
         if self.mode=='pythonic' and spec[0]=='JOINTPOS':
             self.features.update(('extended services','joint geometry'))
             if self.current_routine: self.current_routine.may_services=True
@@ -1990,7 +2027,7 @@ class Emitter:
                                                               line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
                                                               result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
             elif op == ':':
-                valid = self.mode == 'pythonic' and lt[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS') and right_type[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS','VECTOR')
+                valid = self.mode == 'pythonic' and lt[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS','VECTOR') and right_type[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS','VECTOR')
                 result_type = self.relative_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
                 if valid:
                     self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
@@ -2028,7 +2065,7 @@ class Emitter:
                 if lt == ('VECTOR',): left = f'_rt.vector_value({left}, {line})'
                 if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
                 if op in (':','>=<'):
-                    left = self.geometry_operand(left,lt,expr.args[0].token,op)
+                    if lt!=('VECTOR',):left = self.geometry_operand(left,lt,expr.args[0].token,op)
                     if right_type!=('VECTOR',):right = self.geometry_operand(right,right_type,expr.args[1].token,op)
                 if op == '>=<':
                     return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line}, external_tolerance=self._state.external_tolerance)', result_type
@@ -2111,9 +2148,9 @@ class Emitter:
             codes, frame_specs = [], []
             for argument in expr.args:
                 code, spec = self.expression(argument)
-                self.frame_result_type([spec], argument.token)
+                if spec!=('VECTOR',):self.frame_result_type([spec], argument.token)
                 codes.append(self.geometry_operand(code,spec,argument.token,expr.value)); frame_specs.append(spec)
-            result_type = self.frame_result_type(frame_specs, expr.token)
+            result_type = self.frame_call_result_type(expr.value,frame_specs,expr.token)
         else:
             signature, result_type = BUILTIN_SIGNATURES[expr.value]
             if len(expr.args) != len(signature):
@@ -2194,7 +2231,7 @@ class Emitter:
             while base.kind in ('field', 'index'): base = base.args[0]
             if argument.kind not in ('name', 'field', 'index') or base.kind not in ('name','using_ref') or base.value in self.visible_constants():
                 self.error('E_OUTPUT_ARGUMENT', 'CONFIG conversion outputs require storage rooted in a variable', argument.token)
-            if base.value in self.active_counters: self.error('E_FOR_COUNTER', 'CONFIG conversion cannot write an active FOR counter', argument.token)
+            if self.root_name(base) in self.active_counters: self.error('E_FOR_COUNTER', 'CONFIG conversion cannot write an active FOR counter', argument.token)
             if self.is_position_read_only_access(argument): self.error('E_POSITION_READ_ONLY', 'CONFIG conversion output is read-only', argument.token)
             if self.is_config_subfield(argument): self.error('E_CONFIG_OUTPUT', 'CONFIG subfields cannot be conversion output aliases', argument.token)
             code, spec = self.reference(argument)
@@ -2277,7 +2314,7 @@ class Emitter:
             while base.kind in ('field','index'): base = base.args[0]
             if target.kind not in ('name','field','index') or base.kind not in ('name','using_ref') or base.value in self.visible_constants():
                 self.error('E_OUTPUT_ARGUMENT','Numeric register outputs require storage rooted in a variable',target.token)
-            if base.value in self.active_counters: self.error('E_FOR_COUNTER','Numeric register output cannot write an active FOR counter',target.token)
+            if self.root_name(base) in self.active_counters: self.error('E_FOR_COUNTER','Numeric register output cannot write an active FOR counter',target.token)
             if self.is_position_read_only_access(target): self.error('E_POSITION_READ_ONLY','Numeric register output is read-only',target.token)
             if self.is_config_subfield(target): self.error('E_CONFIG_OUTPUT','CONFIG subfields cannot be numeric register output aliases',target.token)
             code, spec = self.reference(target)
@@ -2313,7 +2350,7 @@ class Emitter:
         while base.kind in ('field','index'): base = base.args[0]
         if destination.kind not in ('name','field','index') or base.kind not in ('name','using_ref') or base.value in self.visible_constants():
             self.error('E_OUTPUT_ARGUMENT','Time conversion output requires storage rooted in a variable',destination.token)
-        if base.value in self.active_counters: self.error('E_FOR_COUNTER','Time conversion cannot write an active FOR counter',destination.token)
+        if self.root_name(base) in self.active_counters: self.error('E_FOR_COUNTER','Time conversion cannot write an active FOR counter',destination.token)
         if self.is_position_read_only_access(destination): self.error('E_POSITION_READ_ONLY','POSITION orientation cannot be a time conversion output',destination.token)
         if self.is_config_subfield(destination): self.error('E_CONFIG_OUTPUT','CONFIG subfields cannot be time conversion output aliases',destination.token)
         target, spec = self.reference(destination)
@@ -2479,7 +2516,7 @@ class Emitter:
             bounded_string_value = (not is_reference and expected[0] == actual[0] == 'STRING' and expected[1] is not None)
             if not rt.parameter_accepts(expected, actual) and not bounded_string_value:
                 self.error('E_TYPE', f'{expr.value} parameter expects {expected[0]}, found {actual[0]}', argument.token)
-            if is_reference and argument.kind == 'name' and argument.value in self.active_counters:
+            if is_reference and self.root_name(argument) in self.active_counters:
                 if self.mode == 'strict' or formal.value in routine.parameter_writes:
                     self.error('E_FOR_COUNTER', 'An active FOR counter cannot be passed to a potentially writable formal; use parentheses for a value argument', argument.token)
                 self.features.add('read-only active FOR counter reference')
@@ -2667,9 +2704,9 @@ class Emitter:
                 self.indent += 1
                 previous_counters=self.active_counters
                 if graph.for_scopes:
-                    self.active_counters={graph.for_scopes[scope].args[0].value for scope in node.for_scopes}
+                    self.active_counters={self.root_name(graph.for_scopes[scope].args[0]) for scope in node.for_scopes}
                     self.line(f'while {frames} and {frames}[-1][0] not in {node.for_scopes!r}:')
-                    self.indent+=1;self.line(f'self._state.clear({frames}.pop()[1])');self.indent-=1
+                    self.indent+=1;self.line(f'{frames}.pop()[1].clear()');self.indent-=1
                     self.line(f'if tuple(_frame[0] for _frame in {frames}) != {node.for_scopes!r}:')
                     self.indent+=1;self.line(f'raise _rt.KarelRuntimeError("Invalid generated FOR scope state", {line})');self.indent-=1
                 if kind in ('label', 'goto', 'enter'):
@@ -2679,12 +2716,13 @@ class Emitter:
                     self.line(f'{pc} = {node.targets[0]!r}')
                 elif kind=='for_enter':
                     self.features.add('for');self.line(f'self._state.tick({line})',token)
-                    counter,first,last,adjustment,step=self.for_values(stmt)
-                    stop=self.fresh()
-                    self.line(f'self._state.set({counter.value!r}, {first}, {line})')
-                    self.line(f'{frames}.append([{index}, {counter.value!r}, None])')
+                    counter,reference,first,last,adjustment,step=self.for_values(stmt)
+                    stop,captured=self.fresh(),self.fresh()
+                    self.line(f'{captured} = {reference}')
+                    self.line(f'{captured}.set({first}, {line})')
+                    self.line(f'{frames}.append([{index}, {captured}, None])')
                     self.line(f'{stop} = {last}')
-                    self.line(f'{frames}[-1][2] = iter(range(self._state.get({counter.value!r}), {stop} + ({adjustment}), {step}))')
+                    self.line(f'{frames}[-1][2] = iter(range(_rt.require({captured}.raw(), {line}), {stop} + ({adjustment}), {step}))')
                     self.line(f'{pc} = {node.targets[0]!r}')
                 elif kind=='for_next':
                     item=self.fresh()
@@ -2693,10 +2731,10 @@ class Emitter:
                     self.line(f'{pc} = {node.targets[1]!r}');self.indent-=1
                     self.line('else:');self.indent+=1
                     self.line(f'self._state.tick({line})',token)
-                    self.line(f'self._state.set({stmt.args[0].value!r}, {item}, {line})')
+                    self.line(f'{frames}[-1][1].set({item}, {line})')
                     self.line(f'{pc} = {node.targets[0]!r}');self.indent-=1
                 elif kind=='for_exit':
-                    self.line(f'self._state.clear({frames}.pop()[1])')
+                    self.line(f'{frames}.pop()[1].clear()')
                     self.line(f'{pc} = {node.targets[0]!r}')
                 elif kind in ('if', 'while_test', 'repeat_test'):
                     self.features.add(stmt.kind)
@@ -2738,7 +2776,7 @@ class Emitter:
             if graph.for_scopes:
                 self.indent-=1;self.line('finally:');self.indent+=1
                 self.line(f'while {frames}:');self.indent+=1
-                self.line(f'self._state.clear({frames}.pop()[1])');self.indent-=2
+                self.line(f'{frames}.pop()[1].clear()');self.indent-=2
         report['jumps']=transfers
         if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
         else: self.control_flow['program'] = report
@@ -2752,20 +2790,34 @@ class Emitter:
     def for_values(self,stmt):
         """Share the bound/type/effect proof between structured and labelled FORs."""
         counter,initial,final,direction=stmt.args
-        if self.cooperative and self.implicit_counter_write(counter.value):
-            self.error('E_FOR_COUNTER','Condition action or connected timer may modify this FOR counter',counter)
+        token=counter.token if isinstance(counter,Expr) else counter;root=self.root_name(counter)
+        if self.cooperative and self.implicit_counter_write(root):
+            self.error('E_FOR_COUNTER','Condition action or connected timer may modify this FOR counter root',token)
         counter_types=self.types|(self.current_routine.local_types if self.current_routine else {})
-        if counter.value not in counter_types or counter_types[counter.value][0]!='INTEGER':
-            self.error('E_FOR_COUNTER','FOR counter must be an INTEGER variable',counter)
-        if self.current_routine and self.current_routine.parameters and counter.value not in {token.value for token,_ in self.current_routine.declarations}:
-            self.error('E_FOR_COUNTER','Parameterized routines require a fresh local FOR counter until alias effects are validated',counter)
-        if counter.value in self.active_counters:
-            self.error('E_FOR_COUNTER','Nested loops cannot share the same FOR counter',counter)
+        if root not in counter_types or root in self.visible_constants():
+            self.error('E_FOR_COUNTER','FOR counter requires declared writable INTEGER storage',token)
+        if self.current_routine and self.current_routine.parameters and root not in {item.value for item,_ in self.current_routine.declarations}:
+            self.error('E_FOR_COUNTER','Parameterized routines require fresh local FOR counter roots until alias effects are validated',token)
+        if root in self.active_counters:
+            self.error('E_FOR_COUNTER','Nested loops cannot reuse an active FOR counter root',token)
+        reference=None
+        if self.mode=='pythonic':
+            if counter_types[root][0] in ('PATH','FILE','QUEUE_TYPE') or self.is_config_subfield(counter):
+                self.error('E_FOR_COUNTER','FOR counters require ordinary INTEGER leaves outside resource roots and CONFIG domains',token)
+            if self.is_position_read_only_access(counter):self.error('E_POSITION_READ_ONLY','FOR counter storage is read-only',token)
+            reference,spec=self.reference(counter)
+            if spec!=('INTEGER',):self.error('E_FOR_COUNTER','FOR counter requires an exact INTEGER scalar reference',token)
+            self.reference_for_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=token.line,column=token.column,selector=counter_text(counter),root=root,kind=counter.kind,
+                captured_once=True,cleanup='selected_scalar',write_protection='whole_root'))
+            self.features.add('captured INTEGER FOR counter reference')
+        elif counter_types[root][0]!='INTEGER':
+            self.error('E_FOR_COUNTER','FOR counter must be an INTEGER variable',token)
         first=self.require_type(initial,'INTEGER');last=self.require_type(final,'INTEGER')
         if self.mode=='strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
             self.error('E_EVALUATION_ORDER','FOR bounds with routine calls are blocked',stmt.token)
         adjustment,step=(1,1) if direction=='TO' else (-1,-1)
-        return counter,first,last,adjustment,step
+        return counter,reference,first,last,adjustment,step
 
     @staticmethod
     def using_defaults(clauses):
@@ -2796,6 +2848,7 @@ class Emitter:
                     routine = self.routines.get(action.value)
                     if routine:
                         if name in routine.global_writes: return True
+                        if name in self.types and self.types[name][0]!='INTEGER' and routine.name in self.external_write_routines:return True
                         if any(token.value in routine.parameter_writes and self.root_name(value) == name for (token, _), value in zip(routine.parameters, action.args)): return True
                     signature = ex.signature_for(action.value,len(action.args))
                     if any(mode in ('o', 'r','m') and self.root_name(value) == name for value, (mode, _) in zip(action.args, signature)): return True
@@ -3119,27 +3172,33 @@ class Emitter:
             self.line('break')
             self.indent -= 2
         elif kind == 'for':
-            counter,first,last,adjustment,step=self.for_values(stmt)
+            counter,reference,first,last,adjustment,step=self.for_values(stmt)
+            root=self.root_name(counter)
             stop, item = self.fresh(), self.fresh()
             # Manual: initialize count before final is evaluated (final may read count).
-            self.line(f'self._state.set({counter.value!r}, {first}, {line})')
+            if self.mode=='pythonic':
+                captured=self.fresh();self.line(f'{captured} = {reference}')
+                self.line(f'{captured}.set({first}, {line})')
+            else:self.line(f'self._state.set({counter.value!r}, {first}, {line})')
             if self.mode == 'pythonic':
                 self.line('try:')
                 self.indent += 1
             self.line(f'{stop} = {last}')
-            self.line(f'for {item} in range(self._state.get({counter.value!r}), {stop} + ({adjustment}), {step}):')
+            start=f'_rt.require({captured}.raw(), {line})' if self.mode=='pythonic' else f'self._state.get({counter.value!r})'
+            self.line(f'for {item} in range({start}, {stop} + ({adjustment}), {step}):')
             self.indent += 1
             self.line(f'self._state.tick({line})')
-            self.line(f'self._state.set({counter.value!r}, {item}, {line})')
-            self.active_counters.add(counter.value)
+            if self.mode=='pythonic':self.line(f'{captured}.set({item}, {line})')
+            else:self.line(f'self._state.set({counter.value!r}, {item}, {line})')
+            self.active_counters.add(root)
             self.block(stmt.body)
-            self.active_counters.remove(counter.value)
+            self.active_counters.remove(root)
             self.indent -= 1
             if self.mode == 'pythonic':
                 self.indent -= 1
                 self.line('finally:')
                 self.indent += 1
-                self.line(f'self._state.clear({counter.value!r})')
+                self.line(f'{captured}.clear()')
                 self.indent -= 1
             else:
                 self.line(f'self._state.clear({counter.value!r})')
@@ -3778,6 +3837,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
                           shadowed_for_counters='blocked', controller_validated=False),
         using_scopes=emitter.using_scopes,
         control_flow=emitter.control_flow,
+        reference_for_counters=emitter.reference_for_uses,
         array_policy=dict(ranks=[1, 2, 3], declarations='Fixed comma-separated dimensions, or direct global wildcard dimensions specialized with explicit array_shapes translation context',
                           formals='Rank-matched wildcard dimensions; reference only',
                           subscripts='One-based full elements or prefixes ending at separately named ARRAY boundaries',
@@ -4455,17 +4515,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         subscripts='Evaluate the array base, then subscripts once left to right; bounds/storage checks follow subscript evaluation',
         assignment='Evaluate and capture RHS first, then resolve target base/subscripts and assign; aggregates captured by checked independent copy',
         conversions='Evaluate inputs and output references in source order before conversion; ordinary bare aggregate inputs remain live storage; UNPOS snapshots and normalizes its source before selectors; existing output/type/context checks remain',
-        for_bounds='Evaluate initial once and assign counter, then evaluate final once; capture resulting counter and inclusive stop for iteration',
+        for_bounds='Capture ordinary INTEGER counter storage once, evaluate initial and assign captured scalar, then evaluate final once; capture resulting start and inclusive stop for iteration',
         failure='Stop on the first runtime error or ABORT; retain earlier effects, skip later evaluations and unwind routine frames',
         controller_validated=False)
     report['for_policy'] = dict(
-        counters='INTEGER globals in the program or parameter-free routines; fresh routine-local INTEGER variables; parameterized routines still require fresh local counters',
-        routine_calls='Allowed when transitive potential global writes exclude active global counters; fresh local counters are separate storage',
+        counters='Captured exact INTEGER scalar references: declared names, resource-free record fields, ARRAY elements and resolved USING fields; parameterized routines require fresh local roots',
+        routine_calls='Transitive potential writes must exclude active roots; global aggregate counter roots also reject unproved direct/transitive external effects; fresh local roots are separate storage',
         counter_arguments='Bare references allowed only to transitively read-only formals; expressions/grouping and INTEGER-to-REAL promotion pass independent values',
         write_proof='Flow-insensitive fixed point over recursive calls, direct assignments, FOR initialization and built-in outputs; map writable formal actuals back to caller globals/formals; do not infer dead branches',
         return_from_for='Evaluate and check RETURN value before clearing counters and leaving the routine frame; parameter-free routines may use global counters',
-        bounds='Evaluate initial and assign counter, then final once; capture resulting counter/start and inclusive final; existing chosen Pythonic bound order',
-        cleanup='After successful initial assignment, finally clear each counter on normal/empty completion, RETURN, ABORT, final-bound failure, body error, callback failure/interruption and step/call-depth exhaustion',
+        bounds='Capture selector/reference before initial evaluation; assign initial and evaluate final once; capture resulting start and inclusive final without retargeting after index changes',
+        cleanup='After successful initial assignment, clear only captured scalar on normal/empty completion, RETURN, ABORT, final-bound failure, body/callback errors, interruption and step/call-depth exhaustion',
         initial_failure='If the initial expression or checked initial assignment fails, do not clear that counter; previous storage and earlier effects remain',
         global_or_formal_counter_calls_and_returns='Global counters follow write proof and cleanup; formal counters and nonlocal counters in parameterized routines remain blocked',
         jumps_and_labels_inside_for='Pythonic labels, same-active-loop transfers and checked exits with cleanup; entry to new FOR scopes blocked', controller_validated=False)
@@ -4478,8 +4538,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         nested_scopes='Lexical scopes; depth zero at the outermost USING; scope id, parent id, source selectors and resolved paths in using_scopes',
         call_name_collisions='Explicit expression calls and procedure call statements resolve routines; a bare expression resolves a matching field before a zero-argument function',
         constant_name_collisions='Matching fields shadow global/local constants only inside the scope; CASE labels still require compile-time constants',
-        shadowed_for_counters='blocked; fields cannot own FOR counters',
-        boundary='No function-result/computed selectors, whole ARRAY/resource/joint selectors, implicit nested-field search, field FOR counters or native namespace/selection-timing/alias-lifetime claim',
+        shadowed_for_counters='Resolved exact INTEGER fields can own captured counters; whole-root write protection retains scalar/routine/service/handler/timer safety',
+        boundary='No function-result/computed selectors, whole ARRAY/resource/joint selectors, implicit nested-field search or native namespace/selection-timing/alias-lifetime claim',
         guide='docs/using-selectors.md',
         controller_validated=False)
     report['numeric_policy'] = dict(
@@ -4637,7 +4697,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
     report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and entry into a new FOR scope remain blocked')
-    report['limitations'].append('USING supports lexical nesting and captured dotted/indexed/grouped record storage; function-result/computed selectors and field FOR counters remain blocked')
+    report['limitations'].append('USING supports lexical nesting, captured record selectors and exact INTEGER field FOR counters; function-result/computed selectors remain blocked')
     report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax and local TYPE sections remain blocked; external types follow external_type_policy')
     report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
     report['position_axis_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT only; complete checked poses, no robot acquisition or orientation defaults'
@@ -4714,19 +4774,27 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['frame_policy']['result_type']+='; JOINTPOS first becomes XYZWPREXT'
     report['frame_policy']['boundary']='Joint operands require explicit joint_geometry_policy context; VECTOR frames, automatic routine/RETURN/whole-array conversion and native kinematic equivalence remain blocked'
     report['vector_frame_policy']=dict(
-        operation='left_pose : right_VECTOR returns exact VECTOR; no VECTOR left frame',
-        operands='Complete POSITION/XYZWPR/XYZWPREXT or model-backed JOINTPOS on left; complete finite three-component VECTOR on right',
-        calculation='Treat VECTOR as local point: world = translation + rotation * local; direction-only form subtracts transformed zero origin',
-        representation='Fresh VECTOR X/Y/Z only, no CONFIG or external metadata; proper POSITION columns or existing portable Euler convention; joint left first uses explicit forward context',
+        operation='pose : VECTOR gives affine point; VECTOR : VECTOR gives translation sum; VECTOR : pose translates right location without changing its orientation or metadata',
+        operands='Complete finite VECTOR and complete POSITION/XYZWPR/XYZWPREXT or model-backed JOINTPOS; operand roles choose affine point or translation-only frame behavior',
+        calculation='Pose:VECTOR treats VECTOR as local point using translation + rotation * local; VECTOR:VECTOR adds components; VECTOR:pose adds to right XYZ; direction-only affine form subtracts transformed zero origin',
+        representation='Right VECTOR gives fresh VECTOR; VECTOR left with pose preserves right Cartesian representation/configuration/external axes; joint operands first use explicit forward context',
         evaluation='Capture and validate each operand once left to right before later effects or assignment target selectors; retain earlier effects and destination on late failure',
         interfaces='Exact VECTOR result arguments, RETURN, fields and array elements; ordinary alias, read-only orientation, active-FOR and routine cleanup guards remain',
         reports='Source-located frame_operations with exact operand/result types; joint conversion retains joint_geometry and value-free service requests',
-        boundary='Explicit affine point interpretation and rounded floats; no VECTOR frame, INV/FRAME vector inputs, implicit pose/vector coercion, acquired context or native/controller/strict equivalence',
+        boundary='Explicit affine-point and translation-only conventions with rounded floats; FRAME requires a pose/joint origin supplying CONFIG; no implicit pose/vector coercion, acquired context or native/controller/strict equivalence',
         guide='docs/vector-frames.md',controller_validated=False)
     report['frame_policy']['operands']+='; right VECTOR local points follow vector_frame_policy'
     report['frame_policy']['result_type']+='; right VECTOR always yields VECTOR without CONFIG/external axes'
-    report['frame_policy']['boundary']='Explicit joint/Cartesian frames; VECTOR left frames and INV/FRAME vector inputs rejected; exact routine/RETURN/whole-array interfaces and native equivalence boundaries remain'
-    report['vector_policy']['boundary']='No ordered VECTOR relations or VECTOR left frames; affine point transforms follow vector_frame_policy; no acquired kinematics or controller validation'
+    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR translation frames; FRAME VECTOR points require pose/joint origin; APPROACH/ORIENT/comparisons stay pose-only; exact routine/RETURN/whole-array interfaces and native equivalence boundaries remain'
+    report['frame_policy']['operands']+='; VECTOR translation frames, VECTOR INV and FRAME point inputs follow vector_translation_frame_policy'
+    report['frame_policy']['result_type']+='; INV(VECTOR) gives VECTOR, VECTOR:pose preserves right Cartesian type, FRAME points retain existing pose-type precedence'
+    report['vector_translation_frame_policy']=dict(
+        forms='VECTOR:VECTOR addition, VECTOR:left translation of complete right Cartesian/model-backed joint pose, INV(VECTOR) negation and FRAME VECTOR point inputs with a non-VECTOR pose/joint origin',
+        origin='FRAME three-argument origin is first argument; four-argument origin is fourth; require complete explicit pose CONFIG; never invent CONFIG for VECTOR origins',
+        evaluation='Capture/validate each operand once left to right; use pure operation-specific result inference for computed field/routine arguments; preserve prior effects and destination on failure',
+        boundary='Portable Pythonic overloads; no broadened generic frame_value/APPROACH/ORIENT/comparison domain, automatic interface coercion, native ABI/controller or strict equivalence',
+        guide='docs/vector-translation-frames.md',controller_validated=False)
+    report['vector_policy']['boundary']='No ordered VECTOR relations; affine-point and translation-only forms follow vector_frame_policy/vector_translation_frame_policy; no acquired kinematics or controller validation'
     report['vector_routine_policy']['boundary']='Exact VECTOR interfaces; explicit affine point transforms use vector_frame_policy; no implicit pose/vector conversion or native runtime equivalence'
     report['joint_geometry_policy']['result']+='; right VECTOR point makes colon result VECTOR under vector_frame_policy'
     report['extended_geometry_policy']['types'].append('JOINTPOS')
@@ -4953,6 +5021,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Deliberate Pythonic extension to manual FOR/GOTO warnings; no direct entry to a new FOR scope, cross-body transfers, native stack behavior, instruction-pointer persistence or strict/controller equivalence',
         guide='docs/for-jumps.md',controller_validated=False)
     report['for_policy']['jumps']='Pythonic labels/same-active-loop jumps and checked exits; new FOR scope entry remains blocked; see for_jump_policy'
+    report['reference_for_counter_policy']=dict(
+        selectors='Declared exact INTEGER scalar names, dotted record fields, indexed ARRAY leaves and bare fields resolved through USING; no computed/root function result counters',
+        capture='Evaluate ordinary writable reference once before initial expression, then assign initial/evaluate final once and retain selected storage for iteration and cleanup',
+        protection='Conservative whole-root write proof: forbid direct/service/indirect/callee/handler/timer writes or writable aliases and same-root nested counters; readonly observations and detached value copies remain allowed',
+        routines='Parameterized routines require fresh local counter roots; global aggregate roots reject direct/transitive external calls without global write proof; fresh local roots remain isolated',
+        cleanup='Clear only initialized captured scalar, preserving sibling values; initial/selector failure leaves previous storage, final/body/RETURN/ABORT/budget/stop follows existing FOR lifetime',
+        reports='reference_for_counters records selector text, source line/column, root, selector kind and capture/cleanup/protection policy; dispatcher for_scopes retain selector text',
+        boundary='No BYTE/SHORT promotion, CONFIG-domain subfields, PATH/FILE/QUEUE roots, readonly POSITION descendants, formal roots, new FOR/USING scope entry, dynamic host-write prevention or native FOR-counter ABI claim',
+        guide='docs/reference-for-counters.md',controller_validated=False)
     report['limitations'].append('Labels and GO TO/GOTO remain body-scoped; Pythonic FOR jumps retain active iteration state or clear exited counters; direct entry into new FOR/USING scopes is blocked')
     report['aggregate_copy_policy']=dict(
         types=['ARRAY','STRUCTURE','VECTOR','POSITION','XYZWPR','XYZWPREXT','CONFIG','JOINTPOS'],
@@ -4984,7 +5061,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('Partial data aggregate copies preserve missing markers; scalar reads and complete geometry/kinematics/vision consumers still reject unavailable values')
     report['keyboard_policy']['files']='READ_KB, typed line FILE READ and bounded PASSALL ASCII STRING fields; printable EOL is a portable keyboard extension; shared pane, echo/noecho, buffering and cleanup; no binary/XML/native-key layouts or byte queries'
     report['keyboard_policy']['raw']='STRING-only fixed widths or concrete capacities, total at most4096 bytes, no CR/quote formats; printable keys and explicit ENTER13/DELETE8/REFRESH23 bytes; no editing/echo interpretation'
-    report['file_read_policy']['dispatch']='Injected keyboard typed lines/custom printable delimiters/PASSALL ASCII STRING fields, opted-in waiting/snapshot pipes, otherwise existing synchronous backend semantics'
+    report['file_read_policy']['dispatch']='Injected keyboard typed lines/custom printable delimiters/PASSALL ASCII STRING fields, opted-in waiting/snapshot pipes, explicit finite SerialStreams RX, otherwise existing synchronous backend semantics'
     report['file_pipe_policy']['management']='Explicit PIP COPY/DELETE/RENAME/LIST routing, finite closed-file snapshots and configured destination capacities; cross-backend copies honor ordinary quotas and path confinement'
     report['file_pipe_policy']['boundary']='No native timing or dictionary display, DAQ/socket generic routing, implicit pipe creation, native byte/status equivalence or strict mode'
     report['file_listing_policy']['boundary']='Explicit MemoryFiles/DirectoryFiles/DeviceFiles or PIP FilePipes routing; no native timestamp/order/alarm or controller-equivalence claim; strict deferred'
@@ -4995,6 +5072,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Rename preserves configuration and bytes within PIP; delete removes both; pending READ/open handles are busy; nowait remains synchronous',
         boundaries='No DAQ/socket routing, implicit pipe creation, cross-backend rename, native device semantics or generic PIP MOVE_FILE',
         guide='docs/pipe-file-management.md',controller_validated=False)
+    report['serial_stream_policy']=dict(
+        service='SerialStreams',context='Explicit ExecutionContext serial_streams; reserve numeric P-device prefixes and require configured canonical P1: through P5: endpoints; no ordinary filename fallback',
+        transfer='Finite ASCII or portable binary scalar READ/WRITE, explicit FILE attributes, exclusive validated handles and separate input/output buffers; RO/WO/RW/UD/AP plus portable AO and binary suffix intent',
+        input='Read cursor advances only after complete typed input validation; CLOSE consumes its RX prefix; explicit host feed supplies bytes without producer waiting or loopback',
+        output='Append retained TX, preserving prior output and RX; preflight per-port and whole-bank byte budgets before mutation; no serial or device call is performed',
+        queries='GET_FILE_POS is the RX cursor; BYTES_LEFT/BYTES_AHEAD report supplied remaining RX; SET_FILE_POS returns unsupported status 2 with cursor unchanged; ordinary IO_STATUS retains portable behavior',
+        persistence='Canonical bounded port configuration and remaining RX/TX hex round-trip only after close; no handles, native connections or suspended reads restored',
+        boundary='Manual P1..P4 hardware does not establish physical P5 availability; no SerialPorts attribute inference, COM discovery/access, physical transfer, producer wait, seek, XML/PASSALL, native timing/status equivalence or strict mode',
+        guide='docs/serial-streams.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

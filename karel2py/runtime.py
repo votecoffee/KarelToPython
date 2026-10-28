@@ -1439,12 +1439,15 @@ def position_axis(name, value, line=None):
 
 
 def frame_from_points(arguments, line=None):
-    """Construct a right-handed frame from three/four complete poses."""
+    """Construct a frame from complete points with an explicit pose origin."""
     if not _pythonic(): raise KarelRuntimeError('FRAME requires Pythonic mode', line)
     if type(arguments) not in (list, tuple) or len(arguments) not in (3, 4):
         raise KarelRuntimeError('FRAME requires three or four POSITION/XYZWPR points', line)
-    points = [frame_value(value, line) for value in arguments]
+    points = [vector_value(value, line) if isinstance(value, Structure) and value.spec == ('VECTOR',)
+              else frame_value(value, line) for value in arguments]
     origin = points[3] if len(points) == 4 else points[0]
+    if origin.spec == ('VECTOR',):
+        raise KarelRuntimeError('FRAME origin requires an explicit pose with CONFIG', line)
     locations = [tuple((point.values['LOCATION'].values if point.spec == ('POSITION',) else point.values)[field]
                        for field in ('X','Y','Z')) for point in points]
 
@@ -1473,8 +1476,12 @@ def frame_from_points(arguments, line=None):
 
 
 def frame_inverse(value, line=None):
-    """Invert an explicit pose; no controller/frame discovery."""
+    """Invert a pose or negate a translation VECTOR without inventing CONFIG."""
     if not _pythonic(): raise KarelRuntimeError('Frame transforms require Pythonic mode', line)
+    if isinstance(value, Structure) and value.spec == ('VECTOR',):
+        result = vector_value(value, line)
+        result.values.update((axis, real(-result.values[axis], line)) for axis in ('X','Y','Z'))
+        return result
     rotation, translation, config = _frame_parts(value, line)
     inverse = tuple(zip(*rotation))
     location = tuple(real(-sum(row[j]*translation[j] for j in range(3)), line) for row in inverse)
@@ -1485,8 +1492,15 @@ def frame_inverse(value, line=None):
 
 
 def frame_transform(left, right, line=None):
-    """Compose poses or transform a local VECTOR point with an explicit frame."""
+    """Compose poses, affine points or explicit translation-only VECTOR frames."""
     if not _pythonic(): raise KarelRuntimeError('Frame transforms require Pythonic mode', line)
+    if isinstance(left, Structure) and left.spec == ('VECTOR',):
+        translation = vector_value(left, line)
+        result = (vector_value(right, line) if isinstance(right, Structure) and right.spec == ('VECTOR',)
+                  else frame_value(right, line))
+        location = result.values['LOCATION'].values if result.spec == ('POSITION',) else result.values
+        location.update((axis, real(translation.values[axis] + location[axis], line)) for axis in ('X','Y','Z'))
+        return result
     rotation, translation, _ = _frame_parts(left, line)
     if isinstance(right,Structure) and right.spec==('VECTOR',):
         point=vector_value(right,line)
@@ -2619,6 +2633,8 @@ class State:
         pipe_attributes=handle.pipe_wait is not None or handle.pipe_overflow is not None
         if pipe_attributes and not name.upper().startswith('PIP:'):
             raise KarelRuntimeError('Pipe FILE attributes require an explicitly configured plain FilePipes endpoint',line)
+        from .serial_io import serial_address
+        if serial_address(name):return self.execution.require('serial_streams',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('KB:') or name.upper().startswith('WD:') and '/' in name:return self.execution.require('keyboard',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('WD:'):return self.execution.require('pendant',line).open_for(self,handle,mode,name,line)
         if message_address(name):return self.execution.require('messaging',line).open_for(self,handle,mode,name,line)
@@ -2700,3 +2716,4 @@ from .forms import FormControls,FORM_CALLS
 from .controller import ControllerServices,CONTROLLER_CALLS
 from .vision import VisionServices,VISION_CALLS
 from .source_translations import SourceTranslations
+from .serial_io import SerialStreams

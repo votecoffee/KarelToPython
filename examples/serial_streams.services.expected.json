@@ -1,0 +1,25 @@
+{
+  "serial_streams": {
+    "limit": 4194304,
+    "ports": {
+      "2": {
+        "capacity": 1024,
+        "input": {
+          "hex": ""
+        },
+        "output": {
+          "hex": "7072653a2034320a"
+        }
+      },
+      "3": {
+        "capacity": 1024,
+        "input": {
+          "hex": ""
+        },
+        "output": {
+          "hex": "aa08000000"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+PROGRAM SERIAL_STREAMS
+VAR value,number:INTEGER done:BOOLEAN
+ROUTINE exchange
+VAR text_file,binary_file:FILE
+BEGIN
+  OPEN FILE text_file('RW','P2:')
+  READ text_file(value,CR)
+  WRITE text_file(value*2,CR)
+  CLOSE FILE text_file
+  OPEN FILE binary_file('RWB','P3:')
+  READ binary_file(number)
+  WRITE binary_file(number+1)
+  CLOSE FILE binary_file
+END exchange
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN exchange() done=TRUE ENDIF
+END SERIAL_STREAMS

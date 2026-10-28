@@ -1,0 +1,13 @@
+PROGRAM VECTOR_TRANSLATION_FRAMES
+VAR cfg:CONFIG status:INTEGER offset,reversed,combined:VECTOR
+    origin,moved,restored,built:XYZWPR
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  origin=POS(10,20,30,0,0,90,cfg)
+  offset=VEC(1,2,3)
+  reversed=INV(offset)
+  moved=offset:origin
+  restored=reversed:moved
+  combined=offset:reversed
+  built=FRAME(VEC(0,0,0),VEC(10,0,0),VEC(0,10,0),origin)
+END VECTOR_TRANSLATION_FRAMES

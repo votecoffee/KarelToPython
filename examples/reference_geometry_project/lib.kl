@@ -1,0 +1,17 @@
+PROGRAM LIB
+TYPE counter_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+ROUTINE work:INTEGER
+VAR cursor:counter_t total,status:INTEGER cfg:CONFIG base,moved:XYZWPR
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  base=POS(0,0,0,0,0,0,cfg)
+  total=0
+  FOR cursor.count=1 TO 3 DO
+    moved=VEC(cursor.count*10,0,0):base
+    total=total+ROUND(moved.x)
+    DELAY 1
+  ENDFOR
+  RETURN total
+END work
+BEGIN
+END LIB

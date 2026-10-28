@@ -1,0 +1,8 @@
+{
+  "serial_streams": {
+    "ports": {
+      "2": {"capacity": 1024, "input": "21\n", "output": "pre:"},
+      "3": {"capacity": 1024, "input": {"hex": "07000000"}, "output": {"hex": "aa"}}
+    }
+  }
+}

@@ -256,8 +256,8 @@ class UsingBoundaryTests(unittest.TestCase):
     def test_nested_using_remains_blocked(self):
         self.rejected('USING left DO USING right DO count = 7 ENDUSING ENDUSING', 'E_USING_NESTED', _translator=legacy_translate)
 
-    def test_shadowed_for_counter_remains_blocked(self):
-        self.rejected('USING left DO FOR count = 1 TO 2 DO ENDFOR ENDUSING', 'E_USING_FOR_COUNTER')
+    def test_legacy_shadowed_for_counter_remains_blocked(self):
+        self.rejected('USING left DO FOR count = 1 TO 2 DO ENDFOR ENDUSING', 'E_USING_FOR_COUNTER', _translator=legacy_translate)
 
     def test_call_name_colliding_with_field_remains_blocked(self):
         self.rejected('USING left DO count() ENDUSING', 'E_USING_CALL_SHADOW', _translator=legacy_translate)

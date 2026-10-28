@@ -1,0 +1,5 @@
+{
+  "serial_streams": {
+    "ports": {"4": {"capacity": 1024, "input": "41\n"}}
+  }
+}

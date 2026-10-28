@@ -218,9 +218,10 @@ class UsingIntegrationTests(unittest.TestCase):
                 routines='ROUTINE next_slot:INTEGER BEGIN index_value=2 RETURN 1 END next_slot')
         self.assertEqual(caught.exception.code,'E_FOR_COUNTER')
 
-    def test_field_for_counter_remains_blocked(self):
-        with self.assertRaises(TranslationError) as caught:program('USING items[1] DO FOR value=1 TO 2 DO ENDFOR ENDUSING')
-        self.assertEqual(caught.exception.code,'E_USING_FOR_COUNTER')
+    def test_integer_field_for_counter_uses_captured_selector(self):
+        values=execute('index_value=1 USING items[index_value] DO FOR value=1 TO 2 DO index_value=2 ENDFOR ENDUSING')
+        self.assertEqual(values['ITEMS'][0]['VALUE'],{'uninitialized':True})
+        self.assertEqual(values['INDEX_VALUE'],2)
 
     def test_handlers_freeze_each_entry_reference(self):
         body='index_value=1 WHILE index_value<=2 DO USING items[index_value] DO value=0 IF index_value=1 THEN CONDITION[1]: WHEN EVENT[1] DO value=42 ENDCONDITION ELSE CONDITION[2]: WHEN EVENT[2] DO value=42 ENDCONDITION ENDIF ENDUSING index_value=index_value+1 ENDWHILE ENABLE CONDITION[1] ENABLE CONDITION[2] SIGNAL EVENT[1] result=items[1].value total=items[2].value SIGNAL EVENT[2]'

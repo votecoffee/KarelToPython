@@ -209,10 +209,10 @@ class UsingEffectsAndControlTests(unittest.TestCase):
             compile_program('FOR value=1 TO 2 DO USING tree.section.child DO change ENDUSING ENDFOR', routines=routine)
         self.assertEqual(caught.exception.code, 'E_FOR_COUNTER')
 
-    def test_inherited_field_cannot_be_for_counter(self):
-        with self.assertRaises(TranslationError) as caught:
-            compile_program('USING tree DO USING section.child DO FOR value=1 TO 2 DO ENDFOR ENDUSING ENDUSING')
-        self.assertEqual(caught.exception.code, 'E_USING_FOR_COUNTER')
+    def test_inherited_integer_field_is_a_captured_for_counter(self):
+        state=execute('value=9 USING tree DO USING section.child DO FOR value=1 TO 2 DO ENDFOR ENDUSING ENDUSING')
+        self.assertEqual(state['TREE']['SECTION']['CHILD']['VALUE'], {'uninitialized':True})
+        self.assertEqual(state['VALUE'],9)
 
     def test_nested_for_reads_and_updates_fields(self):
         state = execute('USING tree DO USING section.child DO value=0 FOR index_value=1 TO 3 DO value=value+index_value ENDFOR ENDUSING ENDUSING')

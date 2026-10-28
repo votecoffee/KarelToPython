@@ -159,11 +159,16 @@ class FrameConstructorGuardTests(unittest.TestCase):
     def test_argument_counts(self):
         for args in ('','a','a,b','a,b,c,d,a'):
             with self.subTest(args=args): self.reject('result=FRAME('+args+')','E_ARGUMENTS')
-    def test_unsupported_point_types(self):
-        for kind in ('VECTOR','INTEGER','CONFIG'):
+    def test_unsupported_point_types_and_vector_origin(self):
+        for kind in ('INTEGER','CONFIG'):
             for position in (0,1,2,3):
                 args=['a','b','c','d']; args[position]='x'
                 with self.subTest(kind=kind,position=position): self.reject('result=FRAME('+','.join(args)+')',declarations=DECLARATIONS+f' x: {kind}')
+        for position in (0,1,2):
+            args=['a','b','c','d'];args[position]='x'
+            with self.subTest(vector_point=position):compile_program('result=FRAME('+','.join(args)+')',declarations=DECLARATIONS+' x:VECTOR')
+        for args in ('x,b,c','a,b,c,x'):
+            self.reject('result=FRAME('+args+')',declarations=DECLARATIONS+' x:VECTOR')
     def test_legacy_rejection_retained(self): self.reject('result=FRAME(a,b,c)','E_CALL',translator=legacy_translate)
     def test_for_counter_write_checks_stay_active(self):
         self.reject('FOR i=1 TO 2 DO result=FRAME(a,b,touch()) ENDFOR','E_FOR_COUNTER',routines='ROUTINE touch: XYZWPR BEGIN i=9 RETURN c END touch')

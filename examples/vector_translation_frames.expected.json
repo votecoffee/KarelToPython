@@ -1,0 +1,95 @@
+{
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "STATUS": 0,
+  "OFFSET": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": 3.0
+  },
+  "REVERSED": {
+    "X": -1.0,
+    "Y": -2.0,
+    "Z": -3.0
+  },
+  "COMBINED": {
+    "X": 0.0,
+    "Y": 0.0,
+    "Z": 0.0
+  },
+  "ORIGIN": {
+    "X": 10.0,
+    "Y": 20.0,
+    "Z": 30.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 90.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "MOVED": {
+    "X": 11.0,
+    "Y": 22.0,
+    "Z": 33.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 90.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "RESTORED": {
+    "X": 10.0,
+    "Y": 20.0,
+    "Z": 30.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 90.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "BUILT": {
+    "X": 10.0,
+    "Y": 20.0,
+    "Z": 30.0,
+    "W": 0.0,
+    "P": -0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  }
+}

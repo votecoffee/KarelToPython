@@ -1,0 +1,12 @@
+PROGRAM LIB
+ROUTINE receive:INTEGER
+VAR channel:FILE value:INTEGER
+BEGIN
+  OPEN FILE channel('RW','P4:')
+  READ channel(value,CR)
+  WRITE channel(value+1,CR)
+  CLOSE FILE channel
+  RETURN value
+END receive
+BEGIN
+END LIB
