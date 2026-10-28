@@ -1361,9 +1361,16 @@ def frame_inverse(value, line=None):
 
 
 def frame_transform(left, right, line=None):
-    """Compose two explicit poses without controller/frame discovery."""
+    """Compose poses or transform a local VECTOR point with an explicit frame."""
     if not _pythonic(): raise KarelRuntimeError('Frame transforms require Pythonic mode', line)
     rotation, translation, _ = _frame_parts(left, line)
+    if isinstance(right,Structure) and right.spec==('VECTOR',):
+        point=vector_value(right,line)
+        local=tuple(point.values[axis] for axis in ('X','Y','Z'))
+        result=Structure(('VECTOR',))
+        result.values.update(zip(('X','Y','Z'),
+            (real(translation[i]+sum(rotation[i][j]*local[j] for j in range(3)),line) for i in range(3))))
+        return result
     other_rotation, other_translation, other_config = _frame_parts(right, line)
     composed = tuple(tuple(sum(rotation[i][k]*other_rotation[k][j] for k in range(3))
                            for j in range(3)) for i in range(3))

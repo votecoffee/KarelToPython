@@ -50,7 +50,7 @@ In READ/WRITE items and formats, group a geometric subexpression, as in
 `WRITE((a:b).x::0::1,CR)`, to keep the relative operator distinct from invalid
 single-colon format syntax.
 
-Both operands must be complete, initialized POSITION or XYZWPR values, including
+For pose composition, both operands must be complete, initialized POSITION or XYZWPR values, including
 their CONFIG records. INV preserves representation; colon returns POSITION if
 either input is POSITION, otherwise XYZWPR. POSITION input/output matrices follow
 the [proper-matrix checks](position-geometry.md#validation-evaluation-and-ownership).
@@ -105,6 +105,8 @@ independent quaternion calculations; they do not establish native equivalence.
 
 XYZWPREXT uses the [extended metadata rules](portable-projects.md#robot-models-and-extended-poses).
 JOINTPOS uses supplied forward context under [joint geometry](joint-geometry.md).
-VECTOR transforms remain blocked. Routine/RETURN/whole-array types remain exact;
+A right VECTOR now selects [affine point transformation](vector-frames.md),
+returning VECTOR after rotation and translation. VECTOR left frames and INV/FRAME
+vector inputs remain rejected. Routine/RETURN/whole-array types remain exact;
 controller context discovery and native configuration validity remain unverified.
 Strict mode remains a future milestone and retains its earlier internal guards.

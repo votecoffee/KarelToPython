@@ -202,7 +202,7 @@ class FrameGuardTests(unittest.TestCase):
     def test_other_relative_operand_types_stay_blocked(self):
         for kind in ('VECTOR','CONFIG','INTEGER'):
             with self.subTest(kind=kind): self.reject('result=x:y',declarations=DECLARATIONS+f' x,y: {kind}')
-    def test_mixed_relative_operand_types_stay_blocked(self): self.reject('result=a:VEC(1,2,3)')
+    def test_vector_cannot_be_a_relative_frame(self): self.reject('result=VEC(1,2,3):a')
     def test_other_inverse_operand_types_stay_blocked(self):
         for kind in ('VECTOR','CONFIG','INTEGER'):
             with self.subTest(kind=kind): self.reject('result=INV(x)',declarations=DECLARATIONS+f' x: {kind}')

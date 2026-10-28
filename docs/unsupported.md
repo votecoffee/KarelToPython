@@ -72,7 +72,7 @@ they are boundaries rather than promises to accept every such source form later.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries; arbitrary
   partial aggregate copies/results, flattening, nominal-type coercion, unspecified
   STRING result-element capacities and resource fields in structures.
-- VECTOR frame transformations; direct joint field/index access; implicit
+- VECTOR left frames and VECTOR inputs to INV/FRAME; direct joint field/index access; implicit
   pose/joint conversions in exact routine, RETURN and whole-array interfaces.
   POSITION orientation columns remain recursively read-only source storage.
 - Unbounded/Unicode strings, lengths above 254, implicit numeric-to-BOOLEAN

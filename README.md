@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.181511**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.183029**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -241,6 +241,9 @@ orientation vectors from explicit poses. See [POSITION conversions](docs/positio
 Composition, INV and FRAME also accept POSITION and mixed POSITION/XYZWPR
 operands, with direct matrix results whenever POSITION is involved.
 See [POSITION geometry](docs/position-geometry.md).
+`pose:vector` transforms a local VECTOR point with rotation and translation,
+returning an independent VECTOR. Cartesian and model-backed joint frames use the
+same rule; see [VECTOR frame transforms](docs/vector-frames.md).
 APPROACH and ORIENT return independent VECTOR copies of a pose's positive Z and
 Y axes. See [pose axis queries](docs/position-axes.md).
 `UNINIT` queries whole builtin records, including partially initialized poses

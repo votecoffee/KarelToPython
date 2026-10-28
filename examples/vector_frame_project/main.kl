@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR cfg:CONFIG code:INTEGER pose:XYZWPR point,result,back:VECTOR
+ROUTINE project_point(frame_value:XYZWPR; point:VECTOR):VECTOR FROM LIB
+BEGIN
+  CNV_STR_CONF('N',cfg,code)
+  pose=POS(10,20,30,0,0,90,cfg)
+  point=VEC(2,3,4)
+  result=project_point(pose,point)
+  back=INV(pose):result
+END MAIN

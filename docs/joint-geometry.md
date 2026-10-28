@@ -71,7 +71,9 @@ ordinary inverse-assignment rules and requires an explicit current-joint seed.
 Routine arguments, RETURN types, whole ARRAY transfers and register interfaces
 keep their existing exact-type rules. Since 0.96.0, [UNPOS](pose-decomposition.md)
 also accepts joint inputs through this forward conversion. POSITION orientation fields remain
-protected. VECTOR/scalar frame operands remain rejected.
+protected. A [right VECTOR point](vector-frames.md) now produces a VECTOR after
+forward conversion and affine transformation. VECTOR left frames, scalar frames
+and VECTOR inputs to INV/FRAME remain rejected.
 
 ## External axes and comparisons
 

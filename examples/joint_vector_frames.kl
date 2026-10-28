@@ -1,0 +1,9 @@
+PROGRAM JOINT_VECTOR_FRAMES
+VAR joints:JOINTPOS local,world,recovered,direction:VECTOR
+BEGIN
+  joints=CURJPOS(0,0)
+  local=VEC(2,3,4)
+  world=joints:local
+  recovered=INV(joints):world
+  direction=(joints:local)-(joints:VEC(0,0,0))
+END JOINT_VECTOR_FRAMES

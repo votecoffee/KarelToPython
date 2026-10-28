@@ -1,0 +1,9 @@
+PROGRAM LIB
+VAR latest:VECTOR
+ROUTINE project_point(frame_value:XYZWPR; point:VECTOR):VECTOR
+BEGIN
+  latest=frame_value:point
+  RETURN latest
+END project_point
+BEGIN
+END LIB

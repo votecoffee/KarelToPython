@@ -1751,7 +1751,7 @@ class Emitter:
                 return ('VECTOR',)
             return BUILTIN_SIGNATURES[expr.value][1]
         if self.mode == 'pythonic' and expr.kind == 'binary' and expr.value == ':':
-            return self.frame_result_type([self.access_type(argument) for argument in expr.args], expr.token)
+            return self.relative_result_type([self.relative_operand_type(argument) for argument in expr.args], expr.token)
         if expr.kind == 'name': return self.symbol_type(expr)
         if expr.kind == 'field': return self.member_type(self.access_type(expr.args[0]), expr)
         if expr.kind == 'index':
@@ -1767,6 +1767,33 @@ class Emitter:
         if not specs or any(spec not in (('XYZWPR',), ('POSITION',),('XYZWPREXT',)) for spec in specs):
             self.error('E_TYPE', 'Frame operations require POSITION or XYZWPR operands', token)
         return ('XYZWPREXT',) if ('XYZWPREXT',) in specs else ('POSITION',) if ('POSITION',) in specs else ('XYZWPR',)
+
+    def relative_operand_type(self,expr):
+        """Inspect frame-point arithmetic without emitting calls or report sites."""
+        if expr.kind=='group':return self.relative_operand_type(expr.args[0])
+        if expr.kind=='literal' and type(expr.value) in (int,float):return ('REAL',) if type(expr.value) is float else ('INTEGER',)
+        if expr.kind=='field':return self.member_type(self.relative_operand_type(expr.args[0]),expr)
+        if expr.kind=='unary' and expr.value in ('+','-'):
+            spec=self.relative_operand_type(expr.args[0])
+            if spec[0] in ('VECTOR','REAL','INTEGER',*NARROW_TYPES):return ('INTEGER',) if spec[0] in NARROW_TYPES else spec
+        if expr.kind=='binary' and expr.value in ('+','-','*','/','DIV','MOD','#','@'):
+            left,right=[self.relative_operand_type(value) for value in expr.args]
+            left=('INTEGER',) if left[0] in NARROW_TYPES else left
+            right=('INTEGER',) if right[0] in NARROW_TYPES else right
+            op=expr.value
+            if left==right==('VECTOR',) and op in ('+','-','#','@'):return ('REAL',) if op=='@' else ('VECTOR',)
+            numeric=lambda spec:spec[0] in ('INTEGER','REAL')
+            if op in ('*','/') and (left==('VECTOR',) and numeric(right) or right==('VECTOR',) and numeric(left)):return ('VECTOR',)
+            if numeric(left) and numeric(right):
+                if op in ('+','-','*','/'):return ('REAL',) if op=='/' or 'REAL' in (left[0],right[0]) else ('INTEGER',)
+                if op in ('DIV','MOD') and left==right==('INTEGER',):return ('INTEGER',)
+        return self.access_type(expr)
+
+    def relative_result_type(self,specs,token):
+        if len(specs)==2 and specs[1]==('VECTOR',):
+            self.frame_result_type(specs[:1],token)
+            return ('VECTOR',)
+        return self.frame_result_type(specs,token)
 
     def geometry_operand(self,code,spec,token,operation):
         if self.mode=='pythonic' and spec[0]=='JOINTPOS':
@@ -1946,8 +1973,8 @@ class Emitter:
                                                               line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
                                                               result_type='BOOLEAN', evaluated_once=True, operands_copied=True))
             elif op == ':':
-                valid = self.mode == 'pythonic' and all(spec[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS') for spec in (lt,right_type))
-                result_type = self.frame_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
+                valid = self.mode == 'pythonic' and lt[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS') and right_type[0] in ('XYZWPR','POSITION','XYZWPREXT','JOINTPOS','VECTOR')
+                result_type = self.relative_result_type([lt,right_type], expr.token) if valid else ('XYZWPR',)
                 if valid:
                     self.frame_operation_uses.append(dict(operation=':', body=self.current_routine.name if self.current_routine else self.program.name,
                                                           line=line, column=expr.token.column, operand_types=[lt[0],right_type[0]],
@@ -1985,7 +2012,7 @@ class Emitter:
                 if right_type == ('VECTOR',): right = f'_rt.vector_value({right}, {line})'
                 if op in (':','>=<'):
                     left = self.geometry_operand(left,lt,expr.args[0].token,op)
-                    right = self.geometry_operand(right,right_type,expr.args[1].token,op)
+                    if right_type!=('VECTOR',):right = self.geometry_operand(right,right_type,expr.args[1].token,op)
                 if op == '>=<':
                     return f'_rt.positions_close({left}, {right}, self._state.pose_tolerance, {line}, external_tolerance=self._state.external_tolerance)', result_type
             return f'_rt.binary({op!r}, {left}, {right}, {line})', result_type
@@ -4571,6 +4598,22 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['frame_policy']['operands']+='; JOINTPOS converts through joint_geometry_policy'
     report['frame_policy']['result_type']+='; JOINTPOS first becomes XYZWPREXT'
     report['frame_policy']['boundary']='Joint operands require explicit joint_geometry_policy context; VECTOR frames, automatic routine/RETURN/whole-array conversion and native kinematic equivalence remain blocked'
+    report['vector_frame_policy']=dict(
+        operation='left_pose : right_VECTOR returns exact VECTOR; no VECTOR left frame',
+        operands='Complete POSITION/XYZWPR/XYZWPREXT or model-backed JOINTPOS on left; complete finite three-component VECTOR on right',
+        calculation='Treat VECTOR as local point: world = translation + rotation * local; direction-only form subtracts transformed zero origin',
+        representation='Fresh VECTOR X/Y/Z only, no CONFIG or external metadata; proper POSITION columns or existing portable Euler convention; joint left first uses explicit forward context',
+        evaluation='Capture and validate each operand once left to right before later effects or assignment target selectors; retain earlier effects and destination on late failure',
+        interfaces='Exact VECTOR result arguments, RETURN, fields and array elements; ordinary alias, read-only orientation, active-FOR and routine cleanup guards remain',
+        reports='Source-located frame_operations with exact operand/result types; joint conversion retains joint_geometry and value-free service requests',
+        boundary='Explicit affine point interpretation and rounded floats; no VECTOR frame, INV/FRAME vector inputs, implicit pose/vector coercion, acquired context or native/controller/strict equivalence',
+        guide='docs/vector-frames.md',controller_validated=False)
+    report['frame_policy']['operands']+='; right VECTOR local points follow vector_frame_policy'
+    report['frame_policy']['result_type']+='; right VECTOR always yields VECTOR without CONFIG/external axes'
+    report['frame_policy']['boundary']='Explicit joint/Cartesian frames; VECTOR left frames and INV/FRAME vector inputs rejected; exact routine/RETURN/whole-array interfaces and native equivalence boundaries remain'
+    report['vector_policy']['boundary']='No ordered VECTOR relations or VECTOR left frames; affine point transforms follow vector_frame_policy; no acquired kinematics or controller validation'
+    report['vector_routine_policy']['boundary']='Exact VECTOR interfaces; explicit affine point transforms use vector_frame_policy; no implicit pose/vector conversion or native runtime equivalence'
+    report['joint_geometry_policy']['result']+='; right VECTOR point makes colon result VECTOR under vector_frame_policy'
     report['extended_geometry_policy']['types'].append('JOINTPOS')
     report['position_axis_policy']['functions']+='; JOINTPOS uses explicit joint_geometry_policy conversion'
     report['position_axis_policy']['boundary']='Complete proper Cartesian inputs or model-backed JOINTPOS; no VECTOR/scalar inputs, inferred context or orientation defaults'

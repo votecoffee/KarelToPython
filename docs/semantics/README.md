@@ -216,3 +216,9 @@ ALLTYPE backup/clear and manifest-based restore. It supersedes older mixed-batch
 exclusions while retaining native binary/code-unload boundaries. Hashes bind each
 member to one captured batch; cross-store preflight preserves both stores on
 failure, and possible variable writes retain FOR-counter guards.
+
+The [VECTOR frame ledger](vector_frame_semantics.json) adds right-VECTOR point
+transforms for Cartesian and model-backed joint frames. It supersedes older
+blanket VECTOR-transform exclusions, preserving VECTOR left-frame rejection and
+exact interfaces. Full affine point semantics, direction subtraction, finite
+geometry and detached ordered evaluation are explicit Pythonic choices.

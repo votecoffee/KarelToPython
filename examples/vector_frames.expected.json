@@ -1,0 +1,112 @@
+{
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "CODE": 0,
+  "POSE": {
+    "X": 10.0,
+    "Y": 20.0,
+    "Z": 30.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 90.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "MATRIX": {
+    "NORMAL": {
+      "X": 0.0,
+      "Y": 1.0,
+      "Z": -0.0
+    },
+    "ORIENT": {
+      "X": -1.0,
+      "Y": 0.0,
+      "Z": 0.0
+    },
+    "APPROACH": {
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 1.0
+    },
+    "LOCATION": {
+      "X": 10.0,
+      "Y": 20.0,
+      "Z": 30.0
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "EXTENDED": {
+    "X": 10.0,
+    "Y": 20.0,
+    "Z": 30.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 90.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    },
+    "EXT1": 100.0,
+    "EXT2": 0.0,
+    "EXT3": 0.0
+  },
+  "LOCAL": {
+    "X": 2.0,
+    "Y": 3.0,
+    "Z": 4.0
+  },
+  "WORLD": {
+    "X": 7.0,
+    "Y": 22.0,
+    "Z": 34.0
+  },
+  "RECOVERED": {
+    "X": 2.0,
+    "Y": 3.0,
+    "Z": 4.0
+  },
+  "DIRECTION": {
+    "X": -3.0,
+    "Y": 2.0,
+    "Z": 4.0
+  },
+  "POINTS": [
+    {
+      "X": 7.0,
+      "Y": 22.0,
+      "Z": 34.0
+    },
+    {
+      "X": 2.0,
+      "Y": 3.0,
+      "Z": 4.0
+    }
+  ]
+}

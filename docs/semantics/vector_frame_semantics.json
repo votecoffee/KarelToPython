@@ -1,0 +1,53 @@
+{
+  "version": "26.1028.183029",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "3.1.1 Rule for Expressions and Assignments",
+        "3.1.2 Evaluation of Expressions and Assignments",
+        "3.2.4 Relative Position Operations"
+      ],
+      "pdf_pages": [
+        78,
+        83,
+        84
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../vector-frames.md",
+    "operator": ":",
+    "left": [
+      "POSITION",
+      "XYZWPR",
+      "XYZWPREXT",
+      "model-backed JOINTPOS"
+    ],
+    "right": "VECTOR",
+    "result": "exact independent VECTOR X/Y/Z only",
+    "calculation": "Affine point t + R*v; rotate a direction by subtracting transformed origin",
+    "evaluation": "One-time left-to-right validation/capture; joint forward conversion before right effects; retain earlier effects and skip assignment targets on failure",
+    "validation": "Complete finite frame/CONFIG/external metadata and proper POSITION basis, complete finite VECTOR and finite result",
+    "interfaces": "Exact VECTOR routine/RETURN/array/field value contexts; no pose/vector coercion; protected source orientations remain",
+    "reports": "frame_operations exact types, vector_frame_policy, existing joint geometry records"
+  },
+  "choices": [
+    "VECTOR interpreted as local point including translation; native direction/point semantics not inferred",
+    "Existing portable Euler/matrix conventions and Python float rounding",
+    "VECTOR result has no CONFIG/external metadata; joint left uses supplied forward context"
+  ],
+  "boundaries": [
+    "No VECTOR left frames or VECTOR inputs to INV/FRAME",
+    "No implicit positional routine/RETURN/whole-array conversion",
+    "No acquired robot/frame/tool context, calibration, collision checking or controller/strict equivalence"
+  ],
+  "validation": [
+    "tests/test_vector_frames.py",
+    "examples/vector_frames.kl",
+    "examples/joint_vector_frames.kl",
+    "examples/vector_frame_project"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "LATEST": {
+        "X": 7.0,
+        "Y": 22.0,
+        "Z": 34.0
+      }
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "CFG": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      },
+      "CODE": 0,
+      "POSE": {
+        "X": 10.0,
+        "Y": 20.0,
+        "Z": 30.0,
+        "W": 0.0,
+        "P": 0.0,
+        "R": 90.0,
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": 0,
+          "CFG_TURN_NO2": 0,
+          "CFG_TURN_NO3": 0,
+          "CFG_FLIP": false,
+          "CFG_LEFT": false,
+          "CFG_UP": false,
+          "CFG_FRONT": false
+        }
+      },
+      "POINT": {
+        "X": 2.0,
+        "Y": 3.0,
+        "Z": 4.0
+      },
+      "RESULT": {
+        "X": 7.0,
+        "Y": 22.0,
+        "Z": 34.0
+      },
+      "BACK": {
+        "X": 2.0,
+        "Y": 3.0,
+        "Z": 4.0
+      }
+    }
+  }
+}

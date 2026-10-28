@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1028.183029 - 2026-10-28
+
+- Add pose:VECTOR affine point transforms for POSITION, XYZWPR, XYZWPREXT and
+  model-backed JOINTPOS frames, with exact VECTOR results and independent storage.
+- Support result fields, routine arguments/returns, named types and array elements;
+  retain one-time left-to-right capture, joint conversion records, failure/target
+  ordering, ordinary aliases, protected orientations and FOR-effect checks.
+- Preserve complete finite pose/vector inputs, proper matrix/CONFIG/external
+  metadata validation and existing frame math. Document the explicit point
+  interpretation and direction-only subtraction form; VECTOR left frames and
+  INV/FRAME vector arguments remain rejected.
+- Add 53 regressions, two CLI examples and a linked source project. Refresh README,
+  support guides and report policies; native/controller equivalence remains unverified.
+
 ## 26.1028.181511 - 2026-10-28
 
 - Add mixed PBR_ALLTYPE backup/clear and manifest-based restore over explicit

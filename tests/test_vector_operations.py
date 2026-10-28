@@ -112,8 +112,8 @@ class VectorGuardTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
     def test_constructor_still_blocked(self):
         with self.assertRaises(TranslationError): compile_program('a=VEC(1,2,3)', _translator=legacy_translate)
-    def test_position_transform_still_blocked(self):
-        with self.assertRaises(TranslationError): compile_program('a=p:a',declarations='a: VECTOR\np: POSITION')
+    def test_vector_left_frame_still_blocked(self):
+        with self.assertRaises(TranslationError): compile_program('a=a:p',declarations='a: VECTOR\np: POSITION')
     def test_read_only_destination_still_blocked(self):
         with self.assertRaises(TranslationError): compile_program('p.normal=a+b',declarations='a,b: VECTOR\np: POSITION')
     def test_effectful_dot_operand_blocked(self):

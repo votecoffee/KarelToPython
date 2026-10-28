@@ -1,0 +1,22 @@
+PROGRAM VECTOR_FRAMES
+VAR
+  cfg:CONFIG code:INTEGER pose:XYZWPR matrix:POSITION extended:XYZWPREXT
+  local,world,recovered,direction:VECTOR points:ARRAY[2] OF VECTOR
+ROUTINE project_point(frame_value:XYZWPR; point:VECTOR):VECTOR
+BEGIN
+  RETURN frame_value:point
+END project_point
+BEGIN
+  CNV_STR_CONF('N',cfg,code)
+  pose=POS(10,20,30,0,0,90,cfg)
+  matrix=pose
+  extended=pose
+  extended.ext1=100
+  local=VEC(2,3,4)
+  world=project_point(pose,local)
+  recovered=INV(matrix):world
+  direction=(extended:local)-(extended:VEC(0,0,0))
+  points[1]=matrix:local
+  points[2]=INV(extended):points[1]
+  WRITE('world=',(pose:local).x::0::1,',',(pose:local).y::0::1,',',(pose:local).z::0::1,CR)
+END VECTOR_FRAMES
