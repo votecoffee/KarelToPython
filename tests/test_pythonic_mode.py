@@ -286,7 +286,7 @@ class PythonicCliTests(unittest.TestCase):
                     if mode in (None, 'pythonic'):
                         self.assertEqual(process.returncode, 0, process.stderr)
                         executed = subprocess.run([sys.executable, '-c',
-                                                   'import runpy,sys; runpy.run_path(sys.argv[1],run_name="__main__")',
+                                                   'import runpy,sys; sys.argv=sys.argv[1:]; runpy.run_path(sys.argv[0],run_name="__main__")',
                                                    str(output)], capture_output=True, text=True)
                         self.assertEqual(executed.returncode, 0, executed.stderr)
                         self.assertIn(str(.1+math.sqrt(2)), executed.stdout)
