@@ -45,7 +45,8 @@ assign the counter, evaluate the final expression once, then capture the resulti
 counter/start and inclusive final bound. The final expression can observe or
 change the initialized counter under the existing header expression rules.
 TO/DOWNTO, empty ranges and checked INTEGER assignment retain their existing
-behavior.
+behavior. [BYTE/SHORT counters](narrow-for.md) add initialized-domain bounds and
+type-specific cleanup without an extra out-of-domain terminal write.
 
 A label at the end of a FOR body continues through the ordinary iteration step.
 Reaching a previously skipped loop header initializes that loop normally; a
@@ -66,7 +67,7 @@ lexical field bindings. A jump cannot capture a new selector, even if it names
 the same record storage as an earlier USING.
 
 Every source statement remains type/effect checked, including unreachable or
-skipped statements. FOR counters can be direct INTEGER globals in permitted
+skipped statements. FOR counters can be direct INTEGER/BYTE/SHORT globals in permitted
 parameter-free contexts, fresh routine locals, or captured
 [INTEGER storage selectors](reference-for-counters.md). Aggregate selectors use
 conservative root-write/reuse guards. Formal counters and nonlocal roots in

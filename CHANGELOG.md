@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1028.234706 - 2026-10-28
+
+- Add checked BYTE/SHORT FOR counters across supported storage and execution
+  forms, with initialized-domain bounds, stable captures, whole-root protection
+  and type-specific cleanup. Keep ordinary references and legacy guards intact.
+- Convert differing POSITION/XYZWPR/XYZWPREXT source routine arguments into
+  checked private values, and convert source RETURN expressions before cleanup.
+  Preserve exact bare aliases, linkage/BYNAME/callback contracts and complete-input
+  orientation/configuration checks without acquiring robot context.
+- Allow anonymous STRING-array results to inherit concrete returned element
+  capacity, preserving checked copies, missing markers, nominal identity and
+  exact downstream capacity checks without defaulting or truncation.
+- Add 165 regressions, three standalone examples and two linked projects,
+  current reports, public guides and semantic notes. Strict remains future work.
+
 ## 26.1028.232505 - 2026-10-28
 
 - Extend Pythonic SELECT to BOOLEAN, bounded ASCII STRING and finite numeric

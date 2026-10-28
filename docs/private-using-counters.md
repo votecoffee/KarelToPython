@@ -1,6 +1,6 @@
 # FOR counters in private USING values
 
-Pythonic mode accepts exact INTEGER counter fields and ARRAY elements inside
+Pythonic mode accepts INTEGER, BYTE and SHORT counter fields and ARRAY elements inside
 [computed USING record captures](computed-using.md). The counter owns a single
 captured scalar reference, and protects the complete private record while it is
 active. Its fields never copy back to the function's source.
@@ -16,8 +16,9 @@ ENDUSING
 ```
 
 This totals six, clears the selected private `count` field and leaves the source
-record unchanged. The selected leaf must be exact INTEGER. BYTE, SHORT, REAL,
-BOOLEAN, CONFIG-domain fields, readonly POSITION columns and resources retain
+record unchanged. [Narrow counters](narrow-for.md) additionally support BYTE/SHORT
+with initialized bounds and type-specific cleanup. REAL, BOOLEAN, CONFIG-domain
+fields, readonly POSITION columns and resources retain
 their existing counter restrictions. Direct function-result counter syntax
 outside a captured USING scope remains unavailable.
 

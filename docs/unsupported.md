@@ -52,7 +52,8 @@ they are boundaries rather than promises to accept every such source form later.
 - Whole ARRAY/resource/joint USING selectors and dynamic caller scope.
   [Computed record selectors](computed-using.md) now capture checked private values;
   [private INTEGER counters](private-using-counters.md) now use internal lexical
-  whole-root identities. Retained writable aliases and private connected timers
+  whole-root identities, including [checked narrow counters](narrow-for.md).
+  Retained writable aliases and private connected timers
   remain blocked. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
   CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
@@ -85,15 +86,20 @@ they are boundaries rather than promises to accept every such source form later.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
   uninitialized sentinel. [Scalar BYTE/SHORT](scalar-narrow.md) now support
   variables, aliases and typed interfaces; numeric narrowing makes checked private
-  values. Narrow FOR counters remain blocked; [dynamic narrow creation](dynamic-narrow.md)
+  values. [Narrow FOR counters](narrow-for.md) now enforce initialized BYTE/SHORT
+  domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries; flattening,
-  nominal-type coercion, unspecified STRING result-element capacities and resource
-  fields in structures. [Partial data copies](partial-aggregate-values.md) now
+  nominal-type coercion and resource fields in structures. Omitted STRING ARRAY
+  result capacities now [inherit concrete returned storage](inherited-string-array-results.md);
+  malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
 - Direct joint field/index access; implicit
-  pose/joint conversions in exact routine, RETURN and whole-array interfaces.
+  joint/Cartesian conversions in exact routine, RETURN and whole-array interfaces.
+  [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
+  use private values across POSITION/XYZWPR/XYZWPREXT; BYNAME, linked declarations,
+  callback raw return types and whole-array elements remain exact.
   POSITION orientation columns remain recursively read-only source storage.
   [VECTOR translation frames](vector-translation-frames.md) now support left
   offsets, independent INV negation and FRAME points. A VECTOR-only origin cannot

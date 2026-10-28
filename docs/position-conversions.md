@@ -81,13 +81,15 @@ rounding and signed zero follow the portable numeric policy.
 
 ## Assignment scope and effects
 
-Conversions apply only to whole-value assignments between exact POSITION and
-XYZWPR types. Variables, nested record fields, array elements, transparent type
+Conversions apply to whole-value assignments and [source routine boundaries](cartesian-interfaces.md)
+among POSITION, XYZWPR and XYZWPREXT. Variables, nested record fields, array elements, transparent type
 aliases and explicitly typed function/geometry results are supported. Whole
 ARRAY assignments retain exact component identities.
 
-Routine parameters and RETURN expressions retain their exact type requirements.
-Use a local assignment to convert before passing or returning a value. Since
+Differing Cartesian routine arguments now use checked private conversions without
+copy-back; source RETURN expressions convert before frame cleanup. Exact-type
+bare arguments retain references. Whole arrays, BYNAME and linked declarations
+retain exact interfaces; raw callbacks must return their declared result type. Since
 0.72.0, [FRAME, INV and colon geometry](position-geometry.md) accept both exact
 representations, including mixed operands. Since 0.96.0,
 [UNPOS](pose-decomposition.md) also accepts these values and computed expressions

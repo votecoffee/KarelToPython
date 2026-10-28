@@ -50,7 +50,7 @@ direct-counter-assignment and nested-counter-reuse guards remain.
 [Labels and jumps](for-jumps.md) now retain active loop bounds and clear counters
 when leaving their scope; entering an unstarted FOR remains blocked.
 [Reference counters](reference-for-counters.md) additionally support captured
-INTEGER fields, ARRAY elements and USING fields, with conservative aggregate-root
+INTEGER fields, ARRAY elements and USING fields, plus [checked BYTE/SHORT counters](narrow-for.md), with conservative aggregate-root
 write/reuse guards. Formal/nonlocal roots in parameterized routines and unproven
 external calls over global aggregate counters remain rejected.
 Conversion outputs cannot write active counters. The analysis covers

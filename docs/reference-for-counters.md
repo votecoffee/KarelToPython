@@ -1,11 +1,11 @@
-# Captured INTEGER FOR counters
+# Captured integral FOR counters
 
 [Computed USING records](computed-using.md) can now supply isolated private
-INTEGER counters under the [private counter contract](private-using-counters.md).
+integral counters under the [private counter contract](private-using-counters.md).
 They use internal whole-root protection identities without inventing declared
 storage or copying back. Named record fields retain the contract below.
 
-Pythonic mode accepts exact INTEGER scalar storage as a FOR counter: a declared
+Pythonic mode accepts INTEGER, BYTE or SHORT scalar storage as a FOR counter: a declared
 variable, STRUCTURE field, ARRAY element, indexed record field or bare field
 resolved through USING. The converter captures one writable reference before
 evaluating the initial value. Iteration and cleanup keep that reference even if
@@ -37,8 +37,9 @@ Headers support dotted fields and ordinary comma-separated ARRAY indexes,
 including up to the existing three logical dimensions. Index expressions may
 call typed source functions and run once, in ordinary left-to-right reference
 evaluation order. Whole aggregate, grouped/computed root and function-result
-counters are unavailable. The selected leaf must be exact INTEGER; BYTE, SHORT,
-REAL and BOOLEAN do not become INTEGER counters through promotion.
+counters are unavailable. The selected leaf must be INTEGER, BYTE or SHORT;
+[narrow counters](narrow-for.md) retain checked initialized bounds and restore
+their own missing marker. REAL and BOOLEAN counters remain unavailable.
 
 On normal entry:
 

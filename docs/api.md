@@ -99,6 +99,11 @@ types and comparison categories; BOOLEAN remains distinct from numeric cases.
 [Dynamic narrow creation](dynamic-narrow.md) extends `dynamic_variable_policy`
 with direct BYTE/SHORT and supplied transparent aliases. [Cross-volume renames](cross-volume-rename.md)
 extend the wildcard policy with complete DeviceFiles capacity and garbage preflight.
+[Narrow FOR counters](narrow-for.md) add BYTE/SHORT domains and type-specific cleanup,
+recorded by `narrow_for_policy`. [Inherited STRING-array capacities](inherited-string-array-results.md)
+add capacity inference from concrete returned storage, recorded by
+`inherited_string_array_result_policy`; `cartesian_interface_policy` describes
+the routine representation conversions.
 [Waiting serial reads](serial-waiting.md) use per-port `wait`/`final` flags and
 `SerialStreams.finish_input(port)`, retaining finite defaults and explicit FILE
 lifetime. [Alpha images](vision-alpha-images.md) add packed GA/RGBA data and
@@ -111,7 +116,10 @@ FRAME construction also records one-based `origin_argument` and three/four opera
 types in those entries. See [frame construction](frame-construction.md).
 [POSITION conversions](position-conversions.md) add `position_conversions` entries
 and `position_conversion_policy` for whole assignments, matrix tolerance and
-read-only orientation protection. Routine interfaces retain exact types.
+read-only orientation protection. [Cartesian routine conversions](cartesian-interfaces.md)
+extend source argument and RETURN boundaries with independent checked values;
+BYNAME, linked declarations, callback raw results and whole arrays retain their
+exact interface contracts.
 Since 0.72.0, [POSITION geometry](position-geometry.md) records actual operand
 and result types: INV preserves its representation; colon and FRAME return
 POSITION for pose-only inputs when any input is POSITION. Extended/joint rules

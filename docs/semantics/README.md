@@ -277,3 +277,8 @@ The [scalar, dynamic and volume ledger](scalar_dynamic_volume_semantics.json)
 adds typed scalar SELECT branches, direct narrow variable creation and prepared
 virtual cross-volume rename batches. It preserves category separation, exact
 named references, missing markers and complete capacity/garbage accounting.
+
+The [counter, Cartesian and STRING-array ledger](counter_cartesian_string_semantics.json)
+adds checked narrow counters, private Cartesian routine conversions and inherited
+STRING result capacities. It preserves whole-root alias protection, initialized
+conversion inputs, concrete array capacity and exact declared linkage contracts.

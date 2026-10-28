@@ -78,8 +78,10 @@ assignment destination and unwinding routine frames. Use an exact matching
 SHORT output reference when the operation needs to clear caller storage. Earlier
 explicit side effects retain the usual failure behavior.
 
-FOR counters remain exact `INTEGER` storage. BYTE/SHORT values can supply integer
-bounds. Passing an active INTEGER counter through a private narrow conversion
+[Narrow FOR counters](narrow-for.md) support BYTE and SHORT alongside INTEGER.
+Both bounds must fit the selected counter's initialized domain; BYTE exit restores
+unknown contents and SHORT exit restores missing state. Passing an active INTEGER
+counter through a private narrow conversion
 does not expose that counter to writes by the converted formal, including
 transitive calls. Explicit global counter writes and exact reference writes
 remain protected.

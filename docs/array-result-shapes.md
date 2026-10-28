@@ -47,7 +47,7 @@ still require that explicit context, and wildcard local variables remain blocked
 
 Results support up to three logical dimensions across the outer declaration and
 any separately named inner ARRAY components. Supported terminal elements remain
-INTEGER, BOOLEAN, REAL, BYTE, SHORT, explicitly bounded STRING, named records,
+INTEGER, BOOLEAN, REAL, BYTE, SHORT, bounded or [inherited-capacity STRING](inherited-string-array-results.md), named records,
 built-in data records and exact-width JOINTPOS. The prototype limit is 32767
 scalar leaves, including nested record fields and joint axes. Declarations whose
 minimum possible size already exceeds that limit fail during translation.

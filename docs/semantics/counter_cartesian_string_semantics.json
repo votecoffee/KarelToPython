@@ -1,0 +1,42 @@
+{
+  "version": "26.1028.234706",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence_limit": "Authored translation and offline execution contracts. Narrow counters, Cartesian source routine conversions and inherited STRING-array capacities do not establish native compiler acceptance, ABI, physical storage or controller behavior.",
+  "contracts": {
+    "narrow_for": {
+      "guide": "../narrow-for.md",
+      "storage": "Captured BYTE/SHORT names, fresh locals, fields, ARRAY leaves and USING aliases retain ordinary whole-root protection and lexical private identities",
+      "bounds": "Both bounds must fit the initialized counter domain: BYTE 0..255, SHORT -32768..32766; no wrapping, clamping or reserved-marker bounds",
+      "lifetime": "Initial failure preserves prior storage; after checked initial assignment the counter registers cleanup, including final-bound failure; BYTE exit restores UNKNOWN_BYTE and SHORT exit restores UNINITIALIZED without changing ordinary Reference.clear",
+      "execution": "Retain one selected leaf, final bound and iterator across structured/labelled/cooperative execution; no extra out-of-domain terminal write; jumps, failures, RETURN, ABORT and stop keep ordinary cleanup",
+      "boundary": "No BYTE UNINIT, REAL/BOOLEAN/resource/CONFIG counters, writable active aliases, retained writable private aliases or native counter equivalence"
+    },
+    "cartesian_interfaces": {
+      "guide": "../cartesian-interfaces.md",
+      "arguments": "Exact matching bare storage remains a reference; differing POSITION/XYZWPR/XYZWPREXT actuals convert once in argument order to independent checked writable values without copy-back",
+      "returns": "Source RETURN converts before frame and counter cleanup; preserve complete-input, proper orientation matrix, CONFIG, canonical ZYX and external-axis zero/drop rules",
+      "effects": "Private converted formal writes do not alias caller storage; explicit global and selector effects retain ordinary transitive proofs and completed side effects",
+      "boundary": "JOINTPOS, whole ARRAY elements, BYNAME, linked declared signatures and raw callback result types remain exact; no inferred robot/frame/group/model or native ABI"
+    },
+    "inherited_string_array_results": {
+      "guide": "../inherited-string-array-results.md",
+      "declarations": "Anonymous ARRAY results may omit STRING element capacity with existing fixed, wildcard or mixed dimensions; infer concrete capacity from returned storage",
+      "validation": "One actual concrete STRING capacity in 1..254, compatible anonymous outer representation/shape, checked known ASCII leaves and preserved missing markers; explicit bounded results remain exact",
+      "ownership": "Return an independent checked copy before frame cleanup; keep actual capacity through grouping, forwarding, subscript access, linked results and saved context",
+      "boundary": "No invented default, truncation, ragged/mixed capacities, named identity erasure, resource copies or native ABI; downstream whole-array interfaces still check actual capacity"
+    }
+  },
+  "validation": [
+    "tests/test_narrow_for.py",
+    "tests/test_cartesian_interfaces.py",
+    "tests/test_inherited_string_array_results.py",
+    "tests/test_counter_cartesian_string_integration.py",
+    "examples/narrow_for.kl",
+    "examples/cartesian_interfaces.kl",
+    "examples/inherited_string_array.kl",
+    "examples/narrow_for_project",
+    "examples/inherited_string_project"
+  ],
+  "strict_mode": "Future milestone; preserve legacy guards and historical semantic ledgers"
+}

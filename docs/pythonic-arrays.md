@@ -88,6 +88,10 @@ exact nominal types; anonymous declarations require anonymous outer storage.
 Named inner components retain exact identity and shape. Passing a named array
 through a generic parameter preserves its identity; it does not turn it into
 anonymous outer storage. See [ARRAY result shapes](array-result-shapes.md).
+An anonymous `ARRAY OF STRING` result may omit the element capacity: it inherits
+the returned storage's concrete checked capacity, keeps it in the private copy,
+and still requires compatible actual capacities at downstream array boundaries.
+See [inherited STRING-array results](inherited-string-array-results.md).
 
 Arrays are not scalar arithmetic operands, Booleans, SELECT selectors or WRITE
 items. `ARRAY_LEN` returns the first dimension of matrices and nested arrays. Motion,
