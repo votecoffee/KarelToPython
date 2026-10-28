@@ -4525,7 +4525,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         write_proof='Flow-insensitive fixed point over recursive calls, direct assignments, FOR initialization and built-in outputs; map writable formal actuals back to caller globals/formals; do not infer dead branches',
         return_from_for='Evaluate and check RETURN value before clearing counters and leaving the routine frame; parameter-free routines may use global counters',
         bounds='Capture selector/reference before initial evaluation; assign initial and evaluate final once; capture resulting start and inclusive final without retargeting after index changes',
-        cleanup='After successful initial assignment, clear only captured scalar on normal/empty completion, RETURN, ABORT, final-bound failure, body/callback errors, interruption and step/call-depth exhaustion',
+        cleanup='After successful initial assignment, finally clear only captured scalar on normal/empty completion, RETURN, ABORT, final-bound failure, body/callback errors, interruption and step/call-depth exhaustion',
         initial_failure='If the initial expression or checked initial assignment fails, do not clear that counter; previous storage and earlier effects remain',
         global_or_formal_counter_calls_and_returns='Global counters follow write proof and cleanup; formal counters and nonlocal counters in parameterized routines remain blocked',
         jumps_and_labels_inside_for='Pythonic labels, same-active-loop transfers and checked exits with cleanup; entry to new FOR scopes blocked', controller_validated=False)
