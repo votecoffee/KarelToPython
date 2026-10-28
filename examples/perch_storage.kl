@@ -1,0 +1,13 @@
+PROGRAM PERCH_STORE
+%DEFGROUP=2
+VAR joints:JOINTPOS6 axes,tolerances:ARRAY[6] OF REAL
+    axis_no,status:INTEGER
+BEGIN
+  FOR axis_no=1 TO 6 DO
+    axes[axis_no]=axis_no*10.0
+    tolerances[axis_no]=0.1
+  ENDFOR
+  CNV_REL_JPOS(axes,joints,status)
+  SET_PERCH(joints,tolerances,2)
+  tolerances[1]=0.5
+END PERCH_STORE

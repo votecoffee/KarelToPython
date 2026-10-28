@@ -1,0 +1,21 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "COUNT": 5,
+      "STATUS": 0,
+      "BEFORE": 2,
+      "SUSPENDED": 2,
+      "UNCHANGED": 2,
+      "AFTER": 4,
+      "DONE": true
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "COUNT": 5,
+      "DONE": true
+    }
+  }
+}

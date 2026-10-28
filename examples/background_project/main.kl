@@ -1,0 +1,18 @@
+PROGRAM MAIN
+VAR count FROM WORKER:INTEGER
+    status,before,suspended,unchanged,after:INTEGER done:BOOLEAN
+BEGIN
+  done=FALSE
+  MIXBG_RUN(1,status)
+  DELAY 10
+  before=count
+  MIXBG_STOP(1,status)
+  DELAY 10
+  suspended=count
+  DELAY 10
+  unchanged=count
+  MIXBG_RUN(1,status)
+  DELAY 10
+  after=count
+  done=TRUE
+END MAIN

@@ -131,7 +131,7 @@ class TableControls:
                 ref=runtime.index_reference(target.raw(),row+1,line)
                 if item in (10,11):
                     from .extended import PORT_TYPES
-                    port=re.fullmatch(r'([A-Za-z]+)\[([1-9][0-9]*)\]',reference_value(ref))
+                    port=re.fullmatch(r'([A-Za-z]+)\[(0|[1-9][0-9]*)\]',reference_value(ref))
                     if port is None or PORT_TYPES.get(port[1].upper())!=('BOOLEAN' if item==10 else 'INTEGER'):invalid('Port table requires a matching explicit port path')
                     bank=state.execution.require('ports',line);key=port[1].upper(),int(port[2]);bank._key(*key,line)
                     cells.append(Cell(ref,bank,key))

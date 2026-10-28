@@ -1,0 +1,64 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "controller": {
+    "background": {},
+    "perch_counts": {},
+    "perches": {},
+    "resets": [],
+    "limit": 500,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "CTL_SERVICES",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 1,
+          "owned": false
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "CTL_SERVICES",
+        "operation": "MOTION_CTL",
+        "outcome": "completed",
+        "data": {
+          "mask": 1,
+          "owned": true
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "CTL_SERVICES",
+        "operation": "CNCL_STP_MTN",
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "CTL_SERVICES",
+        "operation": "RESET",
+        "outcome": "completed",
+        "data": {
+          "delay_ms": 25,
+          "completed": false,
+          "fault": true
+        }
+      }
+    ],
+    "elapsed_ms": 25
+  },
+  "ports": {
+    "OPOUT:3": true
+  }
+}

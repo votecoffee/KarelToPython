@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 274 have a registered translation and 60 do not.
+Currently, 280 have a registered translation and 54 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -135,7 +135,11 @@ they are boundaries rather than promises to accept every such source form later.
   relationships. The scheduler runs deterministic cooperative checkpoints.
 - Native STOP/RESUME motion behavior. Offline STOP is terminal; resume/continue
   acts on retained cooperative generators. Arbitrary start lines, motion flags
-  and lock masks in task procedures remain outside their supported forms.
+  and lock masks in task procedures remain outside their supported forms. Six
+  [logical controller calls](controller-services.md) now cover group ownership
+  queries, cancellation of owned stopped labels, stored six-axis perches, scripted
+  RESET and cooperative background slots. Native motion, hardware reset, per-value
+  joint group/unit conventions and TP background scan scheduling remain unavailable.
 - Native task policy effects remain unavailable. SET_TSK_ATTR now has nine
   [offline settings](task-attributes.md), including cooperative priority/slice
   policies, request masks and bounded tracing. Other attributes remain read-only
@@ -309,15 +313,6 @@ does not assert a particular installed option or environment.
 - `V_SNAP_VIEW`
 - `V_START_VTRK`
 - `V_STOP_VTRK`
-
-### Motion and task management (6)
-
-- `CNCL_STP_MTN`
-- `MIXBG_RUN`
-- `MIXBG_STOP`
-- `MOTION_CTL`
-- `RESET`
-- `SET_PERCH`
 
 ### Native program translation (1)
 

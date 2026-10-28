@@ -1,0 +1,29 @@
+{
+  "controller": {
+    "resets": [
+      {
+        "completed": false,
+        "fault": true,
+        "delay_ms": 25
+      }
+    ]
+  },
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {
+      "1": "stopped"
+    }
+  },
+  "ports": {
+    "counts": {
+      "OPOUT": 3
+    },
+    "values": {
+      "OPOUT": {
+        "3": false
+      }
+    }
+  }
+}

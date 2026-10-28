@@ -1,0 +1,45 @@
+{
+  "controller": {
+    "background": {},
+    "perch_counts": {
+      "2": 3
+    },
+    "perches": {
+      "2:2": {
+        "joints": [
+          10.0,
+          20.0,
+          30.0,
+          40.0,
+          50.0,
+          60.0
+        ],
+        "tolerance": [
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ]
+      }
+    },
+    "resets": [],
+    "limit": 500,
+    "sequence": 1,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "PERCH_STORE",
+        "operation": "SET_PERCH",
+        "outcome": "completed",
+        "data": {
+          "group": 2,
+          "index": 2,
+          "axes": 6
+        }
+      }
+    ],
+    "elapsed_ms": 0
+  }
+}

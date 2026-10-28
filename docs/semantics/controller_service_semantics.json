@@ -1,0 +1,61 @@
+{
+  "version": "26.1028.154448",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.12.3 MOTION_CTL",
+        "A.17.13 RESET",
+        "A.18.19 SET_PERCH",
+        "14.2.2-14.2.3 Panel I/O"
+      ]
+    },
+    {
+      "manual": "MARAIKLRF06031E REV A",
+      "sections": [
+        "A.3.25 CNCL_STP_MTN"
+      ]
+    },
+    {
+      "manual": "B-83144EN-1/02",
+      "sections": [
+        "A.14.2 MIXBG_RUN",
+        "A.14.3 MIXBG_STOP"
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../controller-services.md",
+    "calls": [
+      "MOTION_CTL",
+      "CNCL_STP_MTN",
+      "SET_PERCH",
+      "RESET",
+      "MIXBG_RUN",
+      "MIXBG_STOP"
+    ],
+    "ownership": "Explicit root-owned GroupLocks; selected/default mask query and clearing own stopped labels only",
+    "perches": "Configured group/index capacity, detached six joint values and nonnegative tolerances, supplied units and root group selection",
+    "reset": "Explicit once-consumed completion plan, budgeted waits, acknowledgement TRUE even on scripted failure, optional explicit OPOUT[3] result and no artificial pause event",
+    "background": "Configured slots to same-context cooperative tasks on TaskScheduler; start/resume/pause, policy checks, retained renamed identities and no revival of terminal tasks",
+    "ports": "Explicit BOOLEAN OPIN/OPOUT/TPIN/TPOUT, addresses 0..maximum; existing kinds remain one-based",
+    "persistence": "Only data, remaining plans, slot names, finite counters and bounded request history; reject pending reset/live background frames"
+  },
+  "boundaries": [
+    "No physical motion, native controller reset, per-value joint group/unit conversion or native perch behavior",
+    "MIXBG_STOP uses cooperative suspension; no TP background scan engine or implicit program loading",
+    "No panel value acquisition, native channel privileges, executable-link restoration or strict/controller equivalence"
+  ],
+  "validation": [
+    "tests/test_controller_services.py",
+    "tests/test_port_configuration.py",
+    "tests/test_program_calls.py",
+    "tests/test_forms.py",
+    "tests/test_table_controls.py",
+    "examples/controller_services.kl",
+    "examples/perch_storage.kl",
+    "examples/background_project"
+  ]
+}

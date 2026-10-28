@@ -1,0 +1,51 @@
+{
+  "controller": {
+    "background": {
+      "1": "WORKER"
+    },
+    "perch_counts": {},
+    "perches": {},
+    "resets": [],
+    "limit": 500,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "MIXBG_RUN",
+        "outcome": "completed",
+        "data": {
+          "slot": 1,
+          "task": "WORKER",
+          "status": 0,
+          "action": "started"
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "MIXBG_STOP",
+        "outcome": "completed",
+        "data": {
+          "slot": 1,
+          "task": "WORKER",
+          "status": 0,
+          "action": "pause_requested"
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "MIXBG_RUN",
+        "outcome": "completed",
+        "data": {
+          "slot": 1,
+          "task": "WORKER",
+          "status": 0,
+          "action": "resumed"
+        }
+      }
+    ],
+    "elapsed_ms": 0
+  }
+}

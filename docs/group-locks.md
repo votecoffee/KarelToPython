@@ -54,7 +54,9 @@ The two busy codes follow the documented UNLOCK_GROUP conditions. The motion
 labels are caller-supplied evidence, not simulated or observed robot movement.
 The host can change a label with `bank.set_motion(group,'idle')`, `'executing'`
 or `'stopped'`. An unspecified label is idle. There are no automatic lock waits,
-motion-driven acquisitions or motion cancellation effects.
+motion-driven acquisitions. The separate [controller service](controller-services.md)
+now lets CNCL_STP_MTN clear only the caller-owned stopped labels, and MOTION_CTL
+query explicit/default group selection. These have no physical motion effects.
 
 ## Lifecycle and saved context
 

@@ -1405,7 +1405,7 @@ class Emitter:
                             result_spec=routine.return_type))
                         self.features.add('bare zero-argument function call')
                         return Expr('call', node.token, node.value, [])
-                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG','CURPOS','CURJPOS','KCL_STATUS') and node.value not in self.routines:
+                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG','CURPOS','CURJPOS','KCL_STATUS','MOTION_CTL') and node.value not in self.routines:
                     local_names = (self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
                     if node.value not in self.types.keys() | self.constants.keys() | local_names:
                         self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -4665,6 +4665,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 sessions, 256 logical rows/data/selectable items, 254 edit characters, 35 enum choices, 10 function labels, 48 help lines and 4096 key-loop events',
         boundary='Portable single-window layout, key/status codes and repaint timing; no nested/concatenated .tree fragments, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
         guide='docs/forms.md',controller_validated=False)
+    report['controller_policy']=dict(
+        calls=sorted(rt.CONTROLLER_CALLS),
+        service='Explicit ControllerServices, logical GroupLocks and supplied PortBank/TaskScheduler; no controller connection, physical motion or reset',
+        ownership='MOTION_CTL explicit/default source group mask, false for zero selection, all selected groups owned by caller root; CNCL_STP_MTN clears only that root owned stopped labels',
+        perches='Configured group/index bank, six finite joint values and nonnegative tolerances; detached storage in supplied units, caller root group selection; no native unit conversion or robot-state mutation',
+        reset='One explicit scripted response consumed at acceptance, budgeted cooperative delay, optional supplied OPOUT[3] fault update; Boolean acknowledgement remains TRUE even when scripted reset completion fails',
+        background='Configured slots bind attached cooperative tasks on an explicit scheduler; RUN starts/resumes, STOP requests suspension, masks/terminal states/renamed identities respected; no TP scan engine',
+        persistence='Retain perches, unconsumed reset scripts, finite IDs/logical delay and bounded history; reject pending reset or live background frames; no executable links restored',
+        ports='Explicit BOOLEAN OPIN/OPOUT/TPIN/TPOUT banks permit indices 0..configured maximum; existing port kinds remain one-based; no acquired panel values or native channel privileges',
+        limits='256 distinct background slots, 4096 perches/reset scripts/history rows, 32 perch groups, 6 axes and finite request/clock counters',
+        boundary='Portable logical states, statuses and units; no motion statements, servo effects, hardware reset, native background scans, per-value group metadata, native ABI/controller acceptance or strict equivalence',
+        guide='docs/controller-services.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

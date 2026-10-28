@@ -1,0 +1,11 @@
+PROGRAM CTL_SERVICES
+VAR status:INTEGER before,owned,acknowledged,fault:BOOLEAN
+BEGIN
+  before=MOTION_CTL
+  LOCK_GROUP(1,status)
+  owned=MOTION_CTL(1)
+  CNCL_STP_MTN
+  UNLOCK_GROUP(1,status)
+  RESET(acknowledged)
+  fault=OPOUT[3]
+END CTL_SERVICES

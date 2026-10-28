@@ -29,8 +29,9 @@ I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
 COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN','ACT_TBL','DISCTRL_TBL','DISCTRL_FORM'))
+COOPERATIVE_PROCEDURES.update(('RESET','MIXBG_RUN','MIXBG_STOP'))
 COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS'))
-DYNAMIC_VARIABLE_WRITES={'DISCTRL_FORM','ACT_TBL','DISCTRL_TBL','SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
+DYNAMIC_VARIABLE_WRITES={'MIXBG_RUN','MIXBG_STOP','DISCTRL_FORM','ACT_TBL','DISCTRL_TBL','SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
     'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
 SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
@@ -38,6 +39,8 @@ SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
     'PARITY_NONE':0,'PARITY_ODD':1,'PARITY_EVEN':2,'SBITS_1':1,'SBITS_15':15,'SBITS_2':2,
     **{f'DBITS_{n}':n for n in (5,6,7,8)},'XF_NOT_USED':0,'XF_USED':1}
 PROCEDURES = {
+    'CNCL_STP_MTN': (), 'SET_PERCH': (arg('JOINTPOS'),arg('REAL_ARRAY'),I),
+    'RESET': (arg('BOOLEAN','o'),), 'MIXBG_RUN': (I,OI), 'MIXBG_STOP': (I,OI),
     'DISCTRL_FORM': (S,I,arg('STRING_ARRAY'),arg('BOOL_ARRAY','r'),arg('BOOL_ARRAY','r'),I,arg('INTEGER','r'),OI,OI),
     'INIT_TBL': (S,I,I,I,arg('COL_ARRAY','r'),arg('BOOL_ARRAY','r'),arg('BOOL_GRID','r'),arg('STRING_ARRAY'),arg('INT_GRID','r'),arg('XWORK_T','r'),OI),
     'ACT_TBL': (arg('TABLE_ACTION','m'),arg('INTEGER','r'),arg('XWORK_T','r'),OI,arg('BOOLEAN','r'),OI),
@@ -179,6 +182,7 @@ FUNCTIONS = {
     'GET_TPE_JPOS_REG': ((I,OI,I),('JOINTPOS',9)),
     'PATH_LEN': ((arg('PATH'),),('INTEGER',)),
     'NODE_SIZE': ((arg('PATH'),),('INTEGER',)),
+    'MOTION_CTL': ((I,),('BOOLEAN',)),
     'GET_PORT_ATR': ((I,I,OI),('INTEGER',)), 'SET_PORT_ATR': ((I,I,I),('INTEGER',)),
     'GET_FILE_POS': ((arg('FILE'),),('INTEGER',)),
     'BYTES_LEFT': ((arg('FILE'),),('INTEGER',)),
@@ -208,7 +212,7 @@ _REMOTE_SIGNATURES={'GET_REG':(I,arg('BOOLEAN','o'),OI,arg('REAL','o'),OI),
                     'SET_PORT_SIM':(I,I,I,OI)}
 PROCEDURES.update({name:(S,*(_REMOTE_SIGNATURES[local] if local in _REMOTE_SIGNATURES else PROCEDURES[local]))
                    for name,local in REMOTE_SERVICES.items()})
-OPTIONAL_LAST = {'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG','CHECK_EPOS'}
+OPTIONAL_LAST = {'MOTION_CTL','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG','CHECK_EPOS'}
 TPE_OPTIONAL_GROUP={'SET_POS_TPE','SET_EPOS_TPE','SET_JPOS_TPE','GET_POS_TPE','GET_JPOS_TPE',
     'SET_TPE_POS_REG','SET_TPE_EPOS_REG','SET_TPE_JPOS_REG','GET_TPE_POS_REG','GET_TPE_JPOS_REG'}
 POSITION_OPTIONAL_GROUP={'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG'}
@@ -216,9 +220,10 @@ OPTIONAL_LAST.update(TPE_OPTIONAL_GROUP)
 OPTIONAL_LAST.add('CREATE_VAR')
 OPTIONAL_REFERENCE = {'PROG_LIST'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
-PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT')},
+PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT','OPIN','OPOUT','TPIN','TPOUT')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
-OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT'}
+OUTPUT_PORTS = {'DOUT','RDO','RDOUT','GOUT','AOUT','OPOUT','TPOUT'}
+ZERO_BASED_PORTS={'OPIN','OPOUT','TPIN','TPOUT'}
 
 
 def variable_write_call(name,arguments=()):
@@ -493,7 +498,7 @@ class _PortConfiguration:
             target=getattr(self,field)
             for value in config.get(field,[]):
                 value=row(value,'kind number rack slot type_code start count')
-                kind=value['kind'];port=number(value['number'],1,32767)
+                kind=value['kind'];port=number(value['number'],0 if type(kind) is str and kind in ZERO_BASED_PORTS else 1,32767)
                 data=tuple(number(value[key]) for key in ('rack','slot','type_code','start','count'))
                 rows=self.assignment(kind,port,*data)
                 if rows is None or target.keys() & rows.keys(): raise ValueError('Invalid or duplicate port assignment')
@@ -501,18 +506,18 @@ class _PortConfiguration:
         for field in ('modes','pending_modes'):
             target=getattr(self,field)
             for value in config.get(field,[]):
-                value=row(value,'kind number mask');kind=value['kind'];port=number(value['number'],1,32767);mask=number(value['mask'])
+                value=row(value,'kind number mask');kind=value['kind'];port=number(value['number'],0 if type(kind) is str and kind in ZERO_BASED_PORTS else 1,32767);mask=number(value['mask'])
                 if not self.mode(kind,port,mask) or (kind,port) in target: raise ValueError('Invalid or duplicate port mode')
                 target[kind,port]=mask
 
     @staticmethod
     def family(kind):
-        if kind in ('DIN','RDI','RDIN','GIN'): return 'DIN'
-        if kind in ('DOUT','RDO','RDOUT','GOUT'): return 'DOUT'
+        if kind in ('DIN','RDI','RDIN','GIN','OPIN','TPIN'): return 'DIN'
+        if kind in ('DOUT','RDO','RDOUT','GOUT','OPOUT','TPOUT'): return 'DOUT'
         return kind
 
     def address(self,kind,number):
-        return type(kind) is str and kind in self.bank.counts and 1<=number<=self.bank.counts[kind]
+        return type(kind) is str and self.bank.contains(kind,number)
 
     def assignment(self,kind,number,rack,slot,code,start,count):
         physical=self.physical.get((rack,slot,code))
@@ -605,13 +610,15 @@ class PortBank:
     def configure(self,name,args,line=None):
         if self._configuration is None: fail('Operation requires explicit port configuration',line)
         return self._configuration.invoke(name,args,line)
+    def contains(self,kind,number):
+        return type(kind) is str and type(number) is int and kind in self.counts and (0 if kind in ZERO_BASED_PORTS else 1)<=number<=self.counts[kind]
     def _key(self,kind,number,line=None):
         kind=kind.upper(); number=runtime().integer(number,line)
-        if kind not in self.counts or not 1<=number<=self.counts[kind]: fail('Port is outside its explicit bank',line)
+        if not self.contains(kind,number): fail('Port is outside its explicit bank',line)
         return kind,number
     def update(self,kind,number,value):
         rt=runtime(); kind=kind.upper(); number=rt.integer(number)
-        if kind not in self.counts or not 1<=number<=self.counts[kind]: fail('Port is outside its explicit bank')
+        if not self.contains(kind,number): fail('Port is outside its explicit bank')
         with rt._numeric_scope('pythonic'): value=rt.checked((PORT_TYPES[kind],),value)
         if kind in ('GIN','GOUT') and value<0: fail('Group ports require nonnegative INTEGER values')
         self.values[kind,number]=value
@@ -635,7 +642,7 @@ class PortBank:
         rt=runtime()
         if not self.type_codes: fail('Indirect port access requires explicit type_codes mapping',line)
         code,number=(rt.integer(value,line) for value in args[:2]); kind=self.type_codes.get(code)
-        if kind not in self.counts or not 1<=number<=self.counts[kind]: args[-1].set(2,line); return
+        if not self.contains(kind,number): args[-1].set(2,line); return
         key=kind,number
         if name=='CLR_PORT_SIM': self.simulated.discard(key); args[-1].set(0,line); return
         if name=='GET_PORT_SIM': value=int(key in self.simulated)
@@ -1548,7 +1555,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1612,6 +1619,9 @@ class ExecutionContext:
         from .forms import FormControls
         if forms is not None and type(forms) is not FormControls:raise TypeError('forms must be FormControls or None')
         self.forms=forms
+        from .controller import ControllerServices
+        if controller is not None and type(controller) is not ControllerServices:raise TypeError('controller must be ControllerServices or None')
+        self.controller=controller
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1638,7 +1648,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1683,7 +1693,11 @@ class ExecutionContext:
             for code,kind in row.get('type_codes',{}).items():
                 if type(code) is not str or not code.isascii() or not code.isdecimal() or str(int(code))!=code: raise ValueError('Port type code keys must be canonical nonnegative integers')
                 codes[int(code)]=kind
-            comments={(kind,n):v for kind,values in row.get('comments',{}).items() for n,v in RegisterComments.decode(values).items()}
+            comments={}
+            for kind,values in row.get('comments',{}).items():
+                if type(values) is not dict or any(type(k) is not str or not re.fullmatch(r'0|[1-9][0-9]{0,4}',k) for k in values):raise ValueError('Port comment keys require canonical nonnegative addresses')
+                if '0' in values and (type(kind) is not str or kind.upper() not in ZERO_BASED_PORTS):raise ValueError('Only panel port comments accept address zero')
+                comments.update(((kind,int(k)),v) for k,v in values.items())
             simulated=[]
             for kind,numbers in row.get('simulated',{}).items():
                 if type(numbers) is not list: raise ValueError('Simulated ports require lists of numbers')
@@ -1699,6 +1713,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'controller' in config:
+            from .controller import ControllerServices
+            services['controller']=ControllerServices.from_config(config['controller'])
         if 'forms' in config:
             from .forms import FormControls
             services['forms']=FormControls.from_config(config['forms'])
@@ -1769,12 +1786,14 @@ class ExecutionContext:
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
-        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP|POSITION_OPTIONAL_GROUP else 0 if name in ('SET_FILE_ATR','CREATE_VAR') else 1)
+        elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'MOTION_CTL','CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP|POSITION_OPTIONAL_GROUP else 0 if name in ('SET_FILE_ATR','CREATE_VAR') else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        from .controller import CONTROLLER_CALLS
+        if name in CONTROLLER_CALLS:return self.require('controller',line).invoke(state,name,args,line)
         from .forms import FORM_CALLS
         if name in FORM_CALLS:return self.require('forms',line).invoke(state,name,args,line)
         from .table_controls import TABLE_CALLS

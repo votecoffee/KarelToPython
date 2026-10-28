@@ -61,7 +61,7 @@ unsupported directive continuation.
 | `%NOPAUSESHFT` | Set TSK_PAUSESFT=0 for explicit shift notifications. |
 | `%TPMOTION` | Set readable TSK_TPMOTION capability metadata. |
 | `%DEFGROUP = n` | Select offline calling-root group 1..32. |
-| `%LOCKGROUP = n, n, ...` | Record up to 32 distinct groups in 1..32 without acquiring locks. |
+| `%LOCKGROUP = n, n, ...` | Record up to 32 distinct groups in 1..32 without acquiring locks; also select the optional MOTION_CTL query mask. |
 | `%CMOSVARS` | Record CMOS as the default storage intent. |
 | `%CMOS2SHADOW` | Record CMOS-to-SHADOW mapping; combined with CMOSVARS the default intent is SHADOW. |
 | `%SHADOWVARS` | Record SHADOW as the default storage intent. |

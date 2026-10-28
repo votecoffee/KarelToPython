@@ -73,7 +73,7 @@ class FormControls(TableControls):
         expected={'h':'SHORT','b':'BYTE','B':'BOOLEAN','P':'BOOLEAN','S':'BOOLEAN','k':'STRING','s':'STRING',
             'pk':'STRING','n':'INTEGER','w':'INTEGER','v':'INTEGER','t':'BOOLEAN'}.get(conversion,
             'REAL' if conversion in 'feEgG' else 'INTEGER')
-        port_match=re.fullmatch(r'([A-Za-z]+)\[([1-9][0-9]*)\]',path)
+        port_match=re.fullmatch(r'([A-Za-z]+)\[(0|[1-9][0-9]*)\]',path)
         if conversion in ('P','pu','px','S'):
             from .extended import PORT_TYPES
             if port_match is None:invalid('Form port format requires a direct indexed port path')

@@ -35,7 +35,10 @@ memory-image identifiers. Reusing a code with conflicting direction/kind fails
 configuration validation. The package does not load native enum/include files.
 
 Rack and slot coordinates are in 0..32767. Type codes and module types are exact
-INTEGERs in 0..2147483646. Capacities and one-based port numbers are in 1..32767.
+INTEGERs in 0..2147483646. Capacities and ordinary port numbers are in 1..32767.
+Explicit OPIN/OPOUT/TPIN/TPOUT panel addresses additionally allow zero and use
+the input/output digital family for supplied mappings; no native panel assignment
+or channel privilege is inferred. See [controller services](controller-services.md).
 Booleans, duplicate rows, unknown fields and incompatible settings are rejected.
 Constructor input, `bank.configuration` and saved context snapshots are detached.
 

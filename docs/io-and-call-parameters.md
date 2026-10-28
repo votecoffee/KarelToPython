@@ -20,7 +20,10 @@ settings persist separately from the logical values described here.
 
 ## Indirect port access
 
-Indirect procedures take an INTEGER port type and one-based port number. Supply
+Indirect procedures take an INTEGER port type and a configured port address.
+OPIN/OPOUT/TPIN/TPOUT now allow addresses 0..configured maximum; existing kinds
+remain one-based. They use supplied BOOLEAN values, with no acquired panel state
+or native signal side effects. See [controller services](controller-services.md). Supply
 the code-to-kind mapping explicitly; the manual delegates these codes to an
 external include file. The package does not assume a native enum or load that
 file. Codes below are authored example choices, not controller constants.

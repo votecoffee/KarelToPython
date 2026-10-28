@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1028.154448 - 2026-10-28
+
+- Add MOTION_CTL and CNCL_STP_MTN over explicit calling-root group ownership,
+  plus SET_PERCH with detached checked six-axis references/tolerances.
+- Add cooperative scripted RESET with independent acknowledgement/fault results,
+  pending-state guards, once-only response consumption and interruption cleanup.
+- Add configured MIXBG_RUN/MIXBG_STOP slots for attached cooperative tasks,
+  preserving renamed identities and honoring pause masks and terminal states.
+- Add explicit OPIN/OPOUT/TPIN/TPOUT Boolean banks, including address zero in
+  indirect I/O, metadata, form/table fields and reset fault observations.
+- Add 55 regressions, two CLI examples and a linked background project; update
+  README/support guides: 280 registered built-in names, 54 remaining.
+
 ## 26.1028.151355 - 2026-10-28
 
 - Add DISCTRL_FORM over supplied .form/.endform FTX source, typed scalar/global

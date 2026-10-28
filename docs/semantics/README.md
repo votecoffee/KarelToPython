@@ -178,3 +178,8 @@ It supersedes older blanket list/table exclusions; native layouts remain
 outside the implementation. The [FTX form ledger](form_semantics.json) adds
 DISCTRL_FORM source parsing, typed editing, help/choices and nonnested tree groups,
 superseding older blanket form exclusions while retaining native binary/ABI limits.
+
+The [logical controller ledger](controller_service_semantics.json) adds six
+controller-related calls over explicit ownership/perch/reset/background banks.
+It also records zero-address panel I/O, while retaining physical motion, hardware
+reset and native TP scan boundaries.
