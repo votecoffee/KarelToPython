@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.184931**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.191850**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -550,8 +550,10 @@ source. Strict mode remains a future milestone.
 
 ## Supported Features
 
-- Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, restricted labels
+- Assignment, `IF`, `SELECT`, `FOR`/`DOWNTO`, `WHILE`, `REPEAT`, body-scoped labels
   and `GOTO`, internal routines, `RETURN`, bare `ABORT` and host-backed `DELAY`.
+  [Nested label transfers](docs/nested-jumps.md) support IF/WHILE/REPEAT/SELECT
+  entry while preserving FOR restrictions and USING capture barriers.
 - Checked `INTEGER`, `BOOLEAN`, Python-float `REAL`, bounded ASCII `STRING`,
   `BYTE`/`SHORT` storage, fixed and named arrays, named structures, transparent
   TYPE aliases and `USING`.

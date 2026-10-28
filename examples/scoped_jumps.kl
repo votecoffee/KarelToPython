@@ -1,0 +1,28 @@
+PROGRAM SCOPED_JUMPS
+TYPE row_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+VAR data:ARRAY[2] OF row_t selector,calls,result:INTEGER flag:BOOLEAN
+ROUTINE pick:INTEGER
+BEGIN
+  calls=calls+1
+  RETURN selector
+END pick
+BEGIN
+  selector=1
+  calls=0
+  USING data[pick()] DO
+    value=1
+    IF TRUE THEN
+      GOTO selected_branch
+    ELSE
+      selected_branch:: value=value+6
+    ENDIF
+    USING data[2] DO
+      value=2
+      GOTO outer_branch
+    ENDUSING
+    IF flag THEN
+      outer_branch:: value=value+3
+    ENDIF
+  ENDUSING
+  result=data[1].value
+END SCOPED_JUMPS

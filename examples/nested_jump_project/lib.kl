@@ -1,0 +1,19 @@
+PROGRAM LIB
+VAR calls:INTEGER
+ROUTINE choose_entry(seed:INTEGER):INTEGER
+BEGIN
+  calls=0
+  GOTO selected_case
+  SELECT seed OF
+    CASE(1): RETURN 99
+    CASE(2):
+      selected_case:: calls=calls+1
+      IF FALSE THEN
+        nested_return:: RETURN seed+5
+      ENDIF
+      GOTO nested_return
+  ENDSELECT
+  RETURN 0
+END choose_entry
+BEGIN
+END LIB

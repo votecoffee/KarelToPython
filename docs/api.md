@@ -24,6 +24,11 @@ does not run the program. The returned object exposes generated `python_source`
 and a JSON-serializable `report` with program/version information, source maps,
 hashes, features, effect analysis and feature-specific policies.
 
+[Nested label transfers](nested-jumps.md) expose `nested_jump_policy` and per-body
+`control_flow.jumps`: target label, source/target expanded line/column/block paths,
+and same-block, ancestor, nested or sibling classification. The existing source
+map resolves physical include origins. FOR and USING capture barriers remain.
+
 `includes` accepts captured source text by filename or an explicit
 `karel2py.includes.IncludeLibrary`. [Source includes](includes.md) describe
 nested lookup, selected directories/device mappings, limits and source-file
@@ -64,7 +69,9 @@ and `position_conversion_policy` for whole assignments, matrix tolerance and
 read-only orientation protection. Routine interfaces retain exact types.
 Since 0.72.0, [POSITION geometry](position-geometry.md) records actual operand
 and result types: INV preserves its representation; colon and FRAME return
-POSITION when any input is POSITION. XYZWPR-only results retain their layout.
+POSITION for pose-only inputs when any input is POSITION. Extended/joint rules
+are documented in their feature guides. A [right VECTOR point](vector-frames.md)
+now returns VECTOR; XYZWPR-only pose operations retain their layout.
 [Pose axis queries](position-axes.md) add source-located `position_axis_queries`
 and `position_axis_policy` for APPROACH/ORIENT mapping, complete-pose checks and
 independent writable VECTOR results. Internal routines keep their own signatures.

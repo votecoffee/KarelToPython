@@ -1,0 +1,7 @@
+PROGRAM MAIN
+VAR seed,result:INTEGER
+ROUTINE choose_entry(seed:INTEGER):INTEGER FROM LIB
+BEGIN
+  seed=2
+  result=choose_entry(seed)
+END MAIN

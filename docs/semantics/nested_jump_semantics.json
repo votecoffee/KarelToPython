@@ -1,0 +1,46 @@
+{
+  "version": "26.1028.191850",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "2.1.5 Labels",
+        "A.7.28 GO TO Statement",
+        "FOR statement restrictions"
+      ],
+      "basis": "Same program/routine label scope and explicit FOR jump/label restrictions; structured target behavior is a documented Pythonic interpretation"
+    }
+  ],
+  "contract": {
+    "guide": "../nested-jumps.md",
+    "forms": [
+      "IF",
+      "WHILE",
+      "REPEAT",
+      "SELECT"
+    ],
+    "transfer": "Jump directly to target label, skip preceding statements and enclosing header dispatch; ordinary target continuation and loop back edges follow",
+    "using": "Target capture scope chain is a prefix of source chain; no new USING entry even for identical storage",
+    "scope": "Same body only; duplicates, conflicts, missing labels, FOR-body labels/jumps and condition-action transfers reject",
+    "execution": "Existing dispatcher/budgets, type/effect checks, errors/RETURN/ABORT cleanup and live cooperative pause/resume",
+    "reports": "Source-ordered control_flow per-body jumps with expanded endpoint locations/block paths and entry kind; existing source_map carries physical include origins"
+  },
+  "choices": [
+    "Permit newly entered IF/WHILE/REPEAT/SELECT blocks only",
+    "No fabricated initialization or replay of skipped header/selector side effects",
+    "Retain USING captures for valid in-scope transfers and ordinary loop restart semantics"
+  ],
+  "boundaries": [
+    "No new USING capture bypass or FOR-body labels/jumps",
+    "No cross-body/routine or condition-action transfers",
+    "No persisted instruction pointers, native addresses/preemption, controller acceptance or strict equivalence"
+  ],
+  "validation": [
+    "tests/test_nested_jumps.py",
+    "examples/nested_jumps.kl",
+    "examples/scoped_jumps.kl",
+    "examples/nested_jump_project"
+  ]
+}

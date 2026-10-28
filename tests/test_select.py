@@ -3,14 +3,15 @@ import ast
 import unittest
 
 from karel2py import translate
+from tests.legacy_numeric_support import translate as legacy_translate
 from karel2py.lexer import TranslationError
 from karel2py.runtime import KarelRuntimeError, select_case
 
 
-def compile_program(body, *, labelled=False, routines='', extra='', declarations='x,y,visits,i,total: INTEGER'):
+def compile_program(body, *, labelled=False, routines='', extra='', declarations='x,y,visits,i,total: INTEGER', _translator=translate):
     prefix = 'unused_marker::\n' if labelled else ''
     source = f'PROGRAM T\n{extra}\nVAR {declarations}\n{routines}\nBEGIN\n{prefix}{body}\nEND T'
-    result = translate(source, filename='select.kl')
+    result = _translator(source, filename='select.kl')
     ast.parse(result.python_source, feature_version=(3, 11))
     namespace = {'__name__': 'select_test'}
     exec(result.python_source, namespace)
@@ -235,8 +236,8 @@ class SelectRejectionTests(unittest.TestCase):
     def test_variable_case_rejected(self): self.rejected('x=1 SELECT 1 OF CASE(x): ENDSELECT', 'E_CONSTANT')
     def test_minimum_integer_literal_guard_preserved(self): self.rejected('SELECT 1 OF CASE(-2147483648): ENDSELECT', 'E_MININT_LITERAL')
     def test_invalid_unreachable_body_remains_checked(self): self.rejected('SELECT 1 OF CASE(1): x=7 CASE(1): x=ON ENDSELECT', 'E_TYPE')
-    def test_sibling_case_jump_still_rejected(self): self.rejected('SELECT 1 OF CASE(1): GOTO other CASE(2): other:: ENDSELECT', 'E_GOTO_ENTRY')
-    def test_entry_into_case_still_rejected(self): self.rejected('GOTO nested SELECT 1 OF CASE(1): nested:: ENDSELECT', 'E_GOTO_ENTRY')
+    def test_legacy_sibling_case_jump_rejected(self): self.rejected('SELECT 1 OF CASE(1): GOTO other CASE(2): other:: ENDSELECT', 'E_GOTO_ENTRY', _translator=legacy_translate)
+    def test_legacy_entry_into_case_rejected(self): self.rejected('GOTO nested SELECT 1 OF CASE(1): nested:: ENDSELECT', 'E_GOTO_ENTRY', _translator=legacy_translate)
     def test_select_does_not_relax_for_jump_guard(self): self.rejected('FOR i=1 TO 2 DO SELECT i OF CASE(1): GOTO done ELSE: ENDSELECT ENDFOR done::', 'E_GOTO_FOR')
 
 

@@ -36,8 +36,11 @@ INTEGER, rank, bounds, effect and evaluation rules. If a later selector fails,
 earlier selector effects remain and the body does not run. Capturing storage
 does not require its scalar fields to be initialized.
 
-A later index change does not redirect field aliases. Reentering the block from
-a loop or an outside label captures fresh references. Jumps inside the block
+A later index change does not redirect field aliases. Reentering through the
+USING statement from a loop or an outside label captures fresh references.
+[Nested/sibling structured transfers](nested-jumps.md) may enter IF/WHILE/REPEAT/
+SELECT bodies within an existing USING chain. Entry to an uncaptured USING body
+remains rejected, even when its selector names the same storage. Jumps inside the block
 retain its captures. Pause/resume retains the suspended selection. RETURN,
 ABORT and errors keep earlier writes and use the normal routine cleanup.
 

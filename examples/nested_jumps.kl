@@ -1,0 +1,29 @@
+PROGRAM NESTED_JUMPS
+VAR total,visits,calls,selected:INTEGER flag:BOOLEAN
+ROUTINE next_pass:BOOLEAN
+BEGIN
+  calls=calls+1
+  RETURN visits<3
+END next_pass
+BEGIN
+  total=0
+  visits=0
+  calls=0
+  GOTO first_pass
+  WHILE next_pass() DO
+    total=total+10
+    first_pass:: visits=visits+1
+  ENDWHILE
+  -- Explicit transfer skips SELECT's uninitialized selector.
+  GOTO picked
+  SELECT selected OF
+    CASE(1): total=999
+    CASE(2): picked:: total=total+7
+    CASE(3): total=888
+  ENDSELECT
+  GOTO resume_here
+  IF flag THEN
+    total=999
+    resume_here:: total=total+3
+  ENDIF
+END NESTED_JUMPS

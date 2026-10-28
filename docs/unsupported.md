@@ -37,8 +37,10 @@ they are boundaries rather than promises to accept every such source form later.
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,
   asynchronous native interrupts and motion-local handlers are unavailable.
-- Arbitrary `GOTO` entry into nested blocks or across FOR scopes; forward/self/
-  cyclic type aliases. Full [external FROM type declarations](external-types.md)
+- Labels/jumps inside FOR bodies, transfers across program/routine bodies, and
+  entry into an uncaptured USING scope. [Nested/sibling label transfers](nested-jumps.md)
+  now support IF/WHILE/REPEAT/SELECT targets with normal loop continuations.
+  Forward/self/cyclic type aliases remain blocked. Full [external FROM type declarations](external-types.md)
   now use supplied source layouts and checked project ownership chains; missing
   definitions, cyclic ownership and native binary type environments remain blocked.
   Routine-local TYPE declarations

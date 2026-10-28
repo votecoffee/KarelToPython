@@ -1009,7 +1009,7 @@ class Emitter:
         self.group_uses=[]
         self.using_scopes = []
         self.active_counters = set()
-        self.control_flow = dict(program=None, routines={}, jump_policy='same_block_or_ancestor_no_for', controller_validated=False)
+        self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_for_or_new_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
         self.subarray_uses = []
         self.delay_uses = []
@@ -2564,14 +2564,30 @@ class Emitter:
                     visit(child, path + (block_name,), inside_for or stmt.kind == 'for')
 
         visit(statements)
+        transfers=[]
         for stmt, source_path in jumps:
             name = stmt.args[0].value
             if name not in labels:
                 self.error('E_LABEL', f'Label {name} is not defined in this program/routine body', stmt.args[0])
-            target_path = labels[name][1]
-            if source_path[:len(target_path)] != target_path:
+            target_token,target_path = labels[name]
+            if self.mode=='pythonic':
+                # Every path to a USING body must pass its capture node. Retain
+                # that invariant even when state-free structured entry is allowed.
+                source_using=tuple(scope for scope in source_path if scope.startswith('using@'))
+                target_using=tuple(scope for scope in target_path if scope.startswith('using@'))
+                if source_using[:len(target_using)]!=target_using:
+                    self.error('E_GOTO_ENTRY','Jump would bypass a USING reference capture',stmt.token)
+                common=0
+                while common<min(len(source_path),len(target_path)) and source_path[common]==target_path[common]:common+=1
+                if any(scope.split('@',1)[0] not in ('if','while','repeat','select') for scope in target_path[common:]):
+                    self.error('E_GOTO_ENTRY','Jump enters a block without a supported entry contract',stmt.token)
+            elif source_path[:len(target_path)] != target_path:
                 self.error('E_GOTO_ENTRY', 'Jumps into nested or sibling structured blocks need entry-state validation', stmt.token)
-        return bool(labels or jumps)
+            entry=('same_block' if source_path==target_path else 'ancestor' if source_path[:len(target_path)]==target_path
+                else 'nested' if target_path[:len(source_path)]==source_path else 'sibling')
+            transfers.append(dict(label=name,source=dict(line=stmt.token.line,column=stmt.token.column,blocks=list(source_path)),
+                target=dict(line=target_token.line,column=target_token.column,blocks=list(target_path)),entry_kind=entry))
+        return bool(labels or jumps),transfers
 
     def case_values(self, stmt):
         result = []
@@ -2598,7 +2614,8 @@ class Emitter:
         return f'_rt.select_case({selector}, {tuple(cases)!r}, {stmt.has_else!r}, {stmt.token.line})'
 
     def emit_body(self, statements):
-        if not self.validate_labels(statements):
+        labelled,transfers=self.validate_labels(statements)
+        if not labelled:
             report = dict(engine='structured_python', labels={})
             self.block(statements)
         else:
@@ -2657,6 +2674,7 @@ class Emitter:
             self.indent += 1
             self.line('raise _rt.KarelRuntimeError("Invalid generated control-flow state")')
             self.indent -= 3
+        report['jumps']=transfers
         if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
         else: self.control_flow['program'] = report
 
@@ -4800,6 +4818,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='256 distinct background slots, 4096 perches/reset scripts/history rows, 32 perch groups, 6 axes and finite request/clock counters',
         boundary='Portable logical states, statuses and units; no motion statements, servo effects, hardware reset, native background scans, per-value group metadata, native ABI/controller acceptance or strict equivalence',
         guide='docs/controller-services.md',controller_validated=False)
+    report['nested_jump_policy']=dict(
+        forms=['IF','WHILE','REPEAT','SELECT'],scope='Defined labels in the same program/routine body; duplicates, conflicts and undefined/cross-body targets reject',
+        transfer='Direct nested/sibling label entry skips intervening statements and enclosing header tests/SELECT dispatch; suffix follows its normal generated successors, including loop back edges',
+        captures='Target USING scope chain must be a prefix of the source USING chain; no new capture bypass, even when selectors describe the same storage; existing captures survive structured entry',
+        guards='No labels/jumps inside FOR bodies, handler action labels/jumps or source type-check bypass; strict keeps the previous same-block/ancestor gate',
+        execution='Instrumented label dispatcher, ordinary step budgets, errors/RETURN/ABORT cleanup and cooperative pause/resume; no dynamic code location discovery',
+        reports='control_flow per-body jumps record label, expanded source/target line/column/block paths and same_block/ancestor/nested/sibling entry kind; existing source_map provides include origins',
+        boundary='Explicit Pythonic transfer/capture policy; no FOR entry, native instruction pointers, preemption or controller/strict equivalence',
+        guide='docs/nested-jumps.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

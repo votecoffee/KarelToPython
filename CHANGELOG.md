@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1028.191850 - 2026-10-28
+
+- Add nested and sibling GOTO entry into IF, WHILE, REPEAT and SELECT bodies.
+  Direct transfers skip intervening statements and header dispatch, then follow
+  the target suffix and normal loop back edges without fabricated initialization.
+- Validate entry scope explicitly: retain FOR-body and routine boundaries,
+  condition-action restrictions and a USING capture-prefix proof. Entering a
+  new capture remains rejected even for identical selected storage.
+- Add source/target block paths and entry classification to control-flow reports;
+  retain ordinary type checks, budgets, errors, cleanup and pause/resume state.
+- Add 54 regressions, two replayable CLI examples and a linked source project;
+  refresh README, API/support guides and semantic ledger. Historical strict
+  entry restrictions remain unchanged; no native/controller equivalence claim.
+
 ## 26.1028.184931 - 2026-10-28
 
 - Enable the existing --help/--context/--state-out argument handling for every

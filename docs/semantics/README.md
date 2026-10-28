@@ -222,3 +222,9 @@ transforms for Cartesian and model-backed joint frames. It supersedes older
 blanket VECTOR-transform exclusions, preserving VECTOR left-frame rejection and
 exact interfaces. Full affine point semantics, direction subtraction, finite
 geometry and detached ordered evaluation are explicit Pythonic choices.
+
+The [nested label ledger](nested_jump_semantics.json) adds nested/sibling
+IF/WHILE/REPEAT/SELECT target entry. It supersedes older blanket structured-entry
+exclusions while retaining FOR-body, routine/handler and USING capture barriers.
+Per-body transfer reports describe source/target paths; direct entry skips header
+dispatch and follows the ordinary target continuation and loop back edges.

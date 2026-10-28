@@ -283,15 +283,15 @@ class BranchRejectionTests(unittest.TestCase):
 
     def test_jump_into_for_blocked(self): self.rejected('GOTO inside FOR i = 1 TO 2 DO inside:: x = 7 ENDFOR', 'E_GOTO_FOR')
 
-    def test_jump_into_if_blocked(self): self.rejected('GOTO inside IF TRUE THEN inside:: x = 7 ENDIF', 'E_GOTO_ENTRY')
+    def test_legacy_jump_into_if_blocked(self): self.rejected('GOTO inside IF TRUE THEN inside:: x = 7 ENDIF', 'E_GOTO_ENTRY', _translator=legacy_translate)
 
-    def test_jump_into_while_blocked(self): self.rejected('GOTO inside WHILE TRUE DO inside:: x = 7 ENDWHILE', 'E_GOTO_ENTRY')
+    def test_legacy_jump_into_while_blocked(self): self.rejected('GOTO inside WHILE TRUE DO inside:: x = 7 ENDWHILE', 'E_GOTO_ENTRY', _translator=legacy_translate)
 
-    def test_jump_into_repeat_blocked(self): self.rejected('GOTO inside REPEAT inside:: x = 7 UNTIL TRUE', 'E_GOTO_ENTRY')
+    def test_legacy_jump_into_repeat_blocked(self): self.rejected('GOTO inside REPEAT inside:: x = 7 UNTIL TRUE', 'E_GOTO_ENTRY', _translator=legacy_translate)
 
-    def test_jump_into_select_case_blocked(self): self.rejected('GOTO inside SELECT 1 OF CASE(1): inside:: x = 7 ENDSELECT', 'E_GOTO_ENTRY')
+    def test_legacy_jump_into_select_case_blocked(self): self.rejected('GOTO inside SELECT 1 OF CASE(1): inside:: x = 7 ENDSELECT', 'E_GOTO_ENTRY', _translator=legacy_translate)
 
-    def test_jump_between_sibling_branches_blocked(self): self.rejected('IF TRUE THEN GOTO inside ELSE inside:: x = 7 ENDIF', 'E_GOTO_ENTRY')
+    def test_legacy_jump_between_sibling_branches_blocked(self): self.rejected('IF TRUE THEN GOTO inside ELSE inside:: x = 7 ENDIF', 'E_GOTO_ENTRY', _translator=legacy_translate)
 
     def test_duplicate_labels_across_branches_blocked(self): self.rejected('IF TRUE THEN here:: ELSE here:: ENDIF', 'E_DUPLICATE_LABEL')
 

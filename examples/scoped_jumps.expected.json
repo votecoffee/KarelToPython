@@ -1,0 +1,16 @@
+{
+  "DATA": [
+    {
+      "VALUE": 10
+    },
+    {
+      "VALUE": 2
+    }
+  ],
+  "SELECTOR": 1,
+  "CALLS": 1,
+  "RESULT": 10,
+  "FLAG": {
+    "uninitialized": true
+  }
+}
