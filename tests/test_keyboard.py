@@ -164,9 +164,9 @@ class KeyboardEndpointTests(unittest.TestCase):
         values,_,_,_=execute(OPEN+"SET_CURSOR(f,1,1,s)"+CLOSE)
         self.assertEqual(values['S'],4)
 
-    def test_keyboard_requires_read_kb_instead_of_generic_read(self):
+    def test_generic_keyboard_read_requires_explicit_queued_input(self):
         ctx=context();p,_=compile_program(OPEN+'READ f(n)',decl=DECL,context=ctx)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'READ_KB'):p.run()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'explicit queued input'):p.run()
         ctx.keyboard.close_all()
 
     def test_byte_queries_and_seeking_are_explicitly_rejected(self):

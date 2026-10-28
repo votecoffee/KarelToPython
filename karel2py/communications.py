@@ -1,6 +1,10 @@
 """Explicit offline socket messaging and circular PIP FILE backends."""
 import re
+import struct
 from .extended import MemoryFiles,fail
+
+
+COMMUNICATION_CONSTANTS={'ATR_PIPWAIT':9,'ATR_PIPOVADV':10,'WAIT_NOTUSED':0,'WAIT_USED':1,'OVF_EOF':-1}
 
 
 def rt():
@@ -155,7 +159,7 @@ class Messaging(MemoryFiles):
 
 class FilePipes(MemoryFiles):
     """Bounded circular byte histories, with independent FILE read cursors."""
-    def __init__(self,*,limit=16*1024*1024):super().__init__(limit=limit);self.pipes={}
+    def __init__(self,*,limit=16*1024*1024):super().__init__(limit=limit);self.pipes={};self._reads={}
 
     def configure(self,name,cmos,sectors,record_size,dictionary,element,line=None):
         try:key=pipe_name(name)
@@ -179,12 +183,29 @@ class FilePipes(MemoryFiles):
         except ValueError:fail('Invalid PIP FILE name',line)
         if key not in self.pipes:fail('PIP FILE is not explicitly configured',line)
         if len(self.handles)>=32:fail('File pipe handle limit exceeded (32)',line)
+        wait=getattr(handle,'pipe_wait',None);overflow=getattr(handle,'pipe_overflow',None)
+        capacity=self.pipes[key]['sectors']*1024;record_size=self.pipes[key]['record_size']
+        if wait is not None and (type(wait) is not int or wait not in (0,1)):
+            fail('ATR_PIPWAIT requires WAIT_USED or WAIT_NOTUSED',line)
+        if overflow is not None and (type(overflow) is not int or overflow!=-1 and not 0<=overflow<=capacity):
+            fail('ATR_PIPOVADV requires OVF_EOF or bytes in 0..pipe capacity',line)
+        advance=overflow
+        if overflow is not None and overflow>=0 and record_size:
+            advance=((overflow+record_size-1)//record_size)*record_size
+            if advance>capacity:fail('Rounded ATR_PIPOVADV exceeds pipe capacity',line)
+        if (wait is not None or overflow is not None) and mode in ('W','A'):
+            fail('Pipe read attributes require a readable FILE mode',line)
         if mode=='W':
             self.files[key].clear()
             for other in self.handles:
-                if other.name==key:other.position=0
+                if other.name==key:
+                    other.position=0
+                    if getattr(other,'_pipe_snapshot_end',None) is not None:other._pipe_snapshot_end=0
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
-        handle.logical_name=key;handle.position=0;handle.status=0;self.handles.append(handle)
+        handle.logical_name=key;handle.position=0;handle.status=0
+        handle._pipe_snapshot_end=len(self.files[key]) if wait==0 else None
+        handle._pipe_overflowed=False;handle._pipe_advance=advance
+        self.handles.append(handle)
 
     def write(self,handle,data,line=None):
         handle.require_open(line)
@@ -197,8 +218,125 @@ class FilePipes(MemoryFiles):
             buffer.extend(data)
         if dropped:
             for other in self.handles:
-                if other.name==handle.name:other.position=max(0,other.position-dropped)
+                if other.name!=handle.name:continue
+                lost=other.position<dropped
+                other.position=max(0,other.position-dropped)
+                end=getattr(other,'_pipe_snapshot_end',None)
+                if end is not None:other._pipe_snapshot_end=max(0,end-dropped)
+                if lost and (getattr(other,'pipe_wait',None) is not None or getattr(other,'pipe_overflow',None) is not None):
+                    advance=getattr(other,'_pipe_advance',None)
+                    if advance is None or advance==-1:other._pipe_overflowed=True
+                    else:other.position=min(advance,len(buffer))
         handle.status=0
+
+    def feed(self,name,data):
+        """Append explicitly supplied host bytes through ordinary circular rules."""
+        key=pipe_name(name)
+        if key not in self.pipes:raise ValueError('Input requires an explicitly configured pipe')
+        data=data_bytes(data,self.limit)
+        handle=rt().FileHandle();handle.name=key;handle.mode='A';handle.owner=self
+        self.write(handle,data)
+
+    def before_read(self,handle,line=None):
+        handle.require_open(line)
+        if handle.owner is not self:fail('Pipe READ requires its original backend',line)
+        if handle.mode in ('W','A'):fail('Pipe FILE is not readable',line)
+        if getattr(handle,'_pipe_overflowed',False):
+            handle.status=1;fail('Pipe read overflow reached EOF; close and reopen FILE',line)
+
+    def end_position(self,handle,line=None):
+        self.before_read(handle,line)
+        end=getattr(handle,'_pipe_snapshot_end',None)
+        return len(self.files[handle.name]) if end is None else min(end,len(self.files[handle.name]))
+
+    def bytes_ahead(self,handle,line=None):
+        return max(0,self.end_position(handle,line)-handle.position)
+
+    def seek(self,handle,position,line=None):
+        end=self.end_position(handle,line)
+        if id(handle) in self._reads:fail('Pipe FILE has an active READ; cannot seek',line)
+        position=rt().integer(position,line)
+        if position==-1:position=end
+        if not 0<=position<=end:return 2
+        handle.position=position;return 0
+
+    def close(self,handle,line=None):
+        if id(handle) in self._reads:fail('Pipe FILE has an active READ; cancel it before CLOSE',line)
+        return super().close(handle,line)
+
+    def read_bytes(self,handle,count,line=None):
+        if getattr(handle,'pipe_wait',None) is None and getattr(handle,'pipe_overflow',None) is None:
+            return super().read_bytes(handle,count,line)
+        self.before_read(handle,line)
+        if count>self.bytes_ahead(handle,line):handle.status=1;fail('End of pipe FILE',line)
+        return super().read_bytes(handle,count,line)
+
+    def pipe_read(self,state,handle,targets,line=None,*,line_breaks=(),formats=None):
+        """Probe complete input without publication, then commit one READ request."""
+        runtime=rt();self.before_read(handle,line)
+        if type(targets) not in (list,tuple):fail('Pipe READ requires scalar references',line)
+        line_breaks=runtime._read_line_breaks(len(targets),line_breaks,line)
+        for target in targets:
+            if type(target) is not runtime.Reference:fail('Pipe READ requires ordinary writable scalar targets',line)
+            runtime._read_scalar_spec(target.spec,line)
+        formats=[()] * len(targets) if formats is None else formats
+        if type(formats) not in (list,tuple) or len(formats)!=len(targets):fail('Pipe READ requires one format per scalar target',line)
+        formats=[runtime.read_formats(target.spec,field,line) for target,field in zip(targets,formats)]
+        widths=[]
+        if handle.binary:
+            if line_breaks:fail('CR is not a binary READ field',line)
+            from .extended import binary_format
+            for target,field in zip(targets,formats):
+                if target.spec[0]=='STRING' and not field:field=(target.spec[1],)
+                widths.append(binary_format(target.spec[0],field,line))
+            if sum(width for width,code in widths)>self.pipes[handle.name]['sectors']*1024:
+                fail('Atomic pipe READ exceeds circular capacity',line)
+        request=dict(line=line,targets=[dict(type=target.spec[0],type_spec=target.spec,
+            **({'format_specifiers':field} if field else {})) for target,field in zip(targets,formats)])
+        if line_breaks:request['line_breaks']=list(line_breaks)
+        if id(handle) in self._reads:fail('Pipe FILE already has an active READ',line)
+        self._reads[id(handle)]=state
+        try:
+            while True:
+                self.before_read(handle,line)
+                start=handle.position;available=self.bytes_ahead(handle,line)
+                raw=bytes(self.files[handle.name][start:start+available]);waiting=getattr(handle,'pipe_wait',None)==1
+                result=None
+                if handle.binary:
+                    size=sum(width for width,code in widths)
+                    if len(raw)>=size:
+                        offset=0;values=[]
+                        for target,(width,code) in zip(targets,widths):
+                            data=raw[offset:offset+width];offset+=width
+                            if code and handle.reverse:code='>'+code[1:]
+                            try:value=data.decode('ascii') if code is None else struct.unpack(code,data)[0]
+                            except (UnicodeError,struct.error) as exc:raise runtime.KarelRuntimeError('Invalid binary pipe field: '+str(exc),line) from exc
+                            values.append(runtime.checked(target.spec,value,line))
+                        result=values,offset
+                else:
+                    try:text=raw.decode('ascii')
+                    except UnicodeDecodeError as exc:raise runtime.KarelRuntimeError('Text pipe FILE requires ASCII data',line) from exc
+                    reader=runtime.TextInput(text,terminator=handle.eol,field_mode=handle.field,final=not waiting)
+                    try:values=reader(request)
+                    except runtime.TextInputIncomplete:pass
+                    else:result=values,reader.offset
+                if result is not None:
+                    values,offset=result;previous=state._read
+                    try:
+                        state._read=lambda request:values
+                        state.read_items(targets,line,line_breaks=line_breaks,formats=formats)
+                    finally:state._read=previous
+                    handle.position=start+offset;handle.status=0;return
+                if not waiting:
+                    handle.status=1;fail('End of pipe FILE',line)
+                if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):
+                    fail('Indefinite standalone pipe wait requires an explicit sleeper callback',line)
+                yield from runtime.delay_execution(state,10,line)
+                yield from runtime.checkpoint(state,line)
+        except GeneratorExit:raise
+        except BaseException:
+            handle.status=1;raise
+        finally:self._reads.pop(id(handle),None)
 
     def to_config(self):
         if self.handles:raise ValueError('Close live pipe FILEs before saving context')

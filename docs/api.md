@@ -282,6 +282,12 @@ not rolled back by failures or ABORT.
   [Pythonic input](pythonic-read.md).
   `runtime.TextInput(text)` supplies explicit ASCII text with a persistent cursor
   and CR line control; generated scripts can choose `--read-text` instead.
+  `TextInput(...,final=False)` distinguishes incomplete input with
+  `TextInputIncomplete` from malformed completed fields; the default `final=True`
+  retains ordinary EOF behavior. Explicit waiting pipes use this parser without
+  publishing partial responses. FILE READ automatically enables cooperative source
+  generation for injected [keyboard input](keyboard-file-read.md) and opted-in
+  [plain pipes](pipe-attributes.md).
   Optional `line_breaks` metadata describes CR positions. See [text input](text-input.md).
   [READ formats](read-formats.md) add optional per-target `format_specifiers`
   metadata and ordered dynamic expressions for widths, bases and STRING quoting.
@@ -424,7 +430,7 @@ accept `--context` JSON for serializable service state. See the
 `service_operations`, `service_policy`, `cooperative_policy` and
 `extended_geometry_policy` describe source sites and current portable choices.
 
-Task-control syntax, handlers, connected timers and external declarations enable
+FILE READ, task-control syntax, handlers, connected timers and external declarations enable
 cooperative generation automatically. `translate(...,cooperative=True)` and CLI
 `--cooperative` enable host control for other source and enter the context hash.
 Generated cooperative Programs add `pause()`, `resume()`, `powerup()`, `stop()` and

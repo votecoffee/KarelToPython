@@ -89,6 +89,7 @@ class LinkedRoutine:
         state._scheduler=caller._scheduler; state._clock_us=caller._clock_us
         state._lifecycle=caller._lifecycle
         state._sleep=caller._sleep; state._write=caller._write; state._read=caller._read
+        state._sleep_injected=caller._sleep_injected
         state.max_steps=caller.max_steps
         result=getattr(instance,'_routine_'+self.name)(*arguments)
         if inspect.isgenerator(result): return (yield from result)

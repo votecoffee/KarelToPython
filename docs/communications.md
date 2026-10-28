@@ -159,8 +159,10 @@ across both. Source registration and JSON context loading reject collisions;
 OPEN rejects an ambiguous name after direct host mutation. No ordinary file
 backend is used as a fallback for an unconfigured PIP or socket address.
 
-Native pipe wait/snapshot attributes, formatted dictionary display, generic
-copy/list/delete routing to this bank and controller timing remain unsupported.
+Explicit [pipe attributes](pipe-attributes.md) now add cooperative waiting reads,
+captured snapshot boundaries and checked overflow policies. Unconfigured handles
+retain the original behavior above. Formatted dictionary display, generic
+copy/list/delete routing and native controller timing remain unsupported.
 DAQ keeps its own typed record, snapshot and stream-consumption contract.
 
 ## Persistence and CLI examples

@@ -53,6 +53,10 @@ class KarelRuntimeError(Exception):
         super().__init__((f"KAREL line {line}: " if line else '') + message)
 
 
+class TextInputIncomplete(KarelRuntimeError):
+    """An explicitly unfinished text stream needs more bytes, not a retry of bad data."""
+
+
 class KarelAbort(Exception):
     """Intentional offline termination, distinct from an invalid runtime value."""
     def __init__(self, line=None):
@@ -1792,12 +1796,14 @@ def capture_read_target(target, formats, line=None):
 
 class TextInput:
     """Explicit ASCII text adapter for Pythonic READ, with a persistent cursor."""
-    def __init__(self, text, *, terminator=None, field_mode=False):
+    def __init__(self, text, *, terminator=None, field_mode=False, final=True):
         if type(text) is not str or not text.isascii():
             raise ValueError('TextInput requires an ASCII string')
         if terminator is not None and (type(terminator) is not int or not 0<=terminator<=127):
             raise ValueError('TextInput terminator must be an ASCII code or None')
         if type(field_mode) is not bool: raise ValueError('TextInput field_mode must be BOOLEAN')
+        if type(final) is not bool: raise ValueError('TextInput final must be BOOLEAN')
+        self.final = final
         self.field_mode = field_mode
         separators = list(re.finditer(r'\r\n|\r|\n' if terminator in (None,10,13) else re.escape(chr(terminator)), text))
         self._starts = [0] + [match.end() for match in separators]
@@ -1829,7 +1835,11 @@ class TextInput:
     def _require_line(self):
         if self._row >= len(self._lines):
             position = self.position
-            raise KarelRuntimeError(f'TextInput reached end of input at input line {position["line"]}, column {position["column"]}')
+            error = KarelRuntimeError if self.final else TextInputIncomplete
+            raise error(f'TextInput reached end of input at input line {position["line"]}, column {position["column"]}')
+
+    def _unfinished_line(self):
+        return not self.final and self._row == len(self._lines)-1 and not self._terminated
 
     def _token(self):
         while True:
@@ -1841,6 +1851,8 @@ class TextInput:
         start = self._column
         while self._column < len(line) and not line[self._column].isspace(): self._column += 1
         self._after_field = True
+        if self._column == len(line) and self._unfinished_line():
+            raise TextInputIncomplete(f'TextInput unfinished token at input line {self._row+1}, column {start+1}')
         return line[start:self._column], self._row + 1, start + 1
 
     def _field_line(self):
@@ -1856,7 +1868,10 @@ class TextInput:
         value = line[self._column:self._column + width] if width else line[self._column:]
         self._column, self._after_field = self._column + len(value), True
         if width and len(value) != width:
-            raise KarelRuntimeError(f'TextInput incomplete field at input line {row}, column {column}; expected {width} characters')
+            error = TextInputIncomplete if self._unfinished_line() else KarelRuntimeError
+            raise error(f'TextInput incomplete field at input line {row}, column {column}; expected {width} characters')
+        if not width and self._unfinished_line():
+            raise TextInputIncomplete(f'TextInput unfinished STRING at input line {row}, column {column}')
         return value, row, column
 
     def _quoted(self, width):
@@ -1887,6 +1902,8 @@ class TextInput:
         if not width:
             self._column += len(field)
             self._after_field = True
+            if self._unfinished_line() and field.lstrip().startswith("'"):
+                raise TextInputIncomplete(f'TextInput unfinished quoted STRING at input line {row}, column {column}')
         raise KarelRuntimeError(f'TextInput invalid quoted STRING at input line {row}, column {column}')
 
     def __call__(self, request):
@@ -1906,6 +1923,8 @@ class TextInput:
         for index in range(len(specs) + 1):
             while marker < len(breaks) and breaks[marker] == index:
                 self._require_line()
+                if self._unfinished_line():
+                    raise TextInputIncomplete(f'TextInput unfinished record at input line {self._row+1}')
                 self._next_line()
                 marker += 1
             if index == len(specs): break
@@ -2037,6 +2056,7 @@ class State:
         if registers is not None and type(registers) is not NumericRegisters:
             raise TypeError('registers must be an explicit NumericRegisters instance, or None')
         self._sleep = time.sleep if sleep is None else sleep
+        self._sleep_injected = sleep is not None
         self._write = write
         self._read = read
         self._clock_us = clock_us
@@ -2457,6 +2477,9 @@ class State:
 
     def file_open(self,handle,mode,name,line=None):
         name=ascii_string(name,line)
+        pipe_attributes=handle.pipe_wait is not None or handle.pipe_overflow is not None
+        if pipe_attributes and not name.upper().startswith('PIP:'):
+            raise KarelRuntimeError('Pipe FILE attributes require an explicitly configured plain FilePipes endpoint',line)
         if name.upper().startswith('KB:') or name.upper().startswith('WD:') and '/' in name:return self.execution.require('keyboard',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('WD:'):return self.execution.require('pendant',line).open_for(self,handle,mode,name,line)
         if message_address(name):return self.execution.require('messaging',line).open_for(self,handle,mode,name,line)
@@ -2465,6 +2488,8 @@ class State:
             except ValueError as exc:raise KarelRuntimeError(str(exc),line) from exc
             banks=[bank for bank in (self.execution.acquisition,self.execution.file_pipes) if bank is not None and key in bank.files]
             if len(banks)!=1:raise KarelRuntimeError('PIP FILE requires one explicitly configured acquisition or file_pipes entry',line)
+            if pipe_attributes and type(banks[0]) is not FilePipes:
+                raise KarelRuntimeError('Pipe FILE attributes require plain FilePipes, not acquisition pipes',line)
             return banks[0].open_for(self,handle,mode,key,line)
         self.execution.require('files',line).open(handle,mode,name,line)
 
@@ -2488,6 +2513,16 @@ class State:
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 
+def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
+    """Retain captured FILE targets while an explicit input service waits."""
+    handle.require_open(line)
+    if type(handle.owner) is KeyboardInput:
+        return (yield from handle.owner.file_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
+    if type(handle.owner) is FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None):
+        return (yield from handle.owner.pipe_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
+    return state.file_read(handle,targets,line,line_breaks=line_breaks,formats=formats)
+
+
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,
                        SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,
                        VariableStore, variable_value, variable_reference, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, RobotState, file_piece,
@@ -2502,7 +2537,7 @@ from .variable_archives import VariableArchives
 from .archives import ARCHIVE_CONSTANTS
 from .remote_messages import RemoteMessages
 from .pc_exchange import PcExchange
-from .communications import Messaging,FilePipes,message_address,pipe_name as communication_pipe_name
+from .communications import Messaging,FilePipes,message_address,pipe_name as communication_pipe_name,COMMUNICATION_CONSTANTS
 from .teach import TeachPrograms,TPE_CONSTANTS
 from .clocks import CalendarClock
 from .configtext import ConfigTextFormats, CONFIG_TEXT_GROUP_MISSING

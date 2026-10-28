@@ -87,6 +87,7 @@ def call_program(state,operation,args,line=None):
         pose_tolerance=prototype.pose_tolerance,external_tolerance=prototype.external_tolerance,
         registers=prototype.registers,sleep=state._sleep,read=state._read,write=state._write,clock_us=state._clock_us)
     child=instance._state;root=runtime.task_root(state)
+    child._sleep_injected=state._sleep_injected
     child.values=prototype.values;child._budget_parent=state;child.call_depth=state.call_depth
     child._scheduler=state._scheduler;child.max_steps=state.max_steps
     child._lifecycle=state._lifecycle

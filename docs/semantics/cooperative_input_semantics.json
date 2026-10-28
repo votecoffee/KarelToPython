@@ -1,0 +1,38 @@
+{
+  "version": "26.1028.200539",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "source": {
+    "manual": "MARRC75KR07091E Rev N",
+    "sections": ["7.2.1 FILE variables", "7.3 FILE attributes", "7.4 READ", "7.7 Text formatting", "10.2.4 File pipes"]
+  },
+  "contracts": {
+    "generation": "FILE READ enables cooperative Pythonic generation; source destinations and format expressions are captured once before waiting; legacy strict emission stays internal",
+    "streaming_text": "Explicit TextInput(final=False) distinguishes incomplete input from completed invalid fields using TextInputIncomplete; default final=True preserves existing parsing",
+    "keyboard": {
+      "guide": "../keyboard-file-read.md",
+      "input": "Injected printable events submit bounded editable lines on ENTER; ordinary scalar formats and CR parse retained pending text",
+      "publication": "Complete response validation before any target writes or committed cursor movement; retain buffered suffixes and record one source-read observation",
+      "lifetime": "Existing pane ownership, echo/noecho, suspension, finite IDs/history and finally cleanup; close idle handles before saving",
+      "boundaries": "No host input, native keys, generic PASSALL/custom-EOL/binary/XML transfer or widget/timing equivalence"
+    },
+    "pipes": {
+      "guide": "../pipe-attributes.md",
+      "input": "Explicit ATR_PIPWAIT WAIT_USED polls cooperatively in logical10ms steps; WAIT_NOTUSED captures an end boundary; no attributes preserves legacy immediate reads",
+      "overflow": "Explicit OVF_EOF latches failure until reopen; byte advances are capacity checked and rounded upward to configured record_size after unread data loss",
+      "publication": "Probe complete text/binary requests before source writes/cursor advancement; snapshot queries/seeks respect the captured end",
+      "standalone": "Pending waits require explicit injected sleeper provenance, retained across source linkage; no default indefinite host sleep",
+      "boundaries": "No automatic producer, native formatted dictionary display, native default reconciliation, physical pipe transport or suspended-handle persistence"
+    }
+  },
+  "validation": [
+    "tests/test_streaming_text_input.py",
+    "tests/test_keyboard_file_read.py",
+    "tests/test_pipe_attributes.py",
+    "examples/keyboard_file_read.kl",
+    "examples/pipe_attributes.kl",
+    "examples/input_pipeline_project"
+  ],
+  "historical_notes": "Supersedes older blanket generic keyboard FILE READ and plain-pipe wait/snapshot exclusions. Historical per-feature ledger versions remain preserved.",
+  "strict_mode": "Future milestone"
+}

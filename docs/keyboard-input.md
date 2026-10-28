@@ -33,8 +33,9 @@ CLOSE FILE input_file
 KB:TPKB accepts text input modes RO/R or RW/UD. It has no output window.
 WD:name/TPKB also requires an existing window in PendantDisplay. Combined FILEs
 forward ordinary WRITE, WRITE_DICT/WRITE_DICT_V and SET_CURSOR to that window.
-Closing releases both handles. Generic FILE READ, binary/XML, byte positions,
-seeking and input-availability queries are rejected explicitly; use READ_KB.
+Closing releases both handles. [Typed FILE READ](keyboard-file-read.md) parses
+submitted lines through the ordinary scalar format rules. Binary/XML, byte
+positions, seeking and input-availability queries remain explicitly rejected.
 IO_STATUS reports the last completed read and CLR_IO_STAT clears that status.
 
 OPEN captures the calling root program's global DEVICE_STAT, or pane 1 when it

@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
-                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,**rt.KEYBOARD_CONSTANTS,**rt.TABLE_CONSTANTS,
+                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,**rt.KEYBOARD_CONSTANTS,**rt.TABLE_CONSTANTS,**rt.COMMUNICATION_CONSTANTS,
                         **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
@@ -1004,7 +1004,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         if mode=='pythonic' and any(row['name'] in rt.TASK_DIRECTIVES for row in program.directive_metadata): self.cooperative=True
         self.group_uses=[]
         self.using_scopes = []
@@ -3002,13 +3002,15 @@ class Emitter:
                         dynamic_formats=any(value is None for value in literals))
                     self.features.add(f'READ {spec[0]} formatting')
             controls = f', line_breaks={tuple(line_breaks)!r}' if line_breaks else ''
-            reader=f'self._state.file_read({file_code},' if file_code else 'self._state.read_items('
+            cooperative_file=bool(file_code) and self.cooperative
+            reader=f'_rt.cooperative_file_read(self._state,{file_code},' if cooperative_file else f'self._state.file_read({file_code},' if file_code else 'self._state.read_items('
+            prefix='yield from ' if cooperative_file else ''
             if formatted:
                 captured = self.fresh()
                 self.line(f'{captured} = [{", ".join(references)}]', token)
-                self.line(f'{reader}[item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
+                self.line(f'{prefix}{reader}[item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
             else:
-                self.line(f'{reader}[{", ".join(references)}], {line}{controls})', token)
+                self.line(f'{prefix}{reader}[{", ".join(references)}], {line}{controls})', token)
             self.read_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=line, column=token.column, destinations=destinations,
                                        targets_evaluated_once=True, response_validated_before_assignment=True))
@@ -4011,12 +4013,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['file_pipe_policy']=dict(
         procedures=['PIPE_CONFIG'],
         context='Explicit FilePipes with up to 32 canonical PIP names and bounded combined configured sector capacities; zero sectors selects default eight KiB; DAQ and plain pipe names must be distinct',
-        files='Circular byte histories retain newest configured bytes; independent text/binary FILE read cursors adjust on overwrite; EOF is immediate, reads retain history, W/WO clears and resets cursors, A/AP/RW append',
+        files='Circular byte histories retain newest configured bytes; independent text/binary cursors, optional WAIT_USED complete-read waits or WAIT_NOTUSED snapshot ends; absent attrs preserve immediate EOF and cursor clamping',
+        attributes=dict(rt.COMMUNICATION_CONSTANTS),
+        reading='Explicit waits use logical 10 ms cooperative polls, staged typed fields and one final publication; standalone pending reads require an explicitly injected sleeper inherited through source linkage',
+        overflow='Opt-in EOF latch or capacity-checked byte advance rounded to record_size; recover a latched handle by close/reopen; bytes queries honor snapshot/overflow state',
         metadata='CMOS intent, binary record_size and formatting dictionary/element retained; ordinary FILE field encoding controls data, no record padding/alignment or dictionary rendering applied',
         guards='Busy reconfiguration, bounded names/capacities/handles/data and shrink checks; source registration and JSON context reject cross-bank PIP collisions, OPEN rejects ambiguity after host mutation',
         status='Portable 0 success, 2 invalid configuration/name, 3 busy or DAQ name collision, 5 configured capacity/count/shrink limit; FILE/reference errors raise before mutation',
         persistence='Configuration and bounded retained hex round-trip; live FILEs prevent save; no cursor/waiting process/native CMOS restored',
-        boundary='No ATR_PIPWAIT/snapshot attributes, blocking reads, native formatted pipe display, generic copy/list/delete routing or controller timing; strict deferred',
+        boundary='No native blocking/timing, formatted pipe display, generic copy/list/delete routing or controller byte/status equivalence; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation']=='PIPE_CONFIG'],
         guide='docs/communications.md',controller_validated=False)
     report['pc_exchange_policy']=dict(
@@ -4211,7 +4216,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/joint-interoperability.md',controller_validated=False)
     report['cooperative_policy'] = dict(
         enabled=report['cooperative_execution'],
-        generation='Automatic for PULSE, task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
+        generation='Automatic for FILE READ, PULSE, task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
         execution='Generator-based run/resume retains routine/FOR frames; optional deterministic TaskScheduler interleaves checkpoints with virtual time; terminal stop closes generators',
         handlers='Ordered checkpoint scans with optional WITH $SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
         timers='Global INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry and backward-clock checks',
@@ -4728,7 +4733,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         waiting='Cooperative budgeted waits, scheduler virtual clock or logical standalone sleeper completion; zero-time polling, positive timeout and explicit-input indefinite standalone guard',
         suspension='PUSH snapshots existing matching readers only; typed pane/root-owned POP token resumes those readers; new reads are not automatically suspended',
         controls='COMM/PROG or dictionary alphabet entry in USER/USER2 windows; bounded dictionary subwindow/pull-up choices and injected key navigation; no native soft-key/form manager',
-        files='READ_KB only; combined window WRITE/dictionary/SET_CURSOR forwarding, one-row clipped echo and ATR_NOECHO; ATR_PASSALL is intent metadata; no binary/XML, generic READ or byte queries',
+        files='READ_KB and typed line FILE READ; combined window WRITE/dictionary/SET_CURSOR forwarding, clipped echo and ATR_NOECHO; generic READ supports typed formats/CR, atomic multirecord responses and buffered suffixes; no binary/XML/PASSALL/custom-EOL generic transfer or byte queries',
         persistence='Persist only unconsumed events, finite IDs, logical time and terminal history; close all files, finish/stop active reads and POP frames before save; no input or executable-link replay',
         limits='4096 queued/processed events, 64 active requests/frames, 256 open handles, bounded history and finite IDs; cleanup remains possible after history exhaustion',
         boundary='Portable key/mask/attribute/status codes and timing; no native keyboard capture, glyphs, soft-key rendering, forms/tables, controller acceptance or strict-mode equivalence',
@@ -4744,6 +4749,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 sessions, 40 columns, 16384 cells, 32766 rows, 254 input characters and 4096 loop events',
         boundary='Portable table layouts/codes and logical repaint timing; FTX uses the separate form service; no native table header/help/soft-key syntax, styling, background display task, controller acceptance or strict equivalence',
         guide='docs/table-controls.md',controller_validated=False)
+    report['file_read_policy']=dict(
+        generation='Pythonic FILE READ enables cooperative generation; capture handle/targets/formats once before service waits',
+        dispatch='Injected KeyboardInput typed line reads, explicitly opted-in FilePipes waiting/snapshot reads, otherwise existing synchronous FILE backend semantics',
+        streaming='TextInput final=False raises TextInputIncomplete for missing bytes/terminators, including CR; complete invalid input fails immediately; final=True preserves ordinary parsing',
+        publication='Probe pending input without source writes; validate complete typed responses before target assignment and committed cursor advancement',
+        lifetime='Pause retains captured resources; stop/abort/failure unwind pending sessions; close FILEs before context save; no suspended stack or live input restoration',
+        guides=['docs/keyboard-file-read.md','docs/pipe-attributes.md'],controller_validated=False)
     report['file_listing_policy']=dict(
         calls=['FILE_LIST'],formats=[0,1,2,3,4],
         selection='Backend wildcard/device rules and sorted complete keys; nonnegative skip and one-dimensional STRING output capacity',
@@ -4778,7 +4790,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         estimates='GET_TIME from configured arrival clocks; PFRT approximates grouped eligible count times supplied speed times 60 divided by span, rounded with Python; missing geometry returns unavailable',
         discrepancy='VT_WRITE_PQ follows syntax/table model_id then enc_count; manual example reverses these arguments',
         persistence='Checked held parts, nullable result data, clocks, profiles/cursors, finite IDs and allocation receipts; no executable or pending request restoration',
-        boundary='Portable statuses and legacy forms; tray tags only, no tray-cell expansion, calibrated duplicates, historical flow region, encoder/frame transformation, physical flags, motion or native/controller/strict equivalence',
+        trays='Optional bounded supplied cell transforms/model overrides; atomic expanded insertion with distinct cell indexes and shared instance/origin, chosen sequence grouping, per-cell routing/allocation/forwarding and checked persistence; absent patterns retain tags',
+        boundary='Portable statuses and legacy forms; no calibrated tray/grid/Seq algorithms, calibrated duplicates, historical flow region, encoder/frame transformation, physical flags, motion or native/controller/strict equivalence',
         guide='docs/vt-queues.md',controller_validated=False)
     report['vision_tracking_policy']=dict(
         calls=sorted(set(VISION_TRACKING_PROCEDURES)|set(VISION_TRACKING_FUNCTIONS)),

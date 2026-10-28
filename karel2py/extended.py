@@ -1004,6 +1004,7 @@ class FileHandle:
         self.xml=False;self.xml_session=None
         self.interactive=False; self.reverse=False; self.field=False; self.eol=10
         self.passall=False;self.noecho=False
+        self.pipe_wait=None;self.pipe_overflow=None
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
     def tell(self,line=None): self.require_open(line); return self.position
@@ -2054,6 +2055,12 @@ class ExecutionContext:
                 elif attribute==6: handle.xml=True
                 elif attribute==7: handle.passall=True
                 elif attribute==8: handle.noecho=True
+                elif attribute==9:
+                    if args[2] not in (0,1): fail('ATR_PIPWAIT requires WAIT_USED or WAIT_NOTUSED',line)
+                    handle.pipe_wait=args[2]
+                elif attribute==10:
+                    if not -1<=args[2]<=64*1024*1024: fail('ATR_PIPOVADV requires OVF_EOF or a bounded byte count',line)
+                    handle.pipe_overflow=args[2]
                 else: fail('Unsupported portable file attribute',line)
                 return
             if name=='CLR_IO_STAT': handle.status=0; return
@@ -2061,6 +2068,12 @@ class ExecutionContext:
             if name=='SET_FILE_POS' and handle.xml: fail('Reopen XML FILE to reset its scanner',line)
             handle.require_open(line)
             if name=='GET_FILE_POS': return handle.position
+            if type(handle.owner) is rt.FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None) and name=='SET_FILE_POS':
+                args[-1].set(handle.owner.seek(handle,args[1],line),line);return
+            if type(handle.owner) is rt.FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None) and name in ('BYTES_LEFT','BYTES_AHEAD'):
+                available=handle.owner.bytes_ahead(handle,line)
+                if name=='BYTES_LEFT': return available
+                args[1].set(available,line);args[2].set(0,line);return
             length=len(handle.owner.files[handle.name])
             if name=='BYTES_LEFT': return length-handle.position
             if name=='BYTES_AHEAD': args[1].set(length-handle.position,line); args[2].set(0,line); return
