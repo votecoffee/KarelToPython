@@ -16,6 +16,78 @@ def check_name(name,line=None):
     return 0 if re.fullmatch(r'[A-Za-z0-9_]{1,36}',name) else 2
 
 
+def pipe_file_operation(state,operation,args,line=None):
+    """Route explicit plain PIP names; return False for the ordinary dispatch."""
+    positions={'COPY_FILE':(0,1),'DELETE_FILE':(0,),'RENAME_FILE':(0,1),'FILE_LIST':(0,)}
+    if operation not in positions:return False
+    names=[args[index] for index in positions[operation]]
+    selected=[type(name) is str and name.upper().startswith('PIP:') for name in names]
+    if not any(selected):return False
+    runtime=rt();context=state.execution
+    from .communications import pipe_name,message_address
+    from .storage import DirectoryFiles,atomic_bytes
+    from .devices import DeviceFiles
+    pipes=context.require('file_pipes',line)
+
+    def plain_pipe(name,*,listing=False):
+        keys=pipes.list_names(name) if listing else [pipe_name(name)]
+        if context.acquisition is not None and any(key in context.acquisition.files for key in keys):
+            raise runtime.KarelRuntimeError('Generic FILE operations do not route DAQ PIP names',line)
+        return pipes,name if listing else keys[0]
+
+    def endpoint(name,is_pipe):
+        if is_pipe:return plain_pipe(name)
+        if message_address(name):raise runtime.KarelRuntimeError('Generic FILE operations do not route socket names',line)
+        files=context.require('files',line)
+        if type(files) not in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles):
+            raise runtime.KarelRuntimeError('Pipe copies require an explicit ordinary file backend',line)
+        if type(files) is DirectoryFiles:return files,files._key(name)
+        if type(files) is DeviceFiles:return files,files.canonical(name)
+        return files,name
+
+    def publish(files,name,data,overwrite):
+        if files is pipes:return pipes.replace_named(name,data,overwrite)
+        if type(files) is DirectoryFiles:
+            path=files._path(name)
+            if files._busy(name):return 3
+            if path.exists() and not overwrite:return 2
+            if len(data)>files.limit:raise ValueError('Destination file size limit exceeded')
+            atomic_bytes(path,data);files.files[name]=bytearray(data);return 0
+        files._check(name,data)
+        if files._busy(name):return 3
+        if name in files.files and not overwrite:return 2
+        if type(files) is DeviceFiles:
+            row,added=files.reserve(name,len(data),len(files.files.get(name,b'')),line)
+        files.files[name]=bytearray(data)
+        if type(files) is DeviceFiles:row['garbage']+=added
+        return 0
+
+    try:
+        if operation=='FILE_LIST':
+            files,pattern=plain_pipe(args[0],listing=True)
+            code=list_files(state,files,[pattern,*args[1:]],line)
+        elif operation=='COPY_FILE':
+            source,source_name=endpoint(args[0],selected[0]);target,target_name=endpoint(args[1],selected[1])
+            overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
+            # Both endpoints must be closed, even if the source is missing.
+            if source._busy(source_name) or target._busy(target_name):code=3
+            else:
+                code,data=source.read_named(source_name)
+                if not code:
+                    for offset in range(0,len(data),4096):state.tick(line)
+                    code=publish(target,target_name,data,overwrite)
+        elif operation=='DELETE_FILE':
+            runtime.boolean(args[1],line);files,key=plain_pipe(args[0]);code=files.delete(key)
+        else:
+            runtime.boolean(args[2],line)
+            if not all(selected):code=2
+            else:
+                files,source=plain_pipe(args[0]);_,target=plain_pipe(args[1]);code=files.rename(source,target)
+    except (OSError,ValueError) as exc:
+        raise runtime.KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
+    args[-1].set(code,line);return True
+
+
 def list_files(state,files,args,line=None):
     """Prepare a complete FILE_LIST page before changing any output storage."""
     runtime=rt();pattern,skip,form,names,count,status=args

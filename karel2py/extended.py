@@ -1957,6 +1957,8 @@ class ExecutionContext:
             from .fileops import check_name
             args[1].set(check_name(args[0],line),line);return
         if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST','MOVE_FILE'):
+            from .fileops import pipe_file_operation
+            if pipe_file_operation(state,name,args,line):return
             files=self.require('files',line)
             try:
                 if name=='COPY_FILE': code=files.copy(args[0],args[1],args[2])
@@ -2240,7 +2242,7 @@ class ExecutionContext:
             if not isinstance(result[0],rt.Structure) or result[0].spec[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
                 fail('Forward adapter must return a complete pose',line)
             position=rt.convert_position(('POSITION',),result[0],line) if result[0].spec!=('POSITION',) else rt.frame_value(result[0],line)
-            config=rt.checked(('CONFIG',),result[1],line); external=[rt.real(v,line) for v in result[2]]
+            config=rt.positional_value(('CONFIG',),result[1],line); external=[rt.real(v,line) for v in result[2]]
             array=args[6].raw()
             if len(external)!=len(array.values): fail('Forward external axis result does not match output ARRAY',line)
             args[4].set(position,line); args[5].set(config,line)
@@ -2250,7 +2252,7 @@ class ExecutionContext:
                 if args[7].spec not in (('JOINTPOS',robot.model.axes),('JOINTPOS',9)): fail('Inverse output must match the model axes or JOINTPOS9',line)
                 values=rt.joint_values(result,robot.model.axes,line)
                 result=rt.JointPosition(args[7].spec);result.values[:]=values+[0.]*(len(result.values)-len(values))
-            result=rt.checked(args[7].spec,result,line); args[7].set(result,line)
+            result=rt.positional_value(args[7].spec,result,line); args[7].set(result,line)
         args[-1].set(0,line)
 
 

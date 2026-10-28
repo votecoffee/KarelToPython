@@ -1,5 +1,6 @@
 """Explicit offline socket messaging and circular PIP FILE backends."""
 import re
+import fnmatch
 import struct
 from .extended import MemoryFiles,fail
 
@@ -236,6 +237,49 @@ class FilePipes(MemoryFiles):
         data=data_bytes(data,self.limit)
         handle=rt().FileHandle();handle.name=key;handle.mode='A';handle.owner=self
         self.write(handle,data)
+
+    def read_named(self,name):
+        key=pipe_name(name)
+        if self._busy(key):return 3,None
+        if key not in self.pipes:return 1,None
+        return 0,bytes(self.files[key])
+
+    def replace_named(self,name,data,overwrite=False):
+        """Replace a configured closed pipe with one finite snapshot, without overflow."""
+        key=pipe_name(name)
+        if self._busy(key):return 3
+        if key not in self.pipes:return 1
+        if not overwrite:return 2
+        if len(data)>self.pipes[key]['sectors']*1024:return 4
+        self.files[key]=bytearray(data);return 0
+
+    def list_names(self,pattern='*'):
+        pattern=rt().ascii_string(pattern).upper()
+        if pattern.startswith('PIP:'):pattern=pattern[4:]
+        if pattern.startswith('/'):pattern=pattern[1:]
+        if (not pattern or len(pattern)>72 or '..' in pattern
+                or re.fullmatch(r'[A-Z0-9_.*?\-]+',pattern) is None):
+            raise ValueError('Pipe listing requires a plain basename pattern with star/question wildcards')
+        return sorted(key for key in self.pipes if fnmatch.fnmatchcase(key,'PIP:'+pattern))
+
+    def copy(self,source,target,overwrite=False):
+        source=pipe_name(source);target=pipe_name(target)
+        if self._busy(source) or self._busy(target):return 3
+        code,data=self.read_named(source)
+        return code or self.replace_named(target,data,overwrite)
+
+    def delete(self,name):
+        key=pipe_name(name)
+        if self._busy(key):return 3
+        if key not in self.pipes:return 1
+        del self.files[key];del self.pipes[key];return 0
+
+    def rename(self,source,target):
+        source=pipe_name(source);target=pipe_name(target)
+        if self._busy(source) or self._busy(target):return 3
+        if source not in self.pipes:return 1
+        if target in self.pipes:return 2
+        self.pipes[target]=self.pipes.pop(source);self.files[target]=self.files.pop(source);return 0
 
     def before_read(self,handle,line=None):
         handle.require_open(line)
