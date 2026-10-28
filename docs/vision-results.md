@@ -1,13 +1,14 @@
 # Supplied vision results
 
-Pythonic mode supports 41 vision calls through an explicit `VisionServices`
+Pythonic mode supports 53 vision calls through an explicit `VisionServices`
 service. The service consumes supplied completed runs and stores vision results,
 registers and parameter edits. It opens no camera or controller connection and
 performs no image processing. Generated programs use the same service through
 Python and the CLI. The ten [image/device calls](vision-image-services.md) add
 explicit rasters, image export, reader and view-line results, and logical devices.
 Twelve [legacy tracking calls](vision-tracking.md) add timed queues, allocation
-receipts, lookup/result forms, supplied point maps and a local outbox.
+receipts, lookup/result forms, supplied point maps and a local outbox. Twelve
+[VT queue calls](vt-queues.md) add allocation, PATH editing, routing and estimates.
 
 ```sh
 python -m karel2py examples/vision_results.kl -o vision_results.py
@@ -53,6 +54,15 @@ The manual's `V_CSAPI_NUMSET` parameter table labels `num_values` as input, whil
 its purpose/details describe a returned count. This implementation follows the
 purpose/details and requires a writable REAL output. The discrepancy remains
 recorded in the [semantic ledger](semantics/vision_result_semantics.json).
+
+## Optional camera and measurement data
+
+A supplied result can have an empty `views` mapping when only the workpiece
+pose is known. Sparse measurement lists accept JSON `null` for unknown entries.
+GET_FOUND and VT_GET_FOUND leave corresponding output elements unchanged;
+IRVU_VRGETMEAS returns unavailable for an unknown element. These explicit service
+inputs do not permit ordinary reads of uninitialized source storage. All-view
+result counts include workpieces with no camera observations.
 
 ## Supply completed runs
 

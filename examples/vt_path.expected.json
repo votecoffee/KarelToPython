@@ -1,0 +1,561 @@
+{
+  "STATUS": 0,
+  "INTERNAL_ID": 1,
+  "MODEL_NO": 11,
+  "ENCODER": {
+    "uninitialized": true
+  },
+  "FLOW_RATE": 6,
+  "I": {
+    "uninitialized": true
+  },
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "OFFSET": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "KEEP_POSE": {
+    "X": {
+      "uninitialized": true
+    },
+    "Y": {
+      "uninitialized": true
+    },
+    "Z": {
+      "uninitialized": true
+    },
+    "W": {
+      "uninitialized": true
+    },
+    "P": {
+      "uninitialized": true
+    },
+    "R": {
+      "uninitialized": true
+    },
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": {
+        "uninitialized": true
+      },
+      "CFG_TURN_NO2": {
+        "uninitialized": true
+      },
+      "CFG_TURN_NO3": {
+        "uninitialized": true
+      },
+      "CFG_FLIP": {
+        "uninitialized": true
+      },
+      "CFG_LEFT": {
+        "uninitialized": true
+      },
+      "CFG_UP": {
+        "uninitialized": true
+      },
+      "CFG_FRONT": {
+        "uninitialized": true
+      }
+    }
+  },
+  "POSITIONS": [
+    {
+      "X": {
+        "uninitialized": true
+      },
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      },
+      "W": {
+        "uninitialized": true
+      },
+      "P": {
+        "uninitialized": true
+      },
+      "R": {
+        "uninitialized": true
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO2": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO3": {
+          "uninitialized": true
+        },
+        "CFG_FLIP": {
+          "uninitialized": true
+        },
+        "CFG_LEFT": {
+          "uninitialized": true
+        },
+        "CFG_UP": {
+          "uninitialized": true
+        },
+        "CFG_FRONT": {
+          "uninitialized": true
+        }
+      }
+    },
+    {
+      "X": {
+        "uninitialized": true
+      },
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      },
+      "W": {
+        "uninitialized": true
+      },
+      "P": {
+        "uninitialized": true
+      },
+      "R": {
+        "uninitialized": true
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO2": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO3": {
+          "uninitialized": true
+        },
+        "CFG_FLIP": {
+          "uninitialized": true
+        },
+        "CFG_LEFT": {
+          "uninitialized": true
+        },
+        "CFG_UP": {
+          "uninitialized": true
+        },
+        "CFG_FRONT": {
+          "uninitialized": true
+        }
+      }
+    },
+    {
+      "X": {
+        "uninitialized": true
+      },
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      },
+      "W": {
+        "uninitialized": true
+      },
+      "P": {
+        "uninitialized": true
+      },
+      "R": {
+        "uninitialized": true
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO2": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO3": {
+          "uninitialized": true
+        },
+        "CFG_FLIP": {
+          "uninitialized": true
+        },
+        "CFG_LEFT": {
+          "uninitialized": true
+        },
+        "CFG_UP": {
+          "uninitialized": true
+        },
+        "CFG_FRONT": {
+          "uninitialized": true
+        }
+      }
+    },
+    {
+      "X": {
+        "uninitialized": true
+      },
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      },
+      "W": {
+        "uninitialized": true
+      },
+      "P": {
+        "uninitialized": true
+      },
+      "R": {
+        "uninitialized": true
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO2": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO3": {
+          "uninitialized": true
+        },
+        "CFG_FLIP": {
+          "uninitialized": true
+        },
+        "CFG_LEFT": {
+          "uninitialized": true
+        },
+        "CFG_UP": {
+          "uninitialized": true
+        },
+        "CFG_FRONT": {
+          "uninitialized": true
+        }
+      }
+    }
+  ],
+  "MEASURES": [
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    }
+  ],
+  "UPDATES": [
+    {
+      "uninitialized": true
+    },
+    2.5,
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    }
+  ],
+  "ENFLAGS": [
+    0,
+    6,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "DISFLAGS": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "RATES": [
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "Q": {
+    "nodes": [
+      {
+        "WORK_ID": 1,
+        "MODEL_ID": 11,
+        "TRAY_ID": {
+          "uninitialized": true
+        },
+        "ENC_COUNT": 100,
+        "OFFSET": {
+          "X": 1.0,
+          "Y": 2.0,
+          "Z": 3.0,
+          "W": 0.0,
+          "P": 0.0,
+          "R": 0.0
+        },
+        "FOUND_POS": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          },
+          "W": {
+            "uninitialized": true
+          },
+          "P": {
+            "uninitialized": true
+          },
+          "R": {
+            "uninitialized": true
+          }
+        },
+        "MEAS_VALUE": [
+          {
+            "uninitialized": true
+          },
+          2.5,
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      },
+      {
+        "WORK_ID": 2,
+        "MODEL_ID": 9,
+        "TRAY_ID": {
+          "uninitialized": true
+        },
+        "ENC_COUNT": 200,
+        "OFFSET": {
+          "X": 1.0,
+          "Y": 2.0,
+          "Z": 3.0,
+          "W": 0.0,
+          "P": 0.0,
+          "R": 0.0
+        },
+        "FOUND_POS": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          },
+          "W": {
+            "uninitialized": true
+          },
+          "P": {
+            "uninitialized": true
+          },
+          "R": {
+            "uninitialized": true
+          }
+        },
+        "MEAS_VALUE": [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      }
+    ],
+    "data": {
+      "AREA_ID": 1,
+      "NUM_PARTS": 1
+    }
+  }
+}

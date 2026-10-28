@@ -1,0 +1,219 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {
+      "1": {
+        "offset": {
+          "type": [
+            "XYZWPR"
+          ],
+          "value": {
+            "X": 5.0,
+            "Y": 2.0,
+            "Z": 3.0,
+            "W": 0.0,
+            "P": 0.0,
+            "R": 0.0,
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        },
+        "views": {
+          "2": {
+            "position": {
+              "type": [
+                "XYZWPR"
+              ],
+              "value": {
+                "X": 1.0,
+                "Y": 2.0,
+                "Z": 3.0,
+                "W": 0.0,
+                "P": 0.0,
+                "R": 0.0,
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            "model": 7
+          }
+        },
+        "frame": 3,
+        "model": 7,
+        "encoder": 100,
+        "measurements": [
+          1.25,
+          null,
+          3.75,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "comment": "",
+        "score": 0.0
+      }
+    },
+    "processes": {},
+    "overrides": {},
+    "limit": 500,
+    "sequence": 10,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "VT_FLOW",
+        "operation": "VT_PUT_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "VT_FLOW",
+        "operation": "VT_PUT_QUE2",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "VT_FLOW",
+        "operation": "VT_GET_TIME",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "VT_FLOW",
+        "operation": "VT_GET_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "VT_FLOW",
+        "operation": "V_ADJ_2D",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "VT_FLOW",
+        "operation": "VT_ACK_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 7,
+        "program": "VT_FLOW",
+        "operation": "VT_GET_QUEUE",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 8,
+        "program": "VT_FLOW",
+        "operation": "IRVU_VRGETOFFSET",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 9,
+        "program": "VT_FLOW",
+        "operation": "VT_ACK_QUEUE",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 10,
+        "program": "VT_FLOW",
+        "operation": "VT_CLR_QUEUE",
+        "target": "1",
+        "status": 0
+      }
+    ],
+    "tracking": {
+      "queues": {},
+      "allocations": {},
+      "triggers": {},
+      "processes": {},
+      "ids": {
+        "areas": {
+          "PICK": 1,
+          "NEXT": 2
+        },
+        "lines": {
+          "LINE": 1
+        },
+        "trays": {}
+      },
+      "sensors": {},
+      "latest": null,
+      "outbox": [],
+      "outbox_limit": 500,
+      "payload_limit": 1048576,
+      "include_images": false,
+      "vt": {
+        "lines": {
+          "1": {
+            "areas": [
+              1,
+              2
+            ],
+            "capacity": 8,
+            "flags": 0,
+            "direction": 1,
+            "speed": 100.0,
+            "sequence": 1,
+            "weights": {
+              "0": {
+                "pick": [
+                  1,
+                  1
+                ],
+                "pass": 0,
+                "cursor": 0
+              }
+            },
+            "parts": [],
+            "tray_edit": false
+          }
+        },
+        "areas": {
+          "1": {
+            "line": 1,
+            "flags": 0,
+            "elapsed_ms": 15,
+            "travel_ms": 15,
+            "span": 1000.0,
+            "frame": 2
+          },
+          "2": {
+            "line": 1,
+            "flags": 0,
+            "elapsed_ms": 0,
+            "travel_ms": 0,
+            "span": 1000.0,
+            "frame": 3
+          }
+        },
+        "allocations": {}
+      }
+    }
+  }
+}

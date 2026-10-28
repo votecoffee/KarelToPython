@@ -54,6 +54,21 @@ VISION_TRACKING_PROCEDURES={
 VISION_TRACKING_FUNCTIONS={name:((('i','STRING'),),('INTEGER',)) for name in ('VT_GET_AREID','VT_GET_LINID','VT_GET_TRYID')}
 VISION_PROCEDURES.update(VISION_TRACKING_PROCEDURES)
 VISION_FUNCTIONS.update(VISION_TRACKING_FUNCTIONS)
+VT_QUEUE_PROCEDURES={
+    'VT_PUT_QUEUE':(('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','XYZWPR'),('v','TRACKING_POSITIONS'),('v','TRACKING_MEASURES'),('o','INTEGER')),
+    'VT_PUT_QUE2':(('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','XYZWPR'),('v','TRACKING_POSITIONS'),('v','TRACKING_MEASURES'),('o','BOOLEAN'),('o','INTEGER')),
+    'VT_GET_QUEUE':(('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('v','INTEGER'),('v','INTEGER'),('o','INTEGER')),
+    'VT_ACK_QUEUE':(('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'VT_CLR_QUEUE':(('i','INTEGER'),('o','INTEGER')),
+    'VT_GET_TIME':(('i','INTEGER'),('i','INTEGER'),('v','INTEGER'),('v','INTEGER'),('o','INTEGER'),('o','INTEGER')),
+    'VT_GET_PFRT':(('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('v','INTEGER'),('o','INTEGER'),('o','INTEGER')),
+    'VT_READ_PQ':(('i','INTEGER'),('r','VT_QUEUE_PATH'),('o','INTEGER')),
+    'VT_WRITE_PQ':(('i','INTEGER'),('i','INTEGER'),('v','INTEGER'),('v','INTEGER'),('v','XYZWPR'),('v','XYZWPR'),('v','TRACKING_MEASURES'),('o','INTEGER')),
+    'VT_DELETE_PQ':(('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'VT_SET_FLAG':(('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('i','VT_INT32'),('i','VT_INT32'),('o','INTEGER')),
+    'VT_SET_LDBAL':(('i','INTEGER'),('i','INTEGER'),('i','VT_INT32'),('i','INTEGER'),('o','INTEGER')),
+}
+VISION_PROCEDURES.update(VT_QUEUE_PROCEDURES)
 VISION_CALLS=set(VISION_PROCEDURES)|set(VISION_FUNCTIONS)
 MAX_SEQUENCE=2147483646
 
@@ -109,12 +124,11 @@ def result(value):
     for key,row in mapping(value['views'],4).items():
         if type(key) is not str or key not in ('1','2','3','4') or type(row) is not dict or set(row)!={'position','model'}:raise ValueError('Vision result views require canonical 1..4, position and model')
         views[key]=dict(position=pose(row['position']),model=integer(row['model']))
-    if not views:raise ValueError('Vision result requires at least one supplied view')
     measurements=value.get('measurements',[])
     if type(measurements) is not list or len(measurements)>10:raise ValueError('At most ten supplied measurements')
     comment=value.get('comment','')
     if type(comment) is not str or len(comment)>254 or any(not 32<=ord(c)<=126 for c in comment):raise ValueError('Vision comment requires bounded printable ASCII')
-    return dict(offset=pose(value['offset']),views=views,frame=integer(value.get('frame',0)),model=integer(value.get('model',0)),encoder=integer(value.get('encoder',0),-2147483648),measurements=[real(v) for v in measurements],comment=comment,score=real(value.get('score',0)))
+    return dict(offset=pose(value['offset']),views=views,frame=integer(value.get('frame',0)),model=integer(value.get('model',0)),encoder=integer(value.get('encoder',0),-2147483648),measurements=[None if v is None else real(v) for v in measurements],comment=comment,score=real(value.get('score',0)))
 
 
 def encode_result(value):
@@ -228,6 +242,9 @@ class VisionServices:
         if self.tracking is not None:self.tracking.latest=process.upper()
 
     def invoke(self,state,operation,args,line=None):
+        if operation in VT_QUEUE_PROCEDURES:
+            if self.tracking is None or self.tracking.vt is None:raise rt().KarelRuntimeError('Operation requires explicit vision tracking vt configuration',line)
+            return self.tracking.vt.invoke(state,operation,args,line)
         if operation in VISION_TRACKING_PROCEDURES or operation in VISION_TRACKING_FUNCTIONS:
             from .vision_tracking import invoke_tracking
             return invoke_tracking(self,state,operation,args,line)
@@ -284,7 +301,7 @@ class VisionServices:
                     if operation=='V_GET_OFFSET':
                         number=args[1]
                         if not 1<=number<=self.count:code=2
-                        elif self.tracking is not None and self.tracking.register_busy(number):code=3
+                        elif self.tracking is not None and (self.tracking.register_busy(number) or self.tracking.register_allocated(number)):code=3
                         else:
                             detached=deepcopy(value)
                             def commit():
@@ -292,11 +309,11 @@ class VisionServices:
                                 if self.tracking is not None:self.tracking.invalidate(number)
                     else:
                         positions=rt().require(args[5].raw(),line);measurements=rt().require(args[6].raw(),line)
-                        if len(positions.values)<max(map(int,value['views'])) or len(measurements.values)<len(value['measurements']):code=3
+                        if len(positions.values)<max(map(int,value['views']),default=0) or len(measurements.values)<len(value['measurements']):code=3
                         else:
                             pairs=[(args[1],value['frame']),(args[2],value['model']),(args[3],value['encoder']),(args[4],value['offset'])]
                             pairs.extend((rt().index_reference(positions,int(view),line),row['position']) for view,row in value['views'].items())
-                            pairs.extend((rt().index_reference(measurements,i+1,line),v) for i,v in enumerate(value['measurements']))
+                            pairs.extend((rt().index_reference(measurements,i+1,line),v) for i,v in enumerate(value['measurements']) if v is not None)
                             def commit():process['cursor']+=1
             elif operation=='V_SET_REF':
                 if not active['results']:code=117151
@@ -315,7 +332,7 @@ class VisionServices:
                     selected=self.selection(process,args[2])
                     if args[1]!=0 or selected is None:code=2
                     else:
-                        value=float(sum(any(int(k) in selected for k in v['views']) for v in active['results']))
+                        value=float(sum((not v['views'] and args[2] in (-1,0)) or any(int(k) in selected for k in v['views']) for v in active['results']))
                         def commit():bank.write(number,value,line)
         else:
             code,value=self.register(target)
@@ -329,7 +346,7 @@ class VisionServices:
                 if not code and operation=='IRVU_VRGETMEAS':
                     index=args[1]
                     if not 1<=index<=10:code=2
-                    elif index>len(value['measurements']):code=1
+                    elif index>len(value['measurements']) or value['measurements'][index-1] is None:code=1
                     else:pairs=[(args[2],value['measurements'][index-1])]
                 elif not code and operation=='IRVU_VRGETOFFSET':pairs=[(args[1],value['offset']),(args[2],value['frame']),(args[3],value['comment'])]
                 elif not code and operation=='V_ADJ_2D':

@@ -1,0 +1,47 @@
+PROGRAM VT_PATH
+TYPE
+  coord_t=STRUCTURE x:REAL y:REAL z:REAL w:REAL p:REAL r:REAL ENDSTRUCTURE
+  part_t=STRUCTURE
+    work_id:INTEGER model_id:INTEGER tray_id:INTEGER enc_count:INTEGER
+    offset:coord_t found_pos:coord_t meas_value:ARRAY[10] OF REAL
+  ENDSTRUCTURE
+  header_t=STRUCTURE area_id:INTEGER num_parts:INTEGER ENDSTRUCTURE
+  queue_t=PATH NODEDATA=part_t,PATHHEADER=header_t
+VAR
+  status,internal_id,model_no,encoder,flow_rate,i:INTEGER
+  cfg:CONFIG
+  offset,keep_pose:XYZWPR
+  positions:ARRAY[4] OF XYZWPR
+  measures,updates:ARRAY[10] OF REAL
+  enflags,disflags,rates:ARRAY[32] OF INTEGER
+  q:queue_t
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  offset=POS(1,2,3,0,0,0,cfg)
+  VT_PUT_QUEUE(1,900,0,100,8,offset,positions,measures,status)
+  VT_PUT_QUEUE(1,901,0,200,9,offset,positions,measures,status)
+  APPEND_NODE(q,status)
+  APPEND_NODE(q,status)
+  VT_READ_PQ(1,q,status)
+  internal_id=q[1].work_id
+  model_no=11
+  updates[2]=2.5
+  -- Unknown encoder/poses/measurement entries preserve the existing values.
+  VT_WRITE_PQ(1,internal_id,model_no,encoder,keep_pose,keep_pose,updates,status)
+  VT_GET_PFRT(1,1,1,model_no,flow_rate,status)
+  VT_DELETE_PQ(1,q[2].work_id,status)
+  -- Fill the prefix only: the unused second PATH node is retained.
+  VT_READ_PQ(1,q,status)
+  FOR i=1 TO 32 DO
+    enflags[i]=0
+    disflags[i]=0
+    rates[i]=0
+  ENDFOR
+  rates[2]=1
+  VT_SET_LDBAL(1,0,rates,0,status)
+  enflags[2]=6
+  VT_SET_FLAG(1,1,0,enflags,disflags,status)
+  VT_PUT_QUEUE(1,902,0,300,10,offset,positions,measures,status)
+  VT_CLR_QUEUE(1,status)
+  VT_CLR_QUEUE(2,status)
+END VT_PATH

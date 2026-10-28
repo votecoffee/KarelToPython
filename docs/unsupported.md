@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 321 have a registered translation and 13 do not.
+Currently, 333 have a registered translation and one does not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -230,15 +230,18 @@ they are boundaries rather than promises to accept every such source form later.
   controller XML services, image processing and conveyor/vision tracking. KCL calls now use
   an [explicit scripted channel](kcl-commands.md), and three diagnostic calls use
   an [offline event/stack model](diagnostics.md). Neither executes native commands.
-  Forty-one [vision calls](vision-results.md) now consume supplied completed
+  Fifty-three [vision calls](vision-results.md) now consume supplied completed
   runs and retain registers/parameters. [Image/device services](vision-image-services.md)
   add supplied rasters, PNG/BMP export, reader/view-line output and logical
   camera/calibration/display/LED data. Live acquisition, calibration computation,
   image processing and undocumented save overloads remain open. Twelve
   [legacy tracking calls](vision-tracking.md) now add timed queues, receipts,
   VT result/lookup forms, supplied point maps and a portable local outbox.
-  Native tracking/motion, mobile delivery and the remaining VT allocation,
-  flow/time, PATH editing and load-balancing calls remain open.
+  Twelve [VT queue calls](vt-queues.md) add allocation/acknowledgement, partial
+  PATH editing, flags, weighted routing and explicit time/flow estimates. Native
+  tracking/motion, tray-cell expansion, historical calibrated flow regions,
+  native duplicate tolerances, automatic encoder/frame transformations and
+  mobile delivery remain unavailable.
 - The workbench currently validates/translates/reviews/exports. The planned Python
   runner, input-parameter editor, read-before-write discovery and combined
   input/result JSON are still [future work](roadmap.md).
@@ -266,21 +269,6 @@ This list is exhaustive for distinct built-in names in the audited inventory.
 An explicit user routine can use one of these names, but that does not implement
 the corresponding controller built-in. Names are grouped by purpose; grouping
 does not assert a particular installed option or environment.
-
-### Vision and tracking (12)
-
-- `VT_ACK_QUEUE`
-- `VT_CLR_QUEUE`
-- `VT_DELETE_PQ`
-- `VT_GET_PFRT`
-- `VT_GET_QUEUE`
-- `VT_GET_TIME`
-- `VT_PUT_QUE2`
-- `VT_PUT_QUEUE`
-- `VT_READ_PQ`
-- `VT_SET_FLAG`
-- `VT_SET_LDBAL`
-- `VT_WRITE_PQ`
 
 ### Native program translation (1)
 

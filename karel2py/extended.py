@@ -25,12 +25,13 @@ def fail(message, line=None): raise runtime().KarelRuntimeError(message,line)
 # mode: i=value input, o=output reference, r=mutable resource/reference,
 # m=INTEGER mask output reference or literal zero to discard.
 # ERROR_CURSOR also accepts literal MAXINT to select newest without cursor output.
+# v=read-only typed snapshot retaining explicitly supported uninitialized inputs.
 def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
 COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN','ACT_TBL','DISCTRL_TBL','DISCTRL_FORM'))
-COOPERATIVE_PROCEDURES.update(('RESET','MIXBG_RUN','MIXBG_STOP','V_GET_QUEUE'))
+COOPERATIVE_PROCEDURES.update(('RESET','MIXBG_RUN','MIXBG_STOP','V_GET_QUEUE','VT_GET_QUEUE'))
 COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS'))
 DYNAMIC_VARIABLE_WRITES={'MIXBG_RUN','MIXBG_STOP','DISCTRL_FORM','ACT_TBL','DISCTRL_TBL','SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
@@ -259,6 +260,10 @@ def matches(spec, kind):
         if spec[0]!='ARRAY' or len(rt.array_dimensions(spec))!=1 or rt.array_leaf_spec(spec)!=('BYTE',):return False
         size=rt.array_dimensions(spec)[0]
         return size is None or type(size) is int and 1<=size<=244
+    if kind=='VT_QUEUE_PATH':
+        from .vt_queues import queue_schema
+        return queue_schema(spec)
+    if kind=='VT_INT32':return spec[0]=='ARRAY' and rt.array_dimensions(spec)==(32,) and rt.array_leaf_spec(spec)==('INTEGER',)
     if kind in ('VIEW_LINES','POINT_PATH'): return vision_path_schema(spec,kind)
     if kind=='ERROR_CURSOR': return spec==('INTEGER',)
     if kind=='DICT_ELEMENT': return spec[0] in ('INTEGER','STRING')
@@ -291,6 +296,9 @@ def outputs_checked(signature, arguments, line=None):
         if kind=='TABLE_ACTION' and type(value) is int:continue
         if kind=='ERROR_CURSOR' and type(value) is int and value==2147483647: continue
         if mode=='m' and type(value) is int and value==0: continue
+        if mode=='v':
+            if type(value) is not VariableValue or not matches(value.spec,kind):fail('Service nullable input requires an exact typed snapshot',line)
+            continue
         if mode=='s':
             if not isinstance(value,rt.Reference) or not matches(value.spec,kind):fail('Service static input requires an exact typed reference',line)
             continue

@@ -202,4 +202,11 @@ retaining native acquisition, image processing and undocumented save overloads.
 The [vision tracking ledger](vision_tracking_semantics.json) adds twelve legacy
 queue, lookup/result, supplied-map and outbox calls. It supersedes older blanket
 legacy-queue/map exclusions while retaining native motion, delivery and remaining
-VT allocation/flow/PATH/load-balancing boundaries.
+native/strict behavior boundaries recorded at that milestone.
+
+The [VT queue ledger](vt_queue_semantics.json) adds twelve line-pool, allocation,
+acknowledgement, PATH editing, time/flow and weighted-routing calls. It supersedes
+older blanket exclusions of these calls. Nullable typed inputs are scoped to
+these documented forms; ordinary initialization guards remain. Tray tags,
+configured logical arrival times and approximate flow rates do not establish
+native tray-cell expansion, calibrated conveyor geometry or physical effects.

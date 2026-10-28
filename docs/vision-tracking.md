@@ -159,5 +159,7 @@ Portable statuses are 0 completed, 1 unavailable, 2 invalid/unconfigured,
 3 busy, 4 capacity, 5 duplicate work ID and 6 missing/stale allocation. Supplied
 map/completion failure codes pass through. None of these choices establishes
 native alarms, scheduling, calibrated conveyor geometry, motion or strict
-controller equivalence. The remaining VT allocation/acknowledgement, PATH queue
-editing, flow/time estimates, tray and load-balancing calls remain open.
+controller equivalence. Twelve additional [VT line queue calls](vt-queues.md)
+now model allocation/acknowledgement, partial PATH editing, time/flow estimates
+and weighted routing. Tray-cell expansion, calibrated conveyor geometry and
+native duplicate/flow algorithms remain unavailable.

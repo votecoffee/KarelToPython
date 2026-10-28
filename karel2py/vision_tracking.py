@@ -37,8 +37,9 @@ def json_size(value):return len(json.dumps(value,allow_nan=False,separators=(','
 
 class VisionTracking:
     def __init__(self,config,owner):
-        allowed={'queues','allocations','triggers','processes','ids','sensors','latest','outbox','outbox_limit','payload_limit','include_images'}
+        allowed={'queues','allocations','triggers','processes','ids','sensors','latest','outbox','outbox_limit','payload_limit','include_images','vt'}
         if type(config) is not dict or set(config)-allowed:raise ValueError('Unknown vision tracking configuration fields')
+        self.vt=None
         self.owner=owner;self.queues={};self.allocations={};self.triggers={};self.pending={};self.ids={};self.sensors={};self.outbox=[]
         total=0
         for key,row in mapping(config.get('queues',{})).items():
@@ -115,13 +116,19 @@ class VisionTracking:
             if total>16*1024*1024:raise ValueError('Vision outbox exceeds 16 MiB')
             self.outbox.append(packet)
 
+        if config.get('vt') is not None:
+            from .vt_queues import VTQueues
+            self.vt=VTQueues(config['vt'],self)
+
     def work_ids(self,number):
         queue=self.queues[number]
         return {v['work_id'] for v in queue['parts']}|{v['part']['work_id'] for v in queue['arrivals']}|{v['work_id'] for v in self.allocations.values() if v['queue']==number}
 
     def invalidate(self,vr):self.allocations.pop(vr,None);self.triggers.pop(vr,None)
 
-    def register_busy(self,vr):return any(row['register']==vr for row in self.pending.values())
+    def register_busy(self,vr):return any(row['register']==vr for row in self.pending.values()) or self.vt is not None and self.vt.register_busy(vr)
+
+    def register_allocated(self,vr):return self.vt is not None and vr in self.vt.allocations
 
     def packet(self,row,previous=0):
         if type(row) is not dict or set(row)!={'sequence','program','description','priority','process','result','images'}:raise ValueError('Malformed portable vision outbox packet')
@@ -160,7 +167,7 @@ class VisionTracking:
     def get(self,state,args,line):
         number,vr,timeout,status=args;owner=self.owner
         if owner.sequence>=MAX_SEQUENCE:raise rt().KarelRuntimeError('Vision request sequence exhausted',line)
-        queue=self.queues.get(number);code=2 if queue is None or not 1<=vr<=owner.count or timeout>86400000 else 3 if number in self.pending or self.register_busy(vr) else 0
+        queue=self.queues.get(number);code=2 if queue is None or not 1<=vr<=owner.count or timeout>86400000 else 3 if number in self.pending or self.register_busy(vr) or self.register_allocated(vr) else 0
         if not code and timeout>=0 and queue['elapsed_ms']+timeout>MAX_SEQUENCE:raise rt().KarelRuntimeError('Tracking queue clock exhausted',line)
         row=owner.begin(state,'V_GET_QUEUE',number)
         if code:row['status']=code;status.set(code,line);return
@@ -186,7 +193,9 @@ class VisionTracking:
     def to_config(self):
         if self.pending:raise ValueError('Finish or stop pending tracking queue reads before saving context')
         queues={str(k):dict(capacity=v['capacity'],parts=[encode_part(p) for p in v['parts']],arrivals=[dict(at_ms=p['at_ms'],part=encode_part(p['part'])) for p in v['arrivals']],elapsed_ms=v['elapsed_ms']) for k,v in sorted(self.queues.items())}
-        return dict(queues=queues,allocations={str(k):v.copy() for k,v in sorted(self.allocations.items())},triggers={str(k):v.copy() for k,v in sorted(self.triggers.items())},processes=deepcopy(self.processes),ids=deepcopy(self.ids),sensors=deepcopy(self.sensors),latest=self.latest,outbox=deepcopy(self.outbox),outbox_limit=self.outbox_limit,payload_limit=self.payload_limit,include_images=self.include_images)
+        answer=dict(queues=queues,allocations={str(k):v.copy() for k,v in sorted(self.allocations.items())},triggers={str(k):v.copy() for k,v in sorted(self.triggers.items())},processes=deepcopy(self.processes),ids=deepcopy(self.ids),sensors=deepcopy(self.sensors),latest=self.latest,outbox=deepcopy(self.outbox),outbox_limit=self.outbox_limit,payload_limit=self.payload_limit,include_images=self.include_images)
+        if self.vt is not None:answer['vt']=self.vt.to_config()
+        return answer
 
 
 def get_found(owner,state,args,line):
@@ -201,7 +210,7 @@ def get_found(owner,state,args,line):
         value=active['results'][cursor];positions=points.raw();measurements=measures.raw()
         pairs=[(model,value['model']),(encoder,value['encoder']),(offset,value['offset'])]
         pairs.extend((rt().index_reference(positions,int(view),line),row['position']) for view,row in value['views'].items())
-        pairs.extend((rt().index_reference(measurements,index+1,line),v) for index,v in enumerate(value['measurements']))
+        pairs.extend((rt().index_reference(measurements,index+1,line),v) for index,v in enumerate(value['measurements']) if v is not None)
     staged=[(ref,rt().checked(ref.spec,value,line)) for ref,value in pairs]
     row=owner.begin(state,'VT_GET_FOUND',target);row['status']=code
     for ref,value in staged:ref.set(value,line)

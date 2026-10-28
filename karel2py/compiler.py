@@ -2201,13 +2201,13 @@ class Emitter:
                 if self.is_config_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG fields cannot be output aliases',value.token)
                 code,spec=self.reference(value)
             else:
-                variable_input=(expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
+                variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
                 reference_input=variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
                 if reference_input: code,spec=self.reference(discarded)
                 else: code,spec=self.expression(value)
                 if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
                 if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
-                if kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
+                if mode!='v' and kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
                 if reference_input: code=f'_rt.variable_reference({code},{value.token.line})'
                 elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line})'
                 elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.assignment_value({code},{value.token.line})'
@@ -4683,7 +4683,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 sessions, 256 logical rows/data/selectable items, 254 edit characters, 35 enum choices, 10 function labels, 48 help lines and 4096 key-loop events',
         boundary='Portable single-window layout, key/status codes and repaint timing; no nested/concatenated .tree fragments, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
         guide='docs/forms.md',controller_validated=False)
-    from .vision import VISION_IO_PROCEDURES,VISION_TRACKING_PROCEDURES,VISION_TRACKING_FUNCTIONS
+    from .vision import VISION_IO_PROCEDURES,VISION_TRACKING_PROCEDURES,VISION_TRACKING_FUNCTIONS,VT_QUEUE_PROCEDURES
+    report['vt_queue_policy']=dict(
+        calls=sorted(VT_QUEUE_PROCEDURES),service='Explicit vision.tracking.vt ordered lines, areas, speed/span and supplied poses; no conveyor acquisition',
+        queues='Shared bounded line pool, separate caller work IDs and internal PATH indexes; duplicate identity/detection tuple, deterministic weighted routing and per-area passed state',
+        selectors='Typed readonly snapshots: unknown INTEGER selector means unspecified, initialized zero selects zero; unknown pose/measurement entries retain or omit data only in declared optional inputs',
+        allocation='Area-filtered copy to vision register with once-only receipt; ACK 1/3 discards, ACK 2 forwards current adjusted result downstream; outstanding allocations block register replacement',
+        waiting='Independent finite area clocks, explicit travel_ms arrivals, at most 10 ms cooperative steps, inclusive deadline and 117249 timeout; pause/resume retains ownership, interruption releases and pending saves fail',
+        path='Exact structural schema; fill existing nodes only, prefix count/header and partial unknown fields, preserve unused nodes; edit/delete use internal indexes and require disabled load balancing and explicit tray editing',
+        routing='32-slot masks/weights by ordered area, model fallback 0, weighted round robin with bypass and downstream-first option; consecutive greater than one ignores load-balancing target',
+        estimates='GET_TIME from configured arrival clocks; PFRT approximates grouped eligible count times supplied speed times 60 divided by span, rounded with Python; missing geometry returns unavailable',
+        discrepancy='VT_WRITE_PQ follows syntax/table model_id then enc_count; manual example reverses these arguments',
+        persistence='Checked held parts, nullable result data, clocks, profiles/cursors, finite IDs and allocation receipts; no executable or pending request restoration',
+        boundary='Portable statuses and legacy forms; tray tags only, no tray-cell expansion, calibrated duplicates, historical flow region, encoder/frame transformation, physical flags, motion or native/controller/strict equivalence',
+        guide='docs/vt-queues.md',controller_validated=False)
     report['vision_tracking_policy']=dict(
         calls=sorted(set(VISION_TRACKING_PROCEDURES)|set(VISION_TRACKING_FUNCTIONS)),
         service='Explicit vision.tracking data; VT_GET_FOUND also accepts the core supplied result stream without a tracking manager',

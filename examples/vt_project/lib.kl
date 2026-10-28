@@ -1,0 +1,13 @@
+PROGRAM LIB
+VAR latest:REAL
+ROUTINE take_part(value:REAL; code:INTEGER)
+VAR model_no,work_id,frame_no:INTEGER pose:XYZWPR note:STRING[40]
+BEGIN
+  VT_GET_QUEUE(1,1,20,1,model_no,work_id,code)
+  code=IRVU_VRGETOFFSET(1,pose,frame_no,note)
+  value=pose.x
+  latest=value
+  VT_ACK_QUEUE(1,1,1,code)
+END take_part
+BEGIN
+END LIB

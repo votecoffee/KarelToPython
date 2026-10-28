@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1028.175803 - 2026-10-28
+
+- Add twelve VT queue calls over explicit ordered lines/areas: put, duplicate
+  detection, get/acknowledge, clear, time/flow estimates, PATH read/write/delete,
+  flags and deterministic weighted routing with per-model profiles and bypass.
+- Preserve distinct caller work IDs and internal PATH indexes; copy adjusted
+  results downstream, reserve allocated registers, support cooperative waits
+  and release pending ownership on stop/abort/budget failure.
+- Capture typed nullable selectors and sparse input arrays only for declared
+  optional parameters. Preserve unknown fields and preallocated PATH tails;
+  retain generic initialization, alias and active-FOR guards.
+- Persist checked clocks, profiles, nullable results and receipts; reject active
+  saves. Document portable statuses, tray/geometry/flow limits and the manual's
+  conflicting WRITE_PQ example argument order.
+- Add 60 regressions, two CLI examples and a linked VT project. Refresh README
+  and support audit: 333 registered inventory names, one unregistered native
+  TRANSLATE call; registration does not imply every native form or behavior.
+
 ## 26.1028.172050 - 2026-10-28
 
 - Add twelve legacy vision/tracking calls: cooperative queue get/init/reallocate,

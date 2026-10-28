@@ -1,0 +1,72 @@
+{
+  "version": "26.1028.175803",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "A.22.34-A.22.36 VT_ACK_QUEUE/CLR_QUEUE/DELETE_PQ",
+        "A.22.40-A.22.42 VT_GET_PFRT/QUEUE/TIME",
+        "A.22.44-A.22.49 VT_PUT_QUEUE/PUT_QUE2/READ_PQ/SET_FLAG/SET_LDBAL/WRITE_PQ"
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../vt-queues.md",
+    "calls": [
+      "VT_ACK_QUEUE",
+      "VT_CLR_QUEUE",
+      "VT_DELETE_PQ",
+      "VT_GET_PFRT",
+      "VT_GET_QUEUE",
+      "VT_GET_TIME",
+      "VT_PUT_QUE2",
+      "VT_PUT_QUEUE",
+      "VT_READ_PQ",
+      "VT_SET_FLAG",
+      "VT_SET_LDBAL",
+      "VT_WRITE_PQ"
+    ],
+    "queue": "Shared bounded line pool, distinct caller/internal IDs, per-area availability/passed state and allocation receipts",
+    "lifetime": "Cooperative bounded waits, finite independent clocks, reserved registers, interruption cleanup and pending-save rejection",
+    "inputs": "Typed readonly nullable inputs only for declared forms, exact array shapes and partial-measurement preservation",
+    "path": "Existing-node prefix updates, exact structural schema and partial fields; internal-index edit/delete with allocation/load/tray guards",
+    "routing": "Ordered areas, explicit masks, model-specific weighted round robin and bypass, skip and consecutive override",
+    "persistence": "Checked data, logical clocks, IDs, profiles/cursors and receipts; no executable/pending request restoration"
+  },
+  "choices": [
+    {
+      "call": "VT_WRITE_PQ",
+      "choice": "Follow syntax/table model then encoder; reference example reverses them"
+    },
+    {
+      "call": "VT_PUT_QUE2",
+      "choice": "Exact caller-ID or encoder/model/six-coordinate tuple duplicate rule; configured trays rejected"
+    },
+    {
+      "call": "VT_GET_TIME",
+      "choice": "Independent logical area clocks and explicitly supplied travel_ms; negative at least -1 for available"
+    },
+    {
+      "call": "VT_GET_PFRT",
+      "choice": "Approximate grouped eligible count times supplied speed times 60 divided by span, Python rounding; no historical calibrated region"
+    },
+    {
+      "call": "VT_SET_FLAG",
+      "choice": "Physical conveyor/DO flags retained as intent metadata only"
+    }
+  ],
+  "boundaries": [
+    "Legacy native forms vary by controller release",
+    "Tray tags only; no cell expansion or native consecutive tray sequence",
+    "No encoder acquisition, calibrated duplicate/flow processing, automatic frame transform or physical effects",
+    "Portable statuses/rounding/timing; no native ABI, controller or strict equivalence"
+  ],
+  "validation": [
+    "tests/test_vt_queues.py",
+    "examples/vt_flow.kl",
+    "examples/vt_path.kl",
+    "examples/vt_project"
+  ]
+}

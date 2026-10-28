@@ -1,0 +1,232 @@
+{
+  "STATUS": 0,
+  "MODEL_NO": {
+    "uninitialized": true
+  },
+  "WORK_ID": {
+    "uninitialized": true
+  },
+  "WAIT_MS": 15,
+  "FRAME_NO": 3,
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "OFFSET": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "RESULT_POSE": {
+    "X": 5.0,
+    "Y": 2.0,
+    "Z": 3.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "POSITIONS": [
+    {
+      "X": {
+        "uninitialized": true
+      },
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      },
+      "W": {
+        "uninitialized": true
+      },
+      "P": {
+        "uninitialized": true
+      },
+      "R": {
+        "uninitialized": true
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO2": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO3": {
+          "uninitialized": true
+        },
+        "CFG_FLIP": {
+          "uninitialized": true
+        },
+        "CFG_LEFT": {
+          "uninitialized": true
+        },
+        "CFG_UP": {
+          "uninitialized": true
+        },
+        "CFG_FRONT": {
+          "uninitialized": true
+        }
+      }
+    },
+    {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": 3.0,
+      "W": 0.0,
+      "P": 0.0,
+      "R": 0.0,
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      }
+    },
+    {
+      "X": {
+        "uninitialized": true
+      },
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      },
+      "W": {
+        "uninitialized": true
+      },
+      "P": {
+        "uninitialized": true
+      },
+      "R": {
+        "uninitialized": true
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO2": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO3": {
+          "uninitialized": true
+        },
+        "CFG_FLIP": {
+          "uninitialized": true
+        },
+        "CFG_LEFT": {
+          "uninitialized": true
+        },
+        "CFG_UP": {
+          "uninitialized": true
+        },
+        "CFG_FRONT": {
+          "uninitialized": true
+        }
+      }
+    },
+    {
+      "X": {
+        "uninitialized": true
+      },
+      "Y": {
+        "uninitialized": true
+      },
+      "Z": {
+        "uninitialized": true
+      },
+      "W": {
+        "uninitialized": true
+      },
+      "P": {
+        "uninitialized": true
+      },
+      "R": {
+        "uninitialized": true
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO2": {
+          "uninitialized": true
+        },
+        "CFG_TURN_NO3": {
+          "uninitialized": true
+        },
+        "CFG_FLIP": {
+          "uninitialized": true
+        },
+        "CFG_LEFT": {
+          "uninitialized": true
+        },
+        "CFG_UP": {
+          "uninitialized": true
+        },
+        "CFG_FRONT": {
+          "uninitialized": true
+        }
+      }
+    }
+  ],
+  "MEASURES": [
+    1.25,
+    {
+      "uninitialized": true
+    },
+    3.75,
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    },
+    {
+      "uninitialized": true
+    }
+  ],
+  "DUPLICATE": true,
+  "NOTE": ""
+}

@@ -1,0 +1,164 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {},
+    "overrides": {},
+    "limit": 500,
+    "sequence": 12,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "VT_PATH",
+        "operation": "VT_PUT_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "VT_PATH",
+        "operation": "VT_PUT_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "VT_PATH",
+        "operation": "VT_READ_PQ",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "VT_PATH",
+        "operation": "VT_WRITE_PQ",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "VT_PATH",
+        "operation": "VT_GET_PFRT",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "VT_PATH",
+        "operation": "VT_DELETE_PQ",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 7,
+        "program": "VT_PATH",
+        "operation": "VT_READ_PQ",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 8,
+        "program": "VT_PATH",
+        "operation": "VT_SET_LDBAL",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 9,
+        "program": "VT_PATH",
+        "operation": "VT_SET_FLAG",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 10,
+        "program": "VT_PATH",
+        "operation": "VT_PUT_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 11,
+        "program": "VT_PATH",
+        "operation": "VT_CLR_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 12,
+        "program": "VT_PATH",
+        "operation": "VT_CLR_QUEUE",
+        "target": "2",
+        "status": 0
+      }
+    ],
+    "tracking": {
+      "queues": {},
+      "allocations": {},
+      "triggers": {},
+      "processes": {},
+      "ids": {
+        "areas": {
+          "PICK": 1,
+          "NEXT": 2
+        },
+        "lines": {
+          "LINE": 1
+        },
+        "trays": {}
+      },
+      "sensors": {},
+      "latest": null,
+      "outbox": [],
+      "outbox_limit": 500,
+      "payload_limit": 1048576,
+      "include_images": false,
+      "vt": {
+        "lines": {
+          "1": {
+            "areas": [
+              1,
+              2
+            ],
+            "capacity": 8,
+            "flags": 1,
+            "direction": 1,
+            "speed": 100.0,
+            "sequence": 3,
+            "weights": {
+              "0": {
+                "pick": [
+                  0,
+                  1
+                ],
+                "pass": 0,
+                "cursor": 0
+              }
+            },
+            "parts": [],
+            "tray_edit": false
+          }
+        },
+        "areas": {
+          "1": {
+            "line": 1,
+            "flags": 0,
+            "elapsed_ms": 0,
+            "travel_ms": 15,
+            "span": 1000.0,
+            "frame": 2
+          },
+          "2": {
+            "line": 1,
+            "flags": 6,
+            "elapsed_ms": 0,
+            "travel_ms": 0,
+            "span": 1000.0,
+            "frame": 3
+          }
+        },
+        "allocations": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR status:INTEGER value:REAL cfg:CONFIG offset:XYZWPR
+  positions:ARRAY[4] OF XYZWPR measures:ARRAY[10] OF REAL
+ROUTINE take_part(value:REAL; code:INTEGER) FROM LIB
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  offset=POS(6,0,0,0,0,0,cfg)
+  VT_PUT_QUEUE(1,0,0,100,8,offset,positions,measures,status)
+  take_part(value,status)
+END MAIN

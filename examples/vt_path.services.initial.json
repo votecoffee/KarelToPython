@@ -1,0 +1,40 @@
+{
+  "vision": {
+    "tracking": {
+      "ids": {
+        "areas": {
+          "PICK": 1,
+          "NEXT": 2
+        },
+        "lines": {
+          "LINE": 1
+        }
+      },
+      "vt": {
+        "lines": {
+          "1": {
+            "areas": [
+              1,
+              2
+            ],
+            "capacity": 8,
+            "speed": 100
+          }
+        },
+        "areas": {
+          "1": {
+            "line": 1,
+            "travel_ms": 15,
+            "span": 1000,
+            "frame": 2
+          },
+          "2": {
+            "line": 1,
+            "span": 1000,
+            "frame": 3
+          }
+        }
+      }
+    }
+  }
+}
