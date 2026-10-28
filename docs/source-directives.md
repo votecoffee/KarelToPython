@@ -126,7 +126,9 @@ omitted-file WRITE observations. WRITE callbacks still receive only text. Explic
 FILE operations keep their backend behavior and receive no device labels. There
 is no native keyboard/window routing, discovery or implicit file/device access.
 
-Storage, LOCKGROUP, periodic DELAY and STACKSIZE settings are metadata only.
+Storage, periodic DELAY and STACKSIZE settings are metadata only. LOCKGROUP and
+NOLOCKGROUP can opt into [root-only logical acquisition](directive-group-locks.md)
+with an explicitly configured GroupLocks bank; the default remains metadata only.
 They do not allocate CMOS/SHADOW, acquire motion control, sleep periodically or
 allocate a native stack. TSK_STACK still reports active offline frames. Existing
 values survive reruns; UNINITVARS does not clear assigned/restored values. JSON
@@ -150,7 +152,7 @@ are explicit implementation choices.
 The seven task directives require placement before declarations and reject
 duplicates. They configure the portable policies in the task attribute guide;
 they do not load native task/group ownership or native scheduler behavior.
-Native persistence/storage, group locks, periodic scheduling, stack allocation
+Native persistence/storage, group locks and callee acquisition, periodic scheduling, stack allocation
 and actual device routing remain unavailable. [Source includes](includes.md)
 now expand explicitly supplied text before parsing. Unknown directives stay
 blocked; there is no native environment loading or controller validation.

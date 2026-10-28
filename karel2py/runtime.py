@@ -2308,6 +2308,7 @@ class State:
         self._handlers.clear(); self._timers.clear()
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
         if self.execution.diagnostics is not None:self.execution.diagnostics.begin(self)
+        if _pythonic() and self.execution.group_locks is not None:self.execution.group_locks.begin(self)
 
     def finish_teach_programs(self):
         if self._budget_parent is None and self.execution.diagnostics is not None:self.execution.diagnostics.finish(self)
@@ -2680,3 +2681,4 @@ from .table_controls import TableControls,TABLE_CONSTANTS,TABLE_CALLS
 from .forms import FormControls,FORM_CALLS
 from .controller import ControllerServices,CONTROLLER_CALLS
 from .vision import VisionServices,VISION_CALLS
+from .source_translations import SourceTranslations

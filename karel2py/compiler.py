@@ -4062,14 +4062,33 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/program-calls.md',controller_validated=False)
     report['group_lock_policy']=dict(
         procedures=['LOCK_GROUP','UNLOCK_GROUP'],
-        context='Explicit GroupLocks with distinct configured groups in 1..31 and optional idle/executing/stopped motion labels; bit n-1 selects group n, zero is a no-op; no source directive or robot-context inference',
+        context='Explicit GroupLocks with distinct configured groups in 1..31 and optional idle/executing/stopped motion labels; bit n-1 selects group n, zero is a no-op; no robot-context or hardware inference',
+        directives='Opt-in apply_directives acquires the root LOCKGROUP selection atomically before body effects; NOLOCKGROUP selects none, absent selection requests every configured group; default false preserves metadata-only behavior',
         ownership='Stable calling root identity, including nested programs, linked routines and task renames; repeated locks are idempotent; contention partially acquires available selected groups',
         release='Unlock releases owned idle groups while preserving foreign/busy groups; pause retains locks, terminal completion/stop/abort/failure releases all root ownership even with supplied busy labels',
         status='Portable 0 success, 1 invalid/unconfigured mask, 2 foreign owner, 17039 executing label, 17040 stopped label; partial-operation status is the first blocked group in ascending order',
-        persistence='Configured groups/motion labels only; live ownership prevents JSON save; task identities and native locks are never restored',
-        boundary='No robot/motion effects, automatic directive locks, lock waits, servo/controller ownership or native scheduling/status equivalence',
+        persistence='Configured groups/motion labels and true apply_directives flag only; live ownership prevents JSON save; task identities and native locks are never restored',
+        boundary='Root directive acquisition only; nested program/routine directives do not acquire or release additional groups; no robot/motion effects, native lock waits, servo/controller ownership or scheduling/status equivalence',
         calls=[row for row in report['service_operations'] if row['operation'] in ('LOCK_GROUP','UNLOCK_GROUP')],
         guide='docs/group-locks.md',controller_validated=False)
+    report['stored_source_translation_policy']=dict(
+        procedure='TRANSLATE',context='Explicit opt-in SourceTranslations and ordinary MemoryFiles, DirectoryFiles or DeviceFiles; absent/disabled compiler service returns 268',
+        inputs='Force .KL suffix, unique case-insensitive bounded relative lookup; explicit captured include texts and array_shapes only; no filesystem include discovery',
+        products='Generate sibling .py and optional .LS; preserve source; explicit overwrite flag, byte limits, combined quota/alias/busy preflight and bounded history with artifact hashes',
+        publication='Preflight every product, publish listing first and atomically replace Python last; host failure or abort after listing can retain that listing without publishing Python',
+        status='Portable 0 accepted, -1 rejected source, 268 unavailable, 35084 file/product failure; budget/abort failures propagate with no success claim',
+        boundary='No native PC generation, binary compilation, implicit loading, attachment or execution; synchronous offline operation, not native translation timing or controller equivalence; strict deferred',
+        calls=[row for row in report['service_operations'] if row['operation']=='TRANSLATE'],
+        guide='docs/source-translations.md',controller_validated=False)
+    report['wildcard_file_policy']=dict(
+        procedures=['COPY_FILE','DELETE_FILE'],backends=['MemoryFiles','DirectoryFiles','DeviceFiles'],
+        selection='Case-insensitive star patterns in final basename only, nonrecursive sorted explicit-file batches; no wildcard RENAME_FILE or PIP/socket/DAQ routing',
+        substitution='Destination standalone star retains full basename; one star per stem/extension substitutes the full source stem/extension, not matched captures',
+        publication='All source snapshots and predictable target/busy/alias/quota checks precede mutation; memory/device batches commit prepared state; rooted directory operations publish per file and host failure can leave a partial batch',
+        limits='32767 scanned/matched entries, 64 MiB total COPY snapshots, ordinary backend byte and step budgets; both nowait values execute synchronously',
+        status='Portable 0 success, 1 no matches, 2 invalid template/collision/existing, 3 busy; backend/path/quota/budget failures raise',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('COPY_FILE','DELETE_FILE','RENAME_FILE')],
+        guide='docs/wildcard-file-operations.md',controller_validated=False)
     report['dynamic_variable_policy']=dict(
         procedures=['CREATE_VAR','RENAME_VAR','RENAME_VARS'],functions=['BYNAME'],
         creation='Explicit context roots, portable scalars/records, fixed STRING capacities, JOINTPOS1..9, BYTE/SHORT arrays and attached user types; contiguous inner/middle/outer dimensions; 32767 aggregate created scalar leaves',
@@ -4327,9 +4346,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         alphabetize='Record display-order request; offline storage/snapshot order remains declaration order',
         required_environments=list(dict.fromkeys(row['argument'] for row in report['directive_metadata'] if row['name'] == '%ENVIRONMENT')),
         defaults='DEFGROUP overrides single-group declaration inference and context default for caller-root services, including ordinary position registers; explicit call groups win. CRTDEVICE labels omitted-file READ/WRITE observations CRT/KB without changing callback signatures',
-        metadata='CMOSVARS/CMOS2SHADOW/SHADOWVARS retain logical storage intent; UNINITVARS retains existing uninitialized defaults without clearing values; LOCKGROUP, STACKSIZE and periodic DELAY retain metadata only',
+        metadata='CMOSVARS/CMOS2SHADOW/SHADOWVARS retain logical storage intent; UNINITVARS retains existing uninitialized defaults without clearing values; STACKSIZE and periodic DELAY retain metadata only; LOCKGROUP/NOLOCKGROUP can opt into root-only logical GroupLocks acquisition',
         checks='Distinct predeclaration policies; LOCKGROUP conflicts with NOLOCKGROUP, CMOSVARS conflicts with SHADOWVARS; explicit portable numeric/group bounds; includes and unknown directives remain blocked',
-        boundary='No binary environment/include loading, native storage/power-cycle behavior, group ownership, stack allocation, periodic task delay, device I/O or preemption; strict remains future work',
+        boundary='No binary environment/include loading, native storage/power-cycle behavior, native/callee-scoped group acquisition, stack allocation, periodic task delay, device I/O or preemption; strict remains future work',
         controller_validated=False)
     report['path_geometry_policy']=dict(
         calls=['INTSCT_VL_PL','NODE_SIZE'],

@@ -41,6 +41,7 @@ SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
     'PARITY_NONE':0,'PARITY_ODD':1,'PARITY_EVEN':2,'SBITS_1':1,'SBITS_15':15,'SBITS_2':2,
     **{f'DBITS_{n}':n for n in (5,6,7,8)},'XF_NOT_USED':0,'XF_USED':1}
 PROCEDURES = {
+    'TRANSLATE': (S,B,OI),
     'CNCL_STP_MTN': (), 'SET_PERCH': (arg('JOINTPOS'),arg('REAL_ARRAY'),I),
     'RESET': (arg('BOOLEAN','o'),), 'MIXBG_RUN': (I,OI), 'MIXBG_STOP': (I,OI),
     'DISCTRL_FORM': (S,I,arg('STRING_ARRAY'),arg('BOOL_ARRAY','r'),arg('BOOL_ARRAY','r'),I,arg('INTEGER','r'),OI,OI),
@@ -1573,7 +1574,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1602,6 +1603,9 @@ class ExecutionContext:
         from .programs import GroupLocks
         if group_locks is not None and type(group_locks) is not GroupLocks: raise TypeError('group_locks must be GroupLocks or None')
         self.group_locks=group_locks
+        from .source_translations import SourceTranslations
+        if source_translations is not None and type(source_translations) is not SourceTranslations: raise TypeError('source_translations must be SourceTranslations or None')
+        self.source_translations=source_translations
         from .acquisition import Acquisition
         if acquisition is not None and type(acquisition) is not Acquisition: raise TypeError('acquisition must be Acquisition or None')
         self.acquisition=acquisition
@@ -1669,10 +1673,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'source_translations' in config:
+            from .source_translations import SourceTranslations
+            services['source_translations']=SourceTranslations.from_config(config['source_translations'])
         if 'device_files' in config:
             if 'files' in config: raise ValueError('Choose files or device_files, not both')
             from .devices import DeviceFiles
@@ -1816,6 +1823,9 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        if name=='TRANSLATE':
+            from .source_translations import invoke
+            return invoke(self,state,args,line)
         from .vision import VISION_CALLS
         if name in VISION_CALLS:return self.require('vision',line).invoke(state,name,args,line)
         from .controller import CONTROLLER_CALLS
@@ -1960,6 +1970,8 @@ class ExecutionContext:
             from .fileops import check_name
             args[1].set(check_name(args[0],line),line);return
         if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST','MOVE_FILE'):
+            from .fileops import wildcard_file_operation
+            if wildcard_file_operation(state,name,args,line):return
             from .fileops import pipe_file_operation
             if pipe_file_operation(state,name,args,line):return
             files=self.require('files',line)

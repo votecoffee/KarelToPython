@@ -9,14 +9,42 @@ def rt():
 
 class GroupLocks:
     """Configured motion-group labels; no robot, motion or native locks."""
-    def __init__(self,groups,*,motion=None):
+    def __init__(self,groups,*,motion=None,apply_directives=False):
         if (type(groups) not in (list,tuple) or not groups or len(groups)>31
                 or any(type(group) is not int or not 1<=group<=31 for group in groups)
                 or len(groups)!=len(set(groups))):
             raise ValueError('GroupLocks requires distinct groups in 1..31')
         if motion is not None and type(motion) is not dict: raise ValueError('Group motion must be an object')
+        if type(apply_directives) is not bool:raise ValueError('apply_directives requires a BOOLEAN')
+        self.apply_directives=apply_directives
         self.groups=tuple(sorted(groups));self.motion={};self.owners={}
         for group,value in (motion or {}).items(): self.set_motion(group,value)
+
+    def begin(self,state,line=None):
+        """Atomically acquire explicit root-entry requirements when opted in."""
+        runtime=rt()
+        if type(self.apply_directives) is not bool:
+            raise runtime.KarelRuntimeError('apply_directives requires a BOOLEAN',line)
+        if not self.apply_directives:return
+        root=runtime.task_root(state)
+        if state is not root:return
+        groups=state._source_settings.get('lock_groups')
+        if groups is None:groups=self.groups
+        if (type(groups) not in (list,tuple) or len(groups)>31
+                or any(type(group) is not int or not 1<=group<=31 for group in groups)
+                or len(set(groups))!=len(groups)):
+            raise runtime.KarelRuntimeError('Invalid automatic logical group requirements',line)
+        selected=tuple(sorted(groups))
+        unknown=set(selected)-set(self.groups)
+        if unknown:
+            raise runtime.KarelRuntimeError('Automatic group requirements include unconfigured groups: '+','.join(map(str,sorted(unknown))),line)
+        for group in selected:
+            owner=self.owners.get(group)
+            if owner is not None and owner is not root:
+                raise runtime.KarelRuntimeError('Automatic logical group acquisition blocked by another task: '+str(group),line)
+            if owner is None and self.motion.get(group,'idle')!='idle':
+                raise runtime.KarelRuntimeError('Automatic logical group acquisition blocked by a busy label: '+str(group),line)
+        for group in selected:self.owners[group]=root
 
     def set_motion(self,group,value):
         if type(group) is not int or group not in self.groups or value not in ('idle','executing','stopped'):
@@ -49,21 +77,25 @@ class GroupLocks:
             if owner is root: self.owners.pop(group)
 
     def snapshot(self):
-        return {'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())},
+        result={'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())},
                 'owners':{str(key):value.program_name for key,value in sorted(self.owners.items())}}
+        if self.apply_directives:result['apply_directives']=True
+        return result
 
     def to_config(self):
         if self.owners: raise ValueError('Cannot persist live group ownership; finish or unlock the task first')
-        return {'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())}}
+        result={'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())}}
+        if self.apply_directives:result['apply_directives']=True
+        return result
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'groups','motion'} or 'groups' not in config:
-            raise ValueError('Group lock configuration requires groups and optional motion')
+        if type(config) is not dict or set(config)-{'groups','motion','apply_directives'} or 'groups' not in config:
+            raise ValueError('Group lock configuration requires groups and optional motion/apply_directives')
         motion=config.get('motion',{})
         if type(motion) is not dict or any(type(key) is not str or not re.fullmatch(r'[1-9][0-9]?',key) for key in motion):
             raise ValueError('Motion keys require canonical group numbers')
-        return cls(config['groups'],motion={int(key):value for key,value in motion.items()})
+        return cls(config['groups'],motion={int(key):value for key,value in motion.items()},apply_directives=config.get('apply_directives',False))
 
 
 def call_program(state,operation,args,line=None):

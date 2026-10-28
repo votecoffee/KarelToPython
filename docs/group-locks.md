@@ -63,12 +63,15 @@ query explicit/default group selection. These have no physical motion effects.
 Pause retains ownership. Returning from a called program or linked routine also
 retains it. Root completion, stop, abort or runtime failure releases all of that
 root's groups, including groups with busy labels. Finishing one task preserves
-other owners. `%LOCKGROUP` and `%NOLOCKGROUP` remain source policy metadata;
-they do not acquire or release this bank automatically.
+other owners. By default `%LOCKGROUP` and `%NOLOCKGROUP` remain source policy
+metadata. `GroupLocks(..., apply_directives=True)` opts into atomic root startup
+acquisition; see [directive group locks](directive-group-locks.md) for default
+selection, lifecycle, contention and deferred callee scopes.
 
 `bank.snapshot()` returns detached configured groups, motion labels and owner
-source names for inspection. JSON persists only groups and motion labels.
-Saving context while ownership is live raises rather than writing a state that
+source names for inspection. JSON persists configured groups, motion labels and
+the true `apply_directives` flag. Saving context while ownership is live raises
+rather than writing a state that
 could appear to restore task ownership. Finish or explicitly unlock before
 saving; source and task frames are never restored by this configuration.
 
