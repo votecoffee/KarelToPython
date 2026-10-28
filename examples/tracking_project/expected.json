@@ -1,0 +1,15 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "LATEST": 6.0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "STATUS": 0,
+      "VALUE": 6.0
+    }
+  }
+}

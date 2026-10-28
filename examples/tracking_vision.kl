@@ -1,0 +1,13 @@
+PROGRAM TRACKING_VISION
+VAR status,model_no,encoder_no:INTEGER
+    offset_pose:XYZWPR
+    found_positions:ARRAY[4] OF XYZWPR
+    measurements:ARRAY[10] OF REAL
+BEGIN
+  V_RUN_FIND('SCAN',0,status)
+  VT_GET_FOUND('SCAN',model_no,encoder_no,offset_pose,found_positions,measurements,status)
+  V_IRCONNECT('Inspected part',1,0,status)
+  V_ACQ_VAMAP('DEPTH',FALSE,VEC(0,0,0),status)
+  V_CLR_VAMAP('DEPTH',status)
+  V_ACQ_VAMAP('DEPTH',FALSE,VEC(0,0,0),status)
+END TRACKING_VISION

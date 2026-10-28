@@ -1,0 +1,288 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {
+      "1": {
+        "offset": {
+          "type": [
+            "XYZWPR"
+          ],
+          "value": {
+            "X": 9.5,
+            "Y": 3.0,
+            "Z": 4.0,
+            "W": 0.0,
+            "P": 0.0,
+            "R": 0.0,
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        },
+        "views": {
+          "1": {
+            "position": {
+              "type": [
+                "XYZWPR"
+              ],
+              "value": {
+                "X": 9.0,
+                "Y": 0.0,
+                "Z": 0.0,
+                "W": 0.0,
+                "P": 0.0,
+                "R": 0.0,
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            "model": 31
+          }
+        },
+        "frame": 6,
+        "model": 21,
+        "encoder": -40,
+        "measurements": [
+          1.25,
+          2.5
+        ],
+        "comment": "authored result",
+        "score": 0.0
+      },
+      "2": {
+        "offset": {
+          "type": [
+            "XYZWPR"
+          ],
+          "value": {
+            "X": 9.5,
+            "Y": 3.0,
+            "Z": 4.0,
+            "W": 0.0,
+            "P": 0.0,
+            "R": 0.0,
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        },
+        "views": {
+          "1": {
+            "position": {
+              "type": [
+                "XYZWPR"
+              ],
+              "value": {
+                "X": 9.0,
+                "Y": 0.0,
+                "Z": 0.0,
+                "W": 0.0,
+                "P": 0.0,
+                "R": 0.0,
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            "model": 31
+          }
+        },
+        "frame": 6,
+        "model": 21,
+        "encoder": -40,
+        "measurements": [
+          1.25,
+          2.5
+        ],
+        "comment": "authored result",
+        "score": 0.0
+      }
+    },
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 13,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_INIT_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_START_VTRK",
+        "target": "SCAN",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_GET_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "TRACKING_QUEUES",
+        "operation": "IRVU_VRGETOFFSET",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_ADJ_2D",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_RALC_QUEUE",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 7,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_GET_QUEUE",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 8,
+        "program": "TRACKING_QUEUES",
+        "operation": "IRVU_VRGETVIEW",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 9,
+        "program": "TRACKING_QUEUES",
+        "operation": "VT_GET_AREID",
+        "target": "PICK",
+        "status": 0
+      },
+      {
+        "sequence": 10,
+        "program": "TRACKING_QUEUES",
+        "operation": "VT_GET_LINID",
+        "target": "LINE",
+        "status": 0
+      },
+      {
+        "sequence": 11,
+        "program": "TRACKING_QUEUES",
+        "operation": "VT_GET_TRYID",
+        "target": "TRAY",
+        "status": 0
+      },
+      {
+        "sequence": 12,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_STOP_VTRK",
+        "target": "SCAN",
+        "status": 0
+      },
+      {
+        "sequence": 13,
+        "program": "TRACKING_QUEUES",
+        "operation": "V_GET_QUEUE",
+        "target": "1",
+        "status": 117249
+      }
+    ],
+    "tracking": {
+      "queues": {
+        "1": {
+          "capacity": 2,
+          "parts": [],
+          "arrivals": [],
+          "elapsed_ms": 15
+        },
+        "2": {
+          "capacity": 2,
+          "parts": [],
+          "arrivals": [],
+          "elapsed_ms": 0
+        }
+      },
+      "allocations": {
+        "2": {
+          "queue": 2,
+          "work_id": 101
+        }
+      },
+      "triggers": {
+        "2": {
+          "queue": 2,
+          "work_id": 101,
+          "encoder": -40
+        }
+      },
+      "processes": {
+        "SCAN": {
+          "running": false
+        }
+      },
+      "ids": {
+        "areas": {
+          "PICK": 2
+        },
+        "lines": {
+          "LINE": 1
+        },
+        "trays": {
+          "TRAY": 3
+        }
+      },
+      "sensors": {},
+      "latest": null,
+      "outbox": [],
+      "outbox_limit": 500,
+      "payload_limit": 1048576,
+      "include_images": false
+    }
+  }
+}

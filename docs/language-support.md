@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1028.165003. Acceptance is specific to
+This is the supported prototype subset as of 26.1028.172050. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -43,7 +43,7 @@ internally and in the historical semantic notes.
 | Dynamic displays | Twelve INI_DYN_DIS*/CNC_DYN_DIS* calls for BOOLEAN, enum, INTEGER, REAL, STRING and supplied ports | Explicit read-only static bindings, checkpoint intervals, one-line fields and identity-based cancellation; cancel bindings before context save. No native display task, fonts or form managers. |
 | Text dictionaries | Seven ADD/CHECK/READ/REMOVE/WRITE dictionary calls, plain and formatted, with nested text elements and static variable paths | Explicit supplied text catalogs, language snapshots, bounded formatting, ARRAY truncation and atomic logical window controls; no compressed TX decoding or form compilation. |
 | Pendant display | FORCE_LINK, FORCE_SPMENU, SET_LANG, screen/window definitions, activation, attachments, detachment and SET_CURSOR; WD:name text output | Explicit headless PendantDisplay, portable IDs/statuses, character grids, common/per-handle cursors, scrolling and closed-handle persistence; no native UI, keyboard or dictionaries. |
-| Vision services | 29 calls for supplied runs/images, registers, result arrays, view-line PATHs, reader/file output, parameter editing and logical devices | Explicit inputs, PNG/BMP export, checked outputs and persistent queues/cursors/state; no image processing or hardware I/O. See [vision results](vision-results.md) and [image/device services](vision-image-services.md). |
+| Vision services | 41 calls for supplied runs/images, registers, result arrays, view-line PATHs, reader/file output, parameter editing and logical devices | Explicit inputs, PNG/BMP export, checked outputs and persistent queues/cursors/state; no image processing or hardware I/O. See [vision results](vision-results.md) and [image/device services](vision-image-services.md); [legacy tracking](vision-tracking.md) adds timed queues, allocation receipts, VT result/lookup forms, supplied maps and a local outbox. |
 | Controller services | MOTION_CTL, CNCL_STP_MTN, SET_PERCH, RESET and MIXBG_RUN/STOP | Explicit ownership/perch banks, scripted reset results and attached background tasks; portable units/statuses, no motion statements or hardware reset. See [controller services](controller-services.md). |
 | KCL | KCL, KCL_NO_WAIT and bare/called KCL_STATUS over explicit scripted replies | One shared accepted command, configured delays/statuses, bounded history and terminal-state persistence; no host/controller command execution or implicit replay of pending work. |
 | Remote banks | 17 RGET/RSET numeric/string/comment/port procedures and numeric/position receive/send | Explicit persisted PeerBanks, per-peer banks/type codes, selected outputs, simulation and checked register copies; explicit position groups and comment options; no networking or robot conversion. |

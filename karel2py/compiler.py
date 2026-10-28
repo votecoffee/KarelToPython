@@ -3396,7 +3396,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         retained=[]
         declared=[token.value for token,_ in program.constants+program.user_types+program.declarations]+[routine.name for routine in program.routines]
         for routine in program.routines:
-            if routine.external=='IRVUTILVR' and routine.name in VISION_FUNCTIONS:
+            if routine.external=='IRVUTILVR' and routine.name in ('IRVU_VRGETMEAS','IRVU_VRGETOFFSET','IRVU_VRGETVIEW'):
                 if declared.count(routine.name)!=1:parser.error('E_DUPLICATE','Duplicate vision wrapper declaration',routine.token)
                 if len({token.value for token,_ in routine.parameters})!=len(routine.parameters):parser.error('E_DUPLICATE','Duplicate vision wrapper parameter',routine.token)
                 signature,result=VISION_FUNCTIONS[routine.name]
@@ -4683,7 +4683,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 sessions, 256 logical rows/data/selectable items, 254 edit characters, 35 enum choices, 10 function labels, 48 help lines and 4096 key-loop events',
         boundary='Portable single-window layout, key/status codes and repaint timing; no nested/concatenated .tree fragments, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
         guide='docs/forms.md',controller_validated=False)
-    from .vision import VISION_IO_PROCEDURES
+    from .vision import VISION_IO_PROCEDURES,VISION_TRACKING_PROCEDURES,VISION_TRACKING_FUNCTIONS
+    report['vision_tracking_policy']=dict(
+        calls=sorted(set(VISION_TRACKING_PROCEDURES)|set(VISION_TRACKING_FUNCTIONS)),
+        service='Explicit vision.tracking data; VT_GET_FOUND also accepts the core supplied result stream without a tracking manager',
+        queues='Configured capacities, distinct work IDs, ordered supplied arrivals and independent finite logical millisecond clocks; FIFO copy to vision register with allocation/encoder receipt',
+        waiting='Cooperative steps at most 10 ms, zero poll/positive timeout/negative wait, inclusive deadline; pending queue and register reservations, active-save guard and interruption cleanup without another history ID',
+        reallocation='Receipt-required downstream copy of current result, capacity/duplicate checks and once-only receipt consumption; core offset replacement invalidates receipt, X/Y adjustment retains identity',
+        results='Exact ARRAY[4] OF XYZWPR and ARRAY[10] OF REAL outputs with sparse initialized-prefix writes and the shared GET_FOUND/GET_OFFSET cursor',
+        maps='Explicit finite point-cloud replies, FALSE partial and zero center only; replace on success, retain on supplied failure, clear without consuming future plans',
+        outbox='Copy most recent accepted completion, optional available supplied images, priority 0..3 and unused register zero; bounded retained portable packets, no delivery or native wire schema',
+        identity='Explicit case-insensitive area/line/tray maps; unknown names raise rather than fabricate zero; logical start/stop flags create no detections',
+        persistence='Completed queue data, arrivals, clocks, receipts, trigger metadata, maps and outbox only; no live tasks, motion triggers, native sessions or silent producer replay',
+        limits='256 queues, 4096 cumulative workpieces, 32767 supplied map points/4096 replies, bounded packets/bytes and nonwrapping IDs/clocks',
+        boundary='Portable legacy forms, timeout units/statuses and point-cloud/outbox layouts; no encoder acquisition, tracking motion, native map processing, network delivery, native ABI or controller/strict equivalence',
+        guide='docs/vision-tracking.md',controller_validated=False)
     report['vision_io_policy']=dict(
         calls=sorted(VISION_IO_PROCEDURES),service='Explicit vision.io rasters, ordered capture/calibration replies and logical device state; reader strings and view lines in supplied completed process batches',
         images='Bounded 8-bit grayscale/RGB, exact dimensions and bytes, explicit process/view ownership; captures consumed once, failed captures retain old image',

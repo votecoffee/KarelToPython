@@ -40,6 +40,20 @@ VISION_FUNCTIONS={
     'IRVU_VRGETOFFSET':((('i','INTEGER'),('o','XYZWPR'),('o','INTEGER'),('o','STRING')),('INTEGER',)),
     'IRVU_VRGETVIEW':((('i','INTEGER'),('i','INTEGER'),('o','XYZWPR'),('o','INTEGER')),('INTEGER',)),
 }
+VISION_TRACKING_PROCEDURES={
+    'V_GET_QUEUE':(('i','INTEGER'),('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'V_INIT_QUEUE':(('i','INTEGER'),('o','INTEGER')),
+    'V_RALC_QUEUE':(('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'V_START_VTRK':(('i','STRING'),('o','INTEGER')),
+    'V_STOP_VTRK':(('i','STRING'),('o','INTEGER')),
+    'V_ACQ_VAMAP':(('i','STRING'),('i','BOOLEAN'),('i','VECTOR'),('o','INTEGER')),
+    'V_CLR_VAMAP':(('i','STRING'),('o','INTEGER')),
+    'V_IRCONNECT':(('i','STRING'),('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'VT_GET_FOUND':(('i','STRING'),('o','INTEGER'),('o','INTEGER'),('o','XYZWPR'),('r','TRACKING_POSITIONS'),('r','TRACKING_MEASURES'),('o','INTEGER')),
+}
+VISION_TRACKING_FUNCTIONS={name:((('i','STRING'),),('INTEGER',)) for name in ('VT_GET_AREID','VT_GET_LINID','VT_GET_TRYID')}
+VISION_PROCEDURES.update(VISION_TRACKING_PROCEDURES)
+VISION_FUNCTIONS.update(VISION_TRACKING_FUNCTIONS)
 VISION_CALLS=set(VISION_PROCEDURES)|set(VISION_FUNCTIONS)
 MAX_SEQUENCE=2147483646
 
@@ -112,7 +126,7 @@ def encode_result(value):
 
 class VisionServices:
     """Completed input batches only; no camera, pixel algorithm or controller I/O."""
-    def __init__(self,*,count=10,registers=None,processes=None,overrides=None,limit=500,sequence=0,history=None,io=None):
+    def __init__(self,*,count=10,registers=None,processes=None,overrides=None,limit=500,sequence=0,history=None,io=None,tracking=None):
         self.count=integer(count,1,32767);self.limit=integer(limit,1,4096);self.sequence=integer(sequence)
         self.registers={};self.processes={};self.overrides={};self.history=[]
         for key,row in mapping({} if registers is None else registers,32767).items():
@@ -146,6 +160,10 @@ class VisionServices:
             if owner not in self.processes or parameter not in self.processes[owner]['parameters']:raise ValueError('Vision override binding is not configured')
             self.overrides[key]=dict(process=owner,parameter=parameter)
         self.io=None if io is None else VisionIO(io,self.processes)
+        self.tracking=None
+        if tracking is not None:
+            from .vision_tracking import VisionTracking
+            self.tracking=VisionTracking(tracking,self)
         if history is None:history=[]
         if type(history) is not list or len(history)>self.limit:raise ValueError('Vision history exceeds its ring limit')
         previous=0
@@ -206,7 +224,13 @@ class VisionServices:
         if test:captured.update(process['overwritten'])
         captured.update(process['temporary']);active=deepcopy(batch);active['parameters']=captured;return active
 
+    def note_active(self,process):
+        if self.tracking is not None:self.tracking.latest=process.upper()
+
     def invoke(self,state,operation,args,line=None):
+        if operation in VISION_TRACKING_PROCEDURES or operation in VISION_TRACKING_FUNCTIONS:
+            from .vision_tracking import invoke_tracking
+            return invoke_tracking(self,state,operation,args,line)
         if operation in VISION_IO_PROCEDURES:return invoke_io(self,state,operation,args,line)
         # All source references have already passed shared disjoint/type guards.
         target=args[0];function=operation in VISION_FUNCTIONS
@@ -226,7 +250,7 @@ class VisionServices:
                     else:
                         active=self.active_batch(process,batch,operation=='V_CSAPI_TESTRUN');code=batch['status']
                         def commit():
-                            process['runs'].pop(0);process['active']=active;process['cursor']=0;process['temporary'].clear()
+                            process['runs'].pop(0);process['active']=active;process['cursor']=0;process['temporary'].clear();self.note_active(target)
         elif operation.startswith('V_CSAPI_'):
             if process is None:code=2
             elif operation=='V_CSAPI_NUMSET':pairs=[(args[1],float(len(process['overwritten']))) ]
@@ -260,9 +284,12 @@ class VisionServices:
                     if operation=='V_GET_OFFSET':
                         number=args[1]
                         if not 1<=number<=self.count:code=2
+                        elif self.tracking is not None and self.tracking.register_busy(number):code=3
                         else:
                             detached=deepcopy(value)
-                            def commit():self.registers[number]=detached;process['cursor']+=1
+                            def commit():
+                                self.registers[number]=detached;process['cursor']+=1
+                                if self.tracking is not None:self.tracking.invalidate(number)
                     else:
                         positions=rt().require(args[5].raw(),line);measurements=rt().require(args[6].raw(),line)
                         if len(positions.values)<max(map(int,value['views'])) or len(measurements.values)<len(value['measurements']):code=3
@@ -306,10 +333,12 @@ class VisionServices:
                     else:pairs=[(args[2],value['measurements'][index-1])]
                 elif not code and operation=='IRVU_VRGETOFFSET':pairs=[(args[1],value['offset']),(args[2],value['frame']),(args[3],value['comment'])]
                 elif not code and operation=='V_ADJ_2D':
-                    adjusted=deepcopy(value)
-                    adjusted['offset'].values['X']=rt().real(value['offset'].values['X']+args[1],line)
-                    adjusted['offset'].values['Y']=rt().real(value['offset'].values['Y']+args[2],line)
-                    def commit():self.registers[target]=adjusted
+                    if self.tracking is not None and self.tracking.register_busy(target):code=3
+                    else:
+                        adjusted=deepcopy(value)
+                        adjusted['offset'].values['X']=rt().real(value['offset'].values['X']+args[1],line)
+                        adjusted['offset'].values['Y']=rt().real(value['offset'].values['Y']+args[2],line)
+                        def commit():self.registers[target]=adjusted
                 elif not code and operation in ('VREG_OFFSET','VREG_FND_POS'):
                     bank=state.execution.require('positions',line);group=rt().task_root(state).robot_group or 1;number=args[2] if operation=='VREG_FND_POS' else args[1]
                     if group not in bank.groups or not 1<=number<=bank.count:code=2
@@ -334,13 +363,14 @@ class VisionServices:
             processes[key]=row
         answer=dict(count=self.count,registers={str(k):encode_result(v) for k,v in sorted(self.registers.items())},processes=processes,overrides=deepcopy(self.overrides),limit=self.limit,sequence=self.sequence,history=deepcopy(self.history))
         if self.io is not None:answer['io']=self.io.to_config()
+        if self.tracking is not None:answer['tracking']=self.tracking.to_config()
         return answer
 
     def snapshot(self):return self.to_config()
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'count','registers','processes','overrides','limit','sequence','history','io'}:raise ValueError('Unknown vision configuration fields')
+        if type(config) is not dict or set(config)-{'count','registers','processes','overrides','limit','sequence','history','io','tracking'}:raise ValueError('Unknown vision configuration fields')
         config=dict(config);registers=mapping(config.get('registers',{}),32767)
         if any(type(k) is not str or not re.fullmatch(r'[1-9][0-9]*',k) for k in registers):raise ValueError('Vision JSON register keys require canonical positive integers')
         config['registers']={int(k):v for k,v in registers.items()};return cls(**config)
@@ -562,7 +592,7 @@ def invoke_io(bank,state,operation,args,line):
                     publish=stage_lines(state,args[3],batch['view_lines'],line) if not code and operation=='V_FIND_VLINE' else None
                     def commit():
                         if publish is not None:publish()
-                        process['runs'].pop(0);process['active']=active;process['cursor']=0;process['temporary'].clear();return 0
+                        process['runs'].pop(0);process['active']=active;process['cursor']=0;process['temporary'].clear();bank.note_active(target);return 0
         elif operation=='V_SAVE_IMREG':
             number,filename=args[:2]
             if not 1<=number<=io.image_count:code=2

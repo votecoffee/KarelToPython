@@ -1,0 +1,226 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {
+      "1": {
+        "offset": {
+          "type": [
+            "XYZWPR"
+          ],
+          "value": {
+            "X": 6.0,
+            "Y": 3.0,
+            "Z": 4.0,
+            "W": 0.0,
+            "P": 0.0,
+            "R": 0.0,
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        },
+        "views": {
+          "1": {
+            "position": {
+              "type": [
+                "XYZWPR"
+              ],
+              "value": {
+                "X": 7.0,
+                "Y": 0.0,
+                "Z": 0.0,
+                "W": 0.0,
+                "P": 0.0,
+                "R": 0.0,
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            "model": 31
+          }
+        },
+        "frame": 6,
+        "model": 21,
+        "encoder": -40,
+        "measurements": [
+          1.25,
+          2.5
+        ],
+        "comment": "authored result",
+        "score": 0.0
+      }
+    },
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 6,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "V_INIT_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "V_START_VTRK",
+        "target": "SCAN",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "V_GET_QUEUE",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "operation": "IRVU_VRGETOFFSET",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "operation": "V_RALC_QUEUE",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "MAIN",
+        "operation": "V_STOP_VTRK",
+        "target": "SCAN",
+        "status": 0
+      }
+    ],
+    "tracking": {
+      "queues": {
+        "1": {
+          "capacity": 2,
+          "parts": [],
+          "arrivals": [],
+          "elapsed_ms": 12
+        },
+        "2": {
+          "capacity": 3,
+          "parts": [
+            {
+              "work_id": 201,
+              "result": {
+                "offset": {
+                  "type": [
+                    "XYZWPR"
+                  ],
+                  "value": {
+                    "X": 6.0,
+                    "Y": 3.0,
+                    "Z": 4.0,
+                    "W": 0.0,
+                    "P": 0.0,
+                    "R": 0.0,
+                    "CONFIG_DATA": {
+                      "CFG_TURN_NO1": 0,
+                      "CFG_TURN_NO2": 0,
+                      "CFG_TURN_NO3": 0,
+                      "CFG_FLIP": false,
+                      "CFG_LEFT": false,
+                      "CFG_UP": false,
+                      "CFG_FRONT": false
+                    }
+                  }
+                },
+                "views": {
+                  "1": {
+                    "position": {
+                      "type": [
+                        "XYZWPR"
+                      ],
+                      "value": {
+                        "X": 7.0,
+                        "Y": 0.0,
+                        "Z": 0.0,
+                        "W": 0.0,
+                        "P": 0.0,
+                        "R": 0.0,
+                        "CONFIG_DATA": {
+                          "CFG_TURN_NO1": 0,
+                          "CFG_TURN_NO2": 0,
+                          "CFG_TURN_NO3": 0,
+                          "CFG_FLIP": false,
+                          "CFG_LEFT": false,
+                          "CFG_UP": false,
+                          "CFG_FRONT": false
+                        }
+                      }
+                    },
+                    "model": 31
+                  }
+                },
+                "frame": 6,
+                "model": 21,
+                "encoder": -40,
+                "measurements": [
+                  1.25,
+                  2.5
+                ],
+                "comment": "authored result",
+                "score": 0.0
+              }
+            }
+          ],
+          "arrivals": [],
+          "elapsed_ms": 0
+        }
+      },
+      "allocations": {},
+      "triggers": {},
+      "processes": {
+        "SCAN": {
+          "running": false
+        }
+      },
+      "ids": {
+        "areas": {},
+        "lines": {},
+        "trays": {}
+      },
+      "sensors": {},
+      "latest": null,
+      "outbox": [],
+      "outbox_limit": 500,
+      "payload_limit": 1048576,
+      "include_images": false
+    }
+  }
+}

@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1028.172050 - 2026-10-28
+
+- Add twelve legacy vision/tracking calls: cooperative queue get/init/reallocate,
+  process start/stop flags, explicit area/line/tray IDs and VT_GET_FOUND.
+- Preserve allocation receipts and logical encoder triggers, timed arrivals,
+  per-queue clocks and pending-register ownership; pause/resume retains the
+  request and stop/abort/budget failures release reservations without replay.
+- Add supplied point-cloud map acquisition/clearing and a bounded portable
+  iRConnect outbox with optional supplied images; no hardware/network effects.
+- Keep VT_GET_FOUND's exact 4/10-element outputs and shared result cursor;
+  retain native library-wrapper lowering only for the three documented IRVU calls.
+- Add 51 regressions, two CLI examples and a linked tracking project. Update
+  README/support guides: 321 registered built-in names, 13 remaining.
+
 ## 26.1028.165003 - 2026-10-28
 
 - Add ten vision calls for explicit captures/image registers, image-bound finds,

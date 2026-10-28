@@ -30,7 +30,7 @@ I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
 COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN','ACT_TBL','DISCTRL_TBL','DISCTRL_FORM'))
-COOPERATIVE_PROCEDURES.update(('RESET','MIXBG_RUN','MIXBG_STOP'))
+COOPERATIVE_PROCEDURES.update(('RESET','MIXBG_RUN','MIXBG_STOP','V_GET_QUEUE'))
 COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS'))
 DYNAMIC_VARIABLE_WRITES={'MIXBG_RUN','MIXBG_STOP','DISCTRL_FORM','ACT_TBL','DISCTRL_TBL','SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
@@ -278,6 +278,8 @@ def matches(spec, kind):
         if kind=='COL_ARRAY':return len(dimensions)==1 and leaf==rt.PREDEFINED_STRUCTURES['COL_DESC_T']
         if kind=='BOOL_ARRAY':return len(dimensions)==1 and leaf==('BOOLEAN',)
         return leaf==(('INTEGER',) if kind=='INT_GRID' else ('BOOLEAN',)) and (len(dimensions)==2 or kind=='BOOL_GRID' and dimensions==(1,))
+    if kind in ('TRACKING_POSITIONS','TRACKING_MEASURES'):
+        return spec[0]=='ARRAY' and rt.array_dimensions(spec)==((4,) if kind=='TRACKING_POSITIONS' else (10,)) and rt.array_leaf_spec(spec)==(('XYZWPR',) if kind=='TRACKING_POSITIONS' else ('REAL',))
     if kind=='XYZWPR_ARRAY': return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)==('XYZWPR',)
     if kind=='STRING_ARRAY': return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]=='STRING'
     return spec[0]==kind

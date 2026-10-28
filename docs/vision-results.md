@@ -1,11 +1,13 @@
 # Supplied vision results
 
-Pythonic mode supports 29 vision calls through an explicit `VisionServices`
+Pythonic mode supports 41 vision calls through an explicit `VisionServices`
 service. The service consumes supplied completed runs and stores vision results,
 registers and parameter edits. It opens no camera or controller connection and
 performs no image processing. Generated programs use the same service through
 Python and the CLI. The ten [image/device calls](vision-image-services.md) add
 explicit rasters, image export, reader and view-line results, and logical devices.
+Twelve [legacy tracking calls](vision-tracking.md) add timed queues, allocation
+receipts, lookup/result forms, supplied point maps and a local outbox.
 
 ```sh
 python -m karel2py examples/vision_results.kl -o vision_results.py
@@ -174,4 +176,7 @@ statuses and all supplied failure completions are portable choices, without
 native alarm classification. Supplied [image/reader/view-line data and logical
 device calls](vision-image-services.md) now have offline forms. Live acquisition,
 calibration computation, pixel/edge extraction, native graphics, undocumented
-image-save overloads, legacy vision queues and conveyor tracking remain open.
+image-save overloads and native conveyor tracking remain open. Legacy queues,
+VT results/lookups and supplied maps now have [offline forms](vision-tracking.md);
+the remaining VT allocation, flow/time, PATH editing and load-balancing calls
+remain unregistered.

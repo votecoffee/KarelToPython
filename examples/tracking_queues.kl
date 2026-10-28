@@ -1,0 +1,19 @@
+PROGRAM TRACKING_QUEUES
+VAR status,timeout_status,frame_no,model_no,area_id,line_id,tray_id:INTEGER
+    offset_pose,found_pose:XYZWPR
+    comment:STRING[40]
+BEGIN
+  V_INIT_QUEUE(1,status)
+  V_START_VTRK('SCAN',status)
+  V_GET_QUEUE(1,1,20,status)
+  status=IRVU_VRGETOFFSET(1,offset_pose,frame_no,comment)
+  V_ADJ_2D(1,1.5,0,status)
+  V_RALC_QUEUE(2,1,status)
+  V_GET_QUEUE(2,2,0,status)
+  status=IRVU_VRGETVIEW(2,1,found_pose,model_no)
+  area_id=VT_GET_AREID('PICK')
+  line_id=VT_GET_LINID('LINE')
+  tray_id=VT_GET_TRYID('TRAY')
+  V_STOP_VTRK('SCAN',status)
+  V_GET_QUEUE(1,3,0,timeout_status)
+END TRACKING_QUEUES

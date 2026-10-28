@@ -1,0 +1,398 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": {
+          "camera_view": -1,
+          "status": 0,
+          "results": [
+            {
+              "offset": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 3.0,
+                  "Y": 3.0,
+                  "Z": 4.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              },
+              "views": {
+                "1": {
+                  "position": {
+                    "type": [
+                      "XYZWPR"
+                    ],
+                    "value": {
+                      "X": 4.0,
+                      "Y": 0.0,
+                      "Z": 0.0,
+                      "W": 0.0,
+                      "P": 0.0,
+                      "R": 0.0,
+                      "CONFIG_DATA": {
+                        "CFG_TURN_NO1": 0,
+                        "CFG_TURN_NO2": 0,
+                        "CFG_TURN_NO3": 0,
+                        "CFG_FLIP": false,
+                        "CFG_LEFT": false,
+                        "CFG_UP": false,
+                        "CFG_FRONT": false
+                      }
+                    }
+                  },
+                  "model": 31
+                }
+              },
+              "frame": 6,
+              "model": 21,
+              "encoder": -40,
+              "measurements": [
+                1.25,
+                2.5
+              ],
+              "comment": "authored result",
+              "score": 0.0
+            },
+            {
+              "offset": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 7.0,
+                  "Y": 3.0,
+                  "Z": 4.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              },
+              "views": {
+                "1": {
+                  "position": {
+                    "type": [
+                      "XYZWPR"
+                    ],
+                    "value": {
+                      "X": 8.0,
+                      "Y": 0.0,
+                      "Z": 0.0,
+                      "W": 0.0,
+                      "P": 0.0,
+                      "R": 0.0,
+                      "CONFIG_DATA": {
+                        "CFG_TURN_NO1": 0,
+                        "CFG_TURN_NO2": 0,
+                        "CFG_TURN_NO3": 0,
+                        "CFG_FLIP": false,
+                        "CFG_LEFT": false,
+                        "CFG_UP": false,
+                        "CFG_FRONT": false
+                      }
+                    }
+                  },
+                  "model": 31
+                }
+              },
+              "frame": 6,
+              "model": 21,
+              "encoder": -40,
+              "measurements": [
+                1.25,
+                2.5
+              ],
+              "comment": "authored result",
+              "score": 0.0
+            }
+          ],
+          "parameters": {}
+        },
+        "cursor": 1,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 6,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "TRACKING_VISION",
+        "operation": "V_RUN_FIND",
+        "target": "SCAN",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "TRACKING_VISION",
+        "operation": "VT_GET_FOUND",
+        "target": "SCAN",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "TRACKING_VISION",
+        "operation": "V_IRCONNECT",
+        "target": "Inspected part",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "TRACKING_VISION",
+        "operation": "V_ACQ_VAMAP",
+        "target": "DEPTH",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "TRACKING_VISION",
+        "operation": "V_CLR_VAMAP",
+        "target": "DEPTH",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "TRACKING_VISION",
+        "operation": "V_ACQ_VAMAP",
+        "target": "DEPTH",
+        "status": 0
+      }
+    ],
+    "io": {
+      "image_count": 1,
+      "image_limit": 16777216,
+      "images": {
+        "1": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 2,
+            "height": 2,
+            "channels": 3,
+            "pixels": "00254a6f94b9de03284d7297"
+          }
+        }
+      },
+      "captures": [],
+      "cameras": {},
+      "calibrations": {},
+      "display_tools": {},
+      "displayed": null,
+      "led_channels": [],
+      "led": null
+    },
+    "tracking": {
+      "queues": {},
+      "allocations": {},
+      "triggers": {},
+      "processes": {},
+      "ids": {
+        "areas": {},
+        "lines": {},
+        "trays": {}
+      },
+      "sensors": {
+        "DEPTH": {
+          "responses": [],
+          "map": {
+            "frame": 3,
+            "points": [
+              [
+                4.0,
+                2.0,
+                3.0
+              ]
+            ]
+          }
+        }
+      },
+      "latest": "SCAN",
+      "outbox": [
+        {
+          "sequence": 3,
+          "program": "TRACKING_VISION",
+          "description": "Inspected part",
+          "priority": 1,
+          "process": "SCAN",
+          "result": {
+            "camera_view": -1,
+            "status": 0,
+            "results": [
+              {
+                "offset": {
+                  "type": [
+                    "XYZWPR"
+                  ],
+                  "value": {
+                    "X": 3.0,
+                    "Y": 3.0,
+                    "Z": 4.0,
+                    "W": 0.0,
+                    "P": 0.0,
+                    "R": 0.0,
+                    "CONFIG_DATA": {
+                      "CFG_TURN_NO1": 0,
+                      "CFG_TURN_NO2": 0,
+                      "CFG_TURN_NO3": 0,
+                      "CFG_FLIP": false,
+                      "CFG_LEFT": false,
+                      "CFG_UP": false,
+                      "CFG_FRONT": false
+                    }
+                  }
+                },
+                "views": {
+                  "1": {
+                    "position": {
+                      "type": [
+                        "XYZWPR"
+                      ],
+                      "value": {
+                        "X": 4.0,
+                        "Y": 0.0,
+                        "Z": 0.0,
+                        "W": 0.0,
+                        "P": 0.0,
+                        "R": 0.0,
+                        "CONFIG_DATA": {
+                          "CFG_TURN_NO1": 0,
+                          "CFG_TURN_NO2": 0,
+                          "CFG_TURN_NO3": 0,
+                          "CFG_FLIP": false,
+                          "CFG_LEFT": false,
+                          "CFG_UP": false,
+                          "CFG_FRONT": false
+                        }
+                      }
+                    },
+                    "model": 31
+                  }
+                },
+                "frame": 6,
+                "model": 21,
+                "encoder": -40,
+                "measurements": [
+                  1.25,
+                  2.5
+                ],
+                "comment": "authored result",
+                "score": 0.0
+              },
+              {
+                "offset": {
+                  "type": [
+                    "XYZWPR"
+                  ],
+                  "value": {
+                    "X": 7.0,
+                    "Y": 3.0,
+                    "Z": 4.0,
+                    "W": 0.0,
+                    "P": 0.0,
+                    "R": 0.0,
+                    "CONFIG_DATA": {
+                      "CFG_TURN_NO1": 0,
+                      "CFG_TURN_NO2": 0,
+                      "CFG_TURN_NO3": 0,
+                      "CFG_FLIP": false,
+                      "CFG_LEFT": false,
+                      "CFG_UP": false,
+                      "CFG_FRONT": false
+                    }
+                  }
+                },
+                "views": {
+                  "1": {
+                    "position": {
+                      "type": [
+                        "XYZWPR"
+                      ],
+                      "value": {
+                        "X": 8.0,
+                        "Y": 0.0,
+                        "Z": 0.0,
+                        "W": 0.0,
+                        "P": 0.0,
+                        "R": 0.0,
+                        "CONFIG_DATA": {
+                          "CFG_TURN_NO1": 0,
+                          "CFG_TURN_NO2": 0,
+                          "CFG_TURN_NO3": 0,
+                          "CFG_FLIP": false,
+                          "CFG_LEFT": false,
+                          "CFG_UP": false,
+                          "CFG_FRONT": false
+                        }
+                      }
+                    },
+                    "model": 31
+                  }
+                },
+                "frame": 6,
+                "model": 21,
+                "encoder": -40,
+                "measurements": [
+                  1.25,
+                  2.5
+                ],
+                "comment": "authored result",
+                "score": 0.0
+              }
+            ],
+            "parameters": {}
+          },
+          "images": {
+            "1": {
+              "process": "SCAN",
+              "views": [
+                1
+              ],
+              "image": {
+                "width": 2,
+                "height": 2,
+                "channels": 3,
+                "pixels": "00254a6f94b9de03284d7297"
+              }
+            }
+          }
+        }
+      ],
+      "outbox_limit": 500,
+      "payload_limit": 1048576,
+      "include_images": true
+    }
+  }
+}

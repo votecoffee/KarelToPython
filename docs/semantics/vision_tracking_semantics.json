@@ -1,0 +1,75 @@
+{
+  "version": "26.1028.172050",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRCKRLF03081E Rev D",
+      "sections": [
+        "A.23.4 V_GET_QUEUE",
+        "A.23.5 V_INIT_QUEUE",
+        "A.23.6 V_RALC_QUEUE",
+        "A.23.9-A.23.10 V_START_VTRK/V_STOP_VTRK"
+      ]
+    },
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "A.22.1 V_ACQ_VAMAP",
+        "A.22.5 V_CLR_VAMAP",
+        "A.22.20 V_IRCONNECT",
+        "A.22.37-A.22.39 VT_GET_AREID/FOUND/LINID",
+        "A.22.43 VT_GET_TRYID"
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../vision-tracking.md",
+    "calls": [
+      "VT_GET_AREID",
+      "VT_GET_FOUND",
+      "VT_GET_LINID",
+      "VT_GET_TRYID",
+      "V_ACQ_VAMAP",
+      "V_CLR_VAMAP",
+      "V_GET_QUEUE",
+      "V_INIT_QUEUE",
+      "V_IRCONNECT",
+      "V_RALC_QUEUE",
+      "V_START_VTRK",
+      "V_STOP_VTRK"
+    ],
+    "queues": "Explicit FIFO capacities/work IDs/future inputs, per-queue logical clocks, disjoint pending queue/register reservations and cooperative bounded waits",
+    "lifetime": "Copy result with allocation/encoder receipt; checked once-only downstream reallocation; register replacement/queue init invalidate receipts, adjustments preserve identity",
+    "control": "Pause/resume retains pending request; stop/abort/budget failure releases reservations without another history ID; reject pending saves",
+    "results": "Exact 4-pose/10-measurement output resources, sparse writes and core shared cursor; explicit name-ID banks and logical process flags",
+    "maps": "Supplied finite point clouds, FALSE partial/zero center, replace-on-success/retain-on-failure, current-map clearing and independent future replies",
+    "outbox": "Retained copies of latest supplied completion and optional same-process supplied image registers; bounded IDs/bytes, no network or native schema",
+    "persistence": "Pure checked data for completed queues/receipts/maps/outbox and remaining inputs; no native/executable sessions"
+  },
+  "choices": [
+    {
+      "call": "V_GET_QUEUE",
+      "choice": "Milliseconds, negative indefinite wait and 117249 timeout are Pythonic choices aligned with the documented newer VT_GET_QUEUE; legacy reference leaves timeout units/status unspecified"
+    },
+    {
+      "call": "V_INIT_QUEUE",
+      "choice": "Clear held parts/receipts, retain register values, clock and future external input plans"
+    },
+    {
+      "call": "V_IRCONNECT",
+      "choice": "Portable local outbox of available supplied fields; no native transport, runtime-image freshness inference or invented telemetry"
+    }
+  ],
+  "boundaries": [
+    "Legacy VT forms can be unavailable on newer native controller versions despite offline translation support",
+    "No physical conveyor motion, acquired encoders, hardware triggers, camera map computation, autonomous detections or mobile delivery",
+    "Remaining VT allocation/acknowledgement, PATH queue editing, flow/time, tray and load-balancing calls remain unregistered; native/strict equivalence unverified"
+  ],
+  "validation": [
+    "tests/test_vision_tracking.py",
+    "examples/tracking_queues.kl",
+    "examples/tracking_vision.kl",
+    "examples/tracking_project"
+  ]
+}

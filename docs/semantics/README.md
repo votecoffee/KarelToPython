@@ -198,3 +198,8 @@ The [vision I/O ledger](vision_io_semantics.json) adds ten calls for supplied
 rasters, image export, reader/view-line results and logical camera/calibration/
 display/LED data. It supersedes older blanket image/reader exclusions while
 retaining native acquisition, image processing and undocumented save overloads.
+
+The [vision tracking ledger](vision_tracking_semantics.json) adds twelve legacy
+queue, lookup/result, supplied-map and outbox calls. It supersedes older blanket
+legacy-queue/map exclusions while retaining native motion, delivery and remaining
+VT allocation/flow/PATH/load-balancing boundaries.

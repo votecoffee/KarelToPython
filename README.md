@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.165003**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.172050**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -310,11 +310,14 @@ Generated programs accept numeric banks from `--context` or a separate
 `--registers` file; an explicit register file overrides the context bank for all
 numeric services.
 
-Twenty-nine [vision calls](docs/vision-results.md) consume supplied completed
+Forty-one [vision calls](docs/vision-results.md) consume supplied completed
 runs, transfer registers, edit parameters and retain cursors in context JSON.
 [Image/device services](docs/vision-image-services.md) add supplied captures,
 PNG/BMP export, reader output, view-line PATHs and logical camera/calibration/
-display/LED state. They perform no image processing or hardware I/O.
+display/LED state. [Legacy tracking](docs/vision-tracking.md) adds timed queues,
+allocation receipts, VT results/lookups, supplied point maps and a local
+notification outbox. These services perform no image processing, hardware I/O
+or network delivery.
 
 ```sh
 python -m karel2py examples/vision_results.kl -o vision_results.py

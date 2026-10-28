@@ -258,7 +258,7 @@ ROUTINE IRVU_VRGETMEAS(a:INTEGER; b:INTEGER; c:REAL):INTEGER FROM IRVUTILVR'''
         project.instantiate(context=ctx).run('MAIN');self.assertEqual(ctx.positions.read(1,2)[1].values['X'],2.);self.assertEqual(ctx.vision.history[-1]['program'],'MAIN')
 
     def test_metadata_records_offline_boundary_and_direction_discrepancy(self):
-        report=translate('PROGRAM T BEGIN END T').report['vision_policy'];self.assertEqual(len(report['calls']),29);self.assertFalse(report['controller_validated']);self.assertIn('input',report['discrepancy'])
+        report=translate('PROGRAM T BEGIN END T').report['vision_policy'];self.assertEqual(len(report['calls']),41);self.assertFalse(report['controller_validated']);self.assertIn('input',report['discrepancy'])
 
 
 class ConfigurationTests(unittest.TestCase):

@@ -1,0 +1,44 @@
+{
+  "STATUS": 0,
+  "TIMEOUT_STATUS": 117249,
+  "FRAME_NO": 6,
+  "MODEL_NO": 31,
+  "AREA_ID": 2,
+  "LINE_ID": 1,
+  "TRAY_ID": 3,
+  "OFFSET_POSE": {
+    "X": 8.0,
+    "Y": 3.0,
+    "Z": 4.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "FOUND_POSE": {
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 0.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "COMMENT": "authored result"
+}
