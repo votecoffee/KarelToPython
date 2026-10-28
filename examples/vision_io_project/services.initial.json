@@ -1,0 +1,55 @@
+{
+  "strings": {
+    "count": 1,
+    "capacity": 24,
+    "values": {}
+  },
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [
+          {
+            "camera_view": -1,
+            "status": 0,
+            "results": [],
+            "read_result": "BOX-17"
+          }
+        ],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 0,
+    "history": [],
+    "io": {
+      "image_count": 0,
+      "image_limit": 16777216,
+      "images": {},
+      "captures": [],
+      "cameras": {
+        "CAMERA": {
+          "powered": true,
+          "status": 0
+        }
+      },
+      "calibrations": {},
+      "display_tools": {},
+      "displayed": null,
+      "led_channels": [
+        1
+      ],
+      "led": null
+    }
+  }
+}

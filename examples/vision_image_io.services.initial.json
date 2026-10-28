@@ -1,0 +1,87 @@
+{
+  "strings": {
+    "count": 1,
+    "capacity": 6,
+    "values": {}
+  },
+  "files": {},
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [
+          {
+            "camera_view": 1,
+            "status": 0,
+            "results": [],
+            "image_reg": 1,
+            "read_result": "PART-123"
+          }
+        ],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 0,
+    "history": [],
+    "io": {
+      "image_count": 1,
+      "image_limit": 16777216,
+      "images": {},
+      "captures": [
+        {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "status": 0,
+          "image": {
+            "width": 2,
+            "height": 2,
+            "channels": 3,
+            "pixels": "00254a6f94b9de03284d7297"
+          }
+        }
+      ],
+      "cameras": {
+        "CAMERA": {
+          "powered": true,
+          "status": 0
+        }
+      },
+      "calibrations": {
+        "GRID": {
+          "responses": [
+            {
+              "function": 1,
+              "status": 0
+            },
+            {
+              "function": 2,
+              "status": 93
+            }
+          ],
+          "last": null
+        }
+      },
+      "display_tools": {
+        "SCAN": 0
+      },
+      "displayed": null,
+      "led_channels": [
+        1
+      ],
+      "led": null
+    }
+  }
+}

@@ -1,0 +1,11 @@
+PROGRAM LIB
+VAR latest:STRING[24]
+ROUTINE read_label(text:STRING; size:INTEGER; code:INTEGER)
+BEGIN
+  V_RUN_FIND('SCAN',0,code)
+  V_GET_READ('SCAN',1,'',size,code)
+  GET_STR_REG(1,text,code)
+  latest=text
+END read_label
+BEGIN
+END LIB

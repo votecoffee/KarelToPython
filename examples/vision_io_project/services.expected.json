@@ -1,0 +1,88 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": {
+          "camera_view": -1,
+          "status": 0,
+          "results": [],
+          "read_result": "BOX-17",
+          "parameters": {}
+        },
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 5,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "V_CAM_CHECK",
+        "target": "CAMERA",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "V_LED_ON",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "V_RUN_FIND",
+        "target": "SCAN",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "operation": "V_GET_READ",
+        "target": "SCAN",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "operation": "V_LED_OFF",
+        "target": "",
+        "status": 0
+      }
+    ],
+    "io": {
+      "image_count": 0,
+      "image_limit": 16777216,
+      "images": {},
+      "captures": [],
+      "cameras": {
+        "CAMERA": {
+          "powered": true,
+          "status": 0
+        }
+      },
+      "calibrations": {},
+      "display_tools": {},
+      "displayed": null,
+      "led_channels": [
+        1
+      ],
+      "led": null
+    }
+  },
+  "strings": {
+    "1": "BOX-17"
+  }
+}

@@ -1,10 +1,11 @@
 # Supplied vision results
 
-Pythonic mode supports 19 vision calls through an explicit `VisionServices`
+Pythonic mode supports 29 vision calls through an explicit `VisionServices`
 service. The service consumes supplied completed runs and stores vision results,
 registers and parameter edits. It opens no camera or controller connection and
 performs no image processing. Generated programs use the same service through
-Python and the CLI.
+Python and the CLI. The ten [image/device calls](vision-image-services.md) add
+explicit rasters, image export, reader and view-line results, and logical devices.
 
 ```sh
 python -m karel2py examples/vision_results.kl -o vision_results.py
@@ -154,7 +155,9 @@ session or discard parameter edits. Supply new batches explicitly for repeated
 execution. History is a ring of 1..4096 rows, default 500, with a finite sequence
 counter that fails before mutation on exhaustion. Processes and parameter maps
 are limited to 256 entries; each process has at most 4096 queued batches and the
-service at most 4096 queued/active result rows. All numbers must be finite.
+service at most 4096 queued/active workpiece rows and process batches. Image,
+view-line and reader data have additional [explicit bounds](vision-image-services.md).
+All numbers must be finite.
 
 | Status | Meaning |
 | --- | --- |
@@ -168,6 +171,7 @@ service at most 4096 queued/active result rows. All numbers must be finite.
 
 12311 and 117151 are documented native values for those specific cases. Other
 statuses and all supplied failure completions are portable choices, without
-native alarm classification. Camera acquisition/calibration, image registers,
-image persistence, reader results, view-line extraction, native graphics,
-legacy vision queues and conveyor tracking remain separate unsupported work.
+native alarm classification. Supplied [image/reader/view-line data and logical
+device calls](vision-image-services.md) now have offline forms. Live acquisition,
+calibration computation, pixel/edge extraction, native graphics, undocumented
+image-save overloads, legacy vision queues and conveyor tracking remain open.

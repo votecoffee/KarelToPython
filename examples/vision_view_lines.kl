@@ -1,0 +1,19 @@
+PROGRAM VISION_VIEW_LINES
+TYPE
+line_header=STRUCTURE grp_num: INTEGER ufrm_num: INTEGER focal_point: VECTOR ENDSTRUCTURE
+line_node=STRUCTURE dir: VECTOR pol: VECTOR model_id: INTEGER ENDSTRUCTURE
+point_header=STRUCTURE grp_num: INTEGER ufrm_num: INTEGER ENDSTRUCTURE
+point_node=STRUCTURE pos: VECTOR pol: VECTOR model_id: INTEGER ENDSTRUCTURE
+VAR lines:PATH NODEDATA=line_node,PATHHEADER=line_header
+    points:PATH NODEDATA=point_node,PATHHEADER=point_header
+    plane:POSITION
+    cfg:CONFIG
+    status:INTEGER
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  plane=POS(0,0,0,0,0,0,cfg)
+  V_FIND_VLINE('SCAN',1,0,lines,status)
+  INTSCT_VL_PL(lines,plane,points,status)
+  V_FIND_VLINE('SCAN',1,1,lines,status)
+  INTSCT_VL_PL(lines,plane,points,status)
+END VISION_VIEW_LINES

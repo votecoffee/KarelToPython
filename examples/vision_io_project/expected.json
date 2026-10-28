@@ -1,0 +1,17 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "LATEST": "BOX-17"
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "STATUS": 0,
+      "STORED_LENGTH": 6,
+      "LABEL": "BOX-17",
+      "POWERED": true
+    }
+  }
+}

@@ -1,0 +1,19 @@
+PROGRAM VISION_IMAGE_IO
+VAR status,stored_length,file_length,calibration_status:INTEGER
+    camera_powered:BOOLEAN
+    label:STRING[24]
+BEGIN
+  V_CAM_CHECK('CAMERA',camera_powered,status)
+  V_LED_ON(1,8,status)
+  V_SNAP_VIEW('SCAN',0,1,status)
+  V_SAVE_IMREG(1,'part.png',status)
+  V_SAVE_IMREG(1,'part.bmp',status)
+  V_FIND_VIEW('SCAN',1,1,status)
+  V_GET_READ('SCAN',1,'',stored_length,status)
+  GET_STR_REG(1,label,status)
+  V_GET_READ('SCAN',0,'part-code.txt',file_length,status)
+  V_CAM_CALIB('GRID',1,status)
+  V_CAM_CALIB('GRID',2,calibration_status)
+  V_DISPLAY4D('SCAN',status)
+  V_LED_OFF(status)
+END VISION_IMAGE_IO

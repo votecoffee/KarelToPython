@@ -193,3 +193,8 @@ Generated CLI programs can select their explicit numeric bank from --context or
 --registers. An explicit register file overrides the context bank consistently
 for numeric and extended services and saved state; see
 [numeric-register usage](../numeric-registers.md#generated-scripts).
+
+The [vision I/O ledger](vision_io_semantics.json) adds ten calls for supplied
+rasters, image export, reader/view-line results and logical camera/calibration/
+display/LED data. It supersedes older blanket image/reader exclusions while
+retaining native acquisition, image processing and undocumented save overloads.

@@ -22,6 +22,19 @@ VISION_PROCEDURES={
     'V_CSAPI_SAVEDATA':(('i','STRING'),('o','INTEGER')),
     'V_CSAPI_RESETDATA':(('i','STRING'),('o','INTEGER')),
 }
+VISION_IO_PROCEDURES={
+    'V_SNAP_VIEW':(('i','STRING'),('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'V_FIND_VIEW':(('i','STRING'),('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'V_FIND_VLINE':(('i','STRING'),('i','INTEGER'),('i','INTEGER'),('r','VIEW_LINES'),('o','INTEGER')),
+    'V_SAVE_IMREG':(('i','INTEGER'),('i','STRING'),('o','INTEGER')),
+    'V_GET_READ':(('i','STRING'),('i','INTEGER'),('i','STRING'),('o','INTEGER'),('o','INTEGER')),
+    'V_CAM_CHECK':(('i','STRING'),('o','BOOLEAN'),('o','INTEGER')),
+    'V_CAM_CALIB':(('i','STRING'),('i','INTEGER'),('o','INTEGER')),
+    'V_DISPLAY4D':(('i','STRING'),('o','INTEGER')),
+    'V_LED_ON':(('i','INTEGER'),('i','INTEGER'),('o','INTEGER')),
+    'V_LED_OFF':(('o','INTEGER'),),
+}
+VISION_PROCEDURES.update(VISION_IO_PROCEDURES)
 VISION_FUNCTIONS={
     'IRVU_VRGETMEAS':((('i','INTEGER'),('i','INTEGER'),('o','REAL')),('INTEGER',)),
     'IRVU_VRGETOFFSET':((('i','INTEGER'),('o','XYZWPR'),('o','INTEGER'),('o','STRING')),('INTEGER',)),
@@ -99,13 +112,13 @@ def encode_result(value):
 
 class VisionServices:
     """Completed input batches only; no camera, pixel algorithm or controller I/O."""
-    def __init__(self,*,count=10,registers=None,processes=None,overrides=None,limit=500,sequence=0,history=None):
+    def __init__(self,*,count=10,registers=None,processes=None,overrides=None,limit=500,sequence=0,history=None,io=None):
         self.count=integer(count,1,32767);self.limit=integer(limit,1,4096);self.sequence=integer(sequence)
         self.registers={};self.processes={};self.overrides={};self.history=[]
         for key,row in mapping({} if registers is None else registers,32767).items():
             if type(key) is not int:raise ValueError('Vision register keys require INTEGER addresses')
             self.registers[integer(key,1,self.count)]=result(row)
-        total=0
+        total=batches=line_count=read_size=0
         for key,row in named({} if processes is None else processes).items():
             if type(row) is not dict or not {'views','runs'}<=set(row) or set(row)-{'views','runs','parameters','overwritten','temporary','active','cursor','reference'}:raise ValueError('Vision process requires explicit views and runs')
             views=row['views']
@@ -123,12 +136,16 @@ class VisionServices:
             if process['reference'] is not None and set(map(int,process['reference']['views']))-set(views):raise ValueError('Reference view is not configured')
             total+=sum(len(v['results']) for v in process['runs'])+(len(process['active']['results']) if process['active'] else 0)
             if total>4096:raise ValueError('Vision result capacity exceeds 4096')
+            completed=process['runs']+([process['active']] if process['active'] is not None else [])
+            batches+=len(completed);line_count+=sum(len(v.get('view_lines',{}).get('nodes',[])) for v in completed);read_size+=sum(len(v.get('read_result','')) for v in completed)
+            if batches>4096 or line_count>32767 or read_size>4*1024*1024:raise ValueError('Combined vision batch, view-line or reader capacity exceeded')
             self.processes[key]=process
         for key,row in named({} if overrides is None else overrides).items():
             if type(row) is not dict or set(row)!={'process','parameter'}:raise ValueError('Vision override requires explicit process and parameter')
             owner,parameter=name(row['process']),name(row['parameter'])
             if owner not in self.processes or parameter not in self.processes[owner]['parameters']:raise ValueError('Vision override binding is not configured')
             self.overrides[key]=dict(process=owner,parameter=parameter)
+        self.io=None if io is None else VisionIO(io,self.processes)
         if history is None:history=[]
         if type(history) is not list or len(history)>self.limit:raise ValueError('Vision history exceeds its ring limit')
         previous=0
@@ -142,7 +159,7 @@ class VisionServices:
 
     @staticmethod
     def batch(row,process,active=False):
-        allowed={'camera_view','status','results','pass_flag'}|({'parameters'} if active else set())
+        allowed={'camera_view','status','results','pass_flag','operation','image_reg','read_result','view_lines'}|({'parameters'} if active else set())
         if type(row) is not dict or not {'camera_view','status','results'}<=set(row) or set(row)-allowed:raise ValueError('Vision batch requires camera_view, status and results')
         view=integer(row['camera_view'],-1,4)
         if view==0 or view!=-1 and view not in process['views']:raise ValueError('Batch camera view requires -1 or a configured view')
@@ -152,6 +169,18 @@ class VisionServices:
         if any(set(map(int,v['views']))-set(selected) for v in rows):raise ValueError('Batch result view is outside its selection')
         answer=dict(camera_view=view,status=status,results=rows)
         if 'pass_flag' in row:answer['pass_flag']=integer(row['pass_flag'],0,2)
+        operation=row.get('operation','find')
+        if type(operation) is not str or operation not in ('find','lines'):raise ValueError('Vision batch operation requires find or lines')
+        if 'operation' in row:answer['operation']=operation
+        if 'image_reg' in row:answer['image_reg']=integer(row['image_reg'],0,32767)
+        if 'read_result' in row:
+            text=row['read_result']
+            if type(text) is not str or not text.isascii() or len(text)>65535 or status:raise ValueError('Reader output requires at most 65535 ASCII characters on success')
+            answer['read_result']=text
+        if 'view_lines' in row:
+            if operation!='lines' or status:raise ValueError('View lines require a successful lines batch')
+            answer['view_lines']=view_lines(row['view_lines'])
+        if operation=='lines' and (rows or 'pass_flag' in row or 'read_result' in row or view!=1 or not status and 'view_lines' not in row):raise ValueError('Lines batches require view 1, only view-line output on success, and no workpiece/reader/flag results')
         if active:
             values={k:real(v) for k,v in named(row.get('parameters',{})).items()}
             if set(values)!=set(process['parameters']):raise ValueError('Active vision run requires every captured parameter')
@@ -172,7 +201,13 @@ class VisionServices:
     def register(self,number):
         return (2,None) if type(number) is not int or not 1<=number<=self.count else (0,self.registers[number]) if number in self.registers else (1,None)
 
+    def active_batch(self,process,batch,test=False):
+        captured=dict(process['parameters'])
+        if test:captured.update(process['overwritten'])
+        captured.update(process['temporary']);active=deepcopy(batch);active['parameters']=captured;return active
+
     def invoke(self,state,operation,args,line=None):
+        if operation in VISION_IO_PROCEDURES:return invoke_io(self,state,operation,args,line)
         # All source references have already passed shared disjoint/type guards.
         target=args[0];function=operation in VISION_FUNCTIONS
         status=None if function else args[-1]
@@ -187,11 +222,9 @@ class VisionServices:
                 elif not process['runs']:raise rt().KarelRuntimeError('Vision execution requires an explicit completed result batch',line)
                 else:
                     batch=process['runs'][0]
-                    if self.selection(process,batch['camera_view'])!=selected:code=2
+                    if batch.get('operation','find')!='find' or batch.get('image_reg',0)!=0 or self.selection(process,batch['camera_view'])!=selected:code=2
                     else:
-                        captured=dict(process['parameters'])
-                        if operation=='V_CSAPI_TESTRUN':captured.update(process['overwritten'])
-                        captured.update(process['temporary']);active=deepcopy(batch);active['parameters']=captured;code=batch['status']
+                        active=self.active_batch(process,batch,operation=='V_CSAPI_TESTRUN');code=batch['status']
                         def commit():
                             process['runs'].pop(0);process['active']=active;process['cursor']=0;process['temporary'].clear()
         elif operation.startswith('V_CSAPI_'):
@@ -299,13 +332,284 @@ class VisionServices:
             for batch in row['runs']+([row['active']] if row['active'] is not None else []):batch['results']=[encode_result(v) for v in batch['results']]
             if row['reference'] is not None:row['reference']=encode_result(row['reference'])
             processes[key]=row
-        return dict(count=self.count,registers={str(k):encode_result(v) for k,v in sorted(self.registers.items())},processes=processes,overrides=deepcopy(self.overrides),limit=self.limit,sequence=self.sequence,history=deepcopy(self.history))
+        answer=dict(count=self.count,registers={str(k):encode_result(v) for k,v in sorted(self.registers.items())},processes=processes,overrides=deepcopy(self.overrides),limit=self.limit,sequence=self.sequence,history=deepcopy(self.history))
+        if self.io is not None:answer['io']=self.io.to_config()
+        return answer
 
     def snapshot(self):return self.to_config()
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'count','registers','processes','overrides','limit','sequence','history'}:raise ValueError('Unknown vision configuration fields')
+        if type(config) is not dict or set(config)-{'count','registers','processes','overrides','limit','sequence','history','io'}:raise ValueError('Unknown vision configuration fields')
         config=dict(config);registers=mapping(config.get('registers',{}),32767)
         if any(type(k) is not str or not re.fullmatch(r'[1-9][0-9]*',k) for k in registers):raise ValueError('Vision JSON register keys require canonical positive integers')
         config['registers']={int(k):v for k,v in registers.items()};return cls(**config)
+
+
+def vector(value):
+    if type(value) is not list or len(value)!=3:raise ValueError('View-line vectors require three finite numbers')
+    return [real(v) for v in value]
+
+
+def view_lines(row):
+    if type(row) is not dict or set(row)!={'group','frame','focal','nodes'}:raise ValueError('View-line data requires group, frame, focal and nodes')
+    nodes=row['nodes']
+    if type(nodes) is not list or len(nodes)>4096:raise ValueError('At most 4096 supplied view lines per batch')
+    prepared=[]
+    for node in nodes:
+        if type(node) is not dict or set(node)!={'direction','polarity','model'}:raise ValueError('View-line node requires direction, polarity and model')
+        direction=vector(node['direction']);polarity=vector(node['polarity'])
+        if not all(0<math.hypot(*v)<math.inf for v in (direction,polarity)):raise ValueError('View-line directions and polarities require finite nonzero lengths')
+        prepared.append(dict(direction=direction,polarity=polarity,model=integer(node['model'])))
+    return dict(group=integer(row['group'],1,32),frame=integer(row['frame'],0,32767),focal=vector(row['focal']),nodes=prepared)
+
+
+def raster(row,limit):
+    if type(row) is not dict or set(row)!={'width','height','channels','pixels'}:raise ValueError('Image requires width, height, channels and pixels')
+    width=integer(row['width'],1,4096);height=integer(row['height'],1,4096);channels=row['channels']
+    if type(channels) is not int or channels not in (1,3):raise ValueError('Images require 8-bit grayscale or RGB channels')
+    pixels=row['pixels'];size=width*height*channels
+    if size>limit:raise ValueError('Raw image exceeds its configured byte limit')
+    if type(pixels) is str:
+        if len(pixels)!=size*2 or re.fullmatch('[0-9a-f]*',pixels) is None:raise ValueError('Image JSON pixels require canonical lowercase hexadecimal bytes')
+        pixels=bytes.fromhex(pixels)
+    if type(pixels) is not bytes or len(pixels)!=size:raise ValueError('Raw pixel size does not match image dimensions')
+    return dict(width=width,height=height,channels=channels,pixels=pixels)
+
+
+class VisionIO:
+    """Bounded supplied rasters and logical camera, calibration, display and LED data."""
+    def __init__(self,config,processes):
+        fields={'image_count','image_limit','images','captures','cameras','calibrations','display_tools','displayed','led_channels','led'}
+        if type(config) is not dict or set(config)-fields:raise ValueError('Unknown vision I/O configuration fields')
+        self.image_count=integer(config.get('image_count',0),0,256);self.image_limit=integer(config.get('image_limit',16*1024*1024),1,16*1024*1024)
+        self.images={};total=0
+        def image_record(row,*,capture=False):
+            required={'process','views','status'} if capture else {'process','views','image'}
+            allowed={'process','views','image','status'} if capture else required
+            if type(row) is not dict or not required<=set(row) or set(row)-allowed:raise ValueError('Malformed supplied image/capture record')
+            owner=name(row['process']);views=row['views']
+            if owner not in processes or type(views) is not list or not views or any(type(v) is not int or v not in processes[owner]['views'] for v in views) or len(set(views))!=len(views):raise ValueError('Image requires a configured process and distinct configured views')
+            answer=dict(process=owner,views=sorted(views))
+            code=integer(row['status']) if capture else 0
+            if capture:answer['status']=code
+            if code and 'image' in row or not code and 'image' not in row:raise ValueError('Only successful captures require an image')
+            if not code:answer['image']=raster(row['image'],self.image_limit)
+            return answer
+        for key,row in mapping(config.get('images',{}),256).items():
+            if type(key) is not str or re.fullmatch('[1-9][0-9]*',key) is None:raise ValueError('Image register keys require canonical positive numbers')
+            key=integer(int(key),1,self.image_count);self.images[key]=image_record(row)
+        captures=config.get('captures',[])
+        if type(captures) is not list or len(captures)>4096 or captures and not self.image_count:raise ValueError('Capture queue requires an image bank and at most 4096 responses')
+        self.captures=[image_record(row,capture=True) for row in captures]
+        total=sum(len(row.get('image',{}).get('pixels',b'')) for row in [*self.images.values(),*self.captures])
+        if total>64*1024*1024:raise ValueError('Combined vision raw-image capacity exceeds 64 MiB')
+        self.cameras={}
+        for key,row in named(config.get('cameras',{})).items():
+            if type(row) is not dict or set(row)-{'powered','status'}:raise ValueError('Camera requires powered and optional status')
+            code=integer(row.get('status',0))
+            if 'powered' in row and type(row['powered']) is not bool or not code and 'powered' not in row:raise ValueError('Successful camera query requires explicit BOOLEAN power state')
+            self.cameras[key]=dict(row,status=code)
+        self.calibrations={};total=0
+        def calibration(row):
+            if type(row) is not dict or set(row)!={'function','status'}:raise ValueError('Calibration reply requires function and status')
+            return dict(function=integer(row['function'],1,32767),status=integer(row['status']))
+        for key,row in named(config.get('calibrations',{})).items():
+            if type(row) is not dict or set(row)-{'responses','last'} or type(row.get('responses')) is not list:raise ValueError('Calibration requires an explicit response queue')
+            total+=len(row['responses'])
+            if total>4096:raise ValueError('At most 4096 calibration replies')
+            self.calibrations[key]=dict(responses=[calibration(v) for v in row['responses']],last=None if row.get('last') is None else calibration(row['last']))
+        self.display_tools={k:integer(v) for k,v in named(config.get('display_tools',{})).items()}
+        self.displayed=config.get('displayed')
+        if self.displayed is not None:
+            self.displayed=name(self.displayed)
+            if self.displayed not in self.display_tools:raise ValueError('Displayed tool must be explicitly configured')
+        channels=config.get('led_channels',[])
+        if type(channels) is not list or any(type(v) is not int or not 1<=v<=8 for v in channels) or len(set(channels))!=len(channels):raise ValueError('LED channels require distinct numbers 1..8')
+        self.led_channels=sorted(channels);self.led=deepcopy(config.get('led'))
+        if self.led is not None:
+            if type(self.led) is not dict or set(self.led)!={'channel','intensity'}:raise ValueError('Active LED requires channel and intensity')
+            channel=integer(self.led['channel'],1,8);integer(self.led['intensity'],1,16)
+            if channel not in self.led_channels:raise ValueError('Active LED channel is not configured')
+
+    def to_config(self):
+        def image_record(row):
+            row=deepcopy(row)
+            if 'image' in row:row['image']['pixels']=row['image']['pixels'].hex()
+            return row
+        return dict(image_count=self.image_count,image_limit=self.image_limit,images={str(k):image_record(v) for k,v in sorted(self.images.items())},captures=[image_record(v) for v in self.captures],cameras=deepcopy(self.cameras),calibrations=deepcopy(self.calibrations),display_tools=self.display_tools.copy(),displayed=self.displayed,led_channels=self.led_channels.copy(),led=deepcopy(self.led))
+
+
+def encode_raster(image,format,limit,check):
+    """Encode supplied 8-bit pixels as noninterlaced PNG or bottom-up 24-bit BMP."""
+    import struct
+    import zlib
+    width,height,channels,pixels=(image[k] for k in ('width','height','channels','pixels'))
+    if format=='BMP':
+        stride=(width*3+3)//4*4;size=54+stride*height
+        if size>limit:return None
+        rows=[]
+        for y in range(height-1,-1,-1):
+            check();row=pixels[y*width*channels:(y+1)*width*channels]
+            if channels==1:row=b''.join(bytes((v,v,v)) for v in row)
+            else:
+                bgr=bytearray(len(row));bgr[0::3]=row[2::3];bgr[1::3]=row[1::3];bgr[2::3]=row[0::3];row=bytes(bgr)
+            rows.append(row+b'\0'*(stride-len(row)))
+        return struct.pack('<2sIHHI',b'BM',size,0,0,54)+struct.pack('<IiiHHIIiiII',40,width,height,1,24,0,stride*height,0,0,0,0)+b''.join(rows)
+    rows=[];stride=width*channels
+    for start in range(0,len(pixels),stride):check();rows.append(b'\0'+pixels[start:start+stride])
+    def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
+    encoded=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,0 if channels==1 else 2,0,0,0))+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b'')
+    return encoded if len(encoded)<=limit else None
+
+
+def prepare_write(files,filename,data,line):
+    """Prepare one whole named-file replacement; never truncate through OPEN."""
+    from .extended import MemoryFiles
+    from .devices import DeviceFiles
+    from .storage import DirectoryFiles,atomic_bytes
+    if type(files) not in (MemoryFiles,DeviceFiles,DirectoryFiles):return 6,None
+    try:
+        if len(data)>files.limit:return 5,None
+        if type(files) is DirectoryFiles:
+            key=files._key(filename);path=files._path(key)
+            if files._busy(key):return 3,None
+            if not path.parent.is_dir() or path.exists() and (not path.is_file() or path.stat().st_size>files.limit):return 6,None
+        else:
+            key=files.canonical(filename) if type(files) is DeviceFiles else filename
+            files._check(key,data)
+            if files._busy(key):return 3,None
+            if key not in files.files and len(files.files)>=32767:return 5,None
+        volume=None;obsolete=0
+        if type(files) is DeviceFiles:
+            volume,obsolete=files.reserve(key,len(data),len(files.files.get(key,b'')),line)
+        def commit():
+            try:
+                if type(files) is DirectoryFiles:atomic_bytes(path,data)
+                files.files[key]=bytearray(data)
+                if volume is not None:volume['garbage']+=obsolete
+                return 0
+            except (OSError,ValueError,rt().KarelRuntimeError):return 6
+        return 0,commit
+    except (OSError,ValueError,rt().KarelRuntimeError):return 6,None
+
+
+def stage_lines(state,reference,value,line):
+    path=reference.raw();header=rt().Structure(path.spec[2]);header.values.update(GRP_NUM=value['group'],UFRM_NUM=value['frame'])
+    header.values['FOCAL_POINT'].values.update(zip(('X','Y','Z'),value['focal']));nodes=[]
+    for row in value['nodes']:
+        state.tick(line);node=rt().Structure(path.node_spec)
+        node.values['DIR'].values.update(zip(('X','Y','Z'),row['direction']));node.values['POL'].values.update(zip(('X','Y','Z'),row['polarity']));node.values['MODEL_ID']=row['model']
+        nodes.append(rt().checked(node.spec,node,line))
+    header=rt().checked(header.spec,header,line)
+    def commit():
+        path.data=rt().replace_value(path.data,header);path.nodes[:]=nodes
+        return 0
+    return commit
+
+
+def invoke_io(bank,state,operation,args,line):
+    if bank.sequence>=MAX_SEQUENCE:raise rt().KarelRuntimeError('Vision request sequence exhausted',line)
+    io=bank.io;code=0;pairs=[];commit=None;target='' if operation=='V_LED_OFF' else args[0]
+    status=args[-1]
+    process=bank.processes.get(target.upper()) if type(target) is str else None
+    if operation=='V_GET_READ':
+        active=None if process is None else process['active'];number,filename,length=args[1:4]
+        if process is None:code=2
+        elif active is None:code=1
+        elif active['status']:code=active['status']
+        elif 'read_result' not in active:code=1
+        else:
+            text=active['read_result']
+            if number==0:
+                files=state.execution.require('files',line);code,commit=prepare_write(files,filename,text.encode('ascii'),line);stored=len(text)
+            elif number<0:code=2
+            else:
+                strings=state.execution.require('strings',line)
+                if number>strings.count:code=2
+                else:
+                    text=text[:strings.capacity];stored=len(text)
+                    def commit():return strings.write(number,text)
+            if not code:pairs=[(length,stored)]
+    else:
+        if io is None:raise rt().KarelRuntimeError('Operation requires explicit vision io configuration',line)
+        if operation in ('V_SNAP_VIEW','V_FIND_VIEW','V_FIND_VLINE'):
+            view,number=args[1:3];selected=bank.selection(process,view) if process is not None else None
+            image=None
+            if process is None or selected is None or operation=='V_FIND_VLINE' and view!=1:code=2
+            elif operation!='V_FIND_VLINE' or number>0:
+                if not 1<=number<=io.image_count:code=2
+                elif operation!='V_SNAP_VIEW':
+                    image=io.images.get(number)
+                    if image is None:code=1
+                    elif image['process']!=target.upper() or not set(selected)<=set(image['views']):code=2
+            if not code and operation=='V_SNAP_VIEW':
+                if not io.captures:raise rt().KarelRuntimeError('V_SNAP_VIEW requires an explicit capture response',line)
+                response=io.captures[0]
+                if response['process']!=target.upper() or response['views']!=selected:code=2
+                else:
+                    code=response['status'];captured=deepcopy(response)
+                    def commit():
+                        io.captures.pop(0)
+                        if not code:captured.pop('status');io.images[number]=captured
+                        return 0
+            elif not code:
+                if not process['runs']:raise rt().KarelRuntimeError('Vision execution requires an explicit completed result batch',line)
+                batch=process['runs'][0];expected='lines' if operation=='V_FIND_VLINE' else 'find';image_number=max(0,number)
+                if batch.get('operation','find')!=expected or batch.get('image_reg',0)!=image_number or bank.selection(process,batch['camera_view'])!=selected:code=2
+                else:
+                    active=bank.active_batch(process,batch);code=batch['status']
+                    publish=stage_lines(state,args[3],batch['view_lines'],line) if not code and operation=='V_FIND_VLINE' else None
+                    def commit():
+                        if publish is not None:publish()
+                        process['runs'].pop(0);process['active']=active;process['cursor']=0;process['temporary'].clear();return 0
+        elif operation=='V_SAVE_IMREG':
+            number,filename=args[:2]
+            if not 1<=number<=io.image_count:code=2
+            elif number not in io.images:code=1
+            else:
+                extension=filename.rsplit('.',1)[-1].upper() if '.' in filename else ''
+                if extension not in ('PNG','BMP'):code=2
+                else:
+                    files=state.execution.require('files',line);data=encode_raster(io.images[number]['image'],extension,files.limit,lambda:state.tick(line))
+                    if data is None:code=5
+                    else:code,commit=prepare_write(files,filename,data,line)
+        elif operation=='V_CAM_CHECK':
+            camera=io.cameras.get(target.upper())
+            if camera is None:code=2
+            else:
+                code=camera['status']
+                if not code:pairs=[(args[1],camera['powered'])]
+        elif operation=='V_CAM_CALIB':
+            calibration=io.calibrations.get(target.upper())
+            if calibration is None or args[1]<1 or args[1]>32767:code=2
+            elif not calibration['responses']:raise rt().KarelRuntimeError('V_CAM_CALIB requires an explicit calibration reply',line)
+            else:
+                response=calibration['responses'][0]
+                if response['function']!=args[1]:code=2
+                else:
+                    code=response['status'];reply=deepcopy(response)
+                    def commit():calibration['responses'].pop(0);calibration['last']=reply;return 0
+        elif operation=='V_DISPLAY4D':
+            if target.upper() not in io.display_tools:code=2
+            else:
+                code=io.display_tools[target.upper()]
+                if not code:
+                    def commit():io.displayed=target.upper();return 0
+        elif operation=='V_LED_ON':
+            if type(target) is not int or target not in io.led_channels or not 1<=args[1]<=16:code=2
+            else:
+                led=dict(channel=target,intensity=args[1])
+                def commit():io.led=led;return 0
+        elif not io.led_channels:code=2
+        else:
+            def commit():io.led=None;return 0
+    # Failed scripted completions are consumed, but failed preflight plans have
+    # no commit. Publish ordinary outputs only after a successful file commit.
+    staged=[(ref,rt().checked(ref.spec,value,line)) for ref,value in pairs] if not code else []
+    row=bank.begin(state,operation,target)
+    if commit is not None:
+        outcome=commit()
+        if outcome:code=outcome;staged=[]
+    for ref,value in staged:ref.set(value,line)
+    row['status']=code;status.set(code,line)

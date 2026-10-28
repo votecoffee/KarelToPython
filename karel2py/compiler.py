@@ -4683,6 +4683,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 sessions, 256 logical rows/data/selectable items, 254 edit characters, 35 enum choices, 10 function labels, 48 help lines and 4096 key-loop events',
         boundary='Portable single-window layout, key/status codes and repaint timing; no nested/concatenated .tree fragments, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
         guide='docs/forms.md',controller_validated=False)
+    from .vision import VISION_IO_PROCEDURES
+    report['vision_io_policy']=dict(
+        calls=sorted(VISION_IO_PROCEDURES),service='Explicit vision.io rasters, ordered capture/calibration replies and logical device state; reader strings and view lines in supplied completed process batches',
+        images='Bounded 8-bit grayscale/RGB, exact dimensions and bytes, explicit process/view ownership; captures consumed once, failed captures retain old image',
+        finds='Image-register-bound completed find/line batches; no borrowing ordinary or other-image replies; inline nonpositive register allowed for line data',
+        files='PNG or 24-bit BMP export and whole ASCII reader output via exact bounded MemoryFiles/DeviceFiles/DirectoryFiles; busy/quota/path guards, atomic rooted replacement and obsolete-byte accounting',
+        readers='Known empty distinct from absent; string-register capacity truncation with stored length, zero register selects full file bytes; reads retain found cursor',
+        lines='Exact documented structural PATH schema; replace nodes and retain header identity only after full staging/budget checks; supplied group/frame/vectors, no pixel extraction',
+        devices='Explicit camera power/status, matched once-consumed calibration replies, headless display selection and one logical LED channel 1..8 with intensity 1..16',
+        persistence='Remaining replies, pixels, image ownership/coverage, active reader/line results and logical device state; no native sessions or replay',
+        save_signature='Three-argument Pythonic parameter-table form only; unexplained not_zip and iPC overloads remain rejected',
+        boundary='Synchronous explicit inputs and portable statuses; no live acquisition, calibration computation, image processing, native graphics, physical LED effects or controller/strict equivalence',
+        guide='docs/vision-image-services.md',controller_validated=False)
     report['vision_policy']=dict(
         calls=sorted(rt.VISION_CALLS),service='Explicit VisionServices with completed supplied batches; no cameras, image processing or native runtime',
         execution='RUN_FIND/TESTRun consume matching completed batches exactly once; shared GET_FOUND/GET_OFFSET cursor, independent register reads and highest supplied-score reference',

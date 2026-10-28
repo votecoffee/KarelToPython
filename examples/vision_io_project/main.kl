@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR status,stored_length:INTEGER
+    label:STRING[24]
+    powered:BOOLEAN
+ROUTINE read_label(text:STRING; size:INTEGER; code:INTEGER) FROM LIB
+BEGIN
+  V_CAM_CHECK('CAMERA',powered,status)
+  V_LED_ON(1,4,status)
+  read_label(label,stored_length,status)
+  V_LED_OFF(status)
+END MAIN

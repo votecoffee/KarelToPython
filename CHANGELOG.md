@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1028.165003 - 2026-10-28
+
+- Add ten vision calls for explicit captures/image registers, image-bound finds,
+  reader output, view-line PATHs, camera queries, calibration replies and
+  headless display/LED state. All 27 modern inventory vision names now have
+  registered offline forms; undocumented overloads and native effects stay open.
+- Encode supplied grayscale/RGB pixels as PNG/BMP through bounded file backends,
+  with busy/quota/path checks and atomic rooted-file replacement.
+- Retain once-consumed capture/calibration replies, image ownership/coverage,
+  reader/line batches and logical state in context JSON; stage outputs before
+  consumption and preserve files/lengths/PATHs on failure.
+- Document the three-argument Pythonic V_SAVE_IMREG form and reject unexplained
+  compression/iPC overloads. Keep image processing and physical I/O separate.
+- Add 58 regressions, two CLI examples and a linked vision-I/O project; update
+  README/support guides: 309 registered built-in names, 25 remaining.
+
 ## 26.1028.163240 - 2026-10-28
 
 - Let generated CLI numeric-register calls use the explicit numeric bank in

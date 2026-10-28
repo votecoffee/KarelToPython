@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 299 have a registered translation and 35 do not.
+Currently, 309 have a registered translation and 25 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -230,9 +230,11 @@ they are boundaries rather than promises to accept every such source form later.
   controller XML services, image processing and conveyor/vision tracking. KCL calls now use
   an [explicit scripted channel](kcl-commands.md), and three diagnostic calls use
   an [offline event/stack model](diagnostics.md). Neither executes native commands.
-  Nineteen [vision result calls](vision-results.md) now consume supplied completed
-  runs and retain registers/parameters. Camera/image acquisition, calibration,
-  image-register storage, reader/view-line outputs and legacy queues remain open.
+  Twenty-nine [vision calls](vision-results.md) now consume supplied completed
+  runs and retain registers/parameters. [Image/device services](vision-image-services.md)
+  add supplied rasters, PNG/BMP export, reader/view-line output and logical
+  camera/calibration/display/LED data. Live acquisition, calibration computation,
+  image processing, undocumented save overloads and legacy queues remain open.
 - The workbench currently validates/translates/reviews/exports. The planned Python
   runner, input-parameter editor, read-before-write discovery and combined
   input/result JSON are still [future work](roadmap.md).
@@ -261,7 +263,7 @@ An explicit user routine can use one of these names, but that does not implement
 the corresponding controller built-in. Names are grouped by purpose; grouping
 does not assert a particular installed option or environment.
 
-### Vision and tracking (34)
+### Vision and tracking (24)
 
 - `VT_ACK_QUEUE`
 - `VT_CLR_QUEUE`
@@ -280,21 +282,11 @@ does not assert a particular installed option or environment.
 - `VT_SET_LDBAL`
 - `VT_WRITE_PQ`
 - `V_ACQ_VAMAP`
-- `V_CAM_CALIB`
-- `V_CAM_CHECK`
 - `V_CLR_VAMAP`
-- `V_DISPLAY4D`
-- `V_FIND_VIEW`
-- `V_FIND_VLINE`
 - `V_GET_QUEUE`
-- `V_GET_READ`
 - `V_INIT_QUEUE`
 - `V_IRCONNECT`
-- `V_LED_OFF`
-- `V_LED_ON`
 - `V_RALC_QUEUE`
-- `V_SAVE_IMREG`
-- `V_SNAP_VIEW`
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 

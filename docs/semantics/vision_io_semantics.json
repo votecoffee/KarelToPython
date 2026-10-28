@@ -1,0 +1,70 @@
+{
+  "version": "26.1028.165003",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.21.2-A.21.3 V_CAM_CALIB/CHECK",
+        "A.21.10-A.21.12 V_DISPLAY4D, V_FIND_VIEW/VLINE",
+        "A.21.16 V_GET_READ",
+        "A.21.20 V_SAVE_IMREG",
+        "A.21.22 V_SNAP_VIEW"
+      ]
+    },
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "A.22.21-A.22.22 V_LED_OFF/ON",
+        "A.22.25 V_SAVE_IMREG signature editions"
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../vision-image-services.md",
+    "calls": [
+      "V_CAM_CALIB",
+      "V_CAM_CHECK",
+      "V_DISPLAY4D",
+      "V_FIND_VIEW",
+      "V_FIND_VLINE",
+      "V_GET_READ",
+      "V_LED_OFF",
+      "V_LED_ON",
+      "V_SAVE_IMREG",
+      "V_SNAP_VIEW"
+    ],
+    "images": "Explicit bounded grayscale/RGB bytes, process/view ownership, ordered capture replies consumed once; valid PNG/BMP export without live camera access",
+    "finds": "Matching image-bound completed batches or inline line completions; active results/parameters shared with core service, no image algorithm",
+    "outputs": "Stage complete PATH/header/node data before replacing; reader register/file transfer preserves length on failure; disjoint exact references and budgets remain",
+    "files": "Whole replacement through exact bounded file backends, explicit rooted filesystem, busy/quota/path checks, atomic disk writes and obsolete virtual bytes",
+    "devices": "Explicit power observations, matching calibration replies, headless selected tool and one logical LED; no acquired native state",
+    "persistence": "Pixels, remaining capture/calibration replies, reader/line batches and logical state only"
+  },
+  "discrepancies": [
+    {
+      "call": "V_SAVE_IMREG",
+      "manual": "Syntax lists value/not_zip; parameter table lists output_path and three parameters; newer edition adds iPC while leaving not_zip undocumented",
+      "decision": "Support the three-parameter Pythonic operation from the parameter table; reject extra unexplained/iPC arguments"
+    }
+  ],
+  "boundaries": [
+    "No native acquisition/calibration computation, pixel/edge processing, camera format inference, hardware LED effects or native graphics",
+    "PNG/BMP encode supplied 8-bit grayscale/RGB only; no alpha/palettes/depth maps, native image metadata, iPC routing or compression-option inference",
+    "Synchronous completed replies and portable statuses do not establish native timing, ABI, controller acceptance or strict equivalence"
+  ],
+  "format_references": [
+    "https://www.w3.org/TR/png-3/",
+    "https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapfileheader",
+    "https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapinfoheader"
+  ],
+  "validation": [
+    "tests/test_vision_io.py",
+    "tests/test_vision_results.py",
+    "tests/test_path_geometry.py",
+    "examples/vision_image_io.kl",
+    "examples/vision_view_lines.kl",
+    "examples/vision_io_project"
+  ]
+}
