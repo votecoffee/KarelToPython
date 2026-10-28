@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1028.175803. Acceptance is specific to
+This is the supported prototype subset as of 26.1028.181511. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -341,5 +341,7 @@ PROG_BACKUP/PROG_RESTORE/PROG_CLEAR, with typed program data, explicit bounded
 dependency graphs, selection/protection/binding guards and complete batch
 preflight. [Variable archives](variable-archives.md) add portable VR forms,
 variable-only recursive batches and SAVE_DRAM save points, preserving typed
-partial data and ordinary aliases. Native PC/VR/IO binaries, code unloading and
+partial data and ordinary aliases. [Mixed ALLTYPE batches](mixed-archives.md)
+combine TP/VR graphs and preflight both stores using hashed manifests. Native
+PC/VR/IO binaries, code unloading and
 automatic native flash/power-up behavior remain unavailable.

@@ -1,0 +1,56 @@
+{
+  "files": {},
+  "variable_archives": {
+    "calls": {
+      "ROOT": [
+        "DATA"
+      ],
+      "DATA": [
+        "ROOT"
+      ]
+    }
+  },
+  "variables": [
+    {
+      "program": "ROOT",
+      "path": "VALUE",
+      "type": [
+        "INTEGER"
+      ],
+      "value": 17
+    },
+    {
+      "program": "DATA",
+      "path": "TEXT",
+      "type": [
+        "STRING",
+        8
+      ],
+      "value": "ready"
+    }
+  ],
+  "teach_programs": {
+    "programs": {
+      "ROOT": {
+        "instructions": [
+          "Authored root"
+        ],
+        "numeric_registers": {
+          "1": 7
+        }
+      },
+      "WORK": {
+        "type": "JB",
+        "instructions": [
+          "Authored worker"
+        ]
+      }
+    },
+    "calls": {
+      "ROOT": [
+        "WORK"
+      ],
+      "WORK": []
+    }
+  }
+}

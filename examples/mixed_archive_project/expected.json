@@ -1,0 +1,19 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ATTEMPTS": 1
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "DONE": true,
+      "LOADED": true,
+      "INITIALIZED": true,
+      "STATUS": 0,
+      "ENTRY": 1,
+      "VALUE": 17
+    }
+  }
+}

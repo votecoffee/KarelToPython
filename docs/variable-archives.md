@@ -45,8 +45,10 @@ Names are case-insensitive ASCII identifiers of 1..36 characters, including a
 leading underscore. Filenames retain the existing archive naming rules. CLEAR
 requires a name without device/directory. Explicit `.VR` spelling distinguishes
 these operations from the [TP archive branch](program-archives.md). Native
-PC/IO binaries, extensionless mixed code/variable operations and combined TP plus
-VR PBR_ALLTYPE batches remain unsupported. PBR_PCTYPE selects variable records,
+PC/IO binaries and extensionless mixed SAVE/LOAD/CLEAR code operations remain
+unsupported. [Mixed PBR_ALLTYPE batches](mixed-archives.md) now support
+backup/clear and manifest-based recursive restore across TP and VR data.
+PBR_PCTYPE selects variable records,
 consistent with the manual's VR-only description; it does not archive PC code.
 
 ## Snapshot contents
@@ -103,7 +105,9 @@ used by the current routine retain their storage identity.
 
 Possible VR writes retain direct, transitive-routine and condition-action
 FOR-counter protection. Dynamic filenames are conservatively treated as possible
-VR writes. Proven TP filename literals and TP-only PBR selectors retain their
+VR writes. ALLTYPE clear and every PROG_RESTORE now count as possible variable
+writes, including `.TP` restore spelling because it can select a mixed manifest.
+Proven TP LOAD/CLEAR filename literals and TP-only PBR selectors retain their
 existing loop behavior. Read-only SAVE and SAVE_DRAM do not implicitly write
 source globals.
 
@@ -123,7 +127,8 @@ overwritten; this differs from retaining existing TP program records.
 Backup replaces changed files, skips identical bytes and respects the
 include-protected flag. Free-space hints follow the TP archive policy. A skipped
 protected dependency can leave no file for a future restore. Mixed TP/VR graph
-selection and native partial-progress behavior are outside this batch model.
+selection uses the separate [mixed batch contract](mixed-archives.md); native
+partial-progress behavior remains outside both models.
 
 ## DRAM save points and persistence
 

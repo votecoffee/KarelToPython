@@ -1,0 +1,14 @@
+PROGRAM LIB
+VAR attempts:INTEGER
+ROUTINE archive_all(code:INTEGER)
+BEGIN
+  IF UNINIT(attempts) THEN attempts=0 ENDIF
+  attempts=attempts+1
+  PROG_BACKUP('FR:batch/ROOT',PBR_ALLTYPE,0,TRUE,code)
+  IF code=0 THEN
+    PROG_CLEAR('ROOT',PBR_ALLTYPE,code)
+    IF code=0 THEN PROG_RESTORE('FR:batch/ROOT',code) ENDIF
+  ENDIF
+END archive_all
+BEGIN
+END LIB

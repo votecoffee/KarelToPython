@@ -191,7 +191,7 @@ class VariableArchiveGuardTests(unittest.TestCase):
         for call in ("LOAD('FR:CACHE.VR',0,s)","CLEAR('CACHE.VR',s)","PROG_RESTORE('FR:CACHE.VR',s)","PROG_CLEAR('CACHE',PBR_VRTYPE,s)","LOAD(filename,0,s)"):
             with self.assertRaises(TranslationError) as caught:compile_program('FOR n=1 TO 2 DO '+call+' ENDFOR',decl='n,s:INTEGER filename:STRING[40]')
             self.assertEqual(caught.exception.code,'E_FOR_COUNTER')
-        compile_program("FOR n=1 TO 2 DO LOAD('FR:A.TP',0,s) CLEAR('A.TP',s) PROG_CLEAR('A',PBR_ALLTYPE,s) ENDFOR")
+        compile_program("FOR n=1 TO 2 DO LOAD('FR:A.TP',0,s) CLEAR('A.TP',s) PROG_CLEAR('A',PBR_NVRTYPE,s) ENDFOR")
 
     def test_transitive_restore_effects_guard_global_counters(self):
         with self.assertRaises(TranslationError) as caught:compile_program('FOR n=1 TO 2 DO restore ENDFOR',routines="ROUTINE restore VAR status:INTEGER BEGIN LOAD('FR:T.VR',0,status) END restore")

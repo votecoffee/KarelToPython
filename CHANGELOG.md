@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1028.181511 - 2026-10-28
+
+- Add mixed PBR_ALLTYPE backup/clear and manifest-based restore over explicit
+  TP and KAREL variable stores, including variable-only ALLTYPE batches.
+- Traverse combined supplied dependency graphs with cycles/shared nodes, macro
+  exclusions and bounded bridge-edge persistence into fresh contexts.
+- Write a versioned .PB manifest with member SHA-256 hashes; preflight complete
+  TP/VR/file/quota batches and reject stale, missing or incompatible members
+  before committing. Retain existing TP records and overwrite compatible VR data.
+- Preserve ordinary aliases, unlisted roots and resources, active-task/timer/
+  output guards, protection overlays and direct/transitive/handler FOR checks.
+- Add 50 regressions, two replayable CLI examples and a linked source project;
+  update README, support guides and semantic policies. Native binaries, physical
+  storage, code unloading and strict equivalence remain outside this model.
+
 ## 26.1028.175803 - 2026-10-28
 
 - Add twelve VT queue calls over explicit ordered lines/areas: put, duplicate

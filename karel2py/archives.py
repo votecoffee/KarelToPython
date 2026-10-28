@@ -316,7 +316,11 @@ def restore(context,state,bank,spec):
 def invoke(state,operation,args,line=None):
     from .variable_archives import variable_operation,invoke as invoke_variables
     if variable_operation(operation,args):return invoke_variables(state,operation,args,line)
-    context=state.execution;bank=context.require('teach_programs',line)
+    context=state.execution
+    if context.variable_archives is not None:
+        from .mixed_archives import invoke as invoke_mixed
+        if invoke_mixed(state,operation,args,line):return
+    bank=context.require('teach_programs',line)
     if operation=='SAVE':code=save(context,state,bank,*args[:-1])
     elif operation=='LOAD':code=load(context,state,bank,args[0],args[1]==1)
     elif operation=='CLEAR':code=clear(context,state,bank,args[0])

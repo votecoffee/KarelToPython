@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.175803**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.181511**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -378,6 +378,9 @@ and saved-state replay; see [program archives](docs/program-archives.md).
 Portable VR forms also save/load/reset owned KAREL globals and explicit variable
 namespaces, including recursive variable-only batches. SAVE_DRAM records guarded
 offline save points; see [variable archives](docs/variable-archives.md).
+[Mixed ALLTYPE batches](docs/mixed-archives.md) combine TP and VR dependencies,
+validate hashed member manifests, and preflight backup/restore/clear across both
+stores before committing changes.
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

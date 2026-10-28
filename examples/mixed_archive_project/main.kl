@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR done,loaded,initialized:BOOLEAN status,entry,value:INTEGER
+ROUTINE archive_all(code:INTEGER) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    archive_all(status)
+    IF status=0 THEN done=TRUE ENDIF
+  ENDIF
+  GET_VAR(entry,'ROOT','VALUE',value,status)
+  LOAD_STATUS('ROOT',loaded,initialized)
+END MAIN

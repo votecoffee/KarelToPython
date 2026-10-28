@@ -187,8 +187,9 @@ they are boundaries rather than promises to accept every such source form later.
   recursive explicit graphs and guarded in-memory batches. Native TP/PC/VR/IO
   binaries and KAREL code unloading remain unavailable. [Portable variable
   archives](variable-archives.md) now support VR data, variable-only recursive
-  batches and explicit SAVE_DRAM points. Mixed TP/VR PBR_ALLTYPE batches and
-  automatic native DRAM/flash restoration remain unavailable.
+  batches and explicit SAVE_DRAM points. [Mixed TP/VR batches](mixed-archives.md)
+  now support PBR_ALLTYPE backup/clear and manifest-based restore across both
+  stores. Native binary batches and automatic DRAM/flash restoration remain unavailable.
 - Native controller rendering, host/controller keyboard capture, form/list/table
   managers, compressed dictionary files and language packs. Ten [pendant display calls](pendant-display.md)
   now have headless request/surface models, including WD:name output, cursor

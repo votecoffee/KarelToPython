@@ -11,6 +11,8 @@ container for TP, JB, PR and MR kinds; the internal type is preserved. Native
 TP/PC/VR/IO binaries, KAREL source unloading and controller storage formats remain
 unsupported. [Variable archives](variable-archives.md) provide separate portable
 VR forms and SAVE_DRAM points for ordinary owned globals and explicit roots.
+With an explicit VariableArchives service, [mixed ALLTYPE batches](mixed-archives.md)
+combine both stores through a checked manifest.
 
 ```python
 from karel2py.runtime import ExecutionContext, MemoryFiles, TeachPrograms
@@ -82,7 +84,8 @@ The nine PBR names use portable numeric constants in
 
 | Selector | Logical records selected |
 | --- | --- |
-| PBR_MNTYPE, PBR_ALLTYPE, PBR_NVRTYPE | TP, JB, PR and explicit MR roots |
+| PBR_MNTYPE, PBR_NVRTYPE | TP, JB, PR and explicit MR roots |
+| PBR_ALLTYPE | Same TP records; add ordinary VR namespaces when VariableArchives is supplied. |
 | PBR_JBTYPE | JB |
 | PBR_PRTYPE | PR |
 | PBR_MRTYPE | Explicit MR root |
@@ -90,10 +93,11 @@ The nine PBR names use portable numeric constants in
 | PBR_VRTYPE, PBR_PCTYPE | Separate [variable-only archive branch](variable-archives.md) |
 
 Filters apply after traversal, so a JB child can be selected through a TP root.
-PBR_ALLTYPE covers the logical TP records and their embedded register banks;
-it does not combine ordinary KAREL VR snapshots into that TP batch. Variable-only
-selectors use their separate branch. PROG_BACKUP's final extension is
-ignored. Each selected record is saved as `directory/PROGRAM.TP`.
+Without VariableArchives, PBR_ALLTYPE retains the TP-only branch. With that
+service, the [mixed branch](mixed-archives.md) combines ordinary VR snapshots and
+TP records. Variable-only selectors keep their separate branch. PROG_BACKUP's
+final extension is ignored. Each selected TP record is saved as
+`directory/PROGRAM.TP`.
 
 Backup replaces changed target files and leaves identical files untouched.
 The include-protected flag controls whether protected records are saved.
@@ -101,7 +105,9 @@ Recursive clear skips protected records and ignores missing child programs;
 a missing root remains an error. Skipping a protected or filtered root can leave
 no root archive for a later restore.
 
-PROG_RESTORE also ignores the supplied extension. It restores absent records
+PROG_RESTORE also ignores the supplied extension. With VariableArchives and a
+matching `.PB` manifest it uses the [mixed branch](mixed-archives.md); a missing
+manifest keeps the ordinary TP behavior described here. It restores absent records
 and follows their archived graph. Existing records are retained, and traversal
 uses their current graph without reading their archive file. Archive identities
 must match the requested recursive names. Every new record is validated before

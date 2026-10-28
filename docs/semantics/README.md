@@ -210,3 +210,9 @@ older blanket exclusions of these calls. Nullable typed inputs are scoped to
 these documented forms; ordinary initialization guards remain. Tray tags,
 configured logical arrival times and approximate flow rates do not establish
 native tray-cell expansion, calibrated conveyor geometry or physical effects.
+
+The [mixed archive ledger](mixed_archive_semantics.json) adds combined TP/VR
+ALLTYPE backup/clear and manifest-based restore. It supersedes older mixed-batch
+exclusions while retaining native binary/code-unload boundaries. Hashes bind each
+member to one captured batch; cross-store preflight preserves both stores on
+failure, and possible variable writes retain FOR-counter guards.

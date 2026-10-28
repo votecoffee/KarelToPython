@@ -1,0 +1,20 @@
+PROGRAM MIXED_ARCHIVES
+VAR
+  done:BOOLEAN
+  status,entry,value:INTEGER
+  text:STRING[8]
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    PROG_BACKUP('FR:batch/ROOT',PBR_ALLTYPE,0,TRUE,status)
+    IF status=0 THEN
+      PROG_CLEAR('ROOT',PBR_ALLTYPE,status)
+      IF status=0 THEN
+        PROG_RESTORE('FR:batch/ROOT',status)
+        IF status=0 THEN done=TRUE ENDIF
+      ENDIF
+    ENDIF
+  ENDIF
+  GET_VAR(entry,'ROOT','VALUE',value,status)
+  GET_VAR(entry,'DATA','TEXT',text,status)
+END MIXED_ARCHIVES

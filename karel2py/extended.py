@@ -240,8 +240,8 @@ def variable_write_call(name,arguments=()):
     kind=getattr(selected,'kind',None);value=getattr(selected,'value',None)
     if name=='PROG_CLEAR':
         if kind in ('name','predefined'):value=runtime().ARCHIVE_CONSTANTS.get(value)
-        if type(value) is int:return value in (1,6)
-    elif kind=='literal' and type(value) is str:return value.upper().endswith('.VR')
+        if type(value) is int:return value in (1,6,7)
+    elif kind=='literal' and type(value) is str:return name=='PROG_RESTORE' or value.upper().endswith('.VR')
     return True
 
 

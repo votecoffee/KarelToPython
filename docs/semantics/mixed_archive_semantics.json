@@ -1,0 +1,64 @@
+{
+  "version": "26.1028.181511",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "sections": [
+        "A.16.21 PROG_BACKUP",
+        "A.16.22 PROG_CLEAR",
+        "A.16.24 PROG_RESTORE"
+      ],
+      "pdf_pages": [
+        485,
+        486,
+        487,
+        488,
+        489,
+        490
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../mixed-archives.md",
+    "calls": [
+      "PROG_BACKUP",
+      "PROG_CLEAR",
+      "PROG_RESTORE"
+    ],
+    "selector": "PBR_ALLTYPE with explicit VariableArchives, optional TeachPrograms for variable-only graphs",
+    "graph": "Union of supplied edges, cycles/shared nodes, known macro exclusion and bounded bridge persistence",
+    "manifest": "Root.PB, karel2py-program-batch-v1, canonical membership/graph and SHA-256 hashes over existing portable TP/VR members",
+    "preflight": "Complete file/quota/garbage, destination schema/alias/task/timer/output/protection and capacity validation before either store changes",
+    "restore": "Manifest snapshot membership; validate all members, retain existing TP records/current graphs, overwrite compatible VR values and retain unlisted roots",
+    "clear": "Remove selected TP records, reset owned VR values, preserve code/declarations/resources/aliases",
+    "effects": "ALLTYPE clear and all PROG_RESTORE forms count as possible variable writes for direct/transitive/handler FOR guards"
+  },
+  "choices": [
+    {
+      "call": "PROG_BACKUP",
+      "choice": "Combined minimum byte budget includes manifest; whole-batch atomic preflight instead of native partial progress"
+    },
+    {
+      "call": "PROG_RESTORE",
+      "choice": "Manifest snapshot defines members; no directory scan or implicit executable loading; absent manifest allows old TP branch except explicit PB request"
+    },
+    {
+      "call": "PROG_CLEAR",
+      "choice": "Reset owned variables without deleting namespaces or unloading KAREL source"
+    }
+  ],
+  "boundaries": [
+    "Portable TP/VR/PB JSON, not native binaries or storage layouts",
+    "Hashes bind exact member bytes, not origin/authenticity",
+    "Protection omissions can leave a deliberately incomplete unrestorable batch",
+    "No crash journal, native concurrency/retry/partial progress, physical storage or controller/strict equivalence"
+  ],
+  "validation": [
+    "tests/test_mixed_archives.py",
+    "examples/mixed_archives.kl",
+    "examples/mixed_variables.kl",
+    "examples/mixed_archive_project"
+  ]
+}
