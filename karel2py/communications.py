@@ -355,7 +355,7 @@ class FilePipes(MemoryFiles):
                             if code and handle.reverse:code='>'+code[1:]
                             try:value=data.decode('ascii') if code is None else struct.unpack(code,data)[0]
                             except (UnicodeError,struct.error) as exc:raise runtime.KarelRuntimeError('Invalid binary pipe field: '+str(exc),line) from exc
-                            values.append(runtime.checked(target.spec,value,line))
+                            runtime.checked(target.spec,value,line);values.append(value)
                         result=values,offset
                 else:
                     try:text=raw.decode('ascii')

@@ -1,0 +1,15 @@
+PROGRAM WILDCARD_RENAME
+VAR names:ARRAY[2] OF STRING[40] count,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    RENAME_FILE('part*.DAT','saved_*.BAK',FALSE,status)
+    PIPE_CONFIG('PIPEA.DAT',FALSE,1,0,'',0,status)
+    PIPE_CONFIG('PIPEB.DAT',FALSE,1,0,'',0,status)
+    COPY_FILE('saved_partA.BAK','PIP:PIPEA.DAT',TRUE,FALSE,status)
+    COPY_FILE('saved_partB.BAK','PIP:PIPEB.DAT',TRUE,FALSE,status)
+    RENAME_FILE('PIP:PIPE*.DAT','PIP:MOVED_*.BAK',FALSE,status)
+    FILE_LIST('PIP:MOVED_*.BAK',0,3,names,count,status)
+    done=TRUE
+  ENDIF
+END WILDCARD_RENAME

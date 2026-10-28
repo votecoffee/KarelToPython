@@ -143,10 +143,12 @@ class PipeWildcardDeleteTests(unittest.TestCase):
         self.assertEqual(delete(ctx),3);self.assertEqual((ctx.file_pipes.pipes,ctx.file_pipes.snapshot()),before)
         self.assertEqual(handle.position,1);ctx.file_pipes.close(handle)
 
-    def test_wildcard_rename_remains_unsupported(self):
-        ctx=context();before=frozen(ctx)
-        self.assertEqual(invoke(None,'RENAME_FILE','PIP:*.DAT','PIP:*.new',ctx=ctx),2)
-        self.assertEqual(frozen(ctx),before)
+    def test_wildcard_rename_moves_plain_pipe_configuration_and_bytes(self):
+        ctx=context();configuration=ctx.file_pipes.pipes['PIP:A.DAT']
+        self.assertEqual(invoke(None,'RENAME_FILE','PIP:*.DAT','PIP:*.new',ctx=ctx),0)
+        self.assertEqual(set(ctx.file_pipes.files),{'PIP:A.NEW','PIP:B.NEW','PIP:A.BAK','PIP:B.BAK'})
+        self.assertIs(ctx.file_pipes.pipes['PIP:A.NEW'],configuration)
+        self.assertEqual(ctx.file_pipes.files['PIP:A.NEW'],b'a')
 
 
 class PipeWildcardCrossBackendTests(unittest.TestCase):

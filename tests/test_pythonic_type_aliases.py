@@ -266,10 +266,21 @@ class AliasBoundaryTests(unittest.TestCase):
     def test_invalid_string_capacity(self): self.reject('E_SIZE', types='TYPE count_t=STRING[255]')
     def test_alias_wildcard_definition(self): self.reject('E_VARIABLE_ARRAY_SCOPE', types='TYPE count_t=ARRAY[*] OF INTEGER')
     def test_forward_result_alias(self): self.reject('E_TYPE', types='', routines='ROUTINE work: count_t BEGIN RETURN 7 END work TYPE count_t=INTEGER')
-    def test_narrow_global_alias(self): self.reject('E_TYPE', types='TYPE count_t=BYTE')
-    def test_narrow_local_alias(self): self.reject('E_TYPE', types='TYPE count_t=SHORT', declarations='value: INTEGER', routines='ROUTINE work VAR local: count_t BEGIN END work')
-    def test_narrow_formal_alias(self): self.reject('E_PARAMETERS', types='TYPE count_t=BYTE', declarations='value: INTEGER', routines='ROUTINE work(p: count_t) BEGIN END work')
-    def test_narrow_result_alias(self): self.reject('E_RETURN_TYPE', types='TYPE count_t=SHORT', declarations='value: INTEGER', routines='ROUTINE work: count_t BEGIN RETURN 7 END work')
+    def test_narrow_global_alias(self):
+        self.assertEqual(execute('value=255', types='TYPE count_t=BYTE')['VALUE'], 255)
+        self.reject('E_TYPE_ALIAS', types='TYPE count_t=BYTE', translator=legacy_translate)
+
+    def test_narrow_local_alias(self):
+        self.assertEqual(execute('work()', types='TYPE count_t=SHORT', declarations='value: INTEGER',
+                                 routines='ROUTINE work VAR local: count_t BEGIN local=-2 value=local END work')['VALUE'], -2)
+
+    def test_narrow_formal_alias(self):
+        self.assertEqual(execute('value=1 work(value)', types='TYPE count_t=BYTE',
+                                 routines='ROUTINE work(p: count_t) BEGIN p=2 END work')['VALUE'], 2)
+
+    def test_narrow_result_alias(self):
+        self.assertEqual(execute('value=work()', types='TYPE count_t=SHORT', declarations='value: INTEGER',
+                                 routines='ROUTINE work: count_t BEGIN RETURN -7 END work')['VALUE'], -7)
     def test_alias_for_write_protection(self): self.reject('E_FOR_COUNTER', body='FOR value=1 TO 2 DO change(value) ENDFOR', routines='ROUTINE change(p: count_t) BEGIN p=7 END change')
     def test_alias_wrong_result_type(self): self.reject('E_RETURN', routines="ROUTINE work: count_t BEGIN RETURN 'bad' END work")
     def test_unsupported_type_alias(self): self.reject('E_TYPE', types='TYPE count_t=VISION')

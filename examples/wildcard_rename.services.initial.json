@@ -1,0 +1,4 @@
+{
+  "files": {"partA.DAT": "alpha", "partB.DAT": "beta", "keep.TXT": "keep"},
+  "file_pipes": {}
+}

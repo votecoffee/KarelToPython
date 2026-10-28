@@ -1,0 +1,8 @@
+{
+  "OCTET": 255,
+  "SIGNED": {"uninitialized": true},
+  "WIDE_INPUT": 7,
+  "WIDENED": 244,
+  "PROMOTED": 127.5,
+  "SENTINEL": true
+}

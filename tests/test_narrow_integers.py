@@ -279,17 +279,24 @@ class BoundaryTests(unittest.TestCase):
         for body in ('flag = UNINIT(bytes[1])', 'bytes[1] = 7 flag = UNINIT(bytes[1])', 'flag = UNINIT(item.code)'):
             with self.subTest(body=body): self.rejected(body, code='E_BYTE_UNINIT')
 
-    def test_standalone_byte_and_short_declarations_remain_blocked(self):
+    def test_standalone_narrow_declarations_are_pythonic_extensions(self):
         for name in ('BYTE', 'SHORT'):
             with self.subTest(name=name):
-                self.rejected(declarations='value: ' + name)
-                self.rejected(routines=f'ROUTINE work VAR value: {name} BEGIN END work')
+                state = execute('value=7 work()', declarations=f'value: {name}',
+                                routines=f'ROUTINE work VAR local: {name} BEGIN local=2 value=value+local END work')
+                self.assertEqual(state['VALUE'], 9)
+                self.rejected(declarations='value: ' + name, _translator=legacy_translate)
+                self.rejected(routines=f'ROUTINE work VAR value: {name} BEGIN END work', _translator=legacy_translate)
 
-    def test_scalar_narrow_formals_and_returns_remain_blocked(self):
+    def test_scalar_narrow_interfaces_are_pythonic_extensions(self):
         for name in ('BYTE', 'SHORT'):
             with self.subTest(name=name):
-                self.rejected(routines=f'ROUTINE work(p: {name}) BEGIN END work', code='E_PARAMETERS')
-                self.rejected(routines=f'ROUTINE work: {name} BEGIN RETURN 1 END work', code='E_RETURN_TYPE')
+                state = execute('value=make() work(value)', declarations=f'value: {name}',
+                                routines=f'ROUTINE make: {name} BEGIN RETURN 1 END make '
+                                         f'ROUTINE work(p: {name}) BEGIN p=2 END work')
+                self.assertEqual(state['VALUE'], 2)
+                self.rejected(routines=f'ROUTINE work(p: {name}) BEGIN END work', code='E_PARAMETERS', _translator=legacy_translate)
+                self.rejected(routines=f'ROUTINE work: {name} BEGIN RETURN 1 END work', code='E_RETURN_TYPE', _translator=legacy_translate)
 
     def test_wrong_scalar_assignment_types_rejected(self):
         for body in ('bytes[1] = TRUE', 'shorts[1] = 1.5', "bytes[1] = 'x'"):

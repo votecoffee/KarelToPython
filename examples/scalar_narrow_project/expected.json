@@ -1,0 +1,14 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "OCTET": 255,
+      "SIGNED": -123,
+      "DONE": true
+    }
+  }
+}

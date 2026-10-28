@@ -1,0 +1,7 @@
+PROGRAM MAIN
+VAR octet:BYTE signed:SHORT done:BOOLEAN
+ROUTINE receive(octet:BYTE;signed:SHORT) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN receive(octet,signed) done=TRUE ENDIF
+END MAIN

@@ -1,0 +1,22 @@
+PROGRAM SCALAR_NARROW
+TYPE octet_t=BYTE signed_t=SHORT
+VAR octet:octet_t signed:signed_t wide_input,widened:INTEGER
+    promoted:REAL sentinel:BOOLEAN
+ROUTINE bump(value:BYTE):BYTE
+BEGIN RETURN value+1 END bump
+ROUTINE nudge(value:SHORT)
+BEGIN value=value-1 END nudge
+ROUTINE touch(value:BYTE)
+BEGIN value=1 END touch
+BEGIN
+  octet=254
+  octet=bump(octet)
+  signed=-10
+  nudge(signed)
+  wide_input=7
+  touch(wide_input)
+  widened=octet+signed
+  promoted=octet*0.5
+  signed=32767
+  sentinel=UNINIT(signed)
+END SCALAR_NARROW

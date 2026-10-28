@@ -1,0 +1,11 @@
+PROGRAM LIB
+ROUTINE receive(octet:BYTE;signed:SHORT)
+VAR channel:FILE
+BEGIN
+  OPEN FILE channel('RWB','P2:')
+  READ channel(octet,signed)
+  WRITE channel(octet,signed)
+  CLOSE FILE channel
+END receive
+BEGIN
+END LIB

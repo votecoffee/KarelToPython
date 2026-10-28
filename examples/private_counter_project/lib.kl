@@ -1,0 +1,16 @@
+PROGRAM LIB
+TYPE item_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+ROUTINE make(value:INTEGER):item_t
+VAR answer:item_t
+BEGIN answer.count=value RETURN answer END make
+ROUTINE work:INTEGER
+VAR total:INTEGER
+BEGIN
+  total=0
+  USING make(99) DO
+    FOR count=1 TO 3 DO total=total+count DELAY 1 ENDFOR
+  ENDUSING
+  RETURN total
+END work
+BEGIN
+END LIB

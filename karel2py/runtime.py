@@ -771,7 +771,8 @@ def value_argument(spec, value, line=None):
         return Reference(spec, {'value': structure_value(spec, value, line)}, 'value')
     if spec[0] in POSITIONAL_VALUE_TYPES:
         return Reference(spec, {'value': checked(spec, value, line) if _pythonic() else positional_value(spec, value, line)}, 'value')
-    if spec[0] not in ('INTEGER', 'BOOLEAN', 'REAL'):
+    supported = ('INTEGER', 'BOOLEAN', 'REAL') + (('BYTE','SHORT') if _pythonic() else ())
+    if spec[0] not in supported:
         raise KarelRuntimeError('Unsupported value-parameter type', line)
     return Reference(spec, {'value': checked(spec, value, line)}, 'value')
 

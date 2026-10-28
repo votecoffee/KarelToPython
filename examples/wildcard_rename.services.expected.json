@@ -1,0 +1,38 @@
+{
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {
+      "PIP:MOVED_PIPEA.BAK": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {
+          "hex": "616c706861"
+        }
+      },
+      "PIP:MOVED_PIPEB.BAK": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {
+          "hex": "62657461"
+        }
+      }
+    }
+  },
+  "files": {
+    "keep.TXT": {
+      "hex": "6b656570"
+    },
+    "saved_partA.BAK": {
+      "hex": "616c706861"
+    },
+    "saved_partB.BAK": {
+      "hex": "62657461"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 """Bounded offline file comparison and printing over explicit FILE backends."""
 from itertools import zip_longest
 import fnmatch
+import hashlib
 import json
 import re
 
@@ -66,7 +67,6 @@ def wildcard_file_operation(state,operation,args,line=None):
     from .devices import DeviceFiles
     if any(message_address(value) for value in operands):
         raise runtime.KarelRuntimeError('Wildcard FILE operations do not route socket or DAQ endpoints',line)
-    if operation=='RENAME_FILE':args[-1].set(2,line);return True
     check=lambda:state.tick(line)
     class View:
         def __init__(self,name):
@@ -164,18 +164,93 @@ def wildcard_file_operation(state,operation,args,line=None):
         def unchanged(self,name,data,signature):
             if self.signature(name)!=signature:return False
             return self.directory or name in self.bank.files and bytes(self.bank.files[name])==data
+    def rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical,preserve_plain):
+        # Rename retains byte/configuration objects; fingerprints avoid taking
+        # another complete in-memory copy of every retained file in the batch.
+        def fingerprint(name,*,charge):
+            if source.directory:return None
+            data=source.bank.files[name]
+            if type(data) not in (bytes,bytearray):raise runtime.KarelRuntimeError('Wildcard rename requires retained file bytes',line)
+            source.bank._check(name,data)
+            if source.pipe and len(data)>source.bank.pipes[name]['sectors']*1024:
+                raise runtime.KarelRuntimeError('Configured pipe snapshot exceeds its retained capacity',line)
+            digest=hashlib.sha256()
+            for offset in range(0,len(data),4096):
+                if charge:check()
+                digest.update(data[offset:offset+4096])
+            return id(data),len(data),digest.digest()
+        existing=target.entries(target_folder,destination=True);aliases={}
+        for name in existing:aliases.setdefault(name.casefold(),[]).append(name)
+        plan=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None}
+        for name in selected:
+            check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
+            stem,separator,extension=base.rpartition('.')
+            if not preserve_plain and (not separator or not stem or not extension):return 2
+            try:target_base=_wildcard_template(template,base)
+            except ValueError:return 2
+            destination=target.key(target_prefix+target_base);matches=aliases.get(destination.casefold(),[])
+            if len(matches)>1:return 2
+            if matches:destination=matches[0]
+            if destination.casefold() in targets or destination.casefold() in source_keys or target.identity(destination) in source_ids:return 2
+            targets.add(destination.casefold())
+            if source.busy([name]) or target.busy([destination]):return 3
+            if matches:return 2
+            if source.device:
+                first=name.split(':',1)[0];second=destination.split(':',1)[0]
+                if first!=second:return 2
+                source.bank.require_volume(first,write=True,line=line)
+            if not source.pipe and not source.directory:source.bank._check(destination,b'')
+            before=source.signature(name);token=fingerprint(name,charge=True)
+            if source.signature(name)!=before:raise runtime.KarelRuntimeError('Wildcard rename metadata changed during preflight',line)
+            configuration=source.bank.pipes[name] if source.pipe else None
+            plan.append((name,destination,before,token,configuration))
+        if selected!=source.source_names(source_folder,pattern,charge=False):
+            raise runtime.KarelRuntimeError('Wildcard rename sources changed during preflight',line)
+        if source.busy(selected) or target.busy([row[1] for row in plan]):return 3
+        if target.entries(target_folder,destination=True,charge=False)!=existing:
+            raise runtime.KarelRuntimeError('Wildcard rename destinations changed during preflight',line)
+        for name,destination,before,token,configuration in plan:
+            source.plain(name);target.plain(destination)
+            if (source.signature(name)!=before or fingerprint(name,charge=False)!=token
+                    or source.pipe and source.bank.pipes[name] is not configuration):
+                raise runtime.KarelRuntimeError('Wildcard rename bytes or metadata changed during preflight',line)
+            if source.device:source.bank.require_volume(name.split(':',1)[0],write=True,line=line)
+        bank=source.bank
+        if source.directory:
+            # All predictable checks and budget charges precede publication.
+            # A late host failure can retain earlier per-file atomic renames.
+            for name,destination,_,_,_ in plan:
+                code=bank.rename(name,destination)
+                if code:return code
+                for cached in list(bank.files):
+                    if cached.casefold() in (name.casefold(),destination.casefold()) and cached!=destination:bank.files.pop(cached)
+        else:
+            staged=dict(bank.files);configurations=dict(bank.pipes) if source.pipe else None
+            for name,destination,_,_,_ in plan:
+                staged[destination]=staged.pop(name)
+                if source.pipe:configurations[destination]=configurations.pop(name)
+            bank.files.clear();bank.files.update(staged)
+            if source.pipe:bank.pipes.clear();bank.pipes.update(configurations)
+        return 0
     def execute():
+        if operation=='RENAME_FILE':
+            runtime.boolean(args[2],line)
+            if runtime.ascii_string(operands[0],line).upper().startswith('PIP:')!=runtime.ascii_string(operands[1],line).upper().startswith('PIP:'):return 2
         source=View(operands[0]);source_prefix,pattern=source.spec(operands[0]);source_folder=source.parent(source_prefix)
         if source.device:source.bank.require_volume(source.key(source_prefix+'__wildcard_probe__').split(':',1)[0])
-        if operation=='COPY_FILE':
+        if operation in ('COPY_FILE','RENAME_FILE'):
             target=View(operands[1]);target_prefix,template=target.spec(operands[1]);target_folder=target.parent(target_prefix)
             source_stem,source_dot,source_ext=pattern.rpartition('.')
             # Plain pipe snapshots can preserve extensionless names through *.
-            preserve_plain=(source.pipe or target.pipe) and template=='*'
+            preserve_plain=(operation=='RENAME_FILE' or source.pipe or target.pipe) and template=='*'
             if not preserve_plain and (not source_dot or not source_stem or not source_ext):return 2
             try:_wildcard_template(template,'probe.ext')
             except ValueError:return 2
-            overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
+            if operation=='COPY_FILE':overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
+            else:
+                runtime.boolean(args[2],line)
+                if source.bank is not target.bank:return 2
+                if source.device and source.key(source_prefix+'__wildcard_probe__').split(':',1)[0]!=target.key(target_prefix+'__wildcard_probe__').split(':',1)[0]:return 2
         else:runtime.boolean(args[1],line)
         selected=source.source_names(source_folder,pattern)
         if not selected:return 1
@@ -183,6 +258,8 @@ def wildcard_file_operation(state,operation,args,line=None):
         physical=[source.identity(name) for name in selected]
         if len(set(physical)-{None})!=sum(value is not None for value in physical):return 2
         if source.busy(selected):return 3
+        if operation=='RENAME_FILE':
+            return rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical,preserve_plain)
         if operation=='DELETE_FILE':
             bank=source.bank
             if source.device:

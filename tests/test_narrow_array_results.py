@@ -148,9 +148,12 @@ class NarrowArrayFailureTests(unittest.TestCase):
                 with self.subTest(kind=kind,body=body):
                     self.rejected('E_ARRAY_RESULT_CONTEXT',kind=kind,body=body,routines=factory(kind)+f'\nROUTINE use(p: ARRAY OF {kind}) BEGIN END use', _translator=legacy_translate)
 
-    def test_direct_scalar_narrow_results_remain_blocked(self):
+    def test_direct_scalar_narrow_results_are_pythonic_extensions(self):
         for kind in ('BYTE','SHORT'):
-            with self.subTest(kind=kind): self.rejected('E_RETURN_TYPE',body='',routines=f'ROUTINE make: {kind} BEGIN RETURN 1 END make')
+            with self.subTest(kind=kind):
+                routine=f'ROUTINE make: {kind} BEGIN RETURN 1 END make'
+                self.assertEqual(execute(body='n=make()',declarations='n: INTEGER',routines=routine)['N'],1)
+                self.rejected('E_RETURN_TYPE',body='',routines=routine,_translator=legacy_translate)
 
     def test_byte_initialization_query_remains_blocked(self): self.rejected('E_BYTE_UNINIT',body='IF UNINIT(a[1]) THEN ENDIF')
 

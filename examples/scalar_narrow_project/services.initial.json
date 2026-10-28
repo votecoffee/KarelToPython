@@ -1,0 +1,5 @@
+{
+  "serial_streams": {
+    "ports": {"2": {"capacity": 1024, "input": {"hex": "ff85ff"}}}
+  }
+}

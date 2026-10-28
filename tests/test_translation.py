@@ -167,7 +167,8 @@ class RejectionTests(unittest.TestCase):
 
     def test_unsupported_types(self):
         for kind in ('XYZWPR', 'FILE', 'BYTE', 'STRUCTURE'):
-            with self.subTest(kind=kind): self.reject('x = 1', 'E_TYPE', declarations='x: ' + kind)
+            with self.subTest(kind=kind): self.reject('x = 1', 'E_TYPE', declarations='x: ' + kind,
+                                                    _translator=legacy_translate if kind=='BYTE' else translate)
 
     def test_real_literal_and_division(self):
         self.reject('x = 1.25', 'E_TYPE')

@@ -192,13 +192,12 @@ class ComputedUsingValidationAndEffectsTests(unittest.TestCase):
 
     def test_named_alias_counter_root_protection_is_retained(self):self.reject('USING source DO FOR value=1 TO 2 DO source.label=\'x\' ENDFOR ENDUSING')
 
-    def test_private_temporary_field_for_counter_has_precise_rejection(self):
-        with self.assertRaises(TranslationError) as caught:build('USING make() DO FOR value=1 TO 2 DO ENDFOR ENDUSING')
-        self.assertEqual(caught.exception.code,'E_FOR_COUNTER')
-        self.assertIn('computed USING temporaries',caught.exception.message)
+    def test_private_temporary_field_for_counter_uses_isolated_storage(self):
+        values=execute('calls=0 total=0 USING make() DO FOR value=1 TO 3 DO total=total+value ENDFOR flag=UNINIT(value) ENDUSING')
+        self.assertEqual((values['TOTAL'],values['FLAG'],values['SOURCE']['VALUE']),(6,True,U))
 
-    def test_nested_private_alias_for_counter_is_rejected(self):
-        self.reject('USING make_box() DO USING child DO FOR value=1 TO 2 DO ENDFOR ENDUSING ENDUSING',routines='ROUTINE make_box:box_t BEGIN RETURN box END make_box')
+    def test_nested_private_alias_counter_cannot_reuse_active_root(self):
+        self.reject('USING make_box() DO FOR slot=1 TO 2 DO USING child DO FOR value=1 TO 2 DO ENDFOR ENDUSING ENDFOR ENDUSING',routines='ROUTINE make_box:box_t BEGIN RETURN box END make_box')
 
     def test_connected_timer_requires_declared_global_root(self):self.reject('USING make() DO CONNECT TIMER TO value ENDUSING','E_TIMER_SCOPE',cooperative=True)
 

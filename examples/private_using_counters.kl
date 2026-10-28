@@ -1,0 +1,18 @@
+PROGRAM PRIVATE_USING_COUNTERS
+TYPE item_t=STRUCTURE count:INTEGER value:INTEGER ENDSTRUCTURE
+VAR seed:item_t total,calls:INTEGER cleared,seed_kept:BOOLEAN
+ROUTINE make:item_t
+BEGIN calls=calls+1 RETURN seed END make
+BEGIN
+  seed.count=99 seed.value=7 total=0 calls=0
+  USING make() DO
+    FOR count=1 TO 2 DO
+      total=total+count
+      USING make() DO
+        FOR count=3 DOWNTO 2 DO total=total+count ENDFOR
+      ENDUSING
+    ENDFOR
+    cleared=UNINIT(count)
+  ENDUSING
+  seed_kept=(seed.count=99)
+END PRIVATE_USING_COUNTERS

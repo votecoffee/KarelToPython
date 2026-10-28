@@ -1055,7 +1055,8 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
                 width,code=binary_format(target.spec[0],field,line); raw=handle.owner.read_bytes(handle,width,line)
                 if code and handle.reverse: code='>'+code[1:]
                 value=raw.decode('ascii') if code is None else struct.unpack(code,raw)[0]
-                values.append(rt.checked(target.spec,value,line))
+                # Validate now; the setter must normalize raw SHORT 32767 once.
+                rt.checked(target.spec,value,line);values.append(value)
         except Exception as exc:
             handle.position=start; handle.status=1
             if isinstance(exc,UnicodeError): raise rt.KarelRuntimeError('Binary STRING requires ASCII data',line) from exc

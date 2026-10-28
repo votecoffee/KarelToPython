@@ -176,11 +176,12 @@ class WildcardPreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'Reserved'):copy(files,target='dst/CON.*')
         self.assertEqual(files.snapshot(),before)
 
-    def test_wildcard_rename_is_explicitly_rejected(self):
-        files=memory();before=files.snapshot()
-        self.assertEqual(invoke(files,'RENAME_FILE','src/*.kl','dst/*.py'),2)
-        self.assertEqual(invoke(files,'RENAME_FILE','src/a.kl','dst/*.py'),2)
-        self.assertEqual(files.snapshot(),before)
+    def test_wildcard_rename_moves_each_matching_source(self):
+        files=memory()
+        self.assertEqual(invoke(files,'RENAME_FILE','src/*.kl','dst/*.py'),0)
+        self.assertEqual(files.snapshot(),{'dst/a.py':b'a','dst/b.py':b'b','src/c.txt':b'c'})
+        self.assertEqual(invoke(files,'RENAME_FILE','dst/a.py','saved/*.txt'),0)
+        self.assertEqual(files.snapshot(),{'saved/a.txt':b'a','dst/b.py':b'b','src/c.txt':b'c'})
 
     def test_copy_snapshot_limit_preflight(self):
         files=rt.MemoryFiles({'src/a.kl':b'aaa','src/b.kl':b'bbb'});before=files.snapshot()
