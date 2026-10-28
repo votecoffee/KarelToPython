@@ -2444,6 +2444,7 @@ class State:
 
     def file_open(self,handle,mode,name,line=None):
         name=ascii_string(name,line)
+        if name.upper().startswith('KB:') or name.upper().startswith('WD:') and '/' in name:return self.execution.require('keyboard',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('WD:'):return self.execution.require('pendant',line).open_for(self,handle,mode,name,line)
         if message_address(name):return self.execution.require('messaging',line).open_for(self,handle,mode,name,line)
         if name.upper().startswith('PIP:'):
@@ -2506,3 +2507,4 @@ from .kcl import KclCommands
 from .pendant import PendantDisplay,PENDANT_CONSTANTS
 from .dictionaries import TextDictionaries,DICTIONARY_CONSTANTS
 from .dynamic_display import DynamicDisplays,DYNAMIC_DISPLAY_CALLS
+from .keyboard import KeyboardInput,KEYBOARD_CONSTANTS,KEYBOARD_CALLS

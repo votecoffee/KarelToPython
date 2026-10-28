@@ -1,0 +1,15 @@
+PROGRAM KEY_MENU
+VAR text:STRING[20]
+    chosen,sub_choice,key,status:INTEGER
+BEGIN
+  ADD_DICT('menu','MENU',DP_DEFAULT,DP_DRAM,status)
+  DEF_WINDOW('EDIT',1,20,WD_COM_CURSR,status)
+  ATT_WINDOW_S('EDIT','SYS',1,1,status)
+  FORCE_SPMENU(TP_PANEL,SPI_TPUSER,1)
+  text=''
+  DISCTRL_ALPH('EDIT',1,1,text,'COMM',0,key,status)
+  chosen=1
+  DISCTRL_SBMN('MENU',1,chosen,key,status)
+  sub_choice=chosen
+  DISCTRL_PLMN('MENU',4,3,chosen,key,status)
+END KEY_MENU

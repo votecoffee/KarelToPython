@@ -1,0 +1,19 @@
+{
+  "keyboard": {
+    "events": [
+      {
+        "key": "O"
+      },
+      {
+        "key": "K"
+      },
+      {
+        "key": "ENTER"
+      }
+    ]
+  },
+  "pendant": {
+    "rows": 1,
+    "cols": 12
+  }
+}

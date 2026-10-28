@@ -1,0 +1,200 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 7,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "KEY_MENU",
+        "operation": "DISCTRL_ALPH",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "text": "hi",
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 2,
+        "program": "KEY_MENU",
+        "operation": "DISCTRL_SBMN",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "items": [
+            "Red",
+            "Blue"
+          ],
+          "selected": 2,
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 3,
+        "request": 3,
+        "program": "KEY_MENU",
+        "operation": "DISCTRL_PLMN",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "items": [
+            "Small",
+            "Large"
+          ],
+          "selected": 1,
+          "term": 1102,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 3,
+    "request_sequence": 3
+  },
+  "dictionaries": {
+    "sources": {
+      "MENU.TX": "$1 \"Red\"\n$2 \"Blue\"\n$3 \"\"\n$4 \"Small\"\n$5 \"Large\"\n$6 \"\""
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "MENU": {
+          "source": "MENU.TX",
+          "text": "$1 \"Red\"\n$2 \"Blue\"\n$3 \"\"\n$4 \"Small\"\n$5 \"Large\"\n$6 \"\""
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 1,
+    "cols": 20,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "EDIT",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "EDIT": {
+        "rows": 1,
+        "cols": 20,
+        "options": 1,
+        "lines": [
+          "hi                  "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {
+      "1": {
+        "menu": 1001,
+        "screen": 1
+      }
+    },
+    "history": [
+      {
+        "sequence": 1,
+        "program": "KEY_MENU",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "EDIT",
+          "rows": 1,
+          "cols": 20,
+          "options": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "KEY_MENU",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "EDIT",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "KEY_MENU",
+        "operation": "FORCE_SPMENU",
+        "data": {
+          "pane": 1,
+          "menu": 1001,
+          "screen": 1
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "KEY_MENU",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "EDIT",
+          "fields": 1,
+          "bytes": 20
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "KEY_MENU",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "EDIT",
+          "fields": 1,
+          "bytes": 20
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "KEY_MENU",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "EDIT",
+          "fields": 1,
+          "bytes": 20
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "KEY_MENU",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "EDIT",
+          "fields": 1,
+          "bytes": 20
+        }
+      }
+    ],
+    "sequence": 7
+  }
+}

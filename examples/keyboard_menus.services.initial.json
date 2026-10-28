@@ -1,0 +1,36 @@
+{
+  "keyboard": {
+    "events": [
+      {
+        "key": "h"
+      },
+      {
+        "key": "i"
+      },
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "UP"
+      },
+      {
+        "key": "F2"
+      }
+    ]
+  },
+  "dictionaries": {
+    "sources": {
+      "menu": "$1 \"Red\"\n$2 \"Blue\"\n$3 \"\"\n$4 \"Small\"\n$5 \"Large\"\n$6 \"\""
+    }
+  },
+  "pendant": {
+    "rows": 1,
+    "cols": 20
+  }
+}

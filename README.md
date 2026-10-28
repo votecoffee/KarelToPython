@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.133057**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.140226**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -305,6 +305,12 @@ through context JSON. See [pendant display](docs/pendant-display.md).
 python -m karel2py examples/window_display.kl -o window_display.py
 python window_display.py --context examples/window_display.services.initial.json --state-out window-state.json
 ```
+
+Keyboard input now uses explicitly supplied key events through READ_KB, with
+editing, masks, timeouts, per-file history and PUSH/POP read suspension. Combined
+window/keyboard FILEs support echo and ordinary output. Alphanumeric entry and
+dictionary-backed subwindow/pull-up menus share that headless event model. See
+[keyboard input](docs/keyboard-input.md) for context JSON and runnable CLI examples.
 
 Twelve dynamic-display calls watch static scalar/enum variables and supplied
 ports, updating logical window fields at deterministic checkpoint intervals.

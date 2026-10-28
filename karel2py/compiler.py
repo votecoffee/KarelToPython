@@ -138,7 +138,7 @@ PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
               '> = <': 10, '>=<': 10, '+': 20, '-': 20, 'OR': 20,
               '*': 30, '/': 30, 'AND': 30, 'DIV': 30, 'MOD': 30, '@': 40, '#': 40, ':': 40}
 PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT': -2147483648,
-                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,
+                        **ex.SERIAL_CONSTANTS,**ex.XML_CONSTANTS,**rt.DIAGNOSTIC_CONSTANTS,**rt.PENDANT_CONSTANTS,**rt.DICTIONARY_CONSTANTS,**rt.KEYBOARD_CONSTANTS,
                         **rt.DEVICE_CONSTANTS,**rt.DAQ_CONSTANTS,**rt.ARCHIVE_CONSTANTS,
                         'ATR_IA':1,'ATR_UF':2,'ATR_REVERSE':3,'ATR_FIELD':4,'ATR_EOL':5,
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
@@ -4626,6 +4626,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Active bindings must be cancelled before saving; retain logical clock/settings and sequence only, plus pendant grid/history; no live reference rebinding or task restoration',
         boundary='Portable statuses and checkpoint timing; no form/list/table managers, keyboard input, native styling/preemption/controller acceptance or strict-mode equivalence',
         guide='docs/dynamic-displays.md',controller_validated=False)
+    report['keyboard_policy']=dict(
+        calls=sorted(rt.KEYBOARD_CALLS),constants=dict(rt.KEYBOARD_CONSTANTS),
+        service='Explicit KeyboardInput event queues; KB:TPKB and WD:name/TPKB text endpoints, captured root DEVICE_STAT pane; no host keyboard or GUI acquisition',
+        editing='Capacity-bounded insertion/deletion/cursor movement and per-open-FILE history; termination classes precede acceptance; unknown input remains explicit rather than synthesized',
+        waiting='Cooperative budgeted waits, scheduler virtual clock or logical standalone sleeper completion; zero-time polling, positive timeout and explicit-input indefinite standalone guard',
+        suspension='PUSH snapshots existing matching readers only; typed pane/root-owned POP token resumes those readers; new reads are not automatically suspended',
+        controls='COMM/PROG or dictionary alphabet entry in USER/USER2 windows; bounded dictionary subwindow/pull-up choices and injected key navigation; no native soft-key/form manager',
+        files='READ_KB only; combined window WRITE/dictionary/SET_CURSOR forwarding, one-row clipped echo and ATR_NOECHO; ATR_PASSALL is intent metadata; no binary/XML, generic READ or byte queries',
+        persistence='Persist only unconsumed events, finite IDs, logical time and terminal history; close all files, finish/stop active reads and POP frames before save; no input or executable-link replay',
+        limits='4096 queued/processed events, 64 active requests/frames, 256 open handles, bounded history and finite IDs; cleanup remains possible after history exhaustion',
+        boundary='Portable key/mask/attribute/status codes and timing; no native keyboard capture, glyphs, soft-key rendering, forms/tables, controller acceptance or strict-mode equivalence',
+        guide='docs/keyboard-input.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

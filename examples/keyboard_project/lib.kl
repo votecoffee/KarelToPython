@@ -1,0 +1,9 @@
+PROGRAM LIB
+VAR count,key,status:INTEGER
+ROUTINE get_text(stream:FILE; output:STRING):INTEGER
+BEGIN
+  READ_KB(stream,output,8,KC_DISPLAY,KC_ENTER_KEY,0,'',count,key,status)
+  RETURN status
+END get_text
+BEGIN
+END LIB

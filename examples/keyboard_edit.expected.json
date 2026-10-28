@@ -1,0 +1,15 @@
+{
+  "INPUT_FILE": {
+    "file": "KB:TPKB",
+    "open": false,
+    "position": 0,
+    "binary": false,
+    "status": 0
+  },
+  "TEXT": "aXc",
+  "COUNT": 3,
+  "KEY": 13,
+  "STATUS": 0,
+  "READ_STATUS": 0,
+  "POP_ID": 1
+}

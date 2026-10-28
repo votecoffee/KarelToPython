@@ -1,0 +1,149 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 3,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "MAIN",
+        "operation": "READ_KB",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "text": "OK",
+          "term": 13,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 1,
+    "request_sequence": 1
+  },
+  "pendant": {
+    "rows": 1,
+    "cols": 12,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "IO",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "IO": {
+        "rows": 1,
+        "cols": 12,
+        "options": 1,
+        "lines": [
+          "OK          "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "IO",
+          "rows": 1,
+          "cols": 12,
+          "options": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "IO",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "WINDOW_OPEN",
+        "data": {
+          "window": "IO"
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "IO",
+          "fields": 1,
+          "bytes": 8
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "IO",
+          "fields": 1,
+          "bytes": 8
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "IO",
+          "fields": 1,
+          "bytes": 8
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "IO",
+          "fields": 1,
+          "bytes": 8
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "MAIN",
+        "operation": "WINDOW_CLOSE",
+        "data": {
+          "window": "IO"
+        }
+      }
+    ],
+    "sequence": 8
+  }
+}

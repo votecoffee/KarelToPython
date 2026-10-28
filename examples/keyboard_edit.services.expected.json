@@ -1,0 +1,48 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 7,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "KEY_EDIT",
+        "operation": "PUSH_KEY_RD",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "mask": 255,
+          "suspended": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 2,
+        "program": "KEY_EDIT",
+        "operation": "READ_KB",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "text": "aXc",
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 3,
+        "request": 1,
+        "program": "KEY_EDIT",
+        "operation": "POP_KEY_RD",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "resumed": 0
+        }
+      }
+    ],
+    "sequence": 3,
+    "request_sequence": 2
+  }
+}

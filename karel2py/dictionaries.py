@@ -269,9 +269,14 @@ class TextDictionaries:
                     target.set(staged,line)
                     if not name.endswith('_V'):args[4].set(first+len(copied)-1,line)
                     status.set(33008 if truncated else 0,line);return
-                handle=args[0]
+                original=handle=args[0]
+                if state.execution.keyboard is not None and handle.owner is state.execution.keyboard:
+                    if handle.mode=='R':raise DictionaryError(4,'WRITE_DICT requires a writable window FILE')
+                    handle=state.execution.keyboard.window_handle(handle)
+                if handle is None:raise DictionaryError(4,'WRITE_DICT requires a window FILE')
                 if state.execution.pendant is None or handle.owner is not state.execution.pendant:raise DictionaryError(4,'WRITE_DICT requires an open pendant window FILE')
                 state.execution.pendant.write_dictionary(handle,rendered,line)
+                if original is not handle:original.position=handle.position;original.status=handle.status
         except DictionaryError as error:status.set(error.status,line);return
         except (ValueError,OverflowError):status.set(1,line);return
         except runtime.KarelRuntimeError:

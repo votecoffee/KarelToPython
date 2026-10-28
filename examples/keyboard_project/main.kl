@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR input_file:FILE
+    text:STRING[8]
+    status,result:INTEGER
+ROUTINE get_text(stream:FILE; output:STRING):INTEGER FROM LIB
+BEGIN
+  DEF_WINDOW('IO',1,12,WD_COM_CURSR,status)
+  ATT_WINDOW_S('IO','SYS',1,1,status)
+  OPEN FILE input_file('RW','WD:IO/TPKB')
+  result=get_text(input_file,text)
+  CLOSE FILE input_file
+END MAIN

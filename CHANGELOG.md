@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1028.140226 - 2026-10-28
+
+- Add READ_KB, PUSH_KEY_RD and POP_KEY_RD with explicit key events, pane capture,
+  masked input, bounded editing/history, cooperative timeouts and suspension tokens.
+- Add KB:TPKB and combined WD:name/TPKB text FILEs, echo/no-echo, PASSALL intent,
+  ordinary window output, cursor forwarding and explicit lifetime/save guards.
+- Add DISCTRL_ALPH plus dictionary-backed DISCTRL_SBMN/DISCTRL_PLMN navigation;
+  preserve typed output/counter guards and persist only unconsumed input/history.
+- Add 67 regressions, two CLI examples and a linked project; update README and
+  audit 269 registered built-in names with 65 remaining.
+
 ## 26.1028.133057 - 2026-10-28
 
 - Add all twelve dynamic display initiation/cancellation calls for static scalar

@@ -1,0 +1,25 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "INPUT_FILE": {
+        "file": "WD:IO/TPKB",
+        "open": false,
+        "position": 0,
+        "binary": false,
+        "status": 0
+      },
+      "TEXT": "OK",
+      "STATUS": 0,
+      "RESULT": 0
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "COUNT": 2,
+      "KEY": 13,
+      "STATUS": 0
+    }
+  }
+}

@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 263 have a registered translation and 71 do not.
+Currently, 269 have a registered translation and 65 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -183,10 +183,10 @@ they are boundaries rather than promises to accept every such source form later.
   archives](variable-archives.md) now support VR data, variable-only recursive
   batches and explicit SAVE_DRAM points. Mixed TP/VR PBR_ALLTYPE batches and
   automatic native DRAM/flash restoration remain unavailable.
-- Native controller rendering, keyboard interaction/associations, form/list/table
+- Native controller rendering, host/controller keyboard capture, form/list/table
   managers, compressed dictionary files and language packs. Ten [pendant display calls](pendant-display.md)
   now have headless request/surface models, including WD:name output, cursor
-  movement and scrolling. No keyboard input, native glyphs, abort-time screen
+  movement and scrolling. No native keyboard acquisition, glyphs, abort-time screen
   restoration or font/style rendering is supplied. Seven [text dictionary calls](text-dictionaries.md)
   now load explicitly supplied ASCII text, expand nested elements, format static
   variables, read ARRAY rows and write atomic logical window controls. Native
@@ -194,7 +194,12 @@ they are boundaries rather than promises to accept every such source form later.
   Twelve [dynamic display calls](dynamic-displays.md) now watch static globals and
   explicit ports, with bounded logical checkpoint intervals, atomic field updates
   and typed cancellation. Native background timing, implicit task cleanup, live
-  binding persistence and form/list/table managers remain unsupported.
+  binding persistence and form/list/table managers remain unsupported. Six
+  [keyboard/menu calls](keyboard-input.md) now use injected key events, editable
+  buffers, masks, pane capture, cooperative waits and PUSH/POP suspension; combined
+  WD/TPKB echo and dictionary-backed entry/subwindow/pull-up controls are modeled.
+  Native key codes, soft-key editing widgets, generic keyboard FILE READ, binary
+  transfer and form/table/list managers remain outside that contract.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.
@@ -295,19 +300,13 @@ does not assert a particular installed option or environment.
 - `V_START_VTRK`
 - `V_STOP_VTRK`
 
-### Screens, windows, keyboard and dictionaries (11)
+### Screens, windows, keyboard and dictionaries (5)
 
 - `ACT_TBL`
-- `DISCTRL_ALPH`
 - `DISCTRL_FORM`
 - `DISCTRL_LIST`
-- `DISCTRL_PLMN`
-- `DISCTRL_SBMN`
 - `DISCTRL_TBL`
 - `INIT_TBL`
-- `POP_KEY_RD`
-- `PUSH_KEY_RD`
-- `READ_KB`
 
 ### Motion and task management (6)
 

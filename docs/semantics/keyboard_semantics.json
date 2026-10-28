@@ -1,0 +1,51 @@
+{
+  "version": "26.1028.140226",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.17.4 READ_KB",
+        "A.15.29 PUSH_KEY_RD",
+        "A.15.9 POP_KEY_RD",
+        "A.4.20 DISCTRL_ALPH",
+        "A.4.23 DISCTRL_PLMN",
+        "A.4.24 DISCTRL_SBMN",
+        "7.2.2 FILE names"
+      ],
+      "topic": "Masks/editing, static pane association, suspension snapshots and dictionary-backed entry/menus"
+    }
+  ],
+  "contract": {
+    "guide": "../keyboard-input.md",
+    "calls": [
+      "READ_KB",
+      "PUSH_KEY_RD",
+      "POP_KEY_RD",
+      "DISCTRL_ALPH",
+      "DISCTRL_PLMN",
+      "DISCTRL_SBMN"
+    ],
+    "service": "Explicit injected key events and headless controls; no host keyboard capture or native UI",
+    "endpoints": "KB:TPKB and combined WD:name/TPKB text FILEs; captured root pane, optional clipped echo, output/cursor/dictionary forwarding and no-echo intent",
+    "editing": "Bounded insert/delete/cursor and per-open-file history; termination priority, partial timeout results, finite per-call event processing",
+    "waiting": "Cooperative budgeted waits with captured scheduler clock or standalone logical sleeper completion; explicit-input indefinite standalone guard",
+    "suspension": "Snapshot existing matching reads only, pane/root-owned token IDs and nested POP; new reads unaffected; timeout continues during suspension",
+    "controls": "COMM/PROG or dictionary-alphabet entry with USER/USER2 gate; bounded subwindow/pull-up options and injected navigation",
+    "persistence": "Only unconsumed input, finite IDs, logical time and terminal history; reject open handles, pending reads and unpopped frames; no implicit input replay"
+  },
+  "boundaries": [
+    "Portable key/mask/attribute/status codes, editing conventions and clock behavior rather than native controller encodings",
+    "No physical input, soft-key drawing/word cycling, generic keyboard FILE READ, binary/XML or byte queries",
+    "No restored active editors/clock links, form/table/list managers, strict/controller acceptance"
+  ],
+  "validation": [
+    "tests/test_keyboard.py",
+    "tests/test_pendant_display.py",
+    "tests/test_dictionaries.py",
+    "examples/keyboard_edit.kl",
+    "examples/keyboard_menus.kl",
+    "examples/keyboard_project"
+  ]
+}

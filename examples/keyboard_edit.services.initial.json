@@ -1,0 +1,27 @@
+{
+  "keyboard": {
+    "events": [
+      {
+        "key": "a"
+      },
+      {
+        "key": "b"
+      },
+      {
+        "key": "c"
+      },
+      {
+        "key": "LEFT"
+      },
+      {
+        "key": "DELETE"
+      },
+      {
+        "key": "X"
+      },
+      {
+        "key": "ENTER"
+      }
+    ]
+  }
+}

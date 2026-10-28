@@ -151,7 +151,9 @@ The translation report's pendant_policy and the
 [Text dictionaries](text-dictionaries.md) now provide a separate explicit service
 for dictionary reads and logical window writes. Twelve [dynamic display calls](dynamic-displays.md)
 now add read-only static-variable and port watches with deterministic polling.
-Keyboard stacks/input, form/list/table controls, compressed native dictionaries,
+[Keyboard input](keyboard-input.md) now supplies explicit queued events, read
+suspension and combined WD:name/TPKB endpoints. Native keyboard capture,
+form/list/table controls, compressed native dictionaries,
 graphic styles, native language
 packs and controller acceptance remain future work. Strict mode
 remains a later milestone.

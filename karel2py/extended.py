@@ -28,6 +28,7 @@ def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
+COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN'))
 COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS'))
 DYNAMIC_VARIABLE_WRITES={'SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
@@ -94,6 +95,11 @@ PROCEDURES = {
     'POS_REG_TYPE': (I,I,OI,OI,OI), 'CLR_POS_REG': (I,I,OI),
     'SET_POS_REG': (I,arg('POSE'),OI,I), 'SET_EPOS_REG': (I,arg('POSE'),OI,I),
     'SET_JPOS_REG': (I,arg('JOINTPOS'),OI,I),
+    'READ_KB': (arg('FILE'),OS,I,I,I,I,S,OI,OI,OI),
+    'PUSH_KEY_RD': (S,I,OI,OI), 'POP_KEY_RD': (S,I,OI),
+    'DISCTRL_ALPH': (S,I,I,arg('STRING','r'),S,I,OI,OI),
+    'DISCTRL_PLMN': (S,I,I,arg('INTEGER','r'),OI,OI),
+    'DISCTRL_SBMN': (S,I,arg('INTEGER','r'),OI,OI),
     'INI_DYN_DISB': (arg('BOOLEAN','s'),)+(S,I,I,I,I,I,I)+(arg('STRING_ARRAY','s'),OI),
     'CNC_DYN_DISB': (arg('BOOLEAN','s'),S,OI),
     'INI_DYN_DISE': (arg('INTEGER','s'),)+(S,I,I,I,I,I,I)+(arg('STRING_ARRAY','s'),OI),
@@ -962,6 +968,7 @@ class FileHandle:
         self.logical_name=None
         self.xml=False;self.xml_session=None
         self.interactive=False; self.reverse=False; self.field=False; self.eol=10
+        self.passall=False;self.noecho=False
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
     def tell(self,line=None): self.require_open(line); return self.position
@@ -993,6 +1000,7 @@ def file_piece(handle,kind,value,formats,line=None):
 def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
     if handle.xml: fail('Use XML_SCAN/XML_GETDATA for XML FILE input',line)
     rt=runtime(); handle.require_open(line); formats=formats if formats is not None else [()] * len(targets)
+    if type(handle.owner) is rt.KeyboardInput:fail('Keyboard FILE requires READ_KB',line)
     if type(handle.owner) is rt.PendantDisplay:fail('Window FILE provides output only; keyboard READ is not modeled',line)
     if type(handle.owner) is rt.Messaging:handle.owner.before_read(handle,line)
     for target in targets:
@@ -1526,7 +1534,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1581,6 +1589,9 @@ class ExecutionContext:
         from .dynamic_display import DynamicDisplays
         if dynamic_display is not None and type(dynamic_display) is not DynamicDisplays:raise TypeError('dynamic_display must be DynamicDisplays or None')
         self.dynamic_display=dynamic_display
+        from .keyboard import KeyboardInput
+        if keyboard is not None and type(keyboard) is not KeyboardInput:raise TypeError('keyboard must be KeyboardInput or None')
+        self.keyboard=keyboard
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1607,7 +1618,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1668,6 +1679,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'keyboard' in config:
+            from .keyboard import KeyboardInput
+            services['keyboard']=KeyboardInput.from_config(config['keyboard'])
         if 'dynamic_display' in config:
             from .dynamic_display import DynamicDisplays
             services['dynamic_display']=DynamicDisplays.from_config(config['dynamic_display'])
@@ -1735,6 +1749,14 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        from .keyboard import KEYBOARD_CALLS
+        if name in KEYBOARD_CALLS:return self.require('keyboard',line).invoke(state,name,args,line)
+        if self.keyboard is not None and args and type(args[0]) is FileHandle and args[0].owner is self.keyboard:
+            if name=='SET_CURSOR':
+                echo=self.keyboard.window_handle(args[0])
+                if echo is None:args[-1].set(4,line);return
+                return self.require('pendant',line).invoke(state,name,[echo,*args[1:]],line)
+            if name in ('SET_FILE_POS','GET_FILE_POS','BYTES_LEFT','BYTES_AHEAD'):fail('Keyboard FILE does not support byte cursors or input availability',line)
         from .dynamic_display import DYNAMIC_DISPLAY_CALLS
         if name in DYNAMIC_DISPLAY_CALLS:return self.require('dynamic_display',line).invoke(state,name,args,line)
         from .dictionaries import DICTIONARY_CALLS
@@ -1961,6 +1983,8 @@ class ExecutionContext:
                     if not 0<=args[2]<=127: fail('ATR_EOL requires an ASCII character code',line)
                     handle.eol=args[2]
                 elif attribute==6: handle.xml=True
+                elif attribute==7: handle.passall=True
+                elif attribute==8: handle.noecho=True
                 else: fail('Unsupported portable file attribute',line)
                 return
             if name=='CLR_IO_STAT': handle.status=0; return

@@ -1,5 +1,5 @@
 {
-  "version": "26.1028.133057",
+  "version": "26.1028.140226",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -177,5 +177,6 @@
   "kcl_commands": "kcl_semantics.json",
   "pendant_display": "pendant_display_semantics.json",
   "text_dictionaries": "text_dictionary_semantics.json",
-  "dynamic_displays": "dynamic_display_semantics.json"
+  "dynamic_displays": "dynamic_display_semantics.json",
+  "keyboard_input": "keyboard_semantics.json"
 }

@@ -1,0 +1,13 @@
+PROGRAM KEY_EDIT
+VAR input_file:FILE
+    text:STRING[12]
+    count,key,status,read_status,pop_id:INTEGER
+BEGIN
+  PUSH_KEY_RD('TPKB',255,pop_id,status)
+  SET_FILE_ATR(input_file,ATR_PASSALL)
+  OPEN FILE input_file('RW','KB:TPKB')
+  READ_KB(input_file,text,12,KC_DISPLAY+KC_DELETE+KC_LR_ARW,KC_ENTER_KEY,0,'',count,key,status)
+  read_status=status
+  CLOSE FILE input_file
+  POP_KEY_RD('TPKB',pop_id,status)
+END KEY_EDIT
