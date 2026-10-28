@@ -1,0 +1,314 @@
+{
+  "forms": {
+    "window": "FORM",
+    "rows": 6,
+    "cols": 28,
+    "limit": 64,
+    "sequence": 1
+  },
+  "keyboard": {
+    "events": [],
+    "event_sequence": 9,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 2,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 1004,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 3,
+        "request": 3,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 56,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 4,
+        "request": 4,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 5,
+        "request": 5,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 1105,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 6,
+        "request": 6,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 1004,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 7,
+        "request": 7,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 1005,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 8,
+        "request": 8,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 2,
+          "term": 1013,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 9,
+        "request": 9,
+        "program": "FORM_NAV",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 3,
+          "term": 13,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 9,
+    "request_sequence": 9
+  },
+  "dictionaries": {
+    "sources": {
+      "NAVIGATION.TX": ".form unnumber\n$1,navigation\n\"Tree and help\" &new_line \"Values\" &new_line\n\"-%t Details\" &new_line\n\"Amount \" \"-%4d(0,20)\" &new_line\n.endtree\n\"- Done\" ^keys ?hint\n.endform\n$2,keys \"\" &new_line \"\" &new_line \"Exit\" &new_line \"\" &new_line \"HELP\"\n$3,hint \"Open Details to edit.\" &new_line \"Use arrow keys to select.\" &new_line \"ENTER commits values.\" &new_line \"PREV returns from help.\" &new_line \"Done selects the result.\" &new_line \"F3 exits the form.\"\n"
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "FORM": {
+          "source": "NAVIGATION.TX",
+          "text": ".form unnumber\n$1,navigation\n\"Tree and help\" &new_line \"Values\" &new_line\n\"-%t Details\" &new_line\n\"Amount \" \"-%4d(0,20)\" &new_line\n.endtree\n\"- Done\" ^keys ?hint\n.endform\n$2,keys \"\" &new_line \"\" &new_line \"Exit\" &new_line \"\" &new_line \"HELP\"\n$3,hint \"Open Details to edit.\" &new_line \"Use arrow keys to select.\" &new_line \"ENTER commits values.\" &new_line \"PREV returns from help.\" &new_line \"Done selects the result.\" &new_line \"F3 exits the form.\"\n"
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 6,
+    "cols": 28,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {
+      "FORM": {
+        "rows": 6,
+        "cols": 28,
+        "options": 0,
+        "lines": [
+          "Tree and help               ",
+          "Values                      ",
+          "- Details                   ",
+          "Amount    8                 ",
+          " Done                       ",
+          "                            "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {
+      "1": {
+        "menu": 1002,
+        "screen": 1
+      }
+    },
+    "history": [
+      {
+        "sequence": 1,
+        "program": "FORM_NAV",
+        "operation": "FORCE_SPMENU",
+        "data": {
+          "pane": 1,
+          "menu": 1002,
+          "screen": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 9,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 10,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      },
+      {
+        "sequence": 11,
+        "program": "FORM_NAV",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 6,
+          "bytes": 168
+        }
+      }
+    ],
+    "sequence": 11
+  }
+}

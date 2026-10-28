@@ -4651,8 +4651,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lists='DISP_DAT_T resident viewport/field navigation, checked absolute item bounds, scrolling and preflighted paint/FILE cursor changes; no implicit fetch',
         persistence='Reject active sessions; retain only manager window/limit/finite sequence and ordinary closed pendant/keyboard state; no live references or edit replay',
         limits='64 sessions, 40 columns, 16384 cells, 32766 rows, 254 input characters and 4096 loop events',
-        boundary='Portable layouts/codes, plain headers and logical repaint timing; no DISCTRL_FORM, native header/help/soft-key syntax, styling, background display task, controller acceptance or strict equivalence',
+        boundary='Portable table layouts/codes and logical repaint timing; FTX uses the separate form service; no native table header/help/soft-key syntax, styling, background display task, controller acceptance or strict equivalence',
         guide='docs/table-controls.md',controller_validated=False)
+    report['form_policy']=dict(
+        calls=sorted(rt.FORM_CALLS),
+        service='Explicit FormControls, TextDictionaries FTX source, headless PendantDisplay and injected KeyboardInput; USER2 menu required',
+        source='Own-line .form/.endform, unnumber/noclear, labels/cursor/style intent, editable/selectable/display-only items, dictionary help/function keys and nonnested tree groups',
+        binding='Capture typed static scalar paths, attached program fields/subscripts and explicit indexed BOOLEAN/INTEGER ports; reject protected edit storage and output/resource overlap',
+        editing='Decimal/base INTEGER, finite REAL, BYTE/SHORT, bounded strings, Boolean/port/simulation toggles, function/subwindow/variable enums and supplied program-name choices; failed entries retain live data and can be corrected',
+        navigation='Continuous default item, inactive items, fixed two-line headers, scrolling/paging, help/choice overlays, latched editable trees, live display trees and explicit REFRESH',
+        lifetime='Prepare complete form before changing flags/window state; finally release keyboard reads and owned attachments, including stop/budget/history exhaustion; reject active saves',
+        persistence='Retain only inactive manager configuration and finite IDs plus ordinary dictionary/pendant/keyboard state; no native compression, VR association inference or edit replay',
+        limits='64 sessions, 256 logical rows/data/selectable items, 254 edit characters, 35 enum choices, 10 function labels, 48 help lines and 4096 key-loop events',
+        boundary='Portable single-window layout, key/status codes and repaint timing; no nested/concatenated .tree fragments, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
+        guide='docs/forms.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

@@ -1,0 +1,28 @@
+{
+  "forms": {
+    "rows": 4,
+    "cols": 24
+  },
+  "pendant": {
+    "rows": 4,
+    "cols": 24
+  },
+  "dictionaries": {
+    "sources": {
+      "shared": ".form unnumber\n$1,shared\n\"Shared value\" &new_line \"Library global\" &new_line\n\"Count \" \"-%4d(0,50)\" &new_line\n\"- Done\"\n.endform\n"
+    }
+  },
+  "keyboard": {
+    "events": [
+      {
+        "key": "9"
+      },
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "F3"
+      }
+    ]
+  }
+}

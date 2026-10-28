@@ -174,5 +174,7 @@ context-free CONFIG ledger while retaining native-mask and controller boundaries
 
 The [list/table ledger](table_control_semantics.json) adds resident DISP_DAT_T
 list navigation and portable COL_DESC_T/XWORK_T table editing over injected keys.
-It supersedes older blanket list/table exclusions; native forms/layouts remain
-outside the implementation.
+It supersedes older blanket list/table exclusions; native layouts remain
+outside the implementation. The [FTX form ledger](form_semantics.json) adds
+DISCTRL_FORM source parsing, typed editing, help/choices and nonnested tree groups,
+superseding older blanket form exclusions while retaining native binary/ABI limits.

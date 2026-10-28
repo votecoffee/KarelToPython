@@ -1,0 +1,8 @@
+PROGRAM LIB
+VAR count:INTEGER
+ROUTINE initialize
+BEGIN
+  count=4
+END initialize
+BEGIN
+END LIB

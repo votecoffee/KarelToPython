@@ -28,9 +28,9 @@ def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
-COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN','ACT_TBL','DISCTRL_TBL'))
+COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN','ACT_TBL','DISCTRL_TBL','DISCTRL_FORM'))
 COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS'))
-DYNAMIC_VARIABLE_WRITES={'ACT_TBL','DISCTRL_TBL','SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
+DYNAMIC_VARIABLE_WRITES={'DISCTRL_FORM','ACT_TBL','DISCTRL_TBL','SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
     'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
 SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
@@ -38,6 +38,7 @@ SERIAL_CONSTANTS={**SERIAL_ATTRIBUTES,**{f'PORT_{n}':n for n in range(1,6)},
     'PARITY_NONE':0,'PARITY_ODD':1,'PARITY_EVEN':2,'SBITS_1':1,'SBITS_15':15,'SBITS_2':2,
     **{f'DBITS_{n}':n for n in (5,6,7,8)},'XF_NOT_USED':0,'XF_USED':1}
 PROCEDURES = {
+    'DISCTRL_FORM': (S,I,arg('STRING_ARRAY'),arg('BOOL_ARRAY','r'),arg('BOOL_ARRAY','r'),I,arg('INTEGER','r'),OI,OI),
     'INIT_TBL': (S,I,I,I,arg('COL_ARRAY','r'),arg('BOOL_ARRAY','r'),arg('BOOL_GRID','r'),arg('STRING_ARRAY'),arg('INT_GRID','r'),arg('XWORK_T','r'),OI),
     'ACT_TBL': (arg('TABLE_ACTION','m'),arg('INTEGER','r'),arg('XWORK_T','r'),OI,arg('BOOLEAN','r'),OI),
     'DISCTRL_TBL': (S,I,I,I,arg('COL_ARRAY','r'),arg('BOOL_ARRAY','r'),arg('BOOL_GRID','r'),arg('INTEGER','r'),OI,I,arg('STRING_ARRAY'),B,OI),
@@ -1547,7 +1548,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1608,6 +1609,9 @@ class ExecutionContext:
         from .table_controls import TableControls
         if table_controls is not None and type(table_controls) is not TableControls:raise TypeError('table_controls must be TableControls or None')
         self.table_controls=table_controls
+        from .forms import FormControls
+        if forms is not None and type(forms) is not FormControls:raise TypeError('forms must be FormControls or None')
+        self.forms=forms
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1634,7 +1638,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1695,6 +1699,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'forms' in config:
+            from .forms import FormControls
+            services['forms']=FormControls.from_config(config['forms'])
         if 'table_controls' in config:
             from .table_controls import TableControls
             services['table_controls']=TableControls.from_config(config['table_controls'])
@@ -1768,6 +1775,8 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        from .forms import FORM_CALLS
+        if name in FORM_CALLS:return self.require('forms',line).invoke(state,name,args,line)
         from .table_controls import TABLE_CALLS
         if name in TABLE_CALLS:return self.require('table_controls',line).invoke(state,name,args,line)
         from .keyboard import KEYBOARD_CALLS

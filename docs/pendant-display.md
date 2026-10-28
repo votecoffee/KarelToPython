@@ -153,6 +153,7 @@ for dictionary reads and logical window writes. Twelve [dynamic display calls](d
 now add read-only static-variable and port watches with deterministic polling.
 [Keyboard input](keyboard-input.md) now supplies explicit queued events, read
 suspension and combined WD:name/TPKB endpoints. [List/table controls](table-controls.md)
-add resident paging and array-backed editors. Native keyboard capture, forms,
+add resident paging and array-backed editors. [FTX forms](forms.md) now add
+logical typed fields, help/choices and tree groups. Native keyboard capture,
 compressed native dictionaries, graphic styles, native language packs and
 controller acceptance remain future work. Strict mode remains a later milestone.

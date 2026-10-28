@@ -149,5 +149,6 @@ The report's dynamic_display_policy and the
 [semantics ledger](semantics/dynamic_display_semantics.json) record this contract.
 [Keyboard input](keyboard-input.md) separately models injected events and selected
 headless menus. [List/table controls](table-controls.md) separately add resident
-navigation and typed array editing. Native timing, glyph rendering, forms, live
+navigation and typed array editing; [FTX forms](forms.md) add scalar fields,
+help/choices and tree groups. Native timing, glyph rendering and live
 binding persistence, controller acceptance and strict mode remain future work.

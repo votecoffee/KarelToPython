@@ -1,0 +1,41 @@
+{
+  "version": "26.1028.151355",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.4.21 DISCTRL_FORM",
+        "11.2.1-11.2.16 Creating user forms"
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../forms.md",
+    "calls": [
+      "DISCTRL_FORM"
+    ],
+    "service": "Supplied FTX text, explicit FormControls/PendantDisplay/KeyboardInput, USER2 gate; no native UI",
+    "source": "Own-line form markers/attributes, forward cursor layout, fixed headers, selectable/edit/display-only items and plain nested dictionary elements",
+    "data": "Captured ordinary typed static scalar paths and attached program names; supplied BOOLEAN/INTEGER ports and simulation state; resource/output overlap guards",
+    "editing": "Range/format/capacity validation before commit, failed-entry retry, strings, enum/program choice overlays, Boolean function keys and prefix change flags",
+    "navigation": "Continuous default selection, inactive items, scroll/page, dictionary/variable function keys, help overlay and latched/live nonnested trees",
+    "lifetime": "Internal finally cleanup, active-save rejection, owned/shared attachments, finite IDs; no edit or reference persistence",
+    "limits": "64 sessions, 256 rows/data/selectable items, 254 characters per edit, 35 enum choices, 10 function labels, 48 help lines and 4096 processed events"
+  },
+  "boundaries": [
+    "Portable single-window layout, statuses/key codes and logical repaint timing; no native TPSC widget/glyph acceptance",
+    "No compressed binary TX/VR association inference, Data ID discovery or host/controller input",
+    "No nested/concatenated .tree fragments; strict mode and native ABI remain future work"
+  ],
+  "validation": [
+    "tests/test_forms.py",
+    "tests/test_dictionaries.py",
+    "tests/test_keyboard.py",
+    "tests/test_table_controls.py",
+    "examples/form_settings.kl",
+    "examples/form_navigation.kl",
+    "examples/form_project"
+  ]
+}

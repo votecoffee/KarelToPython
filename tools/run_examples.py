@@ -24,6 +24,7 @@ def service_snapshot(services):
     if services.variable_archives is not None: observed['variable_archives']=services.variable_archives.to_config()
     if services.diagnostics is not None: observed['diagnostics']=services.diagnostics.to_config()
     if services.kcl is not None: observed['kcl']=services.kcl.to_config()
+    if services.forms is not None: observed['forms']=services.forms.to_config()
     if services.table_controls is not None: observed['table_controls']=services.table_controls.to_config()
     if services.keyboard is not None: observed['keyboard']=services.keyboard.to_config()
     if services.dynamic_display is not None: observed['dynamic_display']=services.dynamic_display.to_config()
@@ -138,9 +139,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 175, 'Update the expected example count when adding examples'
+    assert count == 177, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==16, 'Update the expected project count when adding projects'
+    assert len(projects)==17, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None

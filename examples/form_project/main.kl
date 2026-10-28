@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR chosen,key,status:INTEGER
+    names:ARRAY[1] OF STRING[20]
+    inactive,changed:ARRAY[1] OF BOOLEAN
+ROUTINE initialize FROM LIB
+BEGIN
+  initialize()
+  ADD_DICT('shared','FORM',DP_DEFAULT,DP_DRAM,status)
+  FORCE_SPMENU(TP_PANEL,SPI_TPUSER2,1)
+  names[1]='[LIB]COUNT' chosen=1
+  DISCTRL_FORM('FORM',1,names,inactive,changed,KC_FUNC_KEY,chosen,key,status)
+END MAIN

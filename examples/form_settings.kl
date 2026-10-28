@@ -1,0 +1,11 @@
+PROGRAM FORM_SETTINGS
+VAR count,chosen,key,status:INTEGER ready:BOOLEAN
+    names:ARRAY[2] OF STRING[12]
+    inactive:ARRAY[1] OF BOOLEAN changed:ARRAY[2] OF BOOLEAN
+BEGIN
+  ADD_DICT('settings','FORM',DP_DEFAULT,DP_DRAM,status)
+  FORCE_SPMENU(TP_PANEL,SPI_TPUSER2,1)
+  count=2 ready=FALSE chosen=1
+  names[1]='COUNT' names[2]='READY'
+  DISCTRL_FORM('FORM',1,names,inactive,changed,KC_FUNC_KEY OR KC_PREV_KEY,chosen,key,status)
+END FORM_SETTINGS

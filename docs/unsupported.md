@@ -7,7 +7,7 @@ contains statements, actions, clauses, types and directives as well as calls;
 one heading does not equal one executable feature or one percentage of coverage.
 
 The inventory has 334 distinct built-in names after merging repeated headings.
-Currently, 273 have a registered translation and 61 do not.
+Currently, 274 have a registered translation and 60 do not.
 Registration means a supported form exists; it does not mean every overload,
 option, type, controller release or native behavior is implemented. Calls outside
 this reference set can also be rejected. The complete remaining name list is
@@ -192,7 +192,8 @@ they are boundaries rather than promises to accept every such source form later.
   restoration or font/style rendering is supplied. Seven [text dictionary calls](text-dictionaries.md)
   now load explicitly supplied ASCII text, expand nested elements, format static
   variables, read ARRAY rows and write atomic logical window controls. Native
-  compressed TX/UTX compiler workflows, forms and glyph encodings remain blocked.
+  compressed TX/UTX compiler workflows, native VR form associations and glyph
+  encodings remain blocked.
   Twelve [dynamic display calls](dynamic-displays.md) now watch static globals and
   explicit ports, with bounded logical checkpoint intervals, atomic field updates
   and typed cancellation. Native background timing, implicit task cleanup, live
@@ -204,8 +205,11 @@ they are boundaries rather than promises to accept every such source form later.
   transfer and native form widgets remain outside that contract. Four
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.
-  DISCTRL_FORM, native table headers/help/soft-key syntax and native binary
-  layouts remain unsupported.
+  [DISCTRL_FORM](forms.md) now accepts supplied FTX forms with typed scalar/port
+  editing, numeric/variable/program enums, help, function labels and nonnested tree
+  groups. Native binary form/VR associations, nested/concatenated .tree fragments,
+  Data ID discovery, native table header syntax and exact widget/layout semantics
+  remain unsupported.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
   and explicit file streaming. No physical acquisition or native format is implied.
@@ -305,10 +309,6 @@ does not assert a particular installed option or environment.
 - `V_SNAP_VIEW`
 - `V_START_VTRK`
 - `V_STOP_VTRK`
-
-### Screens, windows, keyboard and dictionaries (1)
-
-- `DISCTRL_FORM`
 
 ### Motion and task management (6)
 

@@ -1,0 +1,20 @@
+{
+  "COUNT": 7,
+  "CHOSEN": 3,
+  "KEY": 1008,
+  "STATUS": 0,
+  "READY": true,
+  "NAMES": [
+    "COUNT",
+    "READY"
+  ],
+  "INACTIVE": [
+    {
+      "uninitialized": true
+    }
+  ],
+  "CHANGED": [
+    true,
+    true
+  ]
+}

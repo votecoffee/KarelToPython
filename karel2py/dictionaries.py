@@ -49,21 +49,36 @@ def language_name(value):
 
 def parse(text):
     text=text_source(text);entries={};names={};entry=None;previous=-1;position=0;tokens=0
+    pending=None;in_form=False
     while position<len(text):
         rest=text[position:]
         match=re.match(r'\s+|\*[^\r\n]*',rest)
         if match:position+=match.end();continue
+        match=re.match(r'\.(form|endform|endtree|tree)\b([^\r\n]*)',rest,re.I)
+        if match:
+            if text[:position].rsplit('\n',1)[-1].strip():raise ValueError('Form directives require their own lines')
+            directive=match[1].lower();attributes=match[2].split('*',1)[0].lower().split()
+            if directive=='form':
+                if in_form or pending is not None or len(set(attributes))!=len(attributes) or set(attributes)-{'unnumber','noclear'}:raise ValueError('Invalid or nested form declaration')
+                pending=tuple(attributes);entry=None
+            else:
+                if attributes or not in_form:raise ValueError('Unmatched form directive')
+                entry.append((directive,));tokens+=1
+                if directive=='endform':in_form=False;entry=None
+            position+=match.end();continue
         match=re.match(r'\$([0-9]+|-)(?:\s*,\s*([A-Za-z_][A-Za-z_0-9]{0,249}))?',rest)
         if match:
+            if in_form:raise ValueError('A form contains exactly one dictionary element')
             number=previous+1 if match[1]=='-' else int(match[1]);name=match[2]
             if not 0<=number<=32767 or number in entries or len(entries)>=4096 or name is not None and name in names:raise ValueError('Duplicate/invalid dictionary element or name')
             entry=[];entries[number]=entry;previous=number
+            if pending is not None:entry.append(('form',pending));pending=None;in_form=True;tokens+=1
             if name is not None:names[name]=number
             position+=match.end();continue
         if entry is None:raise ValueError('Dictionary content requires an element header')
-        match=re.match(r'"((?:[^"\\\r\n]|\\["\\])*)"',rest)
+        match=re.match(r'"((?:[^"\\\r\n]|\\["\\a])*)"',rest)
         if match:
-            content=re.sub(r'\\(["\\])',r'\1',match[1]);token=('text',content)
+            content=re.sub(r'\\(["\\])',r'\1',match[1]);token=('terminator',) if match[1]=='\\a' else ('text',content)
             if any(not 32<=ord(char)<=126 for char in content):raise ValueError('Quoted text requires printable ASCII')
         else:
             match=re.match(r'@([0-9]+)\s*,\s*([0-9]+)',rest)
@@ -87,12 +102,13 @@ def parse(text):
                         elif code in (*range(138,144),146,147,148,153,154):token=('style',str(code))
                         else:raise ValueError('Unsupported dictionary character code')
                     else:
-                        match=re.match(r'\+([0-9]+|[A-Za-z_][A-Za-z_0-9]{0,249})',rest)
+                        match=re.match(r'([+^?])([0-9]+|[A-Za-z_][A-Za-z_0-9]{0,249})',rest)
                         if not match:raise ValueError('Unsupported or malformed dictionary syntax')
-                        token=('include',int(match[1]) if match[1].isdigit() else match[1])
+                        if match[1]!='+' and not in_form:raise ValueError('Function/help markers require a form')
+                        token=({'+':'include','^':'function_keys','?':'help'}[match[1]],int(match[2]) if match[2].isdigit() else match[2])
         entry.append(token);position+=match.end();tokens+=1
         if tokens>16384:raise ValueError('Dictionary token limit exceeded')
-    if not entries:raise ValueError('Dictionary requires at least one element')
+    if not entries or in_form or pending is not None:raise ValueError('Dictionary requires complete elements/forms')
     visiting=set();depths={}
     def depth(number):
         if number in visiting:raise ValueError('Cyclic dictionary nesting')
@@ -195,6 +211,7 @@ class TextDictionaries:
 
     def render(self,state,tokens,values,line=None):
         runtime=rt();output=[];size=0;next_index=0
+        if any(token[0] in ('form','endform','tree','endtree','function_keys','help','terminator') for token in tokens):raise DictionaryError(4,'Form/enum metadata requires its matching control service')
         paths=None if values is None else list(values.values)
         for token in tokens:
             if token[0]=='text':

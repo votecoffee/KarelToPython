@@ -77,8 +77,9 @@ Known foreground/background colors and blink, reverse, bold, under_line,
 double_wide, standard, graphics_on, ascii_on, double_high, normal_size and
 multi_on attributes are recognized and ignored by the character-grid model.
 This is text output without native font, color, glyph or graphic behavior.
-Unsupported character codes, Unicode, native forms and unknown attributes fail
-loading rather than disappearing silently.
+Unsupported character codes, Unicode and unknown attributes fail loading rather
+than disappearing silently. Supported FTX metadata is retained for the separate
+[form service](forms.md), and is rejected by ordinary text rendering calls.
 
 ## Plain and formatted reads
 
@@ -165,5 +166,8 @@ python -m karel2py.project examples/dictionary_project --entry MAIN --context ex
 Reports expose dictionary_policy and a [semantics ledger](semantics/text_dictionary_semantics.json).
 The separate [list/table service](table-controls.md) uses plain header/label
 elements for resident navigation and typed editing. Native compressed formats,
-dictionary/form compilation, glyph rendering, forms, native keyboard capture,
-strict mode and controller acceptance remain future work.
+native dictionary/form compilation, glyph rendering, native keyboard capture,
+strict mode and controller acceptance remain future work. The separate
+[form service](forms.md) accepts explicit .form/.endform FTX source, including
+help/function elements and typed field formats. Form metadata cannot be silently
+rendered through ordinary READ_DICT/WRITE_DICT calls.

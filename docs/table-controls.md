@@ -148,6 +148,7 @@ python -m karel2py.project examples/project_table --entry MAIN --context example
 ```
 
 The [semantics ledger](semantics/table_control_semantics.json), translation
-`table_control_policy` and authored tests describe the contract. `DISCTRL_FORM`,
-native key encodings, form/table binary layouts, controller rendering/acceptance
-and strict equivalence remain future work.
+`table_control_policy` and authored tests describe the contract. The separate
+[FTX form service](forms.md) now supports DISCTRL_FORM. Native key encodings,
+form/table binary layouts, controller rendering/acceptance and strict equivalence
+remain future work.

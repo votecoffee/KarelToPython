@@ -1,0 +1,37 @@
+{
+  "forms": {
+    "rows": 5,
+    "cols": 24
+  },
+  "pendant": {
+    "rows": 5,
+    "cols": 24
+  },
+  "dictionaries": {
+    "sources": {
+      "settings": ".form unnumber\n$1,settings\n\"Settings\" &new_line \"Values\" &new_line\n\"Count \" \"-%4d(0,50)\" &new_line\n\"Ready \" \"-%4B\" &new_line\n\"- Apply\"\n.endform\n"
+    }
+  },
+  "keyboard": {
+    "events": [
+      {
+        "key": "7"
+      },
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "F4"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "ENTER"
+      }
+    ]
+  }
+}

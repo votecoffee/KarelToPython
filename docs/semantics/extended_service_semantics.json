@@ -1,5 +1,5 @@
 {
-  "version": "26.1028.144536",
+  "version": "26.1028.151355",
   "mode": "pythonic",
   "evidence": "Manual-backed syntax and authored offline implementation tests; no native controller execution",
   "controller_validated": false,
@@ -179,5 +179,6 @@
   "text_dictionaries": "text_dictionary_semantics.json",
   "dynamic_displays": "dynamic_display_semantics.json",
   "keyboard_input": "keyboard_semantics.json",
-  "table_controls": "table_control_semantics.json"
+  "table_controls": "table_control_semantics.json",
+  "forms": "form_semantics.json"
 }

@@ -2515,3 +2515,4 @@ from .dictionaries import TextDictionaries,DICTIONARY_CONSTANTS
 from .dynamic_display import DynamicDisplays,DYNAMIC_DISPLAY_CALLS
 from .keyboard import KeyboardInput,KEYBOARD_CONSTANTS,KEYBOARD_CALLS
 from .table_controls import TableControls,TABLE_CONSTANTS,TABLE_CALLS
+from .forms import FormControls,FORM_CALLS

@@ -1,0 +1,27 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "COUNT": 9
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "CHOSEN": 1,
+      "KEY": 1103,
+      "STATUS": 0,
+      "NAMES": [
+        "[LIB]COUNT"
+      ],
+      "INACTIVE": [
+        {
+          "uninitialized": true
+        }
+      ],
+      "CHANGED": [
+        true
+      ]
+    }
+  }
+}

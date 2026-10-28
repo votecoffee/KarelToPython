@@ -8,11 +8,12 @@ KEYBOARD_CALLS={'READ_KB','PUSH_KEY_RD','POP_KEY_RD','DISCTRL_ALPH','DISCTRL_PLM
 KEYBOARD_CONSTANTS=dict(KC_DISPLAY=1,KC_FUNC_KEY=2,KC_KEYPAD=4,KC_ENTER_KEY=8,KC_DELETE=16,
     KC_LR_ARW=32,KC_UD_ARW=64,KC_OTHER=128,KC_PREV_KEY=128,KY_UNDEF=0,KY_ENTER=13,KY_DELETE=8,
     KY_LF_ARW=1001,KY_RT_ARW=1002,KY_UP_ARW=1003,KY_DN_ARW=1004,KY_PREV=1005,KY_NEXT=1006,
-    KY_NEW_MENU=1007,KY_SELECT=1008,KY_HOME=1012,KY_END=1013,KY_FULL=1015,KY_TIMEOUT=1016,
+    KY_NEW_MENU=1007,KY_SELECT=1008,KY_REFRESH=23,KY_PAGE_UP=1017,KY_PAGE_DOWN=1018,KY_HOME=1012,KY_END=1013,KY_FULL=1015,KY_TIMEOUT=1016,
     ATR_PASSALL=7,ATR_NOECHO=8)
 KEYBOARD_CONSTANTS.update(('KY_F'+str(i),1100+i) for i in range(1,11))
 KEYS={'ENTER':(13,8),'DELETE':(8,16),'LEFT':(1001,32),'RIGHT':(1002,32),'UP':(1003,64),'DOWN':(1004,64),
       'PREV':(1005,128),'NEXT':(1006,128),'NEW_MENU':(1007,128),'SELECT':(1008,128),'HOME':(1012,4),'END':(1013,4)}
+KEYS.update(REFRESH=(23,4),PAGE_UP=(1017,4),PAGE_DOWN=(1018,4))
 KEYS.update(('F'+str(i),(1100+i,2)) for i in range(1,11))
 
 
@@ -71,7 +72,7 @@ class KeyboardInput:
         for row in history:
             if type(row) is not dict or set(row)!={'sequence','request','program','operation','pane','outcome','data'}:raise ValueError('Malformed keyboard history row')
             if type(row['sequence']) is not int or not previous<row['sequence']<=sequence or type(row['request']) is not int or not 1<=row['request']<=request_sequence:raise ValueError('Invalid keyboard history IDs')
-            if not printable(row['program']) or type(row['operation']) is not str or row['operation'] not in KEYBOARD_CALLS|{'ACT_TBL','DISCTRL_TBL'} or row['outcome'] not in ('completed','timeout','cancelled','failed') or type(row['pane']) is not int or not 1<=row['pane']<=9:raise ValueError('Invalid keyboard history metadata')
+            if not printable(row['program']) or type(row['operation']) is not str or row['operation'] not in KEYBOARD_CALLS|{'ACT_TBL','DISCTRL_TBL','DISCTRL_FORM'} or row['outcome'] not in ('completed','timeout','cancelled','failed') or type(row['pane']) is not int or not 1<=row['pane']<=9:raise ValueError('Invalid keyboard history metadata')
             data=row['data']
             if type(data) is not dict or len(data)>8 or any(type(k) is not str or len(k)>32 for k in data):raise ValueError('Invalid keyboard history data')
             for value in data.values():

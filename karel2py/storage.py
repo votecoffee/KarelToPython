@@ -420,6 +420,7 @@ def context_config(context):
     if context.variable_archives is not None: result['variable_archives']=context.variable_archives.to_config()
     if context.diagnostics is not None: result['diagnostics']=context.diagnostics.to_config()
     if context.kcl is not None: result['kcl']=context.kcl.to_config()
+    if context.forms is not None: result['forms']=context.forms.to_config()
     if context.table_controls is not None: result['table_controls']=context.table_controls.to_config()
     if context.keyboard is not None: result['keyboard']=context.keyboard.to_config()
     if context.dynamic_display is not None: result['dynamic_display']=context.dynamic_display.to_config()

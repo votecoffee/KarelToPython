@@ -1,0 +1,174 @@
+{
+  "forms": {
+    "window": "FORM",
+    "rows": 4,
+    "cols": 24,
+    "limit": 64,
+    "sequence": 1
+  },
+  "keyboard": {
+    "events": [],
+    "event_sequence": 3,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "MAIN",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 57,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 2,
+        "program": "MAIN",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 13,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 3,
+        "request": 3,
+        "program": "MAIN",
+        "operation": "DISCTRL_FORM",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "selected": 1,
+          "term": 1103,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 3,
+    "request_sequence": 3
+  },
+  "dictionaries": {
+    "sources": {
+      "SHARED.TX": ".form unnumber\n$1,shared\n\"Shared value\" &new_line \"Library global\" &new_line\n\"Count \" \"-%4d(0,50)\" &new_line\n\"- Done\"\n.endform\n"
+    },
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {
+      "ENGLISH": {
+        "FORM": {
+          "source": "SHARED.TX",
+          "text": ".form unnumber\n$1,shared\n\"Shared value\" &new_line \"Library global\" &new_line\n\"Count \" \"-%4d(0,50)\" &new_line\n\"- Done\"\n.endform\n"
+        }
+      }
+    }
+  },
+  "pendant": {
+    "rows": 4,
+    "cols": 24,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {
+      "FORM": {
+        "rows": 4,
+        "cols": 24,
+        "options": 0,
+        "lines": [
+          "Shared value            ",
+          "Library global          ",
+          "Count    9              ",
+          " Done                   "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {
+      "1": {
+        "menu": 1002,
+        "screen": 1
+      }
+    },
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "FORCE_SPMENU",
+        "data": {
+          "pane": 1,
+          "menu": 1002,
+          "screen": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 4,
+          "bytes": 96
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 4,
+          "bytes": 96
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 4,
+          "bytes": 96
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "FORM",
+          "fields": 4,
+          "bytes": 96
+        }
+      }
+    ],
+    "sequence": 5
+  }
+}

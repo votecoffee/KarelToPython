@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1028.151355 - 2026-10-28
+
+- Add DISCTRL_FORM over supplied .form/.endform FTX source, typed scalar/global
+  paths and explicit port banks, with USER2 selection and headless windows.
+- Add editable/display/selectable items, numeric bounds/retry, strings, program
+  names, Boolean/port/simulation and function/subwindow/variable enum choices.
+- Add help/function metadata, choice overlays, paging, continuous default items,
+  nonnested tree groups, live repainting and robust session/interruption cleanup.
+- Accept native enum bell terminators; keep ordinary dictionary rendering guarded
+  against form metadata. Add 50 regressions, two CLI examples and a linked project.
+- Update README/support guides: 274 registered inventory names, 60 remaining;
+  all screen/window/keyboard/dictionary inventory names now have registered forms.
+
 ## 26.1028.144536 - 2026-10-28
 
 - Add DISCTRL_LIST resident paging and all three table calls: INIT_TBL, ACT_TBL

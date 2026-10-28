@@ -1,0 +1,46 @@
+{
+  "forms": {
+    "rows": 6,
+    "cols": 28
+  },
+  "pendant": {
+    "rows": 6,
+    "cols": 28
+  },
+  "dictionaries": {
+    "sources": {
+      "navigation": ".form unnumber\n$1,navigation\n\"Tree and help\" &new_line \"Values\" &new_line\n\"-%t Details\" &new_line\n\"Amount \" \"-%4d(0,20)\" &new_line\n.endtree\n\"- Done\" ^keys ?hint\n.endform\n$2,keys \"\" &new_line \"\" &new_line \"Exit\" &new_line \"\" &new_line \"HELP\"\n$3,hint \"Open Details to edit.\" &new_line \"Use arrow keys to select.\" &new_line \"ENTER commits values.\" &new_line \"PREV returns from help.\" &new_line \"Done selects the result.\" &new_line \"F3 exits the form.\"\n"
+    }
+  },
+  "keyboard": {
+    "events": [
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "8"
+      },
+      {
+        "key": "ENTER"
+      },
+      {
+        "key": "F5"
+      },
+      {
+        "key": "DOWN"
+      },
+      {
+        "key": "PREV"
+      },
+      {
+        "key": "END"
+      },
+      {
+        "key": "ENTER"
+      }
+    ]
+  }
+}

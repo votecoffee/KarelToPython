@@ -38,6 +38,7 @@ def reference_value(reference):return rt().require(reference.raw())
 
 def dictionary_lines(state,name,element):
     tokens=state.execution.require('dictionaries').element(state,name,element)
+    if tokens==[('terminator',)]:return ['']
     if any(token[0] not in ('text','newline','style') for token in tokens):invalid('Table headers require plain dictionary lines')
     text=''.join(token[1] if token[0]=='text' else '\n' if token[0]=='newline' else '' for token in tokens)
     if any(char!='\n' and not 32<=ord(char)<=126 for char in text):invalid('Table text requires printable ASCII')
