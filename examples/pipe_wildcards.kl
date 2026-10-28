@@ -1,0 +1,10 @@
+PROGRAM PIPE_WILDCARDS
+VAR names:ARRAY[2] OF STRING[40] count,copy_status,status:INTEGER
+BEGIN
+  PIPE_CONFIG('WORK_SEEDA.BAK',FALSE,1,0,'',0,status)
+  PIPE_CONFIG('WORK_SEEDB.BAK',FALSE,1,0,'',0,status)
+  COPY_FILE('seed*.DAT','PIP:WORK_*.BAK',TRUE,FALSE,copy_status)
+  FILE_LIST('PIP:WORK_*.BAK',0,3,names,count,status)
+  COPY_FILE('PIP:WORK_*.BAK','saved_*.DAT',TRUE,FALSE,status)
+  DELETE_FILE('PIP:WORK_*.BAK',FALSE,status)
+END PIPE_WILDCARDS

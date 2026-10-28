@@ -128,9 +128,10 @@ class CaptureBarrierTests(unittest.TestCase):
 
     def test_completed_capture_cannot_be_reentered_from_outside(self):self.reject('USING items[1] DO deep:: value=7 ENDUSING GOTO deep')
 
-    def test_for_body_jump_and_target_remain_rejected(self):
-        for body in ('FOR i=1 TO 2 DO GOTO deep ENDFOR deep::','GOTO deep FOR i=1 TO 2 DO deep:: x=7 ENDFOR'):
-            self.reject(body,'E_GOTO_FOR')
+    def test_for_exit_cleans_counter_while_new_entry_stays_rejected(self):
+        values=execute('FOR i=1 TO 2 DO GOTO deep ENDFOR deep:: flag=UNINIT(i)')
+        self.assertTrue(values['FLAG'])
+        self.reject('GOTO deep FOR i=1 TO 2 DO deep:: x=7 ENDFOR','E_GOTO_FOR')
 
 
 class RoutineAndExecutionTests(unittest.TestCase):
@@ -184,7 +185,7 @@ class NestedJumpReportAndGuardTests(unittest.TestCase):
 
     def test_report_records_nested_and_sibling_paths(self):
         p,result=compile_program('GOTO deep IF FALSE THEN deep:: GOTO other ELSE other:: x=7 ENDIF',decl=DECL);self.assertEqual(p.run()['X'],7)
-        graph=result.report['control_flow'];self.assertEqual(graph['jump_policy'],'body_labels_no_for_or_new_using');self.assertEqual([row['entry_kind'] for row in graph['program']['jumps']],['nested','sibling'])
+        graph=result.report['control_flow'];self.assertEqual(graph['jump_policy'],'body_labels_no_new_for_or_using');self.assertEqual([row['entry_kind'] for row in graph['program']['jumps']],['nested','sibling'])
         for row in graph['program']['jumps']:self.assertGreater(row['source']['line'],0);self.assertGreater(row['target']['line'],0);self.assertTrue(row['target']['blocks'])
 
     def test_existing_same_block_and_ancestor_jumps_are_reported(self):

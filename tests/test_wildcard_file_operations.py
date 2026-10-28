@@ -221,11 +221,12 @@ class WildcardPreflightTests(unittest.TestCase):
             copy(files)
         self.assertEqual(files.snapshot()['src/a.kl'],b'fresh');self.assertNotIn('dst/a.py',files.files)
 
-    def test_socket_and_pipe_wildcards_are_not_routed(self):
-        for source,target in [('PIP:*.DAT','dst/*.py'),('src/*.kl','PIP:*.DAT'),('S1:*','dst/*.py'),('src/*.kl','C2:*')]:
+    def test_missing_pipe_service_and_socket_wildcards_fail_closed(self):
+        for source,target,reason in [('PIP:*.DAT','dst/*.py','file_pipes'),('src/*.kl','PIP:*.DAT','file_pipes'),
+            ('S1:*','dst/*.py','socket'),('src/*.kl','C2:*','socket')]:
             with self.subTest(source=source,target=target):
                 files=memory();before=files.snapshot()
-                with self.assertRaisesRegex(rt.KarelRuntimeError,'PIP, socket or DAQ'):copy(files,source,target)
+                with self.assertRaisesRegex(rt.KarelRuntimeError,reason):copy(files,source,target)
                 self.assertEqual(files.snapshot(),before)
 
 

@@ -84,54 +84,71 @@ class FlowNode:
     kind: str
     statement: Statement
     targets: list = field(default_factory=list)
+    for_scopes: tuple = ()
 
 
 class FlowGraph:
-    """Lower a body to branches while leaving FOR loops as checked atomic blocks."""
-    def __init__(self, statements):
+    """Lower branches and explicit Pythonic FOR lifetime scopes to dispatch nodes."""
+    def __init__(self, statements, *, lower_for=False):
         self.nodes, self.labels = [], {}
+        self.lower_for=lower_for;self.for_scopes={}
         self.entry = self.sequence(statements, None)
         for node in self.nodes:
             if node.kind == 'goto': node.targets = [self.labels[node.statement.args[0].value]]
 
-    def add(self, kind, statement, targets):
+    def add(self, kind, statement, targets, for_scopes=()):
         index = len(self.nodes)
-        self.nodes.append(FlowNode(kind, statement, targets))
+        self.nodes.append(FlowNode(kind, statement, targets, for_scopes))
         return index
 
-    def sequence(self, statements, continuation):
+    def sequence(self, statements, continuation, for_scopes=()):
         entry = continuation
         for stmt in reversed(statements):
             kind = stmt.kind
             if kind == 'label':
-                entry = self.add('label', stmt, [entry])
+                entry = self.add('label', stmt, [entry], for_scopes)
                 self.labels[stmt.args[0].value] = entry
-            elif kind == 'goto': entry = self.add('goto', stmt, [])
-            elif kind == 'abort': entry = self.add('abort', stmt, [])
+            elif kind == 'goto': entry = self.add('goto', stmt, [], for_scopes)
+            elif kind == 'abort': entry = self.add('abort', stmt, [], for_scopes)
             elif kind == 'if':
-                then = self.sequence(stmt.body, entry)
-                otherwise = self.sequence(stmt.alternate, entry)
-                entry = self.add('if', stmt, [then, otherwise])
+                then = self.sequence(stmt.body, entry, for_scopes)
+                otherwise = self.sequence(stmt.alternate, entry, for_scopes)
+                entry = self.add('if', stmt, [then, otherwise], for_scopes)
             elif kind in ('while', 'repeat'):
-                condition = self.add(kind + '_test', stmt, [])
-                body = self.sequence(stmt.body, condition)
+                condition = self.add(kind + '_test', stmt, [], for_scopes)
+                body = self.sequence(stmt.body, condition, for_scopes)
                 self.nodes[condition].targets = [body, entry] if kind == 'while' else [entry, body]
-                entry = self.add('enter', stmt, [condition if kind == 'while' else body])
+                entry = self.add('enter', stmt, [condition if kind == 'while' else body], for_scopes)
+            elif kind == 'for' and self.lower_for:
+                scope=self.add('for_enter',stmt,[],for_scopes)
+                self.for_scopes[scope]=stmt
+                active=(*for_scopes,scope)
+                finish=self.add('for_exit',stmt,[entry],active)
+                advance=self.add('for_next',stmt,[],active)
+                body=self.sequence(stmt.body,advance,active)
+                self.nodes[advance].targets=[body,finish]
+                self.nodes[scope].targets=[advance]
+                entry=scope
             elif kind == 'select':
-                cases = [self.sequence(body, entry) for _, _, body in stmt.args[1]]
-                otherwise = self.sequence(stmt.alternate, entry) if stmt.has_else else None
-                entry = self.add('select', stmt, cases + [otherwise])
+                cases = [self.sequence(body, entry, for_scopes) for _, _, body in stmt.args[1]]
+                otherwise = self.sequence(stmt.alternate, entry, for_scopes) if stmt.has_else else None
+                entry = self.add('select', stmt, cases + [otherwise], for_scopes)
             elif kind == 'using':
-                body = self.sequence(stmt.body, entry)
-                entry = self.add('enter', stmt, [body])
-            else: entry = self.add('statement', stmt, [entry])
+                body = self.sequence(stmt.body, entry, for_scopes)
+                entry = self.add('enter', stmt, [body], for_scopes)
+            else: entry = self.add('statement', stmt, [entry], for_scopes)
         return entry
 
     def report(self):
-        return dict(engine='label_dispatcher', python_dispatch='match', entry_node=self.entry, labels=self.labels,
+        report=dict(engine='label_dispatcher', python_dispatch='match', entry_node=self.entry, labels=self.labels,
                     nodes=[dict(id=i, kind=node.kind, statement_kind=node.statement.kind, karel_line=node.statement.token.line,
                                 karel_column=node.statement.token.column, successors=node.targets)
                            for i, node in enumerate(self.nodes)])
+        if self.for_scopes:
+            report['for_scopes']=[dict(id=scope,counter=stmt.args[0].value,line=stmt.token.line,column=stmt.token.column,
+                parents=list(self.nodes[scope].for_scopes)) for scope,stmt in self.for_scopes.items()]
+            for node,metadata in zip(self.nodes,report['nodes']):metadata['for_scopes']=list(node.for_scopes)
+        return report
 
 
 PRECEDENCE = {'=': 10, '<>': 10, '<': 10, '<=': 10, '>': 10, '>=': 10,
@@ -1009,7 +1026,7 @@ class Emitter:
         self.group_uses=[]
         self.using_scopes = []
         self.active_counters = set()
-        self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_for_or_new_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
+        self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
         self.subarray_uses = []
         self.delay_uses = []
@@ -2552,7 +2569,7 @@ class Emitter:
         def visit(body, path=(), inside_for=False):
             for stmt in body:
                 if stmt.kind in ('label', 'goto'):
-                    if inside_for:
+                    if inside_for and self.mode!='pythonic':
                         self.error('E_GOTO_FOR', 'Labels and GO TO/GOTO inside FOR bodies are blocked by the documented FOR restrictions', stmt.token)
                     name = stmt.args[0].value
                     if stmt.kind == 'label':
@@ -2571,6 +2588,10 @@ class Emitter:
                 self.error('E_LABEL', f'Label {name} is not defined in this program/routine body', stmt.args[0])
             target_token,target_path = labels[name]
             if self.mode=='pythonic':
+                source_for=tuple(scope for scope in source_path if scope.startswith('for@'))
+                target_for=tuple(scope for scope in target_path if scope.startswith('for@'))
+                if source_for[:len(target_for)]!=target_for:
+                    self.error('E_GOTO_FOR','Jump would bypass FOR initialization and captured iteration bounds',stmt.token)
                 # Every path to a USING body must pass its capture node. Retain
                 # that invariant even when state-free structured entry is allowed.
                 source_using=tuple(scope for scope in source_path if scope.startswith('using@'))
@@ -2585,8 +2606,12 @@ class Emitter:
                 self.error('E_GOTO_ENTRY', 'Jumps into nested or sibling structured blocks need entry-state validation', stmt.token)
             entry=('same_block' if source_path==target_path else 'ancestor' if source_path[:len(target_path)]==target_path
                 else 'nested' if target_path[:len(source_path)]==source_path else 'sibling')
-            transfers.append(dict(label=name,source=dict(line=stmt.token.line,column=stmt.token.column,blocks=list(source_path)),
-                target=dict(line=target_token.line,column=target_token.column,blocks=list(target_path)),entry_kind=entry))
+            transfer=dict(label=name,source=dict(line=stmt.token.line,column=stmt.token.column,blocks=list(source_path)),
+                target=dict(line=target_token.line,column=target_token.column,blocks=list(target_path)),entry_kind=entry)
+            if self.mode=='pythonic':
+                transfer['retained_for_scopes']=list(target_for)
+                transfer['exited_for_scopes']=list(reversed(source_for[len(target_for):]))
+            transfers.append(transfer)
         return bool(labels or jumps),transfers
 
     def case_values(self, stmt):
@@ -2619,10 +2644,17 @@ class Emitter:
             report = dict(engine='structured_python', labels={})
             self.block(statements)
         else:
-            graph = FlowGraph(statements)
+            graph = FlowGraph(statements,lower_for=self.mode=='pythonic')
             report = graph.report()
             self.features.add('label control-flow dispatcher')
             pc = self.fresh()
+            frames=done=None
+            if graph.for_scopes:
+                self.features.add('FOR dispatcher scopes and checked jumps')
+                frames,done=self.fresh(),self.fresh()
+                self.line(f'{frames} = []')
+                self.line(f'{done} = object()')
+                self.line('try:');self.indent+=1
             self.line(f'{pc} = {graph.entry!r}')
             self.line(f'while {pc} is not None:')
             self.indent += 1
@@ -2633,10 +2665,38 @@ class Emitter:
                 token, line = stmt.token, stmt.token.line
                 self.line(f'case {index}:', token)
                 self.indent += 1
+                previous_counters=self.active_counters
+                if graph.for_scopes:
+                    self.active_counters={graph.for_scopes[scope].args[0].value for scope in node.for_scopes}
+                    self.line(f'while {frames} and {frames}[-1][0] not in {node.for_scopes!r}:')
+                    self.indent+=1;self.line(f'self._state.clear({frames}.pop()[1])');self.indent-=1
+                    self.line(f'if tuple(_frame[0] for _frame in {frames}) != {node.for_scopes!r}:')
+                    self.indent+=1;self.line(f'raise _rt.KarelRuntimeError("Invalid generated FOR scope state", {line})');self.indent-=1
                 if kind in ('label', 'goto', 'enter'):
                     self.features.add(stmt.kind)
                     if kind != 'label': self.line(f'self._state.tick({line})', token)
                     if kind == 'enter' and stmt.kind == 'using': self.emit_using_entry(stmt)
+                    self.line(f'{pc} = {node.targets[0]!r}')
+                elif kind=='for_enter':
+                    self.features.add('for');self.line(f'self._state.tick({line})',token)
+                    counter,first,last,adjustment,step=self.for_values(stmt)
+                    stop=self.fresh()
+                    self.line(f'self._state.set({counter.value!r}, {first}, {line})')
+                    self.line(f'{frames}.append([{index}, {counter.value!r}, None])')
+                    self.line(f'{stop} = {last}')
+                    self.line(f'{frames}[-1][2] = iter(range(self._state.get({counter.value!r}), {stop} + ({adjustment}), {step}))')
+                    self.line(f'{pc} = {node.targets[0]!r}')
+                elif kind=='for_next':
+                    item=self.fresh()
+                    self.line(f'{item} = next({frames}[-1][2], {done})')
+                    self.line(f'if {item} is {done}:');self.indent+=1
+                    self.line(f'{pc} = {node.targets[1]!r}');self.indent-=1
+                    self.line('else:');self.indent+=1
+                    self.line(f'self._state.tick({line})',token)
+                    self.line(f'self._state.set({stmt.args[0].value!r}, {item}, {line})')
+                    self.line(f'{pc} = {node.targets[0]!r}');self.indent-=1
+                elif kind=='for_exit':
+                    self.line(f'self._state.clear({frames}.pop()[1])')
                     self.line(f'{pc} = {node.targets[0]!r}')
                 elif kind in ('if', 'while_test', 'repeat_test'):
                     self.features.add(stmt.kind)
@@ -2670,10 +2730,15 @@ class Emitter:
                     self.statement(stmt)
                     self.line(f'{pc} = {node.targets[0]!r}')
                 self.indent -= 1
+                self.active_counters=previous_counters
             self.line('case _:')
             self.indent += 1
             self.line('raise _rt.KarelRuntimeError("Invalid generated control-flow state")')
             self.indent -= 3
+            if graph.for_scopes:
+                self.indent-=1;self.line('finally:');self.indent+=1
+                self.line(f'while {frames}:');self.indent+=1
+                self.line(f'self._state.clear({frames}.pop()[1])');self.indent-=2
         report['jumps']=transfers
         if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
         else: self.control_flow['program'] = report
@@ -2683,6 +2748,24 @@ class Emitter:
         for name,selector in zip(stmt.using_captures,stmt.args):
             reference,_=self.reference(selector)
             self.line(f'{name} = {reference}',selector.token)
+
+    def for_values(self,stmt):
+        """Share the bound/type/effect proof between structured and labelled FORs."""
+        counter,initial,final,direction=stmt.args
+        if self.cooperative and self.implicit_counter_write(counter.value):
+            self.error('E_FOR_COUNTER','Condition action or connected timer may modify this FOR counter',counter)
+        counter_types=self.types|(self.current_routine.local_types if self.current_routine else {})
+        if counter.value not in counter_types or counter_types[counter.value][0]!='INTEGER':
+            self.error('E_FOR_COUNTER','FOR counter must be an INTEGER variable',counter)
+        if self.current_routine and self.current_routine.parameters and counter.value not in {token.value for token,_ in self.current_routine.declarations}:
+            self.error('E_FOR_COUNTER','Parameterized routines require a fresh local FOR counter until alias effects are validated',counter)
+        if counter.value in self.active_counters:
+            self.error('E_FOR_COUNTER','Nested loops cannot share the same FOR counter',counter)
+        first=self.require_type(initial,'INTEGER');last=self.require_type(final,'INTEGER')
+        if self.mode=='strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
+            self.error('E_EVALUATION_ORDER','FOR bounds with routine calls are blocked',stmt.token)
+        adjustment,step=(1,1) if direction=='TO' else (-1,-1)
+        return counter,first,last,adjustment,step
 
     @staticmethod
     def using_defaults(clauses):
@@ -3036,20 +3119,7 @@ class Emitter:
             self.line('break')
             self.indent -= 2
         elif kind == 'for':
-            counter, initial, final, direction = stmt.args
-            if self.cooperative and self.implicit_counter_write(counter.value):
-                self.error('E_FOR_COUNTER', 'Condition action or connected timer may modify this FOR counter', counter)
-            counter_types = self.types | (self.current_routine.local_types if self.current_routine else {})
-            if counter.value not in counter_types or counter_types[counter.value][0] != 'INTEGER':
-                self.error('E_FOR_COUNTER', 'FOR counter must be an INTEGER variable', counter)
-            if self.current_routine and self.current_routine.parameters and counter.value not in {t.value for t, _ in self.current_routine.declarations}:
-                self.error('E_FOR_COUNTER', 'Parameterized routines require a fresh local FOR counter until alias effects are validated', counter)
-            if counter.value in self.active_counters:
-                self.error('E_FOR_COUNTER', 'Nested loops cannot share the same FOR counter', counter)
-            first = self.require_type(initial, 'INTEGER')
-            last = self.require_type(final, 'INTEGER')
-            if self.mode == 'strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
-                self.error('E_EVALUATION_ORDER', 'FOR bounds with routine calls are blocked', token)
+            counter,first,last,adjustment,step=self.for_values(stmt)
             stop, item = self.fresh(), self.fresh()
             # Manual: initialize count before final is evaluated (final may read count).
             self.line(f'self._state.set({counter.value!r}, {first}, {line})')
@@ -3057,7 +3127,6 @@ class Emitter:
                 self.line('try:')
                 self.indent += 1
             self.line(f'{stop} = {last}')
-            adjustment, step = (1, 1) if direction == 'TO' else (-1, -1)
             self.line(f'for {item} in range(self._state.get({counter.value!r}), {stop} + ({adjustment}), {step}):')
             self.indent += 1
             self.line(f'self._state.tick({line})')
@@ -4054,6 +4123,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         procedures=['CALL_PROG','CALL_PROGLIN'],
         linkage='Explicit attached cooperative KAREL Program objects; project inputs are cooperative automatically; opaque TP records, catalogs, native code and unlinked routines are not executable',
         execution='Run a fresh invocation cursor/locals over the called module globals, including imported aliases; retain its registered task/generator; share caller-root budgets, lifecycle, services, observations and group ownership',
+        group_scopes='Optional GroupLocks callee_scopes with apply_directives acquires the called module requirements atomically and releases only matching additional grants on return/close; root-only policy remains the default',
         control='CALL_PROGLIN accepts nonnegative line hints but KAREL always starts at the beginning; pause-on-entry and body pauses retain the complete nested generator; root stop/abort/error closes frames and owned resources',
         cache='Exact writable INTEGER prog_index output, no initialization required; stable context-local per-program hints; cache and executable links excluded from JSON',
         guards='Combined program/routine depth capped at 64; indirect FOR/effect guards; true calling-root scope for BYNAME, TP arguments and group defaults; active program/routine inspection and traces include nested calls',
@@ -4067,8 +4137,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         ownership='Stable calling root identity, including nested programs, linked routines and task renames; repeated locks are idempotent; contention partially acquires available selected groups',
         release='Unlock releases owned idle groups while preserving foreign/busy groups; pause retains locks, terminal completion/stop/abort/failure releases all root ownership even with supplied busy labels',
         status='Portable 0 success, 1 invalid/unconfigured mask, 2 foreign owner, 17039 executing label, 17040 stopped label; partial-operation status is the first blocked group in ascending order',
-        persistence='Configured groups/motion labels and true apply_directives flag only; live ownership prevents JSON save; task identities and native locks are never restored',
-        boundary='Root directive acquisition only; nested program/routine directives do not acquire or release additional groups; no robot/motion effects, native lock waits, servo/controller ownership or scheduling/status equivalence',
+        callee_scopes='Explicit callee_scopes=True requires apply_directives=True; defining internal/FROM routine or called-program entry applies module selection atomically; forwarding declarations do not add a scope',
+        scope_release='Retain caller/reentrant grants; return/error/stop releases only surviving auto-origin additional grants, even with supplied busy labels; manual unlock/reacquire invalidates the old grant token; pause retains scope',
+        persistence='Configured groups/motion labels and true apply_directives/callee_scopes flags only; live ownership prevents JSON save; scopes, task identities and native locks are never restored',
+        boundary='Root-only directive mode remains the default; no inferred bank, robot/motion effects, native lock waits, servo/controller ownership or scheduling/status equivalence',
         calls=[row for row in report['service_operations'] if row['operation'] in ('LOCK_GROUP','UNLOCK_GROUP')],
         guide='docs/group-locks.md',controller_validated=False)
     report['stored_source_translation_policy']=dict(
@@ -4081,12 +4153,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         calls=[row for row in report['service_operations'] if row['operation']=='TRANSLATE'],
         guide='docs/source-translations.md',controller_validated=False)
     report['wildcard_file_policy']=dict(
-        procedures=['COPY_FILE','DELETE_FILE'],backends=['MemoryFiles','DirectoryFiles','DeviceFiles'],
-        selection='Case-insensitive star patterns in final basename only, nonrecursive sorted explicit-file batches; no wildcard RENAME_FILE or PIP/socket/DAQ routing',
+        procedures=['COPY_FILE','DELETE_FILE'],backends=['MemoryFiles','DirectoryFiles','DeviceFiles','FilePipes'],
+        selection='Case-insensitive star patterns in final basename only, nonrecursive sorted explicit-file/configured-plain-PIP batches; no wildcard RENAME_FILE or socket/DAQ routing',
         substitution='Destination standalone star retains full basename; one star per stem/extension substitutes the full source stem/extension, not matched captures',
+        pipes='Explicit plain FilePipes only; finite complete retained-byte snapshots, preconfigured targets, overwrite permission, no producer wait, implicit configuration or ring truncation; deletion removes selected configurations and bytes',
         publication='All source snapshots and predictable target/busy/alias/quota checks precede mutation; memory/device batches commit prepared state; rooted directory operations publish per file and host failure can leave a partial batch',
         limits='32767 scanned/matched entries, 64 MiB total COPY snapshots, ordinary backend byte and step budgets; both nowait values execute synchronously',
-        status='Portable 0 success, 1 no matches, 2 invalid template/collision/existing, 3 busy; backend/path/quota/budget failures raise',
+        status='Portable 0 success, 1 no matches/missing configured pipe target, 2 invalid template/collision/existing, 3 busy, 4 excess pipe replacement size; backend/path/quota/budget failures raise',
         calls=[row for row in report['service_operations'] if row['operation'] in ('COPY_FILE','DELETE_FILE','RENAME_FILE')],
         guide='docs/wildcard-file-operations.md',controller_validated=False)
     report['dynamic_variable_policy']=dict(
@@ -4346,9 +4419,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         alphabetize='Record display-order request; offline storage/snapshot order remains declaration order',
         required_environments=list(dict.fromkeys(row['argument'] for row in report['directive_metadata'] if row['name'] == '%ENVIRONMENT')),
         defaults='DEFGROUP overrides single-group declaration inference and context default for caller-root services, including ordinary position registers; explicit call groups win. CRTDEVICE labels omitted-file READ/WRITE observations CRT/KB without changing callback signatures',
-        metadata='CMOSVARS/CMOS2SHADOW/SHADOWVARS retain logical storage intent; UNINITVARS retains existing uninitialized defaults without clearing values; STACKSIZE and periodic DELAY retain metadata only; LOCKGROUP/NOLOCKGROUP can opt into root-only logical GroupLocks acquisition',
+        metadata='CMOSVARS/CMOS2SHADOW/SHADOWVARS retain logical storage intent; UNINITVARS retains existing uninitialized defaults without clearing values; STACKSIZE and periodic DELAY retain metadata only; LOCKGROUP/NOLOCKGROUP can opt into logical root and additional callee GroupLocks scopes',
         checks='Distinct predeclaration policies; LOCKGROUP conflicts with NOLOCKGROUP, CMOSVARS conflicts with SHADOWVARS; explicit portable numeric/group bounds; includes and unknown directives remain blocked',
-        boundary='No binary environment/include loading, native storage/power-cycle behavior, native/callee-scoped group acquisition, stack allocation, periodic task delay, device I/O or preemption; strict remains future work',
+        boundary='No binary environment/include loading, native storage/power-cycle behavior, native group waits/servo ownership, stack allocation, periodic task delay, device I/O or preemption; strict remains future work',
         controller_validated=False)
     report['path_geometry_policy']=dict(
         calls=['INTSCT_VL_PL','NODE_SIZE'],
@@ -4395,7 +4468,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         cleanup='After successful initial assignment, finally clear each counter on normal/empty completion, RETURN, ABORT, final-bound failure, body error, callback failure/interruption and step/call-depth exhaustion',
         initial_failure='If the initial expression or checked initial assignment fails, do not clear that counter; previous storage and earlier effects remain',
         global_or_formal_counter_calls_and_returns='Global counters follow write proof and cleanup; formal counters and nonlocal counters in parameterized routines remain blocked',
-        jumps_and_labels_inside_for='blocked', controller_validated=False)
+        jumps_and_labels_inside_for='Pythonic labels, same-active-loop transfers and checked exits with cleanup; entry to new FOR scopes blocked', controller_validated=False)
     report['abort_policy']['for_boundary'] = 'Pythonic FOR scopes clear initialized counters during ABORT unwinding; prior non-counter effects remain'
     report['using_policy'] = dict(
         selectors='Existing named STRUCTURE or supported built-in record storage; dotted, indexed and grouped paths; resolve against enclosing aliases only; selectors in the same list do not affect one another',
@@ -4557,13 +4630,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
                    'Boolean operands evaluated eagerly', 'Side-effecting routine calls in multi-argument',
                    'Whole ARRAY reference parameters support', 'ARRAY_LEN on multidimensional arrays',
                    'INDEX with an empty search', 'SUB_STR beyond the source end',
-                   'FOR-body routine calls and RETURN require', 'USING qualifies fields lexically',
+                   'FOR-body routine calls and RETURN require', 'Labels and GO TO/GOTO stay', 'USING qualifies fields lexically',
                    'Named arrays/subarrays retain nominal identity')
     report['limitations'] = [item for item in report['limitations'] if not item.startswith(strict_only)]
     report['limitations'].append('Pythonic numerical results use Python floating-point and math conventions; strict mode is a future milestone')
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
-    report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and in-loop jumps remain blocked')
+    report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and entry into a new FOR scope remain blocked')
     report['limitations'].append('USING supports lexical nesting and captured dotted/indexed/grouped record storage; function-result/computed selectors and field FOR counters remain blocked')
     report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax and local TYPE sections remain blocked; external types follow external_type_policy')
     report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
@@ -4864,11 +4937,23 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         forms=['IF','WHILE','REPEAT','SELECT'],scope='Defined labels in the same program/routine body; duplicates, conflicts and undefined/cross-body targets reject',
         transfer='Direct nested/sibling label entry skips intervening statements and enclosing header tests/SELECT dispatch; suffix follows its normal generated successors, including loop back edges',
         captures='Target USING scope chain must be a prefix of the source USING chain; no new capture bypass, even when selectors describe the same storage; existing captures survive structured entry',
-        guards='No labels/jumps inside FOR bodies, handler action labels/jumps or source type-check bypass; strict keeps the previous same-block/ancestor gate',
+        guards='Target FOR scope chain must prefix source; no new FOR initialization bypass, handler action labels/jumps or source type-check bypass; strict keeps the previous FOR restriction and same-block/ancestor gate',
         execution='Instrumented label dispatcher, ordinary step budgets, errors/RETURN/ABORT cleanup and cooperative pause/resume; no dynamic code location discovery',
         reports='control_flow per-body jumps record label, expanded source/target line/column/block paths and same_block/ancestor/nested/sibling entry kind; existing source_map provides include origins',
         boundary='Explicit Pythonic transfer/capture policy; no FOR entry, native instruction pointers, preemption or controller/strict equivalence',
         guide='docs/nested-jumps.md',controller_validated=False)
+    report['for_jump_policy']=dict(
+        forms='Labels and GOTO within active FOR bodies, nested IF/WHILE/REPEAT/SELECT branches and exits to outer scopes in the same program/routine',
+        entry='Target FOR scope chain must be a prefix of source; source transfer cannot invent initial counter assignment or captured final bound; target USING capture chain proof also applies',
+        iteration='Normal FOR entry initializes once, evaluates final once and captures a range iterator; same-loop jumps retain current counter and iterator; reaching body end advances normally',
+        cleanup='Clear exited FOR counters inner-to-outer before the target; generated finally clears remaining initialized scopes on RETURN, ABORT, errors, budget exhaustion or cooperative stop',
+        initial_failure='No cleanup scope is registered until initial counter assignment succeeds; preserve previous counter storage when that expression/assignment fails',
+        protection='Lexical active-counter type, transitive write, readonly-reference, handler/timer and parameterized-routine checks remain identical to structured FOR',
+        reports='control_flow per-body for_scopes identify enter nodes, counter/source positions and parents; nodes list active FOR scope IDs; jumps list retained_for_scopes and exited_for_scopes',
+        boundary='Deliberate Pythonic extension to manual FOR/GOTO warnings; no direct entry to a new FOR scope, cross-body transfers, native stack behavior, instruction-pointer persistence or strict/controller equivalence',
+        guide='docs/for-jumps.md',controller_validated=False)
+    report['for_policy']['jumps']='Pythonic labels/same-active-loop jumps and checked exits; new FOR scope entry remains blocked; see for_jump_policy'
+    report['limitations'].append('Labels and GO TO/GOTO remain body-scoped; Pythonic FOR jumps retain active iteration state or clear exited counters; direct entry into new FOR/USING scopes is blocked')
     report['aggregate_copy_policy']=dict(
         types=['ARRAY','STRUCTURE','VECTOR','POSITION','XYZWPR','XYZWPREXT','CONFIG','JOINTPOS'],
         transfers='Pythonic assignment, grouped value arguments and exact function results preserve scalar UNINITIALIZED and BYTE-only UNKNOWN_BYTE markers in detached resource-free aggregate storage',

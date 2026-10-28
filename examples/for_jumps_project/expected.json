@@ -1,0 +1,16 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "I": {
+        "uninitialized": true
+      },
+      "TOTAL": 6,
+      "CLEANUP": true
+    }
+  }
+}

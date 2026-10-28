@@ -55,181 +55,232 @@ def _wildcard_template(template,source):
 
 
 def wildcard_file_operation(state,operation,args,line=None):
-    """Preflight explicit, nonrecursive star COPY/DELETE batches; exact calls pass through."""
+    """Preflight nonrecursive star batches over explicit ordinary/plain PIP banks."""
     positions={'COPY_FILE':(0,1),'DELETE_FILE':(0,),'RENAME_FILE':(0,1)}
     if operation not in positions:return False
     operands=[args[index] for index in positions[operation]]
     if not any(type(value) is str and '*' in value for value in operands):return False
-    runtime=rt()
-    from .communications import message_address
+    runtime=rt();context=state.execution
+    from .communications import message_address,pipe_name
     from .storage import DirectoryFiles,atomic_bytes
     from .devices import DeviceFiles
-    if any(value.upper().startswith('PIP:') or message_address(value) for value in operands):
-        raise runtime.KarelRuntimeError('Wildcard FILE operations do not route PIP, socket or DAQ endpoints',line)
+    if any(message_address(value) for value in operands):
+        raise runtime.KarelRuntimeError('Wildcard FILE operations do not route socket or DAQ endpoints',line)
     if operation=='RENAME_FILE':args[-1].set(2,line);return True
-    files=state.execution.require('files',line)
-    if type(files) not in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles):
-        raise runtime.KarelRuntimeError('Wildcard FILE operations require an explicit ordinary file backend',line)
-    directory=type(files) is DirectoryFiles;device=type(files) is DeviceFiles
     check=lambda:state.tick(line)
-    def key(name):
-        _wildcard_parts(name,pattern=False)
-        return files._key(name) if directory else files.canonical(name) if device else name
-    def parent(prefix):
-        probe=key(prefix+'__wildcard_probe__')
-        return (probe.rsplit('/',1)[0] if '/' in probe else '') if directory else prefix
-    def scope(name):
-        if directory:return name.rsplit('/',1)[0] if '/' in name else ''
-        return _wildcard_parts(name,pattern=False)[0]
-    def entries(folder,*,destination=False,charge=True):
-        result=set();scanned=0
-        if directory:
-            root=files._path(folder or '.',directory=True)
-            if not root.is_dir():
-                if destination:raise ValueError('Wildcard destination parent directory must exist')
-                return []
-            for path in root.iterdir():
-                scanned+=1
-                if scanned>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
-                if charge:check()
-                result.add(path.relative_to(files.root).as_posix())
-            for handle in files.handles:
-                if handle.owner is files and scope(handle.name).casefold()==folder.casefold():result.add(handle.name)
-        else:
-            if len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
-            for name in files.files:
-                if charge:check()
-                try:found=scope(name)
-                except ValueError:continue
-                if found.casefold()==folder.casefold():result.add(name)
-        if len(result)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE batch exceeds 32767 entries')
-        return sorted(result)
-    def identity(name):
-        if not directory:return None
-        path=files._path(name)
-        if not path.exists():return None
-        stat=path.stat();return (stat.st_dev,stat.st_ino) if stat.st_ino else None
-    def signature(name):
-        if not directory:return None
-        path=files._path(name)
-        if not path.exists():return None
-        stat=path.stat();return stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns
-    def busy(names):
-        logical={name.casefold() for name in names};physical={identity(name) for name in names}-{None}
-        for handle in files.handles:
-            if handle.owner is not files:continue
-            if handle.name.casefold() in logical or directory and identity(handle.name) in physical:return True
-        return any(files._busy(name) for name in names)
-    def source_names(folder,pattern,*,charge=True):
-        found=[]
-        for name in entries(folder,charge=charge):
-            base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            if not fnmatch.fnmatchcase(base.casefold(),pattern.casefold()):continue
-            if directory and not files._busy(name) and not files._path(name).is_file():continue
-            found.append(name)
-        return found
+    class View:
+        def __init__(self,name):
+            self.pipe=name.upper().startswith('PIP:')
+            self.bank=context.require('file_pipes' if self.pipe else 'files',line)
+            if not self.pipe and type(self.bank) not in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles):
+                raise runtime.KarelRuntimeError('Wildcard FILE operations require an explicit ordinary file backend',line)
+            self.directory=type(self.bank) is DirectoryFiles;self.device=type(self.bank) is DeviceFiles
+        def plain(self,name):
+            if self.pipe and context.acquisition is not None and name in context.acquisition.files:
+                raise runtime.KarelRuntimeError('Generic wildcard FILE operations do not route DAQ PIP names',line)
+        def spec(self,name):
+            if self.pipe:
+                name=runtime.ascii_string(name,line).upper()
+                if name.startswith('PIP:/'):name='PIP:'+name[5:]
+                # Validate bounded plain pattern syntax without discovering a device.
+                self.bank.list_names(name)
+            prefix,base=_wildcard_parts(name)
+            if self.pipe and prefix!='PIP:':raise ValueError('Pipe wildcard requires a plain basename')
+            return prefix,base
+        def key(self,name):
+            if self.pipe:
+                name=pipe_name(name);self.plain(name);return name
+            _wildcard_parts(name,pattern=False)
+            return self.bank._key(name) if self.directory else self.bank.canonical(name) if self.device else name
+        def parent(self,prefix):
+            if self.pipe:return 'PIP:'
+            probe=self.key(prefix+'__wildcard_probe__')
+            return (probe.rsplit('/',1)[0] if '/' in probe else '') if self.directory else prefix
+        def scope(self,name):
+            if self.pipe:return 'PIP:'
+            if self.directory:return name.rsplit('/',1)[0] if '/' in name else ''
+            return _wildcard_parts(name,pattern=False)[0]
+        def entries(self,folder,*,destination=False,charge=True):
+            result=set();scanned=0;files=self.bank
+            if self.pipe:
+                if set(files.files)!=set(files.pipes):raise runtime.KarelRuntimeError('Pipe bytes/configuration identity mismatch',line)
+                if len(files.pipes)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+                for name in files.pipes:
+                    if charge:check()
+                    result.add(name)
+            elif self.directory:
+                root=files._path(folder or '.',directory=True)
+                if not root.is_dir():
+                    if destination:raise ValueError('Wildcard destination parent directory must exist')
+                    return []
+                for path in root.iterdir():
+                    scanned+=1
+                    if scanned>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+                    if charge:check()
+                    result.add(path.relative_to(files.root).as_posix())
+                for handle in files.handles:
+                    if handle.owner is files and self.scope(handle.name).casefold()==folder.casefold():result.add(handle.name)
+            else:
+                if len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+                for name in files.files:
+                    if charge:check()
+                    try:found=self.scope(name)
+                    except ValueError:continue
+                    if found.casefold()==folder.casefold():result.add(name)
+            if len(result)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE batch exceeds 32767 entries')
+            return sorted(result)
+        def identity(self,name):
+            if not self.directory:return None
+            path=self.bank._path(name)
+            if not path.exists():return None
+            stat=path.stat();return (stat.st_dev,stat.st_ino) if stat.st_ino else None
+        def signature(self,name):
+            if self.pipe:return tuple(sorted(self.bank.pipes[name].items())) if name in self.bank.pipes else None
+            if not self.directory:return None
+            path=self.bank._path(name)
+            if not path.exists():return None
+            stat=path.stat();return stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns
+        def busy(self,names):
+            logical={name.casefold() for name in names};physical={self.identity(name) for name in names}-{None}
+            if self.pipe:
+                identities={id(handle) for handle in self.bank.handles if handle.owner is self.bank}
+                if set(self.bank._reads)-identities:raise runtime.KarelRuntimeError('Unresolved pending pipe READ identity',line)
+            for handle in self.bank.handles:
+                if handle.owner is not self.bank:continue
+                if handle.name.casefold() in logical or self.directory and self.identity(handle.name) in physical:return True
+            return any(self.bank._busy(name) for name in names)
+        def source_names(self,folder,pattern,*,charge=True):
+            if self.pipe and context.acquisition is not None:
+                for name in context.acquisition.files:
+                    if fnmatch.fnmatchcase(name.casefold(),('PIP:'+pattern).casefold()):
+                        raise runtime.KarelRuntimeError('Generic wildcard FILE operations do not route DAQ PIP names',line)
+            found=[]
+            for name in self.entries(folder,charge=charge):
+                base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
+                if not fnmatch.fnmatchcase(base.casefold(),pattern.casefold()):continue
+                if self.directory and not self.bank._busy(name) and not self.bank._path(name).is_file():continue
+                self.plain(name);found.append(name)
+            return found
+        def unchanged(self,name,data,signature):
+            if self.signature(name)!=signature:return False
+            return self.directory or name in self.bank.files and bytes(self.bank.files[name])==data
     def execute():
-        source_prefix,pattern=_wildcard_parts(operands[0]);source_folder=parent(source_prefix)
-        if device:files.require_volume(key(source_prefix+'__wildcard_probe__').split(':',1)[0])
+        source=View(operands[0]);source_prefix,pattern=source.spec(operands[0]);source_folder=source.parent(source_prefix)
+        if source.device:source.bank.require_volume(source.key(source_prefix+'__wildcard_probe__').split(':',1)[0])
         if operation=='COPY_FILE':
+            target=View(operands[1]);target_prefix,template=target.spec(operands[1]);target_folder=target.parent(target_prefix)
             source_stem,source_dot,source_ext=pattern.rpartition('.')
-            if not source_dot or not source_stem or not source_ext:return 2
-            target_prefix,template=_wildcard_parts(operands[1]);target_folder=parent(target_prefix)
-            # Validate templates even when the source pattern has no matches.
+            # Plain pipe snapshots can preserve extensionless names through *.
+            preserve_plain=(source.pipe or target.pipe) and template=='*'
+            if not preserve_plain and (not source_dot or not source_stem or not source_ext):return 2
             try:_wildcard_template(template,'probe.ext')
             except ValueError:return 2
             overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
         else:runtime.boolean(args[1],line)
-        selected=source_names(source_folder,pattern)
+        selected=source.source_names(source_folder,pattern)
         if not selected:return 1
         if len({name.casefold() for name in selected})!=len(selected):return 2
-        physical=[identity(name) for name in selected]
+        physical=[source.identity(name) for name in selected]
         if len(set(physical)-{None})!=sum(value is not None for value in physical):return 2
-        if busy(selected):return 3
+        if source.busy(selected):return 3
         if operation=='DELETE_FILE':
-            if device:
-                for name in selected:files.require_volume(name.split(':',1)[0],write=True,line=line)
-            for name in selected:check();key(name)
-            if selected!=source_names(source_folder,pattern,charge=False) or busy(selected):
+            bank=source.bank
+            if source.device:
+                for name in selected:bank.require_volume(name.split(':',1)[0],write=True,line=line)
+            metadata={name:source.signature(name) for name in selected}
+            for name in selected:check();source.key(name)
+            if selected!=source.source_names(source_folder,pattern,charge=False) or source.busy(selected):
                 raise runtime.KarelRuntimeError('Wildcard deletion changed during preflight',line)
-            # No budget/handler callbacks occur inside the publication phase.
-            if not directory:
-                staged=dict(files.files);garbage={} if not device else {name:row['garbage'] for name,row in files._volumes.items()}
+            if any(source.signature(name)!=metadata[name] for name in selected):
+                raise runtime.KarelRuntimeError('Wildcard deletion metadata changed during preflight',line)
+            if not source.directory:
+                staged=dict(bank.files);garbage={} if not source.device else {name:row['garbage'] for name,row in bank._volumes.items()}
+                configurations=dict(bank.pipes) if source.pipe else None
                 for name in selected:
-                    if device:
-                        volume=name.split(':',1)[0];row=files.require_volume(volume,write=True,line=line)
+                    if source.device:
+                        volume=name.split(':',1)[0];row=bank.require_volume(volume,write=True,line=line)
                         if row['retain_deleted']:garbage[volume]+=len(staged[name])
                     del staged[name]
-                files.files.clear();files.files.update(staged)
-                if device:
-                    for volume,amount in garbage.items():files._volumes[volume]['garbage']=amount
+                    if source.pipe:del configurations[name]
+                bank.files.clear();bank.files.update(staged)
+                if source.pipe:bank.pipes.clear();bank.pipes.update(configurations)
+                if source.device:
+                    for volume,amount in garbage.items():bank._volumes[volume]['garbage']=amount
             else:
                 for name in selected:
-                    code=files.delete(name)
+                    code=bank.delete(name)
                     if code:return code
-                    for cached in list(files.files):
-                        if cached.casefold()==name.casefold():files.files.pop(cached)
+                    for cached in list(bank.files):
+                        if cached.casefold()==name.casefold():bank.files.pop(cached)
             return 0
-        existing=entries(target_folder,destination=True);aliases={}
+        existing=target.entries(target_folder,destination=True);aliases={}
         for name in existing:aliases.setdefault(name.casefold(),[]).append(name)
         plan=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None};total=0
-        for source in selected:
-            check();base=source.rsplit('/',1)[-1].rsplit(':',1)[-1]
+        same=source.bank is target.bank
+        for name in selected:
+            check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
             base_stem,base_dot,base_extension=base.rpartition('.')
-            if not base_dot or not base_stem or not base_extension:return 2
+            if not preserve_plain and (not base_dot or not base_stem or not base_extension):return 2
             try:target_base=_wildcard_template(template,base)
             except ValueError:return 2
-            target=key(target_prefix+target_base);matches=aliases.get(target.casefold(),[])
+            destination=target.key(target_prefix+target_base);matches=aliases.get(destination.casefold(),[])
             if len(matches)>1:return 2
-            if matches:target=matches[0]
-            if target.casefold() in targets or target.casefold() in source_keys or identity(target) in source_ids:return 2
-            targets.add(target.casefold())
-            if busy([source,target]):return 3
+            if matches:destination=matches[0]
+            if destination.casefold() in targets or same and destination.casefold() in source_keys or target.identity(destination) in source_ids:return 2
+            targets.add(destination.casefold())
+            if source.busy([name]) or target.busy([destination]):return 3
+            if target.pipe and not matches:return 1
             if matches and not overwrite:return 2
-            if directory and files._path(target).exists() and not files._path(target).is_file():return 2
-            before=signature(source);target_before=signature(target);code,data=files.read_named(source)
+            if target.directory and target.bank._path(destination).exists() and not target.bank._path(destination).is_file():return 2
+            before=source.signature(name);target_before=target.signature(destination);code,data=source.bank.read_named(name)
             if code:return code
-            if before!=signature(source):raise runtime.KarelRuntimeError('Wildcard source changed during preflight',line)
+            if before!=source.signature(name):raise runtime.KarelRuntimeError('Wildcard source changed during preflight',line)
+            if source.pipe and len(data)>source.bank.pipes[name]['sectors']*1024:
+                raise runtime.KarelRuntimeError('Configured pipe snapshot exceeds its retained capacity',line)
             total+=len(data)
             if total>WILDCARD_COPY_BYTES:raise runtime.KarelRuntimeError('Wildcard COPY_FILE snapshots exceed 64 MiB',line)
             for offset in range(0,len(data),4096):check()
-            if not directory:files._check(target,data)
-            plan.append((source,target,data,bytes(files.files.get(target,b'')) if not directory else before,target_before))
-        if selected!=source_names(source_folder,pattern,charge=False):
+            if target.pipe:
+                if len(data)>target.bank.pipes[destination]['sectors']*1024:return 4
+            elif not target.directory:target.bank._check(destination,data)
+            plan.append((name,destination,data,bytes(target.bank.files.get(destination,b'')) if not target.directory else None,before,target_before))
+        if selected!=source.source_names(source_folder,pattern,charge=False):
             raise runtime.KarelRuntimeError('Wildcard sources changed during preflight',line)
-        if busy([name for source,target,_,_,_ in plan for name in (source,target)]):return 3
-        if not directory:
-            staged=dict(files.files);garbage={} if not device else {name:row['garbage'] for name,row in files._volumes.items()}
-            if entries(target_folder,charge=False)!=existing:raise runtime.KarelRuntimeError('Wildcard destinations changed during preflight',line)
-            for source,target,data,old,_ in plan:
-                if bytes(files.files[source])!=data or bytes(files.files.get(target,b''))!=old:
-                    raise runtime.KarelRuntimeError('Wildcard file bytes changed during preflight',line)
-                if device:
-                    files.require_volume(source.split(':',1)[0],line=line)
-                    volume=target.split(':',1)[0];row=files.require_volume(volume,write=True,line=line)
-                    if row['retain_deleted']:garbage[volume]+=len(files.files.get(target,b''))
-                staged[target]=bytearray(data)
-            if device:
+        if source.busy(selected) or target.busy([row[1] for row in plan]):return 3
+        if target.entries(target_folder,destination=True,charge=False)!=existing:
+            raise runtime.KarelRuntimeError('Wildcard destinations changed during preflight',line)
+        for name,destination,data,old,before,target_before in plan:
+            source.plain(name);target.plain(destination)
+            if not source.unchanged(name,data,before) or target.signature(destination)!=target_before:
+                raise runtime.KarelRuntimeError('Wildcard file bytes changed during preflight (including metadata)',line)
+            if not target.directory and bytes(target.bank.files.get(destination,b''))!=old:
+                raise runtime.KarelRuntimeError('Wildcard file bytes changed during preflight',line)
+            if source.device:source.bank.require_volume(name.split(':',1)[0],line=line)
+        bank=target.bank
+        if not target.directory:
+            staged=dict(bank.files);garbage={} if not target.device else {name:row['garbage'] for name,row in bank._volumes.items()}
+            for name,destination,data,_,_,_ in plan:
+                if target.device:
+                    volume=destination.split(':',1)[0];row=bank.require_volume(volume,write=True,line=line)
+                    if row['retain_deleted']:garbage[volume]+=len(bank.files.get(destination,b''))
+                if target.pipe and len(data)>bank.pipes[destination]['sectors']*1024:return 4
+                staged[destination]=bytearray(data)
+            if target.device:
                 if len(staged)>32767:raise runtime.KarelRuntimeError('Virtual file count exceeded by wildcard batch',line)
-                for volume,row in files._volumes.items():
+                for volume,row in bank._volumes.items():
                     used=garbage[volume]+sum(len(data) for name,data in staged.items() if name.split(':',1)[0]==volume)
                     if used>row['capacity']:raise runtime.KarelRuntimeError('Virtual device capacity exceeded by complete wildcard batch',line)
-            files.files.clear();files.files.update(staged)
-            if device:
-                for volume,amount in garbage.items():files._volumes[volume]['garbage']=amount
+            bank.files.clear();bank.files.update(staged)
+            if target.device:
+                for volume,amount in garbage.items():bank._volumes[volume]['garbage']=amount
         else:
-            # All source snapshots and predictable checks precede the first write.
-            # Host IO failures/races can still leave a partially published batch.
-            if entries(target_folder,destination=True,charge=False)!=existing:
-                raise runtime.KarelRuntimeError('Wildcard destinations changed during preflight',line)
-            for source,target,data,before,target_before in plan:
-                if signature(source)!=before or signature(target)!=target_before:
-                    raise runtime.KarelRuntimeError('Wildcard file changed during preflight',line)
-            for source,target,data,_,_ in plan:
-                atomic_bytes(files._path(target),data)
-                for cached in list(files.files):
-                    if cached.casefold()==target.casefold():files.files.pop(cached)
-                files.files[target]=bytearray(data)
+            # Predictable checks/budget precede publication; host IO/races can
+            # still leave an ordered batch of per-file atomic replacements.
+            for name,destination,data,_,_,_ in plan:
+                atomic_bytes(bank._path(destination),data)
+                for cached in list(bank.files):
+                    if cached.casefold()==destination.casefold():bank.files.pop(cached)
+                bank.files[destination]=bytearray(data)
         return 0
     try:code=execute()
     except (OSError,ValueError) as exc:raise runtime.KarelRuntimeError('Wildcard FILE operation failed: '+str(exc),line) from exc

@@ -275,11 +275,11 @@ class BranchRejectionTests(unittest.TestCase):
     def test_labels_not_visible_between_routines(self):
         self.rejected('first', 'E_LABEL', routines='ROUTINE first BEGIN GOTO finished END first\nROUTINE second BEGIN finished:: END second')
 
-    def test_jump_inside_for_blocked(self): self.rejected('FOR i = 1 TO 2 DO GOTO finished ENDFOR finished::', 'E_GOTO_FOR')
+    def test_legacy_jump_inside_for_blocked(self): self.rejected('FOR i = 1 TO 2 DO GOTO finished ENDFOR finished::', 'E_GOTO_FOR', _translator=legacy_translate)
 
-    def test_jump_inside_nested_for_branch_blocked(self): self.rejected('FOR i = 1 TO 2 DO IF TRUE THEN GOTO finished ENDIF ENDFOR finished::', 'E_GOTO_FOR')
+    def test_legacy_jump_inside_nested_for_branch_blocked(self): self.rejected('FOR i = 1 TO 2 DO IF TRUE THEN GOTO finished ENDIF ENDFOR finished::', 'E_GOTO_FOR', _translator=legacy_translate)
 
-    def test_label_inside_for_blocked_even_unused(self): self.rejected('FOR i = 1 TO 2 DO inside:: x = 7 ENDFOR', 'E_GOTO_FOR')
+    def test_legacy_label_inside_for_blocked_even_unused(self): self.rejected('FOR i = 1 TO 2 DO inside:: x = 7 ENDFOR', 'E_GOTO_FOR', _translator=legacy_translate)
 
     def test_jump_into_for_blocked(self): self.rejected('GOTO inside FOR i = 1 TO 2 DO inside:: x = 7 ENDFOR', 'E_GOTO_FOR')
 

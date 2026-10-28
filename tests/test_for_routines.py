@@ -254,8 +254,8 @@ class ForSafetyBoundaryTests(unittest.TestCase):
     def test_procedure_return_value_still_blocked(self):
         self.rejected('work', 'ROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO RETURN k ENDFOR END work', 'E_RETURN')
 
-    def test_labels_and_jumps_in_for_still_blocked(self):
-        self.rejected('work', 'ROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO GO TO finished ENDFOR finished:: END work', 'E_GOTO_FOR')
+    def test_legacy_labels_and_jumps_in_for_still_blocked(self):
+        self.rejected('work', 'ROUTINE work VAR k: INTEGER BEGIN FOR k = 1 TO 2 DO GO TO finished ENDFOR finished:: END work', 'E_GOTO_FOR', _translator=legacy_translate)
 
 
 if __name__ == '__main__': unittest.main()

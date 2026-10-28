@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR i,total:INTEGER cleanup:BOOLEAN
+ROUTINE sum_until:INTEGER FROM LIB
+BEGIN
+  total=0
+  FOR i=1 TO 2 DO
+    total=total+sum_until()
+  ENDFOR
+  cleanup=UNINIT(i)
+END MAIN

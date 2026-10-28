@@ -238,7 +238,7 @@ class SelectRejectionTests(unittest.TestCase):
     def test_invalid_unreachable_body_remains_checked(self): self.rejected('SELECT 1 OF CASE(1): x=7 CASE(1): x=ON ENDSELECT', 'E_TYPE')
     def test_legacy_sibling_case_jump_rejected(self): self.rejected('SELECT 1 OF CASE(1): GOTO other CASE(2): other:: ENDSELECT', 'E_GOTO_ENTRY', _translator=legacy_translate)
     def test_legacy_entry_into_case_rejected(self): self.rejected('GOTO nested SELECT 1 OF CASE(1): nested:: ENDSELECT', 'E_GOTO_ENTRY', _translator=legacy_translate)
-    def test_select_does_not_relax_for_jump_guard(self): self.rejected('FOR i=1 TO 2 DO SELECT i OF CASE(1): GOTO done ELSE: ENDSELECT ENDFOR done::', 'E_GOTO_FOR')
+    def test_legacy_select_does_not_relax_for_jump_guard(self): self.rejected('FOR i=1 TO 2 DO SELECT i OF CASE(1): GOTO done ELSE: ENDSELECT ENDFOR done::', 'E_GOTO_FOR', _translator=legacy_translate)
 
 
 class SelectRuntimeTests(unittest.TestCase):

@@ -1,0 +1,23 @@
+{
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {}
+  },
+  "files": {
+    "seedA.DAT": {
+      "hex": "616c706861"
+    },
+    "seedB.DAT": {
+      "hex": "62657461"
+    },
+    "skip.TXT": {
+      "hex": "6b656570"
+    },
+    "saved_WORK_SEEDA.DAT": {
+      "hex": "616c706861"
+    },
+    "saved_WORK_SEEDB.DAT": {
+      "hex": "62657461"
+    }
+  }
+}

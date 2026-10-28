@@ -1,0 +1,4 @@
+{
+  "files": {"seedA.DAT": "alpha", "seedB.DAT": "beta", "skip.TXT": "keep"},
+  "file_pipes": {}
+}

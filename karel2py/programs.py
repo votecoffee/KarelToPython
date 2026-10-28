@@ -9,25 +9,30 @@ def rt():
 
 class GroupLocks:
     """Configured motion-group labels; no robot, motion or native locks."""
-    def __init__(self,groups,*,motion=None,apply_directives=False):
+    def __init__(self,groups,*,motion=None,apply_directives=False,callee_scopes=False):
         if (type(groups) not in (list,tuple) or not groups or len(groups)>31
                 or any(type(group) is not int or not 1<=group<=31 for group in groups)
                 or len(groups)!=len(set(groups))):
             raise ValueError('GroupLocks requires distinct groups in 1..31')
         if motion is not None and type(motion) is not dict: raise ValueError('Group motion must be an object')
         if type(apply_directives) is not bool:raise ValueError('apply_directives requires a BOOLEAN')
-        self.apply_directives=apply_directives
-        self.groups=tuple(sorted(groups));self.motion={};self.owners={}
+        if type(callee_scopes) is not bool:raise ValueError('callee_scopes requires a BOOLEAN')
+        if callee_scopes and not apply_directives:raise ValueError('callee_scopes requires apply_directives=True')
+        self.apply_directives=apply_directives;self.callee_scopes=callee_scopes
+        self.groups=tuple(sorted(groups));self.motion={};self.owners={};self._ownership_tokens={}
         for group,value in (motion or {}).items(): self.set_motion(group,value)
 
-    def begin(self,state,line=None):
-        """Atomically acquire explicit root-entry requirements when opted in."""
+    def _automatic_groups(self,state,line=None):
+        """Preflight an entire module request without changing ownership."""
         runtime=rt()
         if type(self.apply_directives) is not bool:
             raise runtime.KarelRuntimeError('apply_directives requires a BOOLEAN',line)
-        if not self.apply_directives:return
+        if type(self.callee_scopes) is not bool:
+            raise runtime.KarelRuntimeError('callee_scopes requires a BOOLEAN',line)
+        if self.callee_scopes and not self.apply_directives:
+            raise runtime.KarelRuntimeError('callee_scopes requires apply_directives=True',line)
+        if not self.apply_directives:return None
         root=runtime.task_root(state)
-        if state is not root:return
         groups=state._source_settings.get('lock_groups')
         if groups is None:groups=self.groups
         if (type(groups) not in (list,tuple) or len(groups)>31
@@ -44,7 +49,39 @@ class GroupLocks:
                 raise runtime.KarelRuntimeError('Automatic logical group acquisition blocked by another task: '+str(group),line)
             if owner is None and self.motion.get(group,'idle')!='idle':
                 raise runtime.KarelRuntimeError('Automatic logical group acquisition blocked by a busy label: '+str(group),line)
-        for group in selected:self.owners[group]=root
+        return root,selected
+
+    def _grant(self,group,owner):
+        if group not in self.owners:
+            self.owners[group]=owner;self._ownership_tokens[group]=object()
+        return self._ownership_tokens.get(group)
+
+    def begin(self,state,line=None):
+        """Acquire root-entry requirements, retaining the established default."""
+        if state is not rt().task_root(state):return
+        request=self._automatic_groups(state,line)
+        if request is None:return
+        owner,groups=request
+        for group in groups:self._grant(group,owner)
+
+    def enter_scope(self,state,line=None):
+        """Return an opaque lease for additional module groups, when opted in."""
+        if self.callee_scopes is False:return None
+        request=self._automatic_groups(state,line)
+        if request is None:return None
+        owner,groups=request;acquired={}
+        for group in groups:
+            if group not in self.owners:acquired[group]=self._grant(group,owner)
+        return self,owner,acquired
+
+    def leave_scope(self,scope):
+        """Release only this lease's surviving grants, never later acquisitions."""
+        if scope is None:return
+        bank,owner,acquired=scope
+        if bank is not self:raise rt().KarelRuntimeError('Group scope belongs to a different bank')
+        for group,token in acquired.items():
+            if self.owners.get(group) is owner and self._ownership_tokens.get(group) is token:
+                self.owners.pop(group);self._ownership_tokens.pop(group,None)
 
     def set_motion(self,group,value):
         if type(group) is not int or group not in self.groups or value not in ('idle','executing','stopped'):
@@ -63,39 +100,41 @@ class GroupLocks:
             if owner is not None and owner is not root:
                 if not code:code=2
                 continue
-            if operation=='LOCK_GROUP': self.owners[group]=root
+            if operation=='LOCK_GROUP': self._grant(group,root)
             else:
                 motion=self.motion.get(group,'idle')
                 if owner is root and motion!='idle':
                     if not code:code=17039 if motion=='executing' else 17040
-                else:self.owners.pop(group,None)
+                else:self.owners.pop(group,None);self._ownership_tokens.pop(group,None)
         return code
 
     def release_owner(self,state):
         root=rt().task_root(state)
         for group,owner in list(self.owners.items()):
-            if owner is root: self.owners.pop(group)
+            if owner is root:self.owners.pop(group);self._ownership_tokens.pop(group,None)
 
     def snapshot(self):
         result={'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())},
                 'owners':{str(key):value.program_name for key,value in sorted(self.owners.items())}}
         if self.apply_directives:result['apply_directives']=True
+        if self.callee_scopes:result['callee_scopes']=True
         return result
 
     def to_config(self):
         if self.owners: raise ValueError('Cannot persist live group ownership; finish or unlock the task first')
         result={'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())}}
         if self.apply_directives:result['apply_directives']=True
+        if self.callee_scopes:result['callee_scopes']=True
         return result
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'groups','motion','apply_directives'} or 'groups' not in config:
-            raise ValueError('Group lock configuration requires groups and optional motion/apply_directives')
+        if type(config) is not dict or set(config)-{'groups','motion','apply_directives','callee_scopes'} or 'groups' not in config:
+            raise ValueError('Group lock configuration requires groups and optional motion/directive settings')
         motion=config.get('motion',{})
         if type(motion) is not dict or any(type(key) is not str or not re.fullmatch(r'[1-9][0-9]?',key) for key in motion):
             raise ValueError('Motion keys require canonical group numbers')
-        return cls(config['groups'],motion={int(key):value for key,value in motion.items()},apply_directives=config.get('apply_directives',False))
+        return cls(config['groups'],motion={int(key):value for key,value in motion.items()},apply_directives=config.get('apply_directives',False),callee_scopes=config.get('callee_scopes',False))
 
 
 def call_program(state,operation,args,line=None):

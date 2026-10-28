@@ -1,0 +1,14 @@
+PROGRAM LIB
+ROUTINE sum_until:INTEGER
+VAR i,total:INTEGER
+BEGIN
+  total=0
+  FOR i=1 TO 4 DO
+    IF i=3 THEN GOTO finished ENDIF
+    total=total+i
+    DELAY 1
+  ENDFOR
+  finished:: RETURN total
+END sum_until
+BEGIN
+END LIB

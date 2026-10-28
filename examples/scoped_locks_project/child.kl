@@ -1,0 +1,6 @@
+PROGRAM CHILD
+%LOCKGROUP=3
+VAR called_owned:BOOLEAN
+BEGIN
+  called_owned=MOTION_CTL(5)
+END CHILD

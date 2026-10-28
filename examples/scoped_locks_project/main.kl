@@ -1,0 +1,12 @@
+PROGRAM MAIN
+%LOCKGROUP=1
+VAR nested_owned,nested_released,called_released,caller_kept:BOOLEAN
+    called_owned FROM CHILD:BOOLEAN status:INTEGER
+ROUTINE probe:BOOLEAN FROM LIB
+BEGIN
+  nested_owned=probe()
+  nested_released=NOT MOTION_CTL(2)
+  CALL_PROG('CHILD',status)
+  called_released=NOT MOTION_CTL(4)
+  caller_kept=MOTION_CTL(1)
+END MAIN

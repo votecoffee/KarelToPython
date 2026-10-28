@@ -1,0 +1,4 @@
+{
+  "group_locks": {"groups": [1, 2, 3], "apply_directives": true, "callee_scopes": true},
+  "controller": {}
+}

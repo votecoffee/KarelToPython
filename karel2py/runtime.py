@@ -2195,6 +2195,7 @@ class State:
         self.max_steps = 100000
         self.call_depth = 0
         self.local_frames = []
+        self._group_scope_frames = []
         self._aborted = False
         self._abort_line = None
 
@@ -2532,20 +2533,37 @@ class State:
                 raise KarelRuntimeError('Parameter binding type mismatch', line)
         values = {name: initial_value(spec) for name, spec in declarations.items() if name not in arguments}
         values.update(arguments)
+        bank=self.execution.group_locks;scope=None
+        if _pythonic() and bank is not None:
+            # FROM declarations create forwarding frames. The defining source
+            # routine applies its own module policy when that frame is entered.
+            interfaces=getattr(getattr(self,'program',None),'routine_interfaces',{})
+            external=interfaces.get(routine,{}).get('external') if routine else None
+            if not external:scope=bank.enter_scope(self,line)
         self.call_depth += 1
         self.local_frames.append((declarations, values))
+        self._group_scope_frames.append((bank,scope))
         task_root(self)._task_frames.append((self,routine))
-        if self.execution.diagnostics is not None:
-            self.execution.diagnostics.observe(self);self.execution.diagnostics.record(self,'CALL',line)
+        try:
+            if self.execution.diagnostics is not None:
+                self.execution.diagnostics.observe(self);self.execution.diagnostics.record(self,'CALL',line)
+        except BaseException:
+            self.call_depth-=1;self.local_frames.pop();self._group_scope_frames.pop()
+            task_root(self)._task_frames.pop()
+            if bank is not None:bank.leave_scope(scope)
+            raise
 
     def leave_routine(self):
-        if self.execution.diagnostics is not None:self.execution.diagnostics.record(self,'RTN_FRM_RTN',task_root(self)._task_line or None)
-        frame=self.local_frames[-1]
-        for number,handler in list(self._handlers.items()):
-            if handler.get('local_frame') is frame: self._handlers.pop(number,None)
-        self.call_depth -= 1
-        self.local_frames.pop()
-        task_root(self)._task_frames.pop()
+        frame=self.local_frames[-1];bank,scope=self._group_scope_frames[-1]
+        try:
+            if self.execution.diagnostics is not None:self.execution.diagnostics.record(self,'RTN_FRM_RTN',task_root(self)._task_line or None)
+        finally:
+            for number,handler in list(self._handlers.items()):
+                if handler.get('local_frame') is frame: self._handlers.pop(number,None)
+            self.call_depth -= 1
+            self.local_frames.pop();self._group_scope_frames.pop()
+            task_root(self)._task_frames.pop()
+            if bank is not None:bank.leave_scope(scope)
 
     def raw(self, name):
         if self.local_frames and name in self.local_frames[-1][0]:

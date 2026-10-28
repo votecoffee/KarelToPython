@@ -1,0 +1,19 @@
+PROGRAM FOR_JUMPS
+VAR i,j,total,skipped:INTEGER first,outer_cleared,inner_cleared:BOOLEAN
+BEGIN
+  total=0
+  skipped=0
+  first=TRUE
+  FOR i=1 TO 3 DO
+    again:: total=total+i
+    IF first THEN first=FALSE GOTO again ENDIF
+    FOR j=1 TO 3 DO
+      IF j=2 THEN GOTO after_inner ENDIF
+      total=total+j
+    ENDFOR
+    after_inner:: skipped=skipped+1
+    IF i=2 THEN GOTO finished ENDIF
+  ENDFOR
+  finished:: outer_cleared=UNINIT(i)
+  inner_cleared=UNINIT(j)
+END FOR_JUMPS

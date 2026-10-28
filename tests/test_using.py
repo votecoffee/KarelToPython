@@ -298,8 +298,8 @@ ROUTINE relay: INTEGER BEGIN RETURN change() END relay'''
     def test_jump_between_using_blocks_is_rejected(self):
         self.rejected('USING left DO GO TO inside ENDUSING USING right DO inside:: count = 7 ENDUSING', 'E_GOTO_ENTRY')
 
-    def test_for_body_labels_inside_using_stay_blocked(self):
-        self.rejected('FOR index_value = 1 TO 2 DO USING left DO inside:: count = 7 ENDUSING ENDFOR', 'E_GOTO_FOR')
+    def test_legacy_for_body_labels_inside_using_stay_blocked(self):
+        self.rejected('FOR index_value = 1 TO 2 DO USING left DO inside:: count = 7 ENDUSING ENDFOR', 'E_GOTO_FOR', _translator=legacy_translate)
 
     def test_shadowed_case_constant_does_not_become_a_runtime_case(self):
         self.rejected('USING left DO SELECT result OF CASE(count): result = 1 ENDSELECT ENDUSING', 'E_USING_CONST_SHADOW',

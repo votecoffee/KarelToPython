@@ -1,0 +1,23 @@
+{
+  "CHILD": {
+    "state": "ready",
+    "values": {
+      "CALLED_OWNED": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "NESTED_OWNED": true,
+      "NESTED_RELEASED": true,
+      "CALLED_RELEASED": true,
+      "CALLER_KEPT": true,
+      "CALLED_OWNED": true,
+      "STATUS": 1
+    }
+  }
+}
