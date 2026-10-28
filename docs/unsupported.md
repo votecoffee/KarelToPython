@@ -196,7 +196,7 @@ they are boundaries rather than promises to accept every such source form later.
   Twelve [dynamic display calls](dynamic-displays.md) now watch static globals and
   explicit ports, with bounded logical checkpoint intervals, atomic field updates
   and typed cancellation. Native background timing, implicit task cleanup, live
-  binding persistence and form/list/table managers remain unsupported. Six
+  binding persistence and native form widgets remain unsupported. Six
   [keyboard/menu calls](keyboard-input.md) now use injected key events, editable
   buffers, masks, pane capture, cooperative waits and PUSH/POP suspension; combined
   WD/TPKB echo and dictionary-backed entry/subwindow/pull-up controls are modeled.

@@ -47,8 +47,9 @@ leaves. Known values follow the existing SHORT range and 32767 missing sentinel;
 fields start uninitialized. The manual permits MENU_ID to remain uninitialized,
 which is supported for field operations and partial saved state. Whole value
 copies/results still require every leaf initialized under existing Pythonic
-structure rules. Modeling the data does not implement DISCTRL_LIST, native
-windows, field navigation or controller display validation.
+structure rules. The separate [list/table service](table-controls.md) now uses
+DISP_DAT_T for resident field/row navigation. Native windows, memory layouts and
+controller display validation remain outside the implementation.
 
 STD_PTH_NODE exposes the same NODE_POS POSITION field already used for implicit
 PATH nodes. A.18.47 lists GROUP_DATA and COMMON_DATA as no longer used; their
@@ -69,8 +70,9 @@ context files and permits equal typed routine/copy interfaces. Distinct user
 structure names, header types, capacities and shapes still require exact matches.
 Source-linked TYPE aliases and external routines use the same resolved layouts.
 
-CREATE_VAR recognizes DISP_DAT_T and STD_PTH_NODE, including supported fixed
-ARRAY dimensions. It retains existing allocation, dimension, memory-pool,
+CREATE_VAR recognizes DISP_DAT_T and STD_PTH_NODE, plus the portable
+[COL_DESC_T and opaque XWORK_T schemas](table-controls.md), including supported
+fixed ARRAY dimensions. It retains existing allocation, dimension, memory-pool,
 metadata and schema validation. GET_VAR/SET_VAR use their existing exact service
 interfaces. For example, a DISP_DAT_T SHORT field must be read into SHORT field
 storage; it is not silently promoted into an INTEGER service output. An ordinary

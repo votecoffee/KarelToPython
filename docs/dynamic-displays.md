@@ -148,5 +148,6 @@ python -m karel2py.project examples/dynamic_display_project --entry MAIN --conte
 The report's dynamic_display_policy and the
 [semantics ledger](semantics/dynamic_display_semantics.json) record this contract.
 [Keyboard input](keyboard-input.md) separately models injected events and selected
-headless menus. Native timing, glyph rendering, form/list/table managers, live
+headless menus. [List/table controls](table-controls.md) separately add resident
+navigation and typed array editing. Native timing, glyph rendering, forms, live
 binding persistence, controller acceptance and strict mode remain future work.
