@@ -1,0 +1,15 @@
+PROGRAM LIB
+TYPE item_t=STRUCTURE count:SHORT ENDSTRUCTURE
+ROUTINE make:item_t
+VAR answer:item_t
+BEGIN answer.count=7 RETURN answer END make
+ROUTINE work:INTEGER
+VAR octet:BYTE total:INTEGER
+BEGIN
+  total=0
+  FOR octet=254 TO 255 DO total=total+octet DELAY 1 ENDFOR
+  USING make() DO FOR count=1 TO 3 DO total=total+count ENDFOR ENDUSING
+  RETURN total
+END work
+BEGIN
+END LIB

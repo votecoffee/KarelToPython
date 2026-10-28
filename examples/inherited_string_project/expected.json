@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {}},
+  "MAIN": {"state": "completed", "values": {"LABELS": ["red", "blue"], "FIRST": "blue", "COUNT": 2}}
+}

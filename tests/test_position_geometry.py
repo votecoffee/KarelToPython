@@ -217,9 +217,13 @@ class PositionGeometryGuardTests(unittest.TestCase):
         for expression in ('x:p','FRAME(p,q,x)'):
             compile_program('r='+expression,declarations=DECLARATIONS+' x:VECTOR')
 
-    def test_exact_routine_interface_retained(self):
-        self.reject('take(p:p)',routines='ROUTINE take(v: XYZWPR) BEGIN END take')
-        self.reject('q=make()','E_RETURN',routines='ROUTINE make: POSITION BEGIN RETURN INV(a) END make')
+    def test_cartesian_geometry_results_convert_at_routine_boundaries(self):
+        state=execute('p=POS(1,0,0,0,0,0,cfg) take(p:p)',routines='ROUTINE take(v: XYZWPR) BEGIN seen=v.x v.x=99 END take')
+        self.assertEqual((state['SEEN'],state['P']['LOCATION']['X']),(2.,1.))
+        routine='ROUTINE make: POSITION BEGIN RETURN INV(a) END make'
+        self.assertEqual(execute('a=POS(2,0,0,0,0,0,cfg) q=make()',routines=routine)['Q']['LOCATION']['X'],-2.)
+        with self.assertRaises(TranslationError): compile_program('take(p:p)',routines='ROUTINE take(v: XYZWPR) BEGIN END take',translator=legacy_translate)
+        with self.assertRaises(TranslationError): compile_program('q=make()',routines=routine,translator=legacy_translate)
 
     def test_legacy_internal_geometry_guards_retained(self):
         for expression in ('p:p','INV(p)','FRAME(p,q,r)'):

@@ -1,0 +1,12 @@
+PROGRAM INHERITED_STRING_ARRAY
+VAR labels,copied:ARRAY[2] OF STRING[8] first:STRING[12] count:INTEGER
+ROUTINE make:ARRAY OF STRING BEGIN RETURN labels END make
+ROUTINE touch(items:ARRAY OF STRING)
+BEGIN items[1]='changed' END touch
+BEGIN
+  labels[1]='alpha' labels[2]='bravo'
+  copied=make()
+  touch(make())
+  first=make()[2]
+  count=ARRAY_LEN(make())
+END INHERITED_STRING_ARRAY

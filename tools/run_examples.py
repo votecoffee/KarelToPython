@@ -142,9 +142,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 218, 'Update the expected example count when adding examples'
+    assert count == 221, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==39, 'Update the expected project count when adding projects'
+    assert len(projects)==41, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None

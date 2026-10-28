@@ -1,0 +1,6 @@
+PROGRAM LIB
+ROUTINE make:ARRAY OF STRING
+VAR labels:ARRAY[2] OF STRING[6]
+BEGIN labels[1]='red' labels[2]='blue' DELAY 1 RETURN labels END make
+BEGIN
+END LIB

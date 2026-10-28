@@ -262,8 +262,12 @@ class ExtendedPositionTests(unittest.TestCase):
     def test_extended_group_still_blocked(self):
         with self.assertRaises(TranslationError) as caught: compile_program(declarations='ext: XYZWPREXT IN GROUP[1]',translator=legacy_translate)
         self.assertEqual(caught.exception.code,'E_POSITION_GROUP')
-    def test_extended_distinct_from_xyzwpr(self):
-        with self.assertRaises(TranslationError): compile_program('take(b)',declarations='b: XYZWPR',routines='ROUTINE take(a: XYZWPREXT) BEGIN END take')
+    def test_extended_routine_conversion_is_private_with_legacy_guard(self):
+        routine='ROUTINE take(a: XYZWPREXT) BEGIN result=a.ext1 a.ext1=99 END take'
+        program,_=compile_program(init_pose('b')+' take(b)',declarations='b: XYZWPR result:REAL',routines=routine)
+        state=program.run()
+        self.assertEqual((state['RESULT'],state['B']['X']),(0.,1.))
+        with self.assertRaises(TranslationError): compile_program('take(b)',declarations='b: XYZWPR',routines='ROUTINE take(a: XYZWPREXT) BEGIN END take',translator=legacy_translate)
     def test_generated_example(self):
         result=translate((ROOT/'examples/position_data.kl').read_text())
         namespace={'__name__':'position_example_test'}

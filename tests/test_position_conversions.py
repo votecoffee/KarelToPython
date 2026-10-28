@@ -162,10 +162,18 @@ class PositionConversionGuardTests(unittest.TestCase):
         for kind in ('VECTOR','CONFIG'):
             for body in ('p=x','x=p','a=x','x=a'):
                 with self.subTest(kind=kind,body=body): self.reject(body,declarations=DECLARATIONS+f' x: {kind}')
-    def test_routine_interfaces_do_not_implicitly_convert(self):
+    def test_cartesian_routine_conversion_is_private_and_pythonic(self):
+        routine='ROUTINE take(v: POSITION) BEGIN v.location.x=99 seen=v.location.x END take'
         for value in ('a','(a)','POS(1,2,3,0,0,0,cfg)'):
-            with self.subTest(value=value): self.reject('take('+value+')',routines='ROUTINE take(v: POSITION) BEGIN END take')
-    def test_return_does_not_implicitly_convert(self): self.reject('q=make()','E_RETURN',routines='ROUTINE make: POSITION BEGIN RETURN a END make')
+            with self.subTest(value=value):
+                state=execute('a=POS(1,2,3,0,0,0,cfg) take('+value+')',routines=routine)
+                self.assertEqual((state['A']['X'],state['SEEN']),(1.,99.))
+                self.reject('take('+value+')','E_CALL' if value.startswith('POS(') else 'E_TYPE',routines=routine,translator=legacy_translate)
+
+    def test_cartesian_return_conversion_is_pythonic(self):
+        routine='ROUTINE make: POSITION BEGIN RETURN a END make'
+        self.assertEqual(execute('a=POS(1,2,3,0,0,0,cfg) q=make()',routines=routine)['Q']['LOCATION']['X'],1.)
+        self.reject('q=make()','E_RETURN',routines=routine,translator=legacy_translate)
     def test_whole_arrays_do_not_change_component_type(self): self.reject('positions=poses',declarations=DECLARATIONS+' positions: ARRAY[1] OF POSITION poses: ARRAY[1] OF XYZWPR')
     def test_legacy_conversions_remain_blocked(self):
         for body in ('p=a','a=p'):

@@ -1,0 +1,7 @@
+{
+  "OCTET": {"unknown_byte": true},
+  "SIGNED": {"uninitialized": true},
+  "SEED": {"COUNT": 7},
+  "TOTAL": -65020,
+  "CLEARED": true
+}

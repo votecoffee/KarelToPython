@@ -236,8 +236,8 @@ class ResultFailureTests(unittest.TestCase):
     def test_runtime_expression_cannot_define_interface_size(self):
         self.reject('E_CONSTANT',result='ARRAY[n] OF INTEGER')
 
-    def test_unspecified_string_element_capacity_remains_blocked(self):
-        self.reject('E_RETURN_TYPE',result='ARRAY[2] OF STRING')
+    def test_inherited_string_capacity_still_rejects_integer_return_storage(self):
+        self.reject('E_RETURN',result='ARRAY[2] OF STRING')
 
     def test_inline_anonymous_nested_component_remains_blocked(self):
         self.reject('E_RETURN_TYPE',result='ARRAY[2] OF ARRAY[2] OF INTEGER')

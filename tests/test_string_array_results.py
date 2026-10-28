@@ -125,8 +125,8 @@ class StringArrayRejectionTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(**kwargs)
         self.assertEqual(caught.exception.code, code)
 
-    def test_unspecified_element_capacity_remains_blocked(self):
-        self.reject('E_RETURN_TYPE', body='', routines='ROUTINE make: ARRAY OF STRING BEGIN END make')
+    def test_legacy_unspecified_element_capacity_remains_blocked(self):
+        self.reject('E_RETURN_TYPE', body='', routines='ROUTINE make: ARRAY OF STRING BEGIN END make', _translator=legacy_translate)
 
     def test_invalid_capacity_bounds_and_types(self):
         for capacity in ('0', '-1', '255', 'ON', '1.25'):

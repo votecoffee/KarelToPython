@@ -1,0 +1,13 @@
+PROGRAM NARROW_FOR
+TYPE item_t=STRUCTURE count:SHORT ENDSTRUCTURE
+VAR octet:BYTE signed:SHORT seed:item_t total:INTEGER cleared:BOOLEAN
+ROUTINE make:item_t BEGIN RETURN seed END make
+BEGIN
+  seed.count=7 total=0
+  FOR octet=254 TO 255 DO total=total+octet ENDFOR
+  FOR signed=-32767 DOWNTO -32768 DO total=total+signed ENDFOR
+  USING make() DO
+    FOR count=1 TO 3 DO total=total+count ENDFOR
+    cleared=UNINIT(count)
+  ENDUSING
+END NARROW_FOR

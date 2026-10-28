@@ -179,8 +179,8 @@ class ReferenceForGuardTests(unittest.TestCase):
         self.reject('work(box)',routines='ROUTINE work(value:row_t) BEGIN FOR value.count=1 TO 2 DO ENDFOR END work')
         self.reject('work(1)',routines='ROUTINE work(value:INTEGER) BEGIN FOR box.count=1 TO 2 DO ENDFOR END work')
 
-    def test_exact_integer_type_is_required_without_narrow_promotion(self):
-        for declaration in ('values:ARRAY[2] OF BYTE','values:ARRAY[2] OF SHORT','values:ARRAY[2] OF REAL'):
+    def test_nonintegral_counter_types_remain_rejected(self):
+        for declaration in ('values:ARRAY[2] OF BOOLEAN','values:ARRAY[2] OF REAL'):
             self.reject('FOR values[1]=1 TO 2 DO ENDFOR',decl=declaration)
 
     def test_config_domain_fields_and_resource_root_fields_are_blocked(self):

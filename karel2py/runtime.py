@@ -611,6 +611,38 @@ class Reference:
         self.storage[self.key] = UNINITIALIZED
 
 
+def for_bound(spec,value,line=None):
+    """Require an initialized integral loop bound in its counter's domain."""
+    if type(spec) is not tuple or len(spec)!=1 or type(spec[0]) is not str or spec[0] not in ('INTEGER','BYTE','SHORT'):
+        raise KarelRuntimeError('FOR counter requires INTEGER, BYTE or SHORT storage',line)
+    value=integer(value,line)
+    if spec==('BYTE',) and not 0<=value<=255:
+        raise KarelRuntimeError('BYTE FOR bounds require initialized values in 0..255',line)
+    if spec==('SHORT',) and not -32768<=value<=32766:
+        raise KarelRuntimeError('SHORT FOR bounds require initialized values in -32768..32766',line)
+    return value
+
+
+class NarrowForCounter:
+    """One captured narrow leaf, with checked writes and type-specific cleanup."""
+    def __init__(self,reference,line=None):
+        if (not _pythonic() or type(reference) is not Reference or type(reference.spec) is not tuple
+                or len(reference.spec)!=1 or type(reference.spec[0]) is not str or reference.spec not in (('BYTE',),('SHORT',))):
+            raise KarelRuntimeError('Narrow FOR requires ordinary Pythonic BYTE/SHORT storage',line)
+        self.reference=reference
+        self.spec=reference.spec
+
+    def raw(self):return self.reference.raw()
+
+    def set(self,value,line=None):
+        # In particular, SHORT 32767 must fail before Reference.set turns it
+        # into an uninitialized marker or a loop registers its cleanup frame.
+        self.reference.set(for_bound(self.spec,value,line),line)
+
+    def clear(self):
+        self.reference.storage[self.reference.key]=UNKNOWN_BYTE if self.spec==('BYTE',) else UNINITIALIZED
+
+
 class ReadOnlyFieldReference(Reference):
     """Protect POSITION orientation fields and their descendants at runtime."""
     def __init__(self, spec, storage, key, line=None):
@@ -770,6 +802,9 @@ def value_argument(spec, value, line=None):
     if spec[0] == 'STRUCTURE':
         return Reference(spec, {'value': structure_value(spec, value, line)}, 'value')
     if spec[0] in POSITIONAL_VALUE_TYPES:
+        if (_pythonic() and spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and isinstance(value,Structure)
+                and value.spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and value.spec!=spec):
+            value=convert_position(spec,value,line)
         return Reference(spec, {'value': checked(spec, value, line) if _pythonic() else positional_value(spec, value, line)}, 'value')
     supported = ('INTEGER', 'BOOLEAN', 'REAL') + (('BYTE','SHORT') if _pythonic() else ())
     if spec[0] not in supported:
@@ -1131,6 +1166,16 @@ def array_result(spec, value, line=None):
             any(size is not None and (type(size) is not int or not 1 <= size <= 32767) for size in declared) or
             identity is not None and any(size is None for size in declared)):
         raise KarelRuntimeError('ARRAY result dimensions require fixed sizes in 1..32767 or anonymous wildcards', line)
+    inherited_string=pythonic and identity is None and spec[2]==('STRING',None)
+    if inherited_string:
+        if (type(value) is Array and type(value.spec) is tuple and len(value.spec) in (3,4)
+                and array_identity(value.spec) is not None):
+            raise KarelRuntimeError('ARRAY result requires matching anonymous outer storage and exact element type',line)
+        if (type(value) is not Array or type(value.spec) is not tuple or len(value.spec)!=3
+                or type(value.spec[2]) is not tuple or len(value.spec[2])!=2 or value.spec[2][0]!='STRING'
+                or type(value.spec[2][1]) is not int or not 1<=value.spec[2][1]<=254):
+            raise KarelRuntimeError('Inherited STRING ARRAY result requires concrete capacity in 1..254',line)
+        spec=('ARRAY',spec[1],value.spec[2])
     element = spec[2]
     rank = len(declared)
     while element[0] == 'ARRAY':

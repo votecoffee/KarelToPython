@@ -158,8 +158,18 @@ class PositionalRoutineGuardTests(unittest.TestCase):
     def reject(self,code,body='',**kwargs):
         with self.assertRaises(TranslationError) as caught: compile_program(body,**kwargs)
         self.assertEqual(caught.exception.code,code,str(caught.exception))
-    def test_cross_record_return_types_blocked(self): self.reject('E_RETURN',declarations='ext: XYZWPREXT',routines='ROUTINE get: XYZWPR BEGIN RETURN ext END get')
-    def test_cross_record_value_parameter_blocked(self): self.reject('E_TYPE','work((p))',routines='ROUTINE work(v: POSITION) BEGIN END work')
+    def test_cross_cartesian_return_is_pythonic_with_legacy_guard(self):
+        state=execute(init_pose('ext')+' ext.ext1=7 ext.ext2=8 ext.ext3=9 p=get()',declarations='ext: XYZWPREXT p: XYZWPR',
+                      routines='ROUTINE get: XYZWPR BEGIN RETURN ext END get')
+        self.assertEqual(state['P']['X'],1.)
+        self.assertNotIn('EXT1',state['P'])
+        self.reject('E_RETURN',declarations='ext: XYZWPREXT',routines='ROUTINE get: XYZWPR BEGIN RETURN ext END get',_translator=legacy_translate)
+
+    def test_cross_cartesian_value_is_private_with_legacy_guard(self):
+        routine='ROUTINE work(v: POSITION) BEGIN v.location.x=99 n=ROUND(v.location.x) END work'
+        state=execute(init_pose()+' work((p))',routines=routine)
+        self.assertEqual((state['P'],state['N']),(POSE,99))
+        self.reject('E_TYPE','work((p))',routines=routine,_translator=legacy_translate)
     def test_cross_width_joint_return_blocked(self): self.reject('E_RETURN',declarations='a: JOINTPOS4',routines='ROUTINE get: JOINTPOS3 BEGIN RETURN a END get')
     def test_cross_width_joint_value_blocked(self): self.reject('E_TYPE','work((a))',declarations='a: JOINTPOS4',routines='ROUTINE work(v: JOINTPOS3) BEGIN END work')
     def test_missing_return_values_blocked(self):

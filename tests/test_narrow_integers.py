@@ -313,8 +313,9 @@ class BoundaryTests(unittest.TestCase):
     def test_whole_narrow_array_value_passing_remains_blocked(self):
         self.rejected('work((bytes))', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN END work', code='E_ARRAY_VALUE', _translator=legacy_translate)
 
-    def test_narrow_field_cannot_be_for_counter(self):
-        self.rejected('FOR item.code = 1 TO 3 DO ENDFOR', code='E_FOR_COUNTER')
+    def test_narrow_field_counter_clears_to_unknown_byte(self):
+        state=execute('FOR item.code = 1 TO 3 DO ENDFOR')
+        self.assertEqual(state['ITEM']['CODE'],{'unknown_byte':True})
 
     def test_effectful_indexed_result_guard_still_applies(self):
         self.rejected('bytes[index_value] = update()', 'ROUTINE update: INTEGER BEGIN index_value = 2 RETURN 7 END update', code='E_EVALUATION_ORDER', _translator=legacy_translate)

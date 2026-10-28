@@ -1,0 +1,16 @@
+PROGRAM CARTESIAN_INTERFACES
+VAR cfg:CONFIG status:INTEGER source,result:XYZWPR received:POSITION ext:XYZWPREXT observed:REAL
+ROUTINE edit(value:POSITION)
+BEGIN value.location.x=value.location.x+10 observed=value.location.x END edit
+ROUTINE build(value:XYZWPR):POSITION BEGIN RETURN value END build
+ROUTINE expand(value:POSITION):XYZWPREXT BEGIN RETURN value END expand
+ROUTINE narrow(value:XYZWPREXT):XYZWPR BEGIN RETURN value END narrow
+BEGIN
+  CNV_STR_CONF('N R U T, 0, 0, 0',cfg,status)
+  source=POS(1,2,3,0,0,0,cfg)
+  edit(source)
+  received=build(source)
+  ext=expand(source)
+  ext.ext1=7 ext.ext2=8 ext.ext3=9
+  result=narrow(ext)
+END CARTESIAN_INTERFACES

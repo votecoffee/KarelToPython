@@ -543,10 +543,11 @@ class Parser:
                 if element.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT', *DATA_RECORD_TYPES):
                     element_spec = (element.value,)
                 elif element.value == 'STRING':
-                    if not self.accept('['):
-                        self.error('E_RETURN_TYPE', 'STRING ARRAY results require an explicit element capacity in brackets', element)
-                    element_spec = ('STRING', self.expression())
-                    self.expect(']')
+                    if self.accept('['):
+                        element_spec=('STRING',self.expression())
+                        self.expect(']')
+                    elif self.mode=='pythonic':element_spec=('STRING',None)
+                    else:self.error('E_RETURN_TYPE','STRING ARRAY results require an explicit element capacity in brackets',element)
                 elif element.value in rt.JOINT_TYPE_NAMES:
                     element_spec = rt.joint_spec(element.value)
                 elif element.kind == 'NAME' and element.value not in RESERVED | BUILTINS:
@@ -1782,6 +1783,7 @@ class Emitter:
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
         actual=self.access_type(argument)
+        if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
         if self.is_config_subfield(argument):return False
         if expected[0] in ('INTEGER','REAL') and actual[0] in NARROW_TYPES:return False
         if expected==('REAL',) and actual==('INTEGER',):return False
@@ -1797,7 +1799,7 @@ class Emitter:
                 conflict = (self.named_active_counters() - locals_only) & routine.global_writes
                 if conflict:
                     self.error('E_FOR_COUNTER', 'Routine may write active global FOR counter(s): ' + ', '.join(sorted(conflict)), token)
-                aggregate_roots={root for root in self.named_active_counters()-locals_only if self.types[root][0]!='INTEGER'}
+                aggregate_roots={root for root in self.named_active_counters()-locals_only if self.types[root][0] not in INTEGRAL_TYPES}
                 if aggregate_roots and routine.name in self.external_write_routines:
                     self.error('E_FOR_COUNTER','External routine effects cannot prove active aggregate counter roots unchanged',token)
             if self.has_fresh_active_counters(): self.features.add('routine call inside FOR with fresh local counters')
@@ -1985,8 +1987,9 @@ class Emitter:
             if None not in target_shape and None not in source_shape: return False
         if target[2][0] == source[2][0] == 'ARRAY' and rt.array_identity(target[2]) != rt.array_identity(source[2]):
             return False
-        if None not in target_shape and None not in source_shape: return False
         target_leaf, source_leaf = rt.array_leaf_spec(target), rt.array_leaf_spec(source)
+        inherited_string=target_leaf[0]==source_leaf[0]=='STRING' and (target_leaf[1] is None or source_leaf[1] is None)
+        if None not in target_shape and None not in source_shape and not inherited_string:return False
         elements_match = (target_leaf == source_leaf or
                           target_leaf[0] == source_leaf[0] == 'STRING'
                           and (target_leaf[1] is None or source_leaf[1] is None))
@@ -2568,7 +2571,14 @@ class Emitter:
             else:
                 value, actual = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
-            if self.mode=='pythonic' and expected[0] in NARROW_TYPES and actual[0] in INTEGRAL_TYPES and actual!=expected:
+            source_actual=actual;cartesian_conversion=False
+            if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},{value},{line})'
+                is_reference,actual=False,expected
+                cartesian_conversion=True
+                self.features.add('Cartesian interface value conversion')
+            elif self.mode=='pythonic' and expected[0] in NARROW_TYPES and actual[0] in INTEGRAL_TYPES and actual!=expected:
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},{value},{line})'
                 is_reference,actual=False,expected
@@ -2629,6 +2639,7 @@ class Emitter:
                                                        routine=routine.name, parameter=formal.value, type_spec=expected,
                                                        line=line, column=argument.token.column, expression_kind=argument.kind,
                                                        evaluated_once=True, independent_writable_copy=True))
+                if self.mode=='pythonic':self.positional_value_uses[-1].update(source_type_spec=source_actual,converted=cartesian_conversion)
             if expected[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS'):
                 self.features.add(expected[0] + (' reference parameter' if is_reference else ' value parameter'))
             self.features.add('parameter by reference' if is_reference else 'parameter by value')
@@ -2886,7 +2897,7 @@ class Emitter:
             self.error('E_FOR_COUNTER','Condition action or connected timer may modify this FOR counter root',token)
         counter_types=self.types|(self.current_routine.local_types if self.current_routine else {})|self.private_using_roots
         if root not in counter_types or root in self.visible_constants():
-            self.error('E_FOR_COUNTER','FOR counter requires declared writable INTEGER storage',token)
+            self.error('E_FOR_COUNTER','FOR counter requires declared writable integral scalar storage',token)
         if not private and self.current_routine and self.current_routine.parameters and root not in {item.value for item,_ in self.current_routine.declarations}:
             self.error('E_FOR_COUNTER','Parameterized routines require fresh local FOR counter roots until alias effects are validated',token)
         if root in self.active_counters:
@@ -2894,20 +2905,25 @@ class Emitter:
         reference=None
         if self.mode=='pythonic':
             if counter_types[root][0] in ('PATH','FILE','QUEUE_TYPE') or self.is_config_subfield(counter):
-                self.error('E_FOR_COUNTER','FOR counters require ordinary INTEGER leaves outside resource roots and CONFIG domains',token)
+                self.error('E_FOR_COUNTER','FOR counters require ordinary integral leaves outside resource roots and CONFIG domains',token)
             if self.is_position_read_only_access(counter):self.error('E_POSITION_READ_ONLY','FOR counter storage is read-only',token)
             reference,spec=self.reference(counter)
-            if spec!=('INTEGER',):self.error('E_FOR_COUNTER','FOR counter requires an exact INTEGER scalar reference',token)
+            if spec[0] not in INTEGRAL_TYPES:self.error('E_FOR_COUNTER','FOR counter requires an INTEGER, BYTE or SHORT scalar reference',token)
             self.reference_for_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                 line=token.line,column=token.column,selector=counter_text(counter),root=root,kind=counter.kind,
                 captured_once=True,cleanup='selected_scalar',write_protection='whole_root'))
             if private:
                 self.reference_for_uses[-1].update(root=None,protection_root=root,provenance='private_temporary')
-                self.features.add('private USING INTEGER FOR counter')
-            self.features.add('captured INTEGER FOR counter reference')
+                self.features.add('private USING '+spec[0]+' FOR counter')
+            self.features.add('captured '+spec[0]+' FOR counter reference')
         elif counter_types[root][0]!='INTEGER':
             self.error('E_FOR_COUNTER','FOR counter must be an INTEGER variable',token)
         first=self.require_type(initial,'INTEGER');last=self.require_type(final,'INTEGER')
+        if self.mode=='pythonic' and spec[0] in NARROW_TYPES:
+            reference=f'_rt.NarrowForCounter({reference},{token.line})'
+            last=f'_rt.for_bound({spec!r},{last},{final.token.line})'
+            self.reference_for_uses[-1].update(counter_type=spec,bound_domain=[0,255] if spec[0]=='BYTE' else [-32768,32766],
+                cleanup_marker='unknown_byte' if spec[0]=='BYTE' else 'uninitialized')
         if self.mode=='strict' and (self.has_routine_call(initial) or self.has_routine_call(final)):
             self.error('E_EVALUATION_ORDER','FOR bounds with routine calls are blocked',stmt.token)
         adjustment,step=(1,1) if direction=='TO' else (-1,-1)
@@ -2942,7 +2958,7 @@ class Emitter:
                     routine = self.routines.get(action.value)
                     if routine:
                         if name in routine.global_writes: return True
-                        if name in self.types and self.types[name][0]!='INTEGER' and routine.name in self.external_write_routines:return True
+                        if name in self.types and self.types[name][0] not in INTEGRAL_TYPES and routine.name in self.external_write_routines:return True
                         if any(token.value in routine.parameter_writes and self.protection_root(value) == name and self.argument_is_reference(value,expected) for (token,expected),value in zip(routine.parameters,action.args)): return True
                     if routine is None:
                         outputs=[]
@@ -3364,6 +3380,12 @@ class Emitter:
             else:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
+                source_type_spec=value_type;cartesian_conversion=False
+                if self.mode=='pythonic' and spec!=value_type and spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT'):
+                    value=f'_rt.convert_position({spec!r},{value},{line})'
+                    value_type=spec
+                    cartesian_conversion=True
+                    self.features.add('Cartesian interface result conversion')
                 if not self.compatible(spec, value_type): self.error('E_RETURN', 'Wrong function return type', token)
                 if spec[0] == 'ARRAY':
                     source = expr
@@ -3375,7 +3397,7 @@ class Emitter:
                     if (source.kind not in sources or value_type[0] != 'ARRAY'
                             or wrong_identity or len(rt.array_shape(value_type)) != expected_outer_rank
                             or (value_type[2] != spec[2] and not
-                                (spec[2][0] == 'STRING' and value_type[2] == ('STRING', None)))):
+                                (spec[2][0]==value_type[2][0]=='STRING' and (spec[2][1] is None or value_type[2][1] is None)))):
                         self.error('E_ARRAY_RETURN_SOURCE', 'ARRAY RETURN requires matching outer representation, nominal identity and exact element type', expr.token)
                     self.array_return_uses.append(dict(routine=self.current_routine.name, element_type=spec[2][0], element_spec=spec[2], line=line,
                                                        column=token.column, expression_kind=expr.kind,
@@ -3400,6 +3422,7 @@ class Emitter:
                 elif spec[0] in POSITIONAL_VALUE_TYPES:
                     self.positional_return_uses.append(dict(routine=self.current_routine.name, type_spec=spec, line=line,
                                                            column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
+                    if self.mode=='pythonic':self.positional_return_uses[-1].update(source_type_spec=source_type_spec,converted=cartesian_conversion)
                     self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.positional_value({spec!r}, {value}, {line})', token)
                 elif self.mode=='pythonic' and spec[0] in NARROW_TYPES:
                     self.line(f'return _rt.require(_rt.checked({spec!r}, {value}, {line}), {line})', token)
@@ -5238,6 +5261,42 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='16 MiB per raw raster and 64 MiB combined; quota preflight before hex decoding, raster revalidation and expanded output/backend limits before publication',
         boundary='No palette/depth/proprietary format support, color/calibration transformation, pixel acquisition, native FANUC image ABI or controller equivalence',
         guide='docs/vision-alpha-images.md',controller_validated=False)
+    report['narrow_for_policy']=dict(
+        counters='Captured BYTE/SHORT names, fresh locals, fields, ARRAY leaves and USING aliases including isolated private captures; existing INTEGER behavior retained',
+        bounds='Checked initialized BYTE 0..255 and SHORT -32768..32766 for both bounds, no wrapping/clamping/sentinel bounds; selector then initial assignment then final expression each once',
+        cleanup='Dedicated narrow wrapper leaves ordinary Reference.clear unchanged; initial failure preserves old cell, successful initialization registers cleanup; BYTE restores UNKNOWN_BYTE and SHORT restores UNINITIALIZED on every scope exit',
+        protection='Same complete-root, nested-counter, writable-reference, handler/timer and parameterized-root proof; numeric promotions/mismatched narrow conversions are independent values',
+        reports='Narrow reference_for_counters rows add counter_type, bound_domain and cleanup_marker; private public roots remain null and INTEGER row contracts remain unchanged',
+        boundary='Explicit Pythonic extension; no REAL/BOOLEAN/resource/CONFIG counters, BYTE UNINIT, retained writable private aliases or native counter/storage equivalence',
+        guide='docs/narrow-for.md',controller_validated=False)
+    report['for_policy']['counters']='Captured INTEGER/BYTE/SHORT scalar references with initialized counter-domain bounds; declared or isolated private roots retain existing parameterized-routine and whole-root proofs'
+    report['reference_for_counter_policy'].update(
+        selectors='INTEGER/BYTE/SHORT names, record fields, ARRAY leaves and resolved USING fields including isolated private captures; no direct function-result counter roots',
+        boundary='No REAL/BOOLEAN counters, CONFIG-domain subfields, resource roots, readonly POSITION descendants, formal roots, new FOR/USING scope entry, dynamic host-write prevention or native FOR-counter ABI claim')
+    report['private_using_counter_policy']['execution']='Capture one INTEGER/BYTE/SHORT leaf before initial/final expressions; both engines retain bounds and iterator and restore that leaf using its own missing marker on exit/unwind'
+    report['using_policy']['shadowed_for_counters']='Resolved INTEGER/BYTE/SHORT fields own captured counters under declared or private lexical whole-root identities and ordinary scalar/routine/service/handler/timer protection'
+    report['scalar_narrow_policy']['guards']='BYTE/SHORT FOR counters retain initialized domains and type-specific missing markers; INTEGER output references do not widen to narrow storage; REAL-to-narrow conversion remains rejected'
+    report['cartesian_interface_policy']=dict(
+        types=['POSITION','XYZWPR','XYZWPREXT'],
+        arguments='Exact-type bare storage retains references; differing Cartesian actuals convert once at their argument position into independent checked writable values without copy-back',
+        returns='Source RETURN expressions convert before frame/counter cleanup; preserve detached location/configuration, canonical ZYX orientation, complete-input/proper-matrix guards and zero/drop external-axis rules',
+        effects='Converted formal writes do not become writes to caller storage; explicit global writes and selector effects retain ordinary transitive proofs',
+        reports='Pythonic positional_value_arguments and positional_returns retain target type_spec and add source_type_spec plus converted',
+        boundary='JOINTPOS, whole arrays, BYNAME, linked declared signatures and raw callback result types remain exact; no inferred robot/frame/group/model or native ABI/equivalence',
+        guide='docs/cartesian-interfaces.md',controller_validated=False)
+    report['position_conversion_policy']['boundary']='Context-free Cartesian whole assignments and source routine conversions with complete inputs/proper matrices; joint/model assignments stay separate; whole arrays, BYNAME and declared linkage remain exact'
+    report['data_record_policy']['boundary']='Cartesian arguments/RETURN can convert into private values; joint/model conversions retain assignment-only rules; no whole-array representation coercion or physical motion'
+    report['positional_routine_policy']['boundary']='Private source Cartesian argument/RETURN conversions; exact same-type bare references, JOINTPOS, whole arrays, BYNAME, linked declared signatures and callback raw results; no inferred context or native ABI'
+    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR translation frames; FRAME VECTOR points require pose/joint origin; Cartesian source routine conversion is separate from exact joint/whole-array interfaces and native equivalence'
+    report['inherited_string_array_result_policy']=dict(
+        declarations='Pythonic anonymous ARRAY results may omit STRING element capacity with fixed/wildcard/mixed dimensions; concrete capacity is inherited from returned storage',
+        validation='Require one concrete STRING capacity in 1..254, compatible anonymous outer shape, checked known ASCII leaves and existing missing-marker/32767-leaf/64-level limits; copy independently before frame cleanup',
+        interfaces='Preserve inherited concrete capacity in storage, forwarding, grouping, subscript access, linked results and saved context; downstream array assignments/formals still check actual capacity exactly',
+        boundary='No invented default, truncation, ragged/mixed capacity, nominal erasure, resource values or native ABI claim; explicit bounded results remain exact and legacy omitted capacity stays rejected',
+        guide='docs/inherited-string-array-results.md',controller_validated=False)
+    report['array_routine_policy'].update(
+        string_elements='Explicit capacity remains exact; omitted anonymous STRING result capacity inherits concrete returned storage in 1..254, validates known ASCII leaves and preserves missing markers without truncation/defaults',
+        boundary='No anonymous nested ARRAY components, ragged/mixed capacities, representation/identity erasure or native ABI/runtime claim')
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

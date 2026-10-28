@@ -206,11 +206,12 @@ class NarrowCounterAndBoundaryTests(unittest.TestCase):
             program('FOR n=1 TO 3 DO put(n) ENDFOR', 'ROUTINE put(a: BYTE) BEGIN n=7 END put')
         self.assertEqual(caught.exception.code, 'E_FOR_COUNTER')
 
-    def test_narrow_storage_cannot_be_a_for_counter(self):
-        for name in ('b', 'small'):
-            with self.subTest(name=name), self.assertRaises(TranslationError) as caught:
-                program(f'FOR {name}=1 TO 3 DO ENDFOR')
-            self.assertEqual(caught.exception.code, 'E_FOR_COUNTER')
+    def test_narrow_storage_counter_uses_checked_values_and_missing_cleanup(self):
+        for name in ('b','small'):
+            with self.subTest(name=name):
+                state=execute(f'total=0 FOR {name}=1 TO 3 DO total=total+{name} ENDFOR')
+                self.assertEqual(state['TOTAL'],6)
+                self.assertEqual(state[name.upper()],{'unknown_byte':True} if name=='b' else MISSING)
 
     def test_narrow_values_are_valid_integer_for_bounds(self):
         state = execute('b=1 small=3 total=0 FOR n=b TO small DO total=total+n ENDFOR')

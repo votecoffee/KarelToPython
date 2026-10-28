@@ -1,0 +1,4 @@
+PROGRAM MAIN
+VAR labels:ARRAY[2] OF STRING[6] first:STRING[12] count:INTEGER
+ROUTINE make:ARRAY OF STRING FROM LIB
+BEGIN labels=make() first=make()[2] count=ARRAY_LEN(make()) END MAIN
