@@ -188,5 +188,6 @@ device calls](vision-image-services.md) now have offline forms. Live acquisition
 calibration computation, pixel/edge extraction, native graphics, undocumented
 image-save overloads and native conveyor tracking remain open. Legacy queues,
 VT results/lookups and supplied maps now have [offline forms](vision-tracking.md);
-the remaining VT allocation, flow/time, PATH editing and load-balancing calls
-remain unregistered.
+twelve additional [VT queue forms](vt-queues.md) provide allocation, partial
+PATH editing, time/flow estimates and weighted routing. Their tray, geometry and
+native algorithm boundaries remain explicit.
