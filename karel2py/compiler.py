@@ -3288,7 +3288,7 @@ class Emitter:
             if self.features & JOINT_PROCEDURES:
                 self.line('_parser.add_argument("--joint-axes", type=int, choices=range(1, 10), required=True)')
             if self.features & REGISTER_PROCEDURES:
-                self.line('_parser.add_argument("--registers", required=True, help="UTF-8 JSON with explicit count and initial numeric register values")')
+                self.line('_parser.add_argument("--registers", help="UTF-8 JSON numeric bank; defaults to the numeric bank in --context")')
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--location-tolerance-mm", type=float, required=True)')
                 self.line('_parser.add_argument("--orientation-tolerance-deg", type=float, required=True)')
@@ -3323,7 +3323,9 @@ class Emitter:
             self.line('if _args.filesystem_root is not None: _context.files = _rt.DirectoryFiles(_args.filesystem_root)')
             self.indent -= 1
             if self.features & REGISTER_PROCEDURES:
-                self.line('import json as _json')
+                self.line('_registers = _context.numeric if _context is not None else None')
+                self.line('if _args.registers is not None:')
+                self.indent += 1
                 self.line('try:')
                 self.indent += 1
                 self.line('with open(_args.registers, encoding="utf-8-sig") as _stream:')
@@ -3333,7 +3335,10 @@ class Emitter:
                 self.line('except (OSError, TypeError, ValueError, _rt.KarelRuntimeError) as _error:')
                 self.indent += 1
                 self.line('_parser.error("Unable to load numeric registers: " + str(_error))')
-                self.indent -= 1
+                self.indent -= 2
+                self.line('if _registers is None: _parser.error("Numeric register calls require --registers or --context with a numeric bank")')
+                self.line('if _context is None: _context = _rt.ExecutionContext()')
+                self.line('_context.numeric = _registers')
             if 'operator >=<' in self.features:
                 self.line('try:')
                 self.indent += 1

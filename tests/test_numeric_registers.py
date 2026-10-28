@@ -237,7 +237,7 @@ class RegisterRuntimeGuardTests(unittest.TestCase):
 
 
 class RegisterCLITests(unittest.TestCase):
-    def run_script(self,config,*,missing=False,body='SET_INT_REG(1,7,code) GET_REG(1,flag,value,real_value,code)',read_values=None):
+    def run_script(self,config,*,missing=False,body='SET_INT_REG(1,7,code) GET_REG(1,flag,value,real_value,code)',read_values=None,service_context=None,state_out=False):
         Program,result=compile_program(body)
         with tempfile.TemporaryDirectory() as folder:
             package=Path(folder)/'karel2py'; package.mkdir()
@@ -245,10 +245,39 @@ class RegisterCLITests(unittest.TestCase):
             module=Path(folder)/'converted.py'; module.write_text(result.python_source,encoding='utf-8')
             initial=Path(folder)/'registers.json'; initial.write_text(config,encoding='utf-8')
             command=[sys.executable,str(module),* ([] if missing else ['--registers',str(initial)])]
+            if service_context is not None:
+                supplied=Path(folder)/'context.json';supplied.write_text(json.dumps(service_context),encoding='utf-8')
+                command.extend(['--context',str(supplied)])
+            saved=Path(folder)/'saved.json'
+            if state_out:command.extend(['--state-out',str(saved)])
             if read_values is not None:
                 batches=Path(folder)/'read.json'; batches.write_text(json.dumps(read_values),encoding='utf-8')
                 command.extend(['--read-values',str(batches)])
-            return subprocess.run(command,cwd=ROOT,capture_output=True,text=True)
+            result=subprocess.run(command,cwd=ROOT,capture_output=True,text=True)
+            result.saved_context=json.loads(saved.read_text(encoding='utf-8')) if saved.exists() else None
+            return result
+    def test_combined_context_bank_executes_and_saves(self):
+        result=self.run_script('',missing=True,service_context={'numeric':{'count':3,'values':{}}},state_out=True)
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn("'VALUE': 7",result.stdout)
+        self.assertEqual(result.saved_context['numeric'],{'count':3,'values':{'1':7}})
+    def test_combined_context_without_numeric_bank_still_rejected(self):
+        result=self.run_script('',missing=True,service_context={})
+        self.assertEqual(result.returncode,2);self.assertIn('--registers or --context',result.stderr)
+    def test_combined_numeric_context_composes_with_read(self):
+        result=self.run_script('',missing=True,service_context={'numeric':{'count':3,'values':{}}},body='READ(value) SET_INT_REG(1,value,code)',read_values=[[12]],state_out=True)
+        self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(result.saved_context['numeric']['values'],{'1':12})
+    def test_register_flag_overrides_context_bank(self):
+        result=self.run_script('{"count":2,"values":{"1":14}}',service_context={'numeric':{'count':1,'values':{'1':5}}},body='GET_REG(1,flag,value,real_value,code)',state_out=True)
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn("'VALUE': 14",result.stdout)
+        self.assertEqual(result.saved_context['numeric'],{'count':2,'values':{'1':14}})
+    def test_vision_and_get_reg_share_combined_context_bank(self):
+        config={'numeric':{'count':1,'values':{}},'vision':{'processes':{'INSPECT':{'views':[1],'runs':[{'camera_view':-1,'status':0,'results':[],'pass_flag':2}]}}}}
+        result=self.run_script('',missing=True,service_context=config,body="V_RUN_FIND('INSPECT',0,code) V_GET_PASSFL('INSPECT',1,code) GET_REG(1,flag,value,real_value,code)",state_out=True)
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn("'VALUE': 2",result.stdout);self.assertEqual(result.saved_context['numeric']['values'],{'1':2})
+    def test_explicit_numeric_override_is_shared_with_vision(self):
+        config={'numeric':{'count':1,'values':{}},'vision':{'processes':{'INSPECT':{'views':[1],'runs':[{'camera_view':-1,'status':0,'results':[],'pass_flag':1}]}}}}
+        result=self.run_script('{"count":2,"values":{"1":99}}',service_context=config,body="V_RUN_FIND('INSPECT',0,code) V_GET_PASSFL('INSPECT',1,code) GET_REG(1,flag,value,real_value,code)",state_out=True)
+        self.assertEqual(result.returncode,0,result.stderr);self.assertIn("'VALUE': 1",result.stdout);self.assertEqual(result.saved_context['numeric'],{'count':2,'values':{'1':1}})
     def test_explicit_json_context_executes(self):
         result=self.run_script('{"count":3,"values":{}}'); self.assertEqual(result.returncode,0,result.stderr); self.assertIn("'VALUE': 7",result.stdout)
     def test_context_is_required(self):

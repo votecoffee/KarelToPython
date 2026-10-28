@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1028.163240 - 2026-10-28
+
+- Let generated CLI numeric-register calls use the explicit numeric bank in
+  --context. Keep --registers as an override and share the chosen bank with
+  vision/extended services and saved state; absent banks still fail explicitly.
+- Add six isolated CLI regressions for combined contexts, READ, overrides,
+  shared vision results and saved numeric state.
+
 ## 26.1028.162050 - 2026-10-28
 
 - Add 19 offline iRVision calls for supplied completed runs, vision-register

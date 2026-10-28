@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.162050**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.163240**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -305,6 +305,10 @@ through context JSON. See [pendant display](docs/pendant-display.md).
 python -m karel2py examples/window_display.kl -o window_display.py
 python window_display.py --context examples/window_display.services.initial.json --state-out window-state.json
 ```
+
+Generated programs accept numeric banks from `--context` or a separate
+`--registers` file; an explicit register file overrides the context bank for all
+numeric services.
 
 Nineteen [vision calls](docs/vision-results.md) consume supplied completed runs,
 read and transfer vision registers, edit parameters and retain result cursors in

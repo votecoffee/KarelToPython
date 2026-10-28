@@ -119,6 +119,10 @@ the same decoded structure for embedding. Invalid files/configurations produce
 a command-line error. The file seeds detached memory and is left unchanged.
 The script prints program state; embedding code can inspect final bank state.
 The `--registers` flag composes with existing explicit READ and pose contexts.
+A combined `--context` file with a `numeric` bank can supply the same requirement.
+When both flags are present, `--registers` selects the bank shared by GET_REG,
+SET_INT_REG/SET_REAL_REG, extended services and saved state. Neither flag creates
+a bank automatically; a context without `numeric` still requires `--registers`.
 
 Reports add `register_operations`, `register_policy` and transitive
 `potential_register_reads` / `potential_register_writes` routine effects.

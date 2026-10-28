@@ -188,3 +188,8 @@ The [vision result ledger](vision_result_semantics.json) adds 19 calls over
 completed supplied runs, vision registers and parameter banks. It records sparse
 outputs, shared cursor persistence and the NUMSET direction discrepancy, while
 retaining image-processing, camera and tracking boundaries.
+
+Generated CLI programs can select their explicit numeric bank from --context or
+--registers. An explicit register file overrides the context bank consistently
+for numeric and extended services and saved state; see
+[numeric-register usage](../numeric-registers.md#generated-scripts).
