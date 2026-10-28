@@ -1,11 +1,76 @@
 """Translate and explicitly link a directory of KAREL programs for offline use."""
 from pathlib import Path
 import inspect
+import re
 
 from . import __version__, translate, runtime as rt
 from .includes import IncludeLibrary,expand,device_option
 from .lexer import Token,TranslationError
 from .fileio import same_file
+
+
+def project_array_shape_option(value):
+    """Parse a common NAME or explicit PROGRAM.NAME shape without evaluation."""
+    import argparse
+    from .__main__ import array_shape_option
+    name, separator, dimensions=value.partition('=')
+    if not separator or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*)?',name):
+        raise argparse.ArgumentTypeError('Use [PROGRAM.]NAME=SIZE[,SIZE[,SIZE]] with ASCII names')
+    local,shape=array_shape_option(name.rsplit('.',1)[-1]+'='+dimensions)
+    return name.upper(),shape
+
+
+def route_array_shapes(sources,array_shapes,library):
+    """Route only explicit global wildcard storage; validate every context key."""
+    if array_shapes is None: return None
+    token=Token('NAME','<array_shapes>',1,1)
+
+    def fail(message):
+        raise TranslationError('E_ARRAY_CONTEXT',message,token,'<project>')
+
+    if type(array_shapes) is not dict: fail('Project array_shapes must be a dict of [PROGRAM.]NAME to dimension lists/tuples')
+    normalized={}
+    for name,shape in array_shapes.items():
+        if type(name) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*)?',name):
+            fail('Project array_shapes keys require ASCII [PROGRAM.]NAME identifiers')
+        key=name.upper()
+        if key in normalized: fail('Duplicate case-insensitive project array_shapes key: '+key)
+        if (type(shape) not in (list,tuple) or not 1<=len(shape)<=3
+                or any(type(size) is not int or not 1<=size<=32767 for size in shape)):
+            fail('Project ARRAY dimensions require one to three INTEGER sizes in 1..32767')
+        normalized[key]=tuple(shape)
+    if not normalized: return {}
+
+    # Use the same parser and expansion as translation. A filename or a regex on
+    # source text cannot identify a program/global hidden in an include.
+    from .compiler import Parser
+    declarations={};programs={}
+    for filename,source in sources.items():
+        expansion=expand(source,str(filename),library)
+        try: program=Parser(expansion.source,str(filename),mode='pythonic').parse()
+        except TranslationError as exc: raise expansion.remap(exc) from exc
+        if program.name in declarations: raise ValueError('Duplicate project program: '+program.name)
+        programs[filename]=program.name
+        names=set()
+        for variable,spec in program.declarations:
+            if spec[0]!='ARRAY': continue
+            dimensions=spec[1] if type(spec[1]) is tuple else (spec[1],)
+            if any(size.kind=='array_wildcard' for size in dimensions): names.add(variable.value)
+        declarations[program.name]=names
+    routed={program:{} for program in declarations}
+    for key,shape in normalized.items():
+        if '.' in key:
+            program,name=key.split('.')
+            if program not in declarations: fail('Unknown project program in ARRAY shape: '+program)
+            targets=[program] if name in declarations[program] else []
+        else:
+            name=key
+            targets=[program for program,names in declarations.items() if name in names]
+        if not targets: fail('Project shapes may name only direct global variable-sized ARRAYs; unused name: '+key)
+        for program in targets:
+            if name in routed[program]: fail('Overlapping common and qualified ARRAY shapes: '+program+'.'+name)
+            routed[program][name]=shape
+    return {filename:routed[program] for filename,program in programs.items()}
 
 
 class LinkedRoutine:
@@ -36,13 +101,19 @@ class Project:
         if not sources: raise ValueError('A project requires at least one KAREL source')
         self.translations={}; self.classes={}
         library=includes if type(includes) is IncludeLibrary else IncludeLibrary(includes)
+        routed_shapes=route_array_shapes(sources,array_shapes,library)
+        self.array_shapes={}
         for filename,source in sources.items():
-            translation=translate(source,filename=str(filename),array_shapes=array_shapes,cooperative=True,includes=library)
+            # Translation remains the authority for fixed dimensions, rank,
+            # leaf capacity and types after routing the explicit shape names.
+            local_shapes=(routed_shapes or {}).get(filename,{})
+            translation=translate(source,filename=str(filename),array_shapes=local_shapes,cooperative=True,includes=library)
             namespace={'__name__':'karel2py_project'}
             exec(compile(translation.python_source,str(filename)+'.py','exec'),namespace)
             cls=namespace['Program']; name=cls.source_program.upper()
             if name in self.classes: raise ValueError('Duplicate project program: '+name)
             self.translations[name]=translation; self.classes[name]=cls
+            self.array_shapes[name]=dict(translation.report['translation_context']['array_shapes'])
 
         self.source_files=tuple(library.paths)
         self._link_types()
@@ -168,9 +239,15 @@ def main(argv=None):
     parser.add_argument('--state-out',type=Path)
     parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')
     parser.add_argument('--max-cycles',type=int,default=100000)
+    parser.add_argument('--array-shape',type=project_array_shape_option,action='append',default=[],metavar='[PROGRAM.]NAME=DIM[,DIM]',
+                        help='Explicit outer dimensions for direct global wildcard ARRAYs; qualify names when programs need different shapes')
     parser.add_argument('-I','--include-dir',type=Path,action='append',default=[])
     parser.add_argument('--include-device',type=device_option,action='append',default=[],metavar='DEVICE=DIRECTORY')
     args=parser.parse_args(argv)
+    array_shapes={}
+    for name,shape in args.array_shape:
+        if name in array_shapes: parser.error('Duplicate case-insensitive --array-shape name '+name)
+        array_shapes[name]=shape
     devices={}
     for device,directory in args.include_device:
         if device in devices:parser.error('Duplicate include device '+device)
@@ -182,7 +259,7 @@ def main(argv=None):
         inputs.extend(path.resolve() for path in (args.context,args.state_out) if path is not None)
         if target in inputs: parser.error('--trace-out must differ from source, context and state paths')
     print(f'KarelToPython {__version__}',file=sys.stderr)
-    try:project=load_project(args.directory,include_dirs=args.include_dir,include_devices=devices)
+    try:project=load_project(args.directory,array_shapes=array_shapes,include_dirs=args.include_dir,include_devices=devices)
     except TranslationError as exc:
         print(str(exc),file=sys.stderr);return 2
     except (OSError,UnicodeError,ValueError) as exc:

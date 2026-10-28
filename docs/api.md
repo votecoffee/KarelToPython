@@ -115,6 +115,15 @@ checks them; `--entry NAME` explicitly executes. Both CLIs accept repeated
 `-I`/`--include-dir` and `--include-device DEVICE=DIRECTORY`. Directory projects
 exclude referenced top-level include fragments from standalone program entries.
 
+Project `array_shapes` accepts common `NAME` keys or program-qualified
+`PROGRAM.NAME` keys, for example `{"MAIN.VALUES": [3, 2], "LIB.VALUES": [2]}`.
+Common keys apply only to matching direct global wildcard declarations; other
+programs receive no unused shape. Unknown/duplicate/overlapping keys reject.
+The project CLI accepts repeated `--array-shape [PROGRAM.]NAME=DIM[,DIM]`.
+`Project.array_shapes` exposes normalized maps per program; translation reports
+retain local concrete contexts and hashes. See
+[project ARRAY specialization](project-array-shapes.md).
+
 ExecutionContext supports typed `to_config`, `from_config`, `save` and `load`.
 Its optional `variable_archives=runtime.VariableArchives(...)` service supplies
 [portable VR files and SAVE_DRAM points](variable-archives.md). Host
