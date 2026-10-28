@@ -16,6 +16,46 @@ def check_name(name,line=None):
     return 0 if re.fullmatch(r'[A-Za-z0-9_]{1,36}',name) else 2
 
 
+def list_files(state,files,args,line=None):
+    """Prepare a complete FILE_LIST page before changing any output storage."""
+    runtime=rt();pattern,skip,form,names,count,status=args
+    skip=runtime.integer(skip,line);form=runtime.integer(form,line)
+    if skip<0 or form not in (0,1,2,3,4): return 2
+    array=names.raw();capacity=len(array.values)
+    selected=files.list_names(pattern)[skip:skip+capacity];prepared=[]
+    for name in selected:
+        state.tick(line)
+        if form==0: text=name
+        else:
+            base=name.replace('\\','/').rsplit('/',1)[-1].rsplit(':',1)[-1]
+            if not base or base in ('.','..') or any(ord(char)<=32 or ord(char)==127 for char in base): return 2
+            stem,separator,extension=base.rpartition('.')
+            if not separator or not stem: stem,extension=base,''
+            text=stem if form==1 else extension if form==2 else base
+            if form==4:
+                # Portable FILE models do not expose native date/time metadata.
+                # DirectoryFiles uses buffered bytes for open files, disk sizes
+                # for closed files, and the same blank timestamp convention.
+                from .storage import DirectoryFiles
+                if isinstance(files,DirectoryFiles):
+                    if files._busy(name): size=len(files.files[name])
+                    else:
+                        path=files._path(name)
+                        if not path.is_file(): return 1
+                        size=path.stat().st_size
+                else: size=len(files.files[name])
+                if len(stem)>8 or len(extension)>3 or size>99999: return 3
+                dot='.' if extension else ' '
+                text=f'{stem:<8}{dot}{extension:<11}{size:<5}'+(' '*15)
+        if len(text)>array.spec[2][1]: return 3
+        prepared.append(runtime.checked(array.spec[2],text,line))
+    staged=array.clone()
+    for index,value in enumerate(prepared,1): staged.set(index,value,line)
+    # Preserve untouched slots, including their uninitialized values.
+    names.set(staged,line);count.set(len(selected),line)
+    return 0
+
+
 def move_specification(value,*,pattern=True):
     value=rt().ascii_string(value)
     if ':' not in value: return None

@@ -1963,10 +1963,8 @@ class ExecutionContext:
                 elif name=='RENAME_FILE': code=files.rename(args[0],args[1])
                 elif name=='MOVE_FILE': code=files.move(args[0],check=lambda:state.tick(line))
                 else:
-                    if args[1]<0 or args[2]!=0: fail('FILE_LIST requires nonnegative skip and portable name format 0',line)
-                    selected=files.list_names(args[0])[args[1]:]; array=args[3].raw(); selected=selected[:len(array.values)]
-                    for i,name in enumerate(selected): array.set(i+1,name,line)
-                    args[4].set(len(selected),line); code=0
+                    from .fileops import list_files
+                    code=list_files(state,files,args,line)
             except (OSError,ValueError) as exc: raise rt.KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
             args[-1].set(code,line); return
         if name in ('CONT_TASK','RUN_TASK'):
