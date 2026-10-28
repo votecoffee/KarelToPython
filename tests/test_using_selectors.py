@@ -116,11 +116,11 @@ class CapturedUsingStorageTests(unittest.TestCase):
                 with self.assertRaises(TranslationError) as caught:program('USING item DO ENDUSING',types='',declarations='item:'+spec)
                 self.assertEqual(caught.exception.code,'E_USING_TYPE')
 
-    def test_function_results_and_computed_selectors_rejected(self):
-        for selector in ('make()','(make())','(left+right)','left.value()'):
+    def test_unknown_computed_receiver_and_method_syntax_remain_rejected(self):
+        for selector,code in (('make()','E_TYPE'),('(make())','E_TYPE'),('(left+right)','E_SYMBOL'),('left.value()','E_SYNTAX')):
             with self.subTest(selector=selector):
                 with self.assertRaises(TranslationError) as caught:program('USING '+selector+' DO ENDUSING')
-                self.assertEqual(caught.exception.code,'E_USING_TARGET')
+                self.assertEqual(caught.exception.code,code)
 
     def test_non_integer_subscript_rejected(self):
         with self.assertRaises(TranslationError) as caught:program('USING items[TRUE] DO ENDUSING')

@@ -2675,6 +2675,8 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
         return (yield from handle.owner.file_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
     if type(handle.owner) is FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None):
         return (yield from handle.owner.pipe_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
+    if type(handle.owner) is SerialStreams:
+        return (yield from handle.owner.read_items(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
     return state.file_read(handle,targets,line,line_breaks=line_breaks,formats=formats)
 
 

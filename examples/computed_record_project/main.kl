@@ -1,0 +1,8 @@
+PROGRAM MAIN
+TYPE item_t FROM LIB=STRUCTURE value:INTEGER ENDSTRUCTURE
+VAR seed FROM LIB:item_t calls FROM LIB:INTEGER observed:INTEGER
+ROUTINE construct:item_t FROM LIB
+BEGIN
+  calls=0
+  USING construct() DO value=value+7 observed=value ENDUSING
+END MAIN

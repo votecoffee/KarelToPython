@@ -1,0 +1,14 @@
+PROGRAM FINALIZED_SERIAL
+VAR value:INTEGER done:BOOLEAN
+ROUTINE consume
+VAR channel:FILE
+BEGIN
+  OPEN FILE channel('RW','P2:')
+  READ channel(value)
+  WRITE channel(value*2,CR)
+  CLOSE FILE channel
+END consume
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN consume() done=TRUE ENDIF
+END FINALIZED_SERIAL

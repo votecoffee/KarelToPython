@@ -1,0 +1,8 @@
+PROGRAM VISION_ALPHA
+VAR status:INTEGER
+BEGIN
+  V_SAVE_IMREG(1,'rgba.png',status)
+  V_SAVE_IMREG(1,'rgba.bmp',status)
+  V_SAVE_IMREG(2,'gray-alpha.png',status)
+  V_SAVE_IMREG(2,'gray-alpha.bmp',status)
+END VISION_ALPHA

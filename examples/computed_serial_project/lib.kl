@@ -1,0 +1,12 @@
+PROGRAM LIB
+TYPE item_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+ROUTINE receive:item_t
+VAR channel:FILE answer:item_t
+BEGIN
+  OPEN FILE channel('RO','P3:')
+  READ channel(answer.value,CR)
+  CLOSE FILE channel
+  RETURN answer
+END receive
+BEGIN
+END LIB

@@ -1,0 +1,104 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "VISION_ALPHA",
+        "operation": "V_SAVE_IMREG",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "VISION_ALPHA",
+        "operation": "V_SAVE_IMREG",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "VISION_ALPHA",
+        "operation": "V_SAVE_IMREG",
+        "target": "2",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "VISION_ALPHA",
+        "operation": "V_SAVE_IMREG",
+        "target": "2",
+        "status": 0
+      }
+    ],
+    "io": {
+      "image_count": 2,
+      "image_limit": 16777216,
+      "images": {
+        "1": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 2,
+            "height": 1,
+            "channels": 4,
+            "pixels": "ff00008000ff0000"
+          }
+        },
+        "2": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 2,
+            "height": 1,
+            "channels": 2,
+            "pixels": "4080ff00"
+          }
+        }
+      },
+      "captures": [],
+      "cameras": {},
+      "calibrations": {},
+      "display_tools": {},
+      "displayed": null,
+      "led_channels": [],
+      "led": null
+    }
+  },
+  "files": {
+    "rgba.png": {
+      "hex": "89504e470d0a1a0a0000000d4948445200000002000000010806000000f4227f8a0000000f49444154789c63f8cfc0d0c00024000d7e027f2f4c4bcb0000000049454e44ae426082"
+    },
+    "rgba.bmp": {
+      "hex": "424d82000000000000007a0000006c0000000200000001000000010020000300000008000000000000000000000000000000000000000000ff0000ff0000ff000000000000ff424752730000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff8000ff0000"
+    },
+    "gray-alpha.png": {
+      "hex": "89504e470d0a1a0a0000000d49484452000000020000000108040000005e2bb7010000000d49444154789c637068f8cf0000048301c0eba459710000000049454e44ae426082"
+    },
+    "gray-alpha.bmp": {
+      "hex": "424d82000000000000007a0000006c0000000200000001000000010020000300000008000000000000000000000000000000000000000000ff0000ff0000ff000000000000ff4247527300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040404080ffffff00"
+    }
+  }
+}

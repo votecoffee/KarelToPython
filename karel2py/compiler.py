@@ -857,10 +857,6 @@ class Parser:
             while True:
                 if self.mode == 'pythonic':
                     selector = self.expression()
-                    root = selector
-                    while root.kind in ('group', 'field', 'index'): root = root.args[0]
-                    if root.kind != 'name' or self.current.value == '(':
-                        self.error('E_USING_TARGET', 'USING requires existing record storage; function-result and computed selectors are not supported', selector.token)
                     variables.append(selector)
                 else:
                     variable = self.name()
@@ -1417,33 +1413,34 @@ class Emitter:
             self.cooperative=True
         self.analyze_routine_effects()
 
+    def resolve_bare_function_name(self,node):
+        """Resolve one value name, also usable before USING receiver inspection."""
+        if node.kind == 'name' and node.value in self.routines:
+            shadowed = (self.current_routine and node.value in
+                        (self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()))
+            if not shadowed:
+                routine=self.routines[node.value]
+                if routine.parameters:
+                    self.error('E_ARGUMENTS','A bare routine name requires a function with no parameters; supply the declared arguments',node.token)
+                if routine.return_type is None:self.error('E_TYPE','Procedure cannot be used as an expression',node.token)
+                self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    name=node.value,line=node.token.line,column=node.token.column,result_spec=routine.return_type))
+                self.features.add('bare zero-argument function call')
+                return Expr('call',node.token,node.value,[])
+        if node.kind == 'name' and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG','CURPOS','CURJPOS','KCL_STATUS','MOTION_CTL') and node.value not in self.routines:
+            local_names=(self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
+            if node.value not in self.types.keys() | self.constants.keys() | local_names:
+                self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                    name=node.value,line=node.token.line,column=node.token.column,result_spec=('INTEGER',) if node.value=='GET_USEC_TIM' else ex.FUNCTIONS[node.value][1]))
+                self.features.add('bare zero-argument function call')
+                return Expr('call',node.token,node.value,[])
+        return node
+
     def resolve_bare_function_calls(self):
         """Resolve value names before call/effect checks, preserving storage roots."""
         def resolve(node, storage=False):
             if isinstance(node, Expr):
-                if node.kind == 'name' and not storage and node.value in self.routines:
-                    shadowed = (self.current_routine and
-                                node.value in (self.current_routine.local_types.keys()
-                                               | self.current_routine.local_constants.keys()))
-                    if not shadowed:
-                        routine = self.routines[node.value]
-                        if routine.parameters:
-                            self.error('E_ARGUMENTS', 'A bare routine name requires a function with no parameters; supply the declared arguments', node.token)
-                        if routine.return_type is None:
-                            self.error('E_TYPE', 'Procedure cannot be used as an expression', node.token)
-                        self.bare_function_uses.append(dict(
-                            body=self.current_routine.name if self.current_routine else self.program.name,
-                            name=node.value, line=node.token.line, column=node.token.column,
-                            result_spec=routine.return_type))
-                        self.features.add('bare zero-argument function call')
-                        return Expr('call', node.token, node.value, [])
-                if node.kind == 'name' and not storage and self.mode == 'pythonic' and node.value in ('GET_USEC_TIM','CURR_PROG','CURPOS','CURJPOS','KCL_STATUS','MOTION_CTL') and node.value not in self.routines:
-                    local_names = (self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
-                    if node.value not in self.types.keys() | self.constants.keys() | local_names:
-                        self.bare_function_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                            name=node.value,line=node.token.line,column=node.token.column,result_spec=('INTEGER',) if node.value=='GET_USEC_TIM' else ex.FUNCTIONS[node.value][1]))
-                        self.features.add('bare zero-argument function call')
-                        return Expr('call',node.token,node.value,[])
+                if not storage: node=self.resolve_bare_function_name(node)
                 if node.kind in ('index', 'field', 'read_item'):
                     node.args = [resolve(node.args[0], storage=True),
                                  *[resolve(argument) for argument in node.args[1:]]]
@@ -1486,6 +1483,18 @@ class Emitter:
             # Insert absolute paths without revisiting their roots as aliases.
             return Expr(expr.kind, token, expr.value, [copy_path(child, token) for child in expr.args])
 
+        def selector_names(expr):
+            # USING needs its result schema before the later general bare-call
+            # pass. Resolve only value names; lexical field aliases already won.
+            expr=self.resolve_bare_function_name(expr)
+            expr.args=[selector_names(child) for child in expr.args]
+            return expr
+
+        def data_only(spec):
+            if spec[0] in ('FILE','PATH','QUEUE_TYPE'):return False
+            if spec[0]=='ARRAY':return data_only(spec[2])
+            return all(data_only(field) for _,field in rt.record_fields(spec)) if spec[0] in RECORD_TYPES else True
+
         def resolve(node, bindings=None, scope=None):
             if isinstance(node, Expr):
                 if bindings and node.kind == 'name' and node.value in bindings:
@@ -1506,23 +1515,34 @@ class Emitter:
                     if self.mode == 'strict' and scope is not None:
                         self.error('E_USING_NESTED', 'Nested USING field priority needs additional evidence', node.token)
                     fields = dict(bindings or {})
-                    selectors, source_selectors = [], []
+                    selectors, source_selectors, captures = [], [], []
                     for variable in node.args:
                         selector = variable if isinstance(variable, Expr) else Expr('name', variable, variable.value)
                         source_selectors.append(path_text(selector))
                         # A selector list uses enclosing aliases only, never the
                         # fields introduced by earlier selectors in this list.
                         selector = resolve(selector, bindings, scope)
-                        spec = self.access_type(selector)
+                        if self.mode=='pythonic':selector=selector_names(selector)
+                        spec = self.relative_operand_type(selector) if self.mode=='pythonic' else self.access_type(selector)
                         if spec[0] not in (RECORD_TYPES if self.mode == 'pythonic' else ('STRUCTURE',)):
-                            self.error('E_USING_TYPE', 'USING requires STRUCTURE or supported built-in record storage', selector.token)
+                            self.error('E_USING_TYPE', 'USING requires STRUCTURE or a supported built-in record', selector.token)
                         binding = selector
                         if self.mode == 'pythonic':
                             storage = selector
                             while storage.kind == 'group': storage = storage.args[0]
+                            root=storage
+                            while root.kind in ('group','field','index'):root=root.args[0]
+                            reference=root.kind in ('name','using_ref')
+                            if not reference and not data_only(spec):
+                                self.error('E_USING_VALUE','Computed USING records require data without FILE/PATH/QUEUE resources',selector.token)
+                            source_root=self.root_name(selector) if reference else None
+                            source_kind='storage_reference' if reference else 'computed_value'
+                            provenance='declared_storage' if source_root is not None else 'private_temporary'
+                            captures.append(dict(source_kind=source_kind,provenance=provenance,source_root=source_root,
+                                expression_kind=selector.kind,independent_copy=not reference,copy_back=False))
                             binding = Expr('using_ref',selector.token,
-                                (f'_using_{len(self.using_scopes)}_{len(selectors)}',spec,self.root_name(selector),
-                                 self.is_position_read_only_access(storage),path_text(selector)))
+                                (f'_using_{len(self.using_scopes)}_{len(selectors)}',spec,source_root,
+                                 self.is_position_read_only_access(storage),path_text(selector),source_kind,provenance))
                         for name, _ in rt.record_fields(spec): fields[name] = binding
                         selectors.append(selector)
                     parent = scope
@@ -1540,11 +1560,14 @@ class Emitter:
                     node.args = selectors
                     if self.mode == 'pythonic':
                         node.using_captures = tuple(f'_using_{scope["id"]}_{index}' for index in range(len(selectors)))
+                        node.using_capture_kinds=tuple(capture['source_kind'] for capture in captures)
                         scope['capture_once'] = True
+                        scope['selector_captures']=captures
                         self.features.add('captured USING storage selectors')
-                        if any(self.access_type(selector)[0] in DATA_RECORD_TYPES for selector in selectors):
+                        if any(capture['independent_copy'] for capture in captures):self.features.add('computed USING record values')
+                        if any(self.relative_operand_type(selector)[0] in DATA_RECORD_TYPES for selector in selectors):
                             self.features.add('built-in record USING')
-                        scope['selector_types'] = [self.access_type(selector) for selector in selectors]
+                        scope['selector_types'] = [self.relative_operand_type(selector) for selector in selectors]
                     node.body = resolve(node.body, fields, scope)
                     return node
                 if self.mode!='pythonic' and bindings and node.kind == 'for' and node.args[0].value in bindings:
@@ -1598,7 +1621,7 @@ class Emitter:
                         if target.kind == 'read_cr': continue
                         if target.kind == 'read_item': target = target.args[0]
                         name = self.root_name(target)
-                        if name not in local_names: routine.side_effecting = True
+                        if name is not None and name not in local_names: routine.side_effecting = True
                         if name in parameter_names: routine.parameter_writes.add(name)
                         if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                 if isinstance(node, Statement) and node.kind == 'abort':
@@ -1612,13 +1635,13 @@ class Emitter:
                     for argument,(mode,_) in zip(node.args,signature):
                         if mode not in ('o','r','m'): continue
                         name=self.root_name(argument)
-                        if name not in local_names: routine.side_effecting=True
+                        if name is not None and name not in local_names: routine.side_effecting=True
                         if name in parameter_names: routine.parameter_writes.add(name)
                         if name in self.types and name not in local_names|parameter_names: routine.global_writes.add(name)
                     if ex.variable_write_call(node.value,node.args): routine.global_writes.update(self.types)
                 if isinstance(node, Statement) and node.kind in ('assign', 'for'):
                     name = self.root_name(node.args[0])
-                    if name not in local_names: routine.side_effecting = True
+                    if name is not None and name not in local_names: routine.side_effecting = True
                     if name in parameter_names: routine.parameter_writes.add(name)
                     if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                 if isinstance(node, Statement) and node.kind == 'call':
@@ -1626,13 +1649,13 @@ class Emitter:
                     if call.value in MULTI_OUTPUT_PROCEDURES:
                         for output in call.args[1:]:
                             name = self.root_name(output)
-                            if name not in local_names: routine.side_effecting = True
+                            if name is not None and name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
                             if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                     if self.mode == 'pythonic' and call.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES and call.value not in self.routines:
                         for output in call.args[1:]:
                             name = self.root_name(output)
-                            if name not in local_names: routine.side_effecting = True
+                            if name is not None and name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
                             if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                     if self.mode == 'pythonic' and call.value in REGISTER_PROCEDURES and call.value not in self.routines:
@@ -1640,12 +1663,12 @@ class Emitter:
                         else: routine.may_write_registers = True
                         for output in call.args[1:] if call.value == 'GET_REG' else call.args[2:]:
                             name = self.root_name(output)
-                            if name not in local_names: routine.side_effecting = True
+                            if name is not None and name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
                             if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                     if call.value in BUILTIN_PROCEDURES and call.args:
                         name = self.root_name(call.args[-1])
-                        if name not in local_names:
+                        if name is not None and name not in local_names:
                             routine.side_effecting = True
                         if name in parameter_names: routine.parameter_writes.add(name)
                         if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
@@ -2783,14 +2806,19 @@ class Emitter:
 
     def emit_using_entry(self,stmt):
         if self.mode != 'pythonic': return
-        for name,selector in zip(stmt.using_captures,stmt.args):
-            reference,_=self.reference(selector)
+        for name,selector,kind in zip(stmt.using_captures,stmt.args,stmt.using_capture_kinds):
+            if kind=='computed_value':
+                value,spec=self.expression(selector,raw=True)
+                reference=f'_rt.value_argument({spec!r},{value},{selector.token.line})'
+            else:reference,_=self.reference(selector)
             self.line(f'{name} = {reference}',selector.token)
 
     def for_values(self,stmt):
         """Share the bound/type/effect proof between structured and labelled FORs."""
         counter,initial,final,direction=stmt.args
         token=counter.token if isinstance(counter,Expr) else counter;root=self.root_name(counter)
+        if self.mode=='pythonic' and root is None:
+            self.error('E_FOR_COUNTER','FOR counters inside computed USING temporaries lack a declared root for alias/effect protection',token)
         if self.cooperative and self.implicit_counter_write(root):
             self.error('E_FOR_COUNTER','Condition action or connected timer may modify this FOR counter root',token)
         counter_types=self.types|(self.current_routine.local_types if self.current_routine else {})
@@ -2891,7 +2919,7 @@ class Emitter:
             self.line(f'_rt.handler_action(self._state,{stmt.args[0]!r},{line})',token); return
         if kind in ('timer_connect','timer_disconnect'):
             target=stmt.args[0]
-            if self.current_routine and self.root_name(target) in self.current_routine.local_types: self.error('E_TIMER_SCOPE','Connected timer storage must be global',target.token)
+            if self.root_name(target) is None or self.current_routine and self.root_name(target) in self.current_routine.local_types: self.error('E_TIMER_SCOPE','Connected timer storage must have a declared global root',target.token)
             if self.root_name(target) in self.active_counters: self.error('E_FOR_COUNTER','Timer cannot modify active FOR counter',target.token)
             reference,spec=self.reference(target)
             if spec!=('INTEGER',) or self.is_config_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
@@ -4531,17 +4559,26 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         jumps_and_labels_inside_for='Pythonic labels, same-active-loop transfers and checked exits with cleanup; entry to new FOR scopes blocked', controller_validated=False)
     report['abort_policy']['for_boundary'] = 'Pythonic FOR scopes clear initialized counters during ABORT unwinding; prior non-counter effects remain'
     report['using_policy'] = dict(
-        selectors='Existing named STRUCTURE or supported built-in record storage; dotted, indexed and grouped paths; resolve against enclosing aliases only; selectors in the same list do not affect one another',
+        selectors='STRUCTURE and supported built-in records: named/dotted/indexed/grouped storage or computed function/constructor/operator results and their record fields/elements; resolve against enclosing aliases only',
         priority='Inner fields override outer fields; right-most matching selector wins within one list; unmatched outer fields remain available; restore outer bindings after the block',
-        resolution='Resolve lexical aliases before analysis; evaluate selector storage references once left-to-right on each entry and retain their source roots for effect checks; no dynamic caller scope',
+        resolution='Resolve lexical aliases before analysis; capture once left-to-right on entry; named storage retains source roots, computed records own checked independent private references without copy-back; no dynamic caller scope',
         capture='Index calls and selectors run even for empty blocks; index changes do not retarget fields; loop entries recapture, internal jumps and pause/resume retain references; handler callbacks freeze enclosing references at definition',
         nested_scopes='Lexical scopes; depth zero at the outermost USING; scope id, parent id, source selectors and resolved paths in using_scopes',
         call_name_collisions='Explicit expression calls and procedure call statements resolve routines; a bare expression resolves a matching field before a zero-argument function',
         constant_name_collisions='Matching fields shadow global/local constants only inside the scope; CASE labels still require compile-time constants',
         shadowed_for_counters='Resolved exact INTEGER fields can own captured counters; whole-root write protection retains scalar/routine/service/handler/timer safety',
-        boundary='No function-result/computed selectors, whole ARRAY/resource/joint selectors, implicit nested-field search or native namespace/selection-timing/alias-lifetime claim',
-        guide='docs/using-selectors.md',
+        boundary='No whole ARRAY/resource/joint selectors, resource-bearing computed copies, private-temporary FOR counters, implicit nested-field search or native namespace/selection-timing/alias-lifetime claim',
+        guide='docs/using-selectors.md',computed_guide='docs/computed-using.md',
         controller_validated=False)
+    report['computed_using_policy']=dict(
+        selectors='Resource-free STRUCTURE, VECTOR, CONFIG, XYZWPR, XYZWPREXT and POSITION values; computed record fields/elements are checked independent selected copies',
+        storage='Declared/grouped storage paths and paths through an existing captured reference retain live storage without copying',
+        values='Capture each computed record once left-to-right into checked independent mutable storage; retain partial scalar leaves and BYTE markers; validate known types/schema/config/capacities; never copy back',
+        effects='Selector calls/index expressions retain ordinary transitive active-counter checks; private field writes have no invented global root; named aliases retain whole-root protection',
+        lifetime='Lexical field lookup; repeated entries allocate fresh temporaries; labels within a scope and pause/resume retain captures; handler callbacks freeze their references',
+        report='using_scopes.selector_captures records source_kind, provenance, source_root, expression_kind, independent_copy and copy_back',
+        limits='No resource-bearing selected records, whole ARRAY/PATH/QUEUE/FILE/JOINT selectors or private-temporary FOR counters; existing read-only POSITION and CONFIG guards remain',
+        guide='docs/computed-using.md',controller_validated=False)
     report['numeric_policy'] = dict(
         mode=mode, real_model='python_float', arithmetic='Python float +, -, *, /; finite results required',
         sqrt='math.sqrt for nonnegative finite inputs', exp='math.exp', ln='math.log for positive finite inputs',
@@ -4697,7 +4734,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('ARRAY value arguments require every scalar leaf known and initialized; concrete type, shape, nominal identity and capacity are preserved without resizing')
     report['limitations'].append('Pythonic SUB_STR keeps positive one-based starts and nonnegative counts; clips at source end and 254 characters; INDEX empty search returns one')
     report['limitations'].append('FOR calls must exclude active-global-counter writes; active references require read-only formals; direct writes, formal counters, nonlocal counters in parameterized routines and entry into a new FOR scope remain blocked')
-    report['limitations'].append('USING supports lexical nesting, captured record selectors and exact INTEGER field FOR counters; function-result/computed selectors remain blocked')
+    report['limitations'].append('USING supports lexical nesting, captured storage and independent computed record values; FOR counters require declared storage roots, excluding private computed temporaries')
     report['limitations'].append('TYPE aliases resolve prior definitions transparently; aggregate identity and capacities remain checked; inline anonymous nested ARRAY syntax and local TYPE sections remain blocked; external types follow external_type_policy')
     report['frame_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT operands; no JOINTPOS/VECTOR frames, automatic interface coercion, group/frame discovery or native kinematics; see extended_geometry_policy'
     report['position_axis_policy']['boundary'] = 'POSITION/XYZWPR/XYZWPREXT only; complete checked poses, no robot acquisition or orientation defaults'
@@ -4969,9 +5006,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/vision-tracking.md',controller_validated=False)
     report['vision_io_policy']=dict(
         calls=sorted(VISION_IO_PROCEDURES),service='Explicit vision.io rasters, ordered capture/calibration replies and logical device state; reader strings and view lines in supplied completed process batches',
-        images='Bounded 8-bit grayscale/RGB, exact dimensions and bytes, explicit process/view ownership; captures consumed once, failed captures retain old image',
+        images='Bounded 8-bit grayscale/GA/RGB/RGBA, exact dimensions and bytes, explicit process/view ownership; preserve straight alpha and hidden colors; captures consumed once, failed captures retain old image',
         finds='Image-register-bound completed find/line batches; no borrowing ordinary or other-image replies; inline nonpositive register allowed for line data',
-        files='PNG or 24-bit BMP export and whole ASCII reader output via exact bounded MemoryFiles/DeviceFiles/DirectoryFiles; busy/quota/path guards, atomic rooted replacement and obsolete-byte accounting',
+        files='PNG grayscale/truecolor with optional alpha, legacy 24-bit BMP or alpha 32-bit V4/BITFIELDS BMP, and whole ASCII reader output via exact bounded MemoryFiles/DeviceFiles/DirectoryFiles; busy/quota/path guards and atomic rooted replacement',
         readers='Known empty distinct from absent; string-register capacity truncation with stored length, zero register selects full file bytes; reads retain found cursor',
         lines='Exact documented structural PATH schema; replace nodes and retain header identity only after full staging/budget checks; supplied group/frame/vectors, no pixel extraction',
         devices='Explicit camera power/status, matched once-consumed calibration replies, headless display selection and one logical LED channel 1..8 with intensity 1..16',
@@ -5061,7 +5098,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('Partial data aggregate copies preserve missing markers; scalar reads and complete geometry/kinematics/vision consumers still reject unavailable values')
     report['keyboard_policy']['files']='READ_KB, typed line FILE READ and bounded PASSALL ASCII STRING fields; printable EOL is a portable keyboard extension; shared pane, echo/noecho, buffering and cleanup; no binary/XML/native-key layouts or byte queries'
     report['keyboard_policy']['raw']='STRING-only fixed widths or concrete capacities, total at most4096 bytes, no CR/quote formats; printable keys and explicit ENTER13/DELETE8/REFRESH23 bytes; no editing/echo interpretation'
-    report['file_read_policy']['dispatch']='Injected keyboard typed lines/custom printable delimiters/PASSALL ASCII STRING fields, opted-in waiting/snapshot pipes, explicit finite SerialStreams RX, otherwise existing synchronous backend semantics'
+    report['file_read_policy']['dispatch']='Injected keyboard typed lines/custom printable delimiters/PASSALL ASCII STRING fields, opted-in waiting/snapshot pipes, explicit finite/default or opted-in waiting SerialStreams RX, otherwise existing synchronous backend semantics'
     report['file_pipe_policy']['management']='Explicit PIP COPY/DELETE/RENAME/LIST routing, finite closed-file snapshots and configured destination capacities; cross-backend copies honor ordinary quotas and path confinement'
     report['file_pipe_policy']['boundary']='No native timing or dictionary display, DAQ/socket generic routing, implicit pipe creation, native byte/status equivalence or strict mode'
     report['file_listing_policy']['boundary']='Explicit MemoryFiles/DirectoryFiles/DeviceFiles or PIP FilePipes routing; no native timestamp/order/alarm or controller-equivalence claim; strict deferred'
@@ -5075,12 +5112,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['serial_stream_policy']=dict(
         service='SerialStreams',context='Explicit ExecutionContext serial_streams; reserve numeric P-device prefixes and require configured canonical P1: through P5: endpoints; no ordinary filename fallback',
         transfer='Finite ASCII or portable binary scalar READ/WRITE, explicit FILE attributes, exclusive validated handles and separate input/output buffers; RO/WO/RW/UD/AP plus portable AO and binary suffix intent',
-        input='Read cursor advances only after complete typed input validation; CLOSE consumes its RX prefix; explicit host feed supplies bytes without producer waiting or loopback',
+        input='Read cursor advances only after complete typed input validation; CLOSE consumes its RX prefix; finite defaults remain, wait=True permits explicit host-fed cooperative input with final/finish_input EOF and no loopback',
+        waiting='Capture destinations/formats once, distinguish incomplete from invalid input, retain prefix on EOF/failure; explicit standalone sleeper or scheduler, bounded checkpoints, pending direct-read/close guards and generator cleanup',
         output='Append retained TX, preserving prior output and RX; preflight per-port and whole-bank byte budgets before mutation; no serial or device call is performed',
         queries='GET_FILE_POS is the RX cursor; BYTES_LEFT/BYTES_AHEAD report supplied remaining RX; SET_FILE_POS returns unsupported status 2 with cursor unchanged; ordinary IO_STATUS retains portable behavior',
-        persistence='Canonical bounded port configuration and remaining RX/TX hex round-trip only after close; no handles, native connections or suspended reads restored',
-        boundary='Manual P1..P4 hardware does not establish physical P5 availability; no SerialPorts attribute inference, COM discovery/access, physical transfer, producer wait, seek, XML/PASSALL, native timing/status equivalence or strict mode',
+        persistence='Canonical bounded port configuration, optional waiting wait/final flags and remaining RX/TX hex round-trip only after close; no handles, pending reads, native connections or suspended calls restored',
+        boundary='Manual P1..P4 hardware does not establish physical P5 availability; no SerialPorts attribute inference, COM discovery/access, physical transfer, native producer timing, seek, XML/PASSALL, status equivalence or strict mode',
         guide='docs/serial-streams.md',controller_validated=False)
+    report['vision_alpha_policy']=dict(
+        channels={'1':'grayscale','2':'grayscale_alpha','3':'RGB','4':'RGBA'},
+        pixels='Packed top-to-bottom 8-bit samples, straight alpha, no premultiplication or discarded hidden colors; exact immutable byte layout and explicit process/view ownership',
+        png='Noninterlaced 8-bit color types 0/4/2/6, filter zero, standard zlib and CRC',
+        bmp='Grayscale/RGB retain existing 24-bit encoding; GA/RGBA use bottom-up BGRA, 108-byte V4 header, BI_BITFIELDS, explicit RGBA masks and portable sRGB tag without color conversion',
+        limits='16 MiB per raw raster and 64 MiB combined; quota preflight before hex decoding, raster revalidation and expanded output/backend limits before publication',
+        boundary='No palette/depth/proprietary format support, color/calibration transformation, pixel acquisition, native FANUC image ABI or controller equivalence',
+        guide='docs/vision-alpha-images.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

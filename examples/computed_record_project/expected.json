@@ -1,0 +1,21 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEED": {
+        "VALUE": 5
+      },
+      "CALLS": 1
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "SEED": {
+        "VALUE": 5
+      },
+      "CALLS": 1,
+      "OBSERVED": 12
+    }
+  }
+}

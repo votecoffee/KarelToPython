@@ -1,0 +1,11 @@
+PROGRAM MAIN
+TYPE item_t FROM LIB=STRUCTURE value:INTEGER ENDSTRUCTURE
+VAR observed:INTEGER done:BOOLEAN
+ROUTINE receive:item_t FROM LIB
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    USING receive() DO value=value*2 observed=value ENDUSING
+    done=TRUE
+  ENDIF
+END MAIN

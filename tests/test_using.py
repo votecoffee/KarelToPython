@@ -251,7 +251,7 @@ class UsingBoundaryTests(unittest.TestCase):
             with self.subTest(selector=selector): self.rejected(f'USING {selector} DO ENDUSING', 'E_USING_TARGET', _translator=legacy_translate)
 
     def test_function_selector_remains_blocked(self):
-        self.rejected('USING make() DO ENDUSING', 'E_USING_TARGET')
+        self.rejected('USING make() DO ENDUSING', 'E_USING_TARGET', _translator=legacy_translate)
 
     def test_nested_using_remains_blocked(self):
         self.rejected('USING left DO USING right DO count = 7 ENDUSING ENDUSING', 'E_USING_NESTED', _translator=legacy_translate)

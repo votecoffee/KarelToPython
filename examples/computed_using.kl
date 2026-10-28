@@ -1,0 +1,16 @@
+PROGRAM COMPUTED_USING
+TYPE item_t=STRUCTURE value:INTEGER count:INTEGER ENDSTRUCTURE
+VAR seed:item_t total,calls:INTEGER unchanged:BOOLEAN
+ROUTINE make:item_t
+BEGIN
+  calls=calls+1
+  RETURN seed
+END make
+BEGIN
+  seed.value=7
+  seed.count=2
+  calls=0
+  USING make() DO value=value+10 total=value+count ENDUSING
+  unchanged=(seed.value=7)
+  USING VEC(1,2,3)+VEC(4,5,6) DO total=total+ROUND(x+y+z) ENDUSING
+END COMPUTED_USING

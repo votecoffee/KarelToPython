@@ -411,12 +411,17 @@ def view_lines(row):
     return dict(group=integer(row['group'],1,32),frame=integer(row['frame'],0,32767),focal=vector(row['focal']),nodes=prepared)
 
 
-def raster(row,limit):
+_IMAGE_RAW_LIMIT=16*1024*1024
+_IMAGE_TOTAL_LIMIT=64*1024*1024
+
+
+def raster(row,limit,*,remaining=None):
     if type(row) is not dict or set(row)!={'width','height','channels','pixels'}:raise ValueError('Image requires width, height, channels and pixels')
     width=integer(row['width'],1,4096);height=integer(row['height'],1,4096);channels=row['channels']
-    if type(channels) is not int or channels not in (1,3):raise ValueError('Images require 8-bit grayscale or RGB channels')
+    if type(channels) is not int or channels not in (1,2,3,4):raise ValueError('Images require 8-bit grayscale, grayscale-alpha, RGB or RGBA channels')
     pixels=row['pixels'];size=width*height*channels
     if size>limit:raise ValueError('Raw image exceeds its configured byte limit')
+    if remaining is not None and size>remaining:raise ValueError('Combined vision raw-image capacity exceeds 64 MiB')
     if type(pixels) is str:
         if len(pixels)!=size*2 or re.fullmatch('[0-9a-f]*',pixels) is None:raise ValueError('Image JSON pixels require canonical lowercase hexadecimal bytes')
         pixels=bytes.fromhex(pixels)
@@ -429,9 +434,10 @@ class VisionIO:
     def __init__(self,config,processes):
         fields={'image_count','image_limit','images','captures','cameras','calibrations','display_tools','displayed','led_channels','led'}
         if type(config) is not dict or set(config)-fields:raise ValueError('Unknown vision I/O configuration fields')
-        self.image_count=integer(config.get('image_count',0),0,256);self.image_limit=integer(config.get('image_limit',16*1024*1024),1,16*1024*1024)
+        self.image_count=integer(config.get('image_count',0),0,256);self.image_limit=integer(config.get('image_limit',_IMAGE_RAW_LIMIT),1,_IMAGE_RAW_LIMIT)
         self.images={};total=0
         def image_record(row,*,capture=False):
+            nonlocal total
             required={'process','views','status'} if capture else {'process','views','image'}
             allowed={'process','views','image','status'} if capture else required
             if type(row) is not dict or not required<=set(row) or set(row)-allowed:raise ValueError('Malformed supplied image/capture record')
@@ -441,7 +447,9 @@ class VisionIO:
             code=integer(row['status']) if capture else 0
             if capture:answer['status']=code
             if code and 'image' in row or not code and 'image' not in row:raise ValueError('Only successful captures require an image')
-            if not code:answer['image']=raster(row['image'],self.image_limit)
+            if not code:
+                answer['image']=raster(row['image'],self.image_limit,remaining=_IMAGE_TOTAL_LIMIT-total)
+                total+=len(answer['image']['pixels'])
             return answer
         for key,row in mapping(config.get('images',{}),256).items():
             if type(key) is not str or re.fullmatch('[1-9][0-9]*',key) is None:raise ValueError('Image register keys require canonical positive numbers')
@@ -449,8 +457,6 @@ class VisionIO:
         captures=config.get('captures',[])
         if type(captures) is not list or len(captures)>4096 or captures and not self.image_count:raise ValueError('Capture queue requires an image bank and at most 4096 responses')
         self.captures=[image_record(row,capture=True) for row in captures]
-        total=sum(len(row.get('image',{}).get('pixels',b'')) for row in [*self.images.values(),*self.captures])
-        if total>64*1024*1024:raise ValueError('Combined vision raw-image capacity exceeds 64 MiB')
         self.cameras={}
         for key,row in named(config.get('cameras',{})).items():
             if type(row) is not dict or set(row)-{'powered','status'}:raise ValueError('Camera requires powered and optional status')
@@ -488,10 +494,26 @@ class VisionIO:
 
 
 def encode_raster(image,format,limit,check):
-    """Encode supplied 8-bit pixels as noninterlaced PNG or bottom-up 24-bit BMP."""
+    """Encode checked 8-bit samples, retaining explicit unassociated alpha."""
     import struct
     import zlib
+    image=raster(image,_IMAGE_RAW_LIMIT)
+    if format not in ('PNG','BMP'):raise ValueError('Raster export requires PNG or BMP')
     width,height,channels,pixels=(image[k] for k in ('width','height','channels','pixels'))
+    if format=='BMP' and channels in (2,4):
+        stride=width*4;offset=14+108;size=offset+stride*height
+        if size>limit:return None
+        rows=[]
+        for y in range(height-1,-1,-1):
+            check();row=pixels[y*width*channels:(y+1)*width*channels];bgra=bytearray(stride)
+            if channels==2:
+                gray=row[0::2];bgra[0::4]=gray;bgra[1::4]=gray;bgra[2::4]=gray;bgra[3::4]=row[1::2]
+            else:
+                bgra[0::4]=row[2::4];bgra[1::4]=row[1::4];bgra[2::4]=row[0::4];bgra[3::4]=row[3::4]
+            rows.append(bytes(bgra))
+        header=struct.pack('<IiiHHIIiiII',108,width,height,1,32,3,stride*height,0,0,0,0)
+        header+=struct.pack('<IIIII',0x00ff0000,0x0000ff00,0x000000ff,0xff000000,0x73524742)+b'\0'*48
+        return struct.pack('<2sIHHI',b'BM',size,0,0,offset)+header+b''.join(rows)
     if format=='BMP':
         stride=(width*3+3)//4*4;size=54+stride*height
         if size>limit:return None
@@ -503,10 +525,11 @@ def encode_raster(image,format,limit,check):
                 bgr=bytearray(len(row));bgr[0::3]=row[2::3];bgr[1::3]=row[1::3];bgr[2::3]=row[0::3];row=bytes(bgr)
             rows.append(row+b'\0'*(stride-len(row)))
         return struct.pack('<2sIHHI',b'BM',size,0,0,54)+struct.pack('<IiiHHIIiiII',40,width,height,1,24,0,stride*height,0,0,0,0)+b''.join(rows)
+    if limit<57:return None
     rows=[];stride=width*channels
     for start in range(0,len(pixels),stride):check();rows.append(b'\0'+pixels[start:start+stride])
     def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
-    encoded=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,0 if channels==1 else 2,0,0,0))+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b'')
+    encoded=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,{1:0,2:4,3:2,4:6}[channels],0,0,0))+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b'')
     return encoded if len(encoded)<=limit else None
 
 
@@ -618,7 +641,9 @@ def invoke_io(bank,state,operation,args,line):
                 extension=filename.rsplit('.',1)[-1].upper() if '.' in filename else ''
                 if extension not in ('PNG','BMP'):code=2
                 else:
-                    files=state.execution.require('files',line);data=encode_raster(io.images[number]['image'],extension,files.limit,lambda:state.tick(line))
+                    files=state.execution.require('files',line)
+                    try:data=encode_raster(io.images[number]['image'],extension,files.limit,lambda:state.tick(line))
+                    except ValueError as exc:raise rt().KarelRuntimeError('Invalid supplied image: '+str(exc),line) from exc
                     if data is None:code=5
                     else:code,commit=prepare_write(files,filename,data,line)
         elif operation=='V_CAM_CHECK':

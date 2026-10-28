@@ -1,0 +1,5 @@
+{
+  "serial_streams": {
+    "ports": {"3": {"capacity": 1024, "input": "23\n", "wait": true, "final": false}}
+  }
+}
