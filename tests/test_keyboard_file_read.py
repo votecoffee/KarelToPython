@@ -214,10 +214,11 @@ class KeyboardFileFailureTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'ATR_PASSALL'):p.run()
         self.assertEqual([e['key'] for e in ctx.keyboard.events],line_keys('7'));ctx.keyboard.close_all()
 
-    def test_custom_eol_rejected_before_consuming_keys(self):
-        ctx=context(keys=line_keys('7'));p,_=compile_program('SET_FILE_ATR(f,ATR_EOL,59) '+OPEN+'READ f(x)',decl=DECL,context=ctx,sleep=lambda _:None)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'custom EOL'):p.run()
-        self.assertEqual([e['key'] for e in ctx.keyboard.events],line_keys('7'));ctx.keyboard.close_all()
+    def test_custom_eol_submits_without_consuming_later_enter(self):
+        ctx=context(keys=('7',';','ENTER'))
+        p,_=compile_program('SET_FILE_ATR(f,ATR_EOL,59) '+OPEN+'READ f(x)'+CLOSE,decl=DECL,context=ctx,sleep=lambda _:None)
+        self.assertEqual(p.run()['X'],7)
+        self.assertEqual([e['key'] for e in ctx.keyboard.events],['ENTER'])
 
     def test_bad_dynamic_format_does_not_consume_input(self):
         ctx,p=self.failing('x=-1 READ f(y::x)',line_keys('7'),'READ width')

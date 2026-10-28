@@ -117,7 +117,7 @@ class KeyboardInput:
         elif name.upper()=='KB:TPKB':name='KB:TPKB'
         else:raise rt().KarelRuntimeError('Keyboard endpoint requires KB:TPKB or WD:name/TPKB',line)
         handle.owner=self;handle.name=name;handle.logical_name=None;handle.mode=mode;handle.position=0;handle.status=0
-        self._handles[handle]=dict(pane=pane,echo=echo,state=state,past=[],pending='',after_field=False)
+        self._handles[handle]=dict(pane=pane,echo=echo,state=state,past=[],pending='',after_field=False,input_mode=None)
 
     def window_handle(self,handle):
         binding=self._handles.get(handle)
@@ -273,8 +273,9 @@ class KeyboardInput:
         if size<0 or size>254 or not 0<=accept<=255 or not 0<=terminate<=255 or not -1<=timeout<=86400000 or not printable(initial) or len(initial)>capacity:status.set(1,line);return
         # Typed FILE READ suffixes cannot be reinterpreted as raw key events.
         # A consumed record separator alone is safe to discard when switching.
-        if binding.get('pending','').strip('\r\n'):status.set(1,line);return
-        binding['pending']='';binding['after_field']=False
+        pending=binding.get('pending','')
+        if pending and (binding.get('input_mode')=='raw' or pending.strip('\r\n'+chr(handle.eol))):status.set(1,line);return
+        binding['pending']='';binding['after_field']=False;binding['input_mode']=None
         result=yield from self.edit(state,'READ_KB',binding['pane'],initial,capacity,accept,terminate,timeout,handle=handle,field=self.field_for(state,handle,capacity),line=line)
         if result is None:status.set(2,line);return
         text,key,code=result;output.set(text,line);count.set(len(text),line);term.set(key,line);status.set(code,line)
@@ -284,8 +285,15 @@ class KeyboardInput:
         runtime=rt();binding=self._handles.get(handle)
         if handle.owner is not self or binding is None or handle.mode not in ('R','RW'):
             raise runtime.KarelRuntimeError('Keyboard FILE is not open for text input',line)
-        if handle.binary or handle.xml or handle.passall or handle.eol not in (10,13):
-            raise runtime.KarelRuntimeError('Keyboard FILE READ requires line text without binary/XML, ATR_PASSALL or a custom EOL',line)
+        if handle.binary or handle.xml:
+            raise runtime.KarelRuntimeError('Keyboard FILE READ requires text without binary/XML',line)
+        if not handle.passall and handle.eol not in (10,13) and not 32<=handle.eol<=126:
+            handle.status=1
+            raise runtime.KarelRuntimeError('Keyboard FILE READ custom EOL requires printable ASCII or LF/CR',line)
+        mode='raw' if handle.passall else 'line'
+        if binding['pending'] and binding.get('input_mode') not in (None,mode):
+            handle.status=1
+            raise runtime.KarelRuntimeError('Finish buffered keyboard input before switching line/raw modes',line)
         if any(job.get('handle') is handle for job in self._active.values()):
             raise runtime.KarelRuntimeError('Keyboard FILE already has an active read',line)
         if type(targets) not in (list,tuple):raise runtime.KarelRuntimeError('READ requires scalar destination references',line)
@@ -301,9 +309,13 @@ class KeyboardInput:
             if controls:item['format_specifiers']=controls
             metadata['targets'].append(item)
         if breaks:metadata['line_breaks']=list(breaks)
+        if handle.passall:
+            yield from self._raw_file_read(state,handle,targets,formats,breaks,line)
+            return
         field=self.field_for(state,handle,254)
         job=self.start(state,'FILE_READ',binding['pane'],255,handle)
         if job is None:raise runtime.KarelRuntimeError('Keyboard FILE READ capacity or clock domain is busy',line)
+        binding['input_mode']='line'
         text='';cursor=0;steps=0;submitted=[];observed=False;complete=False
         past=binding['past'];history_index=len(past)
         def deliver(values=None,error=None):
@@ -339,8 +351,9 @@ class KeyboardInput:
                 if event is None:
                     yield from self.wait(state,job,None,line);continue
                 steps+=1;key=event['key']
-                if steps>=4096 and key!='ENTER':raise runtime.KarelRuntimeError('Keyboard FILE READ exceeds 4096 processed keys',line)
-                if key=='ENTER':
+                submit=key=='ENTER' if handle.eol in (10,13) else key==chr(handle.eol)
+                if steps>=4096 and not submit:raise runtime.KarelRuntimeError('Keyboard FILE READ exceeds 4096 processed keys',line)
+                if submit:
                     addition=text+chr(handle.eol)
                     if len(binding['pending'])+len(addition)>4096:
                         raise runtime.KarelRuntimeError('Keyboard FILE READ buffered text exceeds 4096 bytes',line)
@@ -359,7 +372,7 @@ class KeyboardInput:
                     text=past[history_index] if history_index<len(past) else '';cursor=len(text)
                 job.update(text=text,cursor=cursor)
                 # Keep the submitted text visible until another line is needed.
-                self.echo(job,field,submitted[-1] if key=='ENTER' else text,line)
+                self.echo(job,field,submitted[-1] if submit else text,line)
                 yield from runtime.checkpoint(state,line)
         except BaseException as error:
             handle.status=1
@@ -372,6 +385,71 @@ class KeyboardInput:
             complete=True;raise
         finally:
             if not complete:self.record(job,'cancelled',text=text,fields=len(targets),lines=len(submitted),status=6)
+            self.end(job)
+
+    def _raw_file_read(self,state,handle,targets,formats,breaks,line=None):
+        """Bounded PASSALL ASCII STRING fields; no line editing or native codes."""
+        runtime=rt();binding=self._handles[handle];widths=[]
+        def invalid(message):
+            handle.status=1
+            raise runtime.KarelRuntimeError(message,line)
+        if breaks:invalid('ATR_PASSALL keyboard READ does not accept CR markers')
+        for target,controls in zip(targets,formats):
+            if target.spec[0]!='STRING' or len(controls)==2 and controls[1]!=0:
+                invalid('ATR_PASSALL keyboard READ requires unquoted fixed STRING fields')
+            width=controls[0] if controls and controls[0] else target.spec[1]
+            if type(width) is not int or not 1<=width<=254:
+                invalid('ATR_PASSALL keyboard STRING width requires 1..254')
+            widths.append(width)
+        required=sum(widths)
+        if required>4096:invalid('ATR_PASSALL keyboard READ exceeds 4096 raw bytes')
+        job=self.start(state,'FILE_READ',binding['pane'],255,handle)
+        if job is None:invalid('Keyboard FILE READ capacity or clock domain is busy')
+        binding['input_mode']='raw';observed=False;complete=False;steps=0
+        def deliver(values=None,error=None):
+            previous=state._read
+            def response(_):
+                if error is not None:raise error
+                return values
+            try:
+                state._read=response
+                return state.read_items(targets,line,line_breaks=breaks,formats=formats)
+            finally:state._read=previous
+        def record(outcome,status):
+            # Literal controls are never interpreted as window commands or
+            # serialized as printable history text. Keep a bounded hex sample.
+            self.record(job,outcome,raw=1,fields=len(targets),bytes=min(required,len(binding['pending'])),
+                sample_hex=binding['pending'][:32].encode('ascii').hex(),status=status)
+        try:
+            while len(binding['pending'])<required:
+                job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
+                event=self.event(job)
+                if event is None:
+                    yield from self.wait(state,job,None,line);continue
+                steps+=1;key=event['key'];code,_=key_info(key)
+                if steps>4096:raise runtime.KarelRuntimeError('ATR_PASSALL keyboard READ exceeds 4096 processed keys',line)
+                if len(key)!=1 and key not in ('ENTER','DELETE','REFRESH'):
+                    raise runtime.KarelRuntimeError('ATR_PASSALL keyboard key has no portable ASCII encoding',line)
+                if not 0<=code<=127:raise runtime.KarelRuntimeError('ATR_PASSALL keyboard key requires ASCII',line)
+                binding['pending']+=chr(code)
+                job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
+                yield from runtime.checkpoint(state,line)
+            values=[];offset=0
+            for width in widths:values.append(binding['pending'][offset:offset+width]);offset+=width
+            observed=True;deliver(values)
+            record('completed',0)
+            binding['pending']=binding['pending'][required:];binding['after_field']=False
+            handle.position+=required;handle.status=0;complete=True
+        except BaseException as error:
+            handle.status=1
+            if not observed:
+                observed=True
+                try:deliver(error=error)
+                except BaseException:pass
+            outcome='cancelled' if isinstance(error,(GeneratorExit,runtime.KarelAbort,runtime.KarelStop)) else 'failed'
+            record(outcome,6 if outcome=='cancelled' else 1);complete=True;raise
+        finally:
+            if not complete:record('cancelled',6)
             self.end(job)
 
     def dictionary_lines(self,state,name,element):
