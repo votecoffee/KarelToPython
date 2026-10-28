@@ -74,10 +74,13 @@ protected, including through nested and grouped captures. LOCATION is writable.
 CONFIG fields retain bounded turn numbers and output-argument restrictions;
 USING does not make protected fields ordinary unconstrained scalar outputs.
 
-Function-result and computed aggregate selectors remain rejected: `USING make()`
-does not silently create a mutable temporary. Binary expressions and method-like
-field calls are not storage selectors. Native ABI, asynchronous selection timing,
-dynamic caller scope and strict mode remain outside this milestone.
+[Computed record selectors](computed-using.md), including `USING make()`, now
+create explicitly private checked temporaries. Named and grouped storage still
+capture live references. Computed captures have no copy-back or original source
+root; private FOR counters and connected timers remain rejected where the
+required storage proof is unavailable. Method-like field calls, native ABI,
+asynchronous selection timing, dynamic caller scope and strict mode remain outside
+this contract.
 
 ## CLI examples and reports
 
@@ -100,3 +103,5 @@ field bindings and source-located uses. It adds `capture_once` and
 value. `using_policy` and the [semantics ledger](semantics/using_selector_semantics.json)
 record capture, callbacks, boundaries and evidence. Included selectors retain
 physical source provenance in the existing source map.
+`selector_captures` additionally records source kind, storage provenance, root,
+expression kind, independence and copy-back behavior for each capture.

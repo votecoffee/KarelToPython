@@ -1,0 +1,44 @@
+{
+  "version": "26.1028.223057",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {"manual": "MARRC75KR07091E Rev N", "sections": ["A.20.5 USING", "7.7 FILE input", "16.3 serial input/output"], "evidence_limit": "Computed record temporaries and host-fed waiting are explicit Pythonic contracts, not native stack, serial or controller equivalence"},
+    {"format": "PNG and BMP V4", "references": ["https://www.w3.org/TR/png-3/", "https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapv4header"], "evidence_limit": "Portable supplied-pixel exports; no native FANUC binary image format or camera acquisition claim"}
+  ],
+  "contracts": {
+    "computed_using": {
+      "guide": "../computed-using.md",
+      "capture": "Function/constructor/operator record values and nested selections become independent checked temporaries once, left to right; named/grouped storage remains a live reference",
+      "lifetime": "No copy-back, preserved missing scalar leaves and ordinary schema/readonly guards; handlers retain their captured references across later entries",
+      "boundary": "Whole ARRAY/resource/joint selectors, private-root FOR counters/connected timers, method-like field calls and entry into uncaptured scopes remain rejected"
+    },
+    "serial_waiting": {
+      "guide": "../serial-waiting.md",
+      "configuration": "Finite defaults remain unchanged; per-port wait=true opts into nonfinal input, final=true or finish_input supplies EOF; finalized waiting ports reject new feeds",
+      "publication": "Capture targets/formats once, probe complete ASCII/binary responses, wait at checkpoints and publish all values/cursor once; malformed/final incomplete input preserves outputs and prefix",
+      "lifetime": "Explicit standalone sleeper or scheduler only; pending READ blocks close/direct reads, generator cancellation removes pending registration, explicit FILE close still commits RX consumption",
+      "persistence": "Waiting flags, remaining bytes and TX only after close; no pending references, callbacks, native connection or suspended execution is restored"
+    },
+    "alpha_images": {
+      "guide": "../vision-alpha-images.md",
+      "data": "Exact packed G/GA/RGB/RGBA 8-bit samples; preserve alpha and colors beneath zero alpha without premultiplication",
+      "png": "Color types 0/4/2/6 with checked chunks and CRCs",
+      "bmp": "Legacy G/RGB artifacts remain byte-identical; alpha exports use V4/BITFIELDS32 BGRA, explicit masks and a portable sRGB tag",
+      "limits": "Raw and combined quota preflight before decoding, encoder raster validation and expanded-output limits before publishing; no calibration/color conversion"
+    }
+  },
+  "validation": [
+    "tests/test_computed_using.py",
+    "tests/test_serial_waits.py",
+    "tests/test_vision_alpha_images.py",
+    "tests/test_computed_serial_alpha_integration.py",
+    "examples/computed_using.kl",
+    "examples/finalized_serial.kl",
+    "examples/vision_alpha.kl",
+    "examples/computed_record_project",
+    "examples/computed_serial_project"
+  ],
+  "historical_notes": "Supersedes blanket computed-USING, waiting-serial and supplied-alpha exclusions; preserve original per-feature ledger versions and strict regressions.",
+  "strict_mode": "Future milestone"
+}

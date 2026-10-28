@@ -49,8 +49,10 @@ they are boundaries rather than promises to accept every such source form later.
   definitions, cyclic ownership and native binary type environments remain blocked.
   Routine-local TYPE declarations
   remain prohibited by the KAREL language, rather than a planned extension.
-- `USING` function-result/computed selectors, whole ARRAY/resource/joint selectors
-  and dynamic caller scope. [Reference FOR counters](reference-for-counters.md)
+- Whole ARRAY/resource/joint USING selectors and dynamic caller scope.
+  [Computed record selectors](computed-using.md) now capture checked private values;
+  their FOR counters and connected timers remain blocked without declared-root
+  proof. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
   CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
   calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)
@@ -129,7 +131,9 @@ they are boundaries rather than promises to accept every such source form later.
   with seven checked attributes; they do not open ports or exchange serial data.
   Separate [finite serial streams](serial-streams.md) now expose supplied RX/TX
   through P1:..P5: FILEs. Hardware ports, automatic attribute application,
-  asynchronous producer waiting and native serial timing remain unavailable.
+  physical/native producer waiting and serial timing remain unavailable.
+  [Cooperative serial waiting](serial-waiting.md) now accepts explicit host feeds
+  and EOF, with atomic outputs and pending-read cleanup; it creates no connection.
 - Proprietary PC/VR/native binary layouts, arbitrary FILE attributes/listing
   formats, device-specific parsing and controller file alarms. Text and binary
   scalar operations use the documented portable formats and bounded sizes;
@@ -276,7 +280,10 @@ they are boundaries rather than promises to accept every such source form later.
   runs and retain registers/parameters. [Image/device services](vision-image-services.md)
   add supplied rasters, PNG/BMP export, reader/view-line output and logical
   camera/calibration/display/LED data. Live acquisition, calibration computation,
-  image processing and undocumented save overloads remain open. Twelve
+  image processing and undocumented save overloads remain open.
+  [Alpha image formats](vision-alpha-images.md) now preserve GA/RGBA channels and
+  PNG/32-bit BMP transparency. Palettes, depth maps, proprietary image layouts and
+  color/calibration transforms remain unavailable. Twelve
   [legacy tracking calls](vision-tracking.md) now add timed queues, receipts,
   VT result/lookup forms, supplied point maps and a portable local outbox.
   Twelve [VT queue calls](vt-queues.md) add allocation/acknowledgement, partial

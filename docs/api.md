@@ -84,6 +84,15 @@ storage once and protect the aggregate root. [VECTOR translation frames](vector-
 add offset colon operands, VECTOR inversion and FRAME point arguments with an
 explicit pose origin; ordinary exact routine interfaces remain unchanged.
 
+[Computed USING](computed-using.md) adds checked private record captures for
+function/constructor/operator results. `using_scopes[].selector_captures` records
+storage/computed provenance, ownership and copy-back policy; `computed_using_policy`
+describes the remaining private-counter and timer restrictions.
+[Waiting serial reads](serial-waiting.md) use per-port `wait`/`final` flags and
+`SerialStreams.finish_input(port)`, retaining finite defaults and explicit FILE
+lifetime. [Alpha images](vision-alpha-images.md) add packed GA/RGBA data and
+PNG/BMP exports without image processing or native acquisition.
+
 [Frame transforms](frame-transforms.md) expose `frame_operations` for explicit
 POSITION/XYZWPR composition/inversion and `frame_policy` for matrix/Euler conventions,
 configuration handling, capture order and retained controller boundaries.

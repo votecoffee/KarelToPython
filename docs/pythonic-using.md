@@ -5,7 +5,9 @@ for named STRUCTURE and supported built-in record storage. Selectors capture
 references once on each entry. Inner fields override matching outer fields;
 unmatched outer fields remain available. Leaving a block restores the enclosing
 bindings. These are chosen offline namespace and selection rules, without a
-native timing or alias-lifetime claim. See [captured selectors](using-selectors.md)
+native timing or alias-lifetime claim. [Computed selectors](computed-using.md)
+add independent checked record temporaries without copy-back; named/grouped
+storage retains live-reference behavior. See [captured selectors](using-selectors.md)
 for index effects, callbacks and executable CLI examples.
 
 ```karel
@@ -45,7 +47,8 @@ Selectors must designate existing named STRUCTURE or supported built-in record
 storage. Dotted paths, subscripts (including calls inside indexes) and grouping
 are accepted. Each selector reference is evaluated once, left-to-right, before
 the body; changing an index later does not retarget the selected fields.
-Function-result and computed aggregate selectors remain unsupported. Only direct fields of selected structures are exposed; nested fields
+[Computed record results](computed-using.md) use private temporary storage.
+Only direct fields of selected structures are exposed; nested fields
 need a dotted path or another USING. Writable INTEGER fields can be captured as
 [FOR counters](reference-for-counters.md), subject to aggregate-root protection. CASE
 labels still require compile-time constants: a name shadowed by a field cannot

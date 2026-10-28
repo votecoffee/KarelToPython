@@ -3,6 +3,8 @@
 Pythonic FILE operations can use explicitly supplied serial endpoints through
 `ExecutionContext.serial_streams`. The backend exchanges finite byte buffers;
 it never opens a COM port, cable, device, socket or background reader.
+An explicit per-port `wait=True` opts into [cooperative host-fed reads](serial-waiting.md)
+with a `final` flag and `finish_input(port)`. The default remains finite input.
 
 ```python
 from karel2py.runtime import ExecutionContext, SerialStreams

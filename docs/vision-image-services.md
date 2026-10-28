@@ -70,12 +70,13 @@ addresses are 1..`image_count`, with zero configured registers by default. The
 count is bounded at 256. Initial `images` use canonical positive string keys and
 the same process/views/image fields as a successful capture, without `status`.
 
-Images contain top-to-bottom packed rows with 8-bit grayscale (`channels:1`) or
-RGB (`channels:3`) samples. JSON pixels are canonical lowercase hex; Python
+Images contain top-to-bottom packed 8-bit grayscale (`channels:1`), grayscale-alpha
+(`channels:2`), RGB (`channels:3`) or RGBA (`channels:4`) samples. JSON pixels are canonical lowercase hex; Python
 construction can also supply immutable bytes. Dimensions are 1..4096 and must
 exactly match the pixel count. Each raster is limited by `image_limit`, default
 16 MiB and maximum 16 MiB; combined stored/capture raster data is at most 64 MiB.
-Alpha channels, palettes, depth maps and proprietary camera formats remain open.
+Alpha samples and colors under zero alpha are preserved without premultiplication.
+Palettes, depth maps, color transforms and proprietary camera formats remain open.
 
 Capture replies form one ordered queue, at most 4096 entries. They name an
 explicit process and nonempty distinct configured views. Only successful replies
@@ -102,9 +103,11 @@ and routing contract are incomplete in the supplied references. Four/five-argume
 forms are rejected; no compression flag or iPC connection is guessed.
 
 Filename suffixes `.PNG` and `.BMP` are case-insensitive. PNG export uses 8-bit
-noninterlaced grayscale/truecolor, filter zero and zlib compression. BMP export
-uses bottom-up uncompressed 24-bit BGR rows with four-byte padding; grayscale
-samples expand to equal RGB values. No native image metadata or calibration is
+noninterlaced grayscale/truecolor with optional alpha, filter zero and zlib compression.
+Existing grayscale/RGB BMP export retains bottom-up 24-bit BGR rows with padding.
+Alpha BMP uses 32-bit BGRA, a V4 header and explicit bit masks; grayscale-alpha
+replicates gray into RGB while retaining alpha. See [alpha images](vision-alpha-images.md).
+No native image metadata or calibration is
 inferred. These are portable encodings, following the
 [PNG specification](https://www.w3.org/TR/png-3/) and Microsoft's
 [BMP file header](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapfileheader)

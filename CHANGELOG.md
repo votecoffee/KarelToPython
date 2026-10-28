@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1028.223057 - 2026-10-28
+
+- Add computed USING selectors with independent checked record temporaries,
+  left-to-right capture, nested selections and no copy-back. Named storage stays
+  live; private-counter/timer and ordinary schema/readonly guards remain explicit.
+- Add opt-in cooperative serial READ waits, host feed and explicit EOF, atomic
+  typed publication, pending guards and cancellation cleanup. Preserve finite
+  defaults and explicit FILE close semantics.
+- Preserve supplied grayscale/RGB alpha in PNG and 32-bit V4 BMP exports,
+  without premultiplication. Keep legacy image bytes unchanged and strengthen
+  raw/combined quota preflight and encoder validation.
+- Add 147 regressions, three standalone examples and two linked projects,
+  current reports, support guides and semantic notes; strict remains future work.
+
 ## 26.1028.215956 - 2026-10-28
 
 - Add captured writable INTEGER fields, ARRAY elements and USING fields as

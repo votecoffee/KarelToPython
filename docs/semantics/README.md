@@ -262,3 +262,8 @@ The [reference, geometry and serial ledger](reference_geometry_serial_semantics.
 adds captured INTEGER storage counters, VECTOR translation-frame equivalents and
 finite P-device streams. It retains aggregate-write protection, explicit origin
 CONFIG, bounded byte buffers and separate native/controller evidence boundaries.
+
+The [computed, serial and alpha ledger](computed_serial_alpha_semantics.json)
+adds checked private USING records, opt-in host-fed serial waits and supplied
+alpha-channel image exports. It preserves storage identity, atomic typed input,
+explicit FILE lifetime and independent image-format evidence.
