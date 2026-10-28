@@ -58,8 +58,10 @@ they are boundaries rather than promises to accept every such source form later.
   CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
   calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)
   now accept indexed/grouped record storage and built-in records; calls inside
-  indexes use the one-time entry capture policy. SELECT is INTEGER-only; a miss
-  without ELSE fails. Recursion is bounded at 64 calls.
+  indexes use the one-time entry capture policy. [Scalar SELECT](scalar-select.md)
+  now accepts finite numeric, BOOLEAN and ASCII STRING categories; dynamic cases,
+  mixed categories and aggregate/resource selectors remain blocked. A miss without
+  ELSE fails. Recursion is bounded at 64 calls.
 - Unicode/multilingual source, native graphic characters, multiline literals,
   backslash string escapes, token-splicing continuations and arbitrary native
   preprocessor/compiler extensions.
@@ -83,7 +85,8 @@ they are boundaries rather than promises to accept every such source form later.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
   uninitialized sentinel. [Scalar BYTE/SHORT](scalar-narrow.md) now support
   variables, aliases and typed interfaces; numeric narrowing makes checked private
-  values. Narrow FOR counters and scalar CREATE_VAR allocation remain blocked.
+  values. Narrow FOR counters remain blocked; [dynamic narrow creation](dynamic-narrow.md)
+  now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries; flattening,
   nominal-type coercion, unspecified STRING result-element capacities and resource
   fields in structures. [Partial data copies](partial-aggregate-values.md) now
@@ -108,9 +111,10 @@ they are boundaries rather than promises to accept every such source form later.
   routing, automatic polling and native alarm/status mappings. Numeric, string,
   position and port services use explicit offline banks.
 - Automatic system-variable schemas, arbitrary host/Python attribute access,
-  dynamic routine-local lookup, native cached variable table IDs and runtime
-  variable creation/rename. GET_VAR/SET_VAR support declared/explicit roots,
-  checked static paths and documented aggregate/queue transfers.
+  dynamic routine-local lookup, native cached variable table IDs and native
+  allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,
+  checked static paths and documented aggregate/queue transfers; CREATE_VAR and
+  variable renaming operate on explicit logical storage.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;
   they do not establish network sessions, discover peers or convert robot poses.
@@ -143,9 +147,11 @@ they are boundaries rather than promises to accept every such source form later.
   40-column size records and blank timestamps; native metadata formats remain open.
   [Wildcard COPY/DELETE](wildcard-file-operations.md) now support bounded final-name
   star patterns and full-stem templates. [Wildcard RENAME](wildcard-rename.md)
-  now moves same-bank/volume closed files or plain PIP configurations without
-  overwrite. Recursive/glob directories, cross-bank/volume wildcard renames,
-  socket/DAQ batches and cross-file atomic host transactions remain unsupported.
+  now moves same-bank closed files or plain PIP configurations without
+  overwrite. [Cross-volume virtual renames](cross-volume-rename.md) now preflight
+  complete destination capacity and retained source bytes within one DeviceFiles
+  bank. Recursive/glob directories, cross-bank wildcard renames, socket/DAQ batches
+  and cross-file atomic host transactions remain unsupported.
   [Plain PIP batches](pipe-wildcard-files.md) now copy/delete finite snapshots with
   explicit configured destinations; automatic pipe creation and ring truncation
   during copying remain unavailable.

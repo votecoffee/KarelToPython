@@ -1,0 +1,42 @@
+{
+  "version": "26.1028.232505",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence_limit": "Authored translation and offline runtime contracts. Scalar SELECT categories, dynamic narrow variables and virtual-volume rename batches do not establish native source acceptance, ABI, storage formats, physical filesystems or controller behavior.",
+  "contracts": {
+    "scalar_select": {
+      "guide": "../scalar-select.md",
+      "categories": "Finite INTEGER/BYTE/SHORT/REAL numeric values, BOOLEAN or bounded ASCII STRING; BOOLEAN is never a numeric case",
+      "matching": "Evaluate selector once, compare compatible compile-time cases in source order using ordinary numeric or exact string/Boolean equality, execute only the first matching clause",
+      "control": "Structured, labelled and cooperative execution retain ordinary no-match errors, explicit empty ELSE, source locations, effects and frame cleanup",
+      "boundary": "No dynamic cases, category coercion, aggregate/resource selectors or native extension claim; legacy SELECT remains integer-only"
+    },
+    "dynamic_narrow": {
+      "guide": "../dynamic-narrow.md",
+      "creation": "Direct BYTE/SHORT names and transparent supplied aliases create scalar storage or existing dimensioned forms in an explicit logical variable store",
+      "storage": "Preserve BYTE unknown contents, SHORT uninitialized/32767 semantics, exact BYNAME references, checked numeric domains and existing group/memory-pool metadata",
+      "preflight": "Retain duplicate/name/type/group/dimension/budget and combined 32767-leaf checks before allocation; saved metadata, marker and archive validation use existing contracts",
+      "boundary": "No BYTE UNINIT, numeric reinterpretation through BYNAME, resource creation, native memory allocation or public strict mode"
+    },
+    "cross_volume_rename": {
+      "guide": "../cross-volume-rename.md",
+      "scope": "Bounded wildcard RENAME_FILE between configured mounted writable volumes within one supplied DeviceFiles bank",
+      "preflight": "Prepare all final file keys and source retained garbage; validate no-overwrite, aliases/overlap, handles, paths, metadata, execution budget, final file count and each volume's complete live-plus-garbage capacity before publication",
+      "publication": "Move original payload objects while preserving file dictionary and volume-row identities; publish prepared file keys and garbage without callbacks or checkpoints between them",
+      "retention": "Cross-volume source retain_deleted adds moved byte lengths to garbage; nonretaining sources free moved bytes; destination existing garbage remains charged; same-volume renames need no copy capacity",
+      "boundary": "No cross-bank/PIP-to-ordinary moves, host cross-filesystem transaction, implicit volume discovery or native status/physical storage claim"
+    }
+  },
+  "validation": [
+    "tests/test_scalar_select.py",
+    "tests/test_dynamic_narrow.py",
+    "tests/test_cross_volume_rename.py",
+    "tests/test_scalar_dynamic_volumes_integration.py",
+    "examples/scalar_select.kl",
+    "examples/dynamic_narrow.kl",
+    "examples/cross_volume_rename.kl",
+    "examples/scalar_select_project",
+    "examples/dynamic_narrow_project"
+  ],
+  "strict_mode": "Future milestone; preserve legacy restrictions and historical semantic ledgers"
+}

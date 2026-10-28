@@ -78,6 +78,9 @@ before raising. Same-volume renaming needs no copy space; cross-volume moves
 reserve the destination and account for obsolete source data. MOVE_FILE checks
 combined capacity for its complete batch before moving the first file. Ordinary
 file missing/exists/busy statuses retain their existing conventions.
+[Wildcard cross-volume renames](cross-volume-rename.md) stage the full key mapping
+and source garbage before validating each volume's final used capacity. They
+retain original payload objects and publish only after every batch check passes.
 
 FORMAT_DEV requires mounted, writable file media without open handles. It clears
 only the selected virtual volume's live files and garbage and stores the supplied

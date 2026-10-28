@@ -93,7 +93,12 @@ identities, retained-alias checks and `private_using_counter_policy` without
 publishing synthetic source variables. [Scalar BYTE/SHORT](scalar-narrow.md)
 add narrow globals, locals, TYPE aliases and typed routine interfaces, with exact
 bare references or checked private numeric conversions. [Wildcard renames](wildcard-rename.md)
-extend `wildcard_file_policy` with no overwrite and same-bank/volume preflight.
+extend `wildcard_file_policy` with no overwrite and same-bank preflight.
+[Scalar SELECT](scalar-select.md) adds `scalar_select_policy`, per-site selector
+types and comparison categories; BOOLEAN remains distinct from numeric cases.
+[Dynamic narrow creation](dynamic-narrow.md) extends `dynamic_variable_policy`
+with direct BYTE/SHORT and supplied transparent aliases. [Cross-volume renames](cross-volume-rename.md)
+extend the wildcard policy with complete DeviceFiles capacity and garbage preflight.
 [Waiting serial reads](serial-waiting.md) use per-port `wait`/`final` flags and
 `SerialStreams.finish_input(port)`, retaining finite defaults and explicit FILE
 lifetime. [Alpha images](vision-alpha-images.md) add packed GA/RGBA data and

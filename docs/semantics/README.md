@@ -272,3 +272,8 @@ The [private counter, narrow scalar and rename ledger](private_narrow_rename_sem
 adds isolated computed-record counters, checked BYTE/SHORT scalar interfaces and
 preflighted same-bank wildcard renames. It supersedes their earlier exclusions
 while preserving missing markers, source ownership and partial host-failure evidence.
+
+The [scalar, dynamic and volume ledger](scalar_dynamic_volume_semantics.json)
+adds typed scalar SELECT branches, direct narrow variable creation and prepared
+virtual cross-volume rename batches. It preserves category separation, exact
+named references, missing markers and complete capacity/garbage accounting.

@@ -15,7 +15,8 @@ The manual explicitly permits star specifications for COPY_FILE and DELETE_FILE.
 It does not define a complete destination expansion algorithm. The following
 mapping is a documented portable choice, without a native DOS/controller
 wildcard-equivalence claim. [Wildcard RENAME_FILE](wildcard-rename.md) is a
-separate Pythonic extension with no overwrite and same-bank/volume preflight.
+separate Pythonic extension with no overwrite and same-bank preflight, including
+[complete virtual-volume capacity checks](cross-volume-rename.md).
 
 ## Patterns and destination templates
 

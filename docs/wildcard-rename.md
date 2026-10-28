@@ -60,8 +60,9 @@ publication. In-memory retained bytes are fingerprinted in bounded chunks and
 checked again without publishing intermediate state.
 
 PIP-to-ordinary and ordinary-to-PIP renames are rejected. DeviceFiles wildcard
-renames stay within one explicitly configured volume, whose mounted and writable
-state is checked. Exact cross-volume calls retain their previous behavior. This
+renames may cross explicitly configured volumes within the same bank, under the
+[complete capacity/garbage contract](cross-volume-rename.md). Both volumes must be
+mounted and writable. Exact cross-volume calls retain their previous behavior. This
 operation does not discover another backend, route socket names or treat DAQ
 PIP names as ordinary pipe data.
 
@@ -69,7 +70,7 @@ PIP names as ordinary pipe data.
 | --- | --- |
 | 0 | Complete batch renamed |
 | 1 | No selected source |
-| 2 | Existing target, collision, overlap, unsupported template or cross-bank/volume rename |
+| 2 | Existing target, collision, overlap, unsupported template or cross-bank rename |
 | 3 | Selected source or target is open/busy |
 
 Invalid paths, missing required services, device state, inconsistent backend
@@ -83,6 +84,9 @@ MemoryFiles and DeviceFiles prepare every key move before updating their existin
 file dictionary. Payload byte objects are moved, without a copy allocation or
 copied-byte quota. Same-volume rename consumes no extra volume capacity, reserves
 no file slot and adds no garbage, including on a full retaining volume.
+Across virtual volumes, the prepared final mapping must fit every destination's
+live bytes plus garbage; retained source bytes become garbage under the existing
+policy. File keys and garbage publish together after preflight.
 
 Plain FilePipes move each source's configuration and retained byte object together
 to its previously unconfigured destination. The file and configuration dictionary

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.231128**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.232505**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -325,7 +325,13 @@ in those captures can serve as [private FOR counters](docs/private-using-counter
 with whole-root alias protection and cleanup. [Scalar BYTE/SHORT](docs/scalar-narrow.md)
 add typed variables, aliases and routine interfaces with checked private numeric
 conversions. [Wildcard renames](docs/wildcard-rename.md) move closed files or plain
-pipe configurations after batch preflight, without overwrite. Serial streams can opt
+pipe configurations after batch preflight, without overwrite.
+[Scalar SELECT](docs/scalar-select.md) now branches on finite numbers, BOOLEANs
+and ASCII strings, with one selector evaluation and first-match behavior.
+[Dynamic narrow variables](docs/dynamic-narrow.md) add BYTE/SHORT creation and
+exact named routine references. [Virtual-volume renames](docs/cross-volume-rename.md)
+preflight complete destination capacity and retained source bytes within one
+configured DeviceFiles bank. Serial streams can opt
 into cooperative reads fed by the host, with explicit EOF and cancellation;
 see [serial waiting](docs/serial-waiting.md). Supplied vision images now retain
 grayscale/RGB alpha in PNG and 32-bit BMP exports; see [alpha images](docs/vision-alpha-images.md).

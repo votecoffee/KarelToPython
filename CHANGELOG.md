@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1028.232505 - 2026-10-28
+
+- Extend Pythonic SELECT to BOOLEAN, bounded ASCII STRING and finite numeric
+  categories, with checked constant cases, single selector evaluation and first
+  match across structured, labelled and cooperative execution. Keep BOOLEAN
+  distinct from numbers and preserve legacy INTEGER-only behavior.
+- Add direct BYTE/SHORT CREATE_VAR forms and supplied transparent narrow aliases,
+  preserving exact BYNAME references, unknown/missing markers, allocation guards,
+  rename metadata and saved context/archive behavior.
+- Add wildcard renames between configured virtual volumes in one DeviceFiles
+  bank, with complete destination capacity and source garbage preflight before
+  publishing file keys and accounting; retain no-overwrite and alias guards.
+- Add 158 regressions, three standalone examples and two linked projects,
+  current support reports, public guides and semantic notes. Strict remains future work.
+
 ## 26.1028.231128 - 2026-10-28
 
 - Add isolated private computed-USING INTEGER counters with whole-root protection,

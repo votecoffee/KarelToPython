@@ -101,8 +101,10 @@ and missing SHORT state. Its output reference does not silently widen to an
 INTEGER. `SET_VAR` keeps existing checked integral conversions and missing-state
 status behavior. Context JSON records the scalar type and marker explicitly;
 restoring it does not turn unknown or missing contents into initialized values.
-Standalone narrow `CREATE_VAR` remains deferred. Builtins that require INTEGER
-output references still require INTEGER storage, and whole array interfaces do
+[Dynamic narrow CREATE_VAR](dynamic-narrow.md) now creates direct BYTE/SHORT or
+supplied transparent aliases with existing initialization and allocation checks.
+Builtins that require INTEGER output references still require INTEGER storage,
+and whole array interfaces do
 not convert their element types.
 
 The translation report records `scalar_narrow_policy`. Authored regression

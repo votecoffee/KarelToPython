@@ -19,12 +19,15 @@ use the currently executing source program. A new namespace needs no compiled
 program. Existing declared globals, explicit roots and descendant bindings prevent
 creation under the same root; an existing value is never reset.
 
-Supported types are INTEGER, REAL, BOOLEAN, STRING[n], CONFIG, VECTOR, POSITION,
+Supported types are INTEGER, REAL, BOOLEAN, BYTE, SHORT, STRING[n], CONFIG, VECTOR, POSITION,
 XYZWPR, XYZWPREXT, JOINTPOS and JOINTPOS1..9. STRING defaults to capacity 12;
 explicit capacities are 1..254. JOINTPOS defaults to nine axes. `ARRAY OF BYTE`
 and `ARRAY OF SHORT` require a nonzero inner dimension. Other types can use the
 resolved user-type declarations of the specified attached program, including
 named arrays and structures containing portable data.
+[Direct narrow types and transparent aliases](dynamic-narrow.md) use ordinary
+BYTE unknown contents and SHORT missing markers, with exact BYNAME references
+and checked values under the existing metadata/allocation limits.
 
 Dimensions follow the manual's inner-to-outer argument order: inner=4, middle=3,
 outer=2 creates ARRAY[2,3,4]. Used dimensions are contiguous, positive and at most
