@@ -1,0 +1,20 @@
+PROGRAM VT_TRAYS
+VAR status,model_no,work_id,frame_no:INTEGER
+    cfg:CONFIG base,first,second,third:XYZWPR
+    positions:ARRAY[4] OF XYZWPR measures:ARRAY[10] OF REAL
+    note:STRING[40]
+BEGIN
+  CNV_STR_CONF('N',cfg,status)
+  base=POS(100,200,0,0,0,90,cfg)
+  positions[1]=base measures[1]=2.5
+  VT_PUT_QUEUE(1,101,3,100,7,base,positions,measures,status)
+  VT_GET_QUEUE(1,1,0,1,model_no,work_id,status)
+  status=IRVU_VRGETOFFSET(1,first,frame_no,note)
+  VT_ACK_QUEUE(1,1,1,status)
+  VT_GET_QUEUE(1,1,0,1,model_no,work_id,status)
+  status=IRVU_VRGETOFFSET(1,second,frame_no,note)
+  VT_ACK_QUEUE(1,1,1,status)
+  VT_GET_QUEUE(1,1,0,1,model_no,work_id,status)
+  status=IRVU_VRGETOFFSET(1,third,frame_no,note)
+  VT_ACK_QUEUE(1,1,1,status)
+END VT_TRAYS

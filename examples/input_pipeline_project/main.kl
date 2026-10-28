@@ -1,0 +1,19 @@
+PROGRAM MAIN
+VAR input_file,channel:FILE number,received,status:INTEGER
+    ready FROM PRODUCER:BOOLEAN
+    supplied FROM PRODUCER:INTEGER
+BEGIN
+  OPEN FILE input_file('RO','KB:TPKB')
+  READ input_file(number,CR)
+  CLOSE FILE input_file
+  PIPE_CONFIG('WORK.DAT',FALSE,1,0,'',0,status)
+  OPEN FILE channel('WO','PIP:WORK.DAT')
+  CLOSE FILE channel
+  supplied=number ready=FALSE
+  RUN_TASK('PRODUCER',0,FALSE,FALSE,0,status)
+  SET_FILE_ATR(channel,ATR_PIPWAIT,WAIT_USED)
+  OPEN FILE channel('RO','PIP:WORK.DAT')
+  READ channel(received,CR)
+  CLOSE FILE channel
+  WAIT FOR ready
+END MAIN

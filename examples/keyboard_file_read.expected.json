@@ -1,0 +1,15 @@
+{
+  "INPUT_FILE": {
+    "file": "KB:TPKB",
+    "open": false,
+    "position": 22,
+    "binary": false,
+    "status": 0
+  },
+  "HEX_VALUE": 42,
+  "STATUS": 0,
+  "REAL_VALUE": 3.5,
+  "ENABLED": true,
+  "LABEL": " ready",
+  "TAIL": "abc"
+}

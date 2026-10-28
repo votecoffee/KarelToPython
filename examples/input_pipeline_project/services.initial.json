@@ -1,0 +1,16 @@
+{
+  "keyboard": {
+    "events": [
+      {
+        "key": "2"
+      },
+      {
+        "key": "1"
+      },
+      {
+        "key": "ENTER"
+      }
+    ]
+  },
+  "file_pipes": {}
+}

@@ -1,0 +1,40 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 22,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "KEYBOARD_FILE_READ",
+        "operation": "FILE_READ",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "text": "",
+          "fields": 4,
+          "lines": 1,
+          "status": 0
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 2,
+        "program": "KEYBOARD_FILE_READ",
+        "operation": "FILE_READ",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "text": "",
+          "fields": 1,
+          "lines": 1,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 2,
+    "request_sequence": 2
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "vision": {
+    "tracking": {
+      "ids": {
+        "areas": {
+          "PICK": 1
+        },
+        "lines": {
+          "LINE": 1
+        },
+        "trays": {
+          "TRAY": 3
+        }
+      },
+      "vt": {
+        "lines": {
+          "1": {
+            "areas": [
+              1
+            ],
+            "capacity": 8
+          }
+        },
+        "areas": {
+          "1": {
+            "line": 1
+          }
+        },
+        "trays": {
+          "3": {
+            "sequenced": true,
+            "cells": [
+              {
+                "offset": {
+                  "type": [
+                    "XYZWPR"
+                  ],
+                  "value": {
+                    "X": 0.0,
+                    "Y": 0.0,
+                    "Z": 0.0,
+                    "W": 0.0,
+                    "P": 0.0,
+                    "R": 0.0,
+                    "CONFIG_DATA": {
+                      "CFG_TURN_NO1": 0,
+                      "CFG_TURN_NO2": 0,
+                      "CFG_TURN_NO3": 0,
+                      "CFG_FLIP": false,
+                      "CFG_LEFT": false,
+                      "CFG_UP": false,
+                      "CFG_FRONT": false
+                    }
+                  }
+                }
+              },
+              {
+                "offset": {
+                  "type": [
+                    "XYZWPR"
+                  ],
+                  "value": {
+                    "X": 10.0,
+                    "Y": 0.0,
+                    "Z": 0.0,
+                    "W": 0.0,
+                    "P": 0.0,
+                    "R": 0.0,
+                    "CONFIG_DATA": {
+                      "CFG_TURN_NO1": 0,
+                      "CFG_TURN_NO2": 0,
+                      "CFG_TURN_NO3": 0,
+                      "CFG_FLIP": false,
+                      "CFG_LEFT": false,
+                      "CFG_UP": false,
+                      "CFG_FRONT": false
+                    }
+                  }
+                },
+                "model": 9
+              },
+              {
+                "offset": {
+                  "type": [
+                    "XYZWPR"
+                  ],
+                  "value": {
+                    "X": 0.0,
+                    "Y": 5.0,
+                    "Z": 0.0,
+                    "W": 0.0,
+                    "P": 0.0,
+                    "R": 0.0,
+                    "CONFIG_DATA": {
+                      "CFG_TURN_NO1": 0,
+                      "CFG_TURN_NO2": 0,
+                      "CFG_TURN_NO3": 0,
+                      "CFG_FLIP": false,
+                      "CFG_LEFT": false,
+                      "CFG_UP": false,
+                      "CFG_FRONT": false
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

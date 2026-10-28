@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1028.200539 - 2026-10-28
+
+- Enable cooperative FILE READ with captured destinations/formats. Add typed
+  injected-keyboard line reads, editing/echo, buffered suffixes, multirecord
+  transactions and cleanup; READ_KB keeps its existing masked-key contract.
+- Add opted-in plain-pipe wait/snapshot and overflow attributes, staged text and
+  binary reads, snapshot-aware cursor queries and explicit host feeding. Retain
+  legacy behavior without attributes and require explicit standalone wait callbacks.
+- Distinguish unfinished streaming text from complete invalid fields, including
+  tokens, fixed widths, quoted strings and CR. Keep ordinary final-input defaults.
+- Expand configured VT trays into supplied cell transforms with independent
+  internal IDs, per-cell models/routing/allocation, portable sequence order and
+  checked context persistence. Unconfigured trays retain their single-part tags.
+- Add 177 regressions, three standalone CLI examples and an input pipeline
+  project combining keyboard input, a delayed producer and a waiting pipe reader.
+  Refresh README, reports and semantic notes; no native timing, motion or strict
+  mode equivalence is claimed.
+
 ## 26.1028.194447 - 2026-10-28
 
 - Add FILE_LIST formats 1 through 4 while retaining format 0 backend keys.

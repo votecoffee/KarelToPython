@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.194447**. It is a
+tool are named **karel2py**. The current implementation is **26.1028.200539**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -341,6 +341,8 @@ display/LED state. [Legacy tracking](docs/vision-tracking.md) adds timed queues,
 allocation receipts, VT results/lookups, supplied point maps and a local
 notification outbox. [VT line queues](docs/vt-queues.md) add put/get/acknowledge,
 partial PATH reads/edits, flags, weighted routing and explicit time/flow estimates.
+An optional [VT tray-cell bank](docs/vt-trays.md) expands supplied local poses into
+independent workpieces, with per-cell models, routing and allocation receipts.
 These services perform no image processing, hardware I/O or network delivery.
 
 ```sh
@@ -367,6 +369,9 @@ editing, masks, timeouts, per-file history and PUSH/POP read suspension. Combine
 window/keyboard FILEs support echo and ordinary output. Alphanumeric entry and
 dictionary-backed subwindow/pull-up menus share that headless event model. See
 [keyboard input](docs/keyboard-input.md) for context JSON and runnable CLI examples.
+Ordinary typed FILE READ now uses the same injected keyboard service, with
+submitted lines, numeric/quoted formats, buffered suffixes and atomic outputs;
+see [keyboard FILE reads](docs/keyboard-file-read.md).
 
 Twelve dynamic-display calls watch static scalar/enum variables and supplied
 ports, updating logical window fields at deterministic checkpoint intervals.
@@ -393,6 +398,9 @@ payload modes. See [PC data and events](docs/pc-exchange.md).
 MSG_CONNECT/MSG_DISCO/MSG_PING use configured offline socket buffers and host
 results; PIPE_CONFIG provides circular PIP FILE histories. Both support ordinary
 FILE I/O and saved state; see [communications](docs/communications.md).
+Plain pipes also support explicit wait/snapshot and overflow attributes, with
+cooperative text/binary reads and scripted producers; see
+[pipe attributes](docs/pipe-attributes.md).
 RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH provide bounded offline mobile-message
 outboxes and deferred ZDT attachment selection, with validated XML publication,
 MD retention, explicit host collection and saved-state replay. See

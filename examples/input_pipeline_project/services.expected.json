@@ -1,0 +1,41 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 3,
+    "elapsed_ms": 3,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "MAIN",
+        "operation": "FILE_READ",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "text": "",
+          "fields": 1,
+          "lines": 1,
+          "status": 0
+        }
+      }
+    ],
+    "sequence": 1,
+    "request_sequence": 1
+  },
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {
+      "PIP:WORK.DAT": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {
+          "hex": "2034320a"
+        }
+      }
+    }
+  }
+}

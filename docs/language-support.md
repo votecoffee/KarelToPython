@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1028.194447. Acceptance is specific to
+This is the supported prototype subset as of 26.1028.200539. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -39,7 +39,7 @@ internally and in the historical semantic notes.
 | Diagnostics | CHECK_STACK, SET_DEBUG, SET_DB_EVENT; eight portable source/call/lifecycle event labels | Explicit DiagnosticLog, bounded value-free records and configured frame-cost stack estimates; no native p-code, stack layout or diagnostic option equivalence. |
 | Forms | DISCTRL_FORM with supplied FTX source; typed scalar/port edits, selections, enums, help, paging, sequential trees and concatenated .tree fragments | Explicit FormControls and USER2; literal forward single-window layout, root-owned attributes; no native compression/VR association ABI. See [forms](forms.md). |
 | Lists and tables | DISCTRL_LIST, INIT_TBL, ACT_TBL and DISCTRL_TBL; COL_DESC_T and opaque XWORK_T | Explicit resident rows and static array/port cells, typed edits, change grids, injected keys and session cleanup; portable layouts/codes, no form grammar or native widgets. See [table controls](table-controls.md). |
-| Keyboard and menus | READ_KB, PUSH_KEY_RD/POP_KEY_RD, DISCTRL_ALPH, DISCTRL_SBMN and DISCTRL_PLMN; KB and combined WD/TPKB endpoints | Explicit injected events, cooperative editing/waits, pane capture, suspension tokens, dictionary choices and terminal-state persistence; no host keyboard capture or native soft-key rendering. |
+| Keyboard and menus | Typed FILE READ, READ_KB, PUSH_KEY_RD/POP_KEY_RD, DISCTRL_ALPH, DISCTRL_SBMN and DISCTRL_PLMN; KB and combined WD/TPKB endpoints | Explicit injected events, cooperative editing/waits, pane capture, suspension tokens, dictionary choices and terminal-state persistence; no host keyboard capture or native soft-key rendering. |
 | Dynamic displays | Twelve INI_DYN_DIS*/CNC_DYN_DIS* calls for BOOLEAN, enum, INTEGER, REAL, STRING and supplied ports | Explicit read-only static bindings, checkpoint intervals, one-line fields and identity-based cancellation; cancel bindings before context save. No native display task, fonts or form managers. |
 | Text dictionaries | Seven ADD/CHECK/READ/REMOVE/WRITE dictionary calls, plain and formatted, with nested text elements and static variable paths | Explicit supplied text catalogs, language snapshots, bounded formatting, ARRAY truncation and atomic logical window controls; no compressed TX decoding or form compilation. |
 | Pendant display | FORCE_LINK, FORCE_SPMENU, SET_LANG, screen/window definitions, activation, attachments, detachment and SET_CURSOR; WD:name text output | Explicit headless PendantDisplay, portable IDs/statuses, character grids, common/per-handle cursors, scrolling and closed-handle persistence; no native UI, keyboard or dictionaries. |
@@ -64,7 +64,7 @@ internally and in the historical semantic notes.
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or aggregate output. |
-| READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; no live devices, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
+| READ | Scalar variables, fields/elements and narrow aggregate leaves through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
 
 

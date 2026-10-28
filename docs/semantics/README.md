@@ -234,3 +234,10 @@ FILE_LIST formats 0 through 4, concatenated FTX tree fragments and linked-projec
 ARRAY shape routing. It supersedes the corresponding older exclusions while
 preserving historical versions, explicit dimensions, nonnested trees, portable
 metadata/status choices and controller evidence boundaries.
+
+The [cooperative input ledger](cooperative_input_semantics.json) adds typed
+keyboard FILE READ, explicit plain-pipe wait/snapshot/overflow attributes and
+unfinished-stream parsing. It supersedes older blanket exclusions while retaining
+explicit input, atomic publication and suspended-state boundaries. The
+[VT tray ledger](vt_tray_semantics.json) adds supplied cell geometry, independent
+allocation/routing and portable ordering without claiming native calibration.

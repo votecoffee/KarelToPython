@@ -1,0 +1,9 @@
+PROGRAM PRODUCER
+VAR channel:FILE ready:BOOLEAN supplied:INTEGER
+BEGIN
+  DELAY 25
+  OPEN FILE channel('AP','PIP:WORK.DAT')
+  WRITE channel(supplied*2,CR)
+  CLOSE FILE channel
+  ready=TRUE
+END PRODUCER

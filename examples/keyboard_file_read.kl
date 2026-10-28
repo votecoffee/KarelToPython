@@ -1,0 +1,10 @@
+PROGRAM KEYBOARD_FILE_READ
+VAR input_file:FILE hex_value,status:INTEGER
+    real_value:REAL enabled:BOOLEAN label,tail:STRING[20]
+BEGIN
+  OPEN FILE input_file('RO','KB:TPKB')
+  READ input_file(hex_value::2::16,real_value,enabled,label,CR)
+  READ input_file(tail::3,CR)
+  status=IO_STATUS(input_file)
+  CLOSE FILE input_file
+END KEYBOARD_FILE_READ

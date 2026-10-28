@@ -1,0 +1,27 @@
+{
+  "WRITER": {
+    "file": "PIP:LOG.DAT",
+    "open": false,
+    "position": 0,
+    "binary": false,
+    "status": 0
+  },
+  "SAVED": {
+    "file": "PIP:LOG.DAT",
+    "open": false,
+    "position": 3,
+    "binary": false,
+    "status": 0
+  },
+  "LIVE": {
+    "file": "PIP:LOG.DAT",
+    "open": false,
+    "position": 6,
+    "binary": false,
+    "status": 0
+  },
+  "FIRST": 17,
+  "SECOND": 99,
+  "AVAILABLE": 3,
+  "STATUS": 0
+}

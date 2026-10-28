@@ -1,0 +1,21 @@
+PROGRAM PIPE_ATTRIBUTES
+VAR writer,saved,live:FILE first,second,available,status:INTEGER
+BEGIN
+  PIPE_CONFIG('LOG.DAT',FALSE,1,0,'',0,status)
+  OPEN FILE writer('WO','PIP:LOG.DAT')
+  WRITE writer('17',CR)
+  CLOSE FILE writer
+  SET_FILE_ATR(saved,ATR_PIPWAIT,WAIT_NOTUSED)
+  OPEN FILE saved('RO','PIP:LOG.DAT')
+  OPEN FILE writer('AP','PIP:LOG.DAT')
+  WRITE writer('99',CR)
+  available=BYTES_LEFT(saved)
+  READ saved(first,CR)
+  CLOSE FILE saved
+  SET_FILE_ATR(live,ATR_PIPWAIT,WAIT_USED)
+  SET_FILE_ATR(live,ATR_PIPOVADV,OVF_EOF)
+  OPEN FILE live('RO','PIP:LOG.DAT')
+  READ live(first,CR,second,CR)
+  CLOSE FILE live
+  CLOSE FILE writer
+END PIPE_ATTRIBUTES

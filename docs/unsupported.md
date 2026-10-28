@@ -211,8 +211,10 @@ they are boundaries rather than promises to accept every such source form later.
   [keyboard/menu calls](keyboard-input.md) now use injected key events, editable
   buffers, masks, pane capture, cooperative waits and PUSH/POP suspension; combined
   WD/TPKB echo and dictionary-backed entry/subwindow/pull-up controls are modeled.
-  Native key codes, soft-key editing widgets, generic keyboard FILE READ, binary
-  transfer and native form widgets remain outside that contract. Four
+  Native key codes, soft-key editing widgets, raw binary transfer and native form
+  widgets remain outside that contract. [Typed keyboard FILE READ](keyboard-file-read.md)
+  now parses submitted ASCII lines with buffered suffixes and atomic outputs;
+  generic PASSALL/custom-EOL transfer remains unsupported. Four
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.
   [DISCTRL_FORM](forms.md) now accepts supplied FTX forms with typed scalar/port
@@ -227,9 +229,11 @@ they are boundaries rather than promises to accept every such source form later.
 - Native PC/GEMM transport and delivery. Six [PC data/event calls](pc-exchange.md)
   now support typed buffer construction and explicit offline event outboxes;
   custom payloads require raw mode and fully initialized bytes.
-- Native socket connections, DNS/ping, pipe waits and formatted dictionaries.
+- Native socket connections, DNS/ping, native pipe timing and formatted dictionaries.
   MSG_CONNECT/MSG_DISCO/MSG_PING and PIPE_CONFIG now have
   [offline FILE models](communications.md); plain and DAQ pipe names stay distinct.
+  Explicit [plain-pipe attributes](pipe-attributes.md) add cooperative waiting
+  reads, captured snapshot boundaries and checked overflow recovery.
 - Native mobile/ZDT delivery, message schemas and automatic SET_VAR triggers.
   RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH now have [offline outboxes and deferred
   attachments](remote-messages.md), with explicit host publication/collection.
@@ -246,9 +250,11 @@ they are boundaries rather than promises to accept every such source form later.
   VT result/lookup forms, supplied point maps and a portable local outbox.
   Twelve [VT queue calls](vt-queues.md) add allocation/acknowledgement, partial
   PATH editing, flags, weighted routing and explicit time/flow estimates. Native
-  tracking/motion, tray-cell expansion, historical calibrated flow regions,
+  tracking/motion, native calibrated tray/Seq algorithms, historical flow regions,
   native duplicate tolerances, automatic encoder/frame transformations and
-  mobile delivery remain unavailable.
+  mobile delivery remain unavailable. [Supplied VT tray cells](vt-trays.md) now
+  expand into independent queue entries, with explicit geometry, sequence choices,
+  per-cell model/routing and allocation/forwarding state.
 - The workbench currently validates/translates/reviews/exports. The planned Python
   runner, input-parameter editor, read-before-write discovery and combined
   input/result JSON are still [future work](roadmap.md).
