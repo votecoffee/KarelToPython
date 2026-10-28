@@ -237,8 +237,8 @@ class StructureFieldTests(unittest.TestCase):
         self.assertEqual(state['DST']['TABLE'], [[1, 2], [99, 4]])
         self.assertEqual(state['SRC']['TABLE'], [[1, 2], [3, 4]])
 
-    def test_partial_structure_copy_remains_blocked_before_mutation(self):
-        p, _ = compile_program('dst.table[1,1] = 7 src.table[1,1] = 1 dst = src', types=self.TYPES, declarations='src,dst: record_t')
+    def test_strict_partial_structure_copy_remains_blocked_before_mutation(self):
+        p, _ = compile_program('dst.table[1,1] = 7 src.table[1,1] = 1 dst = src', types=self.TYPES, declarations='src,dst: record_t', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized fields'): p.run()
         self.assertEqual(p._state.snapshot()['DST']['TABLE'][0][0], 7)
 

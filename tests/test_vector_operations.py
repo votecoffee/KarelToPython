@@ -107,8 +107,8 @@ class VectorGuardTests(unittest.TestCase):
     def test_value_vector_parameter_requires_initialized_components(self):
         program,_=compile_program('inspect(a+b)',routines='ROUTINE inspect(v: VECTOR) BEGIN END inspect')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-    def test_vector_function_result_requires_initialized_components(self):
-        program,_=compile_program('c=create()',routines='ROUTINE create: VECTOR BEGIN RETURN a END create')
+    def test_strict_vector_function_result_requires_initialized_components(self):
+        program,_=compile_program('c=create()',routines='ROUTINE create: VECTOR BEGIN RETURN a END create', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
     def test_constructor_still_blocked(self):
         with self.assertRaises(TranslationError): compile_program('a=VEC(1,2,3)', _translator=legacy_translate)

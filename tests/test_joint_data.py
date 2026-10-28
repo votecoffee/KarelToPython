@@ -127,8 +127,8 @@ class JointGuardTests(unittest.TestCase):
     def test_group_qualifier(self): self.reject(code='E_POSITION_GROUP',declarations='j: JOINTPOS3 IN GROUP[1]', _translator=legacy_translate)
     def test_direct_joint_index_not_invented(self): self.reject('s=j[1]')
     def test_direct_joint_fields_not_invented(self): self.reject('j.j1=1')
-    def test_joint_value_argument_requires_initialized_axes(self):
-        program,_=compile_program('load((j))',routines='ROUTINE load(value: JOINTPOS3) BEGIN END load')
+    def test_strict_joint_value_argument_requires_initialized_axes(self):
+        program,_=compile_program('load((j))',routines='ROUTINE load(value: JOINTPOS3) BEGIN END load', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'initialized axes'): program.run()
     def test_width_conversion_argument_blocked(self): self.reject('load(j)',routines='ROUTINE load(value: JOINTPOS6) BEGIN END load')
     def test_width_conversion_copy_blocked(self): self.reject('j=k',declarations='j: JOINTPOS3\nk: JOINTPOS6')
@@ -175,12 +175,12 @@ class JointGuardTests(unittest.TestCase):
         program,_=compile_program('b[1]=9 s=17 CNV_JPOS_REL(j,b,s)')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'initialized'): program.run()
         self.assertEqual((program._state.snapshot()['B'][0],program._state.snapshot()['S']),(9.0,17))
-    def test_unknown_joint_copy_fails(self):
-        program,_=compile_program('k=j')
+    def test_strict_unknown_joint_copy_fails(self):
+        program,_=compile_program('k=j', _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertTrue(rt.uninit(program._state.values['K']))
-    def test_partial_joint_array_copy_fails_atomically(self):
-        program,_=compile_program('second=first',declarations='first,second: ARRAY[1] OF JOINTPOS3')
+    def test_strict_partial_joint_array_copy_fails_atomically(self):
+        program,_=compile_program('second=first',declarations='first,second: ARRAY[1] OF JOINTPOS3', _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertTrue(rt.uninit(program._state.values['SECOND'].values[0]))
     def test_failed_routine_conversion_unwinds(self):

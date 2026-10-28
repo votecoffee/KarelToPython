@@ -211,10 +211,13 @@ class PathRecordInterfaceTests(unittest.TestCase):
             routines='ROUTINE edit(d:DISP_DAT_T) BEGIN d.curr_it_num=42 END edit')
         self.assertEqual(values['DISPLAY']['CURR_IT_NUM'],0)
 
-    def test_partial_value_argument_is_not_silently_completed(self):
+    def test_partial_value_argument_keeps_missing_fields_and_private_storage(self):
         p,_=compile_program('display.curr_it_num=1 edit((display))',types='',decl='display:DISP_DAT_T',
             routines='ROUTINE edit(d:DISP_DAT_T) BEGIN d.curr_it_num=42 END edit')
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
+        display=p.run()['DISPLAY']
+        self.assertEqual(display['CURR_IT_NUM'],1)
+        self.assertEqual(display['CURR_WIN'],{'uninitialized':True})
+        self.assertEqual(display['WIN_START'],[{'uninitialized':True}]*4)
 
     def test_predefined_record_result_and_local_storage(self):
         values=run('display=make()',types='',decl='display:DISP_DAT_T',

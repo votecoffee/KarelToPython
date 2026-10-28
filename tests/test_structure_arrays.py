@@ -157,26 +157,26 @@ class StructureArrayCopyTests(unittest.TestCase):
         state = execute(INITIALIZE + 'holder.records = items holder.tag = 1 saved_holder = holder holder.records[1].slots[2] = 99')
         self.assertEqual(state['SAVED_HOLDER'], dict(RECORDS=EXPECTED, TAG=1))
 
-    def test_partial_array_copy_is_rejected_before_any_mutation(self):
+    def test_strict_partial_array_copy_is_rejected_before_any_mutation(self):
         program, _ = compile_program(INITIALIZE + 'copied = items grid[1] = items[1] grid[1].count = 99 grid[2].count = 88 copied = grid',
-                                     declarations='items,copied,grid: ARRAY[2] OF item_t')
+                                     declarations='items,copied,grid: ARRAY[2] OF item_t', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized.*STRUCTURE'): program.run()
         self.assertEqual(program._state.snapshot()['COPIED'], EXPECTED)
 
-    def test_incomplete_same_type_array_does_not_overwrite_initialized_destination(self):
+    def test_strict_incomplete_same_type_array_does_not_overwrite_initialized_destination(self):
         program, _ = compile_program(INITIALIZE + 'copied = items copied = grid',
-                                     declarations='items,copied: ARRAY[2] OF item_t\ngrid: ARRAY[2] OF item_t')
+                                     declarations='items,copied: ARRAY[2] OF item_t\ngrid: ARRAY[2] OF item_t', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized.*STRUCTURE'): program.run()
         self.assertEqual(program._state.snapshot()['COPIED'], EXPECTED)
 
-    def test_partial_element_copy_keeps_destination(self):
-        program, _ = compile_program(INITIALIZE + 'items[1] = item')
+    def test_strict_partial_element_copy_keeps_destination(self):
+        program, _ = compile_program(INITIALIZE + 'items[1] = item', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized fields'): program.run()
         self.assertEqual(program._state.snapshot()['ITEMS'], EXPECTED)
 
-    def test_unknown_byte_structure_array_copy_is_blocked(self):
+    def test_strict_unknown_byte_structure_array_copy_is_blocked(self):
         program, _ = compile_program('narrow[1].small = 1 narrow[2].small = 2 saved = narrow',
-                                     declarations='narrow,saved: ARRAY[2] OF narrow_t')
+                                     declarations='narrow,saved: ARRAY[2] OF narrow_t', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'unknown STRUCTURE'): program.run()
         self.assertEqual(program._state.snapshot()['SAVED'][0]['CODE'], {'unknown_byte': True})
 
@@ -185,9 +185,9 @@ class StructureArrayCopyTests(unittest.TestCase):
                         declarations='narrow,saved: ARRAY[1] OF narrow_t')
         self.assertEqual(state['SAVED'], [dict(CODE=255, SMALL=-32768)])
 
-    def test_short_marker_in_structure_array_copy_is_blocked(self):
+    def test_strict_short_marker_in_structure_array_copy_is_blocked(self):
         program, _ = compile_program('narrow[1].code = 7 narrow[1].small = 32767 saved = narrow',
-                                     declarations='narrow,saved: ARRAY[1] OF narrow_t')
+                                     declarations='narrow,saved: ARRAY[1] OF narrow_t', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
 
 
@@ -254,9 +254,9 @@ BEGIN dst = src result = p p = 99 END copy_and_change'''
         state = execute('narrow[1].small = 7 change(narrow[1].small)', routine)
         self.assertEqual(state['NARROW'][0]['SMALL'], 7)
 
-    def test_failed_copy_unwinds_routine_and_keeps_prior_write(self):
+    def test_strict_failed_copy_unwinds_routine_and_keeps_prior_write(self):
         routine = 'ROUTINE copy(dst,src: ARRAY OF item_t) BEGIN result = 7 dst = src END copy'
-        program, _ = compile_program('copy(copied,items)', routine)
+        program, _ = compile_program('copy(copied,items)', routine, _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
         self.assertEqual((program._state.get('RESULT'), program._state.local_frames, program._state.call_depth), (7, [], 0))
 
@@ -285,8 +285,8 @@ class StructureArrayBoundaryTests(unittest.TestCase):
     def test_parenthesized_array_value_remains_blocked(self):
         self.rejected('put((items))', code='E_ARRAY_VALUE', routines='ROUTINE put(p: ARRAY OF item_t) BEGIN END put', _translator=legacy_translate)
 
-    def test_parenthesized_structure_element_requires_initialized_contents(self):
-        program,_=compile_program('put((items[1]))',routines='ROUTINE put(p: item_t) BEGIN END put')
+    def test_strict_parenthesized_structure_element_requires_initialized_contents(self):
+        program,_=compile_program('put((items[1]))',routines='ROUTINE put(p: item_t) BEGIN END put', _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
 
     def test_aggregate_uninit_remains_blocked(self):

@@ -102,24 +102,24 @@ class DataRecordCopyTests(unittest.TestCase):
     def test_config_copy_is_independent(self):
         program,_=compile_program(init_config()+' d=c c.cfg_turn_no1=7')
         self.assertEqual(program.run()['D']['CFG_TURN_NO1'],0)
-    def test_partial_copy_does_not_mutate_destination(self):
-        program,_=compile_program('v.x=1 w.x=9 w.y=8 w.z=7 w=v')
+    def test_strict_partial_copy_does_not_mutate_destination(self):
+        program,_=compile_program('v.x=1 w.x=9 w.y=8 w.z=7 w=v', _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertEqual(program._state.snapshot()['W'],dict(X=9.0,Y=8.0,Z=7.0))
-    def test_pose_copy_requires_config_initialized(self):
-        program,_=compile_program('p.x=1 p.y=2 p.z=3 p.w=0 p.p=0 p.r=0 q=p')
+    def test_strict_pose_copy_requires_config_initialized(self):
+        program,_=compile_program('p.x=1 p.y=2 p.z=3 p.w=0 p.p=0 p.r=0 q=p', _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertEqual(program._state.snapshot()['Q']['X'],{'uninitialized':True})
-    def test_config_copy_requires_every_flag(self):
-        program,_=compile_program('c.cfg_turn_no1=0 d=c')
+    def test_strict_config_copy_requires_every_flag(self):
+        program,_=compile_program('c.cfg_turn_no1=0 d=c', _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
     def test_record_array_copy(self):
         body='a[1].x=1 a[1].y=2 a[1].z=3 a[2]=a[1] b=a a[1].x=9'
         program,_=compile_program(body,declarations='a,b: ARRAY[2] OF VECTOR')
         state=program.run()
         self.assertEqual((state['A'][0]['X'],state['B'][0]['X']),(9.0,1.0))
-    def test_record_array_partial_copy_atomic(self):
-        program,_=compile_program('a[1].x=1 b[1].x=9 b=a',declarations='a,b: ARRAY[2] OF VECTOR')
+    def test_strict_record_array_partial_copy_atomic(self):
+        program,_=compile_program('a[1].x=1 b[1].x=9 b=a',declarations='a,b: ARRAY[2] OF VECTOR', _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertEqual(program._state.snapshot()['B'][0]['X'],9.0)
     def test_captured_real_alias_survives_pose_copy(self):
@@ -198,10 +198,10 @@ class DataRecordGuardTests(unittest.TestCase):
     def test_wrong_config_turn_type(self): self.reject('c.cfg_turn_no1=1.5')
     def test_distinct_record_types_not_interchangeable(self): self.reject('v=p')
     def test_structural_lookalike_not_interchangeable(self): self.reject('v=other',prefix='TYPE look=STRUCTURE x: REAL y: REAL z: REAL ENDSTRUCTURE',declarations='v: VECTOR\nother: look')
-    def test_positional_value_parameters_require_initialized_contents(self):
+    def test_strict_positional_value_parameters_require_initialized_contents(self):
         for kind in ('XYZWPR','CONFIG'):
             with self.subTest(kind=kind):
-                program,_=compile_program('change((x))',declarations=f'x: {kind}',routines=f'ROUTINE change(p: {kind}) BEGIN END change')
+                program,_=compile_program('change((x))',declarations=f'x: {kind}',routines=f'ROUTINE change(p: {kind}) BEGIN END change', _translator=legacy_translate)
                 with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
     def test_direct_string_results_are_supported(self):
         program,_=compile_program('text=f()',declarations='text: STRING[3]',routines="ROUTINE f: STRING[3] BEGIN RETURN 'abc' END f")

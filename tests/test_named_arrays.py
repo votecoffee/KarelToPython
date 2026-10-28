@@ -92,9 +92,9 @@ class NamedArrayStorageTests(unittest.TestCase):
         state = execute('a[1].data[1]=7 a[1].data[2]=9 b=a a[1].data[1]=11', types=types, declarations='a,b: packets_t')
         self.assertEqual(state['B'], [{'DATA': [7, 9]}])
 
-    def test_named_structure_array_copy_guard(self):
+    def test_strict_named_structure_array_copy_guard(self):
         types = 'TYPE packet_t=STRUCTURE value: INTEGER ENDSTRUCTURE\nrow_t=ARRAY[2] OF packet_t'
-        program, _ = compile_program('a[1].value=7 b=a', types=types)
+        program, _ = compile_program('a[1].value=7 b=a', types=types, _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
         self.assertEqual(program._state.snapshot()['B'], [{'VALUE': {'uninitialized': True}}, {'VALUE': {'uninitialized': True}}])
 

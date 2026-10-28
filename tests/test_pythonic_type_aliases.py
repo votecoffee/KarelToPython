@@ -218,10 +218,11 @@ class AggregateAliasTests(unittest.TestCase):
             compile_program('b=a', types='TYPE a_t=STRUCTURE x: INTEGER ENDSTRUCTURE alias_t=a_t b_t=STRUCTURE x: INTEGER ENDSTRUCTURE',
                             declarations='a: alias_t b: b_t')
 
-    def test_array_alias_result_rejects_uninitialized_leaf(self):
-        program, _ = compile_program('a[1]=1 b=copy()', types=self.TYPES, declarations='a: row_t b: row_chain',
+    def test_array_alias_result_preserves_missing_leaf_and_private_storage(self):
+        program, _ = compile_program('a[1]=1 b=copy() b[1]=9', types=self.TYPES, declarations='a: row_t b: row_chain',
                                     routines='ROUTINE copy: row_alias BEGIN RETURN a END copy')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
+        state=program.run()
+        self.assertEqual((state['A'],state['B']),([1,{'uninitialized':True}],[9,{'uninitialized':True}]))
 
     def test_array_alias_assignment_preserves_uninitialized_scalar_state(self):
         state = execute('a[1]=1 b=a', types=self.TYPES, declarations='a: row_t b: row_chain')

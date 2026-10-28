@@ -149,7 +149,7 @@ class AggregateArrayReturnTests(unittest.TestCase):
         _, result = compile_program()
         row = result.report['array_returns'][0]
         self.assertEqual((row['element_type'],row['element_spec'][1]),('STRUCTURE','ITEM_T'))
-        self.assertIn('32767 prototype scalar-leaf',result.report['array_routine_policy']['returns'])
+        self.assertIn('32767 scalar leaves',result.report['aggregate_copy_policy']['limits'])
         self.assertIn('POSITION orientation protection',result.report['array_routine_policy']['aggregate_elements'])
         self.assertFalse(result.report['array_routine_policy']['controller_validated'])
 
@@ -215,14 +215,14 @@ class AggregateArrayFailureTests(unittest.TestCase):
         self.assertEqual(program.snapshot()['A'],before)
         self.assertEqual((program._state.call_depth,program._state.local_frames),(0,[]))
 
-    def test_unknown_nested_byte_preserves_destination_and_prior_effects(self):
+    def test_strict_unknown_nested_byte_preserves_destination_and_prior_effects(self):
         routine = FACTORY.replace('p[1].payload[2]=255','n=9')
-        program,_ = compile_program(routines=routine)
+        program,_ = compile_program(routines=routine, _translator=legacy_translate)
         self.assert_failure(program,'unknown')
         self.assertEqual(program.snapshot()['N'],9)
 
-    def test_uninitialized_nested_scalar_prevents_exposing_any_result(self):
-        program,_ = compile_program(routines=FACTORY.replace('p[1].samples[2]=8','n=9'))
+    def test_strict_uninitialized_nested_scalar_prevents_exposing_any_result(self):
+        program,_ = compile_program(routines=FACTORY.replace('p[1].samples[2]=8','n=9'), _translator=legacy_translate)
         self.assert_failure(program,'uninitialized')
 
     def test_mismatched_length_retains_destination(self):
@@ -238,14 +238,14 @@ class AggregateArrayFailureTests(unittest.TestCase):
         program,_ = compile_program(types=TYPES+'\nitems_t=ARRAY[1] OF item_t',declarations='a: items_t')
         self.assert_failure(program,'identical type and size')
 
-    def test_unknown_position_orientation_is_not_filled_in(self):
+    def test_strict_unknown_position_orientation_is_not_filled_in(self):
         routine = 'ROUTINE make: ARRAY OF POSITION BEGIN RETURN b END make'
-        program,_ = compile_program(types='',declarations='a,b: ARRAY[1] OF POSITION',routines=routine)
+        program,_ = compile_program(types='',declarations='a,b: ARRAY[1] OF POSITION',routines=routine, _translator=legacy_translate)
         self.assert_failure(program,'uninitialized')
 
-    def test_uninitialized_joint_axes_are_not_inferred(self):
+    def test_strict_uninitialized_joint_axes_are_not_inferred(self):
         routine = 'ROUTINE make: ARRAY OF JOINTPOS3 VAR p: ARRAY[1] OF JOINTPOS3 BEGIN RETURN p END make'
-        program,_ = compile_program(types='',declarations='a: ARRAY[1] OF JOINTPOS3',routines=routine)
+        program,_ = compile_program(types='',declarations='a: ARRAY[1] OF JOINTPOS3',routines=routine, _translator=legacy_translate)
         self.assert_failure(program,'initialized')
 
     def test_abort_stays_distinct_and_unwinds_aggregate_frames(self):

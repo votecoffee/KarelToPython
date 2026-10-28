@@ -229,8 +229,8 @@ class CopyTests(unittest.TestCase):
         state = execute(INITIALIZE_ITEM + 'copy_packet(copy,item,copy.payload)', routine)
         self.assertEqual((state['COPY']['PAYLOAD'], state['ITEM']['PAYLOAD']), ([99, 20], [10, 20]))
 
-    def test_unknown_byte_blocks_structure_copy_before_mutation(self):
-        p, _ = compile_program('copy.code = 99 item.count = 7 copy = item')
+    def test_strict_unknown_byte_blocks_structure_copy_before_mutation(self):
+        p, _ = compile_program('copy.code = 99 item.count = 7 copy = item', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized fields'): p.run()
         self.assertEqual(p._state.snapshot()['COPY']['CODE'], 99)
 

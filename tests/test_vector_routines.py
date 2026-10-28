@@ -148,12 +148,12 @@ class VectorRoutineGuardTests(unittest.TestCase):
     def test_abort_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE get: VECTOR BEGIN IF FALSE THEN ABORT ENDIF RETURN a END get', _translator=legacy_translate)
     def test_transitive_effect_in_operator_blocked(self): self.reject('E_EVALUATION_ORDER','b=get()+a',routines='ROUTINE inner: VECTOR BEGIN r=1 RETURN a END inner\nROUTINE get: VECTOR BEGIN RETURN inner() END get', _translator=legacy_translate)
     def test_multiple_arguments_containing_function_calls_blocked(self): self.reject('E_EVALUATION_ORDER','work(make(1,2,3),a)',routines=FACTORY+'\nROUTINE work(p,q: VECTOR) BEGIN END work', _translator=legacy_translate)
-    def test_uninitialized_return_preserves_destination_and_cleans_frames(self):
-        program,_=compile_program(fill('b')+' b=get()',routines='ROUTINE get: VECTOR VAR v: VECTOR BEGIN v.x=1 v.y=2 RETURN v END get')
+    def test_strict_uninitialized_return_preserves_destination_and_cleans_frames(self):
+        program,_=compile_program(fill('b')+' b=get()',routines='ROUTINE get: VECTOR VAR v: VECTOR BEGIN v.x=1 v.y=2 RETURN v END get', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
         self.assertEqual(program.snapshot()['B'],vec()); self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
-    def test_uninitialized_value_rejected_before_callee_effects(self):
-        program,_=compile_program('r=0 change((a))',routines='ROUTINE change(v: VECTOR) BEGIN r=1 END change')
+    def test_strict_uninitialized_value_rejected_before_callee_effects(self):
+        program,_=compile_program('r=0 change((a))',routines='ROUTINE change(v: VECTOR) BEGIN r=1 END change', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
         self.assertEqual(program.snapshot()['R'],0.); self.assertEqual(program._state.call_depth,0)
     def test_fallthrough_is_runtime_error(self):

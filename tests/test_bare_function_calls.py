@@ -273,9 +273,9 @@ class BareFunctionFailureTests(unittest.TestCase):
         self.assertEqual(program.snapshot()['X'], 3)
         self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))
 
-    def test_array_uninitialized_failure_precedes_assignment(self):
+    def test_strict_array_uninitialized_failure_precedes_assignment(self):
         routine = ARRAY.replace('p[2]=8', 'n=9')
-        program, _ = compile_program('a[1]=1 a[2]=2 a=build', routines=routine)
+        program, _ = compile_program('a[1]=1 a[2]=2 a=build', routines=routine, _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertEqual((program.snapshot()['A'], program.snapshot()['N']), ([1, 2], 9))
         self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))

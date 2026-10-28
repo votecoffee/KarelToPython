@@ -114,12 +114,12 @@ class PositionRoutineFixtureTests(unittest.TestCase):
     def test_forwarded_temporary_retains_protection(self):
         program,_=self.seeded('q=outer((p))','ROUTINE inner(v: POSITION): POSITION BEGIN v.location.x=99 RETURN v END inner\nROUTINE outer(v: POSITION): POSITION BEGIN RETURN inner(v) END outer')
         self.assertEqual(program.run()['Q']['LOCATION']['X'],99.); self.assertTrue(program._state.raw('Q').values['NORMAL'].read_only)
-    def test_no_source_orientation_default_is_introduced(self):
-        program,_=compile_program('q=get()',declarations='p,q: POSITION',routines='ROUTINE get: POSITION BEGIN RETURN p END get')
+    def test_strict_no_source_orientation_default_is_introduced(self):
+        program,_=compile_program('q=get()',declarations='p,q: POSITION',routines='ROUTINE get: POSITION BEGIN RETURN p END get', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
         self.assertEqual(program._state.local_frames,[])
-    def test_uninitialized_position_value_fails_before_callee(self):
-        program,_=compile_program('n=0 change((p))',declarations='p: POSITION n: INTEGER',routines='ROUTINE change(v: POSITION) BEGIN n=1 END change')
+    def test_strict_uninitialized_position_value_fails_before_callee(self):
+        program,_=compile_program('n=0 change((p))',declarations='p: POSITION n: INTEGER',routines='ROUTINE change(v: POSITION) BEGIN n=1 END change', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
         self.assertEqual(program.snapshot()['N'],0)
 
@@ -143,8 +143,8 @@ class JointRoutineValueTests(unittest.TestCase):
     def test_copy_does_not_infer_width_from_active_context(self):
         program,_=compile_program('b=echo((a))',declarations='a,b: JOINTPOS3',routines='ROUTINE echo(v: JOINTPOS3): JOINTPOS3 BEGIN RETURN v END echo',joint_axes=1)
         program._state.raw('A').values[:]=[1.,2.,3.]; self.assertEqual(program.run()['B'],dict(axes=[1.,2.,3.]))
-    def test_uninitialized_joint_result_preserves_destination(self):
-        program,_=compile_program('b=get()',declarations='a,b: JOINTPOS3',routines='ROUTINE get: JOINTPOS3 BEGIN RETURN a END get')
+    def test_strict_uninitialized_joint_result_preserves_destination(self):
+        program,_=compile_program('b=get()',declarations='a,b: JOINTPOS3',routines='ROUTINE get: JOINTPOS3 BEGIN RETURN a END get', _translator=legacy_translate)
         program._state.raw('B').values[:]=[7.,8.,9.]
         with self.assertRaisesRegex(rt.KarelRuntimeError,'initialized axes'): program.run()
         self.assertEqual(program.snapshot()['B'],dict(axes=[7.,8.,9.])); self.assertEqual(program._state.local_frames,[])
@@ -180,10 +180,10 @@ class PositionalRoutineGuardTests(unittest.TestCase):
         program,_=compile_program('q=get()',routines='ROUTINE get: XYZWPR BEGIN END get')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'without RETURN'): program.run()
         self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
-    def test_uninitialized_copy_before_callee_effects(self):
+    def test_strict_uninitialized_copy_before_callee_effects(self):
         for kind in NEW_TYPES:
             with self.subTest(kind=kind):
-                program,_=compile_program('n=0 work((a))',declarations=f'a: {kind} n: INTEGER',routines=f'ROUTINE work(v: {kind}) BEGIN n=1 END work')
+                program,_=compile_program('n=0 work((a))',declarations=f'a: {kind} n: INTEGER',routines=f'ROUTINE work(v: {kind}) BEGIN n=1 END work', _translator=legacy_translate)
                 with self.assertRaises(rt.KarelRuntimeError): program.run()
                 self.assertEqual(program.snapshot()['N'],0); self.assertEqual(program._state.call_depth,0)
     def test_bad_config_value_before_destination_mutation(self):

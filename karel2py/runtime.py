@@ -317,6 +317,8 @@ def parameter_accepts(formal, actual):
 
 
 def checked(spec, value, line=None):
+    if _pythonic() and (type(spec) is not tuple or not spec or type(spec[0]) is not str):
+        raise KarelRuntimeError('Malformed concrete value type specification', line)
     if spec[0] in ('FILE','PATH','QUEUE_TYPE'):
         if spec[0]=='FILE' and isinstance(value,FileHandle): return value
         if not hasattr(value,'spec') or value.spec!=spec: raise KarelRuntimeError('Resource type mismatch',line)
@@ -344,6 +346,10 @@ def checked(spec, value, line=None):
     if spec[0] == 'STRING':
         return ascii_string(value, line)[:spec[1]]
     if spec[0] == 'JOINTPOS':
+        if _pythonic():
+            if not isinstance(value, JointPosition) or value.spec != spec:
+                raise KarelRuntimeError('Joint copy requires identical declared axis count', line)
+            return _aggregate_value(spec, value, line)
         count = joint_width(spec)
         if not isinstance(value, JointPosition) or value.spec != spec or len(value.values) != count:
             raise KarelRuntimeError('Joint copy requires identical declared axis count', line)
@@ -355,6 +361,7 @@ def checked(spec, value, line=None):
     if spec[0] == 'ARRAY':
         if not isinstance(value, Array) or value.spec != spec:
             raise KarelRuntimeError('Whole-array assignment requires identical type and size', line)
+        if _pythonic(): return _aggregate_value(spec, value, line)
         if array_leaf_spec(spec)[0] in (*RECORD_TYPES, 'JOINTPOS') and not fully_initialized(value):
             raise KarelRuntimeError('Whole-array copying with uninitialized or unknown STRUCTURE fields needs KAREL validation', line)
         validate_config_contents(value, line)
@@ -362,6 +369,7 @@ def checked(spec, value, line=None):
     if spec[0] in RECORD_TYPES:
         if not isinstance(value, Structure) or value.spec != spec:
             raise KarelRuntimeError('Whole-structure assignment requires identical named type', line)
+        if _pythonic(): return _aggregate_value(spec, value, line)
         if not fully_initialized(value):
             raise KarelRuntimeError('Whole-structure copying with uninitialized fields needs KAREL validation', line)
         validate_config_contents(value, line)
@@ -374,6 +382,15 @@ def assignment_value(value, line=None):
     if isinstance(value, (Array, Structure, JointPosition, PathValue)):
         return checked(value.spec, value, line)
     return require(value, line)
+
+
+def service_value(value, line=None):
+    """Capture ordinary service inputs with their existing complete-value checks."""
+    if _pythonic() and isinstance(value,(Array,Structure,JointPosition)):
+        if isinstance(value,Array) and array_leaf_spec(value.spec)[0] not in (*RECORD_TYPES,'JOINTPOS'):
+            return _partial_aggregate_value(value.spec,value,line)
+        return _aggregate_value(value.spec,value,line,allow_partial=False)
+    return assignment_value(value,line)
 
 
 def scalar_leaf_count(spec, limit=32767):
@@ -742,16 +759,18 @@ def value_argument(spec, value, line=None):
             raise KarelRuntimeError('STRING value arguments are limited to 254 characters', line)
         return Reference(spec, {'value': checked(spec, value, line)}, 'value')
     if spec[0] == 'ARRAY' and _pythonic():
-        if not isinstance(value, Array) or not parameter_accepts(spec, value.spec):
+        try:compatible=isinstance(value,Array) and parameter_accepts(spec,value.spec)
+        except (KarelRuntimeError,TypeError,IndexError,RecursionError):compatible=False
+        if not compatible:
             raise KarelRuntimeError('ARRAY value argument requires a matching concrete type and shape', line)
         copied = _aggregate_value(value.spec, value, line)
         return Reference(copied.spec, {'value': copied}, 'value')
     if spec == ('VECTOR',):
-        return Reference(spec, {'value': vector_value(value, line)}, 'value')
+        return Reference(spec, {'value': checked(spec, value, line) if _pythonic() else vector_value(value, line)}, 'value')
     if spec[0] == 'STRUCTURE':
         return Reference(spec, {'value': structure_value(spec, value, line)}, 'value')
     if spec[0] in POSITIONAL_VALUE_TYPES:
-        return Reference(spec, {'value': positional_value(spec, value, line)}, 'value')
+        return Reference(spec, {'value': checked(spec, value, line) if _pythonic() else positional_value(spec, value, line)}, 'value')
     if spec[0] not in ('INTEGER', 'BOOLEAN', 'REAL'):
         raise KarelRuntimeError('Unsupported value-parameter type', line)
     return Reference(spec, {'value': checked(spec, value, line)}, 'value')
@@ -1055,7 +1074,7 @@ def vector_value(value, line=None):
 
 
 def structure_value(spec, value, line=None):
-    """Copy a named record tree without exporting its source storage or markers."""
+    """Copy a named record tree without exporting its source storage."""
     if spec[0] != 'STRUCTURE':
         raise KarelRuntimeError('Named STRUCTURE value requires a declared STRUCTURE type', line)
     return _aggregate_value(spec, value, line)
@@ -1065,7 +1084,7 @@ def positional_value(spec, value, line=None):
     """Copy initialized exact-type positional data without conversion or context."""
     if spec[0] not in POSITIONAL_VALUE_TYPES:
         raise KarelRuntimeError('Expected a supported exact positional value type', line)
-    return _aggregate_value(spec, value, line)
+    return _aggregate_value(spec, value, line, allow_partial=False)
 
 
 def array_result(spec, value, line=None):
@@ -1121,8 +1140,107 @@ def array_result(spec, value, line=None):
     return _aggregate_value(value.spec, value, line)
 
 
-def _aggregate_value(spec, value, line=None):
-    """Shared checked copy of a generated concrete aggregate type."""
+def _partial_aggregate_value(spec, value, line=None):
+    """Validate every declared field before detaching partial data-only values."""
+    schema_cache={}
+    def schema(expected,trail=()):
+        if type(expected) is not tuple or not expected or type(expected[0]) is not str:
+            raise KarelRuntimeError('Aggregate value requires a concrete data type',line)
+        if id(expected) in trail or len(trail)>=64:
+            raise KarelRuntimeError('Aggregate value schema exceeds 64 levels or is cyclic',line)
+        if id(expected) in schema_cache:
+            count,height=schema_cache[id(expected)]
+            if len(trail)+height>64:raise KarelRuntimeError('Aggregate value schema exceeds 64 levels',line)
+            return count
+        trail=trail+(id(expected),);kind=expected[0];height=1
+        if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT'):
+            if expected!=(kind,):raise KarelRuntimeError('Aggregate scalar type is malformed',line)
+            count=1
+        elif kind=='STRING':
+            if len(expected)!=2 or type(expected[1]) is not int or not 1<=expected[1]<=254:
+                raise KarelRuntimeError('Aggregate value STRING needs concrete capacity in 1..254',line)
+            count=1
+        elif kind=='JOINTPOS':count=joint_width(expected)
+        elif kind=='ARRAY':
+            if len(expected) not in (3,4):raise KarelRuntimeError('Aggregate value ARRAY type is malformed',line)
+            array_identity(expected);shape=array_shape(expected)
+            if not 1<=len(shape)<=3 or any(type(size) is not int or not 1<=size<=32767 for size in shape):
+                raise KarelRuntimeError('Aggregate value ARRAY requires concrete shape in 1..32767',line)
+            count=schema(expected[2],trail)*math.prod(shape)
+            height=1+schema_cache[id(expected[2])][1]
+            if expected[2][0]=='ARRAY' and array_identity(expected[2]) is None:
+                raise KarelRuntimeError('Aggregate value nested ARRAY needs a named component type',line)
+            if len(array_dimensions(expected))>3:
+                raise KarelRuntimeError('Aggregate value ARRAY supports at most three logical dimensions',line)
+        elif kind in RECORD_TYPES:
+            if kind=='STRUCTURE':
+                if (len(expected)!=3 or type(expected[1]) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]*',expected[1])
+                        or type(expected[2]) is not tuple or not expected[2]):
+                    raise KarelRuntimeError('Aggregate value STRUCTURE needs a nominal name and nonempty fields',line)
+                names=set()
+                for field in expected[2]:
+                    if (type(field) is not tuple or len(field)!=2 or type(field[0]) is not str
+                            or not re.fullmatch(r'[A-Z_][A-Z_0-9]*',field[0]) or field[0] in names):
+                        raise KarelRuntimeError('Aggregate value STRUCTURE has malformed or duplicate fields',line)
+                    names.add(field[0])
+            elif expected!=(kind,):raise KarelRuntimeError('Aggregate builtin record type is malformed',line)
+            fields=record_fields(expected);count=0
+            for name,field in fields:
+                count+=schema(field,trail);height=max(height,1+schema_cache[id(field)][1])
+                if count>32767:break
+        else:raise KarelRuntimeError('Aggregate values require data types without FILE/PATH/QUEUE resources',line)
+        if count>32767:raise KarelRuntimeError('Aggregate values are limited to 32767 scalar leaves by the prototype',line)
+        schema_cache[id(expected)]=(count,height);return count
+
+    try:schema(spec)
+    except KarelRuntimeError as exc:
+        if exc.line is None and line is not None:raise KarelRuntimeError(str(exc),line) from None
+        raise
+    def copy_value(expected,item,trail=()):
+        kind=expected[0]
+        if kind in ('ARRAY','JOINTPOS',*RECORD_TYPES):
+            if id(item) in trail:raise KarelRuntimeError('Aggregate value storage is cyclic',line)
+            trail=trail+(id(item),)
+        if kind=='ARRAY':
+            shape=array_shape(expected)
+            if (type(item) is not Array or item.spec!=expected or item.shape!=shape
+                    or type(item.values) is not list or len(item.values)!=math.prod(shape)):
+                raise KarelRuntimeError('Aggregate value ARRAY requires identical concrete type, shape and storage',line)
+            result=Array(expected)
+            result.values[:]=[copy_value(expected[2],child,trail) for child in item.values]
+            return result
+        if kind in RECORD_TYPES:
+            fields=dict(record_fields(expected))
+            if (type(item) is not Structure or item.spec!=expected or type(item.types) is not dict or item.types!=fields
+                    or type(item.values) is not dict or set(item.values)!=set(fields)):
+                raise KarelRuntimeError('Aggregate value record requires identical nominal type and fields',line)
+            result=Structure(expected)
+            for name,field in fields.items():
+                updated=copy_value(field,item.values[name],trail)
+                if kind=='CONFIG' and field==INTEGER and updated is not UNINITIALIZED and not -8<=updated<=7:
+                    raise KarelRuntimeError('CONFIG turn numbers are limited to -8..7 by the prototype',line)
+                result.values[name]=replace_value(result.values[name],updated)
+            return result
+        if kind=='JOINTPOS':
+            if type(item) is not JointPosition or item.spec!=expected or type(item.values) is not list or len(item.values)!=expected[1]:
+                raise KarelRuntimeError('Aggregate value joint requires identical declared axis count and storage',line)
+            result=JointPosition(expected)
+            result.values[:]=[copy_value(REAL,axis,trail) for axis in item.values]
+            return result
+        if item is UNINITIALIZED:return UNINITIALIZED
+        if item is UNKNOWN_BYTE:
+            if expected!=BYTE:raise KarelRuntimeError('Unknown BYTE marker requires BYTE aggregate storage',line)
+            return UNKNOWN_BYTE
+        if kind=='STRING' and len(ascii_string(item,line))>expected[1]:
+            raise KarelRuntimeError('Aggregate value STRING exceeds its declared capacity',line)
+        return checked(expected,item,line)
+    return copy_value(spec,value)
+
+
+def _aggregate_value(spec, value, line=None, *, allow_partial=None):
+    """Shared checked copy; Pythonic transfers retain validated missing leaves."""
+    if allow_partial is None:allow_partial=_pythonic()
+    if allow_partial:return _partial_aggregate_value(spec,value,line)
     if scalar_leaf_count(spec) > 32767:
         raise KarelRuntimeError('Aggregate values are limited to 32767 scalar leaves by the prototype', line)
 
@@ -1151,6 +1269,8 @@ def _aggregate_value(spec, value, line=None):
             return result
         if kind == 'STRING' and len(ascii_string(item, line)) > expected[1]:
             raise KarelRuntimeError('Aggregate value STRING exceeds its declared capacity', line)
+        if kind == 'JOINTPOS' and not fully_initialized(item):
+            raise KarelRuntimeError('Joint copy requires initialized axes',line)
         updated = checked(expected, item, line)
         require(updated, line)
         return updated

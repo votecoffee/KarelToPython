@@ -203,10 +203,10 @@ class ArrayLengthTests(unittest.TestCase):
         routines='ROUTINE use(p: ARRAY[*,*] OF INTEGER) BEGIN x=ARRAY_LEN(p) END use'
         self.assertEqual(execute('use(grid)',routines=routines,declarations='grid: ARRAY[2,3] OF INTEGER')['X'],2)
 
-    def test_result_length_still_requires_valid_function_result(self):
+    def test_result_length_reads_shape_without_missing_element_values(self):
         program,_=compile_program('x=ARRAY_LEN(build())',fill='data[1]=1')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-        self.assertEqual(program.snapshot()['N'],1)
+        state=program.run()
+        self.assertEqual((state['N'],state['X']),(1,2))
 
 
 class ResultFailureTests(unittest.TestCase):
@@ -289,10 +289,11 @@ class ResultFailureTests(unittest.TestCase):
         self.assertEqual(program.snapshot()['TARGET'],[42,UNKNOWN])
         self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
 
-    def test_incomplete_matrix_result_unwinds(self):
+    def test_partial_matrix_result_preserves_unknown_and_unwinds(self):
         program,_=compile_program(result='ARRAY[*,*] OF INTEGER',storage='ARRAY[1,2] OF INTEGER',fill='data[1,1]=1',declarations='target: ARRAY[1,2] OF INTEGER')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-        self.assertEqual((program.snapshot()['N'],program._state.local_frames,program._state.call_depth),(1,[],0))
+        state=program.run()
+        self.assertEqual(state['TARGET'],[[1,UNKNOWN]])
+        self.assertEqual((state['N'],program._state.local_frames,program._state.call_depth),(1,[],0))
 
     def test_missing_named_return_unwinds(self):
         program,_=compile_program(routines='ROUTINE build: row_t BEGIN n=7 END build',types='TYPE row_t=ARRAY[2] OF INTEGER',declarations='target: row_t')

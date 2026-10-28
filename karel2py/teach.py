@@ -172,7 +172,7 @@ class TeachPrograms:
         if not spec or spec[0] not in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS'):
             raise runtime.KarelRuntimeError('TP position requires complete pose or joint data',line)
         with runtime._numeric_scope('pythonic'):
-            return runtime.checked(spec,value,line) if spec[0]=='JOINTPOS' else runtime.frame_value(value,line)
+            return runtime.positional_value(spec,value,line) if spec[0]=='JOINTPOS' else runtime.frame_value(value,line)
 
     def address(self,group,number,limit=None):
         return type(group) is int and group in self.groups and type(number) is int and 1<=number<=(self.position_limit if limit is None else limit)

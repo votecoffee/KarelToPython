@@ -85,7 +85,7 @@ class NarrowArrayFunctionTests(unittest.TestCase):
                 _,result=compile_program(kind=kind)
                 ast.parse(result.python_source,feature_version=(3,11))
                 self.assertEqual([row['element_type'] for row in result.report['array_returns']],[kind])
-                self.assertTrue(result.report['array_returns'][0]['initialized_elements_required'])
+                self.assertFalse(result.report['array_returns'][0]['initialized_elements_required'])
                 self.assertIn('32767',result.report['array_routine_policy']['narrow_elements'])
                 self.assertFalse(result.report['array_routine_policy']['controller_validated'])
 
@@ -104,20 +104,20 @@ class NarrowArrayFailureTests(unittest.TestCase):
         self.assertEqual(caught.exception.code,code)
 
     def failure(self,routines,kind='BYTE',message='uninitialized'):
-        program,_=compile_program('a[1]=7 a[2]=8 n=0 a=make()',kind=kind,routines=routines)
+        program,_=compile_program('a[1]=7 a[2]=8 n=0 a=make()',kind=kind,routines=routines,_translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,message): program.run()
         self.assertEqual(program.snapshot()['A'],[7,8])
         self.assertEqual((program._state.call_depth,program._state.local_frames),(0,[]))
         return program.snapshot()
 
-    def test_unknown_byte_failure_preserves_effects_and_destination(self):
+    def test_strict_unknown_byte_failure_preserves_effects_and_destination(self):
         state=self.failure('ROUTINE make: ARRAY OF BYTE VAR p: ARRAY[2] OF BYTE BEGIN p[1]=0 n=9 RETURN p END make',message='unknown|uninitialized')
         self.assertEqual(state['N'],9)
 
-    def test_unwritten_short_result_fails_before_assignment(self):
+    def test_strict_unwritten_short_result_fails_before_assignment(self):
         self.failure('ROUTINE make: ARRAY OF SHORT VAR p: ARRAY[2] OF SHORT BEGIN p[1]=0 RETURN p END make',kind='SHORT')
 
-    def test_short_marker_result_fails_before_assignment(self):
+    def test_strict_short_marker_result_fails_before_assignment(self):
         state=self.failure('ROUTINE make: ARRAY OF SHORT VAR p: ARRAY[2] OF SHORT BEGIN p[1]=-32768 p[2]=32767 n=9 RETURN p END make',kind='SHORT')
         self.assertEqual(state['N'],9)
 

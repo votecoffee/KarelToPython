@@ -458,11 +458,14 @@ class PositionRegisters:
             if self.write(number,value,group): raise ValueError('Initial position register is outside its bank')
     def read(self,number,group=1):
         if group not in self.groups or not 1<=number<=self.count: return 2,None
-        return (0,deepcopy(self.values[group,number])) if (group,number) in self.values else (1,None)
+        if (group,number) not in self.values:return 1,None
+        rt=runtime();value=self.values[group,number]
+        with rt._numeric_scope('pythonic'):value=rt.positional_value(value.spec,value)
+        return 0,value
     def write(self,number,value,group=1):
         rt=runtime()
         if not hasattr(value,'spec') or value.spec[0] not in ('XYZWPR','XYZWPREXT','POSITION','JOINTPOS'): fail('Position register requires explicit checked pose or joint data')
-        with rt._numeric_scope('pythonic'): value=rt.checked(value.spec,value)
+        with rt._numeric_scope('pythonic'): value=rt.positional_value(value.spec,value)
         if group not in self.groups or not 1<=number<=self.count: return 2
         self.values[group,number]=value; return 0
     def describe(self,number,group=1,line=None):
@@ -1191,11 +1194,11 @@ def intersect_view_lines(state,source,frame,destination,status,line=None):
     rt=runtime();target=destination.raw()
     if not vision_path_schema(source.spec,'VIEW_LINES') or not vision_path_schema(target.spec,'POINT_PATH'):
         fail('INTSCT_VL_PL requires the documented view-line and point PATH field schemas',line)
-    header=rt.checked(source.data.spec,source.data,line)
+    header=rt._aggregate_value(source.data.spec,source.data,line,allow_partial=False)
     group=rt.integer(header.values['GRP_NUM'],line);uframe=rt.integer(header.values['UFRM_NUM'],line)
     if not 1<=group<=32 or not 0<=uframe<=32767: fail('INTSCT_VL_PL header identifiers are out of range',line)
     if target.nodes:
-        current=rt.checked(target.data.spec,target.data,line)
+        current=rt._aggregate_value(target.data.spec,target.data,line,allow_partial=False)
         if (current.values['GRP_NUM'],current.values['UFRM_NUM'])!=(group,uframe): status.set(3,line);return
     if len(target.nodes)+len(source.nodes)>32767: status.set(4,line);return
     rotation,origin,_=rt._frame_parts(frame,line)
@@ -1207,7 +1210,7 @@ def intersect_view_lines(state,source,frame,destination,status,line=None):
         offset=dot(normal,tuple(o-f for o,f in zip(origin,focal)))
         for node in source.nodes:
             state.tick(line)
-            node=rt.checked(source.node_spec,node,line)
+            node=rt._aggregate_value(source.node_spec,node,line,allow_partial=False)
             direction=rt.vector_components(node.values['DIR'],line);polarity=rt.vector_components(node.values['POL'],line)
             length=math.hypot(*direction)
             if not length or not math.isfinite(length): status.set(2,line);return

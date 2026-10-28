@@ -305,10 +305,11 @@ class AssignmentOrderTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
         self.assertEqual(program.snapshot()['TRACE'], '')
 
-    def test_incomplete_aggregate_rhs_skips_target_effect(self):
+    def test_partial_aggregate_rhs_is_captured_before_target_effect(self):
         program, _ = compile_program('items[mark(1)]=v')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
-        self.assertEqual(program.snapshot()['TRACE'], '')
+        state=program.run()
+        self.assertEqual(state['TRACE'],'A')
+        self.assertEqual(state['ITEMS'][0],state['V'])
 
     def test_direct_array_function_result_before_target_call(self):
         routine='ROUTINE make: ARRAY OF INTEGER VAR local_row: ARRAY[2] OF INTEGER BEGIN trace=trace+\'R\' local_row[1]=7 local_row[2]=8 RETURN local_row END make'

@@ -2237,7 +2237,7 @@ class Emitter:
                 if mode!='v' and kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
                 if reference_input: code=f'_rt.variable_reference({code},{value.token.line})'
                 elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line})'
-                elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.assignment_value({code},{value.token.line})'
+                elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.service_value({code},{value.token.line})'
             if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
             codes.append(code)
         self.features.add(expr.value); self.features.add('extended services')
@@ -3153,7 +3153,7 @@ class Emitter:
                                                        column=token.column, expression_kind=expr.kind,
                                                        logical_rank=len(rt.array_dimensions(spec)),
                                                        result_spec=spec, declared_dimensions=rt.array_shape(spec), nominal_identity=rt.array_identity(spec),
-                                                       independent_copy=True, initialized_elements_required=True))
+                                                       independent_copy=True, initialized_elements_required=self.mode!='pythonic'))
                     self.line(f'return _rt.array_result({spec!r}, {value}, {line})', token)
                 elif spec[0] == 'STRING':
                     self.string_return_uses.append(dict(routine=self.current_routine.name, capacity=spec[1],
@@ -3164,7 +3164,7 @@ class Emitter:
                 elif spec == ('VECTOR',):
                     self.vector_return_uses.append(dict(routine=self.current_routine.name, line=line, column=token.column,
                                                        expression_kind=expr.kind, independent_writable_copy=True))
-                    self.line(f'return _rt.vector_value({value}, {line})', token)
+                    self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.vector_value({value}, {line})', token)
                 elif spec[0] == 'STRUCTURE':
                     self.structure_return_uses.append(dict(routine=self.current_routine.name, type_name=spec[1], line=line,
                                                           column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
@@ -3172,7 +3172,7 @@ class Emitter:
                 elif spec[0] in POSITIONAL_VALUE_TYPES:
                     self.positional_return_uses.append(dict(routine=self.current_routine.name, type_spec=spec, line=line,
                                                            column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
-                    self.line(f'return _rt.positional_value({spec!r}, {value}, {line})', token)
+                    self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.positional_value({spec!r}, {value}, {line})', token)
                 else:
                     self.line(f'return _rt.checked({spec!r}, {value}, {line})', token)
         else: self.error('E_INTERNAL', f'Unexpected statement {kind}', token)
@@ -4850,6 +4850,47 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         reports='control_flow per-body jumps record label, expanded source/target line/column/block paths and same_block/ancestor/nested/sibling entry kind; existing source_map provides include origins',
         boundary='Explicit Pythonic transfer/capture policy; no FOR entry, native instruction pointers, preemption or controller/strict equivalence',
         guide='docs/nested-jumps.md',controller_validated=False)
+    report['aggregate_copy_policy']=dict(
+        types=['ARRAY','STRUCTURE','VECTOR','POSITION','XYZWPR','XYZWPREXT','CONFIG','JOINTPOS'],
+        transfers='Pythonic assignment, grouped value arguments and exact function results preserve scalar UNINITIALIZED and BYTE-only UNKNOWN_BYTE markers in detached resource-free aggregate storage',
+        validation='Validate concrete schemas/storage, exact nominal identities/shapes, known scalar types/domains, STRING capacities, CONFIG turns and joint widths before publishing any destination',
+        reads='Scalar reads still require known initialized values; geometry, formatting, kinematics callbacks and supplied vision/tray poses require complete inputs',
+        identity='In-place destination replacement preserves captured field/element references; private arguments/results never copy back to source storage',
+        limits='32767 scalar leaves and 64 nested schema levels; no root aggregate marker, resource-bearing value copy, resizing, shape coercion or synthesized scalar defaults',
+        strict='Internal strict copy/argument/result checks retain complete-initialization requirements; public strict mode remains future work',
+        guide='docs/partial-aggregate-values.md',controller_validated=False)
+    report['vector_routine_policy']['results']='Exact VECTOR results copy validated known components and preserve missing markers before local frames unwind; arithmetic remains complete-only'
+    report['structure_routine_policy'].update(
+        results='Previously declared exact named STRUCTURE types; validated independent copies preserve missing scalar leaves before frame cleanup',
+        fields='Concrete shapes, nominal identities, STRING capacities, known scalar domains, CONFIG turns, joint widths and POSITION protection remain checked',
+        limits='32767 scalar leaves and 64 nested schema levels; no resources, resizing, nominal coercion or synthesized defaults')
+    report['positional_routine_policy']['results']='Internal exact-type independent results preserve missing scalar fields/axes; geometry and native-like data consumers still require complete inputs'
+    report['array_routine_policy'].update(
+        returns='Validate complete concrete storage and every known scalar leaf, preserve missing/unknown markers, copy independently before frame cleanup',
+        narrow_elements='Known BYTE0..255 and SHORT-32768..32766 retain exact types; preserve UNKNOWN_BYTE and normalize SHORT32767 to missing; no element coercion',
+        string_elements='Exact bounded capacities, known ASCII contents and inherited formal capacities checked; no RETURN truncation, capacity inference or invented missing strings')
+    report['data_record_policy'].update(
+        copies='Exact-type independent copies preserve missing scalar leaves; destination storage and captured field aliases retained',
+        initialization='Scalar leaves start missing; builtin-record UNINIT policy remains; copying preserves markers while reads and geometry remain checked')
+    report['array_value_policy'].update(
+        storage='Validated deep copy preserves missing/unknown leaves, concrete shapes, nominal identities and STRING capacities',
+        limits='32767 scalar leaves and 64 schema levels; exact formal rank/type checks; no resources, resizing, coercion or acquired robot context')
+    report['named_array_policy']['results']='Exact named outer identity and shape with validated independent copies, including preserved missing scalar leaves'
+    report['limitations']=[row for row in report['limitations'] if not row.startswith('ARRAY value arguments require every scalar leaf')]
+    report['limitations'].append('Partial data aggregate copies preserve missing markers; scalar reads and complete geometry/kinematics/vision consumers still reject unavailable values')
+    report['keyboard_policy']['files']='READ_KB, typed line FILE READ and bounded PASSALL ASCII STRING fields; printable EOL is a portable keyboard extension; shared pane, echo/noecho, buffering and cleanup; no binary/XML/native-key layouts or byte queries'
+    report['keyboard_policy']['raw']='STRING-only fixed widths or concrete capacities, total at most4096 bytes, no CR/quote formats; printable keys and explicit ENTER13/DELETE8/REFRESH23 bytes; no editing/echo interpretation'
+    report['file_read_policy']['dispatch']='Injected keyboard typed lines/custom printable delimiters/PASSALL ASCII STRING fields, opted-in waiting/snapshot pipes, otherwise existing synchronous backend semantics'
+    report['file_pipe_policy']['management']='Explicit PIP COPY/DELETE/RENAME/LIST routing, finite closed-file snapshots and configured destination capacities; cross-backend copies honor ordinary quotas and path confinement'
+    report['file_pipe_policy']['boundary']='No native timing or dictionary display, DAQ/socket generic routing, implicit pipe creation, native byte/status equivalence or strict mode'
+    report['file_listing_policy']['boundary']='Explicit MemoryFiles/DirectoryFiles/DeviceFiles or PIP FilePipes routing; no native timestamp/order/alarm or controller-equivalence claim; strict deferred'
+    report['pipe_file_management_policy']=dict(
+        calls=['COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST'],
+        routing='Explicit PIP operands select configured plain FilePipes; ordinary paths retain existing dispatch; cross-backend copies require an explicit MemoryFiles/DirectoryFiles/DeviceFiles backend',
+        publication='Finite retained-byte snapshots, closed-file guards, complete target preflight and no ring truncation; overwrites require TRUE and destination PIP must already exist',
+        lifetime='Rename preserves configuration and bytes within PIP; delete removes both; pending READ/open handles are busy; nowait remains synchronous',
+        boundaries='No DAQ/socket routing, implicit pipe creation, cross-backend rename, native device semantics or generic PIP MOVE_FILE',
+        guide='docs/pipe-file-management.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

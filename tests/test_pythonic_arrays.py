@@ -273,34 +273,31 @@ class AggregateAccessTests(unittest.TestCase):
 
 
 class ArrayFailureTests(unittest.TestCase):
-    def test_uninitialized_value_argument_fails_before_callee(self):
+    def test_partial_value_argument_uses_private_storage(self):
         routine='ROUTINE use(p: ARRAY OF INTEGER) BEGIN n=99 p[1]=9 END use'
         program,_=compile_program('a[1]=1 use((a))',routine)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-        self.assertEqual((program.snapshot()['N'],program.snapshot()['A']), (0,[1,UNKNOWN,UNKNOWN]))
-        self.assertEqual((program._state.local_frames,program._state.call_depth), ([],0))
+        state=program.run()
+        self.assertEqual((state['N'],state['A']),(99,[1,UNKNOWN,UNKNOWN]))
+        self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
 
     def test_bare_uninitialized_array_is_legal_output(self):
         routine='ROUTINE use(p: ARRAY OF INTEGER) BEGIN p[1]=9 END use'
         self.assertEqual(execute('use(a)',routine)['A'][0],9)
 
-    def test_unknown_byte_in_copy_is_rejected(self):
-        routine='ROUTINE use(p: ARRAY OF BYTE) BEGIN n=99 END use'
-        program,_=compile_program('use((values))',routine,declarations=DECLARATIONS+' values: ARRAY[1] OF BYTE')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'unknown'): program.run()
-        self.assertEqual(program.snapshot()['N'],0)
+    def test_unknown_byte_value_copy_preserves_source_marker(self):
+        routine='ROUTINE use(p: ARRAY OF BYTE) BEGIN n=99 p[1]=7 END use'
+        state=execute('use((values))',routine,declarations=DECLARATIONS+' values: ARRAY[1] OF BYTE')
+        self.assertEqual((state['N'],state['VALUES']),(99,[{'unknown_byte':True}]))
 
-    def test_short_uninitialized_marker_is_rejected(self):
-        routine='ROUTINE use(p: ARRAY OF SHORT) BEGIN n=99 END use'
-        program,_=compile_program('values[1]=32767 use((values))',routine,declarations=DECLARATIONS+' values: ARRAY[1] OF SHORT')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-        self.assertEqual(program.snapshot()['N'],0)
+    def test_short_missing_marker_survives_private_copy(self):
+        routine='ROUTINE use(p: ARRAY OF SHORT) BEGIN n=99 p[1]=7 END use'
+        state=execute('values[1]=32767 use((values))',routine,declarations=DECLARATIONS+' values: ARRAY[1] OF SHORT')
+        self.assertEqual((state['N'],state['VALUES']),(99,[UNKNOWN]))
 
-    def test_first_copy_failure_skips_later_argument(self):
-        routine="ROUTINE change: INTEGER BEGIN trace='late' RETURN 1 END change\nROUTINE use(p: ARRAY OF INTEGER; q: INTEGER) BEGIN n=99 END use"
-        program,_=compile_program('use((a),change())',routine)
-        with self.assertRaises(rt.KarelRuntimeError): program.run()
-        self.assertEqual((program.snapshot()['TRACE'],program.snapshot()['N']),('',0))
+    def test_partial_copy_allows_later_argument_without_aliasing(self):
+        routine="ROUTINE change: INTEGER BEGIN trace='late' a[1]=7 RETURN 1 END change\nROUTINE use(p: ARRAY OF INTEGER; q: INTEGER) BEGIN n=99 flag=UNINIT(p[1]) END use"
+        state=execute('use((a),change())',routine)
+        self.assertEqual((state['TRACE'],state['N'],state['FLAG'],state['A'][0]),('late',99,True,7))
 
     def test_callee_error_does_not_copy_back(self):
         routine='ROUTINE use(p: ARRAY OF INTEGER) BEGIN p[1]=99 n=7 x=1 DIV 0 END use'
@@ -316,11 +313,11 @@ class ArrayFailureTests(unittest.TestCase):
         self.assertEqual((program.snapshot()['A'],program.snapshot()['N']),([1,2,3],7))
         self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
 
-    def test_result_failure_prevents_argument_callee(self):
-        routine=FACTORY.replace('values[3]=3','')+'\nROUTINE use(p: ARRAY OF INTEGER) BEGIN x=99 END use'
+    def test_partial_result_can_be_passed_to_argument_callee(self):
+        routine=FACTORY.replace('values[3]=3','')+'\nROUTINE use(p: ARRAY OF INTEGER) BEGIN x=99 flag=UNINIT(p[3]) END use'
         program,_=compile_program('use(make())',routine)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-        self.assertEqual((program.snapshot()['N'],program.snapshot()['X']), (1,UNKNOWN))
+        state=program.run()
+        self.assertEqual((state['N'],state['X'],state['FLAG']),(1,99,True))
         self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
 
     def test_forwarded_string_capacity_mismatch_still_fails(self):
@@ -449,11 +446,13 @@ class ArrayRuntimeAndReportTests(unittest.TestCase):
         source=initialized_host(('ARRAY',1,rt.INTEGER)); source.spec=('ARRAY',32768,rt.INTEGER)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'32767'): self.value(('ARRAY',None,rt.INTEGER),source)
 
-    def test_runtime_unknown_byte_and_short_marker_checked(self):
-        for kind,invalid in ((rt.BYTE,rt.UNKNOWN_BYTE),(rt.SHORT,32767)):
+    def test_runtime_unknown_byte_and_short_marker_copies(self):
+        for kind,missing in ((rt.BYTE,rt.UNKNOWN_BYTE),(rt.SHORT,32767)):
             with self.subTest(kind=kind):
-                source=rt.Array(('ARRAY',1,kind)); source.values[0]=invalid
-                with self.assertRaises(rt.KarelRuntimeError): self.value(('ARRAY',None,kind),source)
+                source=rt.Array(('ARRAY',1,kind));source.values[0]=missing
+                value=self.value(('ARRAY',None,kind),source).raw()
+                self.assertIs(value.values[0],rt.UNKNOWN_BYTE if kind==rt.BYTE else rt.UNINITIALIZED)
+                self.assertIsNot(value,source)
 
     def test_report_records_value_copies_and_function_sites(self):
         routine=FACTORY+'\nROUTINE use(p: ARRAY OF INTEGER) BEGIN p[1]=99 END use'

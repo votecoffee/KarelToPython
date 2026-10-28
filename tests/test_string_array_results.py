@@ -116,7 +116,7 @@ class StringArrayReturnTests(unittest.TestCase):
         _, result = compile_program()
         self.assertEqual(result.report['array_returns'][0]['element_spec'], ('STRING', 3))
         self.assertIn('bounded STRING ARRAY function result', result.report['features'])
-        self.assertIn('exact', result.report['array_routine_policy']['string_elements'])
+        self.assertIn('exact', result.report['array_routine_policy']['string_elements'].lower())
         self.assertFalse(result.report['array_routine_policy']['controller_validated'])
 
 
@@ -191,9 +191,9 @@ class StringArrayFailureTests(unittest.TestCase):
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertEqual(program.snapshot()['A'], ['one', 'two'])
 
-    def test_unknown_element_preserves_destination_and_prior_effects(self):
+    def test_strict_unknown_element_preserves_destination_and_prior_effects(self):
         routine = FACTORY.replace("p[2]=''", 'n=9')
-        program, _ = compile_program("a[1]='one' a[2]='two' a=make", routines=routine)
+        program, _ = compile_program("a[1]='one' a[2]='two' a=make", routines=routine, _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
         self.assertEqual((program.snapshot()['A'], program.snapshot()['N']), (['one', 'two'], 9))
         self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))

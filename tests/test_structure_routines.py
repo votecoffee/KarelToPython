@@ -157,12 +157,12 @@ class StructureRoutineGuardTests(unittest.TestCase):
     def test_delay_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines='ROUTINE get: packet_t BEGIN DELAY 0 RETURN a END get', _translator=legacy_translate)
     def test_output_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines="ROUTINE get: packet_t BEGIN WRITE('record') RETURN a END get", _translator=legacy_translate)
     def test_abort_result_for_indexed_target(self): self.reject('E_EVALUATION_ORDER','items[1]=get()',declarations='a: packet_t items: ARRAY[1] OF packet_t',routines='ROUTINE get: packet_t BEGIN IF FALSE THEN ABORT ENDIF RETURN a END get', _translator=legacy_translate)
-    def test_uninitialized_nested_leaf_fails_before_callee_effect(self):
-        program,_=compile_program(initialize()+' n=0 change((b))',routines='ROUTINE change(p: packet_t) BEGIN n=1 END change')
+    def test_strict_uninitialized_nested_leaf_fails_before_callee_effect(self):
+        program,_=compile_program(initialize()+' n=0 change((b))',routines='ROUTINE change(p: packet_t) BEGIN n=1 END change', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
         self.assertEqual(program.snapshot()['N'],0); self.assertEqual(program._state.call_depth,0)
-    def test_partial_array_field_return_fails_before_destination_mutation(self):
-        program,_=compile_program(initialize('b')+' a.child.count=1 a.child.label=\'abc\' a.enabled=ON a.values[1]=1 b=get()',routines='ROUTINE get: packet_t BEGIN RETURN a END get')
+    def test_strict_partial_array_field_return_fails_before_destination_mutation(self):
+        program,_=compile_program(initialize('b')+' a.child.count=1 a.child.label=\'abc\' a.enabled=ON a.values[1]=1 b=get()',routines='ROUTINE get: packet_t BEGIN RETURN a END get', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
         self.assertEqual(program.snapshot()['B'],packet()); self.assertEqual(program._state.local_frames,[])
     def test_fallthrough_error_and_cleanup(self):

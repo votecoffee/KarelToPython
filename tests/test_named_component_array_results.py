@@ -117,9 +117,9 @@ class NamedComponentArrayReturnTests(unittest.TestCase):
             outcomes.append((program.run(), program._state.steps))
         self.assertEqual(outcomes[0], outcomes[1])
 
-    def test_unknown_leaf_preserves_destination_and_prior_effects(self):
+    def test_strict_unknown_leaf_preserves_destination_and_prior_effects(self):
         routine = 'ROUTINE fail: ARRAY OF row_t VAR p: ARRAY[2] OF row_t BEGIN n=7 p[1,1]=1 RETURN p END fail'
-        program, _ = compile_program(INIT.replace('p[', 'a[') + ' a=fail()', routines=routine)
+        program, _ = compile_program(INIT.replace('p[', 'a[') + ' a=fail()', routines=routine, _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized') as caught:
             program.run()
         self.assertIsNotNone(caught.exception.line)
@@ -153,11 +153,11 @@ class NamedComponentArrayReturnTests(unittest.TestCase):
                 self.assertEqual(program.run()['B'], before)
                 self.assertIsNot(program._state.raw('A').values[0], program._state.raw('B').values[0])
 
-    def test_nested_unknown_byte_preserves_destination_and_cleans_frames(self):
+    def test_strict_nested_unknown_byte_preserves_destination_and_cleans_frames(self):
         types = 'TYPE row_t=ARRAY[2] OF BYTE'
         routine = 'ROUTINE fail: ARRAY OF row_t VAR p: ARRAY[1] OF row_t BEGIN n=7 p[1,1]=1 RETURN p END fail'
         program, _ = compile_program('a[1,1]=8 a[1,2]=9 a=fail()', types=types,
-                                      declarations='a: ARRAY[1] OF row_t n: INTEGER', routines=routine)
+                                      declarations='a: ARRAY[1] OF row_t n: INTEGER', routines=routine, _translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertEqual(program._state.snapshot(), {'A': [[8, 9]], 'N': 7})
         self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))

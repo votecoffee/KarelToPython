@@ -39,7 +39,7 @@ def source_result(model,encoder,offset,positions,measurements,line):
     views={}
     for index,value in enumerate([] if positions.value is rt().UNINITIALIZED else positions.value.values,1):
         if missing(value):continue
-        point=rt().checked(('XYZWPR',),value,line);views[str(index)]=dict(position=point,model=model)
+        point=rt().positional_value(('XYZWPR',),value,line);views[str(index)]=dict(position=point,model=model)
     values=[None if v is rt().UNINITIALIZED else rt().real(v,line) for v in ([rt().UNINITIALIZED]*10 if measurements.value is rt().UNINITIALIZED else measurements.value.values)]
     return result(dict(offset=offset,views=views,model=model,encoder=encoder,measurements=values))
 
@@ -388,7 +388,7 @@ class VTQueues:
                         if not missing(args[3].value):value['encoder']=integer(args[3].value,-2147483648)
                         for index,field in ((4,'offset'),(5,'found')):
                             if missing(args[index].value):continue
-                            point=rt().checked(('XYZWPR',),args[index].value,line)
+                            point=rt().positional_value(('XYZWPR',),args[index].value,line)
                             if field=='offset':value['offset']=point
                             else:value['views']['1']=dict(position=point,model=value['model'])
                         values=list(value['measurements'])+[None]*(10-len(value['measurements']))

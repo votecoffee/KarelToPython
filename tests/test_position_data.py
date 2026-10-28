@@ -136,11 +136,11 @@ class PositionGuardTests(unittest.TestCase):
     def test_bare_scalar_orientation_argument_blocked(self): self.reject('change(p.normal.x)',code='E_POSITION_READ_ONLY_ARG',routines='ROUTINE change(x: REAL) BEGIN x=9 END change')
     def test_bare_whole_orientation_argument_blocked(self): self.reject('change(p.normal)',code='E_POSITION_READ_ONLY_ARG',routines='ROUTINE change(x: VECTOR) BEGIN x.x=9 END change')
     def test_readonly_callee_is_also_guarded(self): self.reject('change(p.normal.x)',code='E_POSITION_READ_ONLY_ARG',routines='ROUTINE change(x: REAL) BEGIN result=x END change')
-    def test_grouped_orientation_value_requires_initialized_contents(self):
-        program,_=compile_program('change((p.normal))',routines='ROUTINE change(x: VECTOR) BEGIN END change')
+    def test_strict_grouped_orientation_value_requires_initialized_contents(self):
+        program,_=compile_program('change((p.normal))',routines='ROUTINE change(x: VECTOR) BEGIN END change', translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
-    def test_grouped_whole_position_value_requires_initialized_contents(self):
-        program,_=compile_program('change((p))',routines='ROUTINE change(x: POSITION) BEGIN END change')
+    def test_strict_grouped_whole_position_value_requires_initialized_contents(self):
+        program,_=compile_program('change((p))',routines='ROUTINE change(x: POSITION) BEGIN END change', translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
     def test_continued_readonly_diagnostic_location(self):
         with self.assertRaises(TranslationError) as caught: compile_program('p.normal. &\n x=1')
@@ -157,12 +157,12 @@ class PositionGuardTests(unittest.TestCase):
         self.assertTrue(program.run()['FLAG']);self.assertEqual(program.snapshot()['P']['LOCATION']['X'],{'uninitialized':True})
         self.reject('flag=UNINIT(p)',code='E_TYPE',translator=legacy_translate)
     def test_position_using_still_blocked_in_legacy_parser(self): self.reject('USING p DO x=1 ENDUSING',code='E_USING_TYPE',translator=legacy_translate)
-    def test_partial_position_copy_guard_preserves_destination(self):
-        program,_=compile_program('q.location.x=9 p.location.x=1 q=p')
+    def test_strict_partial_position_copy_guard_preserves_destination(self):
+        program,_=compile_program('q.location.x=9 p.location.x=1 q=p', translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
         self.assertEqual(program._state.snapshot()['Q']['LOCATION']['X'],9.0)
-    def test_partial_orientation_copy_guard(self):
-        program,_=compile_program('v=p.normal')
+    def test_strict_partial_orientation_copy_guard(self):
+        program,_=compile_program('v=p.normal', translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
     def test_position_record_leaf_count(self):
         self.assertEqual(rt.scalar_leaf_count(('POSITION',)),19)
@@ -251,8 +251,8 @@ class ExtendedPositionTests(unittest.TestCase):
     def test_extended_array_formal(self):
         program,_=compile_program('change(items)',declarations='items: ARRAY[2] OF XYZWPREXT',routines='ROUTINE change(x: ARRAY OF XYZWPREXT) BEGIN x[2].ext1=3 END change')
         self.assertEqual(program.run()['ITEMS'][1]['EXT1'],3.0)
-    def test_extended_copy_requires_every_extra_axis(self):
-        program,_=compile_program(init_pose('ext')+' other=ext')
+    def test_strict_extended_copy_requires_every_extra_axis(self):
+        program,_=compile_program(init_pose('ext')+' other=ext', translator=legacy_translate)
         with self.assertRaises(rt.KarelRuntimeError): program.run()
     def test_extended_leaf_count(self): self.assertEqual(rt.scalar_leaf_count(('XYZWPREXT',)),16)
     def test_extended_wrong_field_type(self):

@@ -103,8 +103,8 @@ class ArrayResultFailureTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'identical type and size'): program.run()
         self.assertEqual((program.snapshot()['A'],program.snapshot()['N']),([99,88],1))
         self.assertEqual((program._state.call_depth,program._state.local_frames),(0,[]))
-    def test_unknown_element_failure_precedes_assignment(self):
-        program,_=compile_program('a[1]=99 n=0 a=make()',routines=FACTORY.replace('values[3]=3','n=7'))
+    def test_strict_unknown_element_failure_precedes_assignment(self):
+        program,_=compile_program('a[1]=99 n=0 a=make()',routines=FACTORY.replace('values[3]=3','n=7'), _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
         self.assertEqual((program.snapshot()['A'][0],program.snapshot()['N']),(99,7))
         self.assertEqual((program._state.call_depth,program._state.local_frames),(0,[]))

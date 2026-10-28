@@ -114,7 +114,7 @@ def pose(value):
     try:
         if type(value) is dict:spec,value=decode_typed(value)
         if type(value) is not rt().Structure or value.spec!=('XYZWPR',):raise ValueError('Vision positions require exact complete XYZWPR data')
-        with rt()._numeric_scope('pythonic'):return rt().checked(('XYZWPR',),value)
+        with rt()._numeric_scope('pythonic'):return rt().positional_value(('XYZWPR',),value)
     except (rt().KarelRuntimeError,KeyError,TypeError) as error:raise ValueError('Vision positions require exact complete XYZWPR data') from error
 
 

@@ -163,16 +163,16 @@ class StructureCopyTests(unittest.TestCase):
         state = execute(INITIALIZE + 'copy(dst,src,dst.slots[2])', routine)
         self.assertEqual((state['RESULT'], state['DST']['SLOTS']), (20, [10, 99]))
 
-    def test_copy_partially_initialized_structure_rejected_without_mutation(self):
-        p, _ = compile_program('dst.child.count = 42 src.child.count = 5 dst = src')
+    def test_strict_copy_partially_initialized_structure_rejected_without_mutation(self):
+        p, _ = compile_program('dst.child.count = 42 src.child.count = 5 dst = src', _translator=legacy_translate)
         before = None
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized fields'): p.run()
         before = p._state.snapshot()
         self.assertEqual(before['DST']['CHILD']['COUNT'], 42)
         self.assertEqual(before['DST']['SLOTS'], [{'uninitialized': True}] * 2)
 
-    def test_uninitialized_array_leaf_blocks_structure_copy(self):
-        p, _ = compile_program(INITIALIZE.replace('src.slots[2] = 20', '') + 'dst = src')
+    def test_strict_uninitialized_array_leaf_blocks_structure_copy(self):
+        p, _ = compile_program(INITIALIZE.replace('src.slots[2] = 20', '') + 'dst = src', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized fields'): p.run()
         self.assertEqual(p._state.snapshot()['DST']['CHILD']['COUNT'], {'uninitialized': True})
 
@@ -266,12 +266,12 @@ class StructureRejectionTests(unittest.TestCase):
     def test_identical_shape_different_type_cannot_bind(self):
         self.rejected('fill(alien)', 'ROUTINE fill(p: inner) BEGIN END fill')
 
-    def test_parenthesized_structure_requires_initialized_value(self):
-        program,_=compile_program('fill((item))','ROUTINE fill(p: inner) BEGIN END fill')
+    def test_strict_parenthesized_structure_requires_initialized_value(self):
+        program,_=compile_program('fill((item))','ROUTINE fill(p: inner) BEGIN END fill', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
 
-    def test_parenthesized_nested_structure_requires_initialized_value(self):
-        program,_=compile_program('fill((src.child))','ROUTINE fill(p: inner) BEGIN END fill')
+    def test_strict_parenthesized_nested_structure_requires_initialized_value(self):
+        program,_=compile_program('fill((src.child))','ROUTINE fill(p: inner) BEGIN END fill', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
 
     def test_unknown_field(self):
@@ -342,8 +342,8 @@ class StructureRejectionTests(unittest.TestCase):
     def test_local_type_definition_blocked(self):
         self.rejected(routines='ROUTINE work TYPE local_t = STRUCTURE x: INTEGER ENDSTRUCTURE BEGIN END work', code='E_ROUTINE_LOCALS')
 
-    def test_structure_return_requires_initialized_value(self):
-        program,_=compile_program('item=work()',routines='ROUTINE work: inner BEGIN RETURN item END work')
+    def test_strict_structure_return_requires_initialized_value(self):
+        program,_=compile_program('item=work()',routines='ROUTINE work: inner BEGIN RETURN item END work', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'): program.run()
 
     def test_using_structure_field_selector_blocked(self):

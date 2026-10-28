@@ -74,14 +74,14 @@ class SubarrayStorageTests(unittest.TestCase):
         types = 'TYPE rec_t=STRUCTURE n: INTEGER ENDSTRUCTURE\nrow_t=ARRAY[1] OF rec_t\nplane_t=ARRAY[2] OF row_t'
         state = execute('plane[1,1].n=7 plane[2,1].n=9 other_plane=plane plane[1,1].n=11', types=types, declarations='plane,other_plane: plane_t')
         self.assertEqual(state['OTHER_PLANE'], [[{'N': 7}], [{'N': 9}]])
-    def test_partial_nested_structure_copy_fails_before_destination_change(self):
+    def test_strict_partial_nested_structure_copy_fails_before_destination_change(self):
         types = 'TYPE rec_t=STRUCTURE n: INTEGER ENDSTRUCTURE\nrow_t=ARRAY[1] OF rec_t\nplane_t=ARRAY[2] OF row_t'
-        program, _ = compile_program('plane[1,1].n=7 other_plane[1,1].n=11 other_plane=plane', types=types, declarations='plane,other_plane: plane_t')
+        program, _ = compile_program('plane[1,1].n=7 other_plane[1,1].n=11 other_plane=plane', types=types, declarations='plane,other_plane: plane_t', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): program.run()
         self.assertEqual(program._state.snapshot()['OTHER_PLANE'], [[{'N': 11}], [{'N': U}]])
-    def test_unknown_byte_in_nested_structure_copy_remains_blocked(self):
+    def test_strict_unknown_byte_in_nested_structure_copy_remains_blocked(self):
         types = 'TYPE rec_t=STRUCTURE n: INTEGER data: BYTE ENDSTRUCTURE\nrow_t=ARRAY[1] OF rec_t\nplane_t=ARRAY[1] OF row_t'
-        program, _ = compile_program('plane[1,1].n=7 other_plane[1,1].n=11 other_plane[1,1].data=3 other_plane=plane', types=types, declarations='plane,other_plane: plane_t')
+        program, _ = compile_program('plane[1,1].n=7 other_plane[1,1].n=11 other_plane[1,1].data=3 other_plane=plane', types=types, declarations='plane,other_plane: plane_t', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'unknown STRUCTURE'): program.run()
         self.assertEqual(program._state.snapshot()['OTHER_PLANE'], [[{'N': 11, 'DATA': 3}]])
     def test_uninitialized_leaf_read(self):
