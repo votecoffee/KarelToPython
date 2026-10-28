@@ -1,0 +1,76 @@
+{
+  "STATUS": 0,
+  "FRAME_NO": 6,
+  "MODEL_NO": 21,
+  "ENCODER_NO": -40,
+  "VIEW_MODEL": 31,
+  "PASS_FLAG": 1,
+  "UNUSED_INT": {
+    "uninitialized": true
+  },
+  "END_STATUS": 117151,
+  "OFFSET_POSE": {
+    "X": 8.0,
+    "Y": 3.0,
+    "Z": 4.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "VIEW_POSE": {
+    "X": 3.0,
+    "Y": 0.0,
+    "Z": 0.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "POINTS": [
+    {
+      "X": 9.0,
+      "Y": 0.0,
+      "Z": 0.0,
+      "W": 0.0,
+      "P": 0.0,
+      "R": 0.0,
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      }
+    }
+  ],
+  "MEASURES": [
+    1.25,
+    2.5
+  ],
+  "FIRST_MEASURE": 1.25,
+  "FOUND_COUNT": 2.0,
+  "UNUSED_REAL": {
+    "uninitialized": true
+  },
+  "IS_REAL": false,
+  "COMMENT": "authored result"
+}

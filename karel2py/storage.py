@@ -421,6 +421,7 @@ def context_config(context):
     if context.diagnostics is not None: result['diagnostics']=context.diagnostics.to_config()
     if context.kcl is not None: result['kcl']=context.kcl.to_config()
     if context.controller is not None: result['controller']=context.controller.to_config()
+    if context.vision is not None: result['vision']=context.vision.to_config()
     if context.forms is not None: result['forms']=context.forms.to_config()
     if context.table_controls is not None: result['table_controls']=context.table_controls.to_config()
     if context.keyboard is not None: result['keyboard']=context.keyboard.to_config()

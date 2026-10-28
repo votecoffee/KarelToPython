@@ -1,0 +1,15 @@
+PROGRAM VISION_PARAMETERS
+VAR status:INTEGER edited_value,base_value,edited_count,saved_count:REAL
+BEGIN
+  V_CSAPI_SETVALUE('INSPECT','GAIN',8,status)
+  V_CSAPI_GETVALUE('INSPECT','GAIN',edited_value,status)
+  V_CSAPI_NUMSET('INSPECT',edited_count,status)
+  V_OVERRIDE('CAMERA_GAIN',9,status)
+  V_CSAPI_TESTRUN('INSPECT',0,status)
+  V_CSAPI_RESETDATA('INSPECT',status)
+  V_CSAPI_GETVALUE('INSPECT','GAIN',base_value,status)
+  V_CSAPI_SETVALUE('INSPECT','GAIN',4,status)
+  V_CSAPI_SAVEDATA('INSPECT',status)
+  V_CSAPI_NUMSET('INSPECT',saved_count,status)
+  V_RUN_FIND('INSPECT',-1,status)
+END VISION_PARAMETERS

@@ -1,0 +1,11 @@
+PROGRAM LIB
+VAR latest:REAL
+ROUTINE IRVU_VRGETMEAS(vr:INTEGER; measure_no:INTEGER; value:REAL):INTEGER FROM IRVUTILVR
+ROUTINE read_result(value:REAL; code:INTEGER)
+BEGIN
+  code=IRVU_VRGETMEAS(1,1,value)
+  latest=value
+  VREG_OFFSET(1,1,code)
+END read_result
+BEGIN
+END LIB

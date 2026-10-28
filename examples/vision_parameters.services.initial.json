@@ -1,0 +1,42 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "INSPECT": {
+        "views": [
+          1
+        ],
+        "parameters": {
+          "GAIN": 1.5
+        },
+        "overwritten": {},
+        "temporary": {},
+        "runs": [
+          {
+            "camera_view": -1,
+            "status": 0,
+            "results": []
+          },
+          {
+            "camera_view": -1,
+            "status": 0,
+            "results": []
+          }
+        ],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {
+      "CAMERA_GAIN": {
+        "process": "INSPECT",
+        "parameter": "GAIN"
+      }
+    },
+    "limit": 500,
+    "sequence": 0,
+    "history": []
+  }
+}

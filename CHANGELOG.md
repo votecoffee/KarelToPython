@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1028.162050 - 2026-10-28
+
+- Add 19 offline iRVision calls for supplied completed runs, vision-register
+  reads/transfers, result cursors, inspection flags, counts and reference data.
+- Add checked sparse XYZWPR/REAL array outputs, detached register values,
+  finite X/Y adjustments and calling-root position-register group selection.
+- Add CSAPI editing/reset/save, captured test parameters and explicit one-shot
+  override bindings; persist unconsumed batches, cursors, edits and history.
+- Recognize exact IRVUTILVR wrapper declarations without native library loading;
+  retain output/alias/FOR guards and document the NUMSET direction discrepancy.
+- Add 55 regressions, two CLI examples and a linked vision project. Update
+  README/support guides: 299 registered built-in names, 35 remaining.
+
 ## 26.1028.154448 - 2026-10-28
 
 - Add MOTION_CTL and CNCL_STP_MTN over explicit calling-root group ownership,

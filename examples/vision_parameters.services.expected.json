@@ -1,0 +1,116 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "INSPECT": {
+        "views": [
+          1
+        ],
+        "parameters": {
+          "GAIN": 4.0
+        },
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": {
+          "camera_view": -1,
+          "status": 0,
+          "results": [],
+          "parameters": {
+            "GAIN": 4.0
+          }
+        },
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {
+      "CAMERA_GAIN": {
+        "process": "INSPECT",
+        "parameter": "GAIN"
+      }
+    },
+    "limit": 500,
+    "sequence": 11,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_SETVALUE",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_GETVALUE",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_NUMSET",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_OVERRIDE",
+        "target": "CAMERA_GAIN",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_TESTRUN",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_RESETDATA",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 7,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_GETVALUE",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 8,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_SETVALUE",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 9,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_SAVEDATA",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 10,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_CSAPI_NUMSET",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 11,
+        "program": "VISION_PARAMETERS",
+        "operation": "V_RUN_FIND",
+        "target": "INSPECT",
+        "status": 0
+      }
+    ]
+  }
+}

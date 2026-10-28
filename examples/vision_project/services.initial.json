@@ -1,0 +1,79 @@
+{
+  "positions": {
+    "count": 1,
+    "groups": [
+      2
+    ],
+    "values": {}
+  },
+  "vision": {
+    "count": 10,
+    "registers": {
+      "1": {
+        "offset": {
+          "type": [
+            "XYZWPR"
+          ],
+          "value": {
+            "X": 5.0,
+            "Y": 3.0,
+            "Z": 4.0,
+            "W": 0.0,
+            "P": 0.0,
+            "R": 0.0,
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        },
+        "views": {
+          "1": {
+            "position": {
+              "type": [
+                "XYZWPR"
+              ],
+              "value": {
+                "X": 6.0,
+                "Y": 0.0,
+                "Z": 0.0,
+                "W": 0.0,
+                "P": 0.0,
+                "R": 0.0,
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            "model": 31
+          }
+        },
+        "frame": 6,
+        "model": 21,
+        "encoder": -40,
+        "measurements": [
+          1.25,
+          2.5
+        ],
+        "comment": "authored result",
+        "score": 0.0
+      }
+    },
+    "processes": {},
+    "overrides": {},
+    "limit": 500,
+    "sequence": 0,
+    "history": []
+  }
+}

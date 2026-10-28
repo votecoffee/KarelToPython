@@ -3386,6 +3386,19 @@ class Emitter:
 def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', cooperative=False):
     parser = Parser(source, filename, mode)
     program = parser.parse()
+    if mode=='pythonic':
+        from .vision import VISION_FUNCTIONS
+        retained=[]
+        declared=[token.value for token,_ in program.constants+program.user_types+program.declarations]+[routine.name for routine in program.routines]
+        for routine in program.routines:
+            if routine.external=='IRVUTILVR' and routine.name in VISION_FUNCTIONS:
+                if declared.count(routine.name)!=1:parser.error('E_DUPLICATE','Duplicate vision wrapper declaration',routine.token)
+                if len({token.value for token,_ in routine.parameters})!=len(routine.parameters):parser.error('E_DUPLICATE','Duplicate vision wrapper parameter',routine.token)
+                signature,result=VISION_FUNCTIONS[routine.name]
+                if routine.return_type!=result or len(routine.parameters)!=len(signature) or any(spec!=((kind,None) if kind=='STRING' else (kind,)) for (_,spec),(_,kind) in zip(routine.parameters,signature)):
+                    parser.error('E_TYPE','IRVUTILVR declaration must match the documented vision signature',routine.token)
+            else:retained.append(routine)
+        program.routines[:]=retained
     emitter = Emitter(program, filename, array_shapes, mode, cooperative)
     if parser.continuations:
         emitter.features.add('physical line continuation')
@@ -4665,6 +4678,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 sessions, 256 logical rows/data/selectable items, 254 edit characters, 35 enum choices, 10 function labels, 48 help lines and 4096 key-loop events',
         boundary='Portable single-window layout, key/status codes and repaint timing; no nested/concatenated .tree fragments, binary TX/VR form ABI, Data ID discovery, native glyphs, controller acceptance or strict equivalence',
         guide='docs/forms.md',controller_validated=False)
+    report['vision_policy']=dict(
+        calls=sorted(rt.VISION_CALLS),service='Explicit VisionServices with completed supplied batches; no cameras, image processing or native runtime',
+        execution='RUN_FIND/TESTRun consume matching completed batches exactly once; shared GET_FOUND/GET_OFFSET cursor, independent register reads and highest supplied-score reference',
+        registers='Detached XYZWPR offsets, four sparse camera views, ten measurements, frame/model/encoder/comment metadata; caller-root position-register group',
+        parameters='CSAPI temporary edits with explicit reset/save; named one-shot override bindings consumed by accepted execution; captured parameter snapshots',
+        guards='Exact disjoint outputs, prefix-only array updates, all destinations checked before result consumption, explicit bank capacities and finite history IDs',
+        declarations='Three exact IRVUTILVR function declarations lower to checked services; ordinary local routines and other external owners retain precedence',
+        discrepancy='NUMSET uses REAL output as described by its purpose/details; manual parameter direction says input',
+        boundary='Synchronous supplied completions only; no acquisition, calibration, native graphics, tracking, native ABI/status equivalence or strict/controller acceptance',
+        guide='docs/vision-results.md',controller_validated=False)
     report['controller_policy']=dict(
         calls=sorted(rt.CONTROLLER_CALLS),
         service='Explicit ControllerServices, logical GroupLocks and supplied PortBank/TaskScheduler; no controller connection, physical motion or reset',

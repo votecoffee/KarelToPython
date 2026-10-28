@@ -10,6 +10,7 @@ import struct
 import fnmatch
 import inspect
 from .teach import TPE_NAMES
+from .vision import VISION_PROCEDURES,VISION_FUNCTIONS
 from .xmlio import XML_NAMES,XML_CONSTANTS
 
 
@@ -191,6 +192,8 @@ FUNCTIONS = {
     'J_IN_RANGE': ((arg('JOINTPOS'),),('BOOLEAN',)),
     'MIRROR': ((arg('GEOMETRY_POSE'),arg('GEOMETRY_POSE'),B),('XYZWPREXT',)),
 }
+PROCEDURES.update(VISION_PROCEDURES)
+FUNCTIONS.update(VISION_FUNCTIONS)
 REMOTE_SERVICES={
     'RGET_REG':'GET_REG','RSET_INT_REG':'SET_INT_REG','RSET_REALREG':'SET_REAL_REG',
     'RGET_STR_REG':'GET_STR_REG','RSET_STR_REG':'SET_STR_REG',
@@ -275,6 +278,7 @@ def matches(spec, kind):
         if kind=='COL_ARRAY':return len(dimensions)==1 and leaf==rt.PREDEFINED_STRUCTURES['COL_DESC_T']
         if kind=='BOOL_ARRAY':return len(dimensions)==1 and leaf==('BOOLEAN',)
         return leaf==(('INTEGER',) if kind=='INT_GRID' else ('BOOLEAN',)) and (len(dimensions)==2 or kind=='BOOL_GRID' and dimensions==(1,))
+    if kind=='XYZWPR_ARRAY': return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)==('XYZWPR',)
     if kind=='STRING_ARRAY': return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]=='STRING'
     return spec[0]==kind
 
@@ -1555,7 +1559,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1622,6 +1626,9 @@ class ExecutionContext:
         from .controller import ControllerServices
         if controller is not None and type(controller) is not ControllerServices:raise TypeError('controller must be ControllerServices or None')
         self.controller=controller
+        from .vision import VisionServices
+        if vision is not None and type(vision) is not VisionServices:raise TypeError('vision must be VisionServices or None')
+        self.vision=vision
         from .communications import Messaging,FilePipes
         if messaging is not None and type(messaging) is not Messaging:raise TypeError('messaging must be Messaging or None')
         if file_pipes is not None and type(file_pipes) is not FilePipes:raise TypeError('file_pipes must be FilePipes or None')
@@ -1648,7 +1655,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1713,6 +1720,9 @@ class ExecutionContext:
         if 'acquisition' in config:
             from .acquisition import Acquisition
             services['acquisition']=Acquisition.from_config(config['acquisition'])
+        if 'vision' in config:
+            from .vision import VisionServices
+            services['vision']=VisionServices.from_config(config['vision'])
         if 'controller' in config:
             from .controller import ControllerServices
             services['controller']=ControllerServices.from_config(config['controller'])
@@ -1792,6 +1802,8 @@ class ExecutionContext:
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
         outputs_checked(signature,args,line)
+        from .vision import VISION_CALLS
+        if name in VISION_CALLS:return self.require('vision',line).invoke(state,name,args,line)
         from .controller import CONTROLLER_CALLS
         if name in CONTROLLER_CALLS:return self.require('controller',line).invoke(state,name,args,line)
         from .forms import FORM_CALLS

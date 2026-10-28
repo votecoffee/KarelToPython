@@ -1,0 +1,69 @@
+{
+  "version": "26.1028.162050",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "sources": [
+    {
+      "manual": "A-97606-09410EN/01",
+      "sections": [
+        "A.8.20-A.8.22 IRVU_VRGETMEAS/OFFSET/VIEW",
+        "A.21.1 V_ADJ_2D",
+        "A.21.4-A.21.9 V_CSAPI calls",
+        "A.21.13-A.21.15 V_GET_FOUND/OFFSET/PASSFL",
+        "A.21.17-A.21.19 V_GET_VPARAM, V_OVERRIDE, V_RUN_FIND",
+        "A.21.21 V_SET_REF",
+        "A.21.27-A.21.28 VREG_FND_POS/OFFSET"
+      ]
+    }
+  ],
+  "contract": {
+    "guide": "../vision-results.md",
+    "calls": [
+      "IRVU_VRGETMEAS",
+      "IRVU_VRGETOFFSET",
+      "IRVU_VRGETVIEW",
+      "VREG_FND_POS",
+      "VREG_OFFSET",
+      "V_ADJ_2D",
+      "V_CSAPI_GETVALUE",
+      "V_CSAPI_NUMSET",
+      "V_CSAPI_RESETDATA",
+      "V_CSAPI_SAVEDATA",
+      "V_CSAPI_SETVALUE",
+      "V_CSAPI_TESTRUN",
+      "V_GET_FOUND",
+      "V_GET_OFFSET",
+      "V_GET_PASSFL",
+      "V_GET_VPARAM",
+      "V_OVERRIDE",
+      "V_RUN_FIND",
+      "V_SET_REF"
+    ],
+    "execution": "Consume matching supplied completed batches once, synchronously; shared found/offset cursor, nonconsuming register/count/flag/reference reads",
+    "outputs": "Exact disjoint typed references, sparse view indexes and measurement prefixes; preflight all outputs before cursor/bank mutation; unknown tails retained",
+    "registers": "Explicit vision bank, detached complete XYZWPR poses and metadata; selected caller-root position-register group, finite additive X/Y adjustment",
+    "parameters": "Saved values, persistent CSAPI edits and explicit named one-shot override bindings; capture effective run parameters without recalculating supplied results",
+    "persistence": "Remaining batches, active results/cursors, parameter banks, references and bounded history; no native session, executable state or silent replay",
+    "declarations": "Lower only three exact documented INTEGER-returning IRVUTILVR prototypes; local routines/other owners retain ordinary linkage",
+    "statuses": "Portable 0/1/2/3/4 plus documented 12311 absent register view and 117151 no more results"
+  },
+  "discrepancies": [
+    {
+      "call": "V_CSAPI_NUMSET",
+      "manual": "Parameter table labels num_values input REAL; purpose/details describe a returned count",
+      "decision": "Require writable REAL output and retain this discrepancy for future native/strict work"
+    }
+  ],
+  "boundaries": [
+    "No camera/controller connection, image processing, calibration, native graphics, image register/file or reader/view-line operations",
+    "No asynchronous processing delay, native ABI/status equivalence, conveyor/legacy vision queues or controller acceptance",
+    "V_RUN_FIND zero view accepted only for a single configured view; TESTRUN zero selects all; script selection must match",
+    "GET_FOUND/GET_OFFSET share a portable cursor; reference scores/order and metadata are explicitly supplied, not acquired"
+  ],
+  "validation": [
+    "tests/test_vision_results.py",
+    "examples/vision_results.kl",
+    "examples/vision_parameters.kl",
+    "examples/vision_project"
+  ]
+}

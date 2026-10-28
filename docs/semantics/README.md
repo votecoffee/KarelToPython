@@ -183,3 +183,8 @@ The [logical controller ledger](controller_service_semantics.json) adds six
 controller-related calls over explicit ownership/perch/reset/background banks.
 It also records zero-address panel I/O, while retaining physical motion, hardware
 reset and native TP scan boundaries.
+
+The [vision result ledger](vision_result_semantics.json) adds 19 calls over
+completed supplied runs, vision registers and parameter banks. It records sparse
+outputs, shared cursor persistence and the NUMSET direction discrepancy, while
+retaining image-processing, camera and tracking boundaries.

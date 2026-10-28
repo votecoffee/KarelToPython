@@ -1,0 +1,399 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {
+      "1": {
+        "offset": {
+          "type": [
+            "XYZWPR"
+          ],
+          "value": {
+            "X": 3.5,
+            "Y": 2.5,
+            "Z": 4.0,
+            "W": 0.0,
+            "P": 0.0,
+            "R": 0.0,
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        },
+        "views": {
+          "1": {
+            "position": {
+              "type": [
+                "XYZWPR"
+              ],
+              "value": {
+                "X": 3.0,
+                "Y": 0.0,
+                "Z": 0.0,
+                "W": 0.0,
+                "P": 0.0,
+                "R": 0.0,
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            "model": 31
+          }
+        },
+        "frame": 6,
+        "model": 21,
+        "encoder": -40,
+        "measurements": [
+          1.25,
+          2.5
+        ],
+        "comment": "authored result",
+        "score": 0.2
+      }
+    },
+    "processes": {
+      "INSPECT": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": {
+          "camera_view": -1,
+          "status": 0,
+          "results": [
+            {
+              "offset": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 2.0,
+                  "Y": 3.0,
+                  "Z": 4.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              },
+              "views": {
+                "1": {
+                  "position": {
+                    "type": [
+                      "XYZWPR"
+                    ],
+                    "value": {
+                      "X": 3.0,
+                      "Y": 0.0,
+                      "Z": 0.0,
+                      "W": 0.0,
+                      "P": 0.0,
+                      "R": 0.0,
+                      "CONFIG_DATA": {
+                        "CFG_TURN_NO1": 0,
+                        "CFG_TURN_NO2": 0,
+                        "CFG_TURN_NO3": 0,
+                        "CFG_FLIP": false,
+                        "CFG_LEFT": false,
+                        "CFG_UP": false,
+                        "CFG_FRONT": false
+                      }
+                    }
+                  },
+                  "model": 31
+                }
+              },
+              "frame": 6,
+              "model": 21,
+              "encoder": -40,
+              "measurements": [
+                1.25,
+                2.5
+              ],
+              "comment": "authored result",
+              "score": 0.2
+            },
+            {
+              "offset": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 8.0,
+                  "Y": 3.0,
+                  "Z": 4.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              },
+              "views": {
+                "1": {
+                  "position": {
+                    "type": [
+                      "XYZWPR"
+                    ],
+                    "value": {
+                      "X": 9.0,
+                      "Y": 0.0,
+                      "Z": 0.0,
+                      "W": 0.0,
+                      "P": 0.0,
+                      "R": 0.0,
+                      "CONFIG_DATA": {
+                        "CFG_TURN_NO1": 0,
+                        "CFG_TURN_NO2": 0,
+                        "CFG_TURN_NO3": 0,
+                        "CFG_FLIP": false,
+                        "CFG_LEFT": false,
+                        "CFG_UP": false,
+                        "CFG_FRONT": false
+                      }
+                    }
+                  },
+                  "model": 31
+                }
+              },
+              "frame": 6,
+              "model": 21,
+              "encoder": -40,
+              "measurements": [
+                1.25,
+                2.5
+              ],
+              "comment": "authored result",
+              "score": 0.9
+            }
+          ],
+          "pass_flag": 1,
+          "parameters": {}
+        },
+        "cursor": 2,
+        "reference": {
+          "offset": {
+            "type": [
+              "XYZWPR"
+            ],
+            "value": {
+              "X": 8.0,
+              "Y": 3.0,
+              "Z": 4.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          "views": {
+            "1": {
+              "position": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 9.0,
+                  "Y": 0.0,
+                  "Z": 0.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              },
+              "model": 31
+            }
+          },
+          "frame": 6,
+          "model": 21,
+          "encoder": -40,
+          "measurements": [
+            1.25,
+            2.5
+          ],
+          "comment": "authored result",
+          "score": 0.9
+        }
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 13,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "VISION_RESULTS",
+        "operation": "V_RUN_FIND",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "VISION_RESULTS",
+        "operation": "V_GET_VPARAM",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "VISION_RESULTS",
+        "operation": "V_GET_PASSFL",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 4,
+        "program": "VISION_RESULTS",
+        "operation": "V_GET_OFFSET",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 5,
+        "program": "VISION_RESULTS",
+        "operation": "IRVU_VRGETOFFSET",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 6,
+        "program": "VISION_RESULTS",
+        "operation": "IRVU_VRGETVIEW",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 7,
+        "program": "VISION_RESULTS",
+        "operation": "IRVU_VRGETMEAS",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 8,
+        "program": "VISION_RESULTS",
+        "operation": "V_ADJ_2D",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 9,
+        "program": "VISION_RESULTS",
+        "operation": "VREG_OFFSET",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 10,
+        "program": "VISION_RESULTS",
+        "operation": "VREG_FND_POS",
+        "target": "1",
+        "status": 0
+      },
+      {
+        "sequence": 11,
+        "program": "VISION_RESULTS",
+        "operation": "V_GET_FOUND",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 12,
+        "program": "VISION_RESULTS",
+        "operation": "V_SET_REF",
+        "target": "INSPECT",
+        "status": 0
+      },
+      {
+        "sequence": 13,
+        "program": "VISION_RESULTS",
+        "operation": "V_GET_OFFSET",
+        "target": "INSPECT",
+        "status": 117151
+      }
+    ]
+  },
+  "positions": {
+    "1:1": {
+      "X": 3.5,
+      "Y": 2.5,
+      "Z": 4.0,
+      "W": 0.0,
+      "P": 0.0,
+      "R": 0.0,
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      }
+    },
+    "1:2": {
+      "X": 3.0,
+      "Y": 0.0,
+      "Z": 0.0,
+      "W": 0.0,
+      "P": 0.0,
+      "R": 0.0,
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+PROGRAM VISION_RESULTS
+VAR
+  status,frame_no,model_no,encoder_no,view_model,pass_flag,unused_int,end_status:INTEGER
+  offset_pose,view_pose:XYZWPR
+  points:ARRAY[1] OF XYZWPR
+  measures:ARRAY[2] OF REAL
+  first_measure,found_count,unused_real:REAL
+  is_real:BOOLEAN
+  comment:STRING[40]
+BEGIN
+  V_RUN_FIND('INSPECT',0,status)
+  V_GET_VPARAM('INSPECT',0,-1,1,status)
+  GET_REG(1,is_real,unused_int,found_count,status)
+  V_GET_PASSFL('INSPECT',2,status)
+  GET_REG(2,is_real,pass_flag,unused_real,status)
+  V_GET_OFFSET('INSPECT',1,status)
+  status=IRVU_VRGETOFFSET(1,offset_pose,frame_no,comment)
+  status=IRVU_VRGETVIEW(1,1,view_pose,view_model)
+  status=IRVU_VRGETMEAS(1,1,first_measure)
+  V_ADJ_2D(1,1.5,-0.5,status)
+  VREG_OFFSET(1,1,status)
+  VREG_FND_POS(1,1,2,status)
+  V_GET_FOUND('INSPECT',frame_no,model_no,encoder_no,offset_pose,points,measures,status)
+  V_SET_REF('INSPECT',status)
+  V_GET_OFFSET('INSPECT',2,end_status)
+END VISION_RESULTS

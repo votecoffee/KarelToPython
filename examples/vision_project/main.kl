@@ -1,0 +1,7 @@
+PROGRAM MAIN
+%DEFGROUP=2
+VAR status:INTEGER measurement:REAL
+ROUTINE read_result(value:REAL; code:INTEGER) FROM LIB
+BEGIN
+  read_result(measurement,status)
+END MAIN
