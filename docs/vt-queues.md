@@ -76,7 +76,9 @@ Duplicate detection compares a nonzero caller ID or the exact encoder/model/
 six-coordinate offset tuple against held parts. QUE2 returns duplicate TRUE with
 status zero and leaves the queue unchanged. This is a practical deterministic
 rule; native calibrated duplicate tolerances are not reproduced. A configured
-nonzero tray ID is a tag on one part, without tray-cell expansion or sequence.
+nonzero tray ID remains a tag on one part when no pattern is supplied. An explicit
+[tray-cell bank](vt-trays.md) now expands configured trays into independent cells
+with supplied local offsets and a chosen portable sequence order.
 
 ## Nullable typed inputs
 
@@ -99,7 +101,8 @@ more than once; outputs and mutable resources keep their overlap checks.
 GET uses encoder order, or offset Y when Y-sort is enabled, filtered by area,
 model and caller work ID. `consecutive` must be positive; greater than one ignores
 a load-balancing target, but still respects passed/skip/model/work filters. It
-does not infer a native tray-cell sequence. Allocated workpieces leave the pool
+does not infer native tray sequencing; configured patterns use the explicit
+portable order described in [VT trays](vt-trays.md). Allocated workpieces leave the pool
 until acknowledged; register replacement by core or legacy queue gets is blocked.
 V_ADJ_2D can adjust the register before ACK 2 forwards it downstream. A receipt
 can be consumed only once. ACK 1/3 removes the workpiece but retains the register's

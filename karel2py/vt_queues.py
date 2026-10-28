@@ -2,7 +2,7 @@
 from copy import deepcopy
 import re
 
-from .vision import integer,real,result,encode_result,MAX_SEQUENCE
+from .vision import integer,real,pose,result,encode_result,MAX_SEQUENCE
 
 
 def rt():
@@ -45,15 +45,38 @@ def source_result(model,encoder,offset,positions,measurements,line):
 
 
 def encoded(part):
-    return dict(part,result=encode_result(part['result']),ready={str(k):v for k,v in part['ready'].items()},passed=list(part['passed']))
+    row=dict(part,result=encode_result(part['result']),ready={str(k):v for k,v in part['ready'].items()},passed=list(part['passed']))
+    if 'tray_origin' in row:row['tray_origin']=list(row['tray_origin'])
+    return row
+
+
+def detection(value):
+    return (value['encoder'],value['model'],*[value['offset'].values[k] for k in ('X','Y','Z','W','P','R')])
 
 
 class VTQueues:
     def __init__(self,config,parent):
-        if type(config) is not dict or set(config)-{'lines','areas','allocations'}:raise ValueError('Unknown VT queue configuration fields')
-        self.parent=parent;self.owner=parent.owner;self.lines={};self.areas={};self.allocations={};self.pending={}
+        if type(config) is not dict or set(config)-{'lines','areas','allocations','trays'}:raise ValueError('Unknown VT queue configuration fields')
+        self.parent=parent;self.owner=parent.owner;self.lines={};self.areas={};self.allocations={};self.pending={};self.trays={}
         lines=config.get('lines',{});areas=config.get('areas',{});allocations=config.get('allocations',{})
         if any(type(v) is not dict for v in (lines,areas,allocations)) or len(lines)>32 or len(areas)>256:raise ValueError('VT requires bounded explicit line/area mappings')
+        trays=config.get('trays',{})
+        if type(trays) is not dict or len(trays)>256:raise ValueError('VT tray patterns require a bounded mapping')
+        cell_count=0
+        for key,row in trays.items():
+            number=key_number(key)
+            if number not in parent.ids['trays'].values():raise ValueError('VT tray pattern ID is not configured in the name bank')
+            if type(row) is not dict or 'cells' not in row or set(row)-{'cells','sequenced'}:raise ValueError('VT tray pattern requires explicit cells')
+            cells=row['cells'];sequenced=row.get('sequenced',True)
+            if type(cells) is not list or not 1<=len(cells)<=256 or type(sequenced) is not bool:raise ValueError('VT tray pattern requires 1..256 cells and BOOLEAN sequenced')
+            prepared=[];cell_count+=len(cells)
+            if cell_count>4096:raise ValueError('VT tray patterns exceed 4096 supplied cells')
+            for cell in cells:
+                if type(cell) is not dict or 'offset' not in cell or set(cell)-{'offset','model'}:raise ValueError('VT tray cell requires a complete offset and optional model')
+                value=dict(offset=pose(cell['offset']))
+                if 'model' in cell:value['model']=integer(cell['model'])
+                prepared.append(value)
+            self.trays[number]=dict(cells=prepared,sequenced=sequenced)
         for key,row in lines.items():
             number=key_number(key)
             if type(row) is not dict or not {'areas','capacity'}<=set(row) or set(row)-{'areas','capacity','flags','direction','speed','sequence','weights','parts','tray_edit'}:raise ValueError('VT line requires ordered areas and capacity')
@@ -99,8 +122,17 @@ class VTQueues:
             rows=self.held(number);total+=len(rows)
             if len(rows)>line['capacity'] or total>4096:raise ValueError('VT part capacity exceeded')
             if len({v['uid'] for v in rows})!=len(rows):raise ValueError('VT internal queue indexes must be distinct')
-            ids=[v['work_id'] for v in rows if v['work_id']]
-            if len(set(ids))!=len(ids):raise ValueError('Nonzero caller work IDs must be distinct')
+            ids={};instances={}
+            for part in rows:
+                instance=part.get('tray_instance')
+                group=('part',part['uid']) if instance is None else ('tray',instance)
+                if part['work_id']:
+                    if part['work_id'] in ids and ids[part['work_id']]!=group:raise ValueError('Nonzero caller work IDs must be distinct outside a tray instance')
+                    ids[part['work_id']]=group
+                if instance is not None:
+                    identity=(part['tray'],part['work_id'],part['tray_origin'])
+                    if instance in instances and instances[instance]!=identity:raise ValueError('VT tray instance ownership is inconsistent')
+                    instances[instance]=identity
 
     @staticmethod
     def weights(row,count):
@@ -111,14 +143,24 @@ class VTQueues:
 
     def part(self,row,number):
         required={'uid','work_id','tray','result','ready','passed','target'}
-        if type(row) is not dict or set(row)!=required:raise ValueError('Malformed VT part record')
+        cell_fields={'tray_instance','tray_cell','tray_origin'}
+        if type(row) is not dict or set(row) not in (required,required|cell_fields):raise ValueError('Malformed VT part record')
         line=self.lines[number];uid=integer(row['uid'],1,line['sequence']);work=integer(row['work_id']);tray=integer(row['tray'],0,32767)
         if tray and tray not in self.parent.ids['trays'].values():raise ValueError('VT tray ID is not configured')
         if type(row['ready']) is not dict:raise ValueError('VT part requires ready times for every area')
         ready={key_number(k):integer(v) for k,v in row['ready'].items()}
         passed=row['passed'];target=integer(row['target'],1,32767)
         if set(ready)!=set(line['areas']) or type(passed) is not list or any(type(v) is not int or v not in line['areas'] for v in passed) or len(set(passed))!=len(passed) or target not in line['areas']:raise ValueError('VT part area metadata is inconsistent')
-        return dict(uid=uid,work_id=work,tray=tray,result=result(row['result']),ready=ready,passed=passed.copy(),target=target)
+        value=dict(uid=uid,work_id=work,tray=tray,result=result(row['result']),ready=ready,passed=passed.copy(),target=target)
+        if cell_fields<=set(row):
+            if tray not in self.trays:raise ValueError('VT cell requires its configured tray pattern')
+            instance=integer(row['tray_instance'],1,line['sequence']);cell=integer(row['tray_cell'],1,len(self.trays[tray]['cells']))
+            if instance+cell-1!=uid or instance+len(self.trays[tray]['cells'])-1>line['sequence']:raise ValueError('VT cell index does not belong to its tray instance')
+            origin=row['tray_origin']
+            if type(origin) not in (tuple,list) or len(origin)!=8:raise ValueError('VT tray origin requires encoder, model and six pose coordinates')
+            origin=(integer(origin[0],-2147483648),integer(origin[1]),*(real(v) for v in origin[2:]))
+            value.update(tray_instance=instance,tray_cell=cell,tray_origin=origin)
+        return value
 
     def held(self,number):return self.lines[number]['parts']+[v['part'] for v in self.allocations.values() if self.areas[v['area']]['line']==number]
     def register_busy(self,vr):return any(v['register']==vr for v in self.pending.values())
@@ -128,8 +170,37 @@ class VTQueues:
         settings=self.areas[area];line=self.lines[settings['line']]
         if settings['flags']&1:return []
         values=[v for v in line['parts'] if area not in v['passed'] and (model is None or v['result']['model']==model) and (work is None or v['work_id']==work) and (not line['flags']&1 or consecutive>1 or v['target']==area)]
-        if settings['flags']&2:return sorted(values,key=lambda v:((-1 if settings['flags']&4 else 1)*v['result']['offset'].values['Y'],v['uid']))
-        return sorted(values,key=lambda v:(line['direction']*v['result']['encoder'],v['uid']))
+        return self.ordered(values,line,settings)
+
+    def ordered(self,values,line,area=None):
+        if area is not None and area['flags']&2:values=sorted(values,key=lambda v:((-1 if area['flags']&4 else 1)*v['result']['offset'].values['Y'],v['uid']))
+        else:values=sorted(values,key=lambda v:(line['direction']*v['result']['encoder'],v['uid']))
+        answer=[];seen=set();groups={}
+        for part in values:
+            if 'tray_instance' in part and self.trays[part['tray']]['sequenced']:groups.setdefault(part['tray_instance'],[]).append(part)
+        for part in values:
+            instance=part.get('tray_instance')
+            if instance is None or not self.trays[part['tray']]['sequenced']:answer.append(part);continue
+            if instance in seen:continue
+            seen.add(instance)
+            answer.extend(sorted(groups[instance],key=lambda v:v['tray_cell']))
+        return answer
+
+    def expand_tray(self,tray,value,line):
+        """Apply supplied local cell transforms only to complete existing poses."""
+        pattern=self.trays.get(tray)
+        if pattern is None:return [deepcopy(value)]
+        values=[]
+        for cell in pattern['cells']:
+            updated=deepcopy(value)
+            with rt()._numeric_scope('pythonic'):
+                updated['offset']=rt().frame_transform(value['offset'],cell['offset'],line)
+                for key,view in updated['views'].items():view['position']=rt().frame_transform(value['views'][key]['position'],cell['offset'],line)
+            if 'model' in cell:
+                updated['model']=cell['model']
+                for view in updated['views'].values():view['model']=cell['model']
+            values.append(result(updated))
+        return values
 
     def next_target(self,line,part,after=None):
         order=line['areas'];start=0 if after is None else order.index(after)+1
@@ -187,20 +258,30 @@ class VTQueues:
                 try:value=source_result(model,encoder,offset,positions,measures,line)
                 except (ValueError,rt().KarelRuntimeError):code=2
                 if not code:
-                    def detection(v):return (v['encoder'],v['model'],*[v['offset'].values[k] for k in ('X','Y','Z','W','P','R')])
-                    duplicate=any(work and v['work_id']==work or detection(v['result'])==detection(value) for v in self.held(target))
+                    fingerprint=detection(value)
+                    duplicate=any(work and v['work_id']==work or detection(v['result'])==fingerprint or v.get('tray_origin')==fingerprint for v in self.held(target))
                     if operation=='VT_PUT_QUE2':pairs=[(args[8],bool(duplicate))]
                     if not duplicate:
-                        if len(self.held(target))>=settings['capacity'] or sum(len(self.held(k)) for k in self.lines)>=4096:code=4
-                        elif settings['sequence']>=MAX_SEQUENCE:raise rt().KarelRuntimeError('VT internal index exhausted',line)
+                        count=len(self.trays[tray]['cells']) if tray in self.trays else 1
+                        if len(self.held(target))+count>settings['capacity'] or sum(len(self.held(k)) for k in self.lines)+count>4096:code=4
+                        elif settings['sequence']+count>MAX_SEQUENCE:raise rt().KarelRuntimeError('VT internal index exhausted',line)
                         else:
-                            destination,profile,cursor=self.route(settings,model);ready={k:self.areas[k]['elapsed_ms']+self.areas[k]['travel_ms'] for k in settings['areas']}
+                            if tray in self.trays:
+                                for _ in range(count):state.tick(line)
+                            try:values=self.expand_tray(tray,value,line)
+                            except (ValueError,rt().KarelRuntimeError):code=2
+                            ready={k:self.areas[k]['elapsed_ms']+self.areas[k]['travel_ms'] for k in settings['areas']}
                             if any(v>MAX_SEQUENCE for v in ready.values()):raise rt().KarelRuntimeError('VT arrival clock exhausted',line)
-                            part=dict(uid=settings['sequence']+1,work_id=work,tray=tray,result=value,ready=ready,passed=[],target=destination)
-                            def commit():
-                                settings['sequence']+=1
-                                if profile is not None:profile['cursor']=cursor
-                                if destination is not None:settings['parts'].append(part)
+                            if not code:
+                                route_state=dict(settings,weights=deepcopy(settings['weights']));parts=[];instance=settings['sequence']+1
+                                for index,value in enumerate(values,1):
+                                    destination,profile,cursor=self.route(route_state,value['model'])
+                                    if profile is not None:profile['cursor']=cursor
+                                    part=dict(uid=instance+index-1,work_id=work,tray=tray,result=value,ready=ready.copy(),passed=[],target=destination)
+                                    if tray in self.trays:part.update(tray_instance=instance,tray_cell=index,tray_origin=fingerprint)
+                                    if destination is not None:parts.append(part)
+                                def commit():
+                                    settings['sequence']+=count;settings['weights']=route_state['weights'];settings['parts'].extend(parts)
         elif operation in ('VT_SET_FLAG','VT_SET_LDBAL'):
             settings=self.lines.get(target)
             if settings is None:code=2
@@ -273,7 +354,7 @@ class VTQueues:
             elif target in self.pending:code=3
             elif settings['flags']&1:code=7
             elif operation=='VT_READ_PQ':
-                path=args[1].raw();rows=sorted([v for v in settings['parts'] if target not in v['passed']],key=lambda v:(settings['direction']*v['result']['encoder'],v['uid']));rows=rows[:len(path.nodes)]
+                path=args[1].raw();rows=self.ordered([v for v in settings['parts'] if target not in v['passed']],settings);rows=rows[:len(path.nodes)]
                 if not settings['tray_edit'] and any(v['tray'] for v in rows):code=7
                 else:
                     prepared_nodes=[]
@@ -327,4 +408,8 @@ class VTQueues:
     def to_config(self):
         if self.pending:raise ValueError('Finish or stop pending VT queue reads before saving context')
         lines={str(k):dict(v,parts=[encoded(p) for p in v['parts']],weights=deepcopy(v['weights']),areas=v['areas'].copy()) for k,v in self.lines.items()}
-        return dict(lines=lines,areas={str(k):v.copy() for k,v in self.areas.items()},allocations={str(k):dict(area=v['area'],part=encoded(v['part'])) for k,v in self.allocations.items()})
+        value=dict(lines=lines,areas={str(k):v.copy() for k,v in self.areas.items()},allocations={str(k):dict(area=v['area'],part=encoded(v['part'])) for k,v in self.allocations.items()})
+        if self.trays:
+            from .storage import typed_value
+            value['trays']={str(k):dict(sequenced=v['sequenced'],cells=[dict(cell,offset=typed_value(cell['offset'])) for cell in v['cells']]) for k,v in self.trays.items()}
+        return value

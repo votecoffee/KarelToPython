@@ -1,0 +1,22 @@
+{
+  "version": "26.1028.200539",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "source": {
+    "manual": "MARRC75KR07091E Rev N",
+    "sections": ["A.22 VT_PUT_QUEUE, VT_READ_PQ, VT_WRITE_PQ and VT_DELETE_PQ"],
+    "evidence_limit": "Reference tray IDs and cell ordering do not supply a native calibrated pattern or Seq algorithm; geometry and ordering below are explicit portable choices"
+  },
+  "guide": "../vt-trays.md",
+  "contract": {
+    "configuration": "Optional bounded vision.tracking.vt.trays bank with complete local XYZWPR cell transforms, optional model overrides and explicit sequence choice",
+    "insertion": "Apply input pose:cell transform to offset and existing views only; preserve missing views/measurements; preflight complete batch capacity, IDs, geometry, budget and routing before publishing",
+    "identity": "Distinct internal cell indexes with shared caller ID allowed only within one explicit tray instance; retain original detection fingerprint for duplicate checks",
+    "allocation": "Each cell owns its routing and once-only receipt; ACK2 forwards only its adjusted cell, preserving instance and ordinal; other cells remain independent",
+    "ordering": "Filter ordinary eligibility first; a sequenced instance occupies its first sorted slot, with remaining eligible cells in supplied order; no native Seq claim",
+    "persistence": "Retain checked patterns, partial results, instance/origin metadata and allocation receipts; reject forged index/pattern/group ownership; no suspended task restoration",
+    "compatibility": "No matching pattern preserves existing single tagged-part behavior; VT_PUT_QUE2 still requires tray zero"
+  },
+  "boundaries": ["No calibrated tray/grid discovery, native status/ABI, motion, encoder updates, automatic frame conversion or strict equivalence"],
+  "validation": ["tests/test_vt_trays.py", "examples/vt_trays.kl"]
+}
