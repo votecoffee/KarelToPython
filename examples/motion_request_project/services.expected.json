@@ -1,0 +1,93 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 6
+    },
+    "hands": {
+      "1": "open",
+      "2": "open"
+    },
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 5,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "source_program": "WORKER",
+        "operation": "OPEN HAND",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "source_program": "WORKER",
+        "operation": "MOVE AXIS",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "axis": 2,
+          "distance": 3.0
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 2.0
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

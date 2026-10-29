@@ -1,0 +1,25 @@
+PROGRAM MOTION_REQUEST_DEMO
+VAR point,via_point:XYZWPR config_data:CONFIG offset:VECTOR
+    track:PATH status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',config_data,status)
+    point=POS(10,20,30,0,0,0,config_data)
+    via_point=POS(40,50,60,0,0,0,config_data)
+    offset=VEC(1,2,3)
+    APPEND_NODE(track,status)
+    track[1].node_pos=point
+    APPEND_NODE(track,status)
+    track[2].node_pos=via_point
+    ATTACH
+    MOVE TO point VIA via_point NOWAIT
+    MOVE NEAR point BY 12
+    MOVE AWAY -3
+    MOVE ABOUT offset BY 45
+    MOVE AXIS 2 BY 90
+    MOVE RELATIVE offset
+    MOVE ALONG track[1..2]
+    RELEASE
+    done=TRUE
+  ENDIF
+END MOTION_REQUEST_DEMO

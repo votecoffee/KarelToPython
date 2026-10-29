@@ -49,6 +49,7 @@ def service_snapshot(services):
     if services.calendar is not None: observed['calendar']=services.calendar.to_config()
     if services.programs is not None: observed['programs']=services.programs.to_config()
     if services.config_text is not None: observed['config_text']=services.config_text.to_config()
+    if services.motion is not None: observed['motion']=services.motion.to_config()
     if services.program_attributes is not None: observed['program_attributes']=services.program_attributes.to_config()
     if services.peers is not None: observed['peers']=services.peers.to_config()
     if services.teach_programs is not None: observed['teach_programs']=services.teach_programs.to_config()
@@ -142,9 +143,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 233, 'Update the expected example count when adding examples'
+    assert count == 236, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==46, 'Update the expected project count when adding projects'
+    assert len(projects)==47, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
@@ -157,7 +158,7 @@ def main(argv=None):
             assert service_snapshot(services)==read_json(expected_services), folder.name+': service state'
         else: assert not expected_services.exists(), folder.name+': service state requires context'
         print('PASS '+folder.name+' (linked source project)')
-    print(f'{count} examples and {len(projects)} linked projects passed; unsupported motion rejected; no generated files written')
+    print(f'{count} examples and {len(projects)} linked projects passed; unsupported motion-local clause rejected; no generated files written')
     return 0
 
 

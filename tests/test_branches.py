@@ -302,7 +302,7 @@ class BranchRejectionTests(unittest.TestCase):
 
     def test_return_in_for_guard_retained(self): self.rejected('work', 'E_FOR_COUNTER', routines='ROUTINE work: INTEGER BEGIN unused:: FOR i = 1 TO 2 DO RETURN 7 ENDFOR RETURN 9 END work', _translator=legacy_translate)
 
-    def test_unreachable_unsupported_source_still_rejected(self): self.rejected('GOTO finished MOVE TO x finished::', 'E_UNSUPPORTED')
+    def test_unreachable_unsupported_source_still_rejected(self): self.rejected('GOTO finished MOVE TO x finished::', 'E_MOTION_TYPE')
 
     def test_unreachable_wrong_type_still_rejected(self): self.rejected('GOTO finished x = TRUE finished::', 'E_TYPE')
 

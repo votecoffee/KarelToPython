@@ -1,0 +1,304 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 6
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 9,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 14,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "MOVE TO",
+        "group": 1,
+        "line": 15,
+        "nowait": true,
+        "outcome": "captured",
+        "data": {
+          "target": {
+            "type": [
+              "XYZWPR"
+            ],
+            "value": {
+              "X": 10.0,
+              "Y": 20.0,
+              "Z": 30.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          "via": {
+            "type": [
+              "XYZWPR"
+            ],
+            "value": {
+              "X": 40.0,
+              "Y": 50.0,
+              "Z": 60.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "MOVE NEAR",
+        "group": 1,
+        "line": 16,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "target": {
+            "type": [
+              "XYZWPR"
+            ],
+            "value": {
+              "X": 10.0,
+              "Y": 20.0,
+              "Z": 30.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          "distance": 12.0
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 17,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": -3.0
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "MOVE ABOUT",
+        "group": 1,
+        "line": 18,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "vector": {
+            "type": [
+              "VECTOR"
+            ],
+            "value": {
+              "X": 1.0,
+              "Y": 2.0,
+              "Z": 3.0
+            }
+          },
+          "angle": 45.0
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "MOVE AXIS",
+        "group": 1,
+        "line": 19,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "axis": 2,
+          "distance": 90.0
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "MOVE RELATIVE",
+        "group": 1,
+        "line": 20,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "offset": {
+            "type": [
+              "VECTOR"
+            ],
+            "value": {
+              "X": 1.0,
+              "Y": 2.0,
+              "Z": 3.0
+            }
+          }
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "MOVE ALONG",
+        "group": 1,
+        "line": 21,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "nodes": [
+            {
+              "type": [
+                "POSITION"
+              ],
+              "value": {
+                "LOCATION": {
+                  "X": 10.0,
+                  "Y": 20.0,
+                  "Z": 30.0
+                },
+                "NORMAL": {
+                  "X": 1.0,
+                  "Y": 0.0,
+                  "Z": 0.0
+                },
+                "ORIENT": {
+                  "X": 0.0,
+                  "Y": 1.0,
+                  "Z": 0.0
+                },
+                "APPROACH": {
+                  "X": 0.0,
+                  "Y": 0.0,
+                  "Z": 1.0
+                },
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            {
+              "type": [
+                "POSITION"
+              ],
+              "value": {
+                "LOCATION": {
+                  "X": 40.0,
+                  "Y": 50.0,
+                  "Z": 60.0
+                },
+                "NORMAL": {
+                  "X": 1.0,
+                  "Y": 0.0,
+                  "Z": 0.0
+                },
+                "ORIENT": {
+                  "X": 0.0,
+                  "Y": 1.0,
+                  "Z": 0.0
+                },
+                "APPROACH": {
+                  "X": 0.0,
+                  "Y": 0.0,
+                  "Z": 1.0
+                },
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            }
+          ],
+          "start": 1,
+          "end": 2
+        }
+      },
+      {
+        "sequence": 9,
+        "program": "MOTION_REQUEST_DEMO",
+        "source_program": "MOTION_REQUEST_DEMO",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 22,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

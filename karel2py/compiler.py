@@ -663,6 +663,33 @@ class Parser:
     def statement(self):
         token = self.take()
         name = token.value
+        if self.mode=='pythonic' and name in ('ATTACH','RELEASE') and self.current.value not in ('=','[','.','(','::'):
+            if self.in_handler_actions:self.error('E_CONDITION_ACTION','Motion ownership statements are not handler actions',token)
+            return Statement('motion_action',token,[name])
+        if self.mode=='pythonic' and name in ('OPEN','CLOSE','RELAX') and self.current.value=='HAND':
+            self.expect('HAND')
+            return Statement('motion_action',token,[name+' HAND',self.expression()])
+        if self.mode=='pythonic' and name=='MOVE':
+            if self.in_handler_actions:self.error('E_CONDITION_ACTION','MOVE is not a global handler action',token)
+            form=self.take()
+            if form.value not in ('TO','NEAR','AWAY','ABOUT','AXIS','RELATIVE','ALONG'):
+                self.error('E_MOTION','Unsupported MOVE form',form)
+            operation='MOVE '+form.value
+            if form.value=='ALONG':
+                path=self.name();arguments=[Expr('name',path,path.value),None,None]
+                if self.accept('['):
+                    arguments[1]=self.expression()
+                    if self.accept('..'):arguments[2]=self.expression()
+                    self.expect(']')
+            else:
+                arguments=[self.expression()]
+                if form.value in ('NEAR','ABOUT','AXIS'):
+                    self.expect('BY');arguments.append(self.expression())
+                elif form.value=='TO' and self.accept('VIA'):arguments.append(self.expression())
+            nowait=bool(self.accept('NOWAIT'))
+            if self.current.value in (',','WHEN','UNTIL','ENDMOVE','VIA','WITH'):
+                self.error('E_MOTION_CLAUSE','Unsupported motion clause or motion-local handler',self.current)
+            return Statement('motion',token,[operation,arguments,nowait])
         if self.mode=='pythonic' and name=='PULSE':
             self.expect('DOUT');self.expect('[');port=self.expression();self.expect(']');self.expect('FOR')
             duration=self.expression();nowait=bool(self.accept('NOWAIT'))
@@ -1031,7 +1058,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         if mode=='pythonic' and any(row['name'] in rt.TASK_DIRECTIVES for row in program.directive_metadata): self.cooperative=True
         self.group_uses=[]
         self.using_scopes = []
@@ -1073,6 +1100,7 @@ class Emitter:
         self.joint_width_uses=[]
         self.joint_geometry_uses = []
         self.pulse_uses = []
+        self.motion_uses = []
         self.initialization_query_uses = []
         self.structure_return_uses = []
         self.structure_value_uses = []
@@ -1651,6 +1679,7 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
+                if isinstance(node,Statement) and node.kind in ('motion','motion_action'):routine.may_services=True
                 if isinstance(node,Statement) and node.kind=='pulse':
                     routine.may_services=True;routine.may_delay|=not node.args[2]
                 if isinstance(node, Statement) and node.kind in ('delay','wait'):
@@ -3066,6 +3095,41 @@ class Emitter:
         line = token.line
         self.features.add(kind)
         self.line(f'self._state.tick({line})', token)
+        if kind in ('motion','motion_action'):
+            operation=stmt.args[0];captured=[]
+            if kind=='motion':
+                arguments=stmt.args[1];nowait=stmt.args[2]
+                names={'MOVE TO':('target','via'),'MOVE NEAR':('target','distance'),
+                    'MOVE AWAY':('distance',),'MOVE ABOUT':('vector','angle'),
+                    'MOVE AXIS':('axis','distance'),'MOVE RELATIVE':('offset',),
+                    'MOVE ALONG':('path','start','end')}[operation]
+            else:
+                arguments=stmt.args[1:];names=('hand',);nowait=False
+            for index,expr in enumerate(arguments):
+                key=names[index]
+                if expr is None:captured.append(repr(key)+':None');continue
+                if key in ('hand','axis','start','end'):
+                    code=self.require_type(expr,'INTEGER');spec=('INTEGER',)
+                elif key in ('distance','angle'):
+                    code=self.require_type(expr,'REAL');spec=('REAL',)
+                else:
+                    code,spec=self.expression(expr)
+                    if (operation=='MOVE TO' and key=='target' and expr.kind=='index'
+                            and self.access_type(expr.args[0])[0]=='PATH'):
+                        fields=dict(rt.record_fields(spec));spec=fields.get('NODE_POS',())
+                        if not spec:self.error('E_MOTION_TYPE','MOVE TO PATH node requires NODE_POS',expr.token)
+                        code=f'_rt.load_field({code},"NODE_POS",{line})'
+                    allowed=('PATH',) if key=='path' else ('VECTOR',) if key=='vector' else ('VECTOR','POSITION','XYZWPR','XYZWPREXT') if key=='offset' else ('POSITION','XYZWPR','XYZWPREXT') if operation=='MOVE NEAR' or key=='via' else ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
+                    if spec[0] not in allowed:self.error('E_MOTION_TYPE','Unsupported '+operation+' '+key+' type: '+spec[0],expr.token)
+                temporary=self.fresh()
+                self.line(f'{temporary}=_rt.motion_operand({code},{spec!r},{line})',expr.token)
+                captured.append(repr(key)+':'+temporary)
+            self.features.add('offline motion requests')
+            self.motion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,operation=operation,nowait=nowait,operands_evaluated_once=True))
+            data='{'+','.join(captured)+'}'
+            self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line})',token)
+            return
         if kind=='pulse':
             if 'DOUT' in self.types or 'DOUT' in self.visible_constants(): self.error('E_PULSE','PULSE requires the unshadowed DOUT port bank',token)
             number=self.require_type(stmt.args[0],'INTEGER');duration=self.require_type(stmt.args[1],'INTEGER')
@@ -4024,6 +4088,13 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
+        motion_requests=emitter.motion_uses,
+        motion_request_policy=dict(model='Explicit offline capture-only or immediate scripted completion responses',
+            ownership='Explicit GroupLocks ownership; ATTACH and RELEASE validate atomically',
+            data='Complete detached positional operands; source order captured once; bounded PATH NODE_POS snapshots',
+            boundary='No trajectories, physical hands, robot feedback updates, live adapters or native motion-local handlers',
+            nowait='Preserved request flag; capture-only acceptance or supplied zero-duration completion, no background queue',
+            controller_validated=False),
         initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,
         type_aliases=emitter.type_aliases,

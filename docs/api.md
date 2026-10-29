@@ -616,3 +616,11 @@ used by nested program calls; standalone `run()` retains its ordinary begin/clea
 `vision_sample_depth_policy` describes explicit `sample_bits=16`, lossless PNG,
 raw byte quotas and unsupported 16-bit BMP status. See [positional transfers](positional-variable-transfers.md),
 [synchronous calls](synchronous-program-calls.md) and [16-bit images](vision-16bit-images.md).
+
+[Motion requests](motion-requests.md) use `runtime.MotionRequests(groups, *, hands=None,
+capture_only=False, responses=None, limit=128, sequence=0, history=None)` through
+`ExecutionContext.motion`. Groups map integer group numbers to explicit axis counts.
+Reports add `motion_requests` and `motion_request_policy`; context JSON retains
+canonical group/hand keys, detached typed history and remaining immediate replies.
+Ownership is supplied through GroupLocks. Capture-only outcomes are explicit;
+scripted results do not calculate motion or change robot feedback.

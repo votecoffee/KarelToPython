@@ -4,7 +4,9 @@ Pythonic translation supports `MOTION_CTL`, `CNCL_STP_MTN`, `SET_PERCH`, `RESET`
 `MIXBG_RUN` and `MIXBG_STOP` through an explicit `ControllerServices` model.
 It stores logical data and controls attached cooperative Python tasks. It opens
 no controller connection, commands no physical motion and performs no hardware
-reset. Native motion statements remain unsupported.
+reset. Separate [motion request capture](motion-requests.md) translates basic
+MOVE and hand forms through an explicit MotionRequests service; it does not
+perform native motion.
 
 ```json
 {

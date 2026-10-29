@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1029.234813 - 2026-10-29
+
+- Translate all seven basic MOVE forms, VIA, direct PATH-node destinations and
+  inclusive PATH ranges into an explicit offline MotionRequests service.
+  Capture validated detached operands or consume immediate scripted completions;
+  retain NOWAIT intent without simulating queued motion, trajectories or feedback.
+- Add logical OPEN/CLOSE/RELAX HAND and atomic ATTACH/RELEASE ownership over
+  explicit banks. Preserve caller ownership across linked source calls and clear
+  released-task bindings on completion, stop, abort and failure.
+- Persist bounded typed request history, logical hands and remaining responses;
+  validate restored data and retain source-located rejection evidence.
+- Add 47 regressions, three standalone examples and a linked project; update
+  isolated runtime distributions, current README, API and remaining-support notes.
+  Motion-local clauses and strict mode remain future work.
+
 ## 26.1029.231800 - 2026-10-29
 
 - Convert complete individual Cartesian representations and checked joint widths

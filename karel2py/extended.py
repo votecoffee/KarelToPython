@@ -1582,7 +1582,7 @@ def stop_cooperative(program):
 
 
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None,motion=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
@@ -1655,6 +1655,9 @@ class ExecutionContext:
         from .controller import ControllerServices
         if controller is not None and type(controller) is not ControllerServices:raise TypeError('controller must be ControllerServices or None')
         self.controller=controller
+        from .motion import MotionRequests
+        if motion is not None and type(motion) is not MotionRequests:raise TypeError('motion must be MotionRequests or None')
+        self.motion=motion
         from .vision import VisionServices
         if vision is not None and type(vision) is not VisionServices:raise TypeError('vision must be VisionServices or None')
         self.vision=vision
@@ -1684,7 +1687,7 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams','motion'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
@@ -1758,6 +1761,9 @@ class ExecutionContext:
         if 'vision' in config:
             from .vision import VisionServices
             services['vision']=VisionServices.from_config(config['vision'])
+        if 'motion' in config:
+            from .motion import MotionRequests
+            services['motion']=MotionRequests.from_config(config['motion'])
         if 'controller' in config:
             from .controller import ControllerServices
             services['controller']=ControllerServices.from_config(config['controller'])

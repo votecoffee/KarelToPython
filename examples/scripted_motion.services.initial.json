@@ -1,0 +1,27 @@
+{
+  "motion": {
+    "groups": {
+      "1": 6
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "capture_only": false,
+    "responses": [
+      {
+        "operation": "MOVE AXIS",
+        "completed": true
+      },
+      {
+        "operation": "MOVE AWAY",
+        "completed": true
+      }
+    ]
+  },
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  }
+}

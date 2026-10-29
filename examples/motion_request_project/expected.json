@@ -1,0 +1,15 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ENTRY": 1,
+      "DONE": true
+    }
+  },
+  "WORKER": {
+    "state": "ready",
+    "values": {
+      "DONE": true
+    }
+  }
+}

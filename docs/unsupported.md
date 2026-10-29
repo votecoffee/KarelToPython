@@ -27,13 +27,15 @@ they are boundaries rather than promises to accept every such source form later.
   An opted-in GroupLocks bank applies root LOCKGROUP/NOLOCKGROUP policies;
   a second opt-in enables [callee scopes](scoped-group-locks.md), while native
   waits remain unavailable. Include search does not discover native support installations.
-- Native motion statements: `MOVE TO`, `MOVE NEAR`, `MOVE AWAY`, `MOVE ABOUT`,
-  `MOVE ALONG`, `MOVE AXIS`, `MOVE RELATIVE`; their `VIA`, motion `WITH`, `WHEN`
-  and `UNTIL` clauses; motion ownership and hand control. `ATTACH`, `RELEASE`,
-  `OPEN HAND`, `CLOSE HAND`, `RELAX HAND`, `HOLD`, `UNHOLD`, `CANCEL`,
-  `CANCEL FILE` and standalone `PURGE` are not translated. `PURGE CONDITION`
-  is supported. `IN GROUP[n]` does not add motion or other native `IN` clauses;
-  `IN DRAM` storage placement is unavailable.
+- Native motion execution, trajectories, feedback updates and queued/delayed
+  completion. [Offline motion requests](motion-requests.md) now translate all
+  seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
+  hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
+  or immediate scripted responses plus logical ownership. Motion WITH, WHEN/UNTIL,
+  native interpolation settings and group synchronization remain unsupported.
+  `HOLD`, `UNHOLD`, `CANCEL`, `CANCEL FILE` and standalone `PURGE` are not translated;
+  `PURGE CONDITION` is supported. `IN GROUP[n]` does not add other native `IN`
+  clauses; `IN DRAM` storage placement is unavailable.
 - Handler actions involving native motion, hold/unhold or file cancellation;
   path-node arrival (`A TNODE`) conditions. Checkpoint predicates, events, port
   edges, semaphores, errors and lifecycle notifications have offline models.

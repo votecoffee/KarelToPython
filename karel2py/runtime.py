@@ -2418,6 +2418,7 @@ class State:
         if _pythonic() and self.execution.group_locks is not None:self.execution.group_locks.begin(self)
 
     def finish_teach_programs(self):
+        if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.finish(self)
         if self._budget_parent is None and self.execution.diagnostics is not None:self.execution.diagnostics.finish(self)
         bank=self.execution.teach_programs
         if bank is not None: bank.release_owner(task_root(self))
@@ -2822,3 +2823,4 @@ from .controller import ControllerServices,CONTROLLER_CALLS
 from .vision import VisionServices,VISION_CALLS
 from .source_translations import SourceTranslations
 from .serial_io import SerialStreams
+from .motion import MotionRequests,operand as motion_operand

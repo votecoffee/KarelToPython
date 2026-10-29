@@ -1,0 +1,15 @@
+{
+  "version": "26.1029.234813",
+  "scope": "Offline Pythonic motion request capture and immediate scripted results; no physical motion or controller acceptance",
+  "guide": "docs/motion-requests.md",
+  "source": ["MOVE TO", "MOVE NEAR", "MOVE AWAY", "MOVE ABOUT", "MOVE AXIS", "MOVE RELATIVE", "MOVE ALONG", "VIA", "NOWAIT", "ATTACH", "RELEASE", "OPEN HAND", "CLOSE HAND", "RELAX HAND"],
+  "capture": "Validate complete finite operands and detach each in source order before evaluating the next; freeze PATH before range expressions and capture selected positional NODE_POS values",
+  "ownership": "Explicit GroupLocks grants belong to the calling root across linked routines and programs; attach/release preflight complete selections, preserve foreign owners and clean released bindings at root termination",
+  "completion": "Capture-only is an explicit opt-in with captured outcomes; otherwise consume a matching immediate completed/rejected response, without motion queuing or feedback updates",
+  "hands": "Explicit one-based logical hand state, without port mappings or physical signals; hand actions may run in global handlers",
+  "persistence": "Retain typed detached history, hand state and remaining scripts; validate bounded data and reject saves with live released-task bindings",
+  "limits": {"groups": 31, "axes_per_group": 9, "hands": 2, "responses": 4096, "history": 128, "selected_path_nodes": 256, "payload_bytes": 65536, "sequence": 2147483646},
+  "tests": ["tests/test_motion_requests.py", "examples/motion_requests.kl", "examples/scripted_motion.kl", "examples/hand_requests.kl", "examples/motion_request_project/main.kl"],
+  "remaining": ["Trajectory interpolation and feedback", "Queued or delayed motion completion", "Motion WITH environment", "Motion-local WHEN/UNTIL handlers", "HOLD/UNHOLD/CANCEL", "Physical hand routing", "Native multi-group synchronization"],
+  "controller_validated": false
+}

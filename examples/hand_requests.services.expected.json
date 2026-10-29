@@ -1,0 +1,136 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 6
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "closed"
+    },
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 8,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "OPEN HAND",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "CLOSE HAND",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 2
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "RELAX HAND",
+        "group": 1,
+        "line": 10,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "MOVE AXIS",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "axis": 1,
+          "distance": 1.0
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "HAND_REQUESTS",
+        "source_program": "HAND_REQUESTS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 12,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

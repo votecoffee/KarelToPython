@@ -302,3 +302,7 @@ The [pose, synchronous-call and 16-bit PNG ledger](pose_sync_png16_semantics.jso
 adds checked individual positional variable transfers, private synchronous source
 entries and supplied two-byte image samples. It preserves complete conversion
 inputs, caller ownership, root cleanup, artifact hashes and byte quotas.
+
+The [motion request ledger](motion_request_semantics.json) supersedes blanket
+MOVE/hand/ATTACH/RELEASE translation exclusions in older contracts. The explicit
+request model remains separate from native motion, trajectories and feedback.

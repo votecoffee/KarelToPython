@@ -181,7 +181,7 @@ class RejectionTests(unittest.TestCase):
         self.reject('b = DIN[1] + 1', 'E_TYPE')
 
     def test_no_partial_translation_on_later_failure(self):
-        self.reject('x = 1\ny = x + 2\nMOVE TO x', 'E_UNSUPPORTED')
+        self.reject('x = 1\ny = x + 2\nMOVE TO x', 'E_MOTION_TYPE')
 
     def test_type_mismatches(self):
         for body in ('x = TRUE', 'b = 1', 'IF 1 THEN x = 1 ENDIF', "x = 'text'", 'x = b + 1'):

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1029.231800**. It is a
+tool are named **karel2py**. The current implementation is **26.1029.234813**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -687,6 +687,11 @@ individual Cartesian representations and checked joint widths in GET_VAR/SET_VAR
 CALL_PROG without resetting caller-owned state. Supplied [16-bit PNG rasters](docs/vision-16bit-images.md)
 retain explicit sample depth, byte order and alpha through saved context.
 
+[Offline motion requests](docs/motion-requests.md) now cover all seven basic MOVE
+forms, VIA, PATH ranges, hand statements and logical ATTACH/RELEASE ownership.
+An explicit service captures detached requests or consumes supplied immediate
+completion responses. It does not calculate trajectories or update robot feedback.
+
 ## Roadmap
 
 Continue expanding functional Pythonic conversion coverage. A planned
@@ -721,7 +726,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 46 complete linked source projects. It also checks that the unsupported-motion example is rejected.
+fixtures, plus 47 complete linked source projects. It also checks that a motion-local handler example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING
