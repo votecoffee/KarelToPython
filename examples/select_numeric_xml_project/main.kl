@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR measurements:ARRAY[2] OF SHORT result:INTEGER
+ROUTINE choice:REAL FROM LIB
+ROUTINE later:REAL FROM LIB
+BEGIN
+  measurements[1]=7
+  measurements[2]=8
+  SELECT 7 OF
+    CASE(choice()): result=42
+    CASE(later()): result=99
+  ENDSELECT
+END MAIN

@@ -57,7 +57,8 @@ advances to the next registered event.
 XML_SETVAR resolves attached globals or explicit VariableStore bindings through
 the existing static variable-path rules, including supported PATH node fields.
 An empty program name selects the current program. The target must be a user
-STRUCTURE. Flat scalar attributes and [dotted aggregate leaf paths](xml-aggregate-paths.md)
+STRUCTURE or an [explicit built-in record](xml-record-roots.md). Flat scalar attributes
+and [dotted aggregate leaf paths](xml-aggregate-paths.md)
 support INTEGER, BYTE, SHORT, REAL, BOOLEAN and bounded STRING fields.
 
 Attribute names match KAREL field names without case sensitivity. INTEGER values

@@ -211,9 +211,13 @@ class ScalarSelectRejectionTests(unittest.TestCase):
 
     def test_invalid_category_after_earlier_matching_case_still_rejected(self):self.reject('SELECT TRUE OF CASE(TRUE): result=42 CASE(1): result=99 ENDSELECT','E_CASE')
 
-    def test_dynamic_case_variable_is_rejected(self):self.reject('SELECT TRUE OF CASE(flag): ENDSELECT','E_CONSTANT')
+    def test_dynamic_case_variable_is_checked_at_runtime(self):
+        self.assertEqual(execute('flag=TRUE SELECT TRUE OF CASE(flag): result=42 ENDSELECT')['RESULT'],42)
 
-    def test_dynamic_function_case_is_rejected_without_execution(self):self.reject('SELECT TRUE OF CASE(choose()): ENDSELECT','E_CONSTANT',routines='ROUTINE choose:BOOLEAN BEGIN ABORT END choose')
+    def test_dynamic_function_case_translates_without_execution(self):
+        p,_=build('SELECT TRUE OF CASE(choose()): ENDSELECT',routines='ROUTINE choose:BOOLEAN BEGIN ABORT END choose')
+        self.assertIsNone(p.abort_info)
+        with self.assertRaises(rt.KarelAbort):p.run()
 
     def test_aggregate_and_resource_selectors_are_rejected(self):
         for spec in ('VECTOR','CONFIG','JOINTPOS3','ARRAY[2] OF BOOLEAN','FILE','PATH','QUEUE_TYPE'):
@@ -232,7 +236,8 @@ class ScalarSelectRejectionTests(unittest.TestCase):
     def test_unicode_literal_is_rejected(self):
         with self.assertRaises(TranslationError):build("SELECT 'caf\u00e9' OF CASE('caf\u00e9'): ENDSELECT")
 
-    def test_using_field_does_not_become_a_constant_case(self):self.reject('USING seed DO SELECT TRUE OF CASE(flag): ENDSELECT ENDUSING','E_CONSTANT')
+    def test_using_field_is_a_dynamic_case(self):
+        self.assertEqual(execute('seed.flag=TRUE USING seed DO SELECT TRUE OF CASE(flag): result=42 ENDSELECT ENDUSING')['RESULT'],42)
 
     def test_legacy_selector_types_and_real_case_remain_restricted(self):
         for body,code in (('SELECT TRUE OF CASE(TRUE): ENDSELECT','E_TYPE'),("SELECT 'yes' OF CASE('yes'): ENDSELECT",'E_TYPE'),

@@ -600,3 +600,11 @@ and `joint_width_policy` describe sites and contracts in translation reports.
 record/ARRAY paths, including BYTE/SHORT. [Question FILE patterns](question-file-wildcards.md)
 extend final source basenames for COPY/DELETE/RENAME/MOVE while retaining checked
 batch publication and explicit ordinary/plain-PIP services.
+
+[Dynamic SELECT](dynamic-select.md) accepts compatible runtime scalar case labels
+and captures all labels eagerly before matching. Reports expose dynamic slots
+through `case_expressions`, `dynamic_cases` and `case_evaluation`.
+`numeric_variable_transfer_policy` describes [checked GET_VAR/SET_VAR numeric
+conversions](numeric-variable-transfers.md), including bounded ARRAY prefixes.
+`xml_record_root_policy` describes [XML built-in record roots](xml-record-roots.md),
+their explicit schemas, staged publication and protected descendants.

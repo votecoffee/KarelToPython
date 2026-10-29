@@ -129,3 +129,10 @@ precedes frame/counter cleanup; assignment conversion precedes target selectors.
 The [XML leaf update](xml-aggregate-paths.md) stages all attributes before target
 publication. [Question FILE matching](question-file-wildcards.md) retains existing
 sorted collection and complete predictable batch preflight before file mutation.
+
+[Dynamic SELECT](dynamic-select.md) validates and captures its selector first,
+then each case expression once in clause/list order before any branch. A later
+failure prevents an earlier matching body. Numeric variable transfer source
+capture/lookup order remains as [documented](numeric-variable-transfers.md), with
+the whole converted prefix prepared before publication. [XML record roots](xml-record-roots.md)
+retain the existing staged attribute update and storage-identity contract.

@@ -25,7 +25,7 @@ ENDSELECT
 
 ## Comparison categories
 
-| Selector | Allowed case constants | Comparison |
+| Selector | Allowed case values | Comparison |
 | --- | --- | --- |
 | BOOLEAN | BOOLEAN only | Exact Boolean equality; ON/TRUE and OFF/FALSE are equivalent |
 | STRING | ASCII STRING only | Case-sensitive equality, preserving all characters and spaces |
@@ -50,15 +50,16 @@ trimming, escaping transformation or padding occurs during comparison. Existing
 literal, concatenation and storage rules apply before SELECT; a selector is not
 truncated to the length of a case constant.
 
-## Constants, order and first match
+## Case values, order and first match
 
 The selector may be an ordinary scalar expression, field/element access or
 typed function result. It evaluates once before dispatch. Its ordinary calls,
 argument modes, effects, short-circuit behavior and active-counter guards remain
-in force. Case labels must be literals or previously declared constant
-expressions of the selector's category. Local constants retain lexical scope;
-dynamic variables, function calls, USING fields, aggregates and resources do not
-become case constants.
+in force. Case labels can be literals, previously declared constant expressions or
+[dynamic scalar expressions](dynamic-select.md) of the selector's category.
+Local constants retain lexical scope; variables, typed functions and USING fields
+are runtime labels. Aggregates and resources remain blocked. The selector is
+captured first, then every label evaluates once in source order before matching.
 
 Clauses are checked in source order. Duplicates and overlapping label lists are
 valid; only the first matching clause executes. An empty matching body still
@@ -112,9 +113,14 @@ body and ELSE/no-match metadata, and adds:
 | --- | --- |
 | `selector_type` | Resolved source type, including BYTE/SHORT or STRING capacity |
 | `comparison_category` | BOOLEAN, STRING or NUMERIC |
-| `case_types` | Primitive type of every constant, retaining INTEGER/REAL distinctions |
+| `case_types` | Source scalar type of every case, retaining numeric distinctions |
 
 The [authored tests](../tests/test_scalar_select.py) cover comparison boundaries,
 both execution engines, effects, malformed tables, control flow, cooperative
 lifetime, linked routines, CLI generation and JSON state. These are offline
 Pythonic checks, without native compiler or controller acceptance claims.
+
+For dynamic slots, `case_values` contains null and `case_expressions` records
+source/type/dynamic metadata; `dynamic_cases` and `case_evaluation` identify the
+[eager dynamic extension](dynamic-select.md). Invalid later labels prevent all
+case bodies, including a body whose earlier case value would have matched.

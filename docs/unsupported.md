@@ -60,8 +60,9 @@ they are boundaries rather than promises to accept every such source form later.
   calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)
   now accept indexed/grouped record storage and built-in records; calls inside
   indexes use the one-time entry capture policy. [Scalar SELECT](scalar-select.md)
-  now accepts finite numeric, BOOLEAN and ASCII STRING categories; dynamic cases,
-  mixed categories and aggregate/resource selectors remain blocked. A miss without
+  now accepts finite numeric, BOOLEAN and ASCII STRING categories, with
+  [dynamic scalar CASE expressions](dynamic-select.md) evaluated eagerly once
+  after selector capture; mixed categories and aggregate/resource selectors remain blocked. A miss without
   ELSE fails. Recursion is bounded at 64 calls.
 - Unicode/multilingual source, native graphic characters, multiline literals,
   backslash string escapes, token-splicing continuations and arbitrary native
@@ -125,7 +126,8 @@ they are boundaries rather than promises to accept every such source form later.
 - Automatic system-variable schemas, arbitrary host/Python attribute access,
   dynamic routine-local lookup, native cached variable table IDs and native
   allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,
-  checked static paths and documented aggregate/queue transfers; CREATE_VAR and
+  checked static paths, [checked numeric scalar/ARRAY transfers](numeric-variable-transfers.md)
+  and documented aggregate/queue transfers; CREATE_VAR and
   variable renaming operate on explicit logical storage.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;
@@ -179,7 +181,8 @@ they are boundaries rather than promises to accept every such source form later.
 - XML writing, DTD/entity processing, Unicode, namespace interpretation and
   native streaming/error equivalence. All five [XML input calls](xml-input.md)
   now support bounded ASCII FILE scanning and [checked nested scalar/ARRAY leaf updates](xml-aggregate-paths.md),
-  including BYTE/SHORT, with atomic publication;
+  including BYTE/SHORT and [explicit built-in record roots](xml-record-roots.md),
+  with atomic publication;
   live scanners and registrations are omitted from saved JSON.
 
 ## Tasks, handlers and programs

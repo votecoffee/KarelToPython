@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1029.224626 - 2026-10-29
+
+- Add typed dynamic SELECT case expressions with selector-first capture, eager
+  once-only label evaluation in source order and first-match dispatch after
+  complete validation. Retain category, effect, counter and cleanup checks.
+- Add checked integral-family and integral-to-REAL scalar/ARRAY prefix transfers
+  in GET_VAR and SET_VAR, preserving source domains, receiver bounds, missing
+  markers, atomic outputs, concrete types and stable storage identities.
+- Allow explicit VECTOR/CONFIG/XYZWPR/XYZWPREXT/POSITION XML_SETVAR roots while
+  retaining staged updates, readonly POSITION roots/descendants and CONFIG bounds.
+- Add 73 regressions, three standalone examples and one linked project, with
+  refreshed support notes, reports and semantic guides. Strict stays future work.
+
 ## 26.1029.222104 - 2026-10-29
 
 - Add complete joint-width changes for whole assignments, private source routine

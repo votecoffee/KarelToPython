@@ -1,0 +1,11 @@
+PROGRAM XML_RECORD_ROOTS
+VAR point:XYZWPREXT direction:VECTOR input_file:FILE tag:STRING[32] ident,code,status:INTEGER
+BEGIN
+  SET_FILE_ATR(input_file,ATR_XML)
+  OPEN FILE input_file('RO','input.xml')
+  XML_ADDTAG(input_file,'item',254,FALSE,7,status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  XML_SETVAR(input_file,'','point',status)
+  direction=VEC(point.x,point.y,point.z)
+  CLOSE FILE input_file
+END XML_RECORD_ROOTS

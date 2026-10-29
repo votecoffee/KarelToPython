@@ -242,8 +242,8 @@ class BareFunctionRejectionTests(unittest.TestCase):
         routine = ANSWER + '\nROUTINE outer: INTEGER CONST answer=9 BEGIN RETURN answer END outer'
         self.reject('E_LOCAL_CONST_SHADOW', 'x=outer', routines=routine)
 
-    def test_case_values_remain_compile_time_constants(self):
-        self.reject('E_CONSTANT', 'SELECT 7 OF CASE(answer): x=1 ENDSELECT')
+    def test_legacy_case_values_remain_compile_time_constants(self):
+        self.reject('E_CONSTANT', 'SELECT 7 OF CASE(answer): x=1 ENDSELECT', _translator=legacy_translate)
 
 
 class BareFunctionFailureTests(unittest.TestCase):

@@ -1,0 +1,25 @@
+PROGRAM LIB
+VAR point:VECTOR limits:ARRAY[3] OF REAL input_file:FILE tag:STRING[32] trace:STRING[4] ident,code,status,entry,calls:INTEGER
+ROUTINE choice:REAL
+BEGIN
+  calls=1
+  trace='C'
+  SET_FILE_ATR(input_file,ATR_XML)
+  OPEN FILE input_file('RO','input.xml')
+  XML_ADDTAG(input_file,'item',254,FALSE,7,status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  XML_SETVAR(input_file,'','point',status)
+  CLOSE FILE input_file
+  limits[3]=99
+  GET_VAR(entry,'MAIN','MEASUREMENTS',limits,status)
+  RETURN point.x
+END choice
+ROUTINE later:REAL
+BEGIN
+  calls=calls+1
+  trace=trace+'L'
+  DELAY(1)
+  RETURN limits[3]
+END later
+BEGIN
+END LIB

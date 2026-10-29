@@ -1,7 +1,8 @@
 # XML attributes targeting aggregate leaves
 
 Pythonic `XML_SETVAR` can apply attributes to scalar leaves inside an explicitly
-resolved user STRUCTURE. Flat attribute names retain their previous behavior.
+resolved user STRUCTURE or [built-in record root](xml-record-roots.md). Flat
+attribute names retain their previous behavior.
 Dotted names are a portable extension:
 
 ```xml
@@ -16,7 +17,7 @@ whole records, unknown fields, expressions, arbitrary host attributes and
 out-of-range or incomplete indices are rejected.
 
 This extension interprets dotted attribute names; it does not map nested XML
-elements or interpret namespaces. The root target remains a user STRUCTURE,
+elements or interpret namespaces. The root target is a user STRUCTURE or supported built-in record,
 resolved through existing explicit variable/attached-program rules. The
 [authored example](../examples/xml_aggregate_paths.kl) supplies its XML through
 MemoryFiles.

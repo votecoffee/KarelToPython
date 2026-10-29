@@ -171,9 +171,9 @@ class DynamicNarrowAliasAndTransferTests(unittest.TestCase):
         state, _ = execute(create('SHORT') + "small=7 GET_VAR(entry,'CACHE','ITEM',small,status)")
         self.assertEqual((state['SMALL'], state['STATUS']), (MISSING, 12311))
 
-    def test_get_var_does_not_promote_output_reference(self):
+    def test_get_var_promotes_known_byte_into_integer_storage(self):
         state, _ = execute(create() + "SET_VAR(entry,'CACHE','ITEM',7,status) n=99 GET_VAR(entry,'CACHE','ITEM',n,status)")
-        self.assertEqual((state['N'], state['STATUS']), (99, 3))
+        self.assertEqual((state['N'], state['STATUS']), (7, 0))
 
     def test_short_sentinel_can_clear_dynamic_storage_through_alias(self):
         state, ctx = execute(create('SHORT') + "clear(BYNAME('CACHE','ITEM',entry)) GET_VAR(entry,'CACHE','ITEM',small,status)",

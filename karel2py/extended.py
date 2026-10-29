@@ -966,7 +966,7 @@ def variable_transfer(target,source,*,numeric=False,line=None):
     if arrays:
         leaf=rt.array_leaf_spec(spec);source_leaf=rt.array_leaf_spec(source.spec)
         if (len(rt.array_dimensions(spec))!=len(rt.array_dimensions(source.spec))
-                or not _variable_compatible(leaf,source_leaf)): return None
+                or not _variable_compatible(leaf,source_leaf,numeric=numeric)): return None
     elif not _variable_compatible(spec,source.spec,numeric=numeric): return None
     _variable_shape(spec,target.raw(),line)
     if source.value is rt.UNINITIALIZED: return rt.UNINITIALIZED,True
@@ -2185,7 +2185,7 @@ class ExecutionContext:
                 if spec is None: fail('SET_VAR requires a typed data input',line)
                 source=variable_value(spec,value,line)
             destination=target
-        prepared=variable_transfer(destination,source,numeric=name=='SET_VAR',line=line)
+        prepared=variable_transfer(destination,source,numeric=True,line=line)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
         key=(program.upper() or state.program_name,path.upper())

@@ -1,0 +1,36 @@
+{
+  "version": "26.1029.224626",
+  "scope": "Offline Pythonic source extensions; native/compiler equivalence not established",
+  "features": {
+    "dynamic_select": {
+      "guide": "docs/dynamic-select.md",
+      "order": "Validate selector once, then all labels once in clause/list order before first-match selection",
+      "typing": "BOOLEAN, ASCII STRING and finite numeric categories stay separate; no aggregate/resource labels",
+      "lifetime": "Suspended label calls retain selector/prior labels; GOTO body entry bypasses dispatch; ordinary effects, counter guards and cleanup",
+      "reports": "Constant slots keep values; dynamic slots null plus source/type metadata; explicit eager policy"
+    },
+    "numeric_transfers": {
+      "guide": "docs/numeric-variable-transfers.md",
+      "conversions": "GET_VAR/SET_VAR scalars and same-rank prefixes: integral family and integral-to-REAL",
+      "validation": "Source domain then receiver bounds, missing markers and SHORT sentinel; unknown BYTE cannot be promoted",
+      "atomicity": "Complete prepared prefix before data/cache entry/status publication; stable receiver identity and retained tails",
+      "boundary": "No REAL-to-integral, BOOLEAN/numeric, rank or positional representation coercion"
+    },
+    "xml_records": {
+      "guide": "docs/xml-record-roots.md",
+      "roots": "Explicit user STRUCTURE, VECTOR, CONFIG, XYZWPR, XYZWPREXT and POSITION",
+      "validation": "Existing static paths, scalar conversions, staging, duplicate/overlap guards, CONFIG limits and recursive POSITION protection",
+      "boundary": "No scalar/whole ARRAY/joint/resource root, implicit pose orientation, XML writing or schema discovery"
+    }
+  },
+  "validation": [
+    "tests/test_dynamic_select.py",
+    "tests/test_numeric_variable_transfers.py",
+    "tests/test_xml_record_roots.py",
+    "examples/dynamic_select.kl",
+    "examples/numeric_variable_transfers.kl",
+    "examples/xml_record_roots.kl",
+    "examples/select_numeric_xml_project"
+  ],
+  "strict_mode": "Future milestone; preserve legacy INTEGER constant SELECT guards"
+}

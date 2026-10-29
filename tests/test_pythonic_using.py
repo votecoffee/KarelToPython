@@ -165,11 +165,10 @@ class UsingNamespaceTests(unittest.TestCase):
         state = execute('USING left DO value=1 SELECT value OF CASE(wanted): result=value ENDSELECT ENDUSING', constants='CONST wanted=1')
         self.assertEqual(state['RESULT'], 1)
 
-    def test_shadowed_case_label_is_not_a_runtime_case(self):
-        with self.assertRaises(TranslationError) as caught:
-            compile_program('USING left DO SELECT result OF CASE(value): result=7 ENDSELECT ENDUSING', constants='CONST value=7',
+    def test_shadowed_case_field_is_a_runtime_label(self):
+        p,_=compile_program('result=9 USING left DO value=9 SELECT result OF CASE(value): result=42 ENDSELECT ENDUSING', constants='CONST value=7',
                             declarations='left: leaf_t result: INTEGER')
-        self.assertEqual(caught.exception.code, 'E_CONSTANT')
+        self.assertEqual(p.run()['RESULT'],42)
 
     def test_unknown_call_still_rejected(self):
         with self.assertRaises(TranslationError) as caught: compile_program('USING left DO value() ENDUSING')

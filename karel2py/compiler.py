@@ -2814,20 +2814,53 @@ class Emitter:
             elif spec[0] in ('BOOLEAN','STRING'):category=spec[0]
             else:self.error('E_TYPE','SELECT requires BOOLEAN, ASCII STRING or finite numeric scalar values',stmt.args[0].token)
         else:selector=self.require_type(stmt.args[0],'INTEGER')
-        cases=self.case_values(stmt,category)
+        expressions=[];case_types=[];sites=[];dynamic=False
+        if self.mode=='pythonic':
+            def constant_form(expr):
+                if expr.kind in ('literal','real_literal','predefined'):return True
+                if expr.kind=='name':return expr.value in self.visible_constants()
+                return expr.kind in ('group','unary','binary') and all(constant_form(child) for child in expr.args)
+            cases=[]
+            for case_index,(_,values,_) in enumerate(stmt.args[1]):
+                row=[];codes=[];types=[]
+                for value_index,expr in enumerate(values):
+                    known=constant_form(expr)
+                    if known:
+                        value=self.constant(expr)
+                        try:rt.select_scalar(value,category,expr.token.line)
+                        except rt.KarelRuntimeError as exc:self.error('E_CASE','CASE constant does not match SELECT '+category+' category: '+str(exc),expr.token)
+                        kind='BOOLEAN' if type(value) is bool else 'INTEGER' if type(value) is int else 'REAL' if type(value) is float else 'STRING'
+                        row.append(value);code=repr(value)
+                    else:
+                        code,value_spec=self.expression(expr)
+                        kind=value_spec[0]
+                        actual='NUMERIC' if kind in (*INTEGRAL_TYPES,'REAL') else kind
+                        if actual!=category:self.error('E_CASE','CASE expression does not match SELECT '+category+' category',expr.token)
+                        code=f'_rt.select_scalar({code},{category!r},{expr.token.line})'
+                        row.append(None);dynamic=True
+                    codes.append(code);types.append(kind)
+                    sites.append(dict(clause=case_index,value_index=value_index,line=expr.token.line,column=expr.token.column,
+                        expression_kind=expr.kind,type=kind,dynamic=not known,evaluated_once=True))
+                cases.append(tuple(row));expressions.append('('+','.join(codes)+',)');case_types.append(types)
+            # Validate/capture the selector before any case expression effects.
+            selector=f'_rt.select_scalar({selector},{category!r},{stmt.token.line})'
+            table='('+','.join(expressions)+',)'
+        else:
+            cases=self.case_values(stmt,category);table=repr(tuple(cases))
         self.select_scopes.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=stmt.token.line, column=stmt.token.column, case_values=cases,
                                        case_count=len(cases), has_else=stmt.has_else,
                                        empty_else=stmt.has_else and not stmt.alternate,
                                        no_match='else_clause' if stmt.has_else else 'KarelRuntimeError'))
         if self.mode=='pythonic':
-            self.select_scopes[-1].update(selector_type=spec,comparison_category=category,
-                case_types=[['BOOLEAN' if type(value) is bool else 'INTEGER' if type(value) is int else 'REAL' if type(value) is float else 'STRING' for value in values] for values in cases])
+            self.select_scopes[-1].update(selector_type=spec,comparison_category=category,case_types=case_types,
+                dynamic_cases=dynamic,case_expressions=sites,case_evaluation='all_once_left_to_right_before_matching')
             if spec[0] in ('BOOLEAN','STRING','REAL'):self.features.add('Pythonic scalar SELECT')
+            if dynamic:self.features.add('dynamic SELECT case expressions')
         self.features.add('SELECT first matching CASE')
         self.features.add('SELECT no-match guard')
         category_code=f',category={category!r}' if self.mode=='pythonic' else ''
-        return f'_rt.select_case({selector}, {tuple(cases)!r}, {stmt.has_else!r}, {stmt.token.line}{category_code})'
+        return f'_rt.select_case({selector}, {table}, {stmt.has_else!r}, {stmt.token.line}{category_code})'
 
     def emit_body(self, statements):
         labelled,transfers=self.validate_labels(statements)
@@ -4150,13 +4183,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report = result.report
     report['select_policy'].update(
         selector='Finite numeric, BOOLEAN or bounded ASCII STRING expression evaluated once',
-        cases='Compatible compile-time constants; BOOLEAN/STRING/numeric categories remain separate; ordinary finite numeric equality without integer-to-float conversion')
+        cases='Compatible compile-time constants and dynamic scalar expressions; BOOLEAN/STRING/numeric categories remain separate; ordinary finite numeric equality without integer-to-float conversion')
     report['scalar_select_policy']=dict(
         selectors='INTEGER/BYTE/SHORT/finite REAL numeric values, BOOLEAN or ASCII STRING up to 254 characters; checked once before dispatch',
-        matching='First matching compatible constant clause only; numeric equality keeps integers intact, BOOLEAN is distinct from numbers and STRING comparison is exact without case folding or padding',
+        matching='First matching compatible clause after all case expressions are evaluated once; numeric equality keeps integers intact, BOOLEAN is distinct from numbers and STRING comparison is exact without case folding or padding',
         execution='Same structured/dispatcher/cooperative helper, source-located no-match errors, explicit empty ELSE, ordinary effects and frame/counter cleanup',
         reports='selects adds selector_type, comparison_category and per-clause case_types; generated calls carry an explicit category and validate every case before matching',
-        boundary='No dynamic cases, mixed categories, aggregate/resource selectors, approximate numeric matching or native acceptance claim; legacy SELECT remains INTEGER-only',
+        boundary='Mixed categories, aggregate/resource selectors, approximate numeric matching and native acceptance remain unsupported; dynamic source cases follow dynamic_select_policy; legacy SELECT remains INTEGER constants only',
         guide='docs/scalar-select.md',controller_validated=False)
     report['service_policy'] = dict(
         procedures=sorted(ex.PROCEDURES), functions=sorted(ex.FUNCTIONS), ports=dict(ex.PORT_TYPES),
@@ -4174,7 +4207,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='1 MiB input, 64 nested tags, 65536 events, 32 attributes per tag, 254-character names/attribute values and 128 registered tags; parsing/scanning charge ordinary execution steps',
         events='Registered tags only, first matching registration wins; full case-sensitive or folded names/prefixes; self-closing tags report XML_END with attributes, ordinary END has no attributes; status XML_FUNCTION for delivery, zero for EOF, XML_SCANLIM after 50 skipped physical lines',
         data='Complete attribute capacities required, unused array elements retained; text read in concrete destination-sized chunks, textdone signals exhaustion, subsequent scans return XML_TXCONT when a previously read event has more text',
-        writes='XML_SETVAR stages explicit/attached user STRUCTURE values, resolves case-insensitive dotted record fields and complete one-based ARRAY indices, and checks INTEGER/BYTE/SHORT/REAL/BOOLEAN/STRING leaves before atomic publication; duplicate canonical leaves, unknown paths, readonly fields and CONFIG turn overflow reject; unmentioned data and indirect FOR guards retained',
+        writes='XML_SETVAR stages explicit/attached user STRUCTURE or built-in VECTOR/CONFIG/XYZWPR/XYZWPREXT/POSITION records, resolves case-insensitive dotted record fields and complete one-based ARRAY indices, and checks INTEGER/BYTE/SHORT/REAL/BOOLEAN/STRING leaves before atomic publication; duplicate canonical leaves, unknown paths, readonly fields and CONFIG turn overflow reject; unmentioned data and indirect FOR guards retained',
         lifecycle='Pause retains scanner; CLOSE/reopen releases registrations and pending data; no ordinary READ or seek on XML FILE; changed backend bytes reject; live parser state is excluded from context JSON',
         status='Portable XML constants; registration/data/SETVAR zero success, SCAN zero EOF; XML_STATE=1, XML_INVALID=2, XML_CAPACITY=3, XML_PARSE=4, XML_LIMIT=5; parse failures publish XML_ERROR identifier; capacity failures preserve outputs/cursor for retry',
         boundary='No XML writing, native parser/status equivalence, DTD/entity processing, Unicode/namespaced schema interpretation, asynchronous streaming or suspended parser checkpoints; strict remains future work',
@@ -4284,7 +4317,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['variable_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         lookup='Five arguments; current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',
-        arrays='Same logical rank and compatible terminal data type; row-major prefix of the smaller total element count; outer extents and ARRAY identities may differ; preserve receiver tail; STRING leaves truncate to receiver capacity',
+        arrays='Same logical rank and exact or checked integral-family/integral-to-REAL terminal data type; row-major prefix of the smaller total element count; outer extents and ARRAY identities may differ; preserve receiver tail; STRING leaves truncate to receiver capacity',
         capture='SET_VAR captures a typed independent input once before later selectors, including missing reference data; GET_VAR resolves and snapshots its source after output selectors; data structure checked at capture and transferred known data after lookup; whole queues validate complete logical source at capture',
         missing='Whole missing source clears a compatible receiver; partial missing leaves propagate in the transferred prefix; status 12311 reflects copied missing data only; unknown BYTE retained distinctly without inventing readable contents',
         status='Portable 0 success, 1 lookup missing, 3 incompatible type/rank, 12311 transferred missing data; type guard precedes missing propagation; failed lookup/type writes status only; cache IDs published only after complete data validation',
@@ -4754,7 +4787,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='Index calls and selectors run even for empty blocks; index changes do not retarget fields; loop entries recapture, internal jumps and pause/resume retain references; handler callbacks freeze enclosing references at definition',
         nested_scopes='Lexical scopes; depth zero at the outermost USING; scope id, parent id, source selectors and resolved paths in using_scopes',
         call_name_collisions='Explicit expression calls and procedure call statements resolve routines; a bare expression resolves a matching field before a zero-argument function',
-        constant_name_collisions='Matching fields shadow global/local constants only inside the scope; CASE labels still require compile-time constants',
+        constant_name_collisions='Matching fields shadow global/local constants only inside the scope; CASE field labels use the dynamic_select_policy eager scalar contract',
         shadowed_for_counters='Resolved exact INTEGER fields can own captured counters; declared or private lexical whole-root identities retain scalar/routine/service/handler/timer safety',
         boundary='No whole ARRAY/resource/joint selectors, resource-bearing computed copies, escaping private counter aliases, implicit nested-field search or native namespace/selection-timing/alias-lifetime claim',
         guide='docs/using-selectors.md',computed_guide='docs/computed-using.md',
@@ -5401,6 +5434,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['data_record_policy']['boundary']='Source Cartesian and explicit-model joint/Cartesian arguments/RETURN use private converted values; no whole-array representation coercion, inferred robot context or physical motion'
     report['positional_routine_policy']['boundary']='Private Cartesian/model-backed joint source conversions; same-type bare refs, whole arrays, BYNAME, linked declarations and raw callback results remain exact; source joint widths follow joint_width_policy'
     report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR frames with pose/joint FRAME origin; source model-backed routine conversions are separate from exact joint-width/whole-array contracts and native equivalence'
+    report['dynamic_select_policy']=dict(
+        source='Compatible scalar expressions in CASE lists; declared/lexical fields, indices, operators and typed functions retain ordinary effect guards',
+        order='Capture and validate selector first, then evaluate/validate every case expression once left-to-right in source clause/list order before first-match dispatch, including later labels after an earlier match',
+        lifetime='Structured/label/cooperative engines retain captured selector and earlier labels through suspended calls; body pause resumes without reevaluation; direct permitted case-label entry bypasses dispatch',
+        reports='selects retains constant case_values; dynamic slots are null, distinguished by case_expressions, case_types, dynamic_cases and explicit case_evaluation',
+        boundary='Explicit Pythonic extension; no mixed-category/aggregate/resource labels or native equivalence; legacy retains INTEGER constant cases',
+        guide='docs/dynamic-select.md',controller_validated=False)
+    report['numeric_variable_transfer_policy']=dict(
+        conversions='GET_VAR and SET_VAR scalar and same-rank ARRAY prefix transfers accept checked INTEGER/BYTE/SHORT family conversion and integral-to-REAL promotion',
+        validation='Check declared source domain before receiver conversion; preserve numeric receiver bounds, MAXINT exclusion, SHORT sentinel, missing markers and unknown BYTE restrictions',
+        atomicity='Prepare the complete copied prefix before data/cache entry/status publication; retain receiver tail and stable storage identities',
+        boundary='No implicit REAL-to-integral, BOOLEAN/numeric, whole record/joint representation or array rank conversion; ordinary assignment/routine rules unchanged',
+        guide='docs/numeric-variable-transfers.md',controller_validated=False)
+    report['xml_record_root_policy']=dict(
+        targets='Explicit user STRUCTURE, VECTOR, CONFIG, XYZWPR, XYZWPREXT or POSITION roots; fields/elements and attached owners use existing static resolution',
+        writes='Stage typed scalar leaves through ordinary field references; preserve POSITION orientation read-only descendants, CONFIG turn bounds, duplicate-cell/overlap checks and missing values',
+        boundary='No scalar/whole ARRAY/JOINTPOS/resource root, inferred geometry, native schema discovery or XML writing',
+        guide='docs/xml-record-roots.md',controller_validated=False)
     report['joint_width_policy']=dict(
         conversions='Whole JOINTPOS assignments, source arguments and RETURN values between declared widths 1..9; exact same-type bare arguments keep references',
         validation='Complete finite axes required; widening pads zeros and narrowing requires all discarded axes zero; no model or group inference',

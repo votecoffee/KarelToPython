@@ -292,3 +292,8 @@ The [joint, XML and question-wildcard ledger](joint_xml_question_semantics.json)
 adds complete joint width conversions, atomic aggregate XML leaf updates and
 single-character final-basename source matching. Exact linkage, missing markers,
 protected fields, explicit services and bounded batch publication remain checked.
+
+The [SELECT, numeric transfer and XML-root ledger](select_numeric_xml_semantics.json)
+adds eager typed dynamic CASE labels, checked numeric scalar/ARRAY transfers and
+built-in XML record targets. Captured values, source effects, atomic publication,
+explicit schemas, protected fields and legacy SELECT guards remain checked.

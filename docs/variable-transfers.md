@@ -49,9 +49,10 @@ ARRAY transfers use these bounded rules:
 - Source and receiver must have the same logical rank, from one through three.
   Named ARRAY components contribute their dimensions to that rank.
 - Outer ARRAY names and extents may differ. Terminal element types must match;
-  named STRUCTURE types and JOINTPOS widths retain exact identity.
+  named STRUCTURE types and JOINTPOS widths retain exact identity. Numeric
++  leaves also permit [checked integral-family/integral-to-REAL conversion](numeric-variable-transfers.md).
 - STRING elements may have different capacities. Copied strings truncate to the
-  receiver's capacity. ARRAY numeric element types do not implicitly convert.
+  receiver's capacity. Numeric receiver bounds and declared source domains remain checked.
 - Copy the smaller **total terminal element count** in row-major order. This is
   a sequential prefix, including across differently shaped matrices. Preserve
   the receiver's remaining cells. A record or joint is one terminal element.
@@ -61,10 +62,10 @@ receiver becomes `[[1,2,3],[4,old5,old6]]`. Rank changes do not flatten implicit
 Ordinary whole ARRAY assignment, routine parameters and RETURN keep their
 existing nominal type and shape rules.
 
-Non-ARRAY GET requires identical data types, with receiver-capacity truncation
-for STRING. Non-ARRAY SET also retains existing checked integral-family storage
-conversions and integral-to-REAL conversion. REAL-to-integer conversion remains
-explicit. Scalars, records and joints retain known value/range/config checks.
+Non-ARRAY GET and SET permit identical data types, receiver-capacity STRING
+truncation, checked integral-family conversion and integral-to-REAL promotion.
+The same numeric choices now apply to ARRAY prefixes. REAL-to-integer conversion
+remains explicit; BOOLEAN does not enter the numeric category. Scalars, records and joints retain known value/range/config checks.
 Since 0.99.0, whole QUEUE_TYPE values support independent
 [logical queue transfers](queue-transfers.md). Whole FILE/PATH and embedded
 resources remain excluded; static data fields and nodes can be addressed

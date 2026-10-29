@@ -1,0 +1,5 @@
+{
+  "files": {
+    "input.xml": "<item x=\"7\" y=\"8\" z=\"9\" w=\"0\" p=\"0\" r=\"0\" ext1=\"10\" ext2=\"20\" ext3=\"30\" config_data.cfg_turn_no1=\"0\" config_data.cfg_turn_no2=\"0\" config_data.cfg_turn_no3=\"0\" config_data.cfg_flip=\"false\" config_data.cfg_left=\"false\" config_data.cfg_up=\"false\" config_data.cfg_front=\"false\"/>"
+  }
+}

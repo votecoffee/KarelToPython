@@ -82,9 +82,9 @@ class BoundedArrayTransferTests(unittest.TestCase):
         state=run('e=9 b[1]=7 '+transfer(),decl=BASE+' a: ARRAY[1,2] OF INTEGER b: ARRAY[2] OF INTEGER')
         self.assertEqual((state['B'],state['E'],state['S']),([7,MISSING],9,3))
 
-    def test_array_numeric_element_conversion_is_not_implicit(self):
+    def test_array_integral_to_real_promotion_is_checked(self):
         state=run('e=9 a[1]=7 b[1]=9 '+transfer('SET_VAR','B','a'),decl=BASE+' a: ARRAY[1] OF INTEGER b: ARRAY[1] OF REAL')
-        self.assertEqual((state['B'],state['E'],state['S']),([9.],9,3))
+        self.assertEqual((state['B'],state['E'],state['S']),([7.],1,0))
 
     def test_nominal_record_leaf_types_remain_exact(self):
         state=run('e=9 b[1].id=7 '+transfer(),decl=BASE+' a: ARRAY[1] OF first_t b: ARRAY[2] OF second_t',prefix='TYPE first_t=STRUCTURE id: INTEGER ENDSTRUCTURE second_t=STRUCTURE id: INTEGER ENDSTRUCTURE')

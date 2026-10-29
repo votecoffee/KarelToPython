@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1029.222104. Acceptance is specific to
+This is the supported prototype subset as of 26.1029.224626. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -14,7 +14,7 @@ internally and in the historical semantic notes.
 | Area | Supported subset | Limits |
 | --- | --- | --- |
 | Source | Case-insensitive ASCII identifiers, comments, four metadata directives, seven task policies and nine additional source policies, explicit nested %INCLUDE expansion, bounded complete-token continuations, doubled apostrophes | DEFGROUP selects offline defaults, CRTDEVICE labels requests; opt-in root and callee group scopes use an explicit bank, while storage/stack/periodic-delay intent remains metadata. Unknown directives, token fusion and multiline literals remain blocked; include sources require explicit mappings or selected roots. |
-| Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR can capture INTEGER/BYTE/SHORT fields/elements/USING fields with checked counter domains; conservative aggregate-root write/reuse guards and exact cleanup apply. Formal/nonlocal roots in parameterized routines require fresh locals; unproven external calls over global aggregate counters remain blocked. [Scalar SELECT](scalar-select.md) accepts finite numeric, BOOLEAN and ASCII STRING categories, uses the first matching constant case and errors without a match/ELSE. |
+| Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR can capture INTEGER/BYTE/SHORT fields/elements/USING fields with checked counter domains; conservative aggregate-root write/reuse guards and exact cleanup apply. Formal/nonlocal roots in parameterized routines require fresh locals; unproven external calls over global aggregate counters remain blocked. [Scalar SELECT](scalar-select.md) accepts finite numeric, BOOLEAN and ASCII STRING categories, evaluates compatible constant/dynamic labels once in source order before choosing the first matching case and errors without a match/ELSE. |
 | Labels | Body-scoped labels and GOTO, nested/sibling IF/WHILE/REPEAT/SELECT targets and active FOR-body transfers | Ordinary continuation, retained active FOR bounds and exited-counter cleanup; no entry into new FOR or USING scopes or cross-routine transfers. See [nested jumps](nested-jumps.md) and [FOR jumps](for-jumps.md). |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; existing FOR rules; typed FROM project/callback linkage; no native external ABI or local TYPE sections. |
 | INTEGER | Checked signed 32-bit expressions, bit operators, DIV and signed MOD | MAXINT excluded from normal storage; DIV truncates toward zero; MOD follows Python remainder. |
@@ -75,7 +75,7 @@ internally and in the historical semantic notes.
 | Task policies and traces | SET_TSK_ATTR, seven source directives, priority-ordered weighted turns, request-origin masks and bounded source checkpoint tracing | Nine checked settings, stable numeric IDs, explicit shift/TP-enable notifications and atomic CLI trace export; capability-only lamp/motion flags; no native CPU timing or preemption. |
 | TP program data | 17 management, position, frame/type and comment calls over explicit TeachPrograms, plus listing/load/header metadata integration | Logical records, grouped poses/joints, opaque one-based instruction deletion, access/reject handles and terminal cleanup; no native TP files, execution or motion linkage. |
 | TP local registers | 12 numeric/string/grouped position calls with explicit caller bindings in TeachPrograms | Calling KAREL root scope through linked routines and scheduler rename, separate local banks, stored frame/tool metadata and typed JSON; no native caller-stack discovery. |
-| XML input | XML_ADDTAG, XML_REMTAG, XML_SCAN, XML_GETDATA, XML_SETVAR over explicit text RO FILEs | Bounded ASCII documents, registered events, text continuation and checked flat field updates; [nested scalar/ARRAY paths](xml-aggregate-paths.md) and BYTE/SHORT leaves; no DTD/entities, XML writing or native parser/status equivalence. |
+| XML input | XML_ADDTAG, XML_REMTAG, XML_SCAN, XML_GETDATA, XML_SETVAR over explicit text RO FILEs | Bounded ASCII documents, registered events, text continuation and checked nested scalar leaf updates on user/built-in records; [nested scalar/ARRAY paths](xml-aggregate-paths.md) and BYTE/SHORT leaves; no DTD/entities, XML writing or native parser/status equivalence. |
 | Serial attributes | GET_PORT_ATR/SET_PORT_ATR over explicit SerialPorts | Seven checked attributes, canonical context JSON and portable constants; configuration metadata without serial/device effects. |
 | Serial FILE streams | Explicit finite/default or opted-in host-fed waiting P1:..P5: RX queues and TX outboxes | Atomic text/binary reads, explicit EOF, close-time RX consumption, appended TX, bounded JSON and exclusive handles. No hardware access, implicit attribute application or native serial timing. See [serial streams](serial-streams.md) and [serial waiting](serial-waiting.md). |
 | Virtual devices | MOUNT_DEV, DISMOUNT_DEV, FORMAT_DEV, PURGE_DEV, VOL_SPACE, DOSFILE_INF over DeviceFiles | Explicit memory-backed volumes, mount/closed-file guards, byte quotas/reclamation and supplied metadata; no host drive or native device operations. |
@@ -364,3 +364,10 @@ zero-only narrowing. Exact bare aliases, linked declarations and whole arrays
 retain their existing contracts. [Question FILE wildcards](question-file-wildcards.md)
 extend final-basename source matching across COPY/DELETE/RENAME/MOVE without
 changing destination star substitution, backend isolation or preflight guarantees.
+
+[Dynamic SELECT labels](dynamic-select.md) capture the selector first, evaluate
+all typed case expressions once in source order, and dispatch after complete
+validation. [Numeric GET_VAR/SET_VAR](numeric-variable-transfers.md) adds checked
+integral-family/integral-to-REAL scalars and same-rank ARRAY prefixes. [XML built-in
+record roots](xml-record-roots.md) retain atomic leaf updates, readonly POSITION
+orientation, CONFIG bounds and explicit context without geometry inference.

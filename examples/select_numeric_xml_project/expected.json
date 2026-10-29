@@ -1,0 +1,41 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "POINT": {
+        "X": 7.0,
+        "Y": 8.0,
+        "Z": 9.0
+      },
+      "LIMITS": [
+        7.0,
+        8.0,
+        99.0
+      ],
+      "INPUT_FILE": {
+        "file": "input.xml",
+        "open": false,
+        "position": 25,
+        "binary": false,
+        "status": 0
+      },
+      "TAG": "item",
+      "TRACE": "CL",
+      "IDENT": 7,
+      "CODE": 101,
+      "STATUS": 0,
+      "ENTRY": 1,
+      "CALLS": 2
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "MEASUREMENTS": [
+        7,
+        8
+      ],
+      "RESULT": 42
+    }
+  }
+}

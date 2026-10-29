@@ -341,9 +341,9 @@ class NarrowScalarServiceTests(unittest.TestCase):
         state = execute("b=7 small=-2 GET_VAR(entry,'','B',other,status) SET_VAR(entry,'','SMALL',b,status)")
         self.assertEqual((state['B'], state['OTHER'], state['SMALL'], state['STATUS']), (7, 7, 7, 0))
 
-    def test_get_var_does_not_widen_narrow_output_reference(self):
+    def test_get_var_widens_known_byte_into_integer_storage(self):
         state = execute("b=7 n=42 GET_VAR(entry,'','B',n,status)")
-        self.assertEqual((state['N'], state['STATUS']), (42, 3))
+        self.assertEqual((state['N'], state['STATUS']), (7, 0))
 
     def test_set_var_checked_integer_to_byte_preserves_target_on_range_error(self):
         p, _ = program("b=7 n=256 SET_VAR(entry,'','B',n,status)")

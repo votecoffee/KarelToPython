@@ -1,0 +1,38 @@
+{
+  "POINT": {
+    "X": 7.0,
+    "Y": 8.0,
+    "Z": 9.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    },
+    "EXT1": 10.0,
+    "EXT2": 20.0,
+    "EXT3": 30.0
+  },
+  "DIRECTION": {
+    "X": 7.0,
+    "Y": 8.0,
+    "Z": 9.0
+  },
+  "INPUT_FILE": {
+    "file": "input.xml",
+    "open": false,
+    "position": 275,
+    "binary": false,
+    "status": 0
+  },
+  "TAG": "item",
+  "IDENT": 7,
+  "CODE": 101,
+  "STATUS": 0
+}

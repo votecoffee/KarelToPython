@@ -274,11 +274,11 @@ class PathRecordPersistenceAndDynamicTests(unittest.TestCase):
         self.assertEqual(len(restored._state.values['DISPLAY'].values['WIN_START'].values),4)
         self.assertIsNot(restored._state.values['DISPLAY'],context.variables.bindings['T','DISPLAY'].raw())
 
-    def test_get_var_does_not_promote_short_service_output_to_integer_storage(self):
+    def test_get_var_promotes_known_short_into_integer_storage(self):
         values=run("CREATE_VAR('CACHE','DISPLAY','','DISP_DAT_T',0,0,0,0,s) SET_VAR(e,'CACHE','DISPLAY.curr_it_num',42,s) GET_VAR(e,'CACHE','DISPLAY.curr_it_num',n,s)",
             types='',decl='e,n,s:INTEGER')
-        self.assertEqual(values['S'],3)
-        self.assertEqual(values['N'],{'uninitialized':True})
+        self.assertEqual(values['S'],0)
+        self.assertEqual(values['N'],42)
 
     def test_create_var_supports_builtin_display_schema(self):
         values=run("CREATE_VAR('CACHE','DISPLAY','','DISP_DAT_T',0,0,0,0,s) SET_VAR(e,'CACHE','DISPLAY.curr_it_num',42,s) GET_VAR(e,'CACHE','DISPLAY.curr_it_num',result.curr_it_num,s) n=result.curr_it_num",

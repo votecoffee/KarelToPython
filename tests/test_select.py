@@ -233,7 +233,7 @@ class SelectRejectionTests(unittest.TestCase):
     def test_legacy_boolean_case_rejected(self): self.rejected('SELECT 1 OF CASE(ON): ENDSELECT', 'E_CASE', _translator=legacy_translate)
     def test_legacy_real_case_rejected(self): self.rejected('SELECT 1 OF CASE(1.0): ENDSELECT', 'E_CASE', _translator=legacy_translate)
     def test_legacy_string_case_rejected(self): self.rejected("SELECT 1 OF CASE('1'): ENDSELECT", 'E_CASE', _translator=legacy_translate)
-    def test_variable_case_rejected(self): self.rejected('x=1 SELECT 1 OF CASE(x): ENDSELECT', 'E_CONSTANT')
+    def test_legacy_variable_case_rejected(self): self.rejected('x=1 SELECT 1 OF CASE(x): ENDSELECT', 'E_CONSTANT', _translator=legacy_translate)
     def test_minimum_integer_literal_guard_preserved(self): self.rejected('SELECT 1 OF CASE(-2147483648): ENDSELECT', 'E_MININT_LITERAL')
     def test_invalid_unreachable_body_remains_checked(self): self.rejected('SELECT 1 OF CASE(1): x=7 CASE(1): x=ON ENDSELECT', 'E_TYPE')
     def test_legacy_sibling_case_jump_rejected(self): self.rejected('SELECT 1 OF CASE(1): GOTO other CASE(2): other:: ENDSELECT', 'E_GOTO_ENTRY', _translator=legacy_translate)

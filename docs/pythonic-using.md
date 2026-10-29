@@ -51,8 +51,8 @@ the body; changing an index later does not retarget the selected fields.
 Only direct fields of selected structures are exposed; nested fields
 need a dotted path or another USING. Writable INTEGER fields can be captured as
 [FOR counters](reference-for-counters.md), subject to aggregate-root protection. CASE
-labels still require compile-time constants: a name shadowed by a field cannot
-become a runtime CASE label; use a noncolliding constant name.
+labels can use [dynamic scalar fields](dynamic-select.md); a field shadowing a
+constant remains a runtime label under the eager capture/evaluation policy.
 
 ## Storage, calls and control flow
 

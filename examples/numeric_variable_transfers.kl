@@ -1,0 +1,10 @@
+PROGRAM NUMERIC_VARIABLE_TRANSFERS
+VAR source:ARRAY[2] OF SHORT promoted:ARRAY[3] OF REAL narrowed:ARRAY[2] OF BYTE entry,first_entry,status:INTEGER
+BEGIN
+  source[1]=7
+  source[2]=8
+  promoted[3]=9
+  GET_VAR(entry,'','SOURCE',promoted,status)
+  first_entry=entry
+  SET_VAR(entry,'','NARROWED',source,status)
+END NUMERIC_VARIABLE_TRANSFERS

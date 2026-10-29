@@ -1,0 +1,22 @@
+PROGRAM DYNAMIC_SELECT
+VAR key,calls,result:INTEGER trace:STRING[8]
+ROUTINE selector:INTEGER
+BEGIN
+  trace=trace+'S'
+  RETURN key
+END selector
+ROUTINE choice(value:INTEGER):INTEGER
+BEGIN
+  trace=trace+CHR(value+64)
+  calls=calls+1
+  RETURN value
+END choice
+BEGIN
+  key=2
+  calls=0
+  trace=''
+  SELECT selector() OF
+    CASE(choice(1),choice(2)): result=42
+    CASE(choice(3)): result=99
+  ENDSELECT
+END DYNAMIC_SELECT

@@ -38,7 +38,7 @@ source-located error. Strict mode remains a future milestone.
 | `GET_TPE_PRM` | Explicit per-root-task CallParameters | Arguments 1..10, type 1/2/3, unused outputs preserved, absent status 17042. |
 | `OPEN/CLOSE FILE`, `READ file`, `WRITE file` | `MemoryFiles`/`DirectoryFiles` and `FileHandle` | Byte buffers or an explicit directory root, cursors and checked scalar transfers. |
 | Binary FILE fields | Standard-library `struct` | Little endian; INTEGER 1/2/4 bytes, REAL 4/8, BOOLEAN/BYTE 1, SHORT 2, ASCII STRING with byte width. |
-| Five XML input calls | Explicit text RO FILE with ATR_XML | Bounded registered-tag scanning, attribute/text chunks and atomic flat structure updates; see [XML input](xml-input.md). |
+| Five XML input calls | Explicit text RO FILE with ATR_XML | Bounded registered-tag scanning, attribute/text chunks and atomic nested scalar updates on user/built-in records; see [XML input](xml-input.md). |
 | GET_PORT_ATR / SET_PORT_ATR | Explicit SerialPorts configuration metadata | Seven attributes, ports 1..5, checked values and JSON persistence; see [serial attributes](serial-attributes.md). |
 | P1:..P5: FILE streams | Explicit SerialStreams finite or opted-in host-fed RX/TX data | Atomic text/binary input, explicit EOF, appended output and close-time RX consumption. Exclusive FILEs, bounded state and no host device access; see [serial streams](serial-streams.md) and [waiting](serial-waiting.md). |
 | Six device/storage calls | Explicit DeviceFiles virtual volumes | Shared FILE namespace, quotas, mount/closed-file guards, purge/format and supplied information; see [virtual devices](virtual-devices.md). |
@@ -325,3 +325,9 @@ The integration tests cover all four service areas and invalid inputs. The
 public examples use authored state and independent expected fixtures. Reference
 provenance and unresolved behavior are retained in the
 [semantic ledger](semantics/extended_service_semantics.json).
+
+[Numeric variable transfers](numeric-variable-transfers.md) add checked
+integral-family/integral-to-REAL scalar and same-rank prefix conversion in both
+GET_VAR and SET_VAR. [Built-in XML roots](xml-record-roots.md) use explicit
+VECTOR/CONFIG/pose record schemas with atomic protected leaf updates. Neither
+feature discovers controller state or changes native execution evidence.
