@@ -28,8 +28,9 @@ END
 The resulting target is `[7.0, 8.0, 9.0]`. Outer ARRAY dimensions and names can
 differ while logical ranks match. Transfer the smaller row-major terminal
 element count, preserving every receiver tail cell. Named nested ARRAY boundaries
-contribute to the rank. Whole record identities and joint widths remain exact;
-this does not add whole-array positional representation conversion.
+contribute to the rank. Whole record identities and positional ARRAY element types remain exact.
+Individual [positional transfers](positional-variable-transfers.md) can change
+Cartesian representation or checked joint width; no whole-array representation conversion is added.
 
 ## Missing values, domains and atomicity
 

@@ -136,3 +136,10 @@ failure prevents an earlier matching body. Numeric variable transfer source
 capture/lookup order remains as [documented](numeric-variable-transfers.md), with
 the whole converted prefix prepared before publication. [XML record roots](xml-record-roots.md)
 retain the existing staged attribute update and storage-identity contract.
+
+[Positional variable transfer](positional-variable-transfers.md) retains typed
+SET capture and GET lookup order, then converts completely before publication.
+[Synchronous nested bodies](synchronous-program-calls.md) run under the caller's
+budget without resetting prototype state or yielding within the body. [16-bit
+PNG export](vision-16bit-images.md) retains ordered row budget checks and complete
+file publication while preserving supplied sample bytes.

@@ -50,7 +50,7 @@ ARRAY transfers use these bounded rules:
   Named ARRAY components contribute their dimensions to that rank.
 - Outer ARRAY names and extents may differ. Terminal element types must match;
   named STRUCTURE types and JOINTPOS widths retain exact identity. Numeric
-+  leaves also permit [checked integral-family/integral-to-REAL conversion](numeric-variable-transfers.md).
+  leaves also permit [checked integral-family/integral-to-REAL conversion](numeric-variable-transfers.md).
 - STRING elements may have different capacities. Copied strings truncate to the
   receiver's capacity. Numeric receiver bounds and declared source domains remain checked.
 - Copy the smaller **total terminal element count** in row-major order. This is
@@ -65,7 +65,10 @@ existing nominal type and shape rules.
 Non-ARRAY GET and SET permit identical data types, receiver-capacity STRING
 truncation, checked integral-family conversion and integral-to-REAL promotion.
 The same numeric choices now apply to ARRAY prefixes. REAL-to-integer conversion
-remains explicit; BOOLEAN does not enter the numeric category. Scalars, records and joints retain known value/range/config checks.
+remains explicit; BOOLEAN does not enter the numeric category. Individual
+Cartesian/joint-width values can use [checked positional conversion](positional-variable-transfers.md).
+Representation changes require complete source data, while exact copies retain
+their missing-data contract. Known value/range/config checks remain.
 Since 0.99.0, whole QUEUE_TYPE values support independent
 [logical queue transfers](queue-transfers.md). Whole FILE/PATH and embedded
 resources remain excluded; static data fields and nodes can be addressed

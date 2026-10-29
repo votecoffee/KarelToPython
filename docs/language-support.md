@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1029.224626. Acceptance is specific to
+This is the supported prototype subset as of 26.1029.231800. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -371,3 +371,10 @@ validation. [Numeric GET_VAR/SET_VAR](numeric-variable-transfers.md) adds checke
 integral-family/integral-to-REAL scalars and same-rank ARRAY prefixes. [XML built-in
 record roots](xml-record-roots.md) retain atomic leaf updates, readonly POSITION
 orientation, CONFIG bounds and explicit context without geometry inference.
+
+[Non-ARRAY positional GET_VAR/SET_VAR](positional-variable-transfers.md) reuses
+checked Cartesian and zero-only joint-width conversions with complete inputs.
+[Synchronous source program calls](synchronous-program-calls.md) use private bodies
+with caller-owned state; project/cooperative behavior and legacy guards remain.
+[Explicit 16-bit rasters](vision-16bit-images.md) preserve supplied direct-color
+samples in PNG, with unchanged byte quotas and eight-bit palette behavior.

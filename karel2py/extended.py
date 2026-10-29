@@ -954,7 +954,7 @@ def _variable_array_targets(spec,value,limit):
             yield rt.Reference(spec[2],value.values,index);limit-=1
 
 
-def variable_transfer(target,source,*,numeric=False,line=None):
+def variable_transfer(target,source,*,numeric=False,representations=False,line=None):
     """Prepare one complete replacement, preserving an ARRAY's unused tail."""
     rt=runtime();spec=target.spec;arrays=spec[0]==source.spec[0]=='ARRAY'
     _variable_data_spec(source.spec,line,queue=True);_variable_data_spec(spec,line,queue=True)
@@ -963,6 +963,13 @@ def variable_transfer(target,source,*,numeric=False,line=None):
         copied=queue_variable_value(source.value,line);queue_variable_value(target.raw(),line)
         return copied,not copied.initialized
     _variable_shape(source.spec,source.value,line)
+    positional=(representations and not arrays and spec!=source.spec and
+        (spec[0]==source.spec[0]=='JOINTPOS' or spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and source.spec[0] in ('POSITION','XYZWPR','XYZWPREXT')))
+    if positional:
+        _variable_shape(spec,target.raw(),line)
+        captured=_variable_copy(source.spec,source.value,line)
+        converted=rt.convert_joint_width(spec,captured,line) if spec[0]=='JOINTPOS' else rt.convert_position(spec,captured,line)
+        return converted,False
     if arrays:
         leaf=rt.array_leaf_spec(spec);source_leaf=rt.array_leaf_spec(source.spec)
         if (len(rt.array_dimensions(spec))!=len(rt.array_dimensions(source.spec))
@@ -2185,7 +2192,7 @@ class ExecutionContext:
                 if spec is None: fail('SET_VAR requires a typed data input',line)
                 source=variable_value(spec,value,line)
             destination=target
-        prepared=variable_transfer(destination,source,numeric=True,line=line)
+        prepared=variable_transfer(destination,source,numeric=True,representations=True,line=line)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
         key=(program.upper() or state.program_name,path.upper())

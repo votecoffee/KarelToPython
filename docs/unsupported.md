@@ -106,7 +106,9 @@ they are boundaries rather than promises to accept every such source form later.
   explicit models/adapters and current inverse seeds, using private values.
   [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
   use private values across POSITION/XYZWPR/XYZWPREXT; BYNAME, linked declarations,
-  callback raw return types and whole-array elements remain exact.
+  callback raw return types and whole-array elements remain exact. Individual
+  [GET_VAR/SET_VAR positional values](positional-variable-transfers.md) now change
+  Cartesian representation or checked joint width without inferring kinematics.
   POSITION orientation columns remain recursively read-only source storage.
   [VECTOR translation frames](vector-translation-frames.md) now support left
   offsets, independent INV negation and FRAME points. A VECTOR-only origin cannot
@@ -214,7 +216,9 @@ they are boundaries rather than promises to accept every such source form later.
   listings from explicit stored source; native PC output, implicit include discovery,
   program attachment/execution and asynchronous native timing remain unsupported.
 - CALL_PROG/CALL_PROGLIN now support [attached cooperative KAREL programs](program-calls.md)
-  in the calling task. Noncooperative targets, TP/native instruction execution,
+  in the calling task. Newly generated [synchronous targets](synchronous-program-calls.md)
+  now use a private caller-owned entry; old outputs without that entry still
+  require retranslation. TP/native instruction execution,
   persisted executable links and implicit program loading remain unsupported.
 - LOCK_GROUP/UNLOCK_GROUP now have [logical ownership banks](group-locks.md).
   [Opt-in root directive acquisition](directive-group-locks.md) is available;
@@ -311,7 +315,9 @@ they are boundaries rather than promises to accept every such source form later.
   [Alpha image formats](vision-alpha-images.md) now preserve GA/RGBA channels and
   PNG/32-bit BMP transparency. [Explicit palette images](vision-palette-images.md)
   now retain 8-bit indices and supplied RGBA colors with indexed PNG/BMP export.
-  Depth maps, proprietary image layouts and color/calibration transforms remain unavailable. Twelve
+  Explicit [16-bit samples](vision-16bit-images.md) now retain grayscale/GA/RGB/RGBA
+  PNG data; 16-bit BMP remains unsupported. Physical depth maps, proprietary image
+  layouts and color/calibration transforms remain unavailable. Twelve
   [legacy tracking calls](vision-tracking.md) now add timed queues, receipts,
   VT result/lookup forms, supplied point maps and a portable local outbox.
   Twelve [VT queue calls](vt-queues.md) add allocation/acknowledgement, partial

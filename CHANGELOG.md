@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1029.231800 - 2026-10-29
+
+- Convert complete individual Cartesian representations and checked joint widths
+  in GET_VAR/SET_VAR before atomic data/cache/status publication, preserving exact
+  partial copies, ARRAY boundaries and destination storage identities.
+- Add private synchronous bodies to ordinary Pythonic output and support nested
+  CALL_PROG/CALL_PROGLIN execution under caller-owned budgets, state and resources.
+  Preserve standalone run behavior, failure cleanup and sticky ABORT handling.
+- Retain explicit 16-bit grayscale/GA/RGB/RGBA samples through supplied vision
+  images and PNG export, with big-endian bytes, matching headers, byte-aware quotas
+  and unsupported 16-bit BMP status. Preserve existing 8-bit artifact bytes.
+- Add 66 regressions, three standalone examples and one linked project, refresh
+  public support notes and correct variable-transfer formatting. Strict stays future work.
+
 ## 26.1029.224626 - 2026-10-29
 
 - Add typed dynamic SELECT case expressions with selector-first capture, eager

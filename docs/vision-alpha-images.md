@@ -78,3 +78,8 @@ capture/find/save/reload, transparent and intermediate samples, binary layouts,
 actual raw quota boundaries and output failures without a GUI preview. This is a
 portable supplied-raster feature, without native FANUC image-format, live camera,
 controller or strict-mode acceptance claims.
+
+Explicit [16-bit grayscale-alpha/RGBA samples](vision-16bit-images.md) now use two
+big-endian bytes per component and matching PNG depth. The 8-bit layouts and
+artifact hashes described above remain unchanged. Sixteen-bit BMP export returns
+unsupported status without reducing sample precision or changing existing files.

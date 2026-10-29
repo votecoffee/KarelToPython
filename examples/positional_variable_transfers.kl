@@ -1,0 +1,18 @@
+PROGRAM POS_VARIABLE_TX
+VAR c:CONFIG a:XYZWPREXT point:POSITION result:XYZWPR entry,first_entry,status:INTEGER
+BEGIN
+  c.cfg_turn_no1=0
+  c.cfg_turn_no2=0
+  c.cfg_turn_no3=0
+  c.cfg_flip=FALSE
+  c.cfg_left=FALSE
+  c.cfg_up=FALSE
+  c.cfg_front=FALSE
+  a=POS(7,8,9,0,0,0,c)
+  a.ext1=10
+  a.ext2=20
+  a.ext3=30
+  GET_VAR(entry,'','A',point,status)
+  first_entry=entry
+  SET_VAR(entry,'','RESULT',point,status)
+END POS_VARIABLE_TX

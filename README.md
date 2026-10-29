@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1029.224626**. It is a
+tool are named **karel2py**. The current implementation is **26.1029.231800**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -681,6 +681,12 @@ add checked integral-family and integral-to-REAL scalar/ARRAY conversion to GET_
 and SET_VAR. [XML record roots](docs/xml-record-roots.md) accept explicit built-in
 records while preserving POSITION protection and CONFIG bounds.
 
+[Positional variable transfers](docs/positional-variable-transfers.md) now convert
+individual Cartesian representations and checked joint widths in GET_VAR/SET_VAR.
+[Attached synchronous programs](docs/synchronous-program-calls.md) can run through
+CALL_PROG without resetting caller-owned state. Supplied [16-bit PNG rasters](docs/vision-16bit-images.md)
+retain explicit sample depth, byte order and alpha through saved context.
+
 ## Roadmap
 
 Continue expanding functional Pythonic conversion coverage. A planned
@@ -715,7 +721,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 45 complete linked source projects. It also checks that the unsupported-motion example is rejected.
+fixtures, plus 46 complete linked source projects. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

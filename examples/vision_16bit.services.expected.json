@@ -1,0 +1,63 @@
+{
+  "files": {
+    "out.png": {
+      "hex": "89504e470d0a1a0a0000000d49484452000000020000000110040000000ebb6b420000001149444154789c636054feffffdf1d060600128703fdc147e83a0000000049454e44ae426082"
+    }
+  },
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 1,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "VISION_16BIT",
+        "operation": "V_SAVE_IMREG",
+        "target": "1",
+        "status": 0
+      }
+    ],
+    "io": {
+      "image_count": 1,
+      "image_limit": 16777216,
+      "images": {
+        "1": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 2,
+            "height": 1,
+            "channels": 2,
+            "pixels": "0123fffffedc0000",
+            "sample_bits": 16
+          }
+        }
+      },
+      "captures": [],
+      "cameras": {},
+      "calibrations": {},
+      "display_tools": {},
+      "displayed": null,
+      "led_channels": [],
+      "led": null
+    }
+  }
+}

@@ -417,12 +417,14 @@ _IMAGE_TOTAL_LIMIT=64*1024*1024
 
 def raster(row,limit,*,remaining=None):
     fields={'width','height','channels','pixels'}
-    if type(row) is not dict or not fields<=set(row) or set(row)-fields-{'palette'}:raise ValueError('Image requires width, height, channels and pixels')
+    if type(row) is not dict or not fields<=set(row) or set(row)-fields-{'palette','sample_bits'}:raise ValueError('Image requires width, height, channels and pixels')
     width=integer(row['width'],1,4096);height=integer(row['height'],1,4096);channels=row['channels']
-    if type(channels) is not int or channels not in (1,2,3,4):raise ValueError('Images require 8-bit grayscale, grayscale-alpha, RGB or RGBA channels')
-    pixels=row['pixels'];size=width*height*channels;palette=row.get('palette');palette_size=0
+    if type(channels) is not int or channels not in (1,2,3,4):raise ValueError('Images require grayscale, grayscale-alpha, RGB or RGBA channels')
+    bits=row.get('sample_bits',8)
+    if type(bits) is not int or bits not in (8,16):raise ValueError('Image sample_bits requires 8 or 16')
+    pixels=row['pixels'];size=width*height*channels*(bits//8);palette=row.get('palette');palette_size=0
     if 'palette' in row:
-        if channels!=1:raise ValueError('An explicit palette requires channels=1 index bytes')
+        if channels!=1 or bits!=8:raise ValueError('An explicit palette requires channels=1 and 8-bit index bytes')
         if type(palette) not in (bytes,str):raise ValueError('Image palette requires packed RGBA bytes or canonical lowercase hexadecimal')
         palette_size=len(palette)//2 if type(palette) is str else len(palette)
         if (type(palette) is str and len(palette)%8 or not 4<=palette_size<=1024 or palette_size%4):
@@ -437,7 +439,7 @@ def raster(row,limit,*,remaining=None):
         pixels=bytes.fromhex(pixels)
     if type(pixels) is not bytes or len(pixels)!=size:raise ValueError('Raw pixel size does not match image dimensions')
     if palette is not None and max(pixels)>=palette_size//4:raise ValueError('Image pixel index is outside its explicit palette')
-    return dict(width=width,height=height,channels=channels,pixels=pixels,**({'palette':palette} if palette is not None else {}))
+    return dict(width=width,height=height,channels=channels,pixels=pixels,**({'palette':palette} if palette is not None else {}),**({'sample_bits':bits} if 'sample_bits' in row else {}))
 
 
 class VisionIO:
@@ -513,7 +515,8 @@ def encode_raster(image,format,limit,check):
     image=raster(image,_IMAGE_RAW_LIMIT)
     if format not in ('PNG','BMP'):raise ValueError('Raster export requires PNG or BMP')
     width,height,channels,pixels=(image[k] for k in ('width','height','channels','pixels'))
-    palette=image.get('palette')
+    palette=image.get('palette');bits=image.get('sample_bits',8)
+    if format=='BMP' and bits==16:raise ValueError('16-bit sample BMP export is unsupported; use PNG')
     if format=='BMP' and (channels in (2,4) or palette is not None):
         stride=width*4;offset=14+108;size=offset+stride*height
         if size>limit:return None
@@ -545,12 +548,12 @@ def encode_raster(image,format,limit,check):
     transparent=palette is not None and any(palette[i]!=255 for i in range(3,len(palette),4))
     overhead=0 if palette is None else 12+palette_entries*3+(12+palette_entries if transparent else 0)
     if limit<57+overhead:return None
-    rows=[];stride=width*channels
+    rows=[];stride=width*channels*(bits//8)
     for start in range(0,len(pixels),stride):check();rows.append(b'\0'+pixels[start:start+stride])
     def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
     table=b'' if palette is None else chunk(b'PLTE',b''.join(palette[i:i+3] for i in range(0,len(palette),4)))
     if transparent:table+=chunk(b'tRNS',palette[3::4])
-    encoded=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,3 if palette is not None else {1:0,2:4,3:2,4:6}[channels],0,0,0))+table+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b'')
+    encoded=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,bits,3 if palette is not None else {1:0,2:4,3:2,4:6}[channels],0,0,0))+table+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b'')
     return encoded if len(encoded)<=limit else None
 
 
@@ -661,6 +664,10 @@ def invoke_io(bank,state,operation,args,line):
             else:
                 extension=filename.rsplit('.',1)[-1].upper() if '.' in filename else ''
                 if extension not in ('PNG','BMP'):code=2
+                elif extension=='BMP' and type(io.images[number]['image'].get('sample_bits')) is int and io.images[number]['image']['sample_bits']==16:
+                    try:raster(io.images[number]['image'],_IMAGE_RAW_LIMIT)
+                    except ValueError as exc:raise rt().KarelRuntimeError('Invalid supplied image: '+str(exc),line) from exc
+                    code=2
                 else:
                     files=state.execution.require('files',line)
                     try:data=encode_raster(io.images[number]['image'],extension,files.limit,lambda:state.tick(line))

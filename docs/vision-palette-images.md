@@ -97,3 +97,7 @@ lifetime/error cases. See `tests/test_vision_palette_images.py`,
 [alpha images](vision-alpha-images.md) and the existing
 [vision image service](vision-image-services.md). No GUI preview, image processing,
 live camera, native controller or public strict-mode support is added.
+
+Palette indices remain eight-bit even when nonpalette images use explicit
+[16-bit samples](vision-16bit-images.md). The latter use direct grayscale/GA/RGB/RGBA
+PNG encodings; this does not add 16-bit palette entries or inferred image layouts.

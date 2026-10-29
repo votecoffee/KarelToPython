@@ -297,3 +297,8 @@ The [SELECT, numeric transfer and XML-root ledger](select_numeric_xml_semantics.
 adds eager typed dynamic CASE labels, checked numeric scalar/ARRAY transfers and
 built-in XML record targets. Captured values, source effects, atomic publication,
 explicit schemas, protected fields and legacy SELECT guards remain checked.
+
+The [pose, synchronous-call and 16-bit PNG ledger](pose_sync_png16_semantics.json)
+adds checked individual positional variable transfers, private synchronous source
+entries and supplied two-byte image samples. It preserves complete conversion
+inputs, caller ownership, root cleanup, artifact hashes and byte quotas.

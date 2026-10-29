@@ -1,0 +1,20 @@
+PROGRAM MAIN
+VAR c:CONFIG a:XYZWPREXT result:XYZWPR point FROM WORKER:POSITION entry,lookup,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+  c.cfg_turn_no1=0
+  c.cfg_turn_no2=0
+  c.cfg_turn_no3=0
+  c.cfg_flip=FALSE
+  c.cfg_left=FALSE
+  c.cfg_up=FALSE
+  c.cfg_front=FALSE
+    a=POS(7,8,9,0,0,0,c)
+    a.ext1=10
+    a.ext2=20
+    a.ext3=30
+    CALL_PROG('WORKER',entry)
+    SET_VAR(lookup,'','RESULT',point,status)
+    done=TRUE
+  ENDIF
+END MAIN

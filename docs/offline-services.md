@@ -331,3 +331,10 @@ integral-family/integral-to-REAL scalar and same-rank prefix conversion in both
 GET_VAR and SET_VAR. [Built-in XML roots](xml-record-roots.md) use explicit
 VECTOR/CONFIG/pose record schemas with atomic protected leaf updates. Neither
 feature discovers controller state or changes native execution evidence.
+
+[Positional variable transfers](positional-variable-transfers.md) add complete
+Cartesian/joint-width value conversion to GET_VAR/SET_VAR, with exact ARRAY leaves
+and no inferred kinematics. [Synchronous program calls](synchronous-program-calls.md)
+reuse attached ordinary source bodies under the caller's ownership. Supplied
+[16-bit images](vision-16bit-images.md) retain big-endian samples through PNG and
+context JSON; BMP precision reduction and native acquisition remain unavailable.

@@ -149,8 +149,10 @@ def call_program(state,operation,args,line=None):
         raise runtime.KarelRuntimeError('Program call requires an ordinary program name',line)
     prototype=context.variables.programs.get(name)
     program=getattr(prototype,'program',None)
-    if program is None or not callable(getattr(program,'_execute',None)):
-        raise runtime.KarelRuntimeError('Program is not attached as cooperative KAREL source: '+name,line)
+    cooperative=callable(getattr(program,'_execute',None))
+    synchronous=callable(getattr(program,'_execute_sync',None)) and getattr(program,'translation_mode',None)=='pythonic'
+    if program is None or not (cooperative or synchronous):
+        raise runtime.KarelRuntimeError('Program is not attached as callable KAREL source: '+name,line)
     if state.call_depth>=64: raise runtime.KarelRuntimeError('Prototype program/routine call-depth limit exceeded (64)',line)
     # Clone stacks and retain module globals, including imported references. Do not
     # drive or reset the prototype's independently registered task/generator.
@@ -169,7 +171,15 @@ def call_program(state,operation,args,line=None):
         if name not in context.program_entries: context.program_entries[name]=len(context.program_entries)+1
         index.set(context.program_entries[name],line)
         if pause: yield from runtime.pause_execution(child,line)
-        yield from instance._execute()
+        if cooperative:yield from instance._execute()
+        else:
+            try:instance._execute_sync()
+            except runtime.KarelPause as exc:
+                raise runtime.KarelRuntimeError('A synchronous program cannot retain a callback pause; translate it cooperatively',line) from exc
+            except runtime.KarelRuntimeError as failure:
+                yield from runtime.runtime_failure(child,failure);raise
+        if root._aborted:raise runtime.KarelAbort(root._abort_line)
+        if child._aborted:raise runtime.KarelAbort(child._abort_line)
     except runtime.KarelAbort as exc:
         root._aborted=True;root._abort_line=exc.line;raise
     finally:

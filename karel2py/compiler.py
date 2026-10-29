@@ -3673,10 +3673,11 @@ class Emitter:
             self.line('def stop(self):'); self.indent=2; self.line('return _rt.stop_cooperative(self)'); self.indent=1
             self.line('@property'); self.line('def task_state(self):'); self.indent=2; self.line('return self._state.task_state'); self.indent=1
         self.line(f'@_rt._with_numeric_mode({self.mode!r})')
-        self.line('def _execute(self):' if self.cooperative else 'def run(self, *, max_steps=100000):')
+        sync_entry=self.mode=='pythonic' and not self.cooperative
+        self.line('def _execute(self):' if self.cooperative else 'def _execute_sync(self):' if sync_entry else 'def run(self, *, max_steps=100000):')
         self.indent = 2
         if self.cooperative: self.line('if False: yield None')
-        if not self.cooperative:
+        if not self.cooperative and not sync_entry:
             self.line('self._state.begin(max_steps)')
             self.line('self._state._driving=True')
             self.line('try:'); self.indent+=1
@@ -3686,10 +3687,18 @@ class Emitter:
             self.indent-=1; self.line('except _rt.KarelRuntimeError as _failure:'); self.indent+=1
             self.line('yield from _rt.runtime_failure(self._state,_failure)'); self.line('raise'); self.indent-=1
         self.line('return self._state.snapshot()')
-        if not self.cooperative:
+        if not self.cooperative and not sync_entry:
             self.indent-=1;self.line('finally:');self.indent+=1
             self.line('self._state._driving=False')
             self.line('self._state.finish_teach_programs()')
+        if sync_entry:
+            self.indent=1;self.line()
+            self.line(f'@_rt._with_numeric_mode({self.mode!r})')
+            self.line('def run(self, *, max_steps=100000):');self.indent=2
+            self.line('self._state.begin(max_steps)');self.line('self._state._driving=True')
+            self.line('try:');self.indent=3;self.line('return self._execute_sync()')
+            self.indent=2;self.line('finally:');self.indent=3
+            self.line('self._state._driving=False');self.line('self._state.finish_teach_programs()')
         self.indent = 0
         self.line()
         self.line('if __name__ == "__main__":')
@@ -4429,7 +4438,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/data-acquisition.md',controller_validated=False)
     report['program_call_policy']=dict(
         procedures=['CALL_PROG','CALL_PROGLIN'],
-        linkage='Explicit attached cooperative KAREL Program objects; project inputs are cooperative automatically; opaque TP records, catalogs, native code and unlinked routines are not executable',
+        linkage='Explicit attached cooperative or private synchronous-entry Pythonic KAREL Program objects; project inputs are cooperative automatically; opaque TP records, catalogs, native code and unlinked routines are not executable',
         execution='Run a fresh invocation cursor/locals over the called module globals, including imported aliases; retain its registered task/generator; share caller-root budgets, lifecycle, services, observations and group ownership',
         group_scopes='Optional GroupLocks callee_scopes with apply_directives acquires the called module requirements atomically and releases only matching additional grants on return/close; root-only policy remains the default',
         control='CALL_PROGLIN accepts nonnegative line hints but KAREL always starts at the beginning; pause-on-entry and body pauses retain the complete nested generator; root stop/abort/error closes frames and owned resources',
@@ -5434,6 +5443,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['data_record_policy']['boundary']='Source Cartesian and explicit-model joint/Cartesian arguments/RETURN use private converted values; no whole-array representation coercion, inferred robot context or physical motion'
     report['positional_routine_policy']['boundary']='Private Cartesian/model-backed joint source conversions; same-type bare refs, whole arrays, BYNAME, linked declarations and raw callback results remain exact; source joint widths follow joint_width_policy'
     report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR frames with pose/joint FRAME origin; source model-backed routine conversions are separate from exact joint-width/whole-array contracts and native equivalence'
+    report['positional_variable_transfer_policy']=dict(
+        conversions='Non-ARRAY GET_VAR/SET_VAR data across POSITION/XYZWPR/XYZWPREXT or differing JOINTPOS widths; exact same-type copies retain existing partial-value behavior',
+        validation='Changing representation requires complete finite source values, valid CONFIG and proper POSITION matrices; joint widening pads zeros, narrowing discards only zero axes',
+        atomicity='Use existing typed capture/lookup ordering; prepare independent converted data before destination/cache entry/status publication, preserving storage identities',
+        boundary='No whole-array representation conversion, joint/Cartesian kinematics, inferred model/group/frame/tool context or controller behavior',
+        guide='docs/positional-variable-transfers.md',controller_validated=False)
+    report['synchronous_program_call_policy']=dict(
+        entry='Newly generated Pythonic noncooperative Program classes expose a private synchronous body; CALL_PROG/CALL_PROGLIN clone stacks and share attached globals without invoking standalone run/reset/terminal cleanup',
+        ownership='Caller budget, root identity, frames, observations and scoped groups remain shared; target independently registered execution state is retained',
+        execution='Synchronous bodies run to completion without scheduler yields; pause-entry remains resumable before entry; callback-injected pause is an explicit runtime failure',
+        boundary='Old normal outputs without a private body need retranslation; cooperative=True is required for in-body suspension and scheduler interleaving; no binary/native program execution',
+        guide='docs/synchronous-program-calls.md',controller_validated=False)
+    report['vision_sample_depth_policy']=dict(
+        input='Optional sample_bits=8 or 16 on supplied 1/2/3/4-channel rasters; omitted retains 8; 16-bit samples use explicit big-endian bytes and retain every component including alpha',
+        export='16-bit grayscale/GA/RGB/RGBA PNG uses matching IHDR depth and color type with unscaled bytes; 16-bit BMP source saves return unsupported status 2 without file changes',
+        limits='Compute raw and combined quotas from bytes per sample before hex decoding/allocation; preserve sample_bits through captures/finds/registers and JSON',
+        boundary='Palette indices remain 8-bit; no sample-depth inference, scaling, proprietary depth layout, calibration, hardware acquisition or native format equivalence; legacy 8-bit artifacts unchanged',
+        guide='docs/vision-16bit-images.md',controller_validated=False)
     report['dynamic_select_policy']=dict(
         source='Compatible scalar expressions in CASE lists; declared/lexical fields, indices, operators and typed functions retain ordinary effect guards',
         order='Capture and validate selector first, then evaluate/validate every case expression once left-to-right in source clause/list order before first-match dispatch, including later labels after an earlier match',
@@ -5445,7 +5472,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         conversions='GET_VAR and SET_VAR scalar and same-rank ARRAY prefix transfers accept checked INTEGER/BYTE/SHORT family conversion and integral-to-REAL promotion',
         validation='Check declared source domain before receiver conversion; preserve numeric receiver bounds, MAXINT exclusion, SHORT sentinel, missing markers and unknown BYTE restrictions',
         atomicity='Prepare the complete copied prefix before data/cache entry/status publication; retain receiver tail and stable storage identities',
-        boundary='No implicit REAL-to-integral, BOOLEAN/numeric, whole record/joint representation or array rank conversion; ordinary assignment/routine rules unchanged',
+        boundary='No implicit REAL-to-integral, BOOLEAN/numeric or array rank conversion; individual positional values follow positional_variable_transfer_policy; ordinary assignment/routine rules unchanged',
         guide='docs/numeric-variable-transfers.md',controller_validated=False)
     report['xml_record_root_policy']=dict(
         targets='Explicit user STRUCTURE, VECTOR, CONFIG, XYZWPR, XYZWPREXT or POSITION roots; fields/elements and attached owners use existing static resolution',
@@ -5464,7 +5491,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         png='Indexed 8-bit color type 3, RGB PLTE entries and full palette-length tRNS only when at least one alpha is nonopaque; existing PNG CRC/compression checks retained',
         bmp='Explicit lookup expansion to the existing RGBA BITMAPV4HEADER/BGRA path, preserving alpha and colors beneath transparent entries; complete encoded-size preflight before expansion',
         limits='Count index and all RGBA palette bytes together in per-raster/combined quotas before decoding or allocation; retain old G/GA/RGB/RGBA bytes, output limits and publication guards',
-        boundary='No palette inference, quantization, color processing, 16-bit/depth/proprietary image layout, camera acquisition or native raster/renderer equivalence',
+        boundary='No palette inference, quantization, color processing, physical depth/proprietary layout, camera acquisition or native renderer equivalence; nonpalette 16-bit samples follow vision_sample_depth_policy',
         guide='docs/vision-palette-images.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:

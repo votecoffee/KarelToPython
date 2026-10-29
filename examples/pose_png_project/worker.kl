@@ -1,0 +1,6 @@
+PROGRAM WORKER
+VAR point:POSITION lookup,status:INTEGER
+BEGIN
+  GET_VAR(lookup,'MAIN','A',point,status)
+  V_SAVE_IMREG(1,'out.png',status)
+END WORKER

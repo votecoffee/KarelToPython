@@ -1,0 +1,36 @@
+{
+  "version": "26.1029.231800",
+  "scope": "Offline Pythonic data/source execution; native/controller behavior unverified",
+  "features": {
+    "positional_transfers": {
+      "guide": "docs/positional-variable-transfers.md",
+      "source": "Complete individual Cartesian values or JOINTPOS width changes, using existing conversion helpers",
+      "atomicity": "Typed source capture, complete validation/conversion, stable destination identities and data/cache/status publication",
+      "boundary": "Exact same-type partial copies preserved; ARRAY elements, user nominal identities and joint/Cartesian kinematics remain exact or explicit"
+    },
+    "synchronous_calls": {
+      "guide": "docs/synchronous-program-calls.md",
+      "entry": "New Pythonic ordinary output separates private body from standalone begin/terminal cleanup",
+      "ownership": "Clone nested stacks, share prototype globals and caller budget/root/observations/group scopes; retain independently attached state",
+      "lifetime": "Atomic non-yielding body; resumable pause-entry, no false callback-pause stack, runtime failure cleanup and sticky root abort",
+      "boundary": "Cooperative targets retain existing scheduler behavior; old outputs need retranslation, no native/binary loader"
+    },
+    "samples_16bit": {
+      "guide": "docs/vision-16bit-images.md",
+      "input": "Explicit sample_bits=16 for grayscale/GA/RGB/RGBA, unsigned big-endian component bytes",
+      "export": "Matching 16-bit PNG header and sample rows without scaling; source BMP saves return unsupported status 2",
+      "limits": "Byte-aware quota checks before hex decoding, retained metadata through capture/find/register/context paths",
+      "boundary": "Legacy 8-bit artifacts unchanged; palettes remain 8-bit, no depth units, proprietary layouts, acquisition or rendering claim"
+    }
+  },
+  "validation": [
+    "tests/test_positional_variable_transfers.py",
+    "tests/test_synchronous_program_calls.py",
+    "tests/test_vision_16bit_images.py",
+    "examples/positional_variable_transfers.kl",
+    "examples/synchronous_target.kl",
+    "examples/vision_16bit.kl",
+    "examples/pose_png_project"
+  ],
+  "strict_mode": "Future milestone; preserved legacy ordinary output does not gain Pythonic private body"
+}

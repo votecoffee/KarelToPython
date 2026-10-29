@@ -51,7 +51,7 @@ class ProgramCallTests(unittest.TestCase):
         p.scheduler.continue_task('MAIN');p.scheduler.run()
         self.assertEqual(p.programs['CHILD'].snapshot()['N'],2)
 
-    def test_missing_invalid_negative_line_and_noncooperative_targets_preserve_index(self):
+    def test_missing_invalid_negative_line_and_sync_target_validation(self):
         for call in ("CALL_PROG('MISSING',e)","CALL_PROG('bad.name',e)","CALL_PROGLIN('CHILD',-1,e,FALSE)"):
             ctx=rt.ExecutionContext();module('CHILD','n=3',context=ctx)
             caller=module('MAIN','e=77 '+call,context=ctx)
@@ -59,8 +59,8 @@ class ProgramCallTests(unittest.TestCase):
             self.assertEqual(caller.snapshot()['E'],77,call);self.assertEqual(ctx.program_entries,{})
         ctx=rt.ExecutionContext();module('CHILD','n=3',context=ctx,cooperative=False)
         caller=module('MAIN',"e=77 CALL_PROG('CHILD',e)",context=ctx)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'cooperative'):caller.run()
-        self.assertEqual(caller.snapshot()['E'],77)
+        caller.run();self.assertEqual(caller.snapshot()['E'],1)
+        self.assertEqual(ctx.variables.programs['CHILD'].snapshot()['N'],3)
 
     def test_opaque_teach_program_cannot_be_executed(self):
         ctx=rt.ExecutionContext(teach_programs=rt.TeachPrograms({'CHILD':{'instructions':['opaque']}}))

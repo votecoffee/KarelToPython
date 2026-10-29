@@ -70,8 +70,10 @@ addresses are 1..`image_count`, with zero configured registers by default. The
 count is bounded at 256. Initial `images` use canonical positive string keys and
 the same process/views/image fields as a successful capture, without `status`.
 
-Images contain top-to-bottom packed 8-bit grayscale (`channels:1`), grayscale-alpha
-(`channels:2`), RGB (`channels:3`) or RGBA (`channels:4`) samples. JSON pixels are canonical lowercase hex; Python
+Images contain top-to-bottom packed grayscale (`channels:1`), grayscale-alpha
+(`channels:2`), RGB (`channels:3`) or RGBA (`channels:4`) samples. The default
+sample depth is 8; explicit [sample_bits=16](vision-16bit-images.md) uses two
+big-endian bytes per sample. JSON pixels are canonical lowercase hex; Python
 construction can also supply immutable bytes. Dimensions are 1..4096 and must
 exactly match the pixel count. Each raster is limited by `image_limit`, default
 16 MiB and maximum 16 MiB; combined stored/capture raster data is at most 64 MiB.
@@ -104,8 +106,10 @@ The manuals also show an unexplained `not_zip` argument, rename `output_path` to
 and routing contract are incomplete in the supplied references. Four/five-argument
 forms are rejected; no compression flag or iPC connection is guessed.
 
-Filename suffixes `.PNG` and `.BMP` are case-insensitive. PNG export uses 8-bit
-noninterlaced grayscale/truecolor with optional alpha, filter zero and zlib compression.
+Filename suffixes `.PNG` and `.BMP` are case-insensitive. PNG export uses the
+supplied 8/16-bit depth, noninterlaced grayscale/truecolor with optional alpha,
+filter zero and zlib compression. A 16-bit BMP save returns unsupported status 2;
+no sample scaling is performed.
 Existing grayscale/RGB BMP export retains bottom-up 24-bit BGR rows with padding.
 Alpha BMP uses 32-bit BGRA, a V4 header and explicit bit masks; grayscale-alpha
 replicates gray into RGB while retaining alpha. See [alpha images](vision-alpha-images.md).

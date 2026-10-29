@@ -608,3 +608,11 @@ through `case_expressions`, `dynamic_cases` and `case_evaluation`.
 conversions](numeric-variable-transfers.md), including bounded ARRAY prefixes.
 `xml_record_root_policy` describes [XML built-in record roots](xml-record-roots.md),
 their explicit schemas, staged publication and protected descendants.
+
+`positional_variable_transfer_policy` describes complete individual Cartesian
+and checked joint-width GET_VAR/SET_VAR conversions. ARRAY representations stay exact.
+`synchronous_program_call_policy` describes newly generated `_execute_sync` bodies
+used by nested program calls; standalone `run()` retains its ordinary begin/cleanup.
+`vision_sample_depth_policy` describes explicit `sample_bits=16`, lossless PNG,
+raw byte quotas and unsupported 16-bit BMP status. See [positional transfers](positional-variable-transfers.md),
+[synchronous calls](synchronous-program-calls.md) and [16-bit images](vision-16bit-images.md).

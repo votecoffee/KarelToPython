@@ -1,0 +1,10 @@
+PROGRAM SYNC_TARGET
+VAR seed,result:INTEGER
+ROUTINE squared(value:INTEGER):INTEGER
+BEGIN
+  RETURN value*value
+END squared
+BEGIN
+  seed=7
+  result=squared(seed)
+END SYNC_TARGET

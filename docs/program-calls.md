@@ -2,7 +2,7 @@
 
 Pythonic mode implements `CALL_PROG(name,index)` and
 `CALL_PROGLIN(name,line,index,pause_entry)` for explicitly attached cooperative
-KAREL programs. A program call runs the target's main body in the calling task.
+or newly generated [synchronous KAREL programs](synchronous-program-calls.md). A program call runs the target's main body in the calling task.
 It can select a program at runtime and returns to the statement after the call.
 
 Use the [authored linked example](../examples/program_calls_project/main.kl)
@@ -14,15 +14,16 @@ python -m karel2py.project examples/program_calls_project --entry MAIN --context
 ```
 
 Project inputs are translated cooperatively and explicitly attached in one
-context. With the Python API, translate targets using `cooperative=True`, create
-them with the same `ExecutionContext`, and retain the resulting Program objects.
+context. With the Python API, translate targets, create them with the same `ExecutionContext`, and retain the
+resulting Program objects. Use `cooperative=True` for scheduler interleaving and
+in-body suspension; ordinary generated bodies use the checked synchronous entry.
 Constructing them attaches their source namespaces; it executes no statements.
 Calls themselves enable cooperative generation in the caller automatically.
 
 ## Execution and scope
 
 The target name is a case-insensitive ASCII program identifier, up to 36
-characters. The target must be an attached cooperative Program, rather than an
+characters. The target must be an attached callable Pythonic source Program, rather than an
 internal/external routine, an opaque teach program, a supplied catalog entry or
 a native compiled file. No code is loaded from JSON, the filesystem or a robot.
 
@@ -52,7 +53,7 @@ the already written hint and earlier source effects.
 For KAREL, every nonnegative line hint starts at the beginning, matching the
 manual's KAREL rule. It does not jump to a source line. `pause_entry=TRUE`
 pauses after publishing the index and creating the frame, before the body runs.
-Body pauses also retain the complete nested generator. Continue through
+Cooperative body pauses also retain the complete nested generator. Continue through
 `Program.resume()` for standalone execution or the `TaskScheduler` for a project.
 
 The root owns stop, abort and failure outcomes. Closing a stopped invocation
@@ -77,8 +78,10 @@ self-call that can replay from saved context.
 
 Native program tables, controller task-stack layout, compiled PC/TP execution,
 TP start-line execution, motion, implicit program discovery and strict behavior
-remain outside this implementation. Noncooperative Program targets are rejected
-with an explicit diagnostic; use cooperative generation or the project loader.
+remain outside this implementation. New ordinary Pythonic outputs expose a
+private synchronous entry. They run to completion under caller ownership;
+older outputs without that entry require retranslation. See
+[synchronous calls](synchronous-program-calls.md) for budgets, callbacks and cleanup.
 
 The report's `program_call_policy` and the
 [semantic ledger](semantics/program_call_semantics.json) record the contract.
