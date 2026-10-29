@@ -1,6 +1,6 @@
 # Wildcard copy and deletion
 
-Pythonic COPY_FILE and DELETE_FILE accept bounded star batches on explicit
+Pythonic COPY_FILE and DELETE_FILE accept bounded star/question source batches on explicit
 MemoryFiles, DirectoryFiles and DeviceFiles backends. Exact calls retain their
 existing behavior. Source files and targets stay within the supplied logical
 bank, mapped devices or rooted directory; no controller or host drive discovery
@@ -20,9 +20,9 @@ separate Pythonic extension with no overwrite and same-bank preflight, including
 
 ## Patterns and destination templates
 
-Stars are allowed only in the final filename. Literal parent paths and optional
+Star/question source matchers are allowed only in the final filename. Literal parent paths and optional
 device prefixes remain fixed. No recursive directory search, directory wildcard,
-question-mark/bracket pattern, absolute host path or traversal is accepted.
+bracket pattern, absolute host path or traversal is accepted.
 Paths use forward slashes and stay relative to their explicit backend/root.
 Unmapped devices, symlinks, control characters, trailing-dot/space components and
 reserved device basenames fail closed.
@@ -122,3 +122,7 @@ Source forms are grounded in MARRC75KR07091E Rev N A.3.46 COPY_FILE, A.4.12
 DELETE_FILE and A.18.10 RENAME_FILE. See the
 [authored cross-backend regressions](../tests/test_wildcard_file_operations.py)
 for translation and offline behavior evidence.
+
+[Single-character question matchers](question-file-wildcards.md) now select exactly
+one character in a source basename, alone or alongside stars. Destination question
+substitution remains unavailable. The same preflight, limits and failure boundaries apply.

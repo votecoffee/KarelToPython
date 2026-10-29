@@ -130,8 +130,8 @@ class JointGuardTests(unittest.TestCase):
     def test_strict_joint_value_argument_requires_initialized_axes(self):
         program,_=compile_program('load((j))',routines='ROUTINE load(value: JOINTPOS3) BEGIN END load', _translator=legacy_translate)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'initialized axes'): program.run()
-    def test_width_conversion_argument_blocked(self): self.reject('load(j)',routines='ROUTINE load(value: JOINTPOS6) BEGIN END load')
-    def test_width_conversion_copy_blocked(self): self.reject('j=k',declarations='j: JOINTPOS3\nk: JOINTPOS6')
+    def test_legacy_width_conversion_argument_blocked(self): self.reject('load(j)',routines='ROUTINE load(value: JOINTPOS6) BEGIN END load',_translator=legacy_translate)
+    def test_legacy_width_conversion_copy_blocked(self): self.reject('j=k',declarations='j: JOINTPOS3\nk: JOINTPOS6',_translator=legacy_translate)
     def test_joint_result_fallthrough_is_guarded(self):
         program,_=compile_program('j=f()',routines='ROUTINE f: JOINTPOS3 BEGIN END f')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'without RETURN'): program.run()

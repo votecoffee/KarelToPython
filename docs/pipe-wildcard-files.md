@@ -21,9 +21,9 @@ services requires both to be supplied explicitly.
 
 ## Names, configuration and snapshots
 
-Pipe patterns are plain basenames with star wildcards. Case is ignored, and one
+Pipe source patterns are plain basenames with star/question wildcards. Case is ignored, and one
 optional slash immediately after `PIP:` is accepted. Paths, traversal, recursive
-search, question/bracket patterns and generated names beyond the pipe name limit
+search, bracket patterns and generated names beyond the pipe name limit
 are rejected. Existing whole-stem/extension substitution applies: `work_*`
 within a complete `work_*.BAK` template uses the complete matched source stem.
 

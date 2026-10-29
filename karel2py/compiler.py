@@ -1070,6 +1070,7 @@ class Emitter:
         self.position_conversion_uses = []
         self.kinematic_assignment_uses = []
         self.kinematic_interface_uses=[]
+        self.joint_width_uses=[]
         self.joint_geometry_uses = []
         self.pulse_uses = []
         self.initialization_query_uses = []
@@ -1819,6 +1820,7 @@ class Emitter:
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
         actual=self.access_type(argument)
+        if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
         if self.is_config_subfield(argument):return False
@@ -2609,7 +2611,16 @@ class Emitter:
                 value, actual = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
-            if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
+            if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},_rt.convert_joint_width({expected!r},{value},{line}),{line})'
+                is_reference,actual=False,expected
+                cartesian_conversion=True;conversion_kind='joint_width'
+                self.features.add('checked joint width conversion')
+                self.joint_width_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},self._state.kinematic_interface({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -3113,7 +3124,13 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
-            if (self.mode=='pythonic' and ((target_type[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT')))):
+            if self.mode=='pythonic' and target_type[0]==value_type[0]=='JOINTPOS' and target_type!=value_type:
+                value=f'_rt.convert_joint_width({target_type!r},{value},{line})'
+                self.features.add('checked joint width conversion')
+                self.joint_width_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
+            elif (self.mode=='pythonic' and ((target_type[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and target_type[0] in ('POSITION','XYZWPR','XYZWPREXT')))):
                 value=f'self._state.kinematic_assignment({target_type!r},{value},{line})'
                 self.features.update(('extended services','kinematic assignment'))
                 if self.current_routine: self.current_routine.may_services=True
@@ -3428,7 +3445,14 @@ class Emitter:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
-                if self.mode=='pythonic' and ((spec[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and spec[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
+                if self.mode=='pythonic' and spec[0]==value_type[0]=='JOINTPOS' and spec!=value_type:
+                    value=f'_rt.convert_joint_width({spec!r},{value},{line})'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='joint_width'
+                    self.features.add('checked joint width conversion')
+                    self.joint_width_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and ((spec[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and spec[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
                     value=f'self._state.kinematic_interface({spec!r},{value},{line},result=True)'
                     value_type=spec;cartesian_conversion=True;conversion_kind='kinematic'
                     self.current_routine.may_services=True
@@ -3766,7 +3790,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         emitter.features.add('doubled apostrophe STRING literal')
     emitter.features.update('predefined ' + use['name'] for use in parser.predefined_uses)
     generated = emitter.emit()
-    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses: emitter.analyze_routine_effects()
+    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses or emitter.joint_width_uses: emitter.analyze_routine_effects()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
@@ -3955,7 +3979,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_comparisons=emitter.position_comparison_uses,
         waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
-        kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses,
+        kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         initialization_queries=emitter.initialization_query_uses,
@@ -4150,7 +4174,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='1 MiB input, 64 nested tags, 65536 events, 32 attributes per tag, 254-character names/attribute values and 128 registered tags; parsing/scanning charge ordinary execution steps',
         events='Registered tags only, first matching registration wins; full case-sensitive or folded names/prefixes; self-closing tags report XML_END with attributes, ordinary END has no attributes; status XML_FUNCTION for delivery, zero for EOF, XML_SCANLIM after 50 skipped physical lines',
         data='Complete attribute capacities required, unused array elements retained; text read in concrete destination-sized chunks, textdone signals exhaustion, subsequent scans return XML_TXCONT when a previously read event has more text',
-        writes='XML_SETVAR resolves explicit/attached user STRUCTURE storage, matches fields case-insensitively and prepares all INTEGER/REAL/BOOLEAN/STRING values before writes; unknown/duplicate/nested fields reject and unmentioned fields remain unchanged; indirect FOR guards retained',
+        writes='XML_SETVAR stages explicit/attached user STRUCTURE values, resolves case-insensitive dotted record fields and complete one-based ARRAY indices, and checks INTEGER/BYTE/SHORT/REAL/BOOLEAN/STRING leaves before atomic publication; duplicate canonical leaves, unknown paths, readonly fields and CONFIG turn overflow reject; unmentioned data and indirect FOR guards retained',
         lifecycle='Pause retains scanner; CLOSE/reopen releases registrations and pending data; no ordinary READ or seek on XML FILE; changed backend bytes reject; live parser state is excluded from context JSON',
         status='Portable XML constants; registration/data/SETVAR zero success, SCAN zero EOF; XML_STATE=1, XML_INVALID=2, XML_CAPACITY=3, XML_PARSE=4, XML_LIMIT=5; parse failures publish XML_ERROR identifier; capacity failures preserve outputs/cursor for retry',
         boundary='No XML writing, native parser/status equivalence, DTD/entity processing, Unicode/namespaced schema interpretation, asynchronous streaming or suspended parser checkpoints; strict remains future work',
@@ -4405,7 +4429,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/source-translations.md',controller_validated=False)
     report['wildcard_file_policy']=dict(
         procedures=['COPY_FILE','DELETE_FILE','RENAME_FILE'],backends=['MemoryFiles','DirectoryFiles','DeviceFiles','FilePipes'],
-        selection='Case-insensitive star patterns in final basename only, nonrecursive sorted explicit-file/configured-plain-PIP batches; no socket/DAQ routing',
+        selection='Case-insensitive star/question patterns in final basename only; question matches exactly one character, star zero or more; nonrecursive sorted explicit-file/configured-plain-PIP batches; no socket/DAQ routing',
         substitution='Destination standalone star retains full basename; one star per stem/extension substitutes the full source stem/extension, not matched captures',
         pipes='Explicit plain FilePipes only; COPY requires preconfigured targets and overwrite permission without ring truncation; DELETE removes selected configurations/bytes; RENAME moves original configuration/bytes to unused names in the same bank',
         rename='Explicit Pythonic extension, no overwrite, full sorted path/busy/alias/overlap/budget preflight; one ordinary bank including configured DeviceFiles volumes or one plain PIP bank; preserve byte/configuration identities and same-volume quota/garbage',
@@ -5369,14 +5393,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Use caller/root task group and selected explicit frame/tool maps; inverse requires supplied current joints as seed; model widths/padding, limits, CONFIG and external axes retain existing conversion rules',
         effects='Propagate potential service requests; preserve detached callback inputs, prior effects, source-located failures and sticky abort; do not mutate supplied current robot state',
         observations='kinematic_interfaces report source/target types and conversion location; value-free KINEMATIC_ARGUMENT/KINEMATIC_RETURN records report outcome',
-        boundary='No same-kind joint-width coercion, whole-array representation conversion, BYNAME casts, relaxed linked signatures/raw callback results, inferred context, physical motion or certified reachability',
+        boundary='Same-kind source width padding/zero-only narrowing follows joint_width_policy; no whole-array representation conversion, BYNAME casts, relaxed linked signatures/raw callback results, inferred context, physical motion or certified reachability',
         guide='docs/kinematic-interfaces.md',controller_validated=False)
-    report['cartesian_interface_policy']['boundary']='Context-free Cartesian representation changes remain separate from explicit-model joint routine conversions; same-kind joint widths, whole arrays, BYNAME, linked signatures and raw callback results stay exact'
+    report['cartesian_interface_policy']['boundary']='Context-free Cartesian representation changes remain separate from explicit-model joint routine conversions; joint width source conversions follow joint_width_policy; whole arrays, BYNAME, linked signatures and raw callback results stay exact'
     report['kinematic_assignment_policy']['boundary']='No motion/current-state update, native branch selection, collision or certified reachability; whole arrays stay exact and explicit model-backed source routine conversions follow kinematic_interface_policy; strict deferred'
     report['joint_geometry_policy']['boundary']='Portable Cartesian interpretation, no raw joint algebra, whole-array representation conversion, orientation defaults, calibration or native/controller equivalence; model-backed routine boundaries follow kinematic_interface_policy'
     report['data_record_policy']['boundary']='Source Cartesian and explicit-model joint/Cartesian arguments/RETURN use private converted values; no whole-array representation coercion, inferred robot context or physical motion'
-    report['positional_routine_policy']['boundary']='Private Cartesian/model-backed joint source conversions; same-type bare refs and same-kind joint widths, whole arrays, BYNAME, linked declarations and raw callback results remain exact'
+    report['positional_routine_policy']['boundary']='Private Cartesian/model-backed joint source conversions; same-type bare refs, whole arrays, BYNAME, linked declarations and raw callback results remain exact; source joint widths follow joint_width_policy'
     report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR frames with pose/joint FRAME origin; source model-backed routine conversions are separate from exact joint-width/whole-array contracts and native equivalence'
+    report['joint_width_policy']=dict(
+        conversions='Whole JOINTPOS assignments, source arguments and RETURN values between declared widths 1..9; exact same-type bare arguments keep references',
+        validation='Complete finite axes required; widening pads zeros and narrowing requires all discarded axes zero; no model or group inference',
+        ownership='Converted values are independent; arguments evaluate once into private writable cells without copy-back; RETURN before cleanup and assignment before target capture',
+        boundary='Whole arrays, BYNAME, linked declared signatures and raw callback results remain exact; legacy rejects cross-width forms; no robot acquisition or motion',
+        guide='docs/joint-width-conversions.md',controller_validated=False)
     report['vision_palette_policy']=dict(
         input='Optional explicit palette on channels=1 index rasters; 1..256 packed RGBA entries as immutable Python bytes or canonical lowercase JSON hex; every index must be in range',
         persistence='Preserve palette and index bytes through supplied captures, image registers, finds and JSON; absent palette retains the existing grayscale interpretation',

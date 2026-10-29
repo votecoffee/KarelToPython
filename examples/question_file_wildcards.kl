@@ -1,0 +1,10 @@
+PROGRAM QUESTION_FILE_WILDCARDS
+VAR copied,renamed,deleted:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    COPY_FILE('src/part?.dat','stage/*.bak',FALSE,FALSE,copied)
+    RENAME_FILE('stage/part?.bak','done/*.dat',FALSE,renamed)
+    DELETE_FILE('src/part?.dat',FALSE,deleted)
+    done=TRUE
+  ENDIF
+END QUESTION_FILE_WILDCARDS

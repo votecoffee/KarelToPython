@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1029.222104 - 2026-10-29
+
+- Add complete joint-width changes for whole assignments, private source routine
+  arguments and RETURN values, with zero padding and zero-only narrowing. Retain
+  exact same-type aliases and exact whole-array/BYNAME/linkage contracts.
+- Apply XML attributes atomically through nested record and complete ARRAY paths,
+  including BYTE/SHORT leaves. Preserve canonical duplicate checks, missing
+  values, POSITION protection, CONFIG limits and retained storage identities.
+- Accept single-character question matching in COPY/DELETE/RENAME/MOVE source
+  basenames across existing explicit file backends, preserving star destination
+  substitution, complete preflight and ordinary publication failure boundaries.
+- Add 63 regressions, three standalone examples and one linked project, with
+  updated reports, guides and remaining-support notes. Strict stays future work.
+
 ## 26.1029.000454 - 2026-10-29
 
 - Add complete chained ARRAY subscripts across storage and returned values,

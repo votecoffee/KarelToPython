@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1029.000454**. It is a
+tool are named **karel2py**. The current implementation is **26.1029.222104**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -670,6 +670,11 @@ to supplied KAREL modules or explicit Python callbacks.
 Explicit offline services now model files/registers/I/O and cooperative tasks.
 Read the [support table and limitations](docs/language-support.md) before using a feature.
 
+Pythonic mode also supports [checked joint width changes](docs/joint-width-conversions.md)
+with zero padding and zero-only narrowing, [nested XML attribute updates](docs/xml-aggregate-paths.md)
+including BYTE/SHORT leaves, and [single-character FILE wildcards](docs/question-file-wildcards.md).
+These retain explicit input context, private converted values and checked batch publication.
+
 ## Roadmap
 
 Continue expanding functional Pythonic conversion coverage. A planned
@@ -704,7 +709,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus five complete linked projects. It also checks that the unsupported-motion example is rejected.
+fixtures, plus 44 complete linked source projects. It also checks that the unsupported-motion example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

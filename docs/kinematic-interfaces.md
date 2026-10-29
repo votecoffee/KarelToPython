@@ -93,7 +93,7 @@ Source reports record `kinematic_interfaces` with operation, body/routine,
 source/target specs, line/column and single-evaluation/independent-value flags.
 RETURN sites also record `before_cleanup`. Existing Pythonic positional argument
 and return rows retain `source_type_spec`, declared `type_spec`, `converted` and
-`conversion_kind` (`kinematic`, `cartesian` or `none`). Model-backed interface
+`conversion_kind` (`kinematic`, `cartesian`, `joint_width` or `none`). Model-backed interface
 service effects propagate through routine calls.
 
 Runtime `service_requests` distinguish `KINEMATIC_ARGUMENT` from
@@ -103,8 +103,8 @@ retain their separate observation names. Context JSON uses the existing supplied
 model and concrete variable codecs; it does not serialize temporary routine
 cells, executable callbacks or native robot state.
 
-Same-kind JOINTPOS width mismatches remain exact at routine interfaces, even
-when a model can pad its own inverse result. Whole ARRAY element types, named
+Same-kind JOINTPOS source widths use [checked width conversion](joint-width-conversions.md),
+independent of model inverse padding. Whole ARRAY element types, named
 aggregate interfaces, `BYNAME` references, linked declaration/definition
 signatures and raw external callback result types also remain exact. A correctly
 declared external result can be converted by an enclosing source expression or
@@ -117,3 +117,8 @@ cover all Cartesian representations, model widths/padding, external axes,
 ownership, selected frames/tools/groups, copied callbacks, capture order,
 failure/abort cleanup, cooperative and linked calls, saved replay and report
 evidence. No test requires a controller or opens the GUI.
+
+Source JOINTPOS width differences now follow [joint-width conversions](joint-width-conversions.md)
+without a model: pad zeros or discard only zero axes from complete finite data.
+This supersedes earlier source width-mismatch exclusions. Linked declarations,
+BYNAME and raw adapter results retain their exact contracts.

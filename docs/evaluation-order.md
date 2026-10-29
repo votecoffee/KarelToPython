@@ -122,3 +122,10 @@ and subscripts once left to right under the existing comma-access contract.
 [Model-backed routine conversions](kinematic-interfaces.md) finish at each actual
 argument position before later arguments, or during RETURN before frame cleanup;
 completed callbacks and exports retain their ordinary failure boundaries.
+
+[Joint-width conversion](joint-width-conversions.md) captures each differing-width
+actual once into private storage at its argument position. RETURN conversion
+precedes frame/counter cleanup; assignment conversion precedes target selectors.
+The [XML leaf update](xml-aggregate-paths.md) stages all attributes before target
+publication. [Question FILE matching](question-file-wildcards.md) retains existing
+sorted collection and complete predictable batch preflight before file mutation.

@@ -1,7 +1,7 @@
 # Wildcard rename
 
-Pythonic RENAME_FILE supports bounded, nonrecursive star batches over explicit
-MemoryFiles, DirectoryFiles, DeviceFiles and plain FilePipes. Calls without a star
+Pythonic RENAME_FILE supports bounded, nonrecursive star/question source batches over explicit
+MemoryFiles, DirectoryFiles, DeviceFiles and plain FilePipes. Calls without a star/question matcher
 retain their existing exact-name behavior.
 
 ```karel
@@ -109,3 +109,7 @@ and unchanged service metadata through the existing context JSON format. Live
 handles retain their existing serialization restrictions. Authored tests are in
 `tests/test_wildcard_rename.py`; existing COPY, DELETE and exact RENAME regression
 cases remain in the FILE management and wildcard test modules.
+
+Source question marks now follow the [single-character match policy](question-file-wildcards.md).
+Only destination stars perform substitution; a destination question mark returns
+invalid-template status without mutation. All rename ownership and preflight rules remain.

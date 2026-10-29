@@ -1,0 +1,55 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "INPUT_FILE": {
+        "file": "input.xml",
+        "open": false,
+        "position": 36,
+        "binary": false,
+        "status": 0
+      },
+      "TAG": "item",
+      "IDENT": 7,
+      "CODE": 101,
+      "STATUS": 0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "SETTINGS": {
+        "BYTES": [
+          255,
+          {
+            "unknown_byte": true
+          }
+        ],
+        "ENABLED": true
+      },
+      "J": {
+        "axes": [
+          0.0,
+          90.0
+        ]
+      },
+      "RESULT": {
+        "axes": [
+          0.0,
+          90.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "STATUS": {
+        "uninitialized": true
+      },
+      "DONE": true
+    }
+  }
+}

@@ -287,3 +287,8 @@ The [chain, kinematic and palette ledger](chain_kinematic_palette_semantics.json
 adds complete chained ARRAY access, private model-backed routine conversions and
 supplied palette images. It preserves rank/alias proofs, explicit robot context,
 legacy raster bytes and checked PNG/BMP output publication.
+
+The [joint, XML and question-wildcard ledger](joint_xml_question_semantics.json)
+adds complete joint width conversions, atomic aggregate XML leaf updates and
+single-character final-basename source matching. Exact linkage, missing markers,
+protected fields, explicit services and bounded batch publication remain checked.

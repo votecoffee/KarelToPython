@@ -1,0 +1,12 @@
+PROGRAM XML_AGGREGATE_PATHS
+TYPE child_t=STRUCTURE count:INTEGER label:STRING[4] spare:REAL ENDSTRUCTURE
+settings_t=STRUCTURE child:child_t bytes:ARRAY[2] OF BYTE grid:ARRAY[2,2] OF SHORT ENDSTRUCTURE
+VAR settings:settings_t input_file:FILE tag:STRING[32] ident,code,status:INTEGER
+BEGIN
+  SET_FILE_ATR(input_file,ATR_XML)
+  OPEN FILE input_file('RO','input.xml')
+  XML_ADDTAG(input_file,'item',254,FALSE,7,status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  XML_SETVAR(input_file,'','settings',status)
+  CLOSE FILE input_file
+END XML_AGGREGATE_PATHS

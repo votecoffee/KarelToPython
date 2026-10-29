@@ -142,7 +142,7 @@ class WildcardRenameMemoryTests(unittest.TestCase):
                 self.assertEqual(bank.files[changed],b'fresh');self.assertNotIn('dst/a.py',bank.files)
 
     def test_invalid_paths_generated_reserved_names_and_socket_routes_raise(self):
-        for source,target in [('src/*/*.kl','dst/*.py'),('../*.kl','dst/*.py'),('src/?*.kl','dst/*.py'),
+        for source,target in [('src/*/*.kl','dst/*.py'),('../*.kl','dst/*.py'),('src/[ab]*.kl','dst/*.py'),
                 ('src/*.kl','../*.py'),('src/*.kl','dst/CON.*'),('S1:*','dst/*'),('src/*.kl','C2:*')]:
             with self.subTest(source=source,target=target):
                 bank=memory();before=bank.snapshot()

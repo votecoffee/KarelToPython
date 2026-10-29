@@ -122,7 +122,7 @@ class MemoryMoveTests(unittest.TestCase):
         self.assertEqual((program._state.values['S'],files.snapshot()),(99,before))
 
     def test_invalid_patterns_fail_without_file_changes(self):
-        for specification in ('RD:','RD:../a.KL','RD:/../a.KL','RD:sub/./a.KL','RD:sub//a.KL','RD:**/a.KL','RD:a?.KL','RD:[ab].KL','RD:a:b.KL'):
+        for specification in ('RD:','RD:../a.KL','RD:/../a.KL','RD:sub/./a.KL','RD:sub//a.KL','RD:**/a.KL','RD:sub?/a.KL','RD:[ab].KL','RD:a:b.KL'):
             with self.subTest(specification=specification):
                 files=rt.MemoryFiles({'RD:a.KL':b'a'});before=files.snapshot()
                 with self.assertRaises(rt.KarelRuntimeError): move(files,specification)

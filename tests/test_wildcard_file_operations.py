@@ -164,7 +164,7 @@ class WildcardPreflightTests(unittest.TestCase):
         self.assertEqual(copy(files,'src/*','dst/*'),2);self.assertEqual(files.snapshot(),before)
 
     def test_pattern_syntax_and_paths_fail_closed(self):
-        for source,target in [('src/*/*.kl','dst/*.py'),('../*.kl','dst/*.py'),('src/?*.kl','dst/*.py'),
+        for source,target in [('src/*/*.kl','dst/*.py'),('../*.kl','dst/*.py'),('src/[ab]*.kl','dst/*.py'),
             ('/src/*.kl','dst/*.py'),('src/*.kl','../*.py'),('src/*.kl','dst/*.'),('src/*.kl',r'dst\*.py')]:
             with self.subTest(source=source,target=target):
                 files=memory();before=files.snapshot()

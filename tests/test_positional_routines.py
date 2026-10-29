@@ -170,8 +170,8 @@ class PositionalRoutineGuardTests(unittest.TestCase):
         state=execute(init_pose()+' work((p))',routines=routine)
         self.assertEqual((state['P'],state['N']),(POSE,99))
         self.reject('E_TYPE','work((p))',routines=routine,_translator=legacy_translate)
-    def test_cross_width_joint_return_blocked(self): self.reject('E_RETURN',declarations='a: JOINTPOS4',routines='ROUTINE get: JOINTPOS3 BEGIN RETURN a END get')
-    def test_cross_width_joint_value_blocked(self): self.reject('E_TYPE','work((a))',declarations='a: JOINTPOS4',routines='ROUTINE work(v: JOINTPOS3) BEGIN END work')
+    def test_legacy_cross_width_joint_return_blocked(self): self.reject('E_RETURN',declarations='a: JOINTPOS4',routines='ROUTINE get: JOINTPOS3 BEGIN RETURN a END get',_translator=legacy_translate)
+    def test_legacy_cross_width_joint_value_blocked(self): self.reject('E_TYPE','work((a))',declarations='a: JOINTPOS4',routines='ROUTINE work(v: JOINTPOS3) BEGIN END work',_translator=legacy_translate)
     def test_missing_return_values_blocked(self):
         for kind in NEW_TYPES:
             with self.subTest(kind=kind): self.reject('E_RETURN',routines=f'ROUTINE get: {kind} BEGIN RETURN END get')

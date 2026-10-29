@@ -20,8 +20,9 @@ CURJPOS and GET_JPOS_REG return independent nine-slot values. A narrow register
 value is padded on read without changing its stored type, width or contents.
 Model POS2JOINT can write either its exact model width or JOINTPOS9; unused result
 slots are zero. Callbacks without a configured model retain their exact output
-type contract. Ordinary whole-value assignment between different JOINTPOS widths
-still requires an explicit supported conversion.
+type contract. Ordinary source assignments, arguments and RETURN can now use
+[checked joint-width conversion](joint-width-conversions.md): complete finite
+values widen with zeros, and narrowing requires every discarded axis zero.
 
 This makes paths such as `J_IN_RANGE(CURJPOS(0,0))` and
 `GET_JPOS_REG -> JOINT2POS -> POS2JOINT -> SET_JPOS_REG` usable with a narrower

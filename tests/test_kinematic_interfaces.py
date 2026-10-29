@@ -465,10 +465,14 @@ class KinematicExactBoundaryTests(unittest.TestCase):
                 p._state.kinematic_interface(('POSITION',), p._state.values['J'], 17, result=1)
         self.assertEqual(p.service_requests, ())
 
-    def test_same_kind_joint_width_mismatch_stays_rejected(self):
+    def test_joint_width_conversion_has_separate_source_policy(self):
         for body, routines in (('work(j)', 'ROUTINE work(v:JOINTPOS3) BEGIN END work'),
                                ('', 'ROUTINE make:JOINTPOS3 BEGIN RETURN j END make')):
-            with self.subTest(body=body), self.assertRaises(TranslationError): program(body, routines=routines)
+            with self.subTest(body=body):
+                p,result=program(body,routines=routines)
+                self.assertTrue(result.report['joint_width_conversions'])
+                self.assertEqual(result.report['kinematic_interfaces'],[])
+                if body:p.run()
 
     def test_byname_and_linked_declared_interfaces_stay_exact(self):
         p, _ = program("entry=77 work(BYNAME('','J',entry))", routines='ROUTINE work(v:POSITION) BEGIN END work')

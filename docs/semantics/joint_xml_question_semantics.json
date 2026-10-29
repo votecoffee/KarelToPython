@@ -1,0 +1,35 @@
+{
+  "version": "26.1029.222104",
+  "scope": "Offline Pythonic source forms; no controller/native equivalence",
+  "features": {
+    "joint_widths": {
+      "guide": "docs/joint-width-conversions.md",
+      "input": "Complete finite JOINTPOS1..9; padding zeros and zero-only trailing narrowing",
+      "ownership": "Private differing-width source arguments, RETURN before cleanup, RHS before target capture; exact same-type aliases",
+      "boundary": "Exact whole arrays, BYNAME, linked declarations and raw callback results; no model discovery or motion"
+    },
+    "xml_leaves": {
+      "guide": "docs/xml-aggregate-paths.md",
+      "input": "Explicit user STRUCTURE root with dotted record fields and complete one-based ARRAY indices",
+      "types": "INTEGER/BYTE/SHORT/finite REAL/BOOLEAN/bounded ASCII STRING; retain SHORT sentinel and unmentioned missing leaves",
+      "atomicity": "Stage checked independent value; reject canonical duplicates, protected POSITION fields and CONFIG overflow; publish preserving identities",
+      "boundary": "No XML writing/namespaces, native layouts or live parser JSON checkpoints"
+    },
+    "question_files": {
+      "guide": "docs/question-file-wildcards.md",
+      "input": "COPY/DELETE/RENAME/MOVE final-basename source ? matches exactly one character; * matches zero or more",
+      "destination": "Only existing full-stem/extension star substitution; question templates return invalid status",
+      "publication": "Retain sorted bounded preflight and ordinary/plain-PIP guards; rooted host batch publication may remain partial on host failure"
+    }
+  },
+  "validation": [
+    "tests/test_joint_width_conversions.py",
+    "tests/test_xml_aggregate_paths.py",
+    "tests/test_question_file_wildcards.py",
+    "examples/joint_width_conversions.kl",
+    "examples/xml_aggregate_paths.kl",
+    "examples/question_file_wildcards.kl",
+    "examples/xml_joint_files_project"
+  ],
+  "strict_mode": "Future milestone; legacy cross-width source guards preserved"
+}

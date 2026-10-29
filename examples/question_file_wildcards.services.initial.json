@@ -1,0 +1,7 @@
+{
+  "files": {
+    "src/part1.dat": "one",
+    "src/part2.dat": "two",
+    "src/part12.dat": "keep"
+  }
+}

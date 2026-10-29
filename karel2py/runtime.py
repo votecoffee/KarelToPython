@@ -506,6 +506,24 @@ def joint_values(value, axes, line=None):
     return values[:axes]
 
 
+def convert_joint_width(target, value, line=None):
+    """Checked private joint padding/narrowing; no robot or axis inference."""
+    if not _pythonic(): raise KarelRuntimeError('Joint width conversions require Pythonic mode',line)
+    if not isinstance(value,JointPosition): raise KarelRuntimeError('Expected joint data',line)
+    try:
+        if type(target) is not tuple or target[0]!='JOINTPOS': raise ValueError('Expected JOINTPOS target')
+        width=joint_width(target)
+        source_width=joint_width(value.spec)
+    except (ValueError,TypeError,IndexError,KarelRuntimeError) as exc:
+        raise KarelRuntimeError('Malformed joint width conversion type',line) from exc
+    axes=joint_values(value,source_width,line)
+    if any(axis!=0. for axis in axes[width:]):
+        raise KarelRuntimeError('Joint width narrowing requires zero discarded axes',line)
+    result=JointPosition(target)
+    result.values[:]=axes[:width]+[0.] * max(0,width-source_width)
+    return result
+
+
 def padded_joints(value, line=None):
     """Return a complete independent nine-slot joint value."""
     if not isinstance(value,JointPosition): raise KarelRuntimeError('Expected joint data',line)

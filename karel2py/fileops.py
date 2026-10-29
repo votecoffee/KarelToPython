@@ -32,17 +32,18 @@ def _wildcard_parts(value,*,pattern=True):
         device=device.upper()+':'
     else:device='';tail=value
     parts=tail.split('/')
-    if any(part in ('','.','..') or part.endswith((' ','.')) for part in parts) or any('*' in part for part in parts[:-1]):
+    if any(part in ('','.','..') or part.endswith((' ','.')) for part in parts) or any(any(c in part for c in '*?') for part in parts[:-1]):
         raise ValueError('Wildcard FILE stars are allowed only in the final relative filename')
-    if pattern and any(c in value for c in '?[]'):
-        raise ValueError('Wildcard FILE operations support star patterns only')
+    if pattern and any(c in value for c in '[]'):
+        raise ValueError('Wildcard FILE operations support star/question patterns without bracket classes')
     base=parts[-1]
-    if '*' not in base and re.fullmatch(r'(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])',base.split('.',1)[0],re.I):
+    if not any(c in base for c in '*?') and re.fullmatch(r'(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])',base.split('.',1)[0],re.I):
         raise ValueError('Reserved device basenames are not portable FILE names')
     return device+('/'.join(parts[:-1])+'/' if len(parts)>1 else ''),base
 
 
 def _wildcard_template(template,source):
+    if '?' in template:raise ValueError('Question marks are source matchers, not destination substitutions')
     if template=='*':return source
     stem,separator,extension=template.rpartition('.')
     if not separator:
@@ -60,7 +61,7 @@ def wildcard_file_operation(state,operation,args,line=None):
     positions={'COPY_FILE':(0,1),'DELETE_FILE':(0,),'RENAME_FILE':(0,1)}
     if operation not in positions:return False
     operands=[args[index] for index in positions[operation]]
-    if not any(type(value) is str and '*' in value for value in operands):return False
+    if not any(type(value) is str and any(c in value for c in '*?') for value in operands):return False
     runtime=rt();context=state.execution
     from .communications import message_address,pipe_name
     from .storage import DirectoryFiles,atomic_bytes
@@ -496,10 +497,10 @@ def move_specification(value,*,pattern=True):
     relative=relative.replace('\\','/')
     if relative.startswith('/'): relative=relative[1:]
     parts=relative.split('/')
-    if (any(part in ('','.','..') for part in parts) or any('*' in part for part in parts[:-1])
-            or ':' in relative or pattern and any(char in relative for char in '?[]')
+    if (any(part in ('','.','..') for part in parts) or any(any(c in part for c in '*?') for part in parts[:-1])
+            or ':' in relative or pattern and any(char in relative for char in '[]')
             or any(ord(char)<32 or ord(char)==127 for char in relative)):
-        raise ValueError('MOVE_FILE requires a relative file pattern with star wildcards only in its final component')
+        raise ValueError('MOVE_FILE requires a relative file pattern with star/question wildcards only in its final component')
     return device,'/'.join(parts[:-1]),parts[-1]
 
 

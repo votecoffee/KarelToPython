@@ -1,6 +1,6 @@
 # Remaining Pythonic support
 
-Audited on 2026-10-28 against the 465-heading, multi-edition KAREL feature
+Audited on 2026-10-29 against the 465-heading, multi-edition KAREL feature
 inventory, the programmer reference and the implemented parser/runtime. This is
 a product backlog, not a controller compatibility certificate. The inventory
 contains statements, actions, clauses, types and directives as well as calls;
@@ -97,8 +97,10 @@ they are boundaries rather than promises to accept every such source form later.
   malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
-- Direct joint field/index access, implicit same-kind joint-width conversions,
+- Direct joint field/index access, nonzero-axis-discarding joint-width conversions,
   whole-array representation conversion and implicit robot-context discovery.
+  [Source joint-width conversions](joint-width-conversions.md) now pad zeros or
+  narrow zero-only trailing axes into complete private values without robot inference.
   [Joint/Cartesian source routine conversions](kinematic-interfaces.md) now require
   explicit models/adapters and current inverse seeds, using private values.
   [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
@@ -156,7 +158,8 @@ they are boundaries rather than promises to accept every such source form later.
   FILE_LIST supports [formats 0 through 4](file-listing.md), with portable
   40-column size records and blank timestamps; native metadata formats remain open.
   [Wildcard COPY/DELETE](wildcard-file-operations.md) now support bounded final-name
-  star patterns and full-stem templates. [Wildcard RENAME](wildcard-rename.md)
+  star/question source patterns and full-stem star templates.
+  [Single-character FILE wildcards](question-file-wildcards.md) also apply to MOVE_FILE. [Wildcard RENAME](wildcard-rename.md)
   now moves same-bank closed files or plain PIP configurations without
   overwrite. [Cross-volume virtual renames](cross-volume-rename.md) now preflight
   complete destination capacity and retained source bytes within one DeviceFiles
@@ -175,7 +178,8 @@ they are boundaries rather than promises to accept every such source form later.
   JSON stores values and logical collection state; it is not a task checkpoint.
 - XML writing, DTD/entity processing, Unicode, namespace interpretation and
   native streaming/error equivalence. All five [XML input calls](xml-input.md)
-  now support bounded ASCII FILE scanning and checked flat structure updates;
+  now support bounded ASCII FILE scanning and [checked nested scalar/ARRAY leaf updates](xml-aggregate-paths.md),
+  including BYTE/SHORT, with atomic publication;
   live scanners and registrations are omitted from saved JSON.
 
 ## Tasks, handlers and programs

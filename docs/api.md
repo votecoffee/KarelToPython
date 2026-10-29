@@ -592,3 +592,11 @@ See [pose decomposition](pose-decomposition.md).
 partial data validation and queue buffer rebinding. `storage.typed_value()` and
 `decode_typed()` support both collections; context save/load includes their
 attached globals and explicit bindings. See [collection persistence](collection-persistence.md).
+
+[Joint width conversion](joint-width-conversions.md) adds complete-value source
+assignment/argument/RETURN padding and zero-only narrowing. `joint_width_conversions`
+and `joint_width_policy` describe sites and contracts in translation reports.
+[XML aggregate paths](xml-aggregate-paths.md) add staged scalar-leaf updates through
+record/ARRAY paths, including BYTE/SHORT. [Question FILE patterns](question-file-wildcards.md)
+extend final source basenames for COPY/DELETE/RENAME/MOVE while retaining checked
+batch publication and explicit ordinary/plain-PIP services.

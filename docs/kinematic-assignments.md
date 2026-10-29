@@ -101,9 +101,9 @@ No intermediate handler scan or cooperative yield occurs inside the model call.
 
 [Source routine arguments and RETURN values](kinematic-interfaces.md) now use
 private joint/Cartesian conversions with the same explicit model and context.
-Same-type bare references retain aliases; same-kind joint widths, whole ARRAY
-transfers, GET_VAR/SET_VAR, BYNAME, linked declared signatures and raw callback
-results retain their exact-type rules.
+Same-type bare references retain aliases; source joint widths use checked zero
+padding/zero-only narrowing. Whole ARRAY transfers, GET_VAR/SET_VAR, BYNAME, linked
+declared signatures and raw callback results retain their exact-type rules.
 JOINTPOS still has no source field/index access. Supported geometry expressions
 use the explicit [joint geometry](joint-geometry.md) conversion policy since
 0.94.0. POSITION orientation destinations remain protected.
@@ -120,3 +120,7 @@ model inputs and independent expected snapshots. The
 locators and the chosen context/seed rules. Native configuration-branch selection,
 calibration, collision checking, physical acceptance and strict mode remain
 separate work.
+
+Same-kind source joint widths now use [checked padding/zero-only narrowing](joint-width-conversions.md).
+This supersedes earlier source width restrictions without changing exact model
+adapter result widths, whole arrays or explicitly supplied robot context.

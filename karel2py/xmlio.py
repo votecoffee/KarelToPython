@@ -159,14 +159,34 @@ def set_variables(context,state,session,args,line=None):
     if target.spec[0]!='STRUCTURE': status.set(2,line);return
     if runtime._reference_cells(target)&runtime._reference_cells(status):
         raise runtime.KarelRuntimeError('XML_SETVAR target overlaps status output',line)
-    record=target.raw();prepared=[];seen=set()
+    # Stage the complete value so a late path/domain/protection failure cannot
+    # publish an earlier attribute. Replacing preserves existing storage identities.
+    try: staged=runtime.checked(target.spec,target.raw(),line)
+    except runtime.KarelRuntimeError: status.set(2,line);return
+    seen=set()
     for key,value in current['attrs']:
-        key=key.upper()
-        if key in seen or key not in record.types: status.set(2,line);return
-        seen.add(key);spec=record.types[key]
+        state.tick(line)
         try:
-            if spec[0]=='INTEGER':
-                if not re.fullmatch(r'[+-]?[0-9]+',value.strip()): raise ValueError('Expected decimal INTEGER')
+            parts=key.upper().split('.')
+            node=staged;reference=None;at=0
+            while at<len(parts):
+                if isinstance(node,runtime.Structure):
+                    if re.fullmatch(r'[A-Z_][A-Z_0-9]*',parts[at]) is None: raise ValueError('Invalid XML field path')
+                    reference=runtime.field_reference(node,parts[at],line);at+=1
+                elif isinstance(node,runtime.Array):
+                    rank=len(node.shape);indices=parts[at:at+rank]
+                    if len(indices)!=rank or any(re.fullmatch(r'[0-9]+',index) is None for index in indices):
+                        raise ValueError('XML ARRAY paths require every dimension')
+                    reference=runtime.index_reference(node,tuple(int(index) for index in indices),line);at+=rank
+                else: raise ValueError('XML path must select a declared scalar leaf')
+                node=reference.raw()
+            if reference is None or isinstance(reference,runtime.ReadOnlyFieldReference):
+                raise ValueError('XML leaf must be writable')
+            cells=runtime._reference_cells(reference)
+            if cells & seen: raise ValueError('Duplicate XML leaf')
+            seen.update(cells);spec=reference.spec
+            if spec[0] in ('INTEGER','BYTE','SHORT'):
+                if not re.fullmatch(r'[+-]?[0-9]+',value.strip()): raise ValueError('Expected decimal integral value')
                 converted=int(value.strip())
             elif spec[0]=='REAL': converted=float(value.strip())
             elif spec[0]=='BOOLEAN':
@@ -176,10 +196,11 @@ def set_variables(context,state,session,args,line=None):
             elif spec[0]=='STRING':
                 if len(value)>spec[1]: status.set(3,line);return
                 converted=value
-            else: status.set(2,line);return
-            prepared.append((key,runtime.checked(spec,converted,line)))
-        except (ValueError,OverflowError,runtime.KarelRuntimeError): status.set(2,line);return
-    for key,value in prepared: record.values[key]=value
+            else: raise ValueError('XML attributes require scalar leaves')
+            reference.set(converted,line)
+        except (ValueError,OverflowError,runtime.KarelRuntimeError):
+            status.set(2,line);return
+    target.set(staged,line)
     status.set(0,line)
 
 

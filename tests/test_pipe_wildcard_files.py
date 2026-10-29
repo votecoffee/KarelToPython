@@ -301,7 +301,7 @@ class PipeWildcardGuardTests(unittest.TestCase):
         self.assertEqual(files.snapshot(),{'a.dat':b'a'})
 
     def test_plain_pipe_patterns_reject_paths_and_other_wildcards(self):
-        for source in ('PIP:sub/*.DAT','PIP:../*.DAT','PIP:*?.DAT','PIP:[AB]*.DAT'):
+        for source in ('PIP:sub/*.DAT','PIP:../*.DAT','PIP:sub?/*.DAT','PIP:[AB]*.DAT'):
             with self.subTest(source=source):
                 ctx=context();before=frozen(ctx)
                 with self.assertRaises(rt.KarelRuntimeError):copy(ctx,source)

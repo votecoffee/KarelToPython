@@ -1,0 +1,9 @@
+PROGRAM MAIN
+TYPE config_t=STRUCTURE bytes:ARRAY[2] OF BYTE enabled:BOOLEAN ENDSTRUCTURE
+VAR settings:config_t j:JOINTPOS2 result:JOINTPOS9 status:INTEGER done:BOOLEAN
+ROUTINE process(value:JOINTPOS9):JOINTPOS2 FROM LIB
+BEGIN
+  j=CURJPOS(0,0)
+  result=process(j)
+  done=TRUE
+END MAIN

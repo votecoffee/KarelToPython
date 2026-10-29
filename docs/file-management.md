@@ -120,3 +120,7 @@ See the authored [wildcard example](../examples/file_move.kl),
 [semantics ledger](semantics/file_management_semantics.json).
 Native status/name rules and controller execution remain unvalidated; strict mode
 is a future milestone.
+
+MOVE_FILE also accepts [single-character question matching](question-file-wildcards.md)
+in the final source basename. Directory wildcard/traversal guards, explicit RD/FR
+mapping, complete preflight and ordinary publication outcomes remain in force.

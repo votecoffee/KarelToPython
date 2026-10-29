@@ -57,14 +57,17 @@ advances to the next registered event.
 XML_SETVAR resolves attached globals or explicit VariableStore bindings through
 the existing static variable-path rules, including supported PATH node fields.
 An empty program name selects the current program. The target must be a user
-STRUCTURE with flat INTEGER, REAL, BOOLEAN or bounded STRING fields.
+STRUCTURE. Flat scalar attributes and [dotted aggregate leaf paths](xml-aggregate-paths.md)
+support INTEGER, BYTE, SHORT, REAL, BOOLEAN and bounded STRING fields.
 
 Attribute names match KAREL field names without case sensitivity. INTEGER values
 use signed decimal text; REAL values use finite Python float equivalents.
 BOOLEAN accepts 0/1, TRUE/FALSE or ON/OFF, without case sensitivity. STRING values
-must fit their destination. Unknown fields, duplicate names after case folding,
-unsupported field types and invalid values reject the entire update. All values
-are prepared before any field changes. Unmentioned fields retain their values,
+must fit their destination. Unknown paths, duplicate canonical destination cells,
+unsupported field types, protected leaves and invalid values reject the entire update.
+Complete one-based ARRAY indices follow each declared rank. BYTE/SHORT retain
+their ordinary domains and SHORT sentinel. A checked independent target is staged
+before publication, preserving existing nested storage identities on success. Unmentioned fields retain their values,
 including uninitialized markers. No variables or types are created implicitly.
 
 The call needs an attribute-bearing start or self-closing event; an ordinary end

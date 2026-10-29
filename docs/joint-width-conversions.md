@@ -1,0 +1,62 @@
+# Joint width conversions
+
+Pythonic mode accepts whole `JOINTPOS1` through `JOINTPOS9` values across
+differing declared widths in assignments, ordinary source routine arguments and
+`RETURN` expressions. Bare `JOINTPOS` means nine slots.
+
+```karel
+VAR small:JOINTPOS2 wide:JOINTPOS9
+ROUTINE inspect(value:JOINTPOS9):JOINTPOS4
+BEGIN
+  RETURN value
+END inspect
+BEGIN
+  wide=small
+  small=inspect(small)
+END
+```
+
+The sample needs initialized `small` data from source initialization or explicit
+context. Widening appends zeros. Narrowing succeeds only when every discarded
+axis is zero; negative zero is accepted. Every source axis must be initialized,
+finite numeric data. A nonzero or missing discarded axis raises before publishing
+the destination. This is a portable storage convention, without axis-unit,
+group, robot-model or physical-equivalence inference.
+
+Same-width copies retain their existing partial-data behavior. This new complete
+input requirement applies to a width change. Whole ARRAY and STRUCTURE copies
+retain exact element/schema identities; individual selected joint fields or
+elements can be converted.
+
+## Ownership and evaluation
+
+A differing-width actual is captured once at its argument position and converted
+into independent writable private storage. There is no copy-back to the caller,
+including on return, failure, pause or stop. Exact same-type bare arguments still
+alias their original storage. Grouped exact values remain private values.
+
+RETURN converts before routine-frame and active-counter cleanup. Assignment
+evaluates and validates its right-hand conversion before evaluating target
+selectors. A failed conversion preserves the target and skips later arguments
+or target-index calls; earlier source effects remain. Label-dispatched and
+cooperative source use the same policy. No robot service request is generated.
+
+The [authored example](../examples/joint_width_conversions.kl) initializes two
+axes using explicit `joint_axes=2`, then pads, passes, returns and narrows them.
+Generated execution uses `--joint-axes 2` for those initialization calls. Pure
+width conversion itself needs no robot or axis context.
+
+## Exact boundaries
+
+BYNAME targets, linked routine declarations, raw external callback return types
+and whole ARRAY representations retain exact type contracts. Matching linked
+source signatures can accept a privately converted actual from their caller.
+No raw joint indexing, nonzero-axis discard, whole-array coercion or physical
+motion is added. Existing [model-backed conversions](kinematic-interfaces.md)
+remain a separate explicitly configured operation.
+
+Reports contain `joint_width_conversions` sites with assignment/argument/RETURN
+kind, source and target type specs, source location and independent-value flags.
+Converted argument/result rows use `conversion_kind="joint_width"`.
+`joint_width_policy` records these choices. The preserved legacy translator
+continues to reject cross-width source forms; public strict mode is future work.

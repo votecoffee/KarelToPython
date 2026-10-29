@@ -1,0 +1,16 @@
+PROGRAM LIB
+VAR input_file:FILE tag:STRING[32] ident,code,status:INTEGER
+ROUTINE process(value:JOINTPOS9):JOINTPOS2
+BEGIN
+  SET_FILE_ATR(input_file,ATR_XML)
+  OPEN FILE input_file('RO','input.xml')
+  XML_ADDTAG(input_file,'item',254,FALSE,7,status)
+  XML_SCAN(input_file,tag,ident,code,status)
+  XML_SETVAR(input_file,'MAIN','settings',status)
+  CLOSE FILE input_file
+  COPY_FILE('part?.dat','saved/*.dat',TRUE,FALSE,status)
+  DELAY(1)
+  RETURN value
+END process
+BEGIN
+END LIB

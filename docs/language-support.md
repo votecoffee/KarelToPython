@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1029.000454. Acceptance is specific to
+This is the supported prototype subset as of 26.1029.222104. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -50,7 +50,7 @@ internally and in the historical semantic notes.
 | Collection persistence | PATH and QUEUE_TYPE context variables | Typed partial PATH data, queue FIFO/sequence state and explicit buffer rebinding; portable logical snapshots without native layouts or task checkpoints. |
 | POSITION conversion | Whole assignments among XYZWPR, XYZWPREXT and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; [Cartesian source routine conversions](cartesian-interfaces.md) use private differing representations; whole-array/BYNAME/linked declared types remain exact; context-free Cartesian conversion only; model-backed joint assignments are listed below. Widening zeros external metadata; narrowing drops it. |
 | Output pulses | PULSE DOUT with blocking/NOWAIT statements and blocking handler actions | Explicit bank, rounded duration, host polling or scheduler virtual time; portable override/lifecycle rules. |
-| Kinematic assignment | Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments and [source routine conversions](kinematic-interfaces.md) using supplied robot adapters/models | Selected frame/tool and root group; inverse needs current joints as seed; same-kind joint widths, whole arrays, BYNAME and declared linkage remain exact. |
+| Kinematic assignment | Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments and [source routine conversions](kinematic-interfaces.md) using supplied robot adapters/models | Selected frame/tool and root group; inverse needs current joints as seed; same-kind source widths use checked zero-padding/zero-only narrowing; whole arrays, BYNAME and declared linkage remain exact. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access or implicit group discovery. RobotContext supplies explicit kinematics. |
 | VECTOR | VEC construction, arithmetic, cross/dot products, equality, routine values and translation-frame equivalents | Complete finite components; [pose:VECTOR points](vector-frames.md) and [VECTOR translation offsets](vector-translation-frames.md), INV negation and FRAME points with an explicit pose origin. No inferred CONFIG or implicit routine coercion. |
 | Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, UNPOS pose-value and model-backed joint extraction | Bounded width/precision, caller capacities and disjoint outputs; source snapshots and chosen Pythonic formatting/pose conventions. |
@@ -75,7 +75,7 @@ internally and in the historical semantic notes.
 | Task policies and traces | SET_TSK_ATTR, seven source directives, priority-ordered weighted turns, request-origin masks and bounded source checkpoint tracing | Nine checked settings, stable numeric IDs, explicit shift/TP-enable notifications and atomic CLI trace export; capability-only lamp/motion flags; no native CPU timing or preemption. |
 | TP program data | 17 management, position, frame/type and comment calls over explicit TeachPrograms, plus listing/load/header metadata integration | Logical records, grouped poses/joints, opaque one-based instruction deletion, access/reject handles and terminal cleanup; no native TP files, execution or motion linkage. |
 | TP local registers | 12 numeric/string/grouped position calls with explicit caller bindings in TeachPrograms | Calling KAREL root scope through linked routines and scheduler rename, separate local banks, stored frame/tool metadata and typed JSON; no native caller-stack discovery. |
-| XML input | XML_ADDTAG, XML_REMTAG, XML_SCAN, XML_GETDATA, XML_SETVAR over explicit text RO FILEs | Bounded ASCII documents, registered events, text continuation and checked flat field updates; no DTD/entities, XML writing or native parser/status equivalence. |
+| XML input | XML_ADDTAG, XML_REMTAG, XML_SCAN, XML_GETDATA, XML_SETVAR over explicit text RO FILEs | Bounded ASCII documents, registered events, text continuation and checked flat field updates; [nested scalar/ARRAY paths](xml-aggregate-paths.md) and BYTE/SHORT leaves; no DTD/entities, XML writing or native parser/status equivalence. |
 | Serial attributes | GET_PORT_ATR/SET_PORT_ATR over explicit SerialPorts | Seven checked attributes, canonical context JSON and portable constants; configuration metadata without serial/device effects. |
 | Serial FILE streams | Explicit finite/default or opted-in host-fed waiting P1:..P5: RX queues and TX outboxes | Atomic text/binary reads, explicit EOF, close-time RX consumption, appended TX, bounded JSON and exclusive handles. No hardware access, implicit attribute application or native serial timing. See [serial streams](serial-streams.md) and [serial waiting](serial-waiting.md). |
 | Virtual devices | MOUNT_DEV, DISMOUNT_DEV, FORMAT_DEV, PURGE_DEV, VOL_SPACE, DOSFILE_INF over DeviceFiles | Explicit memory-backed volumes, mount/closed-file guards, byte quotas/reclamation and supplied metadata; no host drive or native device operations. |
@@ -357,3 +357,10 @@ partial data and ordinary aliases. [Mixed ALLTYPE batches](mixed-archives.md)
 combine TP/VR graphs and preflight both stores using hashed manifests. Native
 PC/VR/IO binaries, code unloading and
 automatic native flash/power-up behavior remain unavailable.
+
+[Joint width conversions](joint-width-conversions.md) accept complete same-kind
+joint values across source assignments, arguments and RETURN with zero padding or
+zero-only narrowing. Exact bare aliases, linked declarations and whole arrays
+retain their existing contracts. [Question FILE wildcards](question-file-wildcards.md)
+extend final-basename source matching across COPY/DELETE/RENAME/MOVE without
+changing destination star substitution, backend isolation or preflight guarantees.

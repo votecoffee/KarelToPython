@@ -1,0 +1,29 @@
+{
+  "files": {
+    "input.xml": "<item bytes.1=\"255\" enabled=\"true\"/>",
+    "part1.dat": "one",
+    "part12.dat": "keep"
+  },
+  "robot": {
+    "dh": [
+      {
+        "a": 100
+      },
+      {
+        "a": 100
+      }
+    ],
+    "current": {
+      "joints": {
+        "type": [
+          "JOINTPOS",
+          2
+        ],
+        "value": [
+          0.0,
+          90.0
+        ]
+      }
+    }
+  }
+}

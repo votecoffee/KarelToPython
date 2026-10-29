@@ -1,0 +1,13 @@
+{
+  "files": {
+    "src/part12.dat": {
+      "hex": "6b656570"
+    },
+    "done/part1.dat": {
+      "hex": "6f6e65"
+    },
+    "done/part2.dat": {
+      "hex": "74776f"
+    }
+  }
+}

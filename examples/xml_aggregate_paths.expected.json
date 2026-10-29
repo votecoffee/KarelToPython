@@ -1,0 +1,44 @@
+{
+  "SETTINGS": {
+    "CHILD": {
+      "COUNT": 7,
+      "LABEL": "demo",
+      "SPARE": {
+        "uninitialized": true
+      }
+    },
+    "BYTES": [
+      255,
+      {
+        "unknown_byte": true
+      }
+    ],
+    "GRID": [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        -9,
+        {
+          "uninitialized": true
+        }
+      ]
+    ]
+  },
+  "INPUT_FILE": {
+    "file": "input.xml",
+    "open": false,
+    "position": 70,
+    "binary": false,
+    "status": 0
+  },
+  "TAG": "item",
+  "IDENT": 7,
+  "CODE": 101,
+  "STATUS": 0
+}

@@ -1,0 +1,5 @@
+{
+  "files": {
+    "input.xml": "<item child.count=\"7\" child.label=\"demo\" bytes.1=\"255\" grid.2.1=\"-9\"/>"
+  }
+}

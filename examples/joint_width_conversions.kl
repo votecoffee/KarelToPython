@@ -1,0 +1,14 @@
+PROGRAM JOINT_WIDTH_CONVERSIONS
+VAR axes:ARRAY[2] OF REAL small:JOINTPOS2 wide:JOINTPOS9 returned:JOINTPOS4 status:INTEGER
+ROUTINE bridge(value:JOINTPOS9):JOINTPOS4
+BEGIN
+  RETURN value
+END bridge
+BEGIN
+  axes[1]=10
+  axes[2]=-20
+  CNV_REL_JPOS(axes,small,status)
+  wide=small
+  returned=bridge(small)
+  small=returned
+END JOINT_WIDTH_CONVERSIONS
