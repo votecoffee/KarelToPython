@@ -296,9 +296,12 @@ class StructureArrayBoundaryTests(unittest.TestCase):
     def test_multidimensional_array_len_remains_blocked(self):
         self.rejected('result = ARRAY_LEN(grid)', code='E_ARRAY_LEN', _translator=legacy_translate)
 
-    def test_partial_and_chained_subscripts_remain_blocked(self):
+    def test_partial_subscripts_remain_blocked(self):
         self.rejected('result = grid[1].count', code='E_ARRAY_RANK')
-        self.rejected('result = grid[1][1].count', code='E_ARRAY_RANK')
+
+    def test_complete_chained_record_indexes_match_comma_access(self):
+        state=execute('grid[1][1].count=7 result=grid[1,1].count')
+        self.assertEqual(state['RESULT'],7)
 
     def test_routine_call_in_target_index_remains_blocked(self):
         self.rejected('items[next_index()].count = 7', code='E_EVALUATION_ORDER', routines='ROUTINE next_index: INTEGER BEGIN RETURN 1 END next_index', _translator=legacy_translate)

@@ -163,9 +163,13 @@ class JointGeometryGuardTests(unittest.TestCase):
     def test_legacy_unpos_retains_exact_source_interface(self):
         with self.assertRaises(TranslationError): legacy_translate('PROGRAM T VAR j: JOINTPOS x,y,z,w,p,r: REAL cfg: CONFIG BEGIN UNPOS(j,x,y,z,w,p,r,cfg) END T')
 
-    def test_routine_and_whole_array_interfaces_remain_exact(self):
+    def test_routine_kinematics_are_explicit_and_whole_arrays_stay_exact(self):
         for body,routines in (('take(j)','ROUTINE take(value: POSITION) BEGIN END take'),('e=produce()','ROUTINE produce: POSITION BEGIN RETURN j END produce')):
-            with self.subTest(body=body),self.assertRaises(TranslationError): compile_program(body,decl=DECL,routines=routines)
+            with self.subTest(body=body):
+                program,_=compile_program(START+body,decl=DECL,routines=routines,context=model_context((0.,90.)))
+                program.run()
+                self.assertEqual(len([row for row in program.service_requests if row['operation'] in ('KINEMATIC_ARGUMENT','KINEMATIC_RETURN')]),1)
+                with self.assertRaises(TranslationError): legacy_translate('PROGRAM T VAR '+DECL+' '+routines+' BEGIN '+body+' END T')
         with self.assertRaises(TranslationError): compile_program('a=b',decl='a: ARRAY[1] OF POSITION b: ARRAY[1] OF JOINTPOS')
 
     def test_runtime_strict_guard(self):

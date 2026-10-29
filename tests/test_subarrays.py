@@ -208,7 +208,8 @@ class SubarrayRejectionTests(unittest.TestCase):
     def test_whole_copy_between_formals_with_distinct_named_components(self): self.rejected(types=TYPES+'\nalien_t=ARRAY[2] OF INTEGER', routines='ROUTINE copy(p: ARRAY OF row_t; q: ARRAY OF alien_t) BEGIN p=q END copy')
     def test_flat_generic_rank_mismatch(self): self.rejected('work(cube)', routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN END work')
     def test_flat_generic_does_not_expose_unproven_boundary(self): self.rejected(routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN row=p[1] END work', code='E_ARRAY_RANK')
-    def test_chained_subscript_syntax_remains_blocked(self): self.rejected('x=plane[1][2]', code='E_ARRAY_RANK')
+    def test_complete_chained_subscripts_retain_named_array_storage(self):
+        self.assertEqual(execute('plane[1][2]=7 x=plane[1,2]')['X'],7)
     def test_parenthesized_subarray_value_remains_blocked(self): self.rejected('work((plane[1]))', routines='ROUTINE work(p: row_t) BEGIN END work', code='E_ARRAY_VALUE', _translator=legacy_translate)
     def test_nested_array_len_is_logically_multidimensional(self): self.rejected('x=ARRAY_LEN(plane)', code='E_ARRAY_LEN', _translator=legacy_translate)
     def test_subarray_array_len_is_logically_multidimensional(self): self.rejected('x=ARRAY_LEN(cube[1])', code='E_ARRAY_LEN', _translator=legacy_translate)

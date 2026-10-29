@@ -6,6 +6,7 @@ from karel2py.kinematics import pose as identity_pose
 from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program,run
 from tests.test_joint_interoperability import joint,model_context
+from tests.legacy_numeric_support import translate as legacy_translate
 
 
 DECL='j,out: JOINTPOS p: POSITION e: XYZWPREXT a: XYZWPR s: INTEGER'
@@ -173,9 +174,14 @@ class AssignmentAdapterTests(unittest.TestCase):
 
 
 class AssignmentOwnershipTests(unittest.TestCase):
-    def test_routine_arguments_and_returns_still_require_exact_types(self):
+    def test_routine_conversions_use_explicit_model_with_legacy_guards(self):
+        routines='ROUTINE take(value: POSITION) BEGIN value.location.x=99 END take ROUTINE produce: POSITION BEGIN RETURN j END produce'
+        program,_=compile_program(START+'take(j) p=produce()',decl=DECL,routines=routines,context=model_context((0.,90.)))
+        state=program.run()
+        self.assertEqual(state['J']['axes'],[0.,90.]+[0.]*7)
+        self.assertAlmostEqual(state['P']['LOCATION']['X'],100.)
         for body,routines in (('take(j)','ROUTINE take(value: POSITION) BEGIN END take'),('p=produce()','ROUTINE produce: POSITION BEGIN RETURN j END produce')):
-            with self.subTest(body=body),self.assertRaises(TranslationError): compile_program(body,decl=DECL,routines=routines)
+            with self.subTest(body=body),self.assertRaises(TranslationError): legacy_translate(f'PROGRAM T VAR {DECL} {routines} BEGIN {body} END T')
 
     def test_whole_arrays_do_not_gain_element_conversion(self):
         with self.assertRaises(TranslationError): compile_program('poses=joints',decl='poses: ARRAY[2] OF POSITION joints: ARRAY[2] OF JOINTPOS')

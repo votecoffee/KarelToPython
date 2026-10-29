@@ -416,17 +416,28 @@ _IMAGE_TOTAL_LIMIT=64*1024*1024
 
 
 def raster(row,limit,*,remaining=None):
-    if type(row) is not dict or set(row)!={'width','height','channels','pixels'}:raise ValueError('Image requires width, height, channels and pixels')
+    fields={'width','height','channels','pixels'}
+    if type(row) is not dict or not fields<=set(row) or set(row)-fields-{'palette'}:raise ValueError('Image requires width, height, channels and pixels')
     width=integer(row['width'],1,4096);height=integer(row['height'],1,4096);channels=row['channels']
     if type(channels) is not int or channels not in (1,2,3,4):raise ValueError('Images require 8-bit grayscale, grayscale-alpha, RGB or RGBA channels')
-    pixels=row['pixels'];size=width*height*channels
-    if size>limit:raise ValueError('Raw image exceeds its configured byte limit')
-    if remaining is not None and size>remaining:raise ValueError('Combined vision raw-image capacity exceeds 64 MiB')
+    pixels=row['pixels'];size=width*height*channels;palette=row.get('palette');palette_size=0
+    if 'palette' in row:
+        if channels!=1:raise ValueError('An explicit palette requires channels=1 index bytes')
+        if type(palette) not in (bytes,str):raise ValueError('Image palette requires packed RGBA bytes or canonical lowercase hexadecimal')
+        palette_size=len(palette)//2 if type(palette) is str else len(palette)
+        if (type(palette) is str and len(palette)%8 or not 4<=palette_size<=1024 or palette_size%4):
+            raise ValueError('Image palette requires 1..256 packed RGBA entries')
+    if size+palette_size>limit:raise ValueError('Raw image exceeds its configured byte limit')
+    if remaining is not None and size+palette_size>remaining:raise ValueError('Combined vision raw-image capacity exceeds 64 MiB')
+    if type(palette) is str:
+        if re.fullmatch('[0-9a-f]*',palette) is None:raise ValueError('Image JSON palette requires canonical lowercase hexadecimal bytes')
+        palette=bytes.fromhex(palette)
     if type(pixels) is str:
         if len(pixels)!=size*2 or re.fullmatch('[0-9a-f]*',pixels) is None:raise ValueError('Image JSON pixels require canonical lowercase hexadecimal bytes')
         pixels=bytes.fromhex(pixels)
     if type(pixels) is not bytes or len(pixels)!=size:raise ValueError('Raw pixel size does not match image dimensions')
-    return dict(width=width,height=height,channels=channels,pixels=pixels)
+    if palette is not None and max(pixels)>=palette_size//4:raise ValueError('Image pixel index is outside its explicit palette')
+    return dict(width=width,height=height,channels=channels,pixels=pixels,**({'palette':palette} if palette is not None else {}))
 
 
 class VisionIO:
@@ -449,7 +460,7 @@ class VisionIO:
             if code and 'image' in row or not code and 'image' not in row:raise ValueError('Only successful captures require an image')
             if not code:
                 answer['image']=raster(row['image'],self.image_limit,remaining=_IMAGE_TOTAL_LIMIT-total)
-                total+=len(answer['image']['pixels'])
+                total+=len(answer['image']['pixels'])+len(answer['image'].get('palette',b''))
             return answer
         for key,row in mapping(config.get('images',{}),256).items():
             if type(key) is not str or re.fullmatch('[1-9][0-9]*',key) is None:raise ValueError('Image register keys require canonical positive numbers')
@@ -488,7 +499,9 @@ class VisionIO:
     def to_config(self):
         def image_record(row):
             row=deepcopy(row)
-            if 'image' in row:row['image']['pixels']=row['image']['pixels'].hex()
+            if 'image' in row:
+                row['image']['pixels']=row['image']['pixels'].hex()
+                if 'palette' in row['image']:row['image']['palette']=row['image']['palette'].hex()
             return row
         return dict(image_count=self.image_count,image_limit=self.image_limit,images={str(k):image_record(v) for k,v in sorted(self.images.items())},captures=[image_record(v) for v in self.captures],cameras=deepcopy(self.cameras),calibrations=deepcopy(self.calibrations),display_tools=self.display_tools.copy(),displayed=self.displayed,led_channels=self.led_channels.copy(),led=deepcopy(self.led))
 
@@ -500,12 +513,15 @@ def encode_raster(image,format,limit,check):
     image=raster(image,_IMAGE_RAW_LIMIT)
     if format not in ('PNG','BMP'):raise ValueError('Raster export requires PNG or BMP')
     width,height,channels,pixels=(image[k] for k in ('width','height','channels','pixels'))
-    if format=='BMP' and channels in (2,4):
+    palette=image.get('palette')
+    if format=='BMP' and (channels in (2,4) or palette is not None):
         stride=width*4;offset=14+108;size=offset+stride*height
         if size>limit:return None
-        rows=[]
+        rows=[];colors=None if palette is None else tuple(bytes((palette[i+2],palette[i+1],palette[i],palette[i+3])) for i in range(0,len(palette),4))
         for y in range(height-1,-1,-1):
-            check();row=pixels[y*width*channels:(y+1)*width*channels];bgra=bytearray(stride)
+            check();row=pixels[y*width*channels:(y+1)*width*channels]
+            if colors is not None:rows.append(b''.join(colors[index] for index in row));continue
+            bgra=bytearray(stride)
             if channels==2:
                 gray=row[0::2];bgra[0::4]=gray;bgra[1::4]=gray;bgra[2::4]=gray;bgra[3::4]=row[1::2]
             else:
@@ -525,11 +541,16 @@ def encode_raster(image,format,limit,check):
                 bgr=bytearray(len(row));bgr[0::3]=row[2::3];bgr[1::3]=row[1::3];bgr[2::3]=row[0::3];row=bytes(bgr)
             rows.append(row+b'\0'*(stride-len(row)))
         return struct.pack('<2sIHHI',b'BM',size,0,0,54)+struct.pack('<IiiHHIIiiII',40,width,height,1,24,0,stride*height,0,0,0,0)+b''.join(rows)
-    if limit<57:return None
+    palette_entries=0 if palette is None else len(palette)//4
+    transparent=palette is not None and any(palette[i]!=255 for i in range(3,len(palette),4))
+    overhead=0 if palette is None else 12+palette_entries*3+(12+palette_entries if transparent else 0)
+    if limit<57+overhead:return None
     rows=[];stride=width*channels
     for start in range(0,len(pixels),stride):check();rows.append(b'\0'+pixels[start:start+stride])
     def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
-    encoded=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,{1:0,2:4,3:2,4:6}[channels],0,0,0))+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b'')
+    table=b'' if palette is None else chunk(b'PLTE',b''.join(palette[i:i+3] for i in range(0,len(palette),4)))
+    if transparent:table+=chunk(b'tRNS',palette[3::4])
+    encoded=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,3 if palette is not None else {1:0,2:4,3:2,4:6}[channels],0,0,0))+table+chunk(b'IDAT',zlib.compress(b''.join(rows)))+chunk(b'IEND',b'')
     return encoded if len(encoded)<=limit else None
 
 

@@ -1,0 +1,10 @@
+PROGRAM VISION_PALETTE
+VAR status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    V_SAVE_IMREG(1,'indexed.png',status)
+    V_SAVE_IMREG(1,'indexed.bmp',status)
+    done=TRUE
+  ENDIF
+END VISION_PALETTE

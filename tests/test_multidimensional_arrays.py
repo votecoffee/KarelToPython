@@ -269,9 +269,9 @@ class BoundaryTests(unittest.TestCase):
         for body in ('result = a[1]', 'a[1] = 7', 'flag = UNINIT(a[1])', 'put(a[1])'):
             with self.subTest(body=body): self.rejected(body, 'ROUTINE put(p: ARRAY OF INTEGER) BEGIN END put')
 
-    def test_too_many_subscripts_and_chained_subscripts_rejected(self):
-        for body in ('a[1,1,1] = 7', 'a[1][2] = 7', 'a[1,2][1] = 7'):
-            with self.subTest(body=body): self.rejected(body, code='E_TYPE' if body == 'a[1,2][1] = 7' else 'E_ARRAY_RANK')
+    def test_too_many_subscripts_remain_rejected(self):
+        for body in ('a[1,1,1] = 7','a[1,2][1] = 7'):
+            with self.subTest(body=body):self.rejected(body,code='E_ARRAY_RANK')
 
     def test_wrong_index_type_rejected(self):
         for body in ('a[TRUE,1] = 7', 'a[1,1.5] = 7', "a[1,'x'] = 7"):

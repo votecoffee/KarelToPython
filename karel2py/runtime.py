@@ -2423,6 +2423,17 @@ class State:
         if not _pythonic(): raise KarelRuntimeError('Kinematic assignments require Pythonic mode',line)
         return self._kinematic_conversion(target,value,line,'KINEMATIC_ASSIGNMENT')
 
+    def kinematic_interface(self,target,value,line=None,*,result=False):
+        """Convert an explicit joint/Cartesian interface value through its context."""
+        if not _pythonic():raise KarelRuntimeError('Kinematic interfaces require Pythonic mode',line)
+        if type(result) is not bool:raise KarelRuntimeError('Kinematic interface result flag must be BOOLEAN',line)
+        source=getattr(value,'spec',())
+        if (type(target) is not tuple or not target or type(source) is not tuple or not source
+                or not ((target[0]=='JOINTPOS' and source[0] in ('POSITION','XYZWPR','XYZWPREXT'))
+                        or (source[0]=='JOINTPOS' and target[0] in ('POSITION','XYZWPR','XYZWPREXT')))):
+            raise KarelRuntimeError('Kinematic interfaces require one joint and one Cartesian type',line)
+        return self._kinematic_conversion(target,value,line,'KINEMATIC_RETURN' if result else 'KINEMATIC_ARGUMENT')
+
     def geometry_value(self,value,expected,line=None):
         if not _pythonic(): raise KarelRuntimeError('Joint geometry requires Pythonic mode',line)
         if expected[0]!='JOINTPOS': return frame_value(value,line,expected=expected)
@@ -2443,7 +2454,7 @@ class State:
             if self._aborted: raise KarelAbort(self._abort_line)
             if isinstance(exc,KarelRuntimeError) and exc.line is None: raise KarelRuntimeError(str(exc),line) from exc
             if isinstance(exc,(ValueError,TypeError,KeyError,IndexError)):
-                label='Joint geometry' if operation=='JOINT_GEOMETRY' else 'Kinematic assignment'
+                label='Joint geometry' if operation=='JOINT_GEOMETRY' else 'Kinematic interface' if operation in ('KINEMATIC_ARGUMENT','KINEMATIC_RETURN') else 'Kinematic assignment'
                 raise KarelRuntimeError(label+' failed: '+str(exc),line) from exc
             raise
         row['outcome']='completed';return result

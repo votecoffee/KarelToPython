@@ -1043,6 +1043,7 @@ class Emitter:
         self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
         self.subarray_uses = []
+        self.array_index_chains = []
         self.delay_uses = []
         self.wait_uses = []
         self.string_value_uses = []
@@ -1068,6 +1069,7 @@ class Emitter:
         self.position_comparison_uses = []
         self.position_conversion_uses = []
         self.kinematic_assignment_uses = []
+        self.kinematic_interface_uses=[]
         self.joint_geometry_uses = []
         self.pulse_uses = []
         self.initialization_query_uses = []
@@ -1415,6 +1417,40 @@ class Emitter:
                 for body in (self.program.body,*[routine.body for routine in self.program.routines]) for node in self.walk_nodes(body)):
             self.cooperative=True
         self.analyze_routine_effects()
+
+    def normalize_array_chains(self):
+        """Complete adjacent subscript groups use the existing comma path.
+
+        Flatten before any receiver typing, so a partial intermediate flat ARRAY
+        is never materialized or mistaken for a valid row view. Grouping around
+        an intermediate index does not introduce a separate storage boundary.
+        """
+        def resolve(node,body):
+            if isinstance(node,Expr):
+                if node.kind=='index':
+                    source=counter_text(node);segments=[];current=node
+                    while True:
+                        segments.append(current.args[1:])
+                        base=current.args[0];receiver=base
+                        while receiver.kind=='group':receiver=receiver.args[0]
+                        if receiver.kind!='index':break
+                        current=receiver
+                    if len(segments)>1:
+                        segments.reverse()
+                        node.args=[base,*[value for segment in segments for value in segment]]
+                        self.array_index_chains.append(dict(body=body,line=current.token.line,column=current.token.column,
+                            source_selector=source,normalized_selector=counter_text(node),
+                            segment_lengths=[len(segment) for segment in segments],subscript_count=sum(map(len,segments))))
+                        self.features.add('chained ARRAY subscript normalization')
+                node.args=[resolve(argument,body) for argument in node.args]
+            elif isinstance(node,Statement):
+                node.args=[resolve(argument,body) for argument in node.args]
+                node.body=resolve(node.body,body);node.alternate=resolve(node.alternate,body)
+            elif isinstance(node,list):return [resolve(child,body) for child in node]
+            elif isinstance(node,tuple):return tuple(resolve(child,body) for child in node)
+            return node
+        self.program.body=resolve(self.program.body,self.program.name)
+        for routine in self.program.routines:routine.body=resolve(routine.body,routine.name)
 
     def resolve_bare_function_name(self,node):
         """Resolve one value name, also usable before USING receiver inspection."""
@@ -1783,6 +1819,7 @@ class Emitter:
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
         actual=self.access_type(argument)
+        if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
         if self.is_config_subfield(argument):return False
         if expected[0] in ('INTEGER','REAL') and actual[0] in NARROW_TYPES:return False
@@ -1957,7 +1994,7 @@ class Emitter:
 
     def index_code(self, expr, spec):
         indexes = expr.args[1:]
-        if expr.args[0].kind == 'index':
+        if self.mode!='pythonic' and expr.args[0].kind == 'index':
             self.error('E_ARRAY_RANK', 'Chained ARRAY indexes need grammar validation; use comma-separated subscripts', expr.token)
         try: selected = rt.indexed_type(spec, len(indexes))
         except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
@@ -2571,12 +2608,22 @@ class Emitter:
             else:
                 value, actual = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
-            source_actual=actual;cartesian_conversion=False
-            if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):
+            source_actual=actual;cartesian_conversion=False;conversion_kind='none'
+            if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},self._state.kinematic_interface({expected!r},{value},{line}),{line})'
+                is_reference,actual=False,expected
+                cartesian_conversion=True;conversion_kind='kinematic'
+                self.features.update(('extended services','kinematic interface conversion'))
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_interface_uses.append(dict(operation='KINEMATIC_ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},{value},{line})'
                 is_reference,actual=False,expected
-                cartesian_conversion=True
+                cartesian_conversion=True;conversion_kind='cartesian'
                 self.features.add('Cartesian interface value conversion')
             elif self.mode=='pythonic' and expected[0] in NARROW_TYPES and actual[0] in INTEGRAL_TYPES and actual!=expected:
                 value,_=self.expression(argument)
@@ -2639,7 +2686,7 @@ class Emitter:
                                                        routine=routine.name, parameter=formal.value, type_spec=expected,
                                                        line=line, column=argument.token.column, expression_kind=argument.kind,
                                                        evaluated_once=True, independent_writable_copy=True))
-                if self.mode=='pythonic':self.positional_value_uses[-1].update(source_type_spec=source_actual,converted=cartesian_conversion)
+                if self.mode=='pythonic':self.positional_value_uses[-1].update(source_type_spec=source_actual,converted=cartesian_conversion,conversion_kind=conversion_kind)
             if expected[0] in ('STRING', 'ARRAY', *RECORD_TYPES, 'JOINTPOS'):
                 self.features.add(expected[0] + (' reference parameter' if is_reference else ' value parameter'))
             self.features.add('parameter by reference' if is_reference else 'parameter by value')
@@ -3380,11 +3427,18 @@ class Emitter:
             else:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
-                source_type_spec=value_type;cartesian_conversion=False
-                if self.mode=='pythonic' and spec!=value_type and spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT'):
+                source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
+                if self.mode=='pythonic' and ((spec[0]=='JOINTPOS' and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (value_type[0]=='JOINTPOS' and spec[0] in ('POSITION','XYZWPR','XYZWPREXT'))):
+                    value=f'self._state.kinematic_interface({spec!r},{value},{line},result=True)'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='kinematic'
+                    self.current_routine.may_services=True
+                    self.features.update(('extended services','kinematic interface result conversion'))
+                    self.kinematic_interface_uses.append(dict(operation='KINEMATIC_RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and spec!=value_type and spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and value_type[0] in ('POSITION','XYZWPR','XYZWPREXT'):
                     value=f'_rt.convert_position({spec!r},{value},{line})'
                     value_type=spec
-                    cartesian_conversion=True
+                    cartesian_conversion=True;conversion_kind='cartesian'
                     self.features.add('Cartesian interface result conversion')
                 if not self.compatible(spec, value_type): self.error('E_RETURN', 'Wrong function return type', token)
                 if spec[0] == 'ARRAY':
@@ -3422,7 +3476,7 @@ class Emitter:
                 elif spec[0] in POSITIONAL_VALUE_TYPES:
                     self.positional_return_uses.append(dict(routine=self.current_routine.name, type_spec=spec, line=line,
                                                            column=token.column, expression_kind=expr.kind, independent_writable_copy=True))
-                    if self.mode=='pythonic':self.positional_return_uses[-1].update(source_type_spec=source_type_spec,converted=cartesian_conversion)
+                    if self.mode=='pythonic':self.positional_return_uses[-1].update(source_type_spec=source_type_spec,converted=cartesian_conversion,conversion_kind=conversion_kind)
                     self.line(f'return _rt.checked({spec!r}, {value}, {line})' if self.mode=='pythonic' else f'return _rt.positional_value({spec!r}, {value}, {line})', token)
                 elif self.mode=='pythonic' and spec[0] in NARROW_TYPES:
                     self.line(f'return _rt.require(_rt.checked({spec!r}, {value}, {line}), {line})', token)
@@ -3431,6 +3485,7 @@ class Emitter:
         else: self.error('E_INTERNAL', f'Unexpected statement {kind}', token)
 
     def emit(self):
+        if self.mode=='pythonic':self.normalize_array_chains()
         self.validate_symbols()
         self.line(f'# Generated by karel2py {__version__}; offline prototype, not controller-equivalence proof.')
         self.line('from karel2py import runtime as _rt')
@@ -3711,7 +3766,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         emitter.features.add('doubled apostrophe STRING literal')
     emitter.features.update('predefined ' + use['name'] for use in parser.predefined_uses)
     generated = emitter.emit()
-    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses: emitter.analyze_routine_effects()
+    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses: emitter.analyze_routine_effects()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
@@ -3900,7 +3955,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_comparisons=emitter.position_comparison_uses,
         waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
-        kinematic_assignments=emitter.kinematic_assignment_uses,
+        kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         initialization_queries=emitter.initialization_query_uses,
@@ -3922,6 +3977,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
                              generics='Logical-rank scalar interfaces or interfaces retaining explicit named components',
                              runtime_layout='Nested prototype objects; no controller storage-layout claim', controller_validated=False),
         subarray_uses=emitter.subarray_uses,
+        array_index_chains=emitter.array_index_chains,
         select_policy=dict(selector='INTEGER expression evaluated once', duplicate_values='First matching clause wins',
                            max_case_clauses=1000, no_match_without_else='Source-located KarelRuntimeError',
                            empty_else='Explicit presence preserved; an empty clause permits continuation',
@@ -5297,6 +5353,38 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['array_routine_policy'].update(
         string_elements='Explicit capacity remains exact; omitted anonymous STRING result capacity inherits concrete returned storage in 1..254, validates known ASCII leaves and preserves missing markers without truncation/defaults',
         boundary='No anonymous nested ARRAY components, ragged/mixed capacities, representation/identity erasure or native ABI/runtime claim')
+    report['chained_array_index_policy']=dict(
+        source='Complete adjacent ARRAY bracket groups, including grouped receivers and function results, normalize to the existing comma-index access path before type/effect analysis',
+        capture='Evaluate receiver once and every subscript once left to right; apply complete rank/bounds checks under existing comma semantics; assignment still captures RHS before target references',
+        storage='Preserve one-based indexes, named component boundaries, concrete capacities and logical rank at most three; no partial flat row view, flattening or nominal identity erasure',
+        protection='Preserve whole-root FOR/handler/alias proofs, USING capture, READ/BYNAME output checks and protected POSITION/CONFIG descendants',
+        reports='array_index_chains records source_selector, normalized_selector, segment_lengths, subscript_count and body/source locations',
+        boundary='Explicit Pythonic access extension; incomplete/overflow chains remain rejected and legacy access remains comma-only',
+        guide='docs/chained-array-indexes.md',controller_validated=False)
+    report['array_policy']['subscripts']='One-based comma or complete chained subscripts, normalized before analysis; retain full flat rank or separately named ARRAY boundaries'
+    report['aggregate_access_policy']['boundary']='Bare function names directly used as receiver roots remain storage; use explicit calls/groups; complete ARRAY chains normalize to comma access without partial flat views or erasing identity'
+    report['kinematic_interface_policy']=dict(
+        conversions='Source actual arguments and RETURN values between JOINTPOS and POSITION/XYZWPR/XYZWPREXT use existing explicitly supplied models/adapters; exact same-type bare storage retains references',
+        ownership='Evaluate/convert once at each argument position into private checked writable cells without copy-back; RETURN conversion completes before counter/frame cleanup',
+        context='Use caller/root task group and selected explicit frame/tool maps; inverse requires supplied current joints as seed; model widths/padding, limits, CONFIG and external axes retain existing conversion rules',
+        effects='Propagate potential service requests; preserve detached callback inputs, prior effects, source-located failures and sticky abort; do not mutate supplied current robot state',
+        observations='kinematic_interfaces report source/target types and conversion location; value-free KINEMATIC_ARGUMENT/KINEMATIC_RETURN records report outcome',
+        boundary='No same-kind joint-width coercion, whole-array representation conversion, BYNAME casts, relaxed linked signatures/raw callback results, inferred context, physical motion or certified reachability',
+        guide='docs/kinematic-interfaces.md',controller_validated=False)
+    report['cartesian_interface_policy']['boundary']='Context-free Cartesian representation changes remain separate from explicit-model joint routine conversions; same-kind joint widths, whole arrays, BYNAME, linked signatures and raw callback results stay exact'
+    report['kinematic_assignment_policy']['boundary']='No motion/current-state update, native branch selection, collision or certified reachability; whole arrays stay exact and explicit model-backed source routine conversions follow kinematic_interface_policy; strict deferred'
+    report['joint_geometry_policy']['boundary']='Portable Cartesian interpretation, no raw joint algebra, whole-array representation conversion, orientation defaults, calibration or native/controller equivalence; model-backed routine boundaries follow kinematic_interface_policy'
+    report['data_record_policy']['boundary']='Source Cartesian and explicit-model joint/Cartesian arguments/RETURN use private converted values; no whole-array representation coercion, inferred robot context or physical motion'
+    report['positional_routine_policy']['boundary']='Private Cartesian/model-backed joint source conversions; same-type bare refs and same-kind joint widths, whole arrays, BYNAME, linked declarations and raw callback results remain exact'
+    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR frames with pose/joint FRAME origin; source model-backed routine conversions are separate from exact joint-width/whole-array contracts and native equivalence'
+    report['vision_palette_policy']=dict(
+        input='Optional explicit palette on channels=1 index rasters; 1..256 packed RGBA entries as immutable Python bytes or canonical lowercase JSON hex; every index must be in range',
+        persistence='Preserve palette and index bytes through supplied captures, image registers, finds and JSON; absent palette retains the existing grayscale interpretation',
+        png='Indexed 8-bit color type 3, RGB PLTE entries and full palette-length tRNS only when at least one alpha is nonopaque; existing PNG CRC/compression checks retained',
+        bmp='Explicit lookup expansion to the existing RGBA BITMAPV4HEADER/BGRA path, preserving alpha and colors beneath transparent entries; complete encoded-size preflight before expansion',
+        limits='Count index and all RGBA palette bytes together in per-raster/combined quotas before decoding or allocation; retain old G/GA/RGB/RGBA bytes, output limits and publication guards',
+        boundary='No palette inference, quantization, color processing, 16-bit/depth/proprietary image layout, camera acquisition or native raster/renderer equivalence',
+        guide='docs/vision-palette-images.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

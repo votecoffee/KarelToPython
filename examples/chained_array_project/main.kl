@@ -1,0 +1,4 @@
+PROGRAM MAIN
+VAR values:ARRAY[2,2] OF INTEGER total:INTEGER
+ROUTINE make:ARRAY[2,2] OF INTEGER FROM LIB
+BEGIN values=make() total=make()[2][1]+values[1][2] END MAIN

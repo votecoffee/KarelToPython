@@ -369,10 +369,9 @@ class ArrayFailureTests(unittest.TestCase):
         routine='ROUTINE make: ARRAY OF row_t VAR values: ARRAY[1] OF row_t BEGIN values[1,1]=1 RETURN values END make'
         self.assertEqual(execute('x=ARRAY_LEN(make())',routine,types='TYPE row_t=ARRAY[1] OF INTEGER')['X'],1)
 
-    def test_chained_result_indexes_remain_blocked(self):
+    def test_chained_result_indexes_share_existing_named_component_path(self):
         routine='ROUTINE make: ARRAY OF row_t VAR values: ARRAY[1] OF row_t BEGIN values[1,1]=1 RETURN values END make'
-        with self.assertRaises(TranslationError) as caught: compile_program('x=make()[1][1]',routine,types='TYPE row_t=ARRAY[1] OF INTEGER')
-        self.assertEqual(caught.exception.code,'E_ARRAY_RANK')
+        self.assertEqual(execute('x=make()[1][1]',routine,types='TYPE row_t=ARRAY[1] OF INTEGER')['X'],1)
 
     def test_bare_receiver_root_remains_storage(self):
         with self.assertRaises(TranslationError): compile_program('x=make[1]')

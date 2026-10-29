@@ -1,0 +1,9 @@
+PROGRAM LIB
+%DEFGROUP=2
+ROUTINE measure(value:XYZWPR):REAL
+BEGIN DELAY 1 RETURN value.x END measure
+ROUTINE work:REAL
+VAR joints:JOINTPOS
+BEGIN joints=CURJPOS(0,0) RETURN measure(joints) END work
+BEGIN
+END LIB

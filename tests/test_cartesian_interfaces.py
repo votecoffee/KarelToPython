@@ -367,14 +367,17 @@ class CartesianExternalAndPersistenceTests(CartesianAssertions):
 
 
 class CartesianExactBoundaryTests(unittest.TestCase):
-    def test_joint_inputs_and_results_do_not_implicitly_use_kinematics(self):
+    def test_joint_interfaces_require_explicit_context_and_legacy_guard(self):
         for body, routines, decl in (
             ('work(a)', 'ROUTINE work(v:POSITION) BEGIN END work', 'a:JOINTPOS3'),
             ('work(a)', 'ROUTINE work(v:JOINTPOS3) BEGIN END work', 'a:POSITION'),
             ('', 'ROUTINE make:POSITION BEGIN RETURN a END make', 'a:JOINTPOS3'),
             ('', 'ROUTINE make:JOINTPOS3 BEGIN RETURN a END make', 'a:XYZWPR')):
-            with self.subTest(body=body, routines=routines), self.assertRaises(TranslationError):
-                compile_program(body, decl=decl, routines=routines)
+            with self.subTest(body=body, routines=routines):
+                p,_=compile_program(body, decl=decl, routines=routines)
+                if body:
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'robot'): p.run()
+                with self.assertRaises(TranslationError): legacy_translate(f'PROGRAM T VAR {decl} {routines} BEGIN {body} END T')
 
     def test_config_vector_and_named_aggregate_interfaces_stay_exact(self):
         for kind in ('VECTOR', 'CONFIG', 'packet'):

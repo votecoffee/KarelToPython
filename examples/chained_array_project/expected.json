@@ -1,0 +1,4 @@
+{
+  "LIB": {"state": "ready", "values": {}},
+  "MAIN": {"state": "completed", "values": {"VALUES": [[1, 2], [3, 4]], "TOTAL": 5}}
+}

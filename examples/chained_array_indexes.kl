@@ -1,0 +1,11 @@
+PROGRAM CHAINED_ARRAY_INDEXES
+TYPE row_t=ARRAY[2] OF INTEGER
+VAR grid:ARRAY[2] OF row_t cube:ARRAY[2,2,2] OF INTEGER total,calls:INTEGER
+ROUTINE pick(value:INTEGER):INTEGER BEGIN calls=calls+1 RETURN value END pick
+ROUTINE make:ARRAY[2] OF row_t BEGIN RETURN grid END make
+BEGIN
+  grid[1][1]=1 grid[1][2]=2 grid[2][1]=3 grid[2][2]=4
+  cube[1][2][1]=7 calls=0
+  total=make()[pick(2)][pick(1)]+cube[1][2,1]
+  FOR grid[1][2]=1 TO 2 DO total=total+grid[1][2] ENDFOR
+END CHAINED_ARRAY_INDEXES

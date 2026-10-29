@@ -1,0 +1,9 @@
+{
+  "GRID": [[1, {"uninitialized": true}], [3, 4]],
+  "CUBE": [
+    [[{"uninitialized": true}, {"uninitialized": true}], [7, {"uninitialized": true}]],
+    [[{"uninitialized": true}, {"uninitialized": true}], [{"uninitialized": true}, {"uninitialized": true}]]
+  ],
+  "TOTAL": 13,
+  "CALLS": 2
+}

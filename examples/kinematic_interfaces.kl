@@ -1,0 +1,12 @@
+PROGRAM KINEMATIC_INTERFACES
+VAR joints,restored:JOINTPOS point:XYZWPR observed:REAL
+ROUTINE inspect(value:XYZWPR)
+BEGIN value.x=value.x+1 observed=value.x END inspect
+ROUTINE point_for(value:JOINTPOS):XYZWPR BEGIN RETURN value END point_for
+ROUTINE joints_for(value:XYZWPR):JOINTPOS BEGIN RETURN value END joints_for
+BEGIN
+  joints=CURJPOS(0,0)
+  inspect(joints)
+  point=point_for(joints)
+  restored=joints_for(point)
+END KINEMATIC_INTERFACES
