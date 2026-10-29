@@ -104,6 +104,13 @@ recorded by `narrow_for_policy`. [Inherited STRING-array capacities](inherited-s
 add capacity inference from concrete returned storage, recorded by
 `inherited_string_array_result_policy`; `cartesian_interface_policy` describes
 the routine representation conversions.
+[Chained indexes](chained-array-indexes.md) add `array_index_chains` and
+`chained_array_index_policy`; complete adjacent brackets use the existing comma
+access contract. [Model-backed routine conversions](kinematic-interfaces.md)
+add `kinematic_interfaces`, `kinematic_interface_policy` and value-free
+KINEMATIC_ARGUMENT/KINEMATIC_RETURN observations. [Palette images](vision-palette-images.md)
+add optional explicit RGBA tables and `vision_palette_policy`, retaining the
+existing image queues, storage limits and output preflight.
 [Waiting serial reads](serial-waiting.md) use per-port `wait`/`final` flags and
 `SerialStreams.finish_input(port)`, retaining finite defaults and explicit FILE
 lifetime. [Alpha images](vision-alpha-images.md) add packed GA/RGBA data and

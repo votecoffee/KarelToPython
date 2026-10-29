@@ -89,10 +89,11 @@ assignment; returning a different raw record type from the callback is rejected.
 `BYNAME` remains an exact typed reference operation. It does not turn a mismatched
 Cartesian variable into a private converted value. INTEGER/scalar output
 references, protected POSITION orientation arguments, CONFIG fields and ordinary
-FOR-effect guards are unchanged. JOINTPOS interfaces, whole ARRAY element types
-and named aggregate interfaces remain exact. Assignment and explicit geometry
-operations that use supplied joint models keep their separate contracts; this
-feature performs no implicit kinematic solve at a routine boundary.
+FOR-effect guards are unchanged. Whole ARRAY element types, same-kind JOINTPOS
+widths and named aggregate interfaces remain exact.
+[Joint/Cartesian source routine conversions](kinematic-interfaces.md) now use
+explicitly supplied models/adapters and the existing seed/frame/tool rules.
+Plain Cartesian representation conversion still needs no robot context.
 
 Context JSON stores the converted destination's concrete type, values and
 orientation protection through the existing codec. It does not save temporary

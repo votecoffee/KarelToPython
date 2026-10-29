@@ -59,6 +59,8 @@ same shape is not interchangeable. Anonymous result declarations require
 anonymous outer storage, matching outer rank and exact element/component types.
 Flat matrices and matrices built from named rows remain distinct representations.
 RETURN never flattens, reshapes, resizes or erases nominal identity.
+[Complete chained indexing](chained-array-indexes.md) can consume returned values
+with the same rank, identity, capacity and capture checks as comma subscripts.
 
 A generic parameter can supply a result when its concrete runtime storage matches
 the declared interface. Known mismatches fail during translation; unknown sizes,

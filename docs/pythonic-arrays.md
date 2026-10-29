@@ -67,8 +67,10 @@ before removing the routine frame.
 Use `make()[2]` or `(make)[2]` to read a returned element. Subscripts and fields
 also follow grouped aggregate expressions and record function results, such as
 `make_records()[1].id` and `make_record().id`. The aggregate is evaluated once
-before its subscripts. Nested array selection uses comma-separated subscripts,
-such as `make_rows()[1,2]`; chained `make_rows()[1][2]` remains unsupported.
+before its subscripts. [Complete chained subscripts](chained-array-indexes.md),
+such as `make_rows()[1][2]`, normalize to the existing comma form
+`make_rows()[1,2]`. They preserve named component boundaries and require a complete
+flat outer rank; no partial flat row view is created.
 
 A bare function name used directly as a receiver root remains a storage name:
 `make[1]` does not call a function. Use an explicit call or a group. Grouping only

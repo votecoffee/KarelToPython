@@ -83,6 +83,8 @@ they are boundaries rather than promises to accept every such source form later.
   wildcard declarations require translation-time shapes; no VR auto-discovery.
   Linked projects now route common or [program-qualified shapes](project-array-shapes.md)
   to the declared wildcard storage, including differing module-local dimensions.
+  [Complete chained indexes](chained-array-indexes.md) now use the existing comma
+  access contract; incomplete flat row views remain unavailable.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
   uninitialized sentinel. [Scalar BYTE/SHORT](scalar-narrow.md) now support
   variables, aliases and typed interfaces; numeric narrowing makes checked private
@@ -95,8 +97,10 @@ they are boundaries rather than promises to accept every such source form later.
   malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
-- Direct joint field/index access; implicit
-  joint/Cartesian conversions in exact routine, RETURN and whole-array interfaces.
+- Direct joint field/index access, implicit same-kind joint-width conversions,
+  whole-array representation conversion and implicit robot-context discovery.
+  [Joint/Cartesian source routine conversions](kinematic-interfaces.md) now require
+  explicit models/adapters and current inverse seeds, using private values.
   [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
   use private values across POSITION/XYZWPR/XYZWPREXT; BYNAME, linked declarations,
   callback raw return types and whole-array elements remain exact.
@@ -298,8 +302,9 @@ they are boundaries rather than promises to accept every such source form later.
   camera/calibration/display/LED data. Live acquisition, calibration computation,
   image processing and undocumented save overloads remain open.
   [Alpha image formats](vision-alpha-images.md) now preserve GA/RGBA channels and
-  PNG/32-bit BMP transparency. Palettes, depth maps, proprietary image layouts and
-  color/calibration transforms remain unavailable. Twelve
+  PNG/32-bit BMP transparency. [Explicit palette images](vision-palette-images.md)
+  now retain 8-bit indices and supplied RGBA colors with indexed PNG/BMP export.
+  Depth maps, proprietary image layouts and color/calibration transforms remain unavailable. Twelve
   [legacy tracking calls](vision-tracking.md) now add timed queues, receipts,
   VT result/lookup forms, supplied point maps and a portable local outbox.
   Twelve [VT queue calls](vt-queues.md) add allocation/acknowledgement, partial

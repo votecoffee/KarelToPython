@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1028.234706**. It is a
+tool are named **karel2py**. The current implementation is **26.1029.000454**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -337,6 +337,12 @@ type-specific cleanup. [Cartesian routine conversions](docs/cartesian-interfaces
 use independent values when POSITION, XYZWPR and XYZWPREXT representations differ.
 [STRING-array results](docs/inherited-string-array-results.md) can inherit the
 returned storage's concrete element capacity without truncation or invented defaults.
+[Chained ARRAY indexes](docs/chained-array-indexes.md) support complete forms such as
+`items[i][j]` and `make()[i][j]` under the existing comma-index capture rules.
+[Joint routine conversions](docs/kinematic-interfaces.md) use explicitly supplied
+models/adapters and private values at source argument/RETURN boundaries.
+[Palette images](docs/vision-palette-images.md) retain supplied indices and RGBA
+colors, exporting indexed PNG and alpha-preserving BMP without image acquisition.
 Serial streams can opt
 into cooperative reads fed by the host, with explicit EOF and cancellation;
 see [serial waiting](docs/serial-waiting.md). Supplied vision images now retain

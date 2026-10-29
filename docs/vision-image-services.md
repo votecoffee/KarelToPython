@@ -76,7 +76,9 @@ construction can also supply immutable bytes. Dimensions are 1..4096 and must
 exactly match the pixel count. Each raster is limited by `image_limit`, default
 16 MiB and maximum 16 MiB; combined stored/capture raster data is at most 64 MiB.
 Alpha samples and colors under zero alpha are preserved without premultiplication.
-Palettes, depth maps, color transforms and proprietary camera formats remain open.
+[Explicit palettes](vision-palette-images.md) add indexed rasters with supplied RGBA
+tables, counted together with index bytes in raw limits. Depth maps, color
+transforms and proprietary camera formats remain open.
 
 Capture replies form one ordered queue, at most 4096 entries. They name an
 explicit process and nonempty distinct configured views. Only successful replies

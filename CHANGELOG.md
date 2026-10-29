@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1029.000454 - 2026-10-29
+
+- Add complete chained ARRAY subscripts across storage and returned values,
+  normalizing to existing comma access while preserving evaluation/capture order,
+  named boundaries, concrete shape/capacity and counter/alias protection.
+- Add private model-backed joint/Cartesian source routine arguments and RETURN
+  conversions with explicit robot, root group, frame/tool and inverse-seed context.
+  Preserve exact linkage/BYNAME/width contracts, failure effects and current state.
+- Add supplied RGBA palettes on indexed vision rasters, palette-inclusive quota
+  preflight, indexed PNG and alpha-preserving BMP export. Keep existing grayscale,
+  RGB and alpha artifacts unchanged without native acquisition or processing.
+- Add 170 regressions, three standalone examples and two linked projects,
+  current reports, public guides and semantic notes. Strict remains future work.
+
 ## 26.1028.234706 - 2026-10-28
 
 - Add checked BYTE/SHORT FOR counters across supported storage and execution

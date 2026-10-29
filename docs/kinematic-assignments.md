@@ -99,9 +99,11 @@ target kind and the kinematic_assignment_policy. Execution charges the ordinary
 assignment checkpoint; numerical solving keeps the model's iteration bound.
 No intermediate handler scan or cooperative yield occurs inside the model call.
 
-Routine arguments, RETURN values, whole ARRAY transfers, GET_VAR/SET_VAR and
-register interfaces retain their existing exact-type rules. Use an explicit
-assignment to a correctly typed temporary when a routine needs another type.
+[Source routine arguments and RETURN values](kinematic-interfaces.md) now use
+private joint/Cartesian conversions with the same explicit model and context.
+Same-type bare references retain aliases; same-kind joint widths, whole ARRAY
+transfers, GET_VAR/SET_VAR, BYNAME, linked declared signatures and raw callback
+results retain their exact-type rules.
 JOINTPOS still has no source field/index access. Supported geometry expressions
 use the explicit [joint geometry](joint-geometry.md) conversion policy since
 0.94.0. POSITION orientation destinations remain protected.

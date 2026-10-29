@@ -17,6 +17,8 @@ samples remain independent of alpha, including nonzero colors beneath alpha zero
 No premultiplication, background flattening, gamma correction or automatic layout
 conversion is performed. ARGB, BGRA, palettes, 16-bit samples and depth formats
 are not inferred from the supplied data.
+[Explicit palette images](vision-palette-images.md) instead provide an RGBA table
+alongside one-channel indices; ordinary one-channel rasters remain grayscale.
 
 ```json
 {"width":2,"height":1,"channels":4,"pixels":"ff00008000ff0000"}

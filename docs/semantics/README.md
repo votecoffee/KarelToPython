@@ -282,3 +282,8 @@ The [counter, Cartesian and STRING-array ledger](counter_cartesian_string_semant
 adds checked narrow counters, private Cartesian routine conversions and inherited
 STRING result capacities. It preserves whole-root alias protection, initialized
 conversion inputs, concrete array capacity and exact declared linkage contracts.
+
+The [chain, kinematic and palette ledger](chain_kinematic_palette_semantics.json)
+adds complete chained ARRAY access, private model-backed routine conversions and
+supplied palette images. It preserves rank/alias proofs, explicit robot context,
+legacy raster bytes and checked PNG/BMP output publication.

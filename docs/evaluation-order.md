@@ -116,3 +116,9 @@ remains unavailable while Pythonic coverage takes priority.
 
 See the [semantic contract](semantics/pythonic_order_semantics.json) and
 [mode roadmap](numeric-modes.md).
+
+[Complete ARRAY index chains](chained-array-indexes.md) evaluate their base once
+and subscripts once left to right under the existing comma-access contract.
+[Model-backed routine conversions](kinematic-interfaces.md) finish at each actual
+argument position before later arguments, or during RETURN before frame cleanup;
+completed callbacks and exports retain their ordinary failure boundaries.

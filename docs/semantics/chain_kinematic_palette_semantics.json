@@ -1,0 +1,43 @@
+{
+  "version": "26.1029.000454",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence_limit": "Authored translation and offline behavior. Complete ARRAY chains, supplied robot models and palette exports do not establish native syntax, ABI, calibration, physical robot behavior, camera acquisition or renderer acceptance.",
+  "contracts": {
+    "chained_array_indexes": {
+      "guide": "../chained-array-indexes.md",
+      "normalization": "Complete adjacent ARRAY bracket groups normalize to the existing comma-index access path before type/effect analysis, including grouped receivers and function results",
+      "order": "Evaluate base once and every subscript once left to right under the existing comma capture/bounds contract; assignment still captures RHS before resolving its target",
+      "storage": "Preserve one-based indexing, full flat outer rank or named component boundaries, nominal identities, concrete capacities, readonly descendants and whole-root counter/alias proofs",
+      "boundary": "No partial flat row views, ragged arrays, rank overflow, flattening or legacy chained access"
+    },
+    "kinematic_interfaces": {
+      "guide": "../kinematic-interfaces.md",
+      "source": "JOINTPOS and POSITION/XYZWPR/XYZWPREXT source arguments and RETURN values convert once into private checked values with existing model/adapter rules; exact same-type bare storage retains references",
+      "context": "Explicit robot, selected frames/tools and caller/root group only; inverse uses supplied current joint seed; retain width/padding, limits, CONFIG and external-axis guards",
+      "ownership": "Detach converted values and adapter inputs, preserve prior effects and sticky abort, convert RETURN before cleanup and leave current robot state unchanged",
+      "observations": "Value-free KINEMATIC_ARGUMENT/KINEMATIC_RETURN outcome records and source/target metadata in kinematic_interfaces; service effects propagate through routines",
+      "boundary": "No implicit same-kind joint-width conversion, whole-array conversion, BYNAME cast, relaxed linked declaration/raw callback result or native motion/reachability equivalence"
+    },
+    "vision_palette_images": {
+      "guide": "../vision-palette-images.md",
+      "input": "Optional palette on channels=1 raster: 1..256 packed RGBA entries as immutable Python bytes or canonical lowercase hex, with every 8-bit index in range; no palette inference",
+      "persistence": "Retain supplied indices and palette through captures, image registers, finds and saved JSON; count both in raw per-image and combined quotas before decoding",
+      "png": "8-bit indexed color type 3, RGB PLTE and full palette-length tRNS only when any supplied alpha is nonopaque; preserve raw index rows",
+      "bmp": "Expand through existing RGBA V4/BGRA encoding after complete output-size preflight, preserving colors beneath zero alpha",
+      "boundary": "Legacy G/GA/RGB/RGBA bytes unchanged; no quantization, color processing, depth/proprietary formats, camera acquisition or native renderer claim"
+    }
+  },
+  "validation": [
+    "tests/test_chained_array_indexes.py",
+    "tests/test_kinematic_interfaces.py",
+    "tests/test_vision_palette_images.py",
+    "tests/test_chain_kinematic_palette_integration.py",
+    "examples/chained_array_indexes.kl",
+    "examples/kinematic_interfaces.kl",
+    "examples/vision_palette.kl",
+    "examples/chained_array_project",
+    "examples/kinematic_interface_project"
+  ],
+  "strict_mode": "Future milestone; preserve legacy guards and historical semantic ledgers"
+}
