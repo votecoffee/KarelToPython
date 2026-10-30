@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1030.031942 - 2026-10-30
+
+- Extend explicit CANCEL FILE to pending READ_KB editors. Return procedure/IO
+  status 6 without publishing text/count/key outputs or adding completed history.
+  Preserve consumed events and queued suffixes for explicit retry.
+- Give blocking reads per-key checkpoints and inclusive positive deadlines;
+  keep cancellation precedence and atomic zero-time polling. Preserve echo/noecho,
+  pane selection, explicit window output, pause/resume and suspension-frame rules.
+- Retain independent FILE/binding/editor identities, validate metadata and preserve
+  foreign registration replacements during owned cleanup. Stop/abort and budget
+  failures keep their precedence; live handles/frames still prevent context save.
+- Add 45 regressions, two standalone examples and three linked timer/window/
+  suspension projects. Verify installed execution and saved-context replay.
+- Refresh README, API and support/semantic guidance. Fileless menus, direct typed
+  backend reads, default aliases, native keyboard/status/timing and strict remain separate.
+
 ## 26.1030.023712 - 2026-10-30
 
 - Convert anonymous whole joint/Cartesian ARRAYs in assignments, private source

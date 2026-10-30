@@ -1,0 +1,25 @@
+PROGRAM MAIN
+VAR f:FILE text:STRING[254] n,key,s,io,elapsed,token,control_status:INTEGER done:BOOLEAN
+ROUTINE cancel_input(h:FILE) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    
+    OPEN FILE f('RW','KB:TPKB')
+    text='old'
+    n=77
+    key=88
+    elapsed=0
+    CONNECT TIMER TO elapsed
+    CONDITION[1]: WHEN elapsed>=50 DO cancel_input(f) ENDCONDITION
+    ENABLE CONDITION[1]
+    
+    READ_KB(f,text,254,KC_DISPLAY,KC_ENTER_KEY,-1,'seed',n,key,s)
+    io=IO_STATUS(f)
+    CLOSE FILE f
+    
+    DISCONNECT TIMER elapsed
+    PURGE CONDITION[1]
+    elapsed=0
+    done=TRUE
+  ENDIF
+END MAIN

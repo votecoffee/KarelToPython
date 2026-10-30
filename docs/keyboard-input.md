@@ -36,7 +36,8 @@ forward ordinary WRITE, WRITE_DICT/WRITE_DICT_V and SET_CURSOR to that window.
 Closing releases both handles. [Typed FILE READ](keyboard-file-read.md) parses
 submitted lines through the ordinary scalar format rules. Binary/XML, byte
 positions, seeking and input-availability queries remain explicitly rejected.
-IO_STATUS reports the last completed read and CLR_IO_STAT clears that status.
+IO_STATUS reports completed reads and accepted cancellation requests; CLR_IO_STAT
+clears that value without clearing a pending cancellation.
 
 OPEN captures the calling root program's global DEVICE_STAT, or pane 1 when it
 is missing/uninitialized. Valid panes are 1..9. Later changes to DEVICE_STAT do
@@ -142,7 +143,8 @@ Terminal rows retain monotonic completion order and request IDs, including reads
 that complete after later PUSH/POP operations. Invalid configuration is rejected.
 
 Portable statuses are 0 success, 1 invalid arguments/layout/menu, 2 busy or clock
-domain conflict, 3 missing/foreign suspension token, 4 timeout and 5 capacity.
+domain conflict, 3 missing/foreign suspension token, 4 timeout, 5 capacity and
+6 canceled READ_KB.
 Missing required services, unbounded standalone input gaps, exhausted new-request
 IDs and normal source execution errors raise runtime errors. Typed output,
 active-counter, POSITION/CONFIG and overlap guards apply before consuming input.
@@ -169,3 +171,8 @@ controller acceptance and strict equivalence remain future work. The
 REFRESH, PAGE_UP and PAGE_DOWN are additional injected portable events. The separate
 [list/table service](table-controls.md) uses the same injected keyboard events
 for resident navigation and array-backed typed editing.
+
+[READ_KB cancellation](read-kb-cancellation.md) now accepts explicit CANCEL FILE
+requests, returning portable status 6 while preserving text/count/key outputs.
+Blocking reads visit per-key checkpoints; zero-time polls remain atomic. Checked
+FILE/binding identities and owned cleanup preserve independent readers and frames.

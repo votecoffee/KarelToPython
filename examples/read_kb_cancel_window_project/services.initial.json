@@ -1,0 +1,49 @@
+{
+  "keyboard": {
+    "events": [
+      {
+        "pane": 1,
+        "at_ms": 0,
+        "key": "a",
+        "sequence": 1
+      },
+      {
+        "pane": 1,
+        "at_ms": 0,
+        "key": "b",
+        "sequence": 2
+      }
+    ],
+    "event_sequence": 2,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [],
+    "sequence": 0,
+    "request_sequence": 0
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 24,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {},
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [],
+    "sequence": 0
+  }
+}

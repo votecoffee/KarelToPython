@@ -2908,10 +2908,10 @@ def cancel_file(state,handle,line=None):
         # A repeated request is idempotent, including before a paused reader resumes.
         _validate_file_read(handle,operation,line)
         operation['cancelled']=True;handle.status=6;return
+    if type(owner) is KeyboardInput:return owner.cancel_read_kb(handle,line)
     direct=(type(owner) is SerialStreams and id(handle) in owner._pending
-        or type(owner) is FilePipes and id(handle) in owner._reads
-        or type(owner) is KeyboardInput and any(job.get('handle') is handle for job in owner._active.values()))
-    if direct:raise KarelRuntimeError('CANCEL FILE requires a cooperative typed READ, not a direct host or READ_KB job',line)
+        or type(owner) is FilePipes and id(handle) in owner._reads)
+    if direct:raise KarelRuntimeError('CANCEL FILE requires a cooperative typed READ, not a direct host read',line)
     handle.status=0
 
 

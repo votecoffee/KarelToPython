@@ -106,3 +106,7 @@ offline behavior only, without controller or native widget acceptance.
 [Explicit CANCEL FILE](file-cancellation.md) now requests cooperative typed READ
 cancellation without publishing partial outputs. Read its lifetime and buffering
 rules before canceling; CLOSE belongs after the pending READ has unwound.
+
+The separate [READ_KB cancellation policy](read-kb-cancellation.md) now uses the
+same explicit FILE action with status-only publication. Typed READ buffering and
+atomic scalar-output rules above remain unchanged.

@@ -665,3 +665,9 @@ allocation, then stages existing scalar model conversions in row-major order.
 Reports add `kinematic_array_conversions`/`kinematic_array_policy`; one value-free
 service record describes the whole request. Generic ARRAY checked/value/result
 helpers and storage-only GET_VAR/SET_VAR keep their separate contracts.
+
+[READ_KB cancellation](read-kb-cancellation.md) extends `runtime.cancel_file` to
+the exact keyboard editor, using retained FILE/binding/request identities. Source
+status and IO_STATUS become 6 without text/count/key publication; private tokens
+are omitted from JSON. Reports add `read_kb_cancellation_policy` and keyboard
+blocking-checkpoint/poll rules. Direct typed backend generators remain separate.

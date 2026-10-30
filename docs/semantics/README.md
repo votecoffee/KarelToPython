@@ -332,3 +332,8 @@ The [kinematic ARRAY ledger](kinematic_array_semantics.json) supersedes blanket
 joint/Cartesian whole-array source exclusions for anonymous values with explicit
 models/adapters. Named interfaces, storage-only variable transfers and physical
 robot/native ABI acceptance remain separate.
+
+The [READ_KB cancellation ledger](read_kb_cancel_semantics.json) supersedes its
+blanket exclusion from explicit FILE cancellation. Blocking per-key checkpoints,
+zero-time polling, output preservation and retained editor ownership are explicit
+offline policies; native keyboard/status acceptance remains separate.

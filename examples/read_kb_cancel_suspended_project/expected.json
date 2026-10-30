@@ -1,0 +1,29 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "F": {
+        "file": "KB:TPKB",
+        "open": false,
+        "position": 0,
+        "binary": false,
+        "status": 6
+      },
+      "TEXT": "old",
+      "N": 77,
+      "KEY": 88,
+      "S": 6,
+      "IO": 6,
+      "ELAPSED": 0,
+      "TOKEN": 0,
+      "CONTROL_STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "CALLS": 1
+    }
+  }
+}

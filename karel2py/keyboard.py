@@ -130,7 +130,7 @@ class KeyboardInput:
 
     def close(self,handle,line=None):
         if handle.owner is not self or handle not in self._handles:raise rt().KarelRuntimeError('Keyboard FILE is not open',line)
-        if any(job.get('handle') is handle for job in self._active.values()):raise rt().KarelRuntimeError('Finish or stop the keyboard read before closing its FILE',line)
+        if self._handles[handle].get('_read_kb_job') is not None or any(job.get('handle') is handle for job in self._active.values()):raise rt().KarelRuntimeError('Finish or stop the keyboard read before closing its FILE',line)
         binding=self._handles.pop(handle)
         if binding['echo'] is not None:binding['echo'].owner.close(binding['echo'],line)
         handle.owner=None;handle.xml_session=None
@@ -140,6 +140,46 @@ class KeyboardInput:
         for handle in list(self._handles):self.close(handle)
         self._frames.clear()
 
+    def _read_kb_stamp(self,binding):
+        return (binding['pane'],binding['echo'],binding['state'],binding['pending'],binding['after_field'],binding['input_mode'])
+
+    def _validate_read_kb(self,job,line=None):
+        runtime=rt();handle=job.get('handle');binding=self._handles.get(handle)
+        def same(left,right):
+            return type(left) is tuple and type(right) is tuple and len(left)==len(right) and all(type(a) is type(b) and a==b for a,b in zip(left,right))
+        if (type(handle) is not runtime.FileHandle or handle.owner is not self
+                or any(type(value) is not bool for value in (handle.binary,handle.reverse,handle.field,handle.xml,handle.passall,handle.noecho,handle.interactive))
+                or handle.binary or handle.xml or type(handle.eol) is not int or not 0<=handle.eol<=127
+                or type(handle.position) is not int or handle.position<0
+                or self._active.get(job.get('id')) is not job or job.get('operation')!='READ_KB'
+                or binding is not job.get('_read_binding') or type(binding) is not dict
+                or binding.get('_read_kb_job') is not job
+                or not {'pane','echo','state','past','pending','after_field','input_mode'}<=set(binding)
+                or binding['past'] is not job.get('_read_past')
+                or not same(self._read_kb_stamp(binding),job.get('_read_stamp'))
+                or not same(runtime._file_identity(handle),job.get('_read_identity'))
+                or type(job.get('_cancel_requested')) is not bool):
+            raise runtime.KarelRuntimeError('READ_KB pending FILE identity or registration changed',line)
+
+    def cancel_read_kb(self,handle,line=None):
+        """Mark the exact FILE editor; leave its outputs and queued keys alone."""
+        if handle.owner is not self or handle not in self._handles:
+            raise rt().KarelRuntimeError('READ_KB cancellation requires its original FILE',line)
+        if any(type(job) is not dict for job in self._active.values()):
+            raise rt().KarelRuntimeError('Keyboard active registration is malformed',line)
+        jobs=[job for job in self._active.values() if job.get('handle') is handle]
+        job=self._handles[handle].get('_read_kb_job')
+        if job is not None:
+            self._validate_read_kb(job,line)
+            if len(jobs)!=1 or jobs[0] is not job:raise rt().KarelRuntimeError('READ_KB active registration changed',line)
+            job['_cancel_requested']=True;handle.status=6;return
+        if jobs:raise rt().KarelRuntimeError('Direct keyboard typed READ requires its cooperative FILE registration',line)
+        handle.status=0
+
+    def _edit_cancelled(self,job,line=None):
+        if job['operation']!='READ_KB':return False
+        self._validate_read_kb(job,line);return job['_cancel_requested']
+
     def start(self,state,operation,pane,interest,handle=None):
         self.reserve();self.sync()
         if len(self._active)>=64:return None
@@ -147,10 +187,18 @@ class KeyboardInput:
         if self._domain is not None and self._domain['identity'] is not domain:return None
         if self._domain is None:self._domain=dict(identity=domain,scheduler=scheduler,anchor=0 if scheduler is None else scheduler.now_us,base=self.elapsed_ms)
         self.request_sequence+=1;job=dict(id=self.request_sequence,state=state,operation=operation,pane=pane,interest=interest,handle=handle,suspended=set(),text='',cursor=0)
+        if operation=='READ_KB':
+            binding=self._handles[handle]
+            job.update(_read_binding=binding,_read_past=binding['past'],_read_stamp=self._read_kb_stamp(binding),
+                _read_identity=rt()._file_identity(handle),_cancel_requested=False)
+            binding['_read_kb_job']=job
         self._active[job['id']]=job;return job
 
     def end(self,job):
-        self.sync();self._active.pop(job['id'],None)
+        self.sync()
+        if self._active.get(job['id']) is job:self._active.pop(job['id'])
+        binding=job.get('_read_binding')
+        if type(binding) is dict and binding.get('_read_kb_job') is job:binding.pop('_read_kb_job')
         if not self._active:self._domain=None
 
     def event(self,job):
@@ -192,18 +240,26 @@ class KeyboardInput:
         try:
             self.echo(job,field,text,line)
             while True:
+                if self._edit_cancelled(job,line):term=0;status=6;break
+                if operation=='READ_KB' and timeout>0:
+                    self.sync()
+                    if self.elapsed_ms>deadline:term=KEYBOARD_CONSTANTS['KY_TIMEOUT'];status=4;break
                 job.update(text=text,cursor=cursor)
                 if capacity and len(text)>=capacity:
                     term=KEYBOARD_CONSTANTS['KY_FULL'];status=0;break
                 event=self.event(job)
                 if event is None:
                     if not (yield from self.wait(state,job,deadline,line)):
-                        term=KEYBOARD_CONSTANTS['KY_TIMEOUT'];status=4;break
+                        if self._edit_cancelled(job,line):term=0;status=6
+                        else:term=KEYBOARD_CONSTANTS['KY_TIMEOUT'];status=4
+                        break
                     continue
                 steps+=1;code,category=key_info(event['key']);key=event['key']
                 if terminate&category:term=code;status=0;break
                 if steps>=4096:term=0;status=5;break
-                if not accept&category:continue
+                if not accept&category:
+                    if operation=='READ_KB' and timeout!=0:yield from rt().checkpoint(state,line)
+                    continue
                 if len(key)==1:
                     if allowed is None or key in allowed:
                         if len(text)<capacity:text=text[:cursor]+key+text[cursor:];cursor+=1
@@ -217,6 +273,9 @@ class KeyboardInput:
                         history_index=max(0,history_index-1) if key=='UP' else min(len(past),history_index+1)
                         text=(past[history_index] if history_index<len(past) else initial)[:capacity];cursor=len(text)
                 self.echo(job,field,text,line)
+                job.update(text=text,cursor=cursor)
+                if operation=='READ_KB' and timeout!=0:yield from rt().checkpoint(state,line)
+            if operation=='READ_KB':self._validate_read_kb(job,line)
             if status==0 and validate is not None and term in (13,1008,KEYBOARD_CONSTANTS['KY_FULL']):
                 checked=validate(text)
                 if checked is None:status=1
@@ -225,7 +284,7 @@ class KeyboardInput:
             if handle is not None:
                 handle.status=status
                 if status==0 and text and (not past or past[-1]!=text):past.append(text);del past[:-32]
-            self.record(job,'timeout' if status==4 else 'completed' if status==0 else 'failed',text=text,term=term,status=status)
+            self.record(job,'cancelled' if status==6 else 'timeout' if status==4 else 'completed' if status==0 else 'failed',text=text,term=term,status=status)
             complete=True;return text,term,status
         except BaseException as error:
             outcome='cancelled' if isinstance(error,(GeneratorExit,rt().KarelAbort,rt().KarelStop)) else 'failed'
@@ -268,7 +327,7 @@ class KeyboardInput:
         handle,output,size,accept,terminate,timeout,initial,count,term,status=args
         binding=self._handles.get(handle)
         if handle.owner is not self or binding is None or handle.mode not in ('R','RW'):status.set(1,line);return
-        if any(job.get('handle') is handle for job in self._active.values()):status.set(2,line);return
+        if binding.get('_read_kb_job') is not None or any(job.get('handle') is handle for job in self._active.values()):status.set(2,line);return
         capacity=min(size,output.spec[1])
         if size<0 or size>254 or not 0<=accept<=255 or not 0<=terminate<=255 or not -1<=timeout<=86400000 or not printable(initial) or len(initial)>capacity:status.set(1,line);return
         # Typed FILE READ suffixes cannot be reinterpreted as raw key events.
@@ -278,7 +337,9 @@ class KeyboardInput:
         binding['pending']='';binding['after_field']=False;binding['input_mode']=None
         result=yield from self.edit(state,'READ_KB',binding['pane'],initial,capacity,accept,terminate,timeout,handle=handle,field=self.field_for(state,handle,capacity),line=line)
         if result is None:status.set(2,line);return
-        text,key,code=result;output.set(text,line);count.set(len(text),line);term.set(key,line);status.set(code,line)
+        text,key,code=result
+        if code==6:status.set(6,line);return
+        output.set(text,line);count.set(len(text),line);term.set(key,line);status.set(code,line)
 
     def file_read(self,state,handle,targets,line=None,*,line_breaks=(),formats=None):
         """Cooperative typed READ over submitted ASCII lines, never host input."""
@@ -294,7 +355,7 @@ class KeyboardInput:
         if binding['pending'] and binding.get('input_mode') not in (None,mode):
             handle.status=1
             raise runtime.KarelRuntimeError('Finish buffered keyboard input before switching line/raw modes',line)
-        if any(job.get('handle') is handle for job in self._active.values()):
+        if binding.get('_read_kb_job') is not None or any(job.get('handle') is handle for job in self._active.values()):
             raise runtime.KarelRuntimeError('Keyboard FILE already has an active read',line)
         if type(targets) not in (list,tuple):raise runtime.KarelRuntimeError('READ requires scalar destination references',line)
         breaks=runtime._read_line_breaks(len(targets),line_breaks,line)

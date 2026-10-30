@@ -1,0 +1,73 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 0,
+    "elapsed_ms": 64,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 2,
+        "program": "MAIN",
+        "operation": "PUSH_KEY_RD",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "mask": 255,
+          "suspended": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "request": 1,
+        "program": "MAIN",
+        "operation": "READ_KB",
+        "pane": 1,
+        "outcome": "cancelled",
+        "data": {
+          "text": "seed",
+          "term": 0,
+          "status": 6
+        }
+      },
+      {
+        "sequence": 3,
+        "request": 2,
+        "program": "MAIN",
+        "operation": "POP_KEY_RD",
+        "pane": 1,
+        "outcome": "completed",
+        "data": {
+          "resumed": 0
+        }
+      }
+    ],
+    "sequence": 3,
+    "request_sequence": 2
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 24,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": []
+      }
+    },
+    "windows": {},
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [],
+    "sequence": 0
+  }
+}

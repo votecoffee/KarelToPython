@@ -1,0 +1,26 @@
+PROGRAM READCANCEL
+VAR f:FILE text:STRING[254] n,key,s,io,first_status,scans:INTEGER done:BOOLEAN
+ROUTINE cancel_now:BOOLEAN
+BEGIN
+  scans=scans+1
+  RETURN scans>=25
+END cancel_now
+BEGIN
+  IF UNINIT(done) THEN
+    OPEN FILE f('RW','KB:TPKB')
+    text='old'
+    n=77
+    key=88
+    scans=0
+    CONDITION[1]:
+      WHEN cancel_now DO CANCEL FILE f
+    ENDCONDITION
+    ENABLE CONDITION[1]
+    READ_KB(f,text,254,KC_DISPLAY,KC_ENTER_KEY,200,'',n,key,s)
+    first_status=s
+    io=IO_STATUS(f)
+    CLOSE FILE f
+    PURGE CONDITION[1]
+    done=TRUE
+  ENDIF
+END READCANCEL

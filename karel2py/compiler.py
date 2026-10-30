@@ -5650,10 +5650,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/pipe-file-management.md',controller_validated=False)
     report['file_cancel_policy']=dict(
         source='CANCEL FILE explicit writable FILE selector, captured once; allowed in handlers and linked routines',
-        dispatch='Cancel the exact cooperative typed READ on serial, plain pipe or keyboard FILE; idle registered FILE succeeds without discarding data',
+        dispatch='Cancel the exact cooperative typed READ or READ_KB editor on its explicit FILE; idle registered FILE succeeds without discarding data',
         completion='Portable IO_STATUS 6 on the canceled READ, no new READ observation or destination/cursor publication; execution continues after READ',
         lifetime='Cancellation marks the captured operation; pause is retained, resume unwinds; stop/abort and stale registrations retain their existing precedence and cleanup',
-        boundary='Explicit FILE only; no default input aliases, native I/O interruption or pending writes because modeled writes are atomic; READ_KB jobs remain separate',
+        boundary='Explicit FILE only; no default input aliases, native I/O interruption or pending writes because modeled writes are atomic; fileless menus and direct typed backend reads remain separate',
         guide='docs/file-cancellation.md',controller_validated=False)
     report['serial_stream_policy']=dict(
         service='SerialStreams',context='Explicit ExecutionContext serial_streams; reserve numeric P-device prefixes and require configured canonical P1: through P5: endpoints; no ordinary filename fallback',
@@ -5805,6 +5805,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['joint_geometry_policy']['boundary']='No raw joint algebra, orientation defaults, calibration or native equivalence; scalar geometry and explicit-model source ARRAY conversion have separate policies'
     report['data_record_policy']['boundary']='Private scalar and anonymous positional/model-backed ARRAY conversions; no STRUCTURE schema coercion, inferred robot context or physical motion'
     report['positional_routine_policy']['boundary']='Private scalar and anonymous source ARRAY conversions; named interfaces, same-type references, BYNAME, linked signatures and raw callback results retain their contracts'
+    report['read_kb_cancellation_policy']=dict(
+        action='CANCEL FILE marks the exact active READ_KB editor; repeated requests are idempotent and registered idle FILEs remain no-ops',
+        publication='Return normally with status and IO_STATUS 6 while preserving text/count/key outputs; record canceled editor text without a source READ observation',
+        scheduling='Blocking reads visit per-key checkpoints and honor inclusive positive deadlines; cancel wins ties, zero-time polls remain atomic and drain ready input',
+        identity='Retain FILE/binding/editor identity independently of active IDs; reject retargeting or malformed metadata and preserve foreign registrations during cleanup',
+        lifetime='Pause retains requests without implicit resume; stop/abort/budget failures retain precedence; suspension frames require explicit POP, and live handles still prevent saves',
+        boundary='Explicit FILE only; fileless editors/menus and direct typed backend reads remain separate; no hardware keyboard, native status/timing or strict claim',
+        guide='docs/read-kb-cancellation.md',controller_validated=False)
+    report['keyboard_policy']['cancellation']='Explicit CANCEL FILE supports READ_KB as well as typed FILE READ; status 6 and preserved text/count/key outputs, checked FILE binding, private pending state'
+    report['keyboard_policy']['read_kb_timing']='Positive/indefinite READ_KB visits blocking per-key checkpoints; positive deadline includes scheduled processing, zero-time poll remains atomic'
     report['vision_palette_policy']=dict(
         input='Optional explicit palette on channels=1 index rasters; 1..256 packed RGBA entries as immutable Python bytes or canonical lowercase JSON hex; every index must be in range',
         persistence='Preserve palette and index bytes through supplied captures, image registers, finds and JSON; absent palette retains the existing grayscale interpretation',

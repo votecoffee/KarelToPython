@@ -264,11 +264,11 @@ class FileCancelIsolationTests(unittest.TestCase):
         task,_=compile_program(OPEN+'count=0 n=77 READ f(n::width())'+FINISH,decl=DECL,routines=routines,context=ctx,sleep=sleeper)
         self.assertEqual((task.run()['N'],task.snapshot()['COUNT'],task.snapshot()['S']),(77,1,6))
 
-    def test_read_kb_job_rejects_cancellation_without_typed_read_registration(self):
+    def test_read_kb_cancellation_unwinds_with_portable_status(self):
         ctx=keyboard_context(events=[dict(key='a',at_ms=100)])
         def sleeper(_):rt.cancel_file(task._state,task._state.values['F'])
         task,_=compile_program("OPEN FILE f('RO','KB:TPKB') READ_KB(f,text,16,KC_DISPLAY,KC_ENTER_KEY,200,'',n,m,s)",decl=DECL,context=ctx,sleep=sleeper)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'READ_KB'):task.run()
+        self.assertEqual(task.run()['S'],6);self.assertEqual(task.snapshot()['TEXT'],{'uninitialized':True})
         self.assertEqual(ctx.keyboard._active,{});ctx.keyboard.close(task._state.values['F'])
 
     def test_independent_root_readers_keep_their_own_operations(self):

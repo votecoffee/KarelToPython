@@ -38,7 +38,8 @@ they are boundaries rather than promises to accept every such source form later.
   cross-group settings, interpolation execution and native synchronization remain unsupported.
   [AT NODE and TIME BEFORE/AFTER](motion-timeline.md) now require a complete supplied
   arrival schedule; global temporal predicates and physical arrival discovery remain unavailable.
-  [CANCEL FILE](file-cancellation.md) now interrupts explicit cooperative typed reads;
+  [CANCEL FILE](file-cancellation.md) now interrupts explicit cooperative typed reads
+  and [READ_KB editors](read-kb-cancellation.md);
   omitted/default FILE aliases and native pending writes remain unavailable.
   `PURGE CONDITION` is supported; bare PURGE remains rejected. `IN GROUP[n]` does not add other native `IN`
   clauses; `IN DRAM` storage placement is unavailable.

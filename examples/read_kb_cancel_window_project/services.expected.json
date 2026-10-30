@@ -1,0 +1,150 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 2,
+    "elapsed_ms": 65,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "MAIN",
+        "operation": "READ_KB",
+        "pane": 1,
+        "outcome": "cancelled",
+        "data": {
+          "text": "seedab",
+          "term": 0,
+          "status": 6
+        }
+      }
+    ],
+    "sequence": 1,
+    "request_sequence": 1
+  },
+  "pendant": {
+    "rows": 3,
+    "cols": 24,
+    "max_cells": 65536,
+    "limit": 500,
+    "languages": [
+      "ENGLISH"
+    ],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "screens": {
+      "SYS": {
+        "device": "TP",
+        "attachments": [
+          {
+            "window": "W1",
+            "row": 1,
+            "col": 1
+          }
+        ]
+      }
+    },
+    "windows": {
+      "W1": {
+        "rows": 2,
+        "cols": 20,
+        "options": 1,
+        "lines": [
+          "seedab              ",
+          "                    "
+        ],
+        "cursor": {
+          "row": 1,
+          "col": 1,
+          "wrap": false
+        }
+      }
+    },
+    "active": {
+      "TP": "SYS"
+    },
+    "links": {},
+    "menus": {},
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "DEF_WINDOW",
+        "data": {
+          "window": "W1",
+          "rows": 2,
+          "cols": 20,
+          "options": 1
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "ATT_WINDOW_S",
+        "data": {
+          "window": "W1",
+          "screen": "SYS",
+          "row": 1,
+          "col": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "WINDOW_OPEN",
+        "data": {
+          "window": "W1"
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "W1",
+          "fields": 1,
+          "bytes": 20
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "W1",
+          "fields": 1,
+          "bytes": 20
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "W1",
+          "fields": 1,
+          "bytes": 20
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "MAIN",
+        "operation": "DYNAMIC_WRITE",
+        "data": {
+          "window": "W1",
+          "fields": 1,
+          "bytes": 20
+        }
+      },
+      {
+        "sequence": 8,
+        "program": "MAIN",
+        "operation": "WINDOW_CLOSE",
+        "data": {
+          "window": "W1"
+        }
+      }
+    ],
+    "sequence": 8
+  }
+}

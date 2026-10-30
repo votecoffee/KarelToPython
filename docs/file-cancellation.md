@@ -63,8 +63,8 @@ existing step-budget failures retain their precedence and cleanup. Cancellation
 does not restart a stopped task or clear a sticky abort.
 
 Host drivers can call `runtime.cancel_file(state, handle, line=None)` for generated
-cooperative reads. Direct backend read generators and READ_KB jobs have separate
-lifetimes and reject this cancellation request rather than silently succeeding.
+cooperative reads and [READ_KB editors](read-kb-cancellation.md). Direct typed
+backend generators retain separate lifetimes and reject this cancellation request.
 Closed handles fail. Live handles still prevent context saves after a cancellation
 request; close them explicitly after unwind. Closed context JSON retains only
 existing service data/history, without operation tokens, callbacks or stacks.

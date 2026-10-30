@@ -1,0 +1,26 @@
+{
+  "version": "26.1030.031942",
+  "scope": "Offline explicit READ_KB editor cancellation and blocking-key checkpoints",
+  "guide": "docs/read-kb-cancellation.md",
+  "action": "CANCEL FILE exact active READ_KB; portable procedure/IO status 6 and unchanged text/count/key outputs",
+  "events": "Consumed events stay consumed; unpublished editor prefix is history/echo only, unconsumed suffix remains queued and completed-line history is not extended",
+  "timing": "Blocking positive/indefinite reads checkpoint after nonterminating keys; inclusive positive deadlines and cancel ties; zero-time ready polls remain atomic",
+  "identity": "Retain independent FILE/binding/editor references, validate attributes and ownership, preserve foreign registry replacements during owned cleanup",
+  "lifetime": "Paused cancellation requires resume; stop/abort/budget precedence retained, PUSH frames require explicit POP, live saves remain rejected",
+  "persistence": "Existing closed JSON event/clock/history state only, no tokens or callbacks",
+  "tests": [
+    "tests/test_read_kb_cancellation.py",
+    "examples/read_kb_cancel_keys.kl",
+    "examples/read_kb_cancel_retry.kl",
+    "examples/read_kb_cancel_timer_project/main.kl",
+    "examples/read_kb_cancel_window_project/main.kl",
+    "examples/read_kb_cancel_suspended_project/main.kl"
+  ],
+  "remaining": [
+    "Omitted/default FILE aliases",
+    "Fileless menu/editor cancellation",
+    "Native keyboard/status/timing equivalence",
+    "Strict mode"
+  ],
+  "controller_validated": false
+}
