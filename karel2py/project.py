@@ -96,7 +96,7 @@ class LinkedRoutine:
             if inspect.isgenerator(result): return (yield from result)
             return result
         finally:
-            state._timers.clear();state._frame_timers.clear();state._timer_frames.clear()
+            state.finish_timers()
 
 
 class Project:

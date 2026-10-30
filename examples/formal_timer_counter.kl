@@ -1,0 +1,20 @@
+PROGRAM COUNTERTIMER
+VAR n,total,calls:INTEGER done:BOOLEAN
+ROUTINE tick_copy(n:INTEGER)
+BEGIN
+  CONNECT TIMER TO n
+  DISCONNECT TIMER n
+  n=99
+  calls=calls+1
+END tick_copy
+BEGIN
+  IF UNINIT(done) THEN
+    calls=0
+    total=0
+    FOR n=1 TO 2 DO
+      tick_copy((n))
+      total=total+n
+    ENDFOR
+    done=TRUE
+  ENDIF
+END COUNTERTIMER

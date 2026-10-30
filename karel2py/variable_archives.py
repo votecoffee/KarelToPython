@@ -171,6 +171,9 @@ def prepare(context,state,bank,snapshots,status=None,*,clear=False):
     from .dynamic import restore_metadata
     runtime=rt();store=context.variables;owners=attached_programs(context,state);current=runtime.task_root(state)
     protected=set() if status is None else cells(status);updates=[];new=[];occupied=set();initializations={}
+    for claim in context._timer_claims.values():
+        if type(claim) is not tuple or len(claim)!=4:raise Failure(4,'Timer ownership metadata is uncertain')
+        protected.add((id(claim[2]),claim[3]))
     graph=deepcopy(bank.calls)
     temporary=VariableStore();temporary.bindings=dict(store.bindings);temporary.metadata=deepcopy(store.metadata)
     for group in owners.values():

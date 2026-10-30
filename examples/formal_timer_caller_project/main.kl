@@ -1,0 +1,14 @@
+PROGRAM MAIN
+VAR elapsed,other:INTEGER ready,done:BOOLEAN
+ROUTINE wait_for(value:INTEGER):BOOLEAN FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CONNECT TIMER TO other
+    ready=wait_for(elapsed)
+    ready=ready AND (elapsed>=3)
+    DISCONNECT TIMER other
+    other=0
+    elapsed=0
+    done=TRUE
+  ENDIF
+END MAIN

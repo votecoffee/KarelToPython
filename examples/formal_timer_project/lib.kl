@@ -1,0 +1,11 @@
+PROGRAM LIB
+VAR calls:INTEGER
+ROUTINE wait_for(value:INTEGER):BOOLEAN
+BEGIN
+  calls=1
+  CONNECT TIMER TO value
+  DELAY 3
+  RETURN value>=3
+END wait_for
+BEGIN
+END LIB

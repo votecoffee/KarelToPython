@@ -1,0 +1,18 @@
+{
+  "version": "26.1030.124630",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../formal-timers.md",
+  "tests": [
+    "tests/test_formal_timers.py"
+  ],
+  "storage": "Exact INTEGER formal references, fields, ARRAY leaves and named USING aliases; ordinary bare exact arguments borrow caller storage and value/numeric-converted actuals remain private",
+  "lifetime": "Active callee-frame connection; pause retains it, explicit own-frame disconnect or unwind releases it; no persistent borrowed connection after return",
+  "ownership": "Shared ExecutionContext cell claims retain actual state/record and original storage/member identities; duplicate connected/reserved cells reject across linked/concurrent banks",
+  "validation": "Validate claims and endpoint before updates/disconnect, recheck after clock capture, stage each bank update before publication; retain uncertain claims on mismatches",
+  "effects": "Timer operations count as direct/transitive formal/global writes; handler-retained timer aliases block later declared counters; ordinary private counter escape and readonly/value rules remain",
+  "archive": "Protect saved original claimed cells even for transient/unattached states or changed endpoints; ordinary protected status and atomic archive failure remain",
+  "progress": "Checkpoint model only; explicit RETURN/DISCONNECT sample after waits, implicit unwind adds no tick or clock read",
+  "persistence": "Data/services only; no claims, frame ownership, callbacks or suspended execution restored",
+  "boundaries": "No other-frame disconnect, native alias/ABI/timing inference, cross-context coordination or public strict-mode equivalence"
+}

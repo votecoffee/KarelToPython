@@ -1,0 +1,17 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "CALLS": 1
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ELAPSED": 0,
+      "OTHER": 0,
+      "READY": true,
+      "DONE": true
+    }
+  }
+}

@@ -1,0 +1,15 @@
+PROGRAM BORROWCLOCK
+VAR elapsed:INTEGER ready,done:BOOLEAN
+ROUTINE inspect_clock(value:INTEGER):BOOLEAN
+BEGIN
+  CONNECT TIMER TO value
+  DISCONNECT TIMER value
+  value=7
+  RETURN value>=7
+END inspect_clock
+BEGIN
+  IF UNINIT(done) THEN
+    ready=inspect_clock(elapsed)
+    done=TRUE
+  ENDIF
+END BORROWCLOCK

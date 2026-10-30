@@ -95,7 +95,8 @@ Preflight rejects:
 - Overlapping archive roots or destinations overlapping the status reference.
 - Imported/resource replacements and incompatible schemas or creation policies.
 - Another running, waiting or paused task's storage, including aliased roots.
-- Connected timer storage and explicit protected/active program metadata.
+- Connected or reserved timer cells, including shared-context claims held by
+  transient/unattached states, plus explicit protected/active program metadata.
 - Byte, leaf, namespace, graph or backend quota limits.
 
 Restoring the executing module is supported with a disjoint status variable,

@@ -101,6 +101,10 @@ roots for private captures, whole-root counter protection and terminal cleanup.
 and rows with `provenance=routine_local`, `lifetime=routine_frame`. Generated local
 operations use `runtime.connect_timer`/`disconnect_timer` with `scoped=True`;
 actual live-frame ownership controls pause and exact-frame cleanup.
+[Formal timers](formal-timers.md) add `formal_timer_policy` and
+`provenance=borrowed_formal` rows with the same frame lifetime. ExecutionContext
+keeps private shared-cell claims, and archive preflight protects their retained
+original endpoints. Claims are absent from saved context JSON.
 [Private INTEGER counters](private-using-counters.md) add internal protection
 identities, retained-alias checks and `private_using_counter_policy` without
 publishing synthetic source variables. [Scalar BYTE/SHORT](scalar-narrow.md)

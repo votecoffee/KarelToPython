@@ -85,7 +85,8 @@ in force; this feature does not prove path-sensitive disjointness.
 Only exact ordinary INTEGER leaves qualify. BYTE, SHORT, REAL, CONFIG turn
 fields, read-only POSITION columns, resources, direct uncaptured function-result
 selectors retain their existing restrictions. [Declared local timers](routine-local-timers.md)
-now use a separate routine-frame lifetime; formal timer roots remain blocked.
+now use a separate routine-frame lifetime. [Formal timers](formal-timers.md) borrow
+ordinary INTEGER leaves under the live callee frame and shared-context ownership.
 No physical timer, native alias lifetime, controller interrupt ordering or strict
 mode behavior is implied.
 

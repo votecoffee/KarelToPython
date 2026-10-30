@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1030.124630 - 2026-10-30
+
+- Support CONNECT/DISCONNECT TIMER on exact INTEGER routine parameters,
+  record fields, ARRAY leaves and named USING aliases. Bare exact arguments
+  borrow caller storage; grouped/computed and ordinary numeric conversions
+  retain private value cells. Connections belong to the live callee frame.
+- Coordinate timer cell claims across linked/concurrent states in a shared
+  ExecutionContext. Validate original endpoints, records and frame ownership,
+  recheck after clock callbacks, release exact claims and retain uncertain ones.
+  Protect claimed cells from variable-archive restores, including transient owners.
+- Propagate direct/transitive timer writes through routine aliases and reject
+  unsafe active or handler-retained FOR counters while allowing detached values.
+  Preserve checkpoint timing, caller timers, pause/resume and exact unwind cleanup.
+- Add formal_timer_policy reports, 64 authored regressions, four standalone
+  examples and two linked projects. Update README, API, support backlog and
+  semantic notes. Context JSON retains data without live timer ownership;
+  strict mode and native/controller timing remain future work.
+
 ## 26.1030.120651 - 2026-10-30
 
 - Support CONNECT/DISCONNECT TIMER for fresh routine-local INTEGER scalars,

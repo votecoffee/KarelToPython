@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR elapsed:INTEGER ready,done:BOOLEAN
+ROUTINE wait_for(value:INTEGER):BOOLEAN FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    ready=wait_for(elapsed)
+    ready=ready AND (elapsed>=3)
+    elapsed=0
+    done=TRUE
+  ENDIF
+END MAIN

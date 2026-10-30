@@ -154,8 +154,9 @@ class PrivateUsingTimerTests(unittest.TestCase):
         p,_=build('work()',routines=MAKE+' ROUTINE work VAR item:row_t BEGIN USING item DO CONNECT TIMER TO elapsed ENDUSING END work')
         p.run();self.assertEqual((p._state._timers,p._state._frame_timers),({},{}))
 
-    def test_declared_formal_storage_stays_blocked(self):
-        self.reject('work(result)',code='E_TIMER_SCOPE',routines=MAKE+' ROUTINE work(value:INTEGER) BEGIN CONNECT TIMER TO value END work')
+    def test_formal_timer_uses_borrowed_callee_lifetime(self):
+        p,_=build('work(result)',routines=MAKE+' ROUTINE work(value:INTEGER) BEGIN CONNECT TIMER TO value END work',clock_us=lambda:0)
+        self.assertEqual(p.run()['RESULT'],0);self.assertEqual(p._state.execution._timer_claims,{})
 
     def test_real_private_leaf_stays_blocked(self):
         self.reject('USING VEC(1,2,3) DO CONNECT TIMER TO x ENDUSING',code='E_TYPE')

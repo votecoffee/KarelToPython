@@ -1437,11 +1437,35 @@ def timer_clock(state,line=None):
 def _timer_frame(state,scoped,line=None):
     if type(scoped) is not bool:fail('Timer scope flag must be BOOLEAN',line)
     if not scoped:return None
-    if not runtime()._pythonic():fail('Routine-local timers require Pythonic mode',line)
+    if not runtime()._pythonic():fail('Frame-scoped timers require Pythonic mode',line)
     frame=state.local_frames[-1] if state.local_frames else None
     if frame is None or not any(frame is live for live in state._timer_frames):
-        fail('Routine-local timer requires an active routine frame',line)
+        fail('Scoped timer requires an active routine frame',line)
     return frame
+
+
+def _timer_claim(state,key,record,line=None):
+    claim=state.execution._timer_claims.get(key)
+    if type(claim) is not tuple or len(claim)!=4 or claim[0] is not state or claim[1] is not record:
+        fail('Timer execution-context ownership changed',line)
+    if type(record) is not list or len(record)!=3 or type(record[0]) is not runtime().Reference:
+        fail('Timer reference changed after connection',line)
+    reference=record[0]
+    if (reference.spec!=('INTEGER',) or reference.storage is not claim[2]
+            or type(reference.key) is not type(claim[3]) or reference.key!=claim[3]
+            or key!=(id(claim[2]),claim[3])):
+        fail('Timer reference changed after connection',line)
+    return claim
+
+
+def finish_timers(state):
+    """Retire this bank's exact claims; retain mismatched claims as uncertainty."""
+    claims=state.execution._timer_claims
+    for key,record in state._timers.items():
+        try:_timer_claim(state,key,record)
+        except runtime().KarelRuntimeError:continue
+        del claims[key]
+    state._timers.clear();state._frame_timers.clear();state._timer_frames.clear()
 
 
 def release_frame_timers(state,frame):
@@ -1449,17 +1473,31 @@ def release_frame_timers(state,frame):
     for key,binding in list(state._frame_timers.items()):
         owner,record=binding
         if owner is not frame:continue
-        if state._timers.get(key) is record:del state._timers[key]
+        if state._timers.get(key) is record:
+            try:_timer_claim(state,key,record)
+            except runtime().KarelRuntimeError:pass
+            else:del state.execution._timer_claims[key]
+            del state._timers[key]
         if state._frame_timers.get(key) is binding:del state._frame_timers[key]
 
 
-def update_timers(state,line=None):
+def _timer_records(state,line=None):
     for key,(frame,record) in state._frame_timers.items():
         if state._timers.get(key) is not record or not any(frame is live for live in state._timer_frames):
             fail('Routine-local timer registration changed or its frame is inactive',line)
-    if not state._timers: return
-    now=timer_clock(state,line); pending=[]
-    for record in state._timers.values():
+    records=tuple(state._timers.items())
+    for key,record in records:_timer_claim(state,key,record,line)
+    return records
+
+
+def update_timers(state,line=None):
+    records=_timer_records(state,line)
+    if not records:return
+    now=timer_clock(state,line);pending=[]
+    current=_timer_records(state,line)
+    if len(current)!=len(records) or any(key!=saved or record is not retained for (key,record),(saved,retained) in zip(current,records)):
+        fail('Timer bank changed during clock capture',line)
+    for key,record in records:
         reference,previous,remainder=record
         if now<previous: fail('Connected timer clock moved backwards',line)
         increment,remainder=divmod(now-previous+remainder,1000)
@@ -1474,12 +1512,22 @@ def connect_timer(state,reference,line=None,*,scoped=False):
     if type(reference) is not rt.Reference or reference.spec!=('INTEGER',): fail('Timer requires ordinary INTEGER storage',line)
     key=(id(reference.storage),reference.key)
     if key in state._timers: fail('Timer is already connected',line)
+    if key in state.execution._timer_claims:fail('Timer is already connected or reserved in this execution context',line)
+    storage=reference.storage;member=reference.key
     value=reference.raw()
     if value is not rt.UNINITIALIZED: rt.require(rt.checked(('INTEGER',),rt.integer(value,line),line),line)
     now=timer_clock(state,line)
+    if reference.storage is not storage or type(reference.key) is not type(member) or reference.key!=member or reference.spec!=('INTEGER',):
+        fail('Timer reference changed during clock capture',line)
+    if key in state._timers or key in state.execution._timer_claims:
+        fail('Timer is already connected or reserved in this execution context',line)
+    if scoped and _timer_frame(state,scoped,line) is not frame:fail('Timer routine frame changed during clock capture',line)
+    value=reference.raw()
+    if value is not rt.UNINITIALIZED:rt.require(rt.checked(('INTEGER',),rt.integer(value,line),line),line)
     if value is rt.UNINITIALIZED: reference.set(0,line)
     record=[reference,now,0]
     state._timers[key]=record
+    state.execution._timer_claims[key]=(state,record,storage,member)
     if scoped:state._frame_timers[key]=(frame,record)
 
 
@@ -1491,7 +1539,9 @@ def disconnect_timer(state,reference,line=None,*,scoped=False):
     record=state._timers[key];binding=state._frame_timers.get(key)
     if (binding is not None and binding[1] is not record) or (scoped and (binding is None or binding[0] is not frame)):
         fail('Routine-local timer registration changed or belongs to another frame',line)
+    claim=_timer_claim(state,key,record,line)
     del state._timers[key]
+    if state.execution._timer_claims.get(key) is claim:del state.execution._timer_claims[key]
     if binding is not None:del state._frame_timers[key]
 
 
@@ -1628,6 +1678,7 @@ class ExecutionContext:
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
         self.externals=dict(externals or {}); self.entries={};self.program_entries={}
+        self._timer_claims={}
         self.tasks=tasks if tasks is not None else TaskRegistry()
         self.numeric=numeric; self.events=events
         self.semaphores=semaphores; self.errors=errors

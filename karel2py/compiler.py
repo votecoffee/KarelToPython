@@ -47,6 +47,7 @@ class Routine:
     local_constants: dict = field(default_factory=dict)
     may_delay: bool = False
     parameter_writes: set = field(default_factory=set)
+    timer_parameter_writes: set = field(default_factory=set)
     global_writes: set = field(default_factory=set)
     may_write: bool = False
     may_read: bool = False
@@ -1153,6 +1154,7 @@ class Emitter:
         self.active_counters = set()
         self.private_using_roots = {}
         self.escaped_private_using_roots = set()
+        self.retained_timer_alias_roots=set()
         self.reference_for_uses=[]
         self.connected_timer_uses=[]
         self.external_write_routines=set()
@@ -1802,8 +1804,9 @@ class Emitter:
                         if name in parameter_names: routine.parameter_writes.add(name)
                         if name in self.types and name not in local_names|parameter_names: routine.global_writes.add(name)
                     if ex.variable_write_call(node.value,node.args): routine.global_writes.update(self.types)
-                if isinstance(node, Statement) and node.kind in ('assign', 'for'):
+                if isinstance(node, Statement) and node.kind in ('assign', 'for','timer_connect','timer_disconnect'):
                     name = self.root_name(node.args[0])
+                    if node.kind in ('timer_connect','timer_disconnect') and name in parameter_names:routine.timer_parameter_writes.add(name)
                     if name is not None and name not in local_names: routine.side_effecting = True
                     if name in parameter_names: routine.parameter_writes.add(name)
                     if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
@@ -1884,6 +1887,8 @@ class Emitter:
                             continue
                         name = self.root_name(argument)
                         if not self.argument_is_reference(argument,expected):continue
+                        if formal.value in callee.timer_parameter_writes and name in parameter_names and name not in routine.timer_parameter_writes:
+                            routine.timer_parameter_writes.add(name);changed=True
                         if name in parameter_names and name not in routine.parameter_writes:
                             routine.parameter_writes.add(name)
                             changed = True
@@ -1920,6 +1925,25 @@ class Emitter:
                             or argument.kind not in ('name','field','index')):continue
                     if not self.argument_is_reference(argument,expected):continue
                     self.escaped_private_using_roots.add(identity)
+        handler_retaining={routine.name for routine in self.program.routines if
+            any(isinstance(node,Statement) and node.kind=='condition' for node in self.walk_nodes(routine.body))}
+        while True:
+            inherited={name for name,targets in edges.items() if targets&handler_retaining}
+            if inherited<=handler_retaining:break
+            handler_retaining.update(inherited)
+        for routine in (None,*self.program.routines):
+            self.current_routine=routine
+            locals_={token.value for token,_ in routine.declarations} if routine else set()
+            formals={token.value for token,_ in routine.parameters} if routine else set()
+            for node in self.walk_nodes(routine.body if routine else self.program.body):
+                if not isinstance(node,Expr) or node.kind!='call' or node.value not in handler_retaining:continue
+                callee=self.routines[node.value]
+                for argument,(formal,expected) in zip(node.args,callee.parameters):
+                    root=self.protection_root(argument)
+                    if formal.value not in callee.timer_parameter_writes or root in self.private_using_roots:continue
+                    if not self.argument_is_reference(argument,expected):continue
+                    if root in locals_:self.retained_timer_alias_roots.add((routine.name,root))
+                    elif root in self.types and root not in formals:self.retained_timer_alias_roots.add((None,root))
         self.current_routine=None
 
     def has_external_effect_call(self, expr):
@@ -3136,6 +3160,9 @@ class Emitter:
         counter,initial,final,direction=stmt.args
         token=counter.token if isinstance(counter,Expr) else counter;root=self.protection_root(counter)
         private=root in self.private_using_roots
+        local_owner=self.current_routine.name if self.current_routine and root in {item.value for item,_ in self.current_routine.declarations} else None
+        if (local_owner,root) in self.retained_timer_alias_roots:
+            self.error('E_FOR_COUNTER','Counter root may be retained by a handler that can borrow it for a timer',token)
         if private and root in self.escaped_private_using_roots:
             self.error('E_FOR_COUNTER','Private USING counter root may have escaped through a potentially retained writable routine alias',token)
         if self.cooperative and self.implicit_counter_write(root):
@@ -3195,6 +3222,7 @@ class Emitter:
             for node in self.walk_nodes(owner.body if owner else self.program.body):
                 if not isinstance(node, Statement): continue
                 if node.kind == 'timer_connect' and self.protection_root(node.args[0]) == name:
+                    if owner is not None and name in {token.value for token,_ in owner.parameters}:continue
                     timer_local=owner is not None and name in {token.value for token,_ in owner.declarations}
                     if current_local==timer_local and (not current_local or owner is self.current_routine):return True
                 if node.kind != 'condition': continue
@@ -3371,8 +3399,9 @@ class Emitter:
             root=self.root_name(target);protection=self.protection_root(target)
             private=protection in self.private_using_roots
             local=not private and self.current_routine is not None and root in {name.value for name,_ in self.current_routine.declarations}
-            if not private and not local and (root is None or self.current_routine and root in self.current_routine.local_types):
-                self.error('E_TIMER_SCOPE','Connected timer storage requires a declared global/local root or captured private USING record; formal roots remain blocked',target.token)
+            formal=not private and self.current_routine is not None and root in {name.value for name,_ in self.current_routine.parameters}
+            if not private and not local and not formal and root is None:
+                self.error('E_TIMER_SCOPE','Connected timer storage requires a declared global/local/formal root or captured private USING record',target.token)
             if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER','Timer cannot modify active FOR counter',target.token)
             reference,spec=self.reference(target)
             if spec!=('INTEGER',) or self.is_config_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
@@ -3380,12 +3409,13 @@ class Emitter:
             self.connected_timer_uses.append(dict(operation='CONNECT' if kind=='timer_connect' else 'DISCONNECT',
                 body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,selector=counter_text(target),root=root,
-                provenance='private_temporary' if private else 'routine_local' if local else 'declared_storage',
-                protection_root=protection,evaluated_once=True,lifetime='routine_frame' if local else 'invocation'))
+                provenance='private_temporary' if private else 'borrowed_formal' if formal else 'routine_local' if local else 'declared_storage',
+                protection_root=protection,evaluated_once=True,lifetime='routine_frame' if local or formal else 'invocation'))
             self.features.add('connected INTEGER timer')
             if private:self.features.add('private USING connected timer')
             if local:self.features.add('routine-local connected timer')
-            scope=',scoped=True' if local else ''
+            if formal:self.features.add('borrowed formal connected timer')
+            scope=',scoped=True' if local or formal else ''
             self.line(f'_rt.{method}(self._state,{reference},{line}{scope})',token); return
         if kind=='condition_control':
             number=self.require_type(stmt.args[1],'INTEGER')
@@ -4958,14 +4988,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         generation='Automatic for FILE READ, PULSE, task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
         execution='Generator-based run/resume retains routine/FOR frames; optional deterministic TaskScheduler interleaves checkpoints with virtual time; terminal stop closes generators',
         handlers='Ordered checkpoint scans with optional WITH $SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
-        timers='Global/private invocation timers and declared routine-local frame timers update INTEGER references at monotonic checkpoints; fractional carry, backward-clock checks and exact local/terminal cleanup',
+        timers='Global/private invocation timers and local/borrowed formal frame timers update INTEGER references at checkpoints; shared-context cell claims, fractional carry and exact frame/terminal cleanup',
         linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
         requests='Named/numeric remote pause/abort delivered at target checkpoints, including paused-task ABORT handlers; self identity follows linked caller; synchronous child ABORT/STOP does not terminate caller',
         guide='docs/offline-services.md',controller_validated=False)
     report['connected_timer_policy']=dict(
-        storage='Exact ordinary INTEGER global, declared routine-local or captured private USING leaves; formal roots and CONFIG domains remain blocked',
+        storage='Exact ordinary INTEGER global/local, borrowed formal or captured private USING leaves; CONFIG domains and readonly storage remain blocked',
         capture='Evaluate each selector once; nested reference USING aliases share scalar identity, independent computed copies do not; no copy-back or implicit private variable name',
-        lifetime='Global/private captures retain existing invocation lifetime; declared local connections end with their exact routine frame and survive pause only while that frame remains active; linked invocation/terminal cleanup remains',
+        lifetime='Global/private captures retain invocation lifetime; declared local and borrowed formal connections end with the exact owning routine frame; shared cell claims coordinate linked/concurrent banks',
         updates='Checkpoint monotonic milliseconds with fractional carry; initialized values validated before connection, unknown INTEGER initialized to zero after valid clock; stage every update before publishing any timer',
         counters='Existing conservative whole-root direct/transitive/handler/timer guards remain; lexical connection sites block counters even if a path disconnects first',
         persistence='Context JSON stores declared values, without private captures, timer connections, clocks, callbacks or suspended execution',
@@ -4976,8 +5006,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Explicit disconnect or exact frame unwind on normal/early RETURN, failure, stop, abort, budget or generator close; pause retains values and fractional elapsed time',
         counters='Conservative whole-root timer/counter exclusion within the same defining routine; fresh locals with the same name in other routines and declared globals remain distinct',
         persistence='Context JSON omits local frames, local values and timer bindings; retained handlers may observe frozen final local data after return, without a continuing timer',
-        boundary='Formal parameter timers, inferred alias ownership, background/native timing and public strict mode remain unsupported; global/private timer lifetimes are separate',
+        boundary='Borrowed formal roots use formal_timer_policy; inferred alias ownership, background/native timing and public strict mode remain unsupported; global/private timer lifetimes are separate',
         guide='docs/routine-local-timers.md',controller_validated=False)
+    report['formal_timer_policy']=dict(
+        storage='Exact INTEGER formal references, fields/ARRAY leaves and named USING aliases; bare exact actuals borrow caller data, normal grouped/numeric value actuals remain private',
+        lifetime='Connections belong to the actual live callee frame and end at its unwind; DISCONNECT only removes that frame own scoped connection, never a caller timer',
+        ownership='ExecutionContext claims retain actual state/record identities and exclude duplicate connected cells across linked/concurrent banks; changed claims fail before updates or disconnect; uncertain claims are retained',
+        effects='CONNECT/DISCONNECT count as potential formal/global writes with transitive propagation; handler-retained timer aliases block later declared counters, private alias guards remain, detached values do not expose callers',
+        persistence='Claims, frames, private cells and live clocks are omitted from context JSON; variable archive writes protect claimed cells even outside attached program stacks',
+        boundary='Explicit cooperative Pythonic semantics; no persistent borrowed timer after callee return, disconnecting other frames, inferred controller aliasing, native time/ABI or public strict equivalence',
+        guide='docs/formal-timers.md',controller_validated=False)
     report['error_history_policy']=dict(
         procedure='ERR_DATA(sequence,error_code,error_string,cause_code,cause_string,time_int,severity,program_name)',
         cursor='Ordinary INTEGER reference: 0 selects oldest, then select the next retained sequence; exhaustion sets only sequence to 0; MAXINT constant selects newest and discards returned sequence',

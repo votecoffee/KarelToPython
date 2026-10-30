@@ -141,9 +141,9 @@ class LocalTimerSourceTests(unittest.TestCase):
         routine='ROUTINE work VAR n:INTEGER BEGIN total=0 FOR n=1 TO 2 DO total=total+n ENDFOR END work'
         self.assertEqual(self.parity('CONNECT TIMER TO n work() DISCONNECT TIMER n',routine)['TOTAL'],3)
 
-    def test_formal_timer_roots_remain_rejected(self):
-        with self.assertRaises(TranslationError) as error:build('work(n)',routines='ROUTINE work(value:INTEGER) BEGIN CONNECT TIMER TO value END work')
-        self.assertEqual(error.exception.code,'E_TIMER_SCOPE')
+    def test_formal_timer_borrows_data_until_callee_return(self):
+        p,_=build('work(n)',routines='ROUTINE work(value:INTEGER) BEGIN CONNECT TIMER TO value END work',clock_us=lambda:0)
+        self.assertEqual(p.run()['N'],0);self.assertEqual(p._state.execution._timer_claims,{})
 
     def test_noninteger_and_config_local_domains_stay_rejected(self):
         for declaration,selector in [('elapsed:BYTE','elapsed'),('elapsed:SHORT','elapsed'),('elapsed:REAL','elapsed'),('cfg:CONFIG','cfg.cfg_turn_no1')]:

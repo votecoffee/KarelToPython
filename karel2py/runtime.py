@@ -2509,14 +2509,16 @@ class State:
         self.clock_reads.clear()
         self.register_requests.clear()
         self.service_requests.clear()
-        self._handlers.clear(); self._timers.clear()
-        self._frame_timers.clear();self._timer_frames.clear()
+        self._handlers.clear(); self.finish_timers()
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
         if self.execution.diagnostics is not None:self.execution.diagnostics.begin(self)
         if _pythonic() and self.execution.group_locks is not None:self.execution.group_locks.begin(self)
 
+    def finish_timers(self):
+        finish_timers(self)
+
     def finish_teach_programs(self):
-        self._timers.clear();self._frame_timers.clear();self._timer_frames.clear()
+        self.finish_timers()
         if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.finish(self)
         if self._budget_parent is None and self.execution.diagnostics is not None:self.execution.diagnostics.finish(self)
         bank=self.execution.teach_programs
@@ -2966,7 +2968,7 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,
                        SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,
                        VariableStore, variable_value, variable_reference, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, RobotState, file_piece,
-                        TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer, release_frame_timers,
+                        TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer, release_frame_timers, finish_timers,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles

@@ -66,8 +66,10 @@ they are boundaries rather than promises to accept every such source form later.
   timers](private-using-timers.md) now retain ordinary INTEGER leaves across
   lexical exit and pause, with whole-root counter guards and terminal cleanup.
   [Routine-local timers](routine-local-timers.md) now accept fresh declared
-  INTEGER leaves with exact-frame cleanup and pause retention; borrowed formal
-  timer roots remain blocked. [Reference FOR counters](reference-for-counters.md)
+  INTEGER leaves with exact-frame cleanup and pause retention. [Borrowed formal
+  timers](formal-timers.md) now use callee-frame ownership and shared-context
+  duplicate/alias checks. Persistent borrowed connections after return, control
+  of another frame's timer and inferred native alias ownership remain unavailable. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
   CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
   calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)

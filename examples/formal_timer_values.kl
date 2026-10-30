@@ -1,0 +1,18 @@
+PROGRAM TIMERCOPIES
+VAR original,result:INTEGER small:SHORT done:BOOLEAN
+ROUTINE edit_clock(value:INTEGER)
+BEGIN
+  CONNECT TIMER TO value
+  DISCONNECT TIMER value
+  value=99
+  result=value
+END edit_clock
+BEGIN
+  IF UNINIT(done) THEN
+    original=7
+    small=9
+    edit_clock((original))
+    edit_clock(small)
+    done=TRUE
+  ENDIF
+END TIMERCOPIES

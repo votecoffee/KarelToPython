@@ -1,0 +1,19 @@
+PROGRAM RETAINCLOCK
+VAR elapsed,observed:INTEGER done:BOOLEAN
+ROUTINE retain_clock(value:INTEGER)
+BEGIN
+  CONNECT TIMER TO value
+  CONDITION[1]:
+    WHEN EVENT[1] DO observed=value
+  ENDCONDITION
+END retain_clock
+BEGIN
+  IF UNINIT(done) THEN
+    retain_clock(elapsed)
+    elapsed=11
+    ENABLE CONDITION[1]
+    SIGNAL EVENT[1]
+    PURGE CONDITION[1]
+    done=TRUE
+  ENDIF
+END RETAINCLOCK

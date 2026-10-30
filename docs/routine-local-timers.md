@@ -82,9 +82,9 @@ storage with the same spelling remain distinct roots for timer interference.
 Other direct/transitive/handler counter checks retain their existing rules.
 
 Only ordinary exact INTEGER leaves qualify. BYTE, SHORT, REAL, CONFIG turn fields
-and read-only POSITION columns retain their type/protection guards. Formal
-parameter timer roots remain blocked: fresh local storage does not establish a
-contract for a borrowed caller reference. Dynamic caller scope, inferred alias
+and read-only POSITION columns retain their type/protection guards. [Borrowed
+formal timers](formal-timers.md) now use a separate callee-frame contract and
+shared-context duplicate checks. Dynamic caller scope, inferred native alias
 ownership and public strict mode remain outside this feature.
 
 Context JSON stores declared globals and logical service data. It omits local
