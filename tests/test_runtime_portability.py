@@ -111,7 +111,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('record_variable_fields', 'RESULT', {'LABEL':'abc','COUNT':9.}),
                     ('record_variable_prefix', 'STATUS', 0),
                     ('record_variable_missing', 'STATUS', 12311),
-                    ('record_variable_geometry', 'STATUS', 0)]
+                    ('record_variable_geometry', 'STATUS', 0),
+                    ('config_field_callback', 'ENCODED', 'F L U T, -8, 0, 7'),
+                    ('config_field_text', 'STATUS', 0),
+                    ('config_field_binary', 'STATUS', 0),
+                    ('config_field_scopes', 'OBSERVED', True)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

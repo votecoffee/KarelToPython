@@ -1,0 +1,28 @@
+{
+  "PACKET": {
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 7,
+      "CFG_TURN_NO2": {
+        "uninitialized": true
+      },
+      "CFG_TURN_NO3": {
+        "uninitialized": true
+      },
+      "CFG_FLIP": {
+        "uninitialized": true
+      },
+      "CFG_LEFT": {
+        "uninitialized": true
+      },
+      "CFG_UP": {
+        "uninitialized": true
+      },
+      "CFG_FRONT": {
+        "uninitialized": true
+      }
+    }
+  },
+  "OBSERVED": true,
+  "MISSING": true,
+  "DONE": true
+}

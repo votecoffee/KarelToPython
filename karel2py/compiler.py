@@ -1168,6 +1168,7 @@ class Emitter:
         self.string_return_uses = []
         self.write_uses = []
         self.read_uses = []
+        self.config_field_read_uses=[]
         self.config_value_uses = []
         self.joint_conversion_uses = []
         self.abort_uses = []
@@ -2127,7 +2128,7 @@ class Emitter:
             while expr.kind == 'group': expr = expr.args[0]
         return expr.kind == 'using_ref' and expr.value[3]
 
-    def reference(self, expr):
+    def reference(self, expr, *, config_read=False):
         line = expr.token.line
         if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
         if expr.kind == 'group': return self.reference(expr.args[0])
@@ -2136,7 +2137,8 @@ class Emitter:
         base, spec = self.expression(expr.args[0], raw=True)
         if expr.kind == 'field':
             member = self.member_type(spec, expr)
-            return f'_rt.field_reference({base}, {expr.value!r}, {line})', member
+            helper='config_read_reference' if config_read else 'field_reference'
+            return f'_rt.{helper}({base}, {expr.value!r}, {line})', member
         if spec[0]=='PATH':
             if len(expr.args)!=2: self.error('E_ARRAY_RANK','PATH requires one node index',expr.token)
             index=self.require_type(expr.args[1],'INTEGER')
@@ -3724,9 +3726,9 @@ class Emitter:
                 if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER', 'READ cannot write an active FOR counter', target.token)
                 if self.is_position_read_only_access(target):
                     self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
-                if self.is_config_subfield(target):
+                if self.is_config_subfield(target) and self.mode!='pythonic':
                     self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
-                reference, spec = self.reference(target)
+                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target))
                 if spec[0] not in (*INTEGRAL_TYPES, 'BOOLEAN', 'REAL', 'STRING'):
                     self.error('E_READ_TYPE', 'READ supports INTEGER/BOOLEAN/REAL/STRING and narrow scalar elements/fields', target.token)
                 format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
@@ -3742,6 +3744,15 @@ class Emitter:
                                   if formatted else reference)
                 destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
                                          line=target.token.line, column=target.token.column))
+                if self.mode=='pythonic' and self.is_config_subfield(target):
+                    self.features.add('bounded CONFIG field READ')
+                    destination=dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                        root=root,field=target.value,type_spec=spec,line=target.token.line,column=target.token.column,
+                        file_input=bool(file_code),target_evaluated_once=True,validated_before_publication=True)
+                    if spec==('INTEGER',):destination['integer_range']=[-8,7]
+                    self.config_field_read_uses.append(destination)
+                    destinations[-1]['config_field']=target.value
+                    if spec==('INTEGER',):destinations[-1]['integer_range']=[-8,7]
                 if format_exprs:
                     destinations[-1].update(format_specifiers=[literal if literal is not None else dict(expression=True,
                         line=expr.token.line, column=expr.token.column) for literal, expr in zip(literals, format_exprs)],
@@ -4411,7 +4422,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
                           boundary='Source default is TPDISPLAY; BOOLEAN/INTEGER formatting, negative INTEGER output, REAL output, quoted truncation/fallback/apostrophes, signed widths, file/device/buffering/transmission, CR and IO_STATUS remain unmodeled',
                           controller_validated=False),
         writes=emitter.write_uses,
-        reads=emitter.read_uses,
+        reads=emitter.read_uses,config_field_reads=emitter.config_field_read_uses,
         data_record_policy=dict(types=list(DATA_RECORD_TYPES),
                                 fields={name: dict(rt.record_fields((name,))) for name in DATA_RECORD_TYPES},
                                 values='REAL components use the existing exact binary32 checks; CONFIG has three INTEGER turns and four BOOLEAN fields',
@@ -5246,7 +5257,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         format_order='Capture each destination, then its width and second format once; validate formats before the next destination; callback runs after all captures; typed responses are already decoded',
         text_adapter='runtime.TextInput: explicit ASCII text, Python int/float fields, case-insensitive BOOLEAN tokens, STRING remainders or quoted fields with doubled-apostrophe escapes; exact positive widths stay on one physical line; persistent defensive cursor; CR discards current remainder',
         scripts='Choose --read-values JSON batches or --read-text UTF-8 ASCII text, with optional BOM; explicit paths and mutually exclusive adapters',
-        boundary='No implicit stdin, controller file/device access, binary transfer, native EOF/alarm/status mapping, aggregate destinations, CONFIG subfields or POSITION orientation writes',
+        boundary='No implicit stdin, controller file/device access, binary transfer, native EOF/alarm/status mapping, aggregate destinations or POSITION orientation writes; bounded CONFIG fields follow config_field_read_policy',
         controller_validated=False)
     report['evaluation_policy'] = dict(
         operands='Evaluate once left to right; VECTOR values captured before the next operand',
@@ -6135,6 +6146,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['variable_transfer_policy']['records']='Compatible user STRUCTURE values and same-rank record ARRAY prefixes follow record_variable_transfer_policy; receiver schemas and unused tails retained'
     report['positional_variable_transfer_policy']['records']='Context-free geometry fields inside compatible user records follow record_variable_transfer_policy; model-backed changes remain incompatible'
     report['variable_transfer_policy']['arrays']='Same logical rank with exact/numeric/context-free positional or compatible user-record terminals; smaller row-major prefix, receiver tail retained; record fields follow record_variable_transfer_policy'
+    report['config_field_read_policy']=dict(
+        targets='Pythonic explicit CONFIG INTEGER turn and BOOLEAN flag fields, including nested records/arrays, POSITION.CONFIG_DATA, routine formals and captured USING storage/values',
+        domains='Turn integers -8..7 and exact BOOLEAN values; source formats remain ordinary scalar formats; no full CONFIG constructor, inferred flags or native compact binary layout',
+        preflight='Validate declared CONFIG references and entire typed response before any destination assignment or committed FILE cursor advance; retain raw SHORT normalization for other scalar targets',
+        transports='Typed callbacks/JSON/TextInput; existing memory/rooted/device/messaging/acquisition FILEs; finite or cooperative serial, waiting/snapshot pipes and injected keyboard line input',
+        lifecycle='Capture each destination and its formats once; existing pause/resume, cancellation, stop/abort and pending-read ownership checks remain; no replay or new checkpoint',
+        failure='All destinations unchanged on invalid typed input; typed FILE failure retains cursor under existing portable status1 policy; capture failures precede I/O; direct callbacks may already consume input; existing request outcome/history contracts',
+        boundary='Existing CONST/FOR/readonly POSITION and aggregate/resource guards remain; generic service output helpers, CONFIG conversion status aliases, native input/parser/ABI and public strict mode unchanged',
+        guide='docs/config-field-input.md',controller_validated=False)
+    report['read_policy']['config_fields']='Bounded CONFIG scalar input follows config_field_read_policy; whole aggregates and POSITION orientation writes remain blocked'
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

@@ -93,6 +93,9 @@ Typed callbacks and `--read-values` already supply decoded values. They receive
 validated format metadata but do not reparse, truncate to field width, unquote
 or apply an integer base. Storage validation and destination truncation still apply.
 
+[CONFIG scalar fields](config-field-input.md) now use these widths/bases and
+BOOLEAN formats, with turn-domain validation before publishing any READ output.
+
 ## Evidence boundary
 
 The reviewed [reference edition](references.md), PDF pages 129-135, documents

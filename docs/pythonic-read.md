@@ -42,8 +42,9 @@ CR-only requests are allowed. Scalar destinations are rooted in ordinary
 variable storage: INTEGER, BOOLEAN, REAL, bounded STRING and BYTE/SHORT aggregate
 leaves, including TYPE aliases. Each destination may be a variable, field or
 ARRAY element. Aggregates, grouped/computed targets, fields of returned
-temporaries, constants, active FOR counters, CONFIG subfields and POSITION
-orientation writes remain blocked.
+temporaries, constants, active FOR counters and POSITION orientation writes
+remain blocked. [CONFIG scalar fields](config-field-input.md) now accept bounded
+turn integers and BOOLEAN flags through the shared input validation policy.
 
 The callback returns an exact list or tuple with one typed value per destination:
 

@@ -1,0 +1,14 @@
+PROGRAM MAIN
+VAR configs:ARRAY[2]OF CONFIG visits:INTEGER missing,done:BOOLEAN
+ROUTINE load(value:CONFIG;name:STRING) FROM LIB
+ROUTINE slot(number:INTEGER):INTEGER
+BEGIN visits=visits+1 RETURN number END slot
+BEGIN
+  IF UNINIT(done) THEN
+    visits=0
+    load(configs[slot(1)],'first.txt')
+    load(configs[slot(2)],'second.txt')
+    missing=UNINIT(configs[1])
+    done=TRUE
+  ENDIF
+END MAIN

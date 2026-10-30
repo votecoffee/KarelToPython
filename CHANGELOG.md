@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1030.180659 - 2026-10-30
+
+- Accept explicit CONFIG turn and BOOLEAN fields in Pythonic READ, including
+  nested records/ARRAYs, POSITION.CONFIG_DATA, exact routine formals and captured
+  USING values. Validate canonical parent schemas and retain turn bounds -8..7.
+- Preflight every typed response before any destination or committed FILE cursor
+  changes, preserving ordinary scalar formats and BYTE/SHORT normalization.
+  Apply the policy across callbacks/JSON/TextInput, memory/rooted/virtual/shared
+  FILEs, serial streams, pipes and injected keyboard line input.
+- Preserve captured selectors/formats through waiting reads and pause/resume;
+  retain cancellation, stop/abort, budget cleanup, readonly/counter guards and
+  existing portable failure/status rules. Whole CONFIG READ and generic output
+  aliases remain protected; native CONFIG binary layout is unverified.
+- Add config_field_reads and config_field_read_policy reports, 72 regressions,
+  four examples, two linked projects and compiler-free runtime coverage. Update
+  README, API, semantic ledger and remaining-support inventory; defer strict mode.
+
 ## 26.1030.154410 - 2026-10-30
 
 - Extend GET_VAR/SET_VAR to compatible context-free user STRUCTURE schemas and

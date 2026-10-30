@@ -1,0 +1,11 @@
+PROGRAM CONFIG_FIELD_TEXT
+VAR cfg:CONFIG f:FILE status:INTEGER
+BEGIN
+  OPEN FILE f('WO','config.txt')
+  WRITE f('-8 0 7 ON ON ON ON',CR)
+  CLOSE FILE f
+  OPEN FILE f('RO','config.txt')
+  READ f(cfg.cfg_turn_no1,cfg.cfg_turn_no2,cfg.cfg_turn_no3,cfg.cfg_flip,cfg.cfg_left,cfg.cfg_up,cfg.cfg_front,CR)
+  status=IO_STATUS(f)
+  CLOSE FILE f
+END CONFIG_FIELD_TEXT

@@ -1,0 +1,19 @@
+{
+  "CFG": {
+    "CFG_TURN_NO1": -8,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 7,
+    "CFG_FLIP": true,
+    "CFG_LEFT": true,
+    "CFG_UP": true,
+    "CFG_FRONT": true
+  },
+  "F": {
+    "file": "config.txt",
+    "open": false,
+    "position": 19,
+    "binary": false,
+    "status": 0
+  },
+  "STATUS": 0
+}

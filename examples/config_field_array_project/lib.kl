@@ -1,0 +1,12 @@
+PROGRAM LIB
+VAR seen:INTEGER
+ROUTINE load(value:CONFIG;name:STRING)
+VAR input_file:FILE
+BEGIN
+  OPEN FILE input_file('RO',name)
+  USING value DO READ input_file(cfg_turn_no1,CR) ENDUSING
+  CLOSE FILE input_file
+  seen=value.cfg_turn_no1
+END load
+BEGIN
+END LIB

@@ -179,8 +179,7 @@ class SerialStreams:
         if type(targets) not in (list,tuple):raise runtime.KarelRuntimeError('Serial READ requires scalar references',line)
         line_breaks=runtime._read_line_breaks(len(targets),line_breaks,line)
         for target in targets:
-            if type(target) is not runtime.Reference:raise runtime.KarelRuntimeError('Serial READ requires ordinary writable scalar references',line)
-            runtime._read_scalar_spec(target.spec,line)
+            runtime._validate_read_target(target,line)
         formats=[()] * len(targets) if formats is None else formats
         if type(formats) not in (list,tuple) or len(formats)!=len(targets):
             raise runtime.KarelRuntimeError('Serial READ requires one format per scalar target',line)
@@ -220,7 +219,7 @@ class SerialStreams:
                             if code and handle.reverse:code='>'+code[1:]
                             try:value=data.decode('ascii') if code is None else struct.unpack(code,data)[0]
                             except (UnicodeError,struct.error) as exc:raise runtime.KarelRuntimeError('Invalid binary serial field: '+str(exc),line)from exc
-                            runtime.checked(target.spec,value,line);values.append(value)
+                            runtime._validate_read_value(target,value,line);values.append(value)
                         result=values,offset
                 else:
                     try:text=raw.decode('ascii')

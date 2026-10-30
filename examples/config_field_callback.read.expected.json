@@ -1,0 +1,53 @@
+[
+  {
+    "line": 5,
+    "targets": [
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      }
+    ],
+    "adapter_outcome": "callback_completed",
+    "line_breaks": [
+      7
+    ]
+  }
+]

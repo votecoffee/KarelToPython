@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [CONFIG field input ledger](config_field_input_semantics.json) supersedes
+older CONFIG READ-field exclusions with bounded scalar input and complete-response
+validation; generic service/status output aliases remain exact and native layout
+is unverified.
+
 The [routine-local timer ledger](routine_local_timer_semantics.json) supersedes
 older declared-local timer exclusions. The [formal timer ledger](formal_timer_semantics.json)
 supersedes older borrowed-formal exclusions under a callee-frame ownership policy.

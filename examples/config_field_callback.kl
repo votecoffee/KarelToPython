@@ -1,0 +1,10 @@
+PROGRAM CONFIGCALLBACK
+VAR cfg:CONFIG point:XYZWPR encoded:STRING[40] done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    READ(cfg.cfg_turn_no1,cfg.cfg_turn_no2,cfg.cfg_turn_no3,cfg.cfg_flip,cfg.cfg_left,cfg.cfg_up,cfg.cfg_front,CR)
+    point=POS(1,2,3,0,0,0,cfg)
+    CNV_CONF_STR(cfg,encoded)
+    done=TRUE
+  ENDIF
+END CONFIGCALLBACK

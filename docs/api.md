@@ -2,6 +2,12 @@
 
 ## Translation
 
+[CONFIG scalar input](config-field-input.md) adds `config_field_reads` and
+`config_field_read_policy` reports. Generated READ captures declared CONFIG
+parents with `runtime.config_read_reference`; shared target/value validation
+checks bounded fields before callback/FILE publication. Generic service output
+references and CONFIG conversion status aliases retain their existing contracts.
+
 [Record GET_VAR/SET_VAR transfers](record-variable-transfers.md) add
 `record_variable_transfer_policy` reports. Source service calls opt into compatible
 context-free record schemas while preserving the existing prefix/status/cache

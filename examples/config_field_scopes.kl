@@ -1,0 +1,14 @@
+PROGRAM CONFIGSCOPES
+TYPE packet_t=STRUCTURE config_data:CONFIG ENDSTRUCTURE
+VAR packet:packet_t observed,missing,done:BOOLEAN
+ROUTINE load(value:CONFIG)
+BEGIN READ(value.cfg_turn_no1) END load
+ROUTINE make:CONFIG BEGIN RETURN packet.config_data END make
+BEGIN
+  IF UNINIT(done) THEN
+    load(packet.config_data)
+    USING make() DO READ(cfg_flip) observed=cfg_flip ENDUSING
+    missing=UNINIT(packet.config_data)
+    done=TRUE
+  ENDIF
+END CONFIGSCOPES

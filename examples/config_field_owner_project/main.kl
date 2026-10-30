@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR cfg:CONFIG encoded:STRING[40] done:BOOLEAN
+ROUTINE load(value:CONFIG) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    load(cfg)
+    CNV_CONF_STR(cfg,encoded)
+    done=TRUE
+  ENDIF
+END MAIN

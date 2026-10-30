@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.154410**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.180659**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -494,6 +494,11 @@ offline save points; see [variable archives](docs/variable-archives.md).
 [Mixed ALLTYPE batches](docs/mixed-archives.md) combine TP and VR dependencies,
 validate hashed member manifests, and preflight backup/restore/clear across both
 stores before committing changes.
+
+[Bounded CONFIG input](docs/config-field-input.md) now reads turn integers and
+BOOLEAN flags through callbacks and text/binary FILEs, including captured nested
+fields, routine formals and private USING values. The complete response is checked
+before destination or FILE cursor publication.
 
 READ accepts typed scalar input through an explicit host callback. Generated
 scripts can use JSON response batches with `--read-values` or ASCII text with

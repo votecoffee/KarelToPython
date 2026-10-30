@@ -1,0 +1,19 @@
+{
+  "version": "26.1030.180659",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../config-field-input.md",
+  "tests": [
+    "tests/test_config_field_input.py"
+  ],
+  "targets": "Explicit CONFIG INTEGER/BOOLEAN scalar fields, including nested records/ARRAYs, POSITION.CONFIG_DATA, exact routine formals and captured USING storage/values",
+  "domains": "Three INTEGER turns -8..7 and four exact BOOLEAN flags; canonical names only; scalar formats unchanged",
+  "capture": "Validate full known CONFIG parent schema and supported writable field reference; target then formats once left-to-right; no default values or repeated source selectors",
+  "publication": "All typed responses and CONFIG bounds checked before destination assignment and committed FILE cursor advance; preserve ordinary BYTE/SHORT sentinel handling",
+  "transports": "Explicit callbacks/JSON/TextInput, memory/rooted/virtual/shared finite FILEs, finite/waiting serial, snapshot/waiting pipes and injected keyboard line input",
+  "failures": "Rejected READ publishes no destination values; typed FILE failure retains cursor and existing backend status 1; capture errors precede I/O; prior argument/callback effects retained",
+  "lifecycle": "Pause retains captured targets/formats; cancellation preserves output/prefix with status 6; stop/abort/budget cleanup releases pending reads without restarting or replaying input",
+  "boundaries": "No aggregate READ, readonly POSITION writes, CONFIG counters, generic service/status alias relaxation, numeric keyboard PASSALL, inferred robot configuration, native compact CONFIG binary layout or public strict mode",
+  "persistence": "Ordinary typed CONFIG/partial state only; no callbacks, pending reads, captured references or live handles",
+  "supersedes": "Older blanket CONFIG scalar-field READ exclusions; other CONFIG protected-output/reference and controller-evidence boundaries remain"
+}

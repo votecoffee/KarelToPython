@@ -1,0 +1,12 @@
+PROGRAM LIB
+VAR seen:CONFIG
+ROUTINE load(value:CONFIG)
+VAR input_file:FILE
+BEGIN
+  OPEN FILE input_file('RO','config.txt')
+  READ input_file(value.cfg_turn_no1,value.cfg_turn_no2,value.cfg_turn_no3,value.cfg_flip,value.cfg_left,value.cfg_up,value.cfg_front,CR)
+  CLOSE FILE input_file
+  seen=value
+END load
+BEGIN
+END LIB

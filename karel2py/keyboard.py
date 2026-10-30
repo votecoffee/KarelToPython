@@ -364,7 +364,7 @@ class KeyboardInput:
             raise runtime.KarelRuntimeError('READ requires one format list per scalar destination',line)
         metadata=dict(line=line,targets=[])
         for target,controls in zip(targets,formats):
-            if type(target) is not runtime.Reference:raise runtime.KarelRuntimeError('READ requires ordinary writable scalar references',line)
+            runtime._validate_read_target(target,line)
             controls=runtime.read_formats(target.spec,controls,line)
             item=dict(type=target.spec[0],type_spec=target.spec)
             if controls:item['format_specifiers']=controls

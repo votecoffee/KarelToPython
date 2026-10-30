@@ -107,6 +107,10 @@ they are boundaries rather than promises to accept every such source form later.
   values. [Narrow FOR counters](narrow-for.md) now enforce initialized BYTE/SHORT
   domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
+- Whole aggregate/resource READ, readonly POSITION input destinations and generic
+  CONFIG conversion/status aliases remain blocked. [CONFIG scalar-field READ](config-field-input.md)
+  now supports bounded turn integers and BOOLEAN flags through callbacks and
+  explicit FILE transports; no compact native CONFIG binary layout is inferred.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries;
   dimension flattening, field-set changes/renaming and resource fields. Context-free
   [STRUCTURE source conversion](record-schema-conversions.md) now maps identical

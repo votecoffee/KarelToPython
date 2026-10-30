@@ -1,0 +1,32 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "CFG": {
+        "CFG_TURN_NO1": -8,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 7,
+        "CFG_FLIP": true,
+        "CFG_LEFT": false,
+        "CFG_UP": true,
+        "CFG_FRONT": false
+      },
+      "ENCODED": "F R U B, -8, 0, 7",
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": {
+        "CFG_TURN_NO1": -8,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 7,
+        "CFG_FLIP": true,
+        "CFG_LEFT": false,
+        "CFG_UP": true,
+        "CFG_FRONT": false
+      }
+    }
+  }
+}

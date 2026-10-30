@@ -839,9 +839,13 @@ class ReadOnlyFieldReference(Reference):
 
 class ConfigFieldReference(Reference):
     """Compact CONFIG fields have a bounded turn-number storage policy."""
-    def set(self, value, line=None):
+    def validate(self, value, line=None):
         if self.spec == INTEGER and not -8 <= integer(value, line) <= 7:
             raise KarelRuntimeError('CONFIG turn numbers are limited to -8..7 by the prototype', line)
+        checked(self.spec,value,line)
+
+    def set(self, value, line=None):
+        self.validate(value,line)
         super().set(value, line)
 
 
@@ -2182,9 +2186,39 @@ def read_formats(spec, formats, line=None):
     return formats
 
 
+def config_read_reference(value,name,line=None):
+    """Capture a declared CONFIG field without accepting substituted record schemas."""
+    fields=dict(record_fields(('CONFIG',)))
+    if (not _pythonic() or type(value) is not Structure or value.spec!=('CONFIG',)
+            or value.types!=fields or type(value.values) is not dict or set(value.values)!=set(fields)
+            or type(name) is not str or name not in fields):
+        raise KarelRuntimeError('READ requires declared CONFIG storage and scalar fields',line)
+    result=field_reference(value,name,line)
+    _validate_read_target(result,line)
+    return result
+
+
+def _validate_read_target(target,line=None):
+    """Accept ordinary scalar cells and explicit bounded Pythonic CONFIG fields."""
+    if type(target) is ConfigFieldReference and _pythonic():
+        fields=dict(record_fields(('CONFIG',)))
+        if (type(target.storage) is not dict or set(target.storage)!=set(fields)
+                or type(target.key) is not str or target.key not in fields or target.spec!=fields[target.key]):
+            raise KarelRuntimeError('READ requires a declared CONFIG scalar field',line)
+    elif type(target) is not Reference:
+        raise KarelRuntimeError('READ requires ordinary writable scalar references or bounded CONFIG fields',line)
+    _read_scalar_spec(target.spec,line)
+
+
+def _validate_read_value(target,value,line=None):
+    """Preflight without storing or normalizing raw SHORT sentinel data twice."""
+    _validate_read_target(target,line)
+    if type(target) is ConfigFieldReference:target.validate(value,line)
+    else:checked(target.spec,value,line)
+
+
 def capture_read_target(target, formats, line=None):
-    if type(target) is not Reference:
-        raise KarelRuntimeError('READ requires ordinary writable scalar references', line)
+    _validate_read_target(target,line)
     return target, read_formats(target.spec, formats, line)
 
 
@@ -2697,10 +2731,7 @@ class State:
         if type(targets) not in (list, tuple):
             raise KarelRuntimeError('READ requires scalar destination references', line)
         line_breaks = _read_line_breaks(len(targets), line_breaks, line)
-        for target in targets:
-            if type(target) is not Reference:
-                raise KarelRuntimeError('READ requires ordinary writable scalar references', line)
-            _read_scalar_spec(target.spec, line)
+        for target in targets:_validate_read_target(target,line)
         if formats is None: formats = [()] * len(targets)
         if type(formats) not in (list, tuple) or len(formats) != len(targets):
             raise KarelRuntimeError('READ requires one format list per scalar destination', line)
@@ -2732,7 +2763,7 @@ class State:
                 if target.spec[0] == 'STRING':
                     if len(ascii_string(value, line)) > 254:
                         raise KarelRuntimeError('READ STRING input is limited to 254 characters before truncation', line)
-                checked(target.spec, value, line)
+                _validate_read_value(target,value,line)
         except Exception:
             request['adapter_outcome'] = 'callback_result_rejected'
             raise

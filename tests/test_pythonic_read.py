@@ -289,7 +289,11 @@ class ReadSourceGuardTests(unittest.TestCase):
     def test_aggregate_destination(self): self.reject('READ(a)','E_READ_TYPE')
     def test_temporary_field_destination(self): self.reject('READ(VEC(1,2,3).x)','E_READ_ITEM')
     def test_position_orientation(self): self.reject('READ(p.normal.x)','E_POSITION_READ_ONLY',declarations='p: POSITION')
-    def test_config_field(self): self.reject('READ(c.turn_no1)','E_CONFIG_OUTPUT',declarations='c: CONFIG')
+    def test_config_field_uses_bounded_input_policy(self):
+        program,result=compile_program('READ(c.cfg_turn_no1)',declarations='c:CONFIG',batches=[[7]])
+        self.assertEqual(program.run()['C']['CFG_TURN_NO1'],7)
+        self.assertEqual(result.report['config_field_reads'][0]['integer_range'],[-8,7])
+        self.reject('READ(c.turn_no1)','E_FIELD',declarations='c:CONFIG')
     def test_active_counter(self): self.reject('FOR i=1 TO 2 DO READ(i) ENDFOR','E_FOR_COUNTER')
     def test_item_limit(self): self.reject('READ('+','.join(['x']*1025)+')','E_READ_LIMIT')
     def test_maximum_item_count(self): self.assertEqual(execute('READ('+','.join(['x']*1024)+')',batches=[[7]*1024])['X'],7)

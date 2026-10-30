@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1030.154410. Acceptance is specific to
+This is the supported prototype subset as of 26.1030.180659. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -65,7 +65,7 @@ internally and in the historical semantic notes.
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or aggregate output. |
-| READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim, aggregate targets, CONFIG subfields or POSITION orientation writes. |
+| READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim, aggregate targets or POSITION orientation writes. [CONFIG field input](config-field-input.md) validates turn bounds and BOOLEAN flags before any output/cursor publication. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
 
 
