@@ -3,7 +3,7 @@ VAR f:FILE text:STRING[254] n,key,s,io,elapsed,token,control_status:INTEGER done
 ROUTINE cancel_input(h:FILE) FROM LIB
 BEGIN
   IF UNINIT(done) THEN
-    
+
     OPEN FILE f('RW','KB:TPKB')
     text='old'
     n=77
