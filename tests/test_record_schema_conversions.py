@@ -289,9 +289,11 @@ class RecordSchemaBoundaryTests(unittest.TestCase):
     def test_builtin_and_user_records_are_not_interchangeable(self):
         with self.assertRaises(TranslationError):compile_program('v=a',prefix='TYPE in_t=STRUCTURE x:REAL y:REAL z:REAL ENDSTRUCTURE',decl='a:in_t v:VECTOR')
 
-    def test_model_fields_need_explicit_conversion(self):
+    def test_model_fields_require_explicit_context_at_runtime(self):
         prefix='TYPE in_t=STRUCTURE value:JOINTPOS2 ENDSTRUCTURE out_t=STRUCTURE value:POSITION ENDSTRUCTURE'
-        with self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl='a:in_t b:out_t')
+        p,r=compile_program('b=a',prefix=prefix,decl='a:in_t b:out_t');p._state.values['A'].values['VALUE']=joint([0.,0.]);before=p.snapshot()['B']
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'robot'):p.run()
+        self.assertEqual(p.snapshot()['B'],before);self.assertEqual(len(r.report['kinematic_record_conversions']),1)
 
     def test_resource_fields_remain_unavailable(self):
         for kind in ('FILE','PATH','QUEUE_TYPE'):
@@ -373,9 +375,6 @@ class RecordSchemaLinkageTests(unittest.TestCase):
         self.assertEqual(task.snapshot()['B']['VALUE'],U)
 
 
-if __name__=='__main__':unittest.main()
-
-
 class RecordSchemaReportTests(unittest.TestCase):
     def test_sites_identify_assignment_argument_and_return(self):
         p,result=simple('b=work(a)',second='INTEGER',routines='ROUTINE work(v:out_t):in_t BEGIN RETURN v END work');seed(p)
@@ -423,6 +422,12 @@ class RecordSchemaDeclaredSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'declared schema'):p.run()
         self.assertEqual((p.snapshot()['B'],p._state.local_frames),(before,[]))
 
-    def test_nested_array_model_fields_are_not_implicitly_converted(self):
+    def test_nested_array_model_fields_require_explicit_context(self):
         types='TYPE in_t=STRUCTURE values:ARRAY[2]OF JOINTPOS2 ENDSTRUCTURE out_t=STRUCTURE values:ARRAY[2]OF POSITION ENDSTRUCTURE'
-        with self.assertRaises(TranslationError):compile_program('b=a',prefix=types,decl='a:in_t b:out_t')
+        p,r=compile_program('b=a',prefix=types,decl='a:in_t b:out_t')
+        for item in p._state.values['A'].values['VALUES'].values:item.values[:]=[0.,0.]
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'robot'):p.run()
+        self.assertEqual(len(r.report['kinematic_record_conversions']),1)
+
+
+if __name__=='__main__':unittest.main()

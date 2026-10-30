@@ -1,0 +1,55 @@
+{
+  "robot": {
+    "groups": {
+      "1": {
+        "dh": [
+          {
+            "a": 5
+          },
+          {
+            "a": 5
+          }
+        ],
+        "current": {
+          "joints": {
+            "type": [
+              "JOINTPOS",
+              2
+            ],
+            "value": {
+              "axes": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "2": {
+        "dh": [
+          {
+            "a": 100
+          },
+          {
+            "a": 100
+          }
+        ],
+        "current": {
+          "joints": {
+            "type": [
+              "JOINTPOS",
+              2
+            ],
+            "value": {
+              "axes": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      }
+    },
+    "active_group": 1
+  }
+}

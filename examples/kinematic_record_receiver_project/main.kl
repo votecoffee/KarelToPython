@@ -1,0 +1,13 @@
+PROGRAM MAIN
+TYPE in_t=STRUCTURE value:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] value:POSITION count:REAL ENDSTRUCTURE row_t=ARRAY[2]OF out_t
+VAR original:ARRAY[1,2]OF in_t result:ARRAY[1]OF row_t done:BOOLEAN
+ROUTINE copy(dst:ARRAY[*,*]OF out_t;src:ARRAY[*,*]OF in_t) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original[1,1].value=CURJPOS(0,0) original[1,2].value=original[1,1].value
+    original[1,1].count=1 original[1,1].label='abcdefgh'
+    original[1,2].count=2 original[1,2].label='xy'
+    copy(result,original)
+    done=TRUE
+  ENDIF
+END MAIN

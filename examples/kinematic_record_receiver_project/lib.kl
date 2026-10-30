@@ -1,0 +1,7 @@
+PROGRAM LIB
+TYPE in_t=STRUCTURE value:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] value:POSITION count:REAL ENDSTRUCTURE row_t=ARRAY[2]OF out_t
+VAR seen:REAL
+ROUTINE copy(dst:ARRAY[*,*]OF out_t;src:ARRAY[*,*]OF in_t)
+BEGIN dst=src seen=dst[1,1].value.location.x END copy
+BEGIN
+END LIB

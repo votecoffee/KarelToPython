@@ -1,0 +1,11 @@
+PROGRAM RECORDMODEL
+TYPE in_t=STRUCTURE value:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE
+     out_t=STRUCTURE label:STRING[3] value:XYZWPREXT count:REAL ENDSTRUCTURE
+VAR original:in_t result:out_t done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original.value=CURJPOS(0,0) original.count=7 original.label='abcdefgh'
+    result=original
+    done=TRUE
+  ENDIF
+END RECORDMODEL

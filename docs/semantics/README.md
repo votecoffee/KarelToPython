@@ -15,6 +15,9 @@ The [source STRUCTURE schema ledger](record_schema_conversion_semantics.json)
 supersedes older whole-record and different-record-terminal source exclusions
 for identical field-name sets with recursively compatible context-free data.
 Declared links, BYNAME, raw callback results and generic helpers remain exact.
+The [model-backed STRUCTURE ledger](kinematic_record_semantics.json) supersedes
+older model-field exclusions for compatible user record trees, using complete
+data/geometry preflight and existing explicit scalar model/adaptor contracts.
 
 The [private timer ledger](private_using_timer_semantics.json) supersedes older
 private connected-timer exclusions in the computed-capture/private-counter notes.

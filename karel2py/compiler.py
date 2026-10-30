@@ -1189,6 +1189,7 @@ class Emitter:
         self.kinematic_assignment_uses = []
         self.kinematic_interface_uses=[]
         self.kinematic_array_uses=[]
+        self.kinematic_record_uses=[]
         self.joint_width_uses=[]
         self.positional_array_uses=[]
         self.numeric_array_uses=[]
@@ -1972,7 +1973,7 @@ class Emitter:
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
         if self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual):return False
-        if self.mode=='pythonic' and rt.record_schema_kind(expected,actual):return False
+        if self.mode=='pythonic' and (rt.record_schema_kind(expected,actual) or rt.kinematic_record_kind(expected,actual)):return False
         if self.is_config_subfield(argument):return False
         if expected[0] in ('INTEGER','REAL') and actual[0] in NARROW_TYPES:return False
         if expected==('REAL',) and actual==('INTEGER',):return False
@@ -2791,6 +2792,16 @@ class Emitter:
                 self.kinematic_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.kinematic_record_kind(expected,actual):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},self._state.kinematic_record({expected!r},{value},{line},kind="ARGUMENT",source_spec={actual!r}),{line})'
+                is_reference,actual=False,expected;conversion_kind='kinematic_record'
+                self.features.update(('extended services','kinematic STRUCTURE conversion'))
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_record_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=source_actual,target_type_spec=expected,conversion_kind=rt.kinematic_record_kind(expected,source_actual),
+                    evaluated_once=True,independent_value=True,geometry_preflight=True))
             elif self.mode=='pythonic' and rt.record_schema_kind(expected,actual):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_record_schema({expected!r},{value},{line},source_spec={actual!r}),{line})'
@@ -2866,8 +2877,8 @@ class Emitter:
                                                   source_spec=actual, line=line, column=argument.token.column,
                                                   expression_kind=argument.kind, evaluated_once=True,
                                                   independent_writable_copy=True, initialized_elements_required=True))
-                if conversion_kind in ('positional_array','kinematic_array','numeric_array','array_schema','record_schema'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
-                if conversion_kind in ('numeric_array','array_schema','record_schema'):self.array_value_uses[-1].update(initialized_elements_required=False,missing_data_preserved=True)
+                if conversion_kind in ('positional_array','kinematic_array','numeric_array','array_schema','record_schema','kinematic_record'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
+                if conversion_kind in ('numeric_array','array_schema','record_schema','kinematic_record'):self.array_value_uses[-1].update(initialized_elements_required=False,missing_data_preserved=True)
             if not is_reference and expected[0] == 'STRING':
                 if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
@@ -3485,8 +3496,8 @@ class Emitter:
                 and self.current_routine is not None and target.value in {name.value for name,_ in self.current_routine.parameters}
                 and rt.array_identity(target_type) is None)
             if generic_receiver and (self.compatible(target_type,value_type) or rt.array_schema_compatible(target_type,value_type)
-                    or rt.numeric_array_kind(target_type,value_type) or rt.positional_array_kind(target_type,value_type) or rt.kinematic_array_kind(target_type,value_type) or rt.record_schema_kind(target_type,value_type)):
-                source_schema=f',source_spec={value_type!r}' if rt.record_schema_kind(target_type,value_type) else ''
+                    or rt.numeric_array_kind(target_type,value_type) or rt.positional_array_kind(target_type,value_type) or rt.kinematic_array_kind(target_type,value_type) or rt.record_schema_kind(target_type,value_type) or rt.kinematic_record_kind(target_type,value_type)):
+                source_schema=f',source_spec={value_type!r}' if rt.record_schema_kind(target_type,value_type) or rt.kinematic_record_kind(target_type,value_type) else ''
                 value=f'self._state.array_assignment_value({value},({reference}).spec,{line}{source_schema})'
                 self.features.add('runtime ARRAY receiver schema')
                 self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
@@ -3496,6 +3507,11 @@ class Emitter:
                     self.current_routine.may_services=True;self.features.update(('extended services','kinematic ARRAY conversion'))
                     self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
                         source_type_spec=value_type,target_type_spec=target_type,evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+                if rt.kinematic_record_kind(target_type,value_type):
+                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic STRUCTURE conversion'))
+                    self.kinematic_record_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
+                        source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
+                        evaluated_once=True,independent_value=True,actual_receiver_schema=True,geometry_preflight=True))
                 if rt.record_schema_kind(target_type,value_type):
                     self.record_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
                         source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
@@ -3519,6 +3535,13 @@ class Emitter:
                 self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                     evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.kinematic_record_kind(target_type,value_type):
+                value=f'self._state.kinematic_record({target_type!r},{value},{line},source_spec={value_type!r})'
+                self.features.update(('extended services','kinematic STRUCTURE conversion'))
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_record_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    conversion_kind=rt.kinematic_record_kind(target_type,value_type),evaluated_once=True,independent_value=True,geometry_preflight=True))
             elif self.mode=='pythonic' and rt.record_schema_kind(target_type,value_type):
                 value=f'_rt.convert_record_schema({target_type!r},{value},{line},source_spec={value_type!r})'
                 self.features.add('source STRUCTURE schema conversion')
@@ -3874,6 +3897,13 @@ class Emitter:
                     self.kinematic_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
                         line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
                         evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.kinematic_record_kind(spec,value_type):
+                    value=f'self._state.kinematic_record({spec!r},{value},{line},kind="RETURN",source_spec={value_type!r})'
+                    value_type=spec;conversion_kind='kinematic_record'
+                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic STRUCTURE conversion'))
+                    self.kinematic_record_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        conversion_kind=rt.kinematic_record_kind(spec,source_type_spec),evaluated_once=True,independent_value=True,before_cleanup=True,geometry_preflight=True))
                 elif self.mode=='pythonic' and rt.record_schema_kind(spec,value_type):
                     value=f'_rt.convert_record_schema({spec!r},{value},{line},source_spec={value_type!r})'
                     value_type=spec;conversion_kind='record_schema'
@@ -4436,7 +4466,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
         positional_array_conversions=emitter.positional_array_uses, kinematic_array_conversions=emitter.kinematic_array_uses,
         numeric_array_conversions=emitter.numeric_array_uses,array_schema_conversions=emitter.array_schema_uses,
-        record_schema_conversions=emitter.record_schema_uses,
+        record_schema_conversions=emitter.record_schema_uses,kinematic_record_conversions=emitter.kinematic_record_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         motion_requests=emitter.motion_uses,
@@ -6077,6 +6107,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['array_schema_policy']['exact']='BYNAME, generic typed-reference/value/result helpers, linked declarations/definitions and raw callback results remain exact; compatible user record terminals follow record_schema_policy'
     report['array_routine_policy']['boundary']='No anonymous nested declarations, ragged/mixed-capacity storage, rank/dimension reshape or native ABI/controller claim; context-free user STRUCTURE changes follow record_schema_policy; generic helpers remain exact'
     report['data_record_policy']['boundary']='Private source scalar/ARRAY conversions and context-free user STRUCTURE changes under record_schema_policy; model-backed record fields, inferred robot context and motion remain excluded'
+    report['kinematic_record_policy']=dict(
+        boundaries='Pythonic source assignment, private ordinary arguments and RETURN for compatible user STRUCTURE trees and record ARRAY terminals',
+        schema='Identical field-name sets in receiver order; nested records, logical ARRAY dimensions/layout, numeric/STRING and context-free fields follow record_schema_policy',
+        preflight='Capture declared source once; validate every known source domain, all context-free conversions, complete model operands and proper POSITION matrices before any model adapter; bound output schema before allocation',
+        order='Receiver field declaration order, depth-first; ARRAY cells in logical row-major order; ordinary partial data retained; model operands complete',
+        context='Each scalar call uses explicit root-caller group, current selected frame/tool and current inverse seed; no implicit previous-field seed or robot-state update',
+        publication='Prepare entire receiver privately; failure skips later calls/arguments/target selectors and leaves destination unchanged; earlier explicit source/adapter effects retained',
+        lifecycle='Synchronous conversion without handler checkpoints; pause resumes captured private arguments without replay; sticky ABORT prevents subsequent calls and publication',
+        exact='Generic checked/value/result helpers, context-free record helper, BYNAME, declared links and raw callback result schemas remain exact',
+        evidence='Offline models/adapters only; no inferred robot context, physical motion, native record ABI/controller equivalence or public strict-mode claim',
+        guide='docs/kinematic-records.md',controller_validated=False)
+    report['record_schema_policy']['models']='Compatible model-backed JOINT/Cartesian fields follow kinematic_record_policy and explicit scalar context'
+    report['record_schema_policy']['limits']='No field additions/removal/rename, resource fields, builtin-record/user-STRUCTURE interchange, BOOLEAN/numeric, REAL-to-integral or logical reshape; model-backed fields require kinematic_record_policy'
+    report['data_record_policy']['boundary']='Private source scalar/ARRAY and compatible user STRUCTURE conversions; model-backed fields follow kinematic_record_policy; no inferred robot context or motion'
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

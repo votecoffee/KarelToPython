@@ -2,6 +2,8 @@
 
 Pythonic source assignments, ordinary routine arguments and RETURN values can
 convert user STRUCTURE schemas that contain compatible context-free data.
+[Model-backed record conversion](kinematic-records.md) separately extends these
+source boundaries through joint/Cartesian fields under explicit robot context.
 Records must have exactly the same field-name set. Fields match by name, in the
 receiver's declared order; record names and field order may differ. Matching
 record ARRAY terminals follow these rules recursively across named components.
@@ -81,9 +83,9 @@ in the authored examples allow deterministic data replay.
 
 Field additions, removal and renaming, builtin-record/user-STRUCTURE interchange,
 resource fields, BOOLEAN/numeric changes and implicit REAL-to-integral conversion
-remain excluded. Model-backed JOINT/Cartesian changes inside records or their
-nested arrays require explicit field conversion with supplied robot context;
-this operation never infers models or invokes robot services.
+remain excluded. Model-backed JOINT/Cartesian changes inside records and nested
+arrays now use the separate [explicit-model source policy](kinematic-records.md).
+The context-free convert_record_schema helper still never invokes robot services.
 
 Reports expose record_schema_conversions with boundary, location, original and
 target schemas and ownership evidence, plus record_schema_policy. See the

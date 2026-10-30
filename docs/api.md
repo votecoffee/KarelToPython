@@ -2,6 +2,15 @@
 
 ## Translation
 
+[Model-backed record conversion](kinematic-records.md) adds
+`State.kinematic_record(target_spec, value, line=None, *, kind="ASSIGNMENT", source_spec=None)`.
+Generated source supplies its declared source schema and selects ASSIGNMENT,
+ARGUMENT or RETURN. The execution context preflights the entire compatible
+record tree before sequential scalar model calls, then returns independent
+receiver data. Reports expose `kinematic_record_conversions` and
+`kinematic_record_policy`; value-free service observations use KINEMATIC_RECORD
+boundary names. Context-free helpers and exact typed-reference contracts remain.
+
 [Source STRUCTURE schemas](record-schema-conversions.md) add
 `runtime.convert_record_schema(target_spec, value, line=None, *, source_spec=None)`
 for independent context-free user record and record ARRAY conversions. Generated

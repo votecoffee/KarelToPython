@@ -1,0 +1,22 @@
+PROGRAM RECORDMODELLIFETIME
+TYPE in_t=STRUCTURE value:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE
+     out_t=STRUCTURE label:STRING[3] value:POSITION count:REAL ENDSTRUCTURE
+VAR original:in_t result:out_t seen:REAL done:BOOLEAN
+ROUTINE retain(value:out_t)
+BEGIN CONDITION[1]: WHEN EVENT[1] DO value.count=99 seen=value.count ENDCONDITION END retain
+ROUTINE make:out_t
+VAR local:in_t
+BEGIN
+  local.value=original.value local.label=original.label
+  FOR local.count=1 TO 2 DO RETURN local ENDFOR
+  RETURN local
+END make
+BEGIN
+  IF UNINIT(done) THEN
+    original.value=CURJPOS(0,0) original.count=7 original.label='abcdefgh'
+    retain(original)
+    ENABLE CONDITION[1] SIGNAL EVENT[1]
+    result=make()
+    done=TRUE
+  ENDIF
+END RECORDMODELLIFETIME

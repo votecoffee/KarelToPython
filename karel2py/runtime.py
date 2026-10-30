@@ -2637,6 +2637,7 @@ class State:
         if numeric_array_kind(target,value.spec):return convert_numeric_array(target,value,line)
         if positional_array_kind(target,value.spec):return convert_positional_array(target,value,line)
         if kinematic_array_kind(target,value.spec):return self.kinematic_array(target,value,line)
+        if kinematic_record_kind(target,value.spec):return self.kinematic_record(target,value,line,source_spec=source_spec)
         if record_schema_kind(target,value.spec):return convert_record_schema(target,value,line,source_spec=source_spec)
         return convert_array_schema(target,value,line)
 
@@ -2647,17 +2648,24 @@ class State:
             raise KarelRuntimeError('Invalid kinematic ARRAY conversion boundary',line)
         return self._kinematic_conversion(target,value,line,'KINEMATIC_ARRAY_'+kind)
 
+    def kinematic_record(self,target,value,line=None,*,kind='ASSIGNMENT',source_spec=None):
+        """Convert a user record tree using explicitly supplied model context."""
+        if not _pythonic():raise KarelRuntimeError('Kinematic STRUCTURE conversion requires Pythonic mode',line)
+        if type(kind) is not str or kind not in ('ASSIGNMENT','ARGUMENT','RETURN'):
+            raise KarelRuntimeError('Invalid kinematic STRUCTURE conversion boundary',line)
+        return self._kinematic_conversion(target,value,line,'KINEMATIC_RECORD_'+kind,source_spec=source_spec)
+
     def geometry_value(self,value,expected,line=None):
         if not _pythonic(): raise KarelRuntimeError('Joint geometry requires Pythonic mode',line)
         if expected[0]!='JOINTPOS': return frame_value(value,line,expected=expected)
         captured=checked(expected,value,line)
         return self._kinematic_conversion(('XYZWPREXT',),captured,line,'JOINT_GEOMETRY')
 
-    def _kinematic_conversion(self,target,value,line,operation):
+    def _kinematic_conversion(self,target,value,line,operation,*,source_spec=None):
         row=dict(operation=operation,line=line,outcome='requested');self.service_requests.append(row)
         try:
             convert=self.execution.kinematic_array if operation.startswith('KINEMATIC_ARRAY_') else self.execution.kinematic_assignment
-            result=convert(self,target,value,line)
+            result=self.execution.kinematic_record(self,target,value,line,source_spec=source_spec) if operation.startswith('KINEMATIC_RECORD_') else convert(self,target,value,line)
             root=task_root(self)
             if root._aborted: raise KarelAbort(root._abort_line)
             if self._aborted: raise KarelAbort(self._abort_line)
@@ -2668,7 +2676,7 @@ class State:
             if self._aborted: raise KarelAbort(self._abort_line)
             if isinstance(exc,KarelRuntimeError) and exc.line is None: raise KarelRuntimeError(str(exc),line) from exc
             if isinstance(exc,(ValueError,TypeError,KeyError,IndexError)):
-                label='Joint geometry' if operation=='JOINT_GEOMETRY' else 'Kinematic ARRAY' if operation.startswith('KINEMATIC_ARRAY_') else 'Kinematic interface' if operation in ('KINEMATIC_ARGUMENT','KINEMATIC_RETURN') else 'Kinematic assignment'
+                label='Joint geometry' if operation=='JOINT_GEOMETRY' else 'Kinematic ARRAY' if operation.startswith('KINEMATIC_ARRAY_') else 'Kinematic STRUCTURE' if operation.startswith('KINEMATIC_RECORD_') else 'Kinematic interface' if operation in ('KINEMATIC_ARGUMENT','KINEMATIC_RETURN') else 'Kinematic assignment'
                 raise KarelRuntimeError(label+' failed: '+str(exc),line) from exc
             raise
         row['outcome']='completed';return result
@@ -3089,7 +3097,7 @@ from .forms import FormControls,FORM_CALLS
 from .controller import ControllerServices,CONTROLLER_CALLS
 from .vision import VisionServices,VISION_CALLS
 from .source_translations import SourceTranslations
-from .record_schemas import record_schema_kind,convert_record_schema
+from .record_schemas import record_schema_kind,convert_record_schema,kinematic_record_kind,prepare_kinematic_record
 from .serial_io import SerialStreams
 from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,selector as motion_selector,
                      SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS)

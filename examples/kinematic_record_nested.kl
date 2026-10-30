@@ -1,0 +1,16 @@
+PROGRAM RECORDNESTEDMODEL
+TYPE in_child=STRUCTURE value:JOINTPOS2 count:BYTE ENDSTRUCTURE
+     out_child=STRUCTURE count:REAL value:XYZWPR ENDSTRUCTURE
+     row_t=ARRAY[2]OF out_child
+     in_t=STRUCTURE data:ARRAY[1,2]OF in_child marker:SHORT ENDSTRUCTURE
+     out_t=STRUCTURE marker:SHORT data:ARRAY[1]OF row_t ENDSTRUCTURE
+VAR original:in_t result:out_t done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original.data[1,1].value=CURJPOS(0,0)
+    original.data[1,2].value=original.data[1,1].value
+    original.data[1,1].count=1 original.data[1,2].count=2 original.marker=5
+    result=original
+    done=TRUE
+  ENDIF
+END RECORDNESTEDMODEL

@@ -1,0 +1,8 @@
+PROGRAM LIB
+%DEFGROUP=1
+TYPE in_t=STRUCTURE value:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] value:POSITION count:INTEGER ENDSTRUCTURE
+VAR seen:out_t
+ROUTINE roundtrip(value:out_t):in_t
+BEGIN value.count=99 seen=value RETURN value END roundtrip
+BEGIN
+END LIB

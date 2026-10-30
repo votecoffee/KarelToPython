@@ -50,7 +50,8 @@ terminal joint/Cartesian values. Every logical dimension must match, while
 component layouts. Anonymous formal/result wildcards inherit concrete dimensions.
 [Named ARRAY types and matching nested components](named-array-conversions.md)
 now convert into independent receiver schemas. No axis reshape, dimension
-flattening or inferred allocation is added. Whole STRUCTURE schemas, BYNAME, linked
+flattening or inferred allocation is added. Compatible whole STRUCTURE changes
+follow [model-backed record conversion](kinematic-records.md). BYNAME, linked
 declaration/definition signatures and raw callback results retain exact contracts.
 
 ## Explicit context at each element

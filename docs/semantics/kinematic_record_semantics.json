@@ -1,0 +1,20 @@
+{
+  "version": "26.1030.151821",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../kinematic-records.md",
+  "tests": [
+    "tests/test_kinematic_records.py"
+  ],
+  "boundaries": "Source assignment, private ordinary arguments and RETURN; compatible user STRUCTURE roots and record ARRAY terminals",
+  "schemas": "Identical field-name sets; recursive receiver names/order, bounded STRING/numeric fields and matching logical ARRAY layout; no generic helper relaxation",
+  "preflight": "Declared source schema and known domains; output bounds before allocation; all context-free conversions and complete finite proper model operands before first adapter",
+  "order": "Receiver field declaration order, depth-first; logical row-major ARRAY cells; all source operands captured before first model call",
+  "models": "Explicit scalar model/adapters, root-caller group, current frame/tool and inverse seed at each call; no previous-field seed or silent robot-state update",
+  "publication": "Entire output staged privately; failures preserve receiver and skip later calls/arguments/target selectors; prior source/host effects retained",
+  "lifecycle": "No intermediate handler checkpoint; private captured arguments survive pause/resume without replay; RETURN before frame/counter/timer cleanup; sticky ABORT prevents later calls/publication",
+  "exact": "Context-free record helper, generic typed-reference/value/result helpers, BYNAME, declared links and raw callback results remain exact; no GET_VAR/SET_VAR kinematics",
+  "excluded": "Field-set changes/rename, resources, builtin/user interchange, BOOLEAN/numeric, REAL-to-integral, logical reshape, implicit context, native ABI/controller equivalence and public strict mode",
+  "persistence": "Concrete data/schema and serializable supplied model context only; no private references, handlers, callbacks or suspended execution",
+  "supersedes": "Older blanket model-backed STRUCTURE field and record-terminal exclusions under the existing explicit scalar model contract"
+}

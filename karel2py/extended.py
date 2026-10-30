@@ -2335,6 +2335,19 @@ class ExecutionContext:
             elif name=='DELETE_QUEUE': del q.entries[at]
             else: q.entries[at]=(sequence,rt.integer(args[0],line))
         q.sync(line); args[-1].set(code,line)
+    def kinematic_record(self,state,target,value,line=None,*,source_spec=None):
+        """Preflight a full record tree, then apply sequential scalar model calls."""
+        rt=runtime();result,pending=rt.prepare_kinematic_record(target,value,line,source_spec=source_spec)
+        root=rt.task_root(state)
+        for storage,key,spec,item in pending:
+            if root._aborted:raise rt.KarelAbort(root._abort_line)
+            if state._aborted:raise rt.KarelAbort(state._abort_line)
+            converted=self.kinematic_assignment(state,spec,item,line)
+            if root._aborted:raise rt.KarelAbort(root._abort_line)
+            if state._aborted:raise rt.KarelAbort(state._abort_line)
+            storage[key]=converted
+        return rt._partial_aggregate_value(result.spec,result,line)
+
     def kinematic_array(self,state,target,value,line=None):
         """Stage complete independent elements; never publish partial destinations."""
         rt=runtime();source,result=rt.prepare_kinematic_array(target,value,line)

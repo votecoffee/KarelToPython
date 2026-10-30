@@ -1,0 +1,12 @@
+PROGRAM RECORDROUNDTRIP
+TYPE in_t=STRUCTURE value:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] value:POSITION count:INTEGER ENDSTRUCTURE
+VAR original,result:in_t seen:out_t done:BOOLEAN
+ROUTINE roundtrip(value:out_t):in_t
+BEGIN value.count=99 seen=value RETURN value END roundtrip
+BEGIN
+  IF UNINIT(done) THEN
+    original.value=CURJPOS(0,0) original.count=7 original.label='abcdefgh'
+    result=roundtrip(original)
+    done=TRUE
+  ENDIF
+END RECORDROUNDTRIP

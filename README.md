@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.145630**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.151821**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -217,6 +217,9 @@ borrow caller storage. [Source STRUCTURE conversions](docs/record-schema-convers
 also map matching field names across record types, including nested records and
 record ARRAYs, checked numeric/STRING fields and context-free geometry. Receiver
 schemas remain intact and converted arguments stay private.
+[Model-backed record conversions](docs/kinematic-records.md) now extend explicit
+joint/Cartesian models through nested fields and record ARRAYs, with complete
+data preflight and staged output before publication.
 Resource-free aggregate copies now preserve missing scalar fields across
 assignments, private arguments and returns. Reads and geometry still reject
 unavailable components; see [partial aggregate values](docs/partial-aggregate-values.md).

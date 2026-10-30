@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1030.151821 - 2026-10-30
+
+- Extend explicit joint/Cartesian model conversion through compatible user
+  STRUCTURE trees, nested records/ARRAY fields and whole record ARRAYs at source
+  assignment, private ordinary arguments and RETURN boundaries.
+- Preflight declared source schemas, all known data, context-free conversions,
+  complete model operands and proper POSITION matrices before adapter calls.
+  Retain receiver schemas, logical layouts, partial ordinary data and allocation
+  bounds; stage the entire converted output before publication.
+- Run models in receiver field order and row-major ARRAY order using current
+  root-caller group/frame/tool/seed context at each scalar call. Preserve prior
+  explicit host effects on failure, private lifetimes, RETURN cleanup ordering,
+  stable receiver children and sticky ABORT without replay or implicit state updates.
+- Add kinematic_record_policy/provenance reports, 72 authored regressions, four
+  examples, two linked projects and compiler-free runtime coverage. Refresh README,
+  API and remaining-support inventory. Context-free helpers, BYNAME, declared
+  links, raw callback results and GET_VAR/SET_VAR remain exact; native motion,
+  inferred robot context, controller ABI equivalence and strict mode stay excluded.
+
 ## 26.1030.145630 - 2026-10-30
 
 - Convert compatible user STRUCTURE schemas and record ARRAY terminals at

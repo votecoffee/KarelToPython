@@ -110,8 +110,11 @@ they are boundaries rather than promises to accept every such source form later.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries;
   dimension flattening, field-set changes/renaming and resource fields. Context-free
   [STRUCTURE source conversion](record-schema-conversions.md) now maps identical
-  field-name sets recursively, including record ARRAY terminals; model-backed
-  joint/Cartesian changes inside records still require explicit field conversion. Omitted STRING ARRAY
+  field-name sets recursively, including record ARRAY terminals.
+  [Model-backed record conversion](kinematic-records.md) now extends supplied
+  joint/Cartesian models through nested fields and record ARRAYs, with complete
+  data/geometry preflight and staged publication; implicit context and
+  GET_VAR/SET_VAR model inference remain unavailable. Omitted STRING ARRAY
   result capacities now [inherit concrete returned storage](inherited-string-array-results.md);
   malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
