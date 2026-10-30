@@ -1,0 +1,16 @@
+PROGRAM SCHEMAIDENTITY
+TYPE original_t=ARRAY[2]OF INTEGER result_t=ARRAY[2]OF INTEGER
+VAR original:original_t result:result_t done:BOOLEAN
+ROUTINE changed(values:result_t):original_t
+BEGIN
+  values[1]=7
+  RETURN values
+END changed
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=1
+    original[2]=2
+    result=changed(original)
+    done=TRUE
+  ENDIF
+END SCHEMAIDENTITY

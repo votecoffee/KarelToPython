@@ -107,24 +107,24 @@ they are boundaries rather than promises to accept every such source form later.
   values. [Narrow FOR counters](narrow-for.md) now enforce initialized BYTE/SHORT
   domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
-- Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries; flattening,
-  nominal-type coercion and resource fields in structures. Omitted STRING ARRAY
+- Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries;
+  dimension flattening, whole STRUCTURE schema coercion and resource fields. Omitted STRING ARRAY
   result capacities now [inherit concrete returned storage](inherited-string-array-results.md);
   malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
 - Direct joint field/index access, nonzero-axis-discarding joint-width conversions,
-  same-terminal nominal ARRAY retagging and implicit robot-context discovery.
+  and implicit robot-context discovery.
   [Source joint-width conversions](joint-width-conversions.md) now pad zeros or
   narrow zero-only trailing axes into complete private values without robot inference.
   [Joint/Cartesian source routine conversions](kinematic-interfaces.md) now require
   explicit models/adapters and current inverse seeds, using private values.
   [Model-backed ARRAY source conversions](kinematic-arrays.md) now apply these
-  scalar rules to complete anonymous arrays with atomic receiver publication.
+  scalar rules to complete named/anonymous arrays with atomic receiver publication.
   [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
   use private values across POSITION/XYZWPR/XYZWPREXT; BYNAME, linked declarations,
   callback raw return types remain exact.
-  [Anonymous positional ARRAYs](positional-arrays.md) now change Cartesian representation
+  [Positional ARRAYs](positional-arrays.md) now change Cartesian representation
   or checked joint width, including same-rank GET_VAR/SET_VAR prefixes. Individual
   [GET_VAR/SET_VAR positional values](positional-variable-transfers.md) now change
   Cartesian representation or checked joint width without inferring kinematics.
@@ -135,9 +135,12 @@ they are boundaries rather than promises to accept every such source form later.
 - [Numeric ARRAY source conversions](numeric-arrays.md) now support checked
   INTEGER/BYTE/SHORT changes and REAL promotion. [Named/component ARRAY conversions](named-array-conversions.md)
   extend numeric, Cartesian, joint-width and explicit-model source assignments,
-  arguments and RETURN values while preserving receiver schemas. Implicit
-  REAL-to-integral conversion, same-terminal nominal retagging, component
-  repartition, rank changes and generic runtime compatibility changes remain blocked.
+  arguments and RETURN values while preserving receiver schemas.
+  [Source schema conversion](array-schema-conversions.md) now adds same-terminal
+  ARRAY names, bounded STRING capacities and flat/nested layouts with matching
+  logical dimensions, including actual generic receiver schemas. Implicit
+  REAL-to-integral conversion, different record-terminal schemas, rank/dimension
+  changes, equal-count reshape and generic runtime compatibility changes remain blocked.
 - Unbounded/Unicode strings, lengths above 254, implicit numeric-to-BOOLEAN
   truthiness, arbitrary-size INTEGERs, MAXINT as ordinary initialized storage,
   NaN/Infinity and exact native numeric/storage/rounding equivalence. Public

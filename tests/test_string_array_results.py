@@ -116,7 +116,7 @@ class StringArrayReturnTests(unittest.TestCase):
         _, result = compile_program()
         self.assertEqual(result.report['array_returns'][0]['element_spec'], ('STRING', 3))
         self.assertIn('bounded STRING ARRAY function result', result.report['features'])
-        self.assertIn('exact', result.report['array_routine_policy']['string_elements'].lower())
+        self.assertEqual(result.report['array_schema_policy']['guide'],'docs/array-schema-conversions.md')
         self.assertFalse(result.report['array_routine_policy']['controller_validated'])
 
 
@@ -136,19 +136,20 @@ class StringArrayRejectionTests(unittest.TestCase):
     def test_capacity_must_be_a_constant_expression(self):
         self.reject('E_CONSTANT', body='', routines='ROUTINE make: ARRAY OF STRING[n] BEGIN END make')
 
-    def test_return_capacity_mismatch_is_not_truncated(self):
-        self.reject('E_RETURN', body='', routines=FACTORY.replace('VAR p: ARRAY[2] OF STRING[3]', 'VAR p: ARRAY[2] OF STRING[4]'))
+    def test_return_capacity_conversion_checks_source_then_truncates(self):
+        routine=FACTORY.replace('VAR p: ARRAY[2] OF STRING[3]','VAR p: ARRAY[2] OF STRING[4]')
+        p,_=compile_program(routines=routine);self.assertEqual(p.run()['A'],['abc',''])
 
-    def test_destination_capacity_mismatch_is_not_truncated(self):
-        self.reject('E_TYPE', declarations='a: ARRAY[2] OF STRING[4]')
+    def test_destination_capacity_conversion_retains_receiver_schema(self):
+        p,_=compile_program(declarations='a:ARRAY[2]OF STRING[4]');self.assertEqual(p.run()['A'],['abc','']);self.assertEqual(p._state.raw('A').spec[2],('STRING',4))
 
     def test_direct_string_result_assigns_to_array_element(self):
         program,_=compile_program(body='a[1]=make',routines="ROUTINE make: STRING[3] BEGIN RETURN 'abc' END make")
         self.assertEqual(program.run()['A'][0],'abc')
 
-    def test_named_outer_source_still_blocked(self):
-        self.reject('E_ARRAY_RETURN_SOURCE', types='TYPE words_t=ARRAY[2] OF STRING[3]', body='',
-                    routines='ROUTINE make: ARRAY OF STRING[3] VAR p: words_t BEGIN RETURN p END make')
+    def test_named_outer_string_source_returns_owned_anonymous_value(self):
+        routine="ROUTINE make:ARRAY OF STRING[3] VAR p:words_t BEGIN p[1]='abc' RETURN p END make"
+        p,_=compile_program(types='TYPE words_t=ARRAY[2]OF STRING[3]',routines=routine);self.assertEqual(p.run()['A'],['abc',{'uninitialized':True}]);self.assertEqual(len(p._state.raw('A').spec),3)
 
     def test_named_outer_result_type_still_blocked(self):
         self.reject('E_RETURN_TYPE', types=TYPES, body='', routines='ROUTINE make: row_t BEGIN END make', _translator=legacy_translate)
@@ -156,9 +157,10 @@ class StringArrayRejectionTests(unittest.TestCase):
     def test_flat_multidimensional_source_still_blocked(self):
         self.reject('E_RETURN', body='', routines='ROUTINE make: ARRAY OF STRING[3] VAR p: ARRAY[2,2] OF STRING[3] BEGIN RETURN p END make')
 
-    def test_flat_generic_source_is_not_rebuilt_as_named_rows(self):
-        self.reject('E_ARRAY_RETURN_SOURCE', body='', types=TYPES,
-                    routines='ROUTINE make(p: ARRAY[*,*] OF STRING): ARRAY OF row_t BEGIN RETURN p END make')
+    def test_flat_generic_string_source_can_return_named_rows(self):
+        routine='ROUTINE make(p:ARRAY[*,*]OF STRING):ARRAY OF row_t BEGIN RETURN p END make'
+        p,_=compile_program("seed[1,1]='abc' a=make(seed)",types=TYPES,routines=routine,declarations='seed:ARRAY[2,2]OF STRING[4] a:ARRAY[2]OF row_t')
+        self.assertEqual(p.run()['A'][0][0],'abc');self.assertEqual(p._state.raw('A').spec[2][3],'ROW_T')
 
     def test_result_contexts_remain_restricted(self):
         for body in ('a=(make)', 'n=STR_LEN(make)', 'a=make+make', 'IF make THEN n=1 ENDIF'):
@@ -177,19 +179,15 @@ class StringArrayRejectionTests(unittest.TestCase):
 
 
 class StringArrayFailureTests(unittest.TestCase):
-    def test_generic_return_checks_actual_capacity_before_copy(self):
-        routine = COPY.replace('BEGIN RETURN p', 'BEGIN n=9 RETURN p')
-        program, _ = compile_program("a[1]='abc' a[2]='def' b[1]='one' b[2]='two' b=copy(a)", routines=routine,
-                                      declarations='a: ARRAY[2] OF STRING[4] b: ARRAY[2] OF STRING[3] n: INTEGER')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'exact element type'): program.run()
-        self.assertEqual((program.snapshot()['B'], program.snapshot()['N']), (['one', 'two'], 9))
-        self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))
+    def test_generic_return_prepares_declared_capacity_before_copy(self):
+        routine=COPY.replace('BEGIN RETURN p','BEGIN n=9 RETURN p')
+        p,_=compile_program("a[1]='abcd' a[2]='defg' b[1]='one' b[2]='two' b=copy(a)",routines=routine,declarations='a:ARRAY[2]OF STRING[4] b:ARRAY[2]OF STRING[3] n:INTEGER')
+        self.assertEqual((p.run()['B'],p.snapshot()['N']),(['abc','def'],9));self.assertEqual((p._state.call_depth,p._state.local_frames),(0,[]))
 
     def test_generic_destination_retains_actual_capacity(self):
-        routine = FACTORY+'\nROUTINE replace(p: ARRAY OF STRING) BEGIN p=make END replace'
-        program, _ = compile_program("a[1]='one' a[2]='two' replace(a)", routines=routine, declarations='a: ARRAY[2] OF STRING[4]')
-        with self.assertRaises(rt.KarelRuntimeError): program.run()
-        self.assertEqual(program.snapshot()['A'], ['one', 'two'])
+        routine=FACTORY+'\nROUTINE replace(p:ARRAY OF STRING) BEGIN p=make END replace'
+        p,_=compile_program("a[1]='one' a[2]='two' replace(a)",routines=routine,declarations='a:ARRAY[2]OF STRING[4]')
+        self.assertEqual(p.run()['A'],['abc','']);self.assertEqual(p._state.raw('A').spec[2],('STRING',4))
 
     def test_strict_unknown_element_preserves_destination_and_prior_effects(self):
         routine = FACTORY.replace("p[2]=''", 'n=9')
@@ -210,11 +208,9 @@ class StringArrayFailureTests(unittest.TestCase):
         self.assertEqual(program.snapshot()['A'], ['one', 'two'])
         self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))
 
-    def test_named_actual_cannot_escape_via_generic_string_array_formal(self):
-        program, _ = compile_program("a[1]='abc' a[2]='def' b=copy(a)", types='TYPE words_t=ARRAY[2] OF STRING[3]',
-                                      routines=COPY, declarations='a: words_t b: ARRAY[2] OF STRING[3]')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'anonymous outer'): program.run()
-        self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))
+    def test_named_string_actual_returns_owned_anonymous_value(self):
+        p,_=compile_program("a[1]='abc' a[2]='def' b=copy(a)",types='TYPE words_t=ARRAY[2]OF STRING[3]',routines=COPY,declarations='a:words_t b:ARRAY[2]OF STRING[3]')
+        self.assertEqual(p.run()['B'],['abc','def']);self.assertEqual((p._state.call_depth,p._state.local_frames),(0,[]));self.assertEqual(len(p._state.raw('B').spec),3)
 
 
 class StringArrayRuntimeTests(unittest.TestCase):

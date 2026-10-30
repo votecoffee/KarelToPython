@@ -209,9 +209,10 @@ class AggregateAliasTests(unittest.TestCase):
                         declarations='a,b: alias_t', routines='ROUTINE copy: alias_t BEGIN RETURN a END copy')
         self.assertEqual(state['B'], {'X': 7})
 
-    def test_new_array_definition_still_distinct(self):
-        with self.assertRaises(TranslationError):
-            compile_program('b=a', types=self.TYPES+' other_t=ARRAY[2] OF INTEGER', declarations='a: row_chain b: other_t')
+    def test_new_array_definition_stays_distinct_through_schema_copy(self):
+        p,_=compile_program('a[1]=7 b=a b[1]=9',types=self.TYPES+' other_t=ARRAY[2]OF INTEGER',declarations='a:row_chain b:other_t')
+        self.assertEqual((p.run()['A'][0],p.snapshot()['B'][0]),(7,9))
+        self.assertNotEqual(p._state.raw('A').spec[3],p._state.raw('B').spec[3])
 
     def test_new_structure_definition_still_distinct(self):
         with self.assertRaises(TranslationError):

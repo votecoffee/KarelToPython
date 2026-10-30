@@ -137,16 +137,15 @@ class InheritedStringArraySourceTests(unittest.TestCase):
 
 
 class InheritedStringArrayGuardTests(unittest.TestCase):
-    def test_named_outer_storage_cannot_erase_identity(self):
-        routine='ROUTINE make:ARRAY OF STRING VAR p:words_t BEGIN RETURN p END make'
-        with self.assertRaises(TranslationError) as caught:compile_program(body='',routines=routine,types='TYPE words_t=ARRAY[2]OF STRING[3]')
-        self.assertEqual(caught.exception.code,'E_ARRAY_RETURN_SOURCE')
+    def test_named_outer_storage_returns_owned_anonymous_storage(self):
+        routine="ROUTINE make:ARRAY OF STRING VAR p:words_t BEGIN p[1]='abc' RETURN p END make"
+        program,_=compile_program(routines=routine,types='TYPE words_t=ARRAY[2]OF STRING[3]')
+        self.assertEqual(program.run()['A'],['abc',MISSING]);self.assertEqual(len(program._state.raw('A').spec),3)
 
-    def test_named_actual_cannot_escape_through_generic_formal(self):
-        program,_=compile_program('b=copy(a)',routines=COPY,types='TYPE words_t=ARRAY[2]OF STRING[3]',
-            declarations='a:words_t b:ARRAY[2]OF STRING[3]')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'anonymous outer'):program.run()
-        self.assertEqual(program.snapshot()['B'],[MISSING,MISSING]);self.assertEqual(program._state.local_frames,[])
+    def test_named_actual_returns_private_value_through_generic_formal(self):
+        program,_=compile_program("a[1]='abc' b=copy(a)",routines=COPY,types='TYPE words_t=ARRAY[2]OF STRING[3]',declarations='a:words_t b:ARRAY[2]OF STRING[3]')
+        self.assertEqual(program.run()['B'],['abc',MISSING]);self.assertIsNot(program._state.raw('A'),program._state.raw('B'))
+        self.assertEqual(program._state.local_frames,[])
 
     def test_fixed_shape_and_rank_mismatches_remain_static_errors(self):
         for result in ('ARRAY[3]OF STRING','ARRAY[*,*]OF STRING'):
@@ -159,27 +158,24 @@ class InheritedStringArrayGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught:compile_program(body='',routines=routine)
         self.assertEqual(caught.exception.code,'E_RETURN')
 
-    def test_destination_capacity_mismatch_does_not_truncate_or_publish(self):
+    def test_destination_capacity_conversion_preserves_receiver_capacity(self):
         program,_=compile_program("a[1]='keep' a[2]='safe' a=make()",declarations='a:ARRAY[2]OF STRING[4]')
-        with self.assertRaises(rt.KarelRuntimeError):program.run()
-        self.assertEqual(program.snapshot()['A'],['keep','safe']);self.assertEqual(program._state.local_frames,[])
+        self.assertEqual(program.run()['A'],['abc','']);self.assertEqual(program._state.raw('A').spec[2],('STRING',4));self.assertEqual(program._state.local_frames,[])
 
     def test_generic_destination_retains_its_actual_capacity(self):
         routine=FACTORY+' ROUTINE put(p:ARRAY OF STRING) BEGIN n=9 p=make() END put'
         program,_=compile_program("a[1]='keep' a[2]='safe' put(a)",routines=routine,declarations='a:ARRAY[2]OF STRING[4] n:INTEGER')
-        with self.assertRaises(rt.KarelRuntimeError):program.run()
-        self.assertEqual((program.snapshot()['A'],program.snapshot()['N']),(['keep','safe'],9))
+        self.assertEqual((program.run()['A'],program.snapshot()['N']),(['abc',''],9));self.assertEqual(program._state.raw('A').spec[2],('STRING',4))
 
-    def test_forward_to_explicit_bounded_result_checks_actual_capacity(self):
+    def test_forward_to_explicit_bounded_result_uses_declared_capacity(self):
         routine=FACTORY+' ROUTINE forward:ARRAY OF STRING[4] BEGIN n=9 RETURN make() END forward'
         program,_=compile_program("a[1]='keep' a[2]='safe' a=forward()",routines=routine,declarations='a:ARRAY[2]OF STRING[4] n:INTEGER')
-        with self.assertRaises(rt.KarelRuntimeError):program.run()
-        self.assertEqual((program.snapshot()['A'],program.snapshot()['N']),(['keep','safe'],9))
+        self.assertEqual((program.run()['A'],program.snapshot()['N']),(['abc',''],9));self.assertEqual(program._state.raw('A').spec[2],('STRING',4))
 
-    def test_explicit_capacity_return_rejection_is_unchanged(self):
+    def test_explicit_capacity_return_prepares_declared_capacity(self):
         routine=FACTORY.replace('make: ARRAY OF STRING','make: ARRAY OF STRING[4]')
-        with self.assertRaises(TranslationError) as caught:compile_program(body='',routines=routine)
-        self.assertEqual(caught.exception.code,'E_RETURN')
+        program,_=compile_program(routines=routine);self.assertEqual(program.run()['A'],['abc',''])
+        self.assertEqual(program._state.raw('A').spec[2],('STRING',3))
 
     def test_legacy_parser_still_rejects_omitted_string_capacity(self):
         with self.assertRaises(TranslationError) as caught:compile_program(translator=legacy_translate)

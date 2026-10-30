@@ -297,18 +297,22 @@ class NamedModelArrayTests(unittest.TestCase):
 
 
 class NamedArrayBoundaryTests(unittest.TestCase):
-    def test_component_partition_changes_remain_rejected(self):
+    def test_component_partition_changes_keep_logical_dimensions(self):
         for first,second in [('INTEGER','REAL'),('XYZWPR','POSITION'),('JOINTPOS2','POSITION')]:
             prefix=f'TYPE row_t=ARRAY[2]OF {first} source_t=ARRAY[2]OF row_t target_t=ARRAY[2,2]OF {second}'
-            with self.subTest(first=first),self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl='a:source_t b:target_t')
+            with self.subTest(first=first):
+                p,_=compile_program('b=a',prefix=prefix,decl='a:source_t b:target_t',context=model_context((0.,90.)));initialize(p);p.run()
+                self.assertEqual(p._state.values['B'].shape,(2,2));self.assertEqual(len(outputs(p)),4)
 
     def test_shape_and_rank_changes_remain_rejected(self):
         for target in ('ARRAY[3]OF out_row','ARRAY[1,2]OF out_row','ARRAY[2]OF wider_row'):
             prefix=declarations('INTEGER','REAL')+' wider_row=ARRAY[3]OF REAL different_t='+target
             with self.subTest(target=target),self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl='a:in_t b:different_t')
 
-    def test_same_terminal_named_retagging_remains_rejected(self):
-        with self.assertRaises(TranslationError):build(first='INTEGER',second='INTEGER')
+    def test_same_terminal_named_retagging_owns_receiver_schema(self):
+        p,_=build(first='INTEGER',second='INTEGER');initialize(p);p.run()
+        self.assertEqual(outputs(p),[1,2,3,4]);self.assertEqual(p._state.values['B'].spec,p._state.types['B'])
+        self.assertIsNot(p._state.values['A'].values[0],p._state.values['B'].values[0])
 
     def test_generic_checked_value_and_result_helpers_remain_exact(self):
         p,_=build();initialize(p);actual=p._state.values['A'];target=p._state.types['B']

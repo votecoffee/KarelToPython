@@ -11,7 +11,7 @@ tool, group, current state or physical motion.
 | Ordinary source argument | Differing terminal representation creates a private writable converted ARRAY; no copy-back |
 | Source RETURN | Convert before frame/counter cleanup, then return an independent concrete result |
 | GET_VAR/SET_VAR ARRAY | Same-rank row-major prefix conversion; receiver schema, storage identities and unused tail survive |
-| Named/component source ARRAY interface | Private conversion preserves receiver schemas; component dimensions and boundaries must match |
+| Named/component source ARRAY interface | Private conversion preserves receiver schemas and every logical dimension; storage layouts may differ |
 | BYNAME, raw callback result | Existing exact contracts remain |
 
 ## Source assignments and routines
@@ -43,13 +43,15 @@ destination-size checks still belong to the destination reference when its
 compile-time declaration contains wildcard dimensions.
 
 Supported source arrays have one through three logical dimensions and terminal
-Cartesian or JOINTPOS elements. Known dimensions and per-component boundaries
-must match. Anonymous formal/result wildcards inherit checked concrete dimensions;
+Cartesian or JOINTPOS elements. Every logical dimension must match; flat/nested
+component layouts may differ under [schema conversion](array-schema-conversions.md).
+Anonymous formal/result wildcards inherit checked concrete dimensions;
 there is no reshape, resize, ragged data or unknown runtime allocation inference.
 [Named outer arrays and nested components](named-array-conversions.md) convert
 privately into the receiver's schema when their terminal representation changes.
-ARRAY fields in named structures can convert separately; whole STRUCTURE schemas
-and same-terminal nominal retagging retain their existing restrictions.
+ARRAY fields in named structures can convert separately. Same-terminal ARRAY
+names/layouts follow [source schema conversion](array-schema-conversions.md);
+whole STRUCTURE schema coercion remains unavailable.
 
 ## Geometry, completeness and bounds
 

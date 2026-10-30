@@ -237,14 +237,14 @@ class AggregateArrayFailureTests(unittest.TestCase):
         program,_ = compile_program(declarations='a: ARRAY[2] OF item_t')
         self.assert_failure(program,'identical type and size')
 
-    def test_generic_named_array_source_is_guarded_at_runtime(self):
-        routine = 'ROUTINE copy(p: ARRAY OF item_t): ARRAY OF item_t BEGIN RETURN p END copy'
-        program,_ = compile_program(initialize('named[1]')+' a=copy(named)',types=TYPES+'\nitems_t=ARRAY[1] OF item_t',declarations='named: items_t a: ARRAY[1] OF item_t',routines=routine)
-        self.assert_failure(program,'anonymous')
+    def test_generic_named_array_source_returns_owned_record_array(self):
+        routine='ROUTINE copy(p:ARRAY OF item_t):ARRAY OF item_t BEGIN RETURN p END copy'
+        program,_=compile_program(initialize('named[1]')+' a=copy(named)',types=TYPES+'\nitems_t=ARRAY[1]OF item_t',declarations='named:items_t a:ARRAY[1]OF item_t',routines=routine)
+        self.assertEqual(program.run()['A'],[item()]);self.assertIsNot(program._state.raw('A').values[0],program._state.raw('NAMED').values[0])
 
-    def test_named_outer_destination_identity_is_not_erased(self):
-        program,_ = compile_program(types=TYPES+'\nitems_t=ARRAY[1] OF item_t',declarations='a: items_t')
-        self.assert_failure(program,'identical type and size')
+    def test_named_outer_destination_identity_is_retained_on_copy(self):
+        program,_=compile_program(types=TYPES+'\nitems_t=ARRAY[1]OF item_t',declarations='a:items_t')
+        self.assertEqual(program.run()['A'],[item()]);self.assertEqual(program._state.raw('A').spec[3],'ITEMS_T')
 
     def test_strict_unknown_position_orientation_is_not_filled_in(self):
         routine = 'ROUTINE make: ARRAY OF POSITION BEGIN RETURN b END make'

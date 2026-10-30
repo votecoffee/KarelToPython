@@ -200,8 +200,10 @@ class ChainedArrayRejectionTests(unittest.TestCase):
         for expression in ('a[TRUE][1]','a[1][1.0]',"a[1]['2']"):
             self.reject('result='+expression,'E_TYPE')
 
-    def test_named_subarray_nominal_identity_remains_exact(self):
-        self.reject('alien=cube[1][2]','E_TYPE',types='TYPE row_t=ARRAY[2] OF INTEGER plane_t=ARRAY[2] OF row_t cube_t=ARRAY[2] OF plane_t alien_t=ARRAY[2] OF INTEGER',decl='cube:cube_t alien:alien_t')
+    def test_named_subarray_copy_retains_receiver_identity(self):
+        types='TYPE row_t=ARRAY[2]OF INTEGER plane_t=ARRAY[2]OF row_t cube_t=ARRAY[2]OF plane_t alien_t=ARRAY[2]OF INTEGER'
+        p,_=build('cube[1,2,1]=7 alien=cube[1][2]',types=types,decl='cube:cube_t alien:alien_t')
+        self.assertEqual(p.run()['ALIEN'],[7,U]);self.assertEqual(p._state.raw('ALIEN').spec[3],'ALIEN_T')
 
     def test_counter_root_writes_cannot_hide_behind_chain(self):self.reject('FOR a[1][2]=1 TO 2 DO a[2][3]=99 ENDFOR','E_FOR_COUNTER')
 

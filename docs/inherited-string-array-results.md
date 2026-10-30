@@ -43,26 +43,26 @@ are invalid STRING values. Results returned from globals, ordinary array fields,
 generic formals, other ARRAY functions and recursive functions retain their
 concrete capacity and independent storage.
 
-Named outer ARRAY storage cannot be erased into an anonymous result, including
-when passed through a generic reference formal. Named component boundaries,
-nominal types and flat-versus-named representation remain exact. This feature
-does not add omitted STRING capacities to named storage declarations or rebuild
-named arrays from structurally similar anonymous data.
+[Source ARRAY schema conversion](array-schema-conversions.md) can now capture
+named or nested storage into an owned anonymous result with the same logical
+dimensions. It preserves the original source and does not add omitted STRING
+capacities to named declarations. Generic runtime array_result remains exact;
+generated source RETURN prepares the declared output schema first.
 
 ## Using a result
 
 Calls, RETURN forwarding, whole-array assignment, array arguments and result
 subscripts understand the declaration's unknown capacity. After evaluation,
-whole-array destinations and writable formals still validate the actual concrete
-capacity and shape. For example, a result backed by STRING[6] cannot replace an
-ARRAY OF STRING[8] destination by silently widening or truncating its elements.
-A failed assignment preserves the previous destination and already completed
-source effects.
+source boundaries validate concrete source data before applying the receiver's
+capacity under [ARRAY schema rules](array-schema-conversions.md). A STRING[6]
+result may be copied into STRING[8], or right-truncated into STRING[4], without
+changing the source or receiver schema. A failed conversion preserves the prior
+destination and already completed effects.
 
-Explicit `ARRAY OF STRING[6]` result declarations keep their exact-capacity rule.
-Forwarding an inherited result through that declaration succeeds only if its
-actual capacity is 6. Scalar STRING assignment and parameter operations retain
-their existing scalar capacity rules; these do not change the array's capacity.
+Explicit `ARRAY OF STRING[6]` source RETURN declarations now prepare capacity6
+using checked source text and scalar truncation/widening. The inherited result
+itself still keeps its concrete source capacity; downstream conversion is a
+separate source boundary. Generic runtime result/value helpers remain exact.
 Result subscripts support ordinary STRING operations, including STR_LEN, ORD and
 SUB_STR. Writable result arguments refer to private result storage and preserve
 the original source.

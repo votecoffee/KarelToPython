@@ -45,7 +45,10 @@ multidimensional arrays are supported up to logical rank three. Copies validate
 every known scalar leaf and preserve missing/unknown markers; they do not resize
 arrays, erase named identities or truncate corrupt STRING contents. Separate
 [numeric source conversions](numeric-arrays.md) change supported numeric terminals
-without changing this generic copy contract. The limits are
+without changing this generic copy contract. [Source schema conversions](array-schema-conversions.md)
+also prepare receiver ARRAY names, bounded STRING capacity and flat/nested layouts
+with the same logical dimensions, without coercing record terminal schemas.
+The limits are
 32767 scalar leaves and 64 schema levels; see
 [partial aggregate values](partial-aggregate-values.md).
 
@@ -88,14 +91,14 @@ CONFIG field passing rules and conversion argument restrictions remain.
 ## Remaining boundaries and reports
 
 ARRAY function declarations support prior named types and anonymous fixed,
-wildcard or mixed dimensions up to logical rank three. Named results require
-exact nominal types; anonymous declarations require anonymous outer storage.
-Named inner components retain exact identity and shape. Passing a named array
-through a generic parameter preserves its identity; it does not turn it into
-anonymous outer storage. See [ARRAY result shapes](array-result-shapes.md).
+wildcard or mixed dimensions up to logical rank three. Source RETURN now prepares
+the declared output names/layout through [schema conversion](array-schema-conversions.md);
+generic parameters and named subarrays may supply independent anonymous results.
+Ordinary compatible arguments still borrow caller storage. See
+[ARRAY result shapes](array-result-shapes.md).
 An anonymous `ARRAY OF STRING` result may omit the element capacity: it inherits
-the returned storage's concrete checked capacity, keeps it in the private copy,
-and still requires compatible actual capacities at downstream array boundaries.
+concrete checked source capacity and keeps it in the private result. Downstream
+source boundaries may convert capacity independently after source validation.
 See [inherited STRING-array results](inherited-string-array-results.md).
 
 Arrays are not scalar arithmetic operands, Booleans, SELECT selectors or WRITE

@@ -155,17 +155,14 @@ class SubarrayReferenceTests(unittest.TestCase):
     def test_generic_copy_same_concrete_nested_type(self):
         routine = 'ROUTINE copy(p,q: ARRAY[*,*] OF INTEGER) BEGIN p=q END copy'
         self.assertEqual(execute('other_plane[1,1]=7 copy(plane,other_plane)', routines=routine)['PLANE'][0][0], 7)
-    def test_generic_copy_mixed_flat_nested_representation_fails(self):
-        routine = 'ROUTINE copy(p,q: ARRAY[*,*] OF INTEGER) BEGIN p=q END copy'
-        program, _ = compile_program('plane[1,1]=1 flat[1,1]=7 copy(plane,flat)', declarations='plane: plane_t\nflat: ARRAY[2,2] OF INTEGER', routines=routine)
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
-        self.assertEqual(program._state.snapshot()['PLANE'][0][0], 1)
-    def test_generic_copy_distinct_nested_names_fails(self):
-        types = TYPES + '\nalien_t=ARRAY[2] OF row_t'
-        routine = 'ROUTINE copy(p,q: ARRAY[*,*] OF INTEGER) BEGIN p=q END copy'
-        program, _ = compile_program('plane[1,1]=1 alien[1,1]=7 copy(plane,alien)', types=types, declarations='plane: plane_t\nalien: alien_t', routines=routine)
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
-        self.assertEqual(program._state.snapshot()['PLANE'][0][0], 1)
+    def test_generic_copy_mixed_flat_nested_layout_retains_receiver_schema(self):
+        routine='ROUTINE copy(p,q:ARRAY[*,*]OF INTEGER) BEGIN p=q END copy'
+        p,_=compile_program('plane[1,1]=1 flat[1,1]=7 copy(plane,flat)',declarations='plane:plane_t flat:ARRAY[2,2]OF INTEGER',routines=routine)
+        self.assertEqual(p.run()['PLANE'][0][0],7);self.assertEqual(p._state.raw('PLANE').spec[3],'PLANE_T')
+    def test_generic_copy_distinct_nested_names_retains_receiver_schema(self):
+        types=TYPES+'\nalien_t=ARRAY[2]OF row_t';routine='ROUTINE copy(p,q:ARRAY[*,*]OF INTEGER) BEGIN p=q END copy'
+        p,_=compile_program('plane[1,1]=1 alien[1,1]=7 copy(plane,alien)',types=types,declarations='plane:plane_t alien:alien_t',routines=routine)
+        self.assertEqual(p.run()['PLANE'][0][0],7);self.assertEqual(p._state.raw('PLANE').spec[3],'PLANE_T')
     def test_generic_copy_known_named_global(self):
         routine = 'ROUTINE copy(p: ARRAY[*,*] OF INTEGER) BEGIN p=other_plane END copy'
         self.assertEqual(execute('other_plane[1,1]=7 copy(plane)', routines=routine)['PLANE'][0][0], 7)
@@ -203,9 +200,15 @@ class SubarrayRejectionTests(unittest.TestCase):
     def test_four_logical_dimensions_in_variable_blocked(self): self.rejected(declarations='a: ARRAY[2] OF cube_t', code='E_ARRAY_RANK')
     def test_four_logical_dimensions_in_formal_blocked(self): self.rejected(routines='ROUTINE work(p: ARRAY[*,*] OF plane_t) BEGIN END work', code='E_ARRAY_RANK')
     def test_nested_leaf_capacity_guard(self): self.rejected(types='TYPE row_t=ARRAY[200] OF INTEGER\nplane_t=ARRAY[200] OF row_t', declarations='a: plane_t', code='E_ARRAY_CAPACITY')
-    def test_named_row_type_mismatch(self): self.rejected('alien=plane[1]', types=TYPES+'\nalien_t=ARRAY[2] OF INTEGER', declarations='alien: alien_t\nplane: plane_t')
-    def test_named_component_formal_mismatch(self): self.rejected('work(plane)', types=TYPES+'\nalien_t=ARRAY[2] OF INTEGER', routines='ROUTINE work(p: ARRAY OF alien_t) BEGIN END work')
-    def test_whole_copy_between_formals_with_distinct_named_components(self): self.rejected(types=TYPES+'\nalien_t=ARRAY[2] OF INTEGER', routines='ROUTINE copy(p: ARRAY OF row_t; q: ARRAY OF alien_t) BEGIN p=q END copy')
+    def test_named_row_copy_uses_receiver_identity(self):
+        p,_=compile_program('plane[1,1]=7 alien=plane[1]',types=TYPES+'\nalien_t=ARRAY[2]OF INTEGER',declarations='alien:alien_t plane:plane_t')
+        self.assertEqual(p.run()['ALIEN'],[7,U]);self.assertEqual(p._state.raw('ALIEN').spec[3],'ALIEN_T')
+    def test_named_component_formal_receives_private_copy(self):
+        p,_=compile_program('plane[1,1]=7 work(plane)',types=TYPES+'\nalien_t=ARRAY[2]OF INTEGER',routines='ROUTINE work(p:ARRAY OF alien_t) BEGIN p[1,1]=9 END work')
+        self.assertEqual(p.run()['PLANE'][0][0],7)
+    def test_whole_copy_between_formals_keeps_destination_components(self):
+        p,_=compile_program('plane[1,1]=7 copy(plane,alien)',types=TYPES+'\nalien_t=ARRAY[2]OF INTEGER',declarations='plane:plane_t alien:ARRAY[2]OF alien_t',routines='ROUTINE copy(p:ARRAY OF row_t;q:ARRAY OF alien_t) BEGIN p=q END copy')
+        self.assertEqual(p.run()['PLANE'],[[U,U],[U,U]]);self.assertEqual(p._state.raw('PLANE').spec[2][3],'ROW_T')
     def test_flat_generic_rank_mismatch(self): self.rejected('work(cube)', routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN END work')
     def test_flat_generic_does_not_expose_unproven_boundary(self): self.rejected(routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN row=p[1] END work', code='E_ARRAY_RANK')
     def test_complete_chained_subscripts_retain_named_array_storage(self):

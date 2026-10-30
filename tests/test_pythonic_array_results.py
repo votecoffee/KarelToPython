@@ -247,14 +247,17 @@ class ResultFailureTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: translate(source)
         self.assertEqual(caught.exception.code,'E_TYPE')
 
-    def test_wrong_named_result_type_rejected(self):
-        self.reject('E_RETURN',result='row_t',storage='other_t',types='TYPE row_t=ARRAY[2] OF INTEGER other_t=ARRAY[2] OF INTEGER')
+    def test_distinct_named_result_owns_declared_identity(self):
+        p,_=compile_program(result='row_t',storage='other_t',types='TYPE row_t=ARRAY[2]OF INTEGER other_t=ARRAY[2]OF INTEGER',declarations='target:row_t')
+        self.assertEqual(p.run()['TARGET'],[1,2]);self.assertEqual(p._state.raw('TARGET').spec[3],'ROW_T')
 
-    def test_anonymous_storage_cannot_satisfy_named_result_statically(self):
-        self.reject('E_RETURN',result='row_t',types='TYPE row_t=ARRAY[2] OF INTEGER')
+    def test_anonymous_storage_is_captured_in_declared_named_result(self):
+        p,_=compile_program(result='row_t',types='TYPE row_t=ARRAY[2]OF INTEGER');self.assertEqual(p.run()['TARGET'],[1,2])
+        self.assertEqual(len(p._state.raw('TARGET').spec),3)
 
-    def test_named_storage_cannot_lose_identity_in_anonymous_result(self):
-        self.reject('E_ARRAY_RETURN_SOURCE',result='ARRAY[*] OF INTEGER',storage='row_t',types='TYPE row_t=ARRAY[2] OF INTEGER')
+    def test_named_storage_returns_independent_anonymous_result(self):
+        p,_=compile_program(result='ARRAY[*]OF INTEGER',storage='row_t',types='TYPE row_t=ARRAY[2]OF INTEGER')
+        self.assertEqual(p.run()['TARGET'],[1,2]);self.assertEqual(len(p._state.raw('TARGET').spec),3)
 
     def test_known_fixed_shape_mismatch_rejected(self):
         self.reject('E_RETURN',result='ARRAY[3] OF INTEGER')
@@ -262,8 +265,9 @@ class ResultFailureTests(unittest.TestCase):
     def test_known_rank_mismatch_rejected(self):
         self.reject('E_RETURN',result='ARRAY[*,*] OF INTEGER')
 
-    def test_flat_source_cannot_be_reinterpreted_as_named_components(self):
-        self.reject('E_ARRAY_RETURN_SOURCE',result='ARRAY[*] OF row_t',storage='ARRAY[2,2] OF INTEGER',types='TYPE row_t=ARRAY[2] OF INTEGER',fill='')
+    def test_flat_source_is_captured_in_declared_named_components(self):
+        p,_=compile_program(result='ARRAY[*]OF row_t',storage='ARRAY[2,2]OF INTEGER',types='TYPE row_t=ARRAY[2]OF INTEGER',fill='data[1,1]=7',declarations='target:ARRAY[2]OF row_t')
+        self.assertEqual(p.run()['TARGET'][0][0],7);self.assertEqual(p._state.raw('TARGET').spec[2][3],'ROW_T')
 
     def test_undefined_named_result_type(self):
         self.reject('E_TYPE',result='missing_t')
@@ -278,16 +282,14 @@ class ResultFailureTests(unittest.TestCase):
         routines='ROUTINE copy(p: ARRAY[*,*] OF INTEGER): ARRAY[2,2] OF INTEGER BEGIN n=7 RETURN p END copy'
         fill=MATRIX_FILL.replace('data','source')
         program,_=compile_program(fill+' target[1,1]=42 target=copy(source)',routines=routines,declarations='source: ARRAY[2,3] OF INTEGER target: ARRAY[2,2] OF INTEGER')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'matching concrete shape'): program.run()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'matching logical dimensions'): program.run()
         self.assertEqual((program.snapshot()['TARGET'][0][0],program.snapshot()['N']),(42,7))
         self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
 
-    def test_generic_named_mismatch_is_checked_before_destination(self):
-        routines='ROUTINE copy(p: ARRAY OF INTEGER): row_t BEGIN RETURN p END copy'
-        program,_=compile_program('source[1]=1 source[2]=2 target[1]=42 target=copy(source)',routines=routines,types='TYPE row_t=ARRAY[2] OF INTEGER',declarations='source: ARRAY[2] OF INTEGER target: row_t')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'identical named ARRAY'): program.run()
-        self.assertEqual(program.snapshot()['TARGET'],[42,UNKNOWN])
-        self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
+    def test_generic_named_result_copy_preserves_receiver_schema(self):
+        routines='ROUTINE copy(p:ARRAY OF INTEGER):row_t BEGIN RETURN p END copy'
+        p,_=compile_program('source[1]=1 source[2]=2 target[1]=42 target=copy(source)',routines=routines,types='TYPE row_t=ARRAY[2]OF INTEGER',declarations='source:ARRAY[2]OF INTEGER target:row_t')
+        self.assertEqual(p.run()['TARGET'],[1,2]);self.assertEqual(p._state.raw('TARGET').spec[3],'ROW_T');self.assertEqual((p._state.local_frames,p._state.call_depth),([],0))
 
     def test_partial_matrix_result_preserves_unknown_and_unwinds(self):
         program,_=compile_program(result='ARRAY[*,*] OF INTEGER',storage='ARRAY[1,2] OF INTEGER',fill='data[1,1]=1',declarations='target: ARRAY[1,2] OF INTEGER')

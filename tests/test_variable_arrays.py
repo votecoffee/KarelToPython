@@ -111,7 +111,7 @@ class VariableArrayExecutionTests(unittest.TestCase):
     def test_generic_copy_mismatched_shapes_guarded_before_write(self):
         routine = 'ROUTINE copy(p,q: ARRAY OF INTEGER) BEGIN p=q END copy'
         program, _ = compile_program('a[1]=7 b[1]=9 copy(a,b)', declarations='a,b: ARRAY[*] OF INTEGER', routines=routine, shapes={'a':[2],'b':[3]})
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'matching logical dimensions'): program.run()
         self.assertEqual(program.snapshot()['A'], [7,UNKNOWN])
 
     def test_labelled_and_structured_execution_match(self):

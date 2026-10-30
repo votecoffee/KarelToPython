@@ -38,16 +38,15 @@ existing ARRAY/record children under the ordinary stable-reference contract.
 
 ## Shapes and named components
 
-Matching shapes are checked at every declared ARRAY component boundary, through
-one to three total logical dimensions. Fixed dimensions must match; anonymous
-outer formal/result wildcards inherit concrete dimensions. Named components
-remain concrete. Receiver allocation stays within the existing 32767-leaf bound.
+Shapes now match by every logical dimension through one to three axes.
+Anonymous outer formal/result wildcards inherit concrete dimensions; named
+components remain concrete. The existing 32767-leaf bound remains.
 
-A flat ARRAY[2,2] and ARRAY[2] OF named_row have different component partitions.
-Conversion does not flatten, reshape or repartition them, even if their total
-element counts match. Nested components can have different nominal names only
-when the terminal type changes under a listed conversion. Same-terminal nominal
-retagging and whole STRUCTURE schema coercion remain unavailable.
+[Source schema conversion](array-schema-conversions.md) also supports same-terminal
+ARRAY names, bounded STRING capacities and rebuilding a flat ARRAY[2,2] as two
+named rows of length two. It preserves logical coordinates and receiver schemas;
+equal element counts alone do not permit reshape or dimension changes.
+Whole STRUCTURE schema coercion remains unavailable.
 
 A numeric ARRAY field within a STRUCTURE can convert separately. This does not
 convert the surrounding STRUCTURE or grant writes to POSITION orientation fields.
@@ -84,7 +83,8 @@ Linked declarations and definitions still agree exactly. Ordinary callers may
 convert actual data privately into that declared interface. Raw external callback
 results must first match their declared result schema. BYNAME and generic runtime
 checked/value/result helpers retain their exact contracts; this feature does not
-add automatic conversions to those APIs or to GET_VAR/SET_VAR.
+add automatic conversions to those APIs or to GET_VAR/SET_VAR. Generic source
+assignments and owned result schemas follow [ARRAY schema conversion](array-schema-conversions.md).
 
 Context JSON preserves concrete receiver types, component names, values and
 missing markers. It omits temporary routine cells, handlers, timer claims and

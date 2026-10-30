@@ -157,31 +157,30 @@ class NamedArrayReferenceTests(unittest.TestCase):
         routine = 'ROUTINE copy(p,q: ARRAY OF INTEGER) BEGIN p=q END copy'
         self.assertEqual(execute('b[1]=7 copy(a,b)', routines=routine)['A'][0], 7)
 
-    def test_generic_different_named_copy_rejected_before_destination_write(self):
-        types = 'TYPE row_t=ARRAY[2] OF INTEGER\nother_t=ARRAY[2] OF INTEGER'
-        routine = 'ROUTINE copy(p,q: ARRAY OF INTEGER) BEGIN p=q END copy'
-        program, _ = compile_program('a[1]=1 b[1]=7 copy(a,b)', types=types, declarations='a: row_t\nb: other_t', routines=routine)
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
-        self.assertEqual(program._state.snapshot()['A'], [1, {'uninitialized': True}])
-        self.assertEqual((program._state.local_frames, program._state.call_depth), ([], 0))
+    def test_generic_different_named_copy_preserves_receiver_schema(self):
+        types='TYPE row_t=ARRAY[2]OF INTEGER other_t=ARRAY[2]OF INTEGER'
+        routine='ROUTINE copy(p,q:ARRAY OF INTEGER) BEGIN p=q END copy'
+        program,_=compile_program('a[1]=1 b[1]=7 copy(a,b)',types=types,declarations='a:row_t b:other_t',routines=routine)
+        self.assertEqual(program.run()['A'],[7,{'uninitialized':True}])
+        self.assertEqual((program._state.raw('A').spec[3],program._state.raw('B').spec[3]),('ROW_T','OTHER_T'))
+        self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
 
-    def test_generic_named_and_anonymous_copy_rejected(self):
-        routine = 'ROUTINE copy(p,q: ARRAY OF INTEGER) BEGIN p=q END copy'
-        for declarations in ('a: row_t\nb: ARRAY[2] OF INTEGER', 'a: ARRAY[2] OF INTEGER\nb: row_t'):
-            program, _ = compile_program('a[1]=1 b[1]=7 copy(a,b)', declarations=declarations, routines=routine)
-            with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
-            self.assertEqual(program._state.snapshot()['A'][0], 1)
+    def test_generic_named_and_anonymous_copy_uses_actual_receiver_schema(self):
+        routine='ROUTINE copy(p,q:ARRAY OF INTEGER) BEGIN p=q END copy'
+        for declarations in ('a:row_t b:ARRAY[2]OF INTEGER','a:ARRAY[2]OF INTEGER b:row_t'):
+            program,_=compile_program('a[1]=1 b[1]=7 copy(a,b)',declarations=declarations,routines=routine)
+            before=program._state.raw('A').spec
+            self.assertEqual(program.run()['A'][0],7);self.assertEqual(program._state.raw('A').spec,before)
 
     def test_generic_copy_from_known_same_named_global(self):
         routine = 'ROUTINE copy(p: ARRAY OF INTEGER) BEGIN p=b END copy'
         self.assertEqual(execute('b[1]=7 copy(a)', routines=routine)['A'][0], 7)
 
-    def test_generic_copy_from_known_different_named_global_fails(self):
-        types = 'TYPE row_t=ARRAY[2] OF INTEGER\nother_t=ARRAY[2] OF INTEGER'
-        routine = 'ROUTINE copy(p: ARRAY OF INTEGER) BEGIN p=b END copy'
-        program, _ = compile_program('a[1]=1 b[1]=7 copy(a)', types=types, declarations='a: row_t\nb: other_t', routines=routine)
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
-        self.assertEqual(program._state.snapshot()['A'][0], 1)
+    def test_generic_copy_from_known_different_named_global_is_detached(self):
+        types='TYPE row_t=ARRAY[2]OF INTEGER other_t=ARRAY[2]OF INTEGER'
+        routine='ROUTINE copy(p:ARRAY OF INTEGER) BEGIN p=b p[1]=9 END copy'
+        program,_=compile_program('a[1]=1 b[1]=7 copy(a)',types=types,declarations='a:row_t b:other_t',routines=routine)
+        self.assertEqual((program.run()['A'][0],program.snapshot()['B'][0]),(9,7))
 
     def test_generic_string_capacity_is_inherited(self):
         routine = "ROUTINE fill(p: ARRAY OF STRING) BEGIN p[1]='abcdef' END fill"
@@ -228,20 +227,26 @@ class NamedArrayRejectionTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body, **kwargs)
         self.assertEqual(caught.exception.code, code, str(caught.exception))
 
-    def test_identically_declared_distinct_names_cannot_copy(self):
-        self.rejected('a=b', types='TYPE row_t=ARRAY[2] OF INTEGER\nother_t=ARRAY[2] OF INTEGER', declarations='a: row_t\nb: other_t')
-    def test_named_and_anonymous_arrays_cannot_copy(self):
-        self.rejected('a=b', declarations='a: row_t\nb: ARRAY[2] OF INTEGER')
-        self.rejected('b=a', declarations='a: row_t\nb: ARRAY[2] OF INTEGER')
-    def test_distinct_named_formal_rejected(self):
-        self.rejected('work(b)', types='TYPE row_t=ARRAY[2] OF INTEGER\nother_t=ARRAY[2] OF INTEGER', declarations='b: other_t', routines='ROUTINE work(p: row_t) BEGIN END work')
-    def test_anonymous_actual_to_named_formal_rejected(self):
-        self.rejected('work(a)', declarations='a: ARRAY[2] OF INTEGER', routines='ROUTINE work(p: row_t) BEGIN END work')
+    def test_identically_declared_distinct_names_copy_into_receiver_identity(self):
+        options=dict(types='TYPE row_t=ARRAY[2]OF INTEGER other_t=ARRAY[2]OF INTEGER',declarations='a:row_t b:other_t')
+        program,_=compile_program('b[1]=7 a=b b[1]=9',**options)
+        self.assertEqual((program.run()['A'][0],program.snapshot()['B'][0]),(7,9));self.assertEqual(program._state.raw('A').spec[3],'ROW_T')
+        self.rejected('a=b',_translator=legacy_translate,**options)
+    def test_named_and_anonymous_arrays_copy_both_directions(self):
+        for body in ('b[1]=7 a=b','a[1]=7 b=a'):
+            program,_=compile_program(body,declarations='a:row_t b:ARRAY[2]OF INTEGER')
+            self.assertEqual((program.run()['A'][0],program.snapshot()['B'][0]),(7,7))
+            self.assertEqual(program._state.raw('A').spec[3],'ROW_T');self.assertEqual(len(program._state.raw('B').spec),3)
+    def test_distinct_named_formal_receives_private_schema_copy(self):
+        state=execute('b[1]=7 work(b)',types='TYPE row_t=ARRAY[2]OF INTEGER other_t=ARRAY[2]OF INTEGER',declarations='b:other_t',routines='ROUTINE work(p:row_t) BEGIN p[1]=9 END work')
+        self.assertEqual(state['B'][0],7)
+    def test_anonymous_actual_to_named_formal_is_private(self):
+        self.assertEqual(execute('a[1]=7 work(a)',declarations='a:ARRAY[2]OF INTEGER',routines='ROUTINE work(p:row_t) BEGIN p[1]=9 END work')['A'][0],7)
     def test_parenthesized_named_array_value_rejected(self):
         self.rejected('work((a))', code='E_ARRAY_VALUE', routines='ROUTINE work(p: row_t) BEGIN END work', _translator=legacy_translate)
-    def test_generic_forwarding_to_named_formal_remains_blocked(self):
-        routines = 'ROUTINE named(p: row_t) BEGIN END named\nROUTINE generic(p: ARRAY OF INTEGER) BEGIN named(p) END generic'
-        self.rejected('generic(a)', routines=routines)
+    def test_generic_forwarding_to_named_formal_uses_private_checked_value(self):
+        routines='ROUTINE named(p:row_t) BEGIN p[1]=9 x=p[1] END named ROUTINE generic(p:ARRAY OF INTEGER) BEGIN named(p) END generic'
+        state=execute('a[1]=7 generic(a)',routines=routines);self.assertEqual((state['A'][0],state['X']),(7,9))
     def test_generic_rank_mismatch(self):
         self.rejected('work(a)', routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN END work')
     def test_named_array_len_rank_guard(self):

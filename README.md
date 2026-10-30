@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.131923**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.141231**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -209,8 +209,11 @@ See the [ARRAY values guide](docs/pythonic-arrays.md) for ownership and limits.
 and REAL promotion across assignment, private arguments and RETURN, preserving
 missing data and shape. [Named and component ARRAY conversions](docs/named-array-conversions.md)
 now extend numeric, Cartesian, joint-width and explicit-model changes to named
-outer types and matching nested components, retaining private arguments and
-receiver schemas.
+outer types and nested components, retaining private arguments and receiver
+schemas. [Source ARRAY schema conversions](docs/array-schema-conversions.md)
+also support same-element named copies, bounded STRING capacities and flat/nested
+layouts with matching logical dimensions; compatible generic arguments still
+borrow caller storage.
 Resource-free aggregate copies now preserve missing scalar fields across
 assignments, private arguments and returns. Reads and geometry still reject
 unavailable components; see [partial aggregate values](docs/partial-aggregate-values.md).

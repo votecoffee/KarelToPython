@@ -45,11 +45,12 @@ nor rolled back. A model's failure to solve a point is not proof of geometric
 impossibility.
 
 Supported source declarations have one through three logical dimensions and
-terminal joint/Cartesian values. Dimensions and declared component boundaries
-must match; anonymous formal/result wildcards inherit concrete input dimensions.
+terminal joint/Cartesian values. Every logical dimension must match, while
+[source schema conversion](array-schema-conversions.md) may rebuild flat/nested
+component layouts. Anonymous formal/result wildcards inherit concrete dimensions.
 [Named ARRAY types and matching nested components](named-array-conversions.md)
-now convert into independent receiver schemas. No reshape, component flattening
-or inferred allocation is added. Whole STRUCTURE schemas, BYNAME, linked
+now convert into independent receiver schemas. No axis reshape, dimension
+flattening or inferred allocation is added. Whole STRUCTURE schemas, BYNAME, linked
 declaration/definition signatures and raw callback results retain exact contracts.
 
 ## Explicit context at each element

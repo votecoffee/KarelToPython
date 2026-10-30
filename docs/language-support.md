@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1030.131923. Acceptance is specific to
+This is the supported prototype subset as of 26.1030.141231. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -24,9 +24,9 @@ internally and in the historical semantic notes.
 | Trig | General degree SIN/COS/TAN/ASIN/ACOS and ATAN2 | Inverse/domain checks remain. ATAN2 uses KAREL `(x,y)` order, all quadrants and Python -180..180 degree output. |
 | STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison, clipped SUB_STR and INDEX including empty searches | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. SUB_STR returns at most 254; positive start and nonnegative count. |
 | BYTE/SHORT | Aggregate and standalone storage, TYPE aliases, exact references, checked private numeric arguments and initialized routine results | BYTE 0..255, SHORT -32768..32766; initial BYTE is unknown and its UNINIT is blocked. SHORT 32767 means uninitialized; [narrow counters](narrow-for.md) restore BYTE unknown and SHORT missing state on exit. [Dynamic narrow creation](dynamic-narrow.md) retains exact types and initialization markers. See [scalar narrow integers](scalar-narrow.md). |
-| Arrays | One-based fixed/named arrays up to logical rank three, complete [chained subscripts](chained-array-indexes.md), exact whole copies, reference/value arguments and named subarrays | Copies preserve missing markers with 32767 scalar leaves and 64 schema levels; nominal identity, exact shape and known scalar validation remain. [Numeric conversions](numeric-arrays.md) add checked integral narrowing and REAL promotion; [named/component conversions](named-array-conversions.md) preserve receiver schemas at source assignment/argument/RETURN boundaries. |
+| Arrays | One-based fixed/named arrays up to logical rank three, complete [chained subscripts](chained-array-indexes.md), exact whole copies, reference/value arguments and named subarrays | Copies preserve missing markers with 32767 scalar leaves and 64 schema levels; receiver schema, logical shape and known scalar validation remain. [Numeric conversions](numeric-arrays.md) add checked integral narrowing and REAL promotion; [named/component conversions](named-array-conversions.md) preserve receiver schemas at source assignment/argument/RETURN boundaries. [Schema conversions](array-schema-conversions.md) add same-terminal names, STRING capacities and compatible flat/nested layouts. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
-| ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded or inherited-capacity STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Missing markers preserved and known leaves validated; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. Omitted STRING result capacity inherits concrete returned storage; no resize or flattening. |
+| ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded or inherited-capacity STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Missing markers preserved and known leaves validated; declared output names/layout and bounded/inherited STRING capacities; logical rank up to three. Source RETURN prepares its independent output schema. Omitted STRING result capacity inherits concrete returned storage; no resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal identity, known scalar/capacity checks and missing-marker preservation; no ABI claim. |
 | Predefined structures | DISP_DAT_T SHORT fields/fixed arrays, portable COL_DESC_T/XWORK_T and STD_PTH_NODE NODE_POS; aliases, arrays, fields, routine interfaces and CREATE_VAR | Existing nominal STRUCTURE schemas and initialization/copy/output guards; no obsolete association fields, native UI execution or ABI claim. |
 | TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases or local TYPE; aliases preserve scalar/aggregate storage domains. |
@@ -216,20 +216,21 @@ declared type and fixed shape. See the complete authored
 
 Results can use omitted, fixed, wildcard or mixed outer dimensions and matching
 flat comma-dimension storage. Named outer result types, including transparent
-aliases, require the original nominal identity. Inline `ARRAY OF ARRAY` and
-unspecified STRING result-element capacities remain blocked. A named subarray
-cannot be returned as an anonymous outer array without a supported terminal
-conversion under [named/component ARRAY rules](named-array-conversions.md). Named STRUCTURE elements may
+aliases, retain the declared output identity after checked source conversion.
+Inline `ARRAY OF ARRAY` remains blocked. Selected named subarrays may return as
+independent anonymous values under [source schema rules](array-schema-conversions.md).
+Omitted direct anonymous STRING result capacities inherit concrete source data.
+Named STRUCTURE elements may
 contain supported STRING fields and named arrays under the existing recursive
 copy rules.
 
-For STRING elements, use `ROUTINE make: ARRAY OF STRING[4]` and return an anonymous
-array whose elements have that same physical capacity. The capacity is a constant
-in 1..254. Prior named rows or planes containing bounded STRING elements also
-work. An `ARRAY OF STRING` reference formal retains its caller's capacity; RETURN
-checks that concrete capacity against the declared result. The result never
-infers a capacity or truncates elements to reconcile a mismatch. Ordinary writes
-to source storage still apply the existing right-truncation rule.
+For STRING elements, `ROUTINE make: ARRAY OF STRING[4]` prepares capacity4
+after validating the actual source capacity and ASCII contents. Explicit source
+conversion may widen or right-truncate values into bounded capacities in 1..254.
+Prior named rows/planes remain supported. An `ARRAY OF STRING` reference formal
+retains caller capacity; assignment through that generic receiver uses its
+actual schema. An omitted anonymous result capacity inherits concrete source
+capacity before any separate downstream conversion.
 
 Empty initialized elements are valid; missing markers are preserved. Known
 non-ASCII or malformed oversized host values fail before result assignment. See the authored

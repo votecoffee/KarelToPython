@@ -320,12 +320,10 @@ class ArrayFailureTests(unittest.TestCase):
         self.assertEqual((state['N'],state['X'],state['FLAG']),(1,99,True))
         self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
 
-    def test_forwarded_string_capacity_mismatch_still_fails(self):
-        routine='ROUTINE copy(p: ARRAY OF STRING): ARRAY OF STRING[3] BEGIN RETURN p END copy'
-        program,_=compile_program("words[1]='a' output[1]='old' output=copy((words))",routine,
-                                  declarations=DECLARATIONS+' words: ARRAY[1] OF STRING[4] output: ARRAY[1] OF STRING[3]')
-        with self.assertRaises(rt.KarelRuntimeError): program.run()
-        self.assertEqual((program.snapshot()['WORDS'],program.snapshot()['OUTPUT']),(['a'],['old']))
+    def test_forwarded_string_capacity_conversion_owns_bounded_result(self):
+        routine='ROUTINE copy(p:ARRAY OF STRING):ARRAY OF STRING[3] BEGIN RETURN p END copy'
+        p,_=compile_program("words[1]='abcd' output[1]='old' output=copy((words))",routine,declarations=DECLARATIONS+' words:ARRAY[1]OF STRING[4] output:ARRAY[1]OF STRING[3]')
+        self.assertEqual((p.run()['WORDS'],p.snapshot()['OUTPUT']),(['abcd'],['abc']))
 
     def test_copy_depth_limit_cleans_up(self):
         routine='ROUTINE recurse(p: ARRAY OF INTEGER) BEGIN recurse((p)) END recurse'
@@ -343,19 +341,15 @@ class ArrayFailureTests(unittest.TestCase):
         values=execute(INITIALIZE+'use((a))',routine)
         self.assertEqual((values['A'],values['X']),([1,2,3],2))
 
-    def test_nominal_type_mismatch_remains_blocked(self):
-        routine='ROUTINE use(p: row_t) BEGIN END use'
-        with self.assertRaises(TranslationError) as caught:
-            compile_program('use((other))',routine,types='TYPE row_t=ARRAY[2] OF INTEGER other_t=ARRAY[2] OF INTEGER',declarations=DECLARATIONS+' other: other_t')
-        self.assertEqual(caught.exception.code,'E_TYPE')
+    def test_nominal_value_argument_is_checked_and_private(self):
+        routine='ROUTINE use(p:row_t) BEGIN p[1]=9 END use'
+        p,_=compile_program('other[1]=7 use((other))',routine,types='TYPE row_t=ARRAY[2]OF INTEGER other_t=ARRAY[2]OF INTEGER',declarations=DECLARATIONS+' other:other_t')
+        self.assertEqual(p.run()['OTHER'][0],7)
 
-    def test_generic_value_parameter_does_not_erase_named_return_identity(self):
-        routine='ROUTINE copy(p: ARRAY OF INTEGER): ARRAY OF INTEGER BEGIN RETURN p END copy'
-        program,_=compile_program('row[1]=1 row[2]=2 output[1]=42 output=copy((row))',routine,
-            types='TYPE row_t=ARRAY[2] OF INTEGER',declarations=DECLARATIONS+' row: row_t output: ARRAY[2] OF INTEGER')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'anonymous outer storage'): program.run()
-        self.assertEqual((program.snapshot()['ROW'],program.snapshot()['OUTPUT']),([1,2],[42,UNKNOWN]))
-        self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
+    def test_generic_value_parameter_returns_independent_anonymous_value(self):
+        routine='ROUTINE copy(p:ARRAY OF INTEGER):ARRAY OF INTEGER BEGIN RETURN p END copy'
+        p,_=compile_program('row[1]=1 row[2]=2 output[1]=42 output=copy((row)) row[1]=9',routine,types='TYPE row_t=ARRAY[2]OF INTEGER',declarations=DECLARATIONS+' row:row_t output:ARRAY[2]OF INTEGER')
+        self.assertEqual((p.run()['ROW'],p.snapshot()['OUTPUT']),([9,2],[1,2]));self.assertEqual((p._state.local_frames,p._state.call_depth),([],0))
 
     def test_array_result_cannot_be_boolean(self):
         with self.assertRaises(TranslationError) as caught: compile_program('IF make() THEN ENDIF')

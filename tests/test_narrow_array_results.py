@@ -164,8 +164,9 @@ class NarrowArrayFailureTests(unittest.TestCase):
     def test_whole_array_value_argument_remains_blocked(self):
         self.rejected('E_ARRAY_VALUE',body='use((a))',routines='ROUTINE use(p: ARRAY OF BYTE) BEGIN END use', _translator=legacy_translate)
 
-    def test_named_array_source_is_not_erased(self):
-        self.rejected('E_ARRAY_RETURN_SOURCE',body='',types='TYPE row_t=ARRAY[2] OF BYTE',routines='ROUTINE make: ARRAY OF BYTE VAR p: row_t BEGIN RETURN p END make')
+    def test_named_byte_array_source_returns_owned_anonymous_storage(self):
+        p,_=compile_program(types='TYPE row_t=ARRAY[2]OF BYTE',routines='ROUTINE make:ARRAY OF BYTE VAR p:row_t BEGIN p[1]=7 RETURN p END make')
+        self.assertEqual(p.run()['A'],[7,{'unknown_byte':True}]);self.assertEqual(len(p._state.raw('A').spec),3)
 
 
 class NarrowArrayRuntimeTests(unittest.TestCase):

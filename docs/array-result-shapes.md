@@ -54,21 +54,22 @@ minimum possible size already exceeds that limit fail during translation.
 
 ## Identity and validation
 
-Named result declarations require the exact named type. Another type with the
-same shape is not interchangeable. Anonymous result declarations require
-anonymous outer storage and matching outer rank. Exact element/component types
-remain the generic contract; supported [numeric](numeric-arrays.md) and
-[positional](positional-arrays.md) source conversions use separate checked copies.
-Flat matrices and matrices built from named rows remain distinct representations.
-RETURN never flattens, reshapes, resizes or erases nominal identity.
+Source RETURN prepares an independent value with the declared result's names,
+layout and capacity. [Schema conversion](array-schema-conversions.md) accepts
+compatible same-terminal names, bounded STRING changes and flat/named-component
+layouts when every logical dimension matches. [Numeric](numeric-arrays.md) and
+[positional](positional-arrays.md) changes retain their separate scalar rules.
+Original source objects and record-terminal identities remain unchanged.
+RETURN does not resize, reorder axes or reshape equal-count incompatible arrays.
+Generic runtime array_result remains exact; generated source prepares its input.
 [Complete chained indexing](chained-array-indexes.md) can consume returned values
 with the same rank, identity, capacity and capture checks as comma subscripts.
 
-A generic parameter can supply a result when its concrete runtime storage matches
-the declared interface. Known mismatches fail during translation; unknown sizes,
-capacities or identities are checked at RETURN before destination assignment.
-For example, a named result may accept a generic parameter bound to that exact
-named type, while anonymous storage passed through the same parameter fails.
+A generic parameter can supply a compatible declared result after checked source
+conversion. Known rank/dimension/type mismatches fail during translation; unknown
+concrete shapes and source data are checked before result publication.
+A named result may capture compatible anonymous or differently named ARRAY
+storage into its own schema. BYNAME and linked signatures keep their exact rules.
 
 Every known scalar leaf is validated, and missing markers are preserved under
 the [partial aggregate policy](partial-aggregate-values.md). Copies retain STRING

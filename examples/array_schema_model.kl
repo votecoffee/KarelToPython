@@ -1,0 +1,13 @@
+PROGRAM SCHEMAMODEL
+TYPE joint_matrix=ARRAY[1,2]OF JOINTPOS2 point_row=ARRAY[2]OF POSITION
+     point_grid=ARRAY[1]OF point_row result_matrix=ARRAY[1,2]OF JOINTPOS9
+VAR joints:joint_matrix points:point_grid restored:result_matrix done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1,1]=CURJPOS(0,0)
+    joints[1,2]=joints[1,1]
+    points=joints
+    restored=points
+    done=TRUE
+  ENDIF
+END SCHEMAMODEL

@@ -52,8 +52,9 @@ width conversion itself needs no robot or axis context.
 BYNAME targets, linked routine declarations and raw external callback return
 types retain exact type contracts. Matching linked source signatures can accept
 privately converted actuals, including named/component ARRAY values.
-No raw joint indexing, nonzero-axis discard, same-terminal nominal retagging or
-physical motion is added. Existing [model-backed conversions](kinematic-interfaces.md)
+[Source ARRAY schemas](array-schema-conversions.md) also support same-width
+ARRAY names/layouts. Raw joint indexing, nonzero-axis discard and physical
+motion remain unavailable. Existing [model-backed conversions](kinematic-interfaces.md)
 remain a separate explicitly configured operation.
 
 Reports contain `joint_width_conversions` sites with assignment/argument/RETURN

@@ -1,0 +1,9 @@
+PROGRAM LIB
+VAR seen:STRING[8]
+ROUTINE replace(dst,src:ARRAY OF STRING)
+BEGIN
+  dst=src
+  seen=dst[1]
+END replace
+BEGIN
+END LIB

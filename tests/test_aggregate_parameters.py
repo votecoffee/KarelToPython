@@ -168,7 +168,7 @@ class ArrayReferenceTests(unittest.TestCase):
     def test_mismatched_runtime_lengths_reject_before_mutation(self):
         routine = 'ROUTINE copy(p,q: ARRAY OF INTEGER) BEGIN p = q END copy'
         p, _ = compile_program('a[1] = 7 wide[1] = 9 copy(a,wide)', routine)
-        with self.assertRaisesRegex(KarelRuntimeError, 'identical type and size'): p.run()
+        with self.assertRaisesRegex(KarelRuntimeError, 'matching logical dimensions'): p.run()
         self.assertEqual(p._state.get('A').get(1), 7)
         self.assertEqual(p._state.get('WIDE').get(1), 9)
         self.assertEqual(p._state.local_frames, [])

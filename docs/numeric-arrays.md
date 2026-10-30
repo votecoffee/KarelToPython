@@ -35,7 +35,8 @@ concrete REAL array before the routine frame unwinds.
 ## Shapes, capture and ownership
 
 Supported arrays have one through three logical dimensions and ordinary numeric
-terminal elements, with matching per-component boundaries for nested arrays. Formal/result wildcards inherit concrete dimensions. Known
+terminal elements, with matching logical dimensions across flat/nested layouts.
+Formal/result wildcards inherit concrete dimensions. Known
 rank or dimension mismatches fail during translation; concrete destination shape
 checks still run when wildcard declarations defer that information. There is no
 reshape, resize, flattening or inferred allocation. The 32767-leaf bound applies.
@@ -82,8 +83,9 @@ Source storage remains independent from normalization in the copied value.
 
 [Named outer ARRAY types and nested components](named-array-conversions.md) now
 convert into independent receiver schemas when their numeric terminal type changes.
-Component dimensions and boundaries must match; same-terminal nominal retagging
-remains blocked. Transparent scalar aliases work as numeric terminal types.
+Logical dimensions must match. [Schema conversions](array-schema-conversions.md)
+also copy same-terminal ARRAY names and rebuild compatible component layouts.
+Transparent scalar aliases work as numeric terminal types.
 An ARRAY field inside a named STRUCTURE can convert separately; this does not
 coerce the whole STRUCTURE schema.
 

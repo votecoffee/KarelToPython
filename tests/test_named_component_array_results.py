@@ -133,12 +133,12 @@ class NamedComponentArrayReturnTests(unittest.TestCase):
         self.assertEqual(program._state.snapshot()['A'], MATRIX)
         self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))
 
-    def test_named_outer_actual_cannot_escape_through_generic_formal(self):
-        routine = 'ROUTINE copy(p: ARRAY OF row_t): ARRAY OF row_t BEGIN RETURN p END copy'
-        program, _ = compile_program('a=copy(b)', declarations='a: ARRAY[2] OF row_t b: plane_t', routines=routine)
-        program._state.values['B'] = initialized_host(program._state.raw('B').spec)
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'anonymous outer'): program.run()
-        self.assertEqual((program._state.call_depth, program._state.local_frames), (0, []))
+    def test_named_outer_actual_is_returned_as_owned_anonymous_storage(self):
+        routine='ROUTINE copy(p:ARRAY OF row_t):ARRAY OF row_t BEGIN RETURN p END copy'
+        program,_=compile_program('a=copy(b)',declarations='a:ARRAY[2]OF row_t b:plane_t',routines=routine)
+        program._state.values['B']=initialized_host(program._state.raw('B').spec);before=program.snapshot()['B']
+        self.assertEqual(program.run()['A'],before);self.assertEqual(len(program._state.raw('A').spec),3)
+        self.assertIsNot(program._state.raw('A').values[0],program._state.raw('B').values[0])
 
     def test_translated_terminal_types_retain_checked_copies(self):
         for spelling in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT', *rt.DATA_RECORD_TYPES,
@@ -176,31 +176,42 @@ class NamedComponentArrayRejectionTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(**kwargs)
         self.assertEqual(caught.exception.code, code)
 
-    def test_different_component_names_in_return(self):
-        self.reject('E_RETURN', routines='ROUTINE make: ARRAY OF row_t VAR p: ARRAY[2] OF other_row_t BEGIN RETURN p END make')
+    def test_different_component_names_in_return_keep_declared_schema(self):
+        routine='ROUTINE make:ARRAY OF row_t VAR p:ARRAY[2]OF other_row_t BEGIN '+INIT+' RETURN p END make'
+        program,_=compile_program(routines=routine);self.assertEqual(program.run()['A'],MATRIX)
+        self.assertEqual(program._state.raw('A').spec[2][3],'ROW_T')
 
-    def test_different_component_names_in_destination(self):
-        self.reject('E_TYPE', declarations='a: ARRAY[2] OF other_row_t')
+    def test_different_component_names_in_destination_keep_receiver_schema(self):
+        program,_=compile_program(declarations='a:ARRAY[2]OF other_row_t');self.assertEqual(program.run()['A'],MATRIX)
+        self.assertEqual(program._state.raw('A').spec[2][3],'OTHER_ROW_T')
 
     def test_different_inner_lengths_in_return(self):
         types = TYPES + '\nlong_t=ARRAY[3] OF INTEGER'
         self.reject('E_RETURN', types=types, routines='ROUTINE make: ARRAY OF row_t VAR p: ARRAY[2] OF long_t BEGIN RETURN p END make')
 
-    def test_same_rank_different_component_hierarchy_is_not_coerced(self):
-        self.reject('E_RETURN', declarations='a: ARRAY[1] OF plane_t',
-                    routines='ROUTINE make: ARRAY OF plane_t VAR p: ARRAY[1] OF flat_plane_t BEGIN RETURN p END make')
+    def test_same_logical_shape_can_change_component_hierarchy(self):
+        routine='ROUTINE make:ARRAY OF plane_t VAR p:ARRAY[1]OF flat_plane_t BEGIN p[1,1,1]=7 RETURN p END make'
+        program,_=compile_program(declarations='a:ARRAY[1]OF plane_t',routines=routine)
+        self.assertEqual(program.run()['A'][0][0][0],7);self.assertEqual(program._state.raw('A').spec[2][3],'PLANE_T')
 
-    def test_flat_multidimensional_source_is_not_rebuilt(self):
-        self.reject('E_ARRAY_RETURN_SOURCE', routines='ROUTINE make: ARRAY OF row_t VAR p: ARRAY[2,2] OF INTEGER BEGIN RETURN p END make')
+    def test_flat_multidimensional_source_is_rebuilt_into_named_rows(self):
+        routine='ROUTINE make:ARRAY OF row_t VAR p:ARRAY[2,2]OF INTEGER BEGIN '+INIT+' RETURN p END make'
+        program,_=compile_program(routines=routine);self.assertEqual(program.run()['A'],MATRIX)
+        self.assertEqual(program._state.raw('A').spec[2][3],'ROW_T')
 
-    def test_flat_generic_multidimensional_source_is_not_rebuilt(self):
-        self.reject('E_ARRAY_RETURN_SOURCE', body='', routines='ROUTINE make(p: ARRAY[*,*] OF INTEGER): ARRAY OF row_t BEGIN RETURN p END make')
+    def test_flat_generic_multidimensional_source_can_return_named_rows(self):
+        routine='ROUTINE make(p:ARRAY[*,*]OF INTEGER):ARRAY OF row_t BEGIN RETURN p END make'
+        program,_=compile_program('seed[1,1]=7 a=make(seed)',declarations='seed:ARRAY[2,2]OF INTEGER a:ARRAY[2]OF row_t',routines=routine)
+        self.assertEqual(program.run()['A'][0][0],7);self.assertEqual(program._state.raw('A').spec[2][3],'ROW_T')
 
-    def test_named_outer_source_remains_blocked(self):
-        self.reject('E_ARRAY_RETURN_SOURCE', routines='ROUTINE make: ARRAY OF row_t VAR p: plane_t BEGIN RETURN p END make')
+    def test_named_outer_source_returns_anonymous_owned_outer(self):
+        routine='ROUTINE make:ARRAY OF row_t VAR p:plane_t BEGIN '+INIT+' RETURN p END make'
+        program,_=compile_program(routines=routine);self.assertEqual(program.run()['A'],MATRIX);self.assertEqual(len(program._state.raw('A').spec),3)
 
-    def test_named_subarray_source_remains_blocked(self):
-        self.reject('E_ARRAY_RETURN_SOURCE', body='', routines='ROUTINE make: ARRAY OF INTEGER VAR p: ARRAY[2] OF row_t BEGIN RETURN p[1] END make')
+    def test_named_subarray_source_returns_anonymous_owned_value(self):
+        routine='ROUTINE make:ARRAY OF INTEGER VAR p:ARRAY[2]OF row_t BEGIN p[1,1]=7 RETURN p[1] END make'
+        program,_=compile_program(declarations='a:ARRAY[2]OF INTEGER',routines=routine);self.assertEqual(program.run()['A'][0],7)
+        self.assertEqual(len(program._state.raw('A').spec),3)
 
     def test_named_outer_result_declaration_remains_blocked(self):
         self.reject('E_RETURN_TYPE', routines='ROUTINE make: plane_t BEGIN END make', _translator=legacy_translate)

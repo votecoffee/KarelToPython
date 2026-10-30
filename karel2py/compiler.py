@@ -1192,6 +1192,7 @@ class Emitter:
         self.joint_width_uses=[]
         self.positional_array_uses=[]
         self.numeric_array_uses=[]
+        self.array_schema_uses=[]
         self.joint_geometry_uses = []
         self.pulse_uses = []
         self.motion_uses = []
@@ -1969,6 +1970,7 @@ class Emitter:
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
+        if self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual):return False
         if self.is_config_subfield(argument):return False
         if expected[0] in ('INTEGER','REAL') and actual[0] in NARROW_TYPES:return False
         if expected==('REAL',) and actual==('INTEGER',):return False
@@ -2787,6 +2789,15 @@ class Emitter:
                 self.kinematic_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},_rt.convert_array_schema({expected!r},{value},{line}),{line})'
+                is_reference,actual=False,expected;conversion_kind='array_schema'
+                self.features.add('source ARRAY schema conversion')
+                self.array_schema_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=source_actual,target_type_spec=expected,schema_change_kind=rt.array_schema_kind(expected,source_actual),
+                    evaluated_once=True,independent_value=True))
             elif self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_joint_width({expected!r},{value},{line}),{line})'
@@ -2844,8 +2855,8 @@ class Emitter:
                                                   source_spec=actual, line=line, column=argument.token.column,
                                                   expression_kind=argument.kind, evaluated_once=True,
                                                   independent_writable_copy=True, initialized_elements_required=True))
-                if conversion_kind in ('positional_array','kinematic_array','numeric_array'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
-                if conversion_kind=='numeric_array':self.array_value_uses[-1].update(initialized_elements_required=False,missing_data_preserved=True)
+                if conversion_kind in ('positional_array','kinematic_array','numeric_array','array_schema'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
+                if conversion_kind in ('numeric_array','array_schema'):self.array_value_uses[-1].update(initialized_elements_required=False,missing_data_preserved=True)
             if not is_reference and expected[0] == 'STRING':
                 if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
@@ -3459,7 +3470,21 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
-            if self.mode=='pythonic' and rt.numeric_array_kind(target_type,value_type):
+            generic_receiver=(self.mode=='pythonic' and target_type[0]=='ARRAY' and target.kind=='name'
+                and self.current_routine is not None and target.value in {name.value for name,_ in self.current_routine.parameters}
+                and rt.array_identity(target_type) is None)
+            if generic_receiver and (self.compatible(target_type,value_type) or rt.array_schema_compatible(target_type,value_type)
+                    or rt.numeric_array_kind(target_type,value_type) or rt.positional_array_kind(target_type,value_type) or rt.kinematic_array_kind(target_type,value_type)):
+                value=f'self._state.array_assignment_value({value},({reference}).spec,{line})'
+                self.features.add('runtime ARRAY receiver schema')
+                self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
+                    source_type_spec=value_type,target_type_spec=target_type,schema_change_kind='dynamic_receiver',
+                    evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+                if rt.kinematic_array_kind(target_type,value_type):
+                    self.current_routine.may_services=True;self.features.update(('extended services','kinematic ARRAY conversion'))
+                    self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
+                        source_type_spec=value_type,target_type_spec=target_type,evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+            elif self.mode=='pythonic' and rt.numeric_array_kind(target_type,value_type):
                 value=f'_rt.convert_numeric_array({target_type!r},{value},{line})'
                 self.features.add('numeric ARRAY conversion')
                 self.numeric_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
@@ -3478,6 +3503,12 @@ class Emitter:
                 self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                     evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.array_schema_kind(target_type,value_type):
+                value=f'_rt.convert_array_schema({target_type!r},{value},{line})'
+                self.features.add('source ARRAY schema conversion')
+                self.array_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    schema_change_kind=rt.array_schema_kind(target_type,value_type),evaluated_once=True,independent_value=True))
             elif self.mode=='pythonic' and target_type[0]==value_type[0]=='JOINTPOS' and target_type!=value_type:
                 value=f'_rt.convert_joint_width({target_type!r},{value},{line})'
                 self.features.add('checked joint width conversion')
@@ -3820,6 +3851,14 @@ class Emitter:
                     self.features.update(('extended services','kinematic ARRAY conversion'))
                     self.kinematic_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
                         line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.array_schema_compatible(spec,value_type):
+                    value=f'_rt.convert_array_schema({spec!r},{value},{line})'
+                    value_type=spec;conversion_kind='array_schema'
+                    self.features.add('source ARRAY schema result')
+                    self.array_schema_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        schema_change_kind=rt.array_schema_kind(spec,source_type_spec) or 'declared_result',
                         evaluated_once=True,independent_value=True,before_cleanup=True))
                 elif self.mode=='pythonic' and spec[0]==value_type[0]=='JOINTPOS' and spec!=value_type:
                     value=f'_rt.convert_joint_width({spec!r},{value},{line})'
@@ -4367,7 +4406,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
         positional_array_conversions=emitter.positional_array_uses, kinematic_array_conversions=emitter.kinematic_array_uses,
-        numeric_array_conversions=emitter.numeric_array_uses,
+        numeric_array_conversions=emitter.numeric_array_uses,array_schema_conversions=emitter.array_schema_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         motion_requests=emitter.motion_uses,
@@ -5938,7 +5977,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
             names.append(rt.array_identity(spec));spec=spec[2]
         return names
     report['named_array_conversions']=[]
-    for kind,rows in (('numeric_array',report['numeric_array_conversions']),('positional_array',report['positional_array_conversions']),('kinematic_array',report['kinematic_array_conversions'])):
+    for kind,rows in (('numeric_array',report['numeric_array_conversions']),('positional_array',report['positional_array_conversions']),('kinematic_array',report['kinematic_array_conversions']),('array_schema',report['array_schema_conversions'])):
         for row in rows:
             source_names=component_names(row['source_type_spec']);target_names=component_names(row['target_type_spec'])
             if not any(name is not None for name in source_names+target_names):continue
@@ -5968,6 +6007,32 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['kinematic_assignment_policy']['boundary']='Matching-component model-backed ARRAY assignments follow kinematic_array_policy; no motion/current-state update or inferred model/native reachability'
     report['data_record_policy']['boundary']='Private scalar and matching-component positional/model-backed ARRAY conversions; no whole STRUCTURE schema coercion, inferred robot context or motion'
     report['positional_routine_policy']['boundary']='Private scalar and matching-component source ARRAY conversions; same-type aliases, BYNAME, linked declarations and raw callback results remain exact'
+    report['array_schema_policy']=dict(
+        boundaries='Pythonic source assignment, ordinary arguments and RETURN; same-terminal data ARRAY names, bounded STRING capacities and matching-logical-dimension layouts',
+        shape='Match rank and every logical dimension; rebuild receiver component layout and names without resizing, axis reorder or equal-count reshape; rank 1..3 and 32767 leaves remain',
+        strings='Validate original bounded ASCII source before receiver right-truncation/widening; preserve missing leaves and inherit omitted anonymous result capacities from concrete data',
+        arguments='Compatible ordinary formals keep borrowed references; conversions into otherwise incompatible named/bounded interfaces own private cells without copy-back; generic-to-named conversions remain private even if runtime names happen to agree',
+        receivers='Source assignments through bare generic ARRAY formals use actual borrowed receiver schema; evaluate RHS once before receiver metadata lookup and preserve receiver child identities',
+        results='Prepare independent declared result schema before frame/counter cleanup; generic formals and named subarrays may return anonymous owned results',
+        exact='BYNAME, generic checked/value/result helpers, linked declarations/definitions and raw callback result schemas remain exact; no whole STRUCTURE or different record-terminal coercion',
+        evidence='Offline source semantics only; no native layout/ABI/controller equivalence, inferred robot context or public strict mode',
+        guide='docs/array-schema-conversions.md',controller_validated=False)
+    report['named_array_policy']['schemas']='Named outer/components retain receiver identities; logical rank/dimensions match; array_schema_policy also supports same-terminal names, bounded STRING capacities and flat/nested component layouts'
+    report['named_array_policy']['ownership']='Compatible ordinary arguments retain references; source conversions own independent receiver schemas without copy-back; generic receivers use actual borrowed schema'
+    report['named_array_policy']['linkage']='Linked declarations/definitions, raw callback results, BYNAME and generic helpers remain exact; source schema conversions follow array_schema_policy'
+    report['numeric_array_policy']['boundaries']='Numeric ARRAY source assignment, private arguments and RETURN; matching logical dimensions across flat/nested and named schemas'
+    report['numeric_array_policy']['limits']='Ranks 1..3, matching logical dimensions and 32767 leaves; no resizing, axis reorder, equal-count reshape, generic helper coercion or native/strict equivalence'
+    report['positional_array_policy']['source']='Matching-logical-shape named/anonymous ARRAYs across Cartesian representations or joint widths; receiver component layout may differ'
+    report['kinematic_array_policy']['source']='Matching-logical-shape joint/Cartesian ARRAY source values; names and flat/nested layouts use receiver schemas; explicit model/context still required'
+    report['array_routine_policy']['named_components']='Inner ARRAY components remain named concrete types; source conversions rebuild receiver names/layout while matching all logical axes'
+    report['array_routine_policy']['declarations']='Declared result names/layout and bounded/inherited STRING capacity retained in independent output; source capture before cleanup; no resize or axis reshape'
+    report['array_routine_policy']['schema_conversions']='Source names, STRING capacities and component layouts follow array_schema_policy; generic helpers/BYNAME and declared links remain exact'
+    report['array_routine_policy']['string_elements']='Validate original source ASCII/capacity first; explicit source result capacity truncates/widens known values, omitted anonymous result capacity inherits concrete data; missing markers remain'
+    report['array_routine_policy']['destinations']='Source conversion prepares actual receiver schema before publication; retain child identities, logical dimensions and compatible borrowed arguments without copy-back'
+    report['array_routine_policy']['boundary']='No anonymous nested declarations, ragged/mixed-capacity storage, rank/dimension reshape, whole STRUCTURE coercion or native ABI/controller claim; generic helpers remain exact'
+    report['inherited_string_array_result_policy']['validation']='Validate concrete source STRING capacity in 1..254, every logical dimension and known ASCII/missing data; source RETURN prepares declared anonymous output before cleanup'
+    report['inherited_string_array_result_policy']['interfaces']='Inherited results retain concrete source capacity; downstream source assignment/argument/RETURN may convert capacity under array_schema_policy; generic helpers and linked signatures remain exact'
+    report['inherited_string_array_result_policy']['boundary']='No invented default, malformed mixed/ragged capacity, resource or native ABI claim; explicit source result capacities use checked truncation/widening; legacy omitted capacity remains rejected'
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

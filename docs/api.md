@@ -2,6 +2,15 @@
 
 ## Translation
 
+[Source ARRAY schemas](array-schema-conversions.md) add
+`runtime.convert_array_schema(target_spec, value, line=None)` for independent
+data copies across ARRAY names, STRING capacities and logical-shape-preserving
+layouts. Generated bare-generic receiver assignments use
+`State.array_assignment_value(value, target_spec, line=None)` with the actual
+borrowed target schema. Reports add `array_schema_conversions` and
+`array_schema_policy`. Compatible generic arguments and exact runtime helpers
+retain their existing contracts.
+
 [Numeric ARRAY conversions](numeric-arrays.md) add
 `runtime.convert_numeric_array(target_spec, value, line=None)` at numeric source
 assignment, argument and RETURN boundaries. Reports expose

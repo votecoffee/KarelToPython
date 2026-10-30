@@ -1,0 +1,16 @@
+PROGRAM LOGICALLAYOUTS
+TYPE flat_t=ARRAY[2,2]OF INTEGER row_t=ARRAY[2]OF INTEGER rows_t=ARRAY[2]OF row_t
+     reals_t=ARRAY[2,2]OF REAL
+VAR original:flat_t rows:rows_t promoted:reals_t done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original[1,1]=1
+    original[1,2]=2
+    original[2,1]=3
+    original[2,2]=4
+    rows=original
+    rows[2][2]=9
+    promoted=rows
+    done=TRUE
+  ENDIF
+END LOGICALLAYOUTS

@@ -73,16 +73,15 @@ class StringArrayTests(unittest.TestCase):
     def test_capacity_mismatch_fails_before_assignment(self):
         p, _ = compile_program("words[1] = 'old' long_words[1] = 'new text' copy(words,long_words)",
                                'ROUTINE copy(p,q: ARRAY OF STRING) BEGIN p = q END copy')
-        with self.assertRaisesRegex(KarelRuntimeError, 'identical type and size'): p.run()
+        with self.assertRaisesRegex(KarelRuntimeError, 'matching logical dimensions'): p.run()
         self.assertEqual(p._state.get('WORDS').get(1), 'old')
         self.assertEqual(p._state.local_frames, [])
 
-    def test_same_length_different_element_capacity_fails(self):
-        declarations = 'words: ARRAY[2] OF STRING[3]\ncopy_words: ARRAY[2] OF STRING[8]'
-        p, _ = compile_program("words[1] = 'old' copy_words[1] = 'new text' copy(words,copy_words)",
-                               'ROUTINE copy(p,q: ARRAY OF STRING) BEGIN p = q END copy', declarations)
-        with self.assertRaisesRegex(KarelRuntimeError, 'identical type and size'): p.run()
-        self.assertEqual(p._state.get('WORDS').get(1), 'old')
+    def test_same_length_different_element_capacity_uses_receiver_bounds(self):
+        declarations='words:ARRAY[2]OF STRING[3] copy_words:ARRAY[2]OF STRING[8]'
+        p,_=compile_program("words[1]='old' copy_words[1]='new text' copy(words,copy_words)",'ROUTINE copy(p,q:ARRAY OF STRING) BEGIN p=q END copy',declarations)
+        self.assertEqual((p.run()['WORDS'][0],p.snapshot()['COPY_WORDS'][0]),('new','new text'))
+        self.assertEqual(p._state.raw('WORDS').spec[2],('STRING',3))
 
     def test_local_string_array_passed_to_formal(self):
         routines = "ROUTINE fill(p: ARRAY OF STRING) BEGIN p[1] = 'abcdef' END fill\nROUTINE outer VAR local_words: ARRAY[1] OF STRING[2] BEGIN fill(local_words) x = STR_LEN(local_words[1]) END outer"

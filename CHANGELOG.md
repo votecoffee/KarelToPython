@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1030.141231 - 2026-10-30
+
+- Support same-terminal ARRAY names, bounded STRING capacities and flat/nested
+  layouts with matching logical dimensions at source assignment, ordinary
+  argument and RETURN boundaries. Preserve receiver schemas and source data.
+- Keep compatible generic arguments borrowed; otherwise converted named/bounded
+  interfaces receive private writable values without copy-back. Generic source
+  assignments use the actual borrowed receiver schema after RHS capture.
+- Validate source domains and ASCII capacity before output truncation/widening;
+  preserve missing/unknown markers, child identities, existing effect ordering
+  and exact BYNAME/helper/callback/linkage contracts. Numeric, positional and
+  explicit-model ARRAY changes also support matching logical layouts.
+- Add array_schema_policy/provenance reports, 72 authored regressions, four
+  examples and two linked projects. Update existing source exclusions with
+  positive execution checks and preserve legacy/native boundaries. Refresh
+  README, API, support backlog and semantic notes. No native ARRAY ABI,
+  inferred robot context, physical motion or public strict-mode claim is added.
+
 ## 26.1030.131923 - 2026-10-30
 
 - Extend numeric, Cartesian, joint-width and explicit-model ARRAY source

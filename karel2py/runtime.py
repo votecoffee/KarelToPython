@@ -307,25 +307,63 @@ def positional_conversion_kind(target,source):
     return None
 
 
-def _source_array_pair(target,source):
-    """Match checked ARRAY component boundaries without erasing receiver schemas."""
-    rank=0
+def _array_conversion_layout(spec):
+    """Validate ARRAY boundaries while retaining their logical axes and names."""
+    parts=[];rank=0
     try:
         while True:
-            if any(type(spec) is not tuple or len(spec) not in (3,4) or spec[0]!='ARRAY' for spec in (target,source)):return False
-            shapes=[array_shape(spec) for spec in (target,source)]
-            if (not shapes[0] or len(shapes[0])!=len(shapes[1])
-                    or any(size is not None and (type(size) is not int or not 1<=size<=32767) for shape in shapes for size in shape)
-                    or any(a is not None and b is not None and a!=b for a,b in zip(*shapes))):return False
-            for spec,shape in zip((target,source),shapes):
-                if array_identity(spec) is not None and any(size is None for size in shape):return False
-                if type(spec[2]) is not tuple or not spec[2]:return False
-            rank+=len(shapes[0])
-            if rank>3:return False
-            target,source=target[2],source[2]
-            if target[0]!='ARRAY' or source[0]!='ARRAY':return target[0]!='ARRAY' and source[0]!='ARRAY'
-            if array_identity(target) is None or array_identity(source) is None:return False
-    except (KarelRuntimeError,TypeError,IndexError):return False
+            if type(spec) is not tuple or len(spec) not in (3,4) or spec[0]!='ARRAY':return None
+            shape=array_shape(spec);name=array_identity(spec)
+            if (not shape or any(size is not None and (type(size) is not int or not 1<=size<=32767) for size in shape)
+                    or name is not None and any(size is None for size in shape)
+                    or parts and name is None):return None
+            rank+=len(shape)
+            if rank>3:return None
+            parts.append((shape,name));spec=spec[2]
+            if type(spec) is not tuple or not spec:return None
+            if spec[0]!='ARRAY':return tuple(parts)
+    except (KarelRuntimeError,TypeError,IndexError):return None
+
+
+def _source_array_pair(target,source):
+    """Require matching logical dimensions across explicit ARRAY layouts."""
+    layouts=[_array_conversion_layout(spec) for spec in (target,source)]
+    if any(parts is None for parts in layouts):return False
+    shapes=[tuple(size for shape,name in parts for size in shape) for parts in layouts]
+    return len(shapes[0])==len(shapes[1]) and all(a is None or b is None or a==b for a,b in zip(*shapes))
+
+
+def array_schema_compatible(target,source):
+    """Source-only data ARRAY copies; generic typed-reference contracts stay exact."""
+    if not _source_array_pair(target,source):return False
+    first,second=array_leaf_spec(target),array_leaf_spec(source)
+    if first[0]==second[0]=='STRING':
+        if any(len(spec)!=2 or spec[1] is not None and (type(spec[1]) is not int or not 1<=spec[1]<=254) for spec in (first,second)):return False
+        return all(spec[1] is not None or not any(name is not None for shape,name in _array_conversion_layout(array)) for spec,array in ((first,target),(second,source)))
+    return first==second and first[0] in ('INTEGER','BOOLEAN','REAL','BYTE','SHORT','JOINTPOS',*RECORD_TYPES)
+
+
+def array_schema_kind(target,source):
+    if not array_schema_compatible(target,source):return None
+    first,second=array_leaf_spec(target),array_leaf_spec(source)
+    if first[0]=='STRING' and first[1] is not None and first[1]!=second[1]:return 'string_capacity'
+    layouts=[_array_conversion_layout(spec) for spec in (target,source)]
+    if tuple(len(shape) for shape,name in layouts[0])!=tuple(len(shape) for shape,name in layouts[1]):return 'component_layout'
+    if tuple(name for shape,name in layouts[0])!=tuple(name for shape,name in layouts[1]):return 'nominal_identity'
+    return None
+
+
+def convert_array_schema(target,value,line=None):
+    """Capture a data ARRAY into an independent declared receiver schema."""
+    if not _pythonic():raise KarelRuntimeError('ARRAY schema conversion requires Pythonic mode',line)
+    if type(value) is not Array or not array_schema_compatible(target,value.spec):
+        raise KarelRuntimeError('ARRAY schema conversion requires matching logical dimensions and compatible data terminals',line)
+    source=_aggregate_value(value.spec,value,line);result=_array_conversion_storage(target,source,line)
+    leaf=array_leaf_spec(result.spec)
+    for (output,index),(storage,key) in zip(_array_conversion_cells(result),_array_conversion_cells(source)):
+        item=storage[key]
+        output[index]=checked(leaf,item,line) if leaf[0]=='STRING' and item is not UNINITIALIZED else item
+    return result
 
 
 def _array_conversion_cells(value):
@@ -337,12 +375,13 @@ def _array_conversion_cells(value):
 
 
 def _array_conversion_storage(target,source,line=None):
-    def concrete(expected,actual):
-        dimensions=tuple(b if a is None else a for a,b in zip(array_shape(expected),array_shape(actual)))
+    axes=iter(array_dimensions(source.spec));source_leaf=array_leaf_spec(source.spec)
+    def concrete(expected):
+        dimensions=tuple(next(axes) for _ in array_shape(expected))
         shape=dimensions if type(expected[1]) is tuple else dimensions[0]
-        element=concrete(expected[2],actual[2]) if expected[2][0]=='ARRAY' else expected[2]
+        element=concrete(expected[2]) if expected[2][0]=='ARRAY' else source_leaf if expected[2]==('STRING',None) else expected[2]
         return ('ARRAY',shape,element,*expected[3:])
-    spec=concrete(target,source.spec)
+    spec=concrete(target)
     if scalar_leaf_count(spec)>32767:raise KarelRuntimeError('ARRAY conversion exceeds 32767 scalar leaves',line)
     return Array(spec)
 
@@ -2577,6 +2616,15 @@ class State:
                         or (source[0]=='JOINTPOS' and target[0] in ('POSITION','XYZWPR','XYZWPREXT')))):
             raise KarelRuntimeError('Kinematic interfaces require one joint and one Cartesian type',line)
         return self._kinematic_conversion(target,value,line,'KINEMATIC_RETURN' if result else 'KINEMATIC_ARGUMENT')
+
+    def array_assignment_value(self,value,target,line=None):
+        """Honor the actual schema of a borrowed generic ARRAY receiver."""
+        if not _pythonic():raise KarelRuntimeError('Source ARRAY assignment requires Pythonic mode',line)
+        if type(value) is not Array:raise KarelRuntimeError('Source ARRAY assignment requires ARRAY data',line)
+        if numeric_array_kind(target,value.spec):return convert_numeric_array(target,value,line)
+        if positional_array_kind(target,value.spec):return convert_positional_array(target,value,line)
+        if kinematic_array_kind(target,value.spec):return self.kinematic_array(target,value,line)
+        return convert_array_schema(target,value,line)
 
     def kinematic_array(self,target,value,line=None,*,kind='ASSIGNMENT'):
         """Convert one whole ARRAY under explicit scalar model/adaptor contracts."""

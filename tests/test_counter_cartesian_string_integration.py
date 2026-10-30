@@ -52,18 +52,16 @@ class CounterCartesianStringIntegrationTests(unittest.TestCase):
                 context = task._state.execution.to_config()
                 self.assertEqual(rt.ExecutionContext.from_config(context).to_config(), context)
 
-    def test_runtime_capacity_mismatch_preserves_destination_and_clears_counter(self):
-        source = SOURCE.replace('labels,copied:ARRAY[2] OF STRING[8]', 'labels:ARRAY[2] OF STRING[8] copied:ARRAY[2] OF STRING[7]')
-        source = source.replace('copied=names()', "copied[1]='keep' copied[2]='saved'")
-        source = source.replace('result=build(base)', 'result=build(base) copied=names()')
-        task = build(source)
-        with self.assertRaises(rt.KarelRuntimeError):
-            task.run()
-        values = task.snapshot()
-        self.assert_counter_and_source(values)
-        self.assertEqual(values['COPIED'], ['keep', 'saved'])
-        self.assertEqual((values['SEEN'], values['RESULT']['LOCATION']['X']), (2., 2.))
-        self.assertEqual((task._state.local_frames, task._state.call_depth), ([], 0))
+    def test_capacity_conversion_preserves_source_and_clears_counters(self):
+        source=SOURCE.replace('labels,copied:ARRAY[2] OF STRING[8]','labels:ARRAY[2]OF STRING[8] copied:ARRAY[2]OF STRING[7]')
+        source=source.replace("labels[1]='one'","labels[1]='abcdefgh'")
+        source=source.replace('copied=names()', "copied[1]='keep' copied[2]='saved'")
+        source=source.replace('result=build(base)','result=build(base) copied=names()')
+        task=build(source);values=task.run();self.assert_counter_and_source(values)
+        self.assertEqual((values['COPIED'],values['LABELS']),(['abcdefg','two'],['abcdefgh','two']))
+        self.assertEqual((values['TOTAL'],values['SEEN'],values['RESULT']['LOCATION']['X']),(513,2.,2.))
+        self.assertEqual(task._state.values['COPIED'].spec[2],('STRING',7))
+        self.assertEqual((task._state.local_frames,task._state.call_depth),([],0))
 
     def test_failed_cartesian_conversion_does_not_enter_callee(self):
         task = build(SOURCE.replace('base=POS(1,2,3,0,0,0,cfg)', 'base.x=1'))

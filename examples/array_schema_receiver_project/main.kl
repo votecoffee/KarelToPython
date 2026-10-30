@@ -1,0 +1,12 @@
+PROGRAM MAIN
+TYPE wide_t=ARRAY[2]OF STRING[8] short_t=ARRAY[2]OF STRING[2]
+VAR original:wide_t result:short_t done:BOOLEAN
+ROUTINE replace(dst,src:ARRAY OF STRING) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]='abcdef'
+    original[2]='xy'
+    replace(result,original)
+    done=TRUE
+  ENDIF
+END MAIN

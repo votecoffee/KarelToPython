@@ -1,0 +1,11 @@
+PROGRAM LIB
+TYPE original_t=ARRAY[2]OF INTEGER result_t=ARRAY[2]OF INTEGER
+VAR seen:result_t
+ROUTINE changed(values:result_t):original_t
+BEGIN
+  values[1]=7
+  seen=values
+  RETURN values
+END changed
+BEGIN
+END LIB

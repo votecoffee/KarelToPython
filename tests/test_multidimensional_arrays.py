@@ -211,15 +211,14 @@ class CopyTests(unittest.TestCase):
     def test_shape_mismatch_through_formals_rejects_before_destination_mutation(self):
         routine = 'ROUTINE copy(p,q: ARRAY[*,*] OF INTEGER) BEGIN p = q END copy'
         p, _ = compile_program('a[1,1] = 7 copy(a,other)', routine, declarations=DECLARATIONS + 'other: ARRAY[3,2] OF INTEGER')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): p.run()
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'matching logical dimensions'): p.run()
         self.assertEqual(p._state.snapshot()['A'], [[7, UNINIT, UNINIT], [UNINIT]*3])
         self.assertEqual(p._state.local_frames, [])
 
-    def test_string_capacity_mismatch_through_formals_rejects_before_mutation(self):
-        routine = 'ROUTINE copy(p,q: ARRAY[*,*] OF STRING) BEGIN p = q END copy'
-        p, _ = compile_program("words[2,2] = 'old' copy(words,wide)", routine, declarations=DECLARATIONS + 'wide: ARRAY[2,2] OF STRING[4]')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): p.run()
-        self.assertEqual(p._state.snapshot()['WORDS'][1][1], 'old')
+    def test_string_capacity_conversion_through_formals_uses_receiver_bounds(self):
+        routine='ROUTINE copy(p,q:ARRAY[*,*]OF STRING) BEGIN p=q END copy'
+        p,_=compile_program("wide[2,2]='wide' words[2,2]='old' copy(words,wide)",routine,declarations=DECLARATIONS+'wide:ARRAY[2,2]OF STRING[4]')
+        self.assertEqual(p.run()['WORDS'][1][1],'wid');self.assertEqual(p._state.raw('WORDS').spec[2],('STRING',3))
 
 
 class StructureFieldTests(unittest.TestCase):

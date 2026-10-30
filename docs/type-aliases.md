@@ -43,6 +43,9 @@ assignment and result interfaces. A new `TYPE other_t=ARRAY[2] OF count_t`
 creates a distinct ARRAY type even if its dimensions and element type match.
 The same distinction applies to an alias of a STRUCTURE versus a new STRUCTURE
 definition. Nested ARRAY aliases retain their original component identities.
+Compatible [source ARRAY schema conversion](array-schema-conversions.md) may copy
+between distinct ARRAY names into private receiver schemas; it does not make
+them aliases or coerce whole STRUCTURE definitions.
 
 Scalar aliases use the underlying arithmetic and comparison rules, including
 INTEGER-to-REAL promotion and Pythonic numeric approximations. Bounded STRING
@@ -52,11 +55,13 @@ also remain unchanged. Named function-result aliases must precede the routine.
 
 ## Arguments and copies
 
-Bare storage arguments retain ordinary references. Grouped storage and value
-expressions retain the existing independent-value behavior. Aggregate value
-arguments and results require known, initialized scalar leaves and preserve
-shape, capacity and nominal identity. Ordinary scalar ARRAY assignments can
-preserve uninitialized elements under the existing whole-copy rules.
+Ordinary compatible bare arguments retain references. Grouped storage and value
+expressions retain independent ownership. [Partial aggregate copies](partial-aggregate-values.md)
+validate known leaves while preserving permitted missing markers.
+[Source schema conversions](array-schema-conversions.md) may prepare receiver
+ARRAY names, STRING capacities and layouts; record-terminal schemas remain exact.
+Otherwise incompatible named/bounded argument interfaces receive private values
+without copy-back.
 
 A plain `STRING` formal continues to inherit the actual reference capacity;
 its Pythonic value arguments use capacity 254. A bounded STRING alias formal

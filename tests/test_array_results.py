@@ -127,15 +127,17 @@ class ArrayResultFailureTests(unittest.TestCase):
         program,_=compile_program('a=recurse(0)',routines=routine)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'depth'): program.run()
         self.assertEqual((program._state.call_depth,program._state.local_frames),(0,[]))
-    def test_named_array_source_directly_blocked(self):
-        self.rejected('','E_ARRAY_RETURN_SOURCE',prefix='TYPE row_t=ARRAY[3] OF INTEGER',routines='ROUTINE make: ARRAY OF INTEGER VAR p: row_t BEGIN RETURN p END make')
-    def test_named_storage_via_generic_parameter_is_runtime_guarded(self):
-        routine='ROUTINE duplicate(p: ARRAY OF INTEGER): ARRAY OF INTEGER BEGIN RETURN p END duplicate'
-        program,_=compile_program('p[1]=7 a=duplicate(p)',prefix='TYPE row_t=ARRAY[1] OF INTEGER',declarations='p: row_t a: ARRAY[1] OF INTEGER',routines=routine)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'anonymous'): program.run()
-    def test_named_destination_remains_exact(self):
-        program,_=compile_program('p=make()',prefix='TYPE row_t=ARRAY[3] OF INTEGER',declarations='p: row_t')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'identical type and size'): program.run()
+    def test_named_array_source_returns_owned_anonymous_value(self):
+        routine='ROUTINE make:ARRAY OF INTEGER VAR p:row_t BEGIN p[1]=7 RETURN p END make'
+        program,_=compile_program('a=make()',prefix='TYPE row_t=ARRAY[3]OF INTEGER',routines=routine)
+        self.assertEqual(program.run()['A'],[7,{'uninitialized':True},{'uninitialized':True}]);self.assertEqual(len(program._state.raw('A').spec),3)
+    def test_named_storage_via_generic_parameter_returns_owned_value(self):
+        routine='ROUTINE duplicate(p:ARRAY OF INTEGER):ARRAY OF INTEGER BEGIN RETURN p END duplicate'
+        program,_=compile_program('p[1]=7 a=duplicate(p) p[1]=9',prefix='TYPE row_t=ARRAY[1]OF INTEGER',declarations='p:row_t a:ARRAY[1]OF INTEGER',routines=routine)
+        self.assertEqual((program.run()['A'],program.snapshot()['P']),([7],[9]))
+    def test_named_destination_retains_identity_for_anonymous_result(self):
+        program,_=compile_program('p=make()',prefix='TYPE row_t=ARRAY[3]OF INTEGER',declarations='p:row_t')
+        self.assertEqual(program.run()['P'],[1,2,3]);self.assertEqual(program._state.raw('P').spec[3],'ROW_T')
 
 class ArrayResultRuntimeTests(unittest.TestCase):
     def value(self,kind='INTEGER',values=(1,2,3)):

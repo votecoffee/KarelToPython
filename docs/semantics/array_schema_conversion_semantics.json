@@ -1,0 +1,18 @@
+{
+  "version": "26.1030.141231",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../array-schema-conversions.md",
+  "tests": [
+    "tests/test_array_schema_conversions.py"
+  ],
+  "boundaries": "Source assignment, ordinary arguments and RETURN; same-terminal ARRAY names, bounded STRING capacities and logical-shape-preserving flat/nested layouts",
+  "validation": "Validate concrete source schema/data first; retain missing/unknown markers and bounded ASCII domains; every logical dimension and rank must match; 32767 leaves and 64 schema levels remain",
+  "ownership": "Existing compatible generic/named arguments retain references; otherwise converted arguments own private receiver-schema values without copy-back; generic-to-explicit named interfaces remain private when static identity is unknown",
+  "receivers": "Bare generic ARRAY source assignments use actual borrowed receiver schema, after RHS capture; preserve receiver names, capacity and child identities",
+  "strings": "Validate own source capacity before receiver truncation/widening; omitted anonymous STRING result capacity inherits actual source storage without adding named wildcard capacity",
+  "geometry": "Representation/model changes retain complete geometry preflight, explicit context, row-major adapters, staged output and sticky abort; same-type partial pose/joint copies need no model",
+  "exact": "No BYNAME, generic helper, raw callback result or linked signature relaxation; no whole STRUCTURE/different record-terminal coercion, rank/dimension change or equal-count reshape",
+  "persistence": "Typed data/schemas only; no private cells, handlers, claims, callbacks or suspended execution resume",
+  "evidence": "Offline Pythonic extension without native layout/ABI/controller, motion or public strict-mode equivalence"
+}

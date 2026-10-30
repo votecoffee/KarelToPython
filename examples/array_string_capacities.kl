@@ -1,0 +1,16 @@
+PROGRAM STRINGCAPACITIES
+TYPE wide_t=ARRAY[2]OF STRING[8] short_t=ARRAY[2]OF STRING[3]
+VAR original,expanded:wide_t result:short_t done:BOOLEAN
+ROUTINE replace(dst,src:ARRAY OF STRING)
+BEGIN
+  dst=src
+END replace
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]='abcdef'
+    original[2]='xy'
+    replace(result,original)
+    expanded=result
+    done=TRUE
+  ENDIF
+END STRINGCAPACITIES

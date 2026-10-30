@@ -212,7 +212,7 @@ class NumericArrayInterfaceTests(unittest.TestCase):
     def test_dynamic_receiver_length_check_remains_atomic(self):
         p,_=compile_program('work(b)',decl='a:ARRAY[3]OF INTEGER b:ARRAY[2]OF REAL',routines='ROUTINE work(v:ARRAY OF REAL) BEGIN v=a END work')
         initialize(p,(1,2,3));old=p.snapshot()['B']
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'identical type and size'):p.run()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'matching logical dimensions'):p.run()
         self.assertEqual(p.snapshot()['B'],old)
 
     def test_writable_converted_argument_does_not_alias_active_counter_root(self):

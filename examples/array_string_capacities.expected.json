@@ -1,0 +1,15 @@
+{
+  "ORIGINAL": [
+    "abcdef",
+    "xy"
+  ],
+  "EXPANDED": [
+    "abc",
+    "xy"
+  ],
+  "RESULT": [
+    "abc",
+    "xy"
+  ],
+  "DONE": true
+}

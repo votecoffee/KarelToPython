@@ -263,7 +263,7 @@ BEGIN dst = src result = p p = 99 END copy_and_change'''
     def test_unknown_formal_shape_mismatch_keeps_destination(self):
         routine = 'ROUTINE copy(dst,src: ARRAY OF item_t) BEGIN dst = src END copy'
         program, _ = compile_program(INITIALIZE + 'small[1]=items[1] copy(items,small)', routine, declarations='items: ARRAY[2] OF item_t\nsmall: ARRAY[1] OF item_t')
-        with self.assertRaisesRegex(rt.KarelRuntimeError, 'identical type and size'): program.run()
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'matching logical dimensions'): program.run()
         self.assertEqual(program._state.snapshot()['ITEMS'], EXPECTED)
 
 

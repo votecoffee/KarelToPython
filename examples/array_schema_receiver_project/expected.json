@@ -1,0 +1,22 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": [
+        "abcdef",
+        "xy"
+      ],
+      "RESULT": [
+        "ab",
+        "xy"
+      ],
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": "ab"
+    }
+  }
+}
