@@ -102,3 +102,7 @@ This guide uses MARRC75KR07091E Rev N sections 7.2.1, 7.4 and 7.7 for source and
 format context. Authored verification is in
 [the keyboard FILE regressions](../tests/test_keyboard_file_read.py). It establishes
 offline behavior only, without controller or native widget acceptance.
+
+[Explicit CANCEL FILE](file-cancellation.md) now requests cooperative typed READ
+cancellation without publishing partial outputs. Read its lifetime and buffering
+rules before canceling; CLOSE belongs after the pending READ has unwound.

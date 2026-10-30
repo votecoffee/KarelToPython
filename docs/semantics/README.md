@@ -318,3 +318,7 @@ synchronous scopes. Native timing, node conditions and NOWAIT queues remain outs
 The [motion timeline ledger](motion_timeline_semantics.json) supersedes blanket
 AT NODE/TIME exclusions for local predicates with complete explicit schedules.
 Native timing, inferred arrivals and queued motion remain separate.
+
+The [FILE cancellation ledger](file_cancel_semantics.json) supersedes blanket
+CANCEL FILE translation exclusions for explicit cooperative typed reads. Native
+pending writes, default aliases and controller status/timing remain separate.

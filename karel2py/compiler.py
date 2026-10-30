@@ -671,6 +671,8 @@ class Parser:
         if self.mode=='pythonic' and name in ('OPEN','CLOSE','RELAX') and self.current.value=='HAND':
             self.expect('HAND')
             return Statement('motion_action',token,[name+' HAND',self.expression()])
+        if self.mode=='pythonic' and name=='CANCEL' and self.accept('FILE'):
+            return Statement('file_cancel',token,[self.storage_selector()])
         if self.mode=='pythonic' and name in ('HOLD','UNHOLD','CANCEL'):
             groups=None
             if self.accept('GROUP'):
@@ -1144,7 +1146,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','file_cancel','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         if mode=='pythonic' and any(row['name'] in rt.TASK_DIRECTIVES for row in program.directive_metadata): self.cooperative=True
         self.group_uses=[]
         self.using_scopes = []
@@ -1765,7 +1767,7 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
-                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control'):routine.may_services=True
+                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control','file_cancel'):routine.may_services=True
                 if isinstance(node,Statement) and node.kind=='pulse':
                     routine.may_services=True;routine.may_delay|=not node.args[2]
                 if isinstance(node, Statement) and node.kind in ('delay','wait'):
@@ -3345,6 +3347,9 @@ class Emitter:
             file_value=self.require_type(stmt.args[0],'FILE'); captured_file=self.fresh()
             self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
             self.statement(stmt.args[1],file_code=captured_file); return
+        if kind=='file_cancel':
+            file_value=self.require_type(stmt.args[0],'FILE');self.features.add('cooperative FILE cancellation')
+            self.line(f'_rt.cancel_file(self._state,{file_value},{line})',token);return
         if kind in ('file_open','file_close'):
             file_value=self.require_type(stmt.args[0],'FILE'); self.features.add('memory files')
             if kind=='file_open':
@@ -5592,6 +5597,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Rename preserves configuration and bytes within PIP; delete removes both; pending READ/open handles are busy; nowait remains synchronous',
         boundaries='No DAQ/socket routing, implicit pipe creation, cross-backend rename, native device semantics or generic PIP MOVE_FILE',
         guide='docs/pipe-file-management.md',controller_validated=False)
+    report['file_cancel_policy']=dict(
+        source='CANCEL FILE explicit writable FILE selector, captured once; allowed in handlers and linked routines',
+        dispatch='Cancel the exact cooperative typed READ on serial, plain pipe or keyboard FILE; idle registered FILE succeeds without discarding data',
+        completion='Portable IO_STATUS 6 on the canceled READ, no new READ observation or destination/cursor publication; execution continues after READ',
+        lifetime='Cancellation marks the captured operation; pause is retained, resume unwinds; stop/abort and stale registrations retain their existing precedence and cleanup',
+        boundary='Explicit FILE only; no default input aliases, native I/O interruption or pending writes because modeled writes are atomic; READ_KB jobs remain separate',
+        guide='docs/file-cancellation.md',controller_validated=False)
     report['serial_stream_policy']=dict(
         service='SerialStreams',context='Explicit ExecutionContext serial_streams; reserve numeric P-device prefixes and require configured canonical P1: through P5: endpoints; no ordinary filename fallback',
         transfer='Finite ASCII or portable binary scalar READ/WRITE, explicit FILE attributes, exclusive validated handles and separate input/output buffers; RO/WO/RW/UD/AP plus portable AO and binary suffix intent',

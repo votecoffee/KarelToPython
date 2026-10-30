@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1030.014130 - 2026-10-30
+
+- Translate explicit CANCEL FILE selectors in Pythonic source, handler actions
+  and typed linked routines. Interrupt cooperative serial, plain-pipe and keyboard
+  line/PASSALL typed reads without publishing partial destinations or cursor progress.
+- Return portable IO_STATUS 6 and continue after a canceled READ. Preserve unread
+  input and committed writes; idle registered FILEs succeed without discarding data.
+- Validate captured handle identity and backend registrations before cancellation;
+  retain pause/resume, sticky abort, stop/failure precedence and owned cleanup.
+  Keep direct host/READ_KB jobs, default FILE aliases and native writes separate.
+- Add 44 regressions, an idle read/write example and three timer-driven linked
+  serial/pipe/keyboard projects. Verify installed CLI execution and saved replay.
+- Refresh README, API, support boundaries and semantic guidance. Physical I/O,
+  native status/timing and strict mode remain outside this offline model.
+
 ## 26.1030.011911 - 2026-10-30
 
 - Translate local AT NODE and TIME BEFORE/AFTER NODE conditions, including

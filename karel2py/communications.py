@@ -343,6 +343,7 @@ class FilePipes(MemoryFiles):
         try:
             while True:
                 self.before_read(handle,line)
+                runtime.check_file_read(handle,line)
                 start=handle.position;available=self.bytes_ahead(handle,line)
                 raw=bytes(self.files[handle.name][start:start+available]);waiting=getattr(handle,'pipe_wait',None)==1
                 result=None

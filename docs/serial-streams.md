@@ -134,3 +134,7 @@ controller timing/encoding and public strict mode remain outside this model.
 See the authored cases in `tests/test_serial_streams.py`, the runnable
 [serial-stream example](../examples/serial_streams.kl), and the separate
 [serial metadata guide](serial-attributes.md).
+
+[Explicit CANCEL FILE](file-cancellation.md) now requests cooperative typed READ
+cancellation without publishing partial outputs. Read its lifetime and buffering
+rules before canceling; CLOSE belongs after the pending READ has unwound.

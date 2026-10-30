@@ -105,3 +105,7 @@ snapshot boundaries, overflow latches, pending reads, callbacks and task stacks.
 Opening a restored pipe creates fresh handle state. These guarantees establish
 headless offline behavior; physical/native pipe services and strict mode remain
 outside this implementation.
+
+[Explicit CANCEL FILE](file-cancellation.md) now requests cooperative typed READ
+cancellation without publishing partial outputs. Read its lifetime and buffering
+rules before canceling; CLOSE belongs after the pending READ has unwound.

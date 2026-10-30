@@ -207,6 +207,7 @@ class SerialStreams:
         try:
             while True:
                 row=self._active(handle,line,reading=True)
+                runtime.check_file_read(handle,line)
                 if (self._pending.get(id(handle)) is not pending or self._open.get(id(handle)) is not registration
                         or handle.position!=start or not row['wait']):
                     raise runtime.KarelRuntimeError('Serial pending READ registration or cursor changed',line)

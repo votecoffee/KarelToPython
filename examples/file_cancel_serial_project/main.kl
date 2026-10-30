@@ -1,0 +1,24 @@
+PROGRAM MAIN
+VAR f:FILE n,m,s,elapsed:INTEGER text:STRING[16] done:BOOLEAN
+ROUTINE cancel_input(h:FILE) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    n=77
+    m=88
+    text='old'
+    elapsed=0
+    OPEN FILE f('RO','P2:')
+    CONNECT TIMER TO elapsed
+    CONDITION[1]:
+      WHEN elapsed>=50 DO cancel_input(f)
+    ENDCONDITION
+    ENABLE CONDITION[1]
+    READ f(n,m,CR)
+    s=IO_STATUS(f)
+    CLOSE FILE f
+    DISCONNECT TIMER elapsed
+    PURGE CONDITION[1]
+    elapsed=0
+    done=TRUE
+  ENDIF
+END MAIN

@@ -2772,7 +2772,7 @@ class State:
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 
-def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
+def _dispatch_file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
     """Retain captured FILE targets while an explicit input service waits."""
     handle.require_open(line)
     if type(handle.owner) is KeyboardInput:
@@ -2782,6 +2782,75 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
     if type(handle.owner) is SerialStreams:
         return (yield from handle.owner.read_items(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
     return state.file_read(handle,targets,line,line_breaks=line_breaks,formats=formats)
+
+
+class _FileReadCancelled(GeneratorExit):
+    """Internal unwind of one READ, without stopping its source task."""
+
+
+def _file_identity(handle):
+    return (handle.owner,handle.name,handle.logical_name,handle.mode,handle.binary,
+        handle.reverse,handle.field,handle.eol,handle.xml,handle.passall,
+        handle.noecho,handle.interactive,handle.pipe_wait,handle.pipe_overflow)
+
+
+def _validate_file_read(handle,operation,line=None):
+    if (type(operation) is not dict or set(operation)!={'identity','position','cancelled','state'}
+            or type(operation['cancelled']) is not bool
+            or _file_identity(handle)!=operation['identity'] or handle.position!=operation['position']):
+        raise KarelRuntimeError('Pending FILE READ identity or cursor changed',line)
+    owner=handle.owner;state=operation['state']
+    if type(owner) is SerialStreams:
+        pending=owner._pending.get(id(handle));registration=owner._open.get(id(handle))
+        if (type(pending) is not tuple or len(pending)!=3 or pending[0] is not state
+                or pending[1] is not registration or pending[2]!=operation['position']):
+            raise KarelRuntimeError('Serial pending READ registration changed',line)
+    if type(owner) is FilePipes and owner._reads.get(id(handle)) is not state:
+        raise KarelRuntimeError('Pipe pending READ registration changed',line)
+    if type(owner) is KeyboardInput and not any(job.get('handle') is handle and job['state'] is state for job in owner._active.values()):
+        raise KarelRuntimeError('Keyboard pending READ registration changed',line)
+
+
+def check_file_read(handle,line=None):
+    """Check cancellation only after validating the captured operation identity."""
+    operation=handle._read_operation
+    if operation is None:return
+    _validate_file_read(handle,operation,line)
+    if operation['cancelled']:raise _FileReadCancelled()
+
+
+def cancel_file(state,handle,line=None):
+    """Mark one explicit cooperative READ; completed writes have no pending work."""
+    if type(handle) is not FileHandle:raise KarelRuntimeError('CANCEL FILE requires an ordinary FILE handle',line)
+    handle.require_open(line);owner=handle.owner
+    if type(owner) is KeyboardInput:
+        registered=handle in owner._handles
+    else:registered=any(item is handle for item in getattr(owner,'handles',()))
+    if not registered:raise KarelRuntimeError('CANCEL FILE requires its original live FILE registration',line)
+    operation=handle._read_operation
+    if operation is not None:
+        # A repeated request is idempotent, including before a paused reader resumes.
+        _validate_file_read(handle,operation,line)
+        operation['cancelled']=True;handle.status=6;return
+    direct=(type(owner) is SerialStreams and id(handle) in owner._pending
+        or type(owner) is FilePipes and id(handle) in owner._reads
+        or type(owner) is KeyboardInput and any(job.get('handle') is handle for job in owner._active.values()))
+    if direct:raise KarelRuntimeError('CANCEL FILE requires a cooperative typed READ, not a direct host or READ_KB job',line)
+    handle.status=0
+
+
+def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
+    """Register a captured FILE READ and unwind cancellation without publication."""
+    handle.require_open(line)
+    if handle._read_operation is not None:raise KarelRuntimeError('FILE already has a pending READ',line)
+    operation=dict(identity=_file_identity(handle),position=handle.position,cancelled=False,state=state)
+    handle._read_operation=operation
+    try:
+        return (yield from _dispatch_file_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
+    except _FileReadCancelled:
+        handle.status=6
+    finally:
+        if handle._read_operation is operation:handle._read_operation=None
 
 
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,

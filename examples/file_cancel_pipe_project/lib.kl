@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR calls:INTEGER
+ROUTINE cancel_input(h:FILE)
+BEGIN
+  IF UNINIT(calls) THEN calls=0 ENDIF
+  calls=calls+1
+  CANCEL FILE h
+END cancel_input
+BEGIN
+END LIB

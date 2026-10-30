@@ -38,9 +38,11 @@ they are boundaries rather than promises to accept every such source form later.
   cross-group settings, interpolation execution and native synchronization remain unsupported.
   [AT NODE and TIME BEFORE/AFTER](motion-timeline.md) now require a complete supplied
   arrival schedule; global temporal predicates and physical arrival discovery remain unavailable.
-  `CANCEL FILE` and standalone `PURGE` are not translated; `PURGE CONDITION` is supported. `IN GROUP[n]` does not add other native `IN`
+  [CANCEL FILE](file-cancellation.md) now interrupts explicit cooperative typed reads;
+  omitted/default FILE aliases and native pending writes remain unavailable.
+  `PURGE CONDITION` is supported; bare PURGE remains rejected. `IN GROUP[n]` does not add other native `IN`
   clauses; `IN DRAM` storage placement is unavailable.
-- Handler actions involving native motion execution or file cancellation;
+- Handler actions involving native motion execution or native pending WRITE cancellation;
   native path-node arrival discovery. Checkpoint predicates, events, port
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,

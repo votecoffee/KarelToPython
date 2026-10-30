@@ -1,0 +1,27 @@
+{
+  "keyboard": {
+    "events": [],
+    "event_sequence": 2,
+    "elapsed_ms": 65,
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "request": 1,
+        "program": "MAIN",
+        "operation": "FILE_READ",
+        "pane": 1,
+        "outcome": "cancelled",
+        "data": {
+          "raw": 1,
+          "fields": 1,
+          "bytes": 2,
+          "sample_hex": "6162",
+          "status": 6
+        }
+      }
+    ],
+    "sequence": 1,
+    "request_sequence": 1
+  }
+}

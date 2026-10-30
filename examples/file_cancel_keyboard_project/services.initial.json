@@ -1,0 +1,24 @@
+{
+  "keyboard": {
+    "events": [
+      {
+        "pane": 1,
+        "at_ms": 0,
+        "key": "a",
+        "sequence": 1
+      },
+      {
+        "pane": 1,
+        "at_ms": 0,
+        "key": "b",
+        "sequence": 2
+      }
+    ],
+    "event_sequence": 2,
+    "elapsed_ms": 0,
+    "limit": 500,
+    "history": [],
+    "sequence": 0,
+    "request_sequence": 0
+  }
+}

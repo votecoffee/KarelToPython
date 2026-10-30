@@ -1,0 +1,29 @@
+{
+  "version": "26.1030.014130",
+  "scope": "Offline explicit cooperative typed FILE READ cancellation; no hardware or native status acceptance",
+  "guide": "docs/file-cancellation.md",
+  "source": "CANCEL FILE explicit FILE selector, evaluated once; handlers and linked reference parameters",
+  "services": [
+    "SerialStreams waiting text/binary READ",
+    "FilePipes opted-in typed READ",
+    "KeyboardInput line and PASSALL typed FILE READ"
+  ],
+  "completion": "Portable IO_STATUS 6; continue after READ without publishing destinations, cursor progress or a READ observation",
+  "idle": "Registered idle FILE succeeds with status zero; no buffered-data discard and no rollback of committed reads/writes",
+  "lifetime": "Validate captured identity and backend registration; mark then unwind; preserve paused state and stop/abort precedence; close after READ",
+  "persistence": "Existing closed service JSON/history only; no token, live handle, callback or stack restoration",
+  "tests": [
+    "tests/test_file_cancellation.py",
+    "examples/file_cancel_idle.kl",
+    "examples/file_cancel_serial_project/main.kl",
+    "examples/file_cancel_pipe_project/main.kl",
+    "examples/file_cancel_keyboard_project/main.kl"
+  ],
+  "remaining": [
+    "Omitted/default FILE aliases",
+    "READ_KB or direct backend generators",
+    "Native pending WRITE interruption",
+    "Controller status/timing equivalence"
+  ],
+  "controller_validated": false
+}

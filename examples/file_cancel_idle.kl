@@ -1,0 +1,14 @@
+PROGRAM CANCELIDLE
+VAR f:FILE n,s:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    OPEN FILE f('RW','data.txt')
+    CANCEL FILE f
+    READ f(n,CR)
+    WRITE f('tail')
+    CANCEL FILE f
+    s=IO_STATUS(f)
+    CLOSE FILE f
+    done=TRUE
+  ENDIF
+END CANCELIDLE

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.011911**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.014130**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -708,6 +708,10 @@ TIME BEFORE/AFTER predicates, including wildcard destinations, using complete
 supplied node schedules. Captured selectors and exact progress breakpoints persist
 in validated history; no arrival times are inferred from robot geometry.
 
+[Cooperative FILE cancellation](docs/file-cancellation.md) now interrupts modeled
+serial, pipe and keyboard typed reads through explicit FILE handles. Canceled
+reads retain outputs and unread input, then continue with a portable status.
+
 ## Roadmap
 
 Continue expanding functional Pythonic conversion coverage. A planned
@@ -742,7 +746,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 50 complete linked source projects. It also checks that unsupported NOWAIT/local-handler combinations are rejected.
+fixtures, plus 53 complete linked source projects. It also checks that unsupported NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

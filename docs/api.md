@@ -643,3 +643,10 @@ must be retranslated for delayed responses. No queued/native motion is inferred.
 concrete selector metadata persist in execution history. Reports add
 `motion_request_policy.temporal_conditions` and per-MOVE condition locations;
 handler action reports cannot take ownership of their enclosing MOVE metadata.
+
+[FILE cancellation](file-cancellation.md) adds `runtime.cancel_file(state, handle,
+line=None)` for the exact generated cooperative typed READ. Cancellation marks
+the captured operation, validates live backend identity, and returns portable
+IO_STATUS 6 after unwind. Idle registered FILEs return status zero without data
+changes. Direct host generators and READ_KB jobs remain separate. Reports expose
+`file_cancel_policy`; operation tokens are private and never serialized.

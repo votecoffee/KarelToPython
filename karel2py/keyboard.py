@@ -329,6 +329,7 @@ class KeyboardInput:
             finally:state._read=previous
         try:
             while True:
+                runtime.check_file_read(handle,line)
                 # Parse only submitted lines. Speculation never touches source
                 # outputs, the committed cursor or READ observation history.
                 reader=runtime.TextInput(binding['pending'],terminator=handle.eol,field_mode=handle.field)
@@ -376,7 +377,7 @@ class KeyboardInput:
                 yield from runtime.checkpoint(state,line)
         except BaseException as error:
             handle.status=1
-            if not observed:
+            if not observed and not isinstance(error,runtime._FileReadCancelled):
                 observed=True
                 try:deliver(error=error)
                 except BaseException:pass
@@ -422,6 +423,7 @@ class KeyboardInput:
                 sample_hex=binding['pending'][:32].encode('ascii').hex(),status=status)
         try:
             while len(binding['pending'])<required:
+                runtime.check_file_read(handle,line)
                 job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
                 event=self.event(job)
                 if event is None:
@@ -435,6 +437,7 @@ class KeyboardInput:
                 job.update(text=binding['pending'][-254:],cursor=len(binding['pending']))
                 yield from runtime.checkpoint(state,line)
             values=[];offset=0
+            runtime.check_file_read(handle,line)
             for width in widths:values.append(binding['pending'][offset:offset+width]);offset+=width
             observed=True;deliver(values)
             record('completed',0)
@@ -442,7 +445,7 @@ class KeyboardInput:
             handle.position+=required;handle.status=0;complete=True
         except BaseException as error:
             handle.status=1
-            if not observed:
+            if not observed and not isinstance(error,runtime._FileReadCancelled):
                 observed=True
                 try:deliver(error=error)
                 except BaseException:pass

@@ -110,3 +110,7 @@ flow control, native serial waiting or controller timing. SerialPorts metadata
 does not silently configure this backend or its FILE terminator. See the
 authored cases in `tests/test_serial_waits.py` and the finite compatibility cases
 in `tests/test_serial_streams.py`.
+
+[Explicit CANCEL FILE](file-cancellation.md) now requests cooperative typed READ
+cancellation without publishing partial outputs. Read its lifetime and buffering
+rules before canceling; CLOSE belongs after the pending READ has unwound.

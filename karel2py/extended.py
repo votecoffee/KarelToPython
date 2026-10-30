@@ -1016,6 +1016,7 @@ class FileHandle:
         self.interactive=False; self.reverse=False; self.field=False; self.eol=10
         self.passall=False;self.noecho=False
         self.pipe_wait=None;self.pipe_overflow=None
+        self._read_operation=None
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
     def tell(self,line=None): self.require_open(line); return self.position
