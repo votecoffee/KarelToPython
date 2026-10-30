@@ -396,7 +396,7 @@ class MotionExclusionTests(unittest.TestCase):
             'MOVE AWAY 1 VIA p','MOVE TO p WHEN TRUE DO CANCEL','MOVE TO p UNTIL TRUE',
             'MOVE TO v','MOVE ABOUT p BY 2','MOVE NEAR j BY 2','MOVE RELATIVE j',
             'MOVE ALONG route[1,2]','MOVE AXIS TRUE BY 1','MOVE SOMETHING p','CANCEL FILE route',
-            'HOLD','UNHOLD','CONDITION[1]: WHEN TRUE DO ATTACH ENDCONDITION',
+            'HOLD PROGRAM[1]','UNHOLD GROUP[*]','CONDITION[1]: WHEN TRUE DO ATTACH ENDCONDITION',
             'CONDITION[1]: WHEN TRUE DO MOVE TO p ENDCONDITION'):
             with self.subTest(body=body),self.assertRaises(TranslationError):program(body)
 

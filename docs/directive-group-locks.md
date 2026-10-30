@@ -41,7 +41,7 @@ and before its body, the opted-in bank applies this selection:
 DEFGROUP selects ordinary source robot context and does not narrow the default
 lock selection. Configured groups remain distinct integers in 1 through 31.
 Each requested group must be configured, free or already owned by this stable
-task root. A free group with an executing/stopped label is unavailable. A group
+task root. A free group with an executing/stopped label or a [hold flag](motion-controls.md) is unavailable. A group
 already owned by this root remains eligible, including with a busy label.
 
 The bank checks the entire request before acquiring any group. Unknown groups,

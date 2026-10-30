@@ -18,6 +18,8 @@ perform reachability checks or map hands to physical signals.
 | `MOVE ALONG path[start]` / `path[start..end]` | Inclusive forward range, ending at the final node when end is omitted. NOWAIT is also accepted. |
 | `OPEN HAND number`, `CLOSE HAND number`, `RELAX HAND number` | Update an explicitly configured logical hand, numbered 1 or 2. These are also accepted global handler actions. |
 | `ATTACH`, `RELEASE` | Acquire or release checked logical group ownership. |
+| `HOLD`, `UNHOLD`, `CANCEL` with optional GROUP selectors | Update owned logical labels/hold flags; see [motion controls](motion-controls.md). |
+| `WITH` before MOVE | Capture six supported local settings, without applying a native environment; see [local settings](motion-controls.md#temporary-with-settings). |
 
 Source operands are evaluated once from left to right and detached before the
 next operand is evaluated. PATH storage is captured before its range expressions;
@@ -61,8 +63,8 @@ python request_demo.py --context context.json --state-out results.json
 
 Missing services, unowned groups and unknown hands fail at the source statement.
 Alternatively, acquire groups with LOCK_GROUP or opt into GroupLocks directive
-application. A MOVE requires ownership of the selected source group and an idle
-logical motion label. Group and axis configuration is supplied, never discovered.
+application. A MOVE requires ownership of the selected source group, an idle
+logical motion label and no hold flag. Group and axis configuration is supplied, never discovered.
 
 ATTACH selects the module's explicit LOCKGROUP list, or all configured motion
 groups when no list exists. After RELEASE, ATTACH reacquires the exact previous
@@ -118,9 +120,10 @@ controller-validation boundary. Normal source maps retain include origins.
   indexes. Its nodes need a positional NODE_POS field; no associations are inferred.
 - Each request payload is limited to 64 KiB of canonical compact JSON, independently
   of the node bound. Sequence numbers stop at 2147483646.
-- Motion-local WHEN/UNTIL/ENDMOVE, motion WITH settings, HOLD/UNHOLD/CANCEL,
+- Motion-local WHEN/UNTIL/ENDMOVE, remaining WITH settings and cross-group options,
   native group synchronization, hand-signal routing and controller timing remain
-  unsupported. Unsupported clauses are rejected before execution.
+  unsupported. Supported [logical controls and six WITH values](motion-controls.md)
+  retain the request-only contract. Unsupported clauses reject before execution.
 
 See the authored [motion requests](../examples/motion_requests.kl),
 [scripted motion](../examples/scripted_motion.kl),

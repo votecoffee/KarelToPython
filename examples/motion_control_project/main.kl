@@ -1,0 +1,16 @@
+PROGRAM MAIN
+VAR point:XYZWPR config_data:CONFIG status,entry:INTEGER done:BOOLEAN
+ROUTINE request_target(value:XYZWPR) FROM WORKER
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',config_data,status)
+    point=POS(1,2,3,0,0,0,config_data)
+    ATTACH
+    request_target(point)
+    CALL_PROG('WORKER',entry)
+    UNHOLD GROUP[1]
+    MOVE AWAY 1
+    RELEASE
+    done=TRUE
+  ENDIF
+END MAIN

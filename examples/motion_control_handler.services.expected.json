@@ -1,0 +1,120 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "closed",
+      "2": "open"
+    },
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_CONTROL_HANDLER",
+        "source_program": "MOTION_CONTROL_HANDLER",
+        "operation": "HOLD",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "executing",
+                "held": false
+              },
+              "after": {
+                "motion": "executing",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_CONTROL_HANDLER",
+        "source_program": "MOTION_CONTROL_HANDLER",
+        "operation": "CLOSE HAND",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_CONTROL_HANDLER",
+        "source_program": "MOTION_CONTROL_HANDLER",
+        "operation": "CANCEL",
+        "group": 1,
+        "line": 10,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "executing",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MOTION_CONTROL_HANDLER",
+        "source_program": "MOTION_CONTROL_HANDLER",
+        "operation": "UNHOLD",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1029.234813**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.001439**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -692,6 +692,11 @@ forms, VIA, PATH ranges, hand statements and logical ATTACH/RELEASE ownership.
 An explicit service captures detached requests or consumes supplied immediate
 completion responses. It does not calculate trajectories or update robot feedback.
 
+[Motion controls and local settings](docs/motion-controls.md) now add independent
+HOLD/UNHOLD flags, cancellation that preserves stopped work, global handler
+actions and six request-local WITH values. Ownership and JSON history remain
+explicit; controls do not create trajectories or change robot feedback.
+
 ## Roadmap
 
 Continue expanding functional Pythonic conversion coverage. A planned
@@ -726,7 +731,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 47 complete linked source projects. It also checks that a motion-local handler example is rejected.
+fixtures, plus 48 complete linked source projects. It also checks that a motion-local handler example is rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

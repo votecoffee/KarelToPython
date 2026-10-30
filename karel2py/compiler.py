@@ -244,6 +244,7 @@ def blocked_controller_names(mode):
 class Parser:
     def __init__(self, source, filename, mode='strict'):
         self.continuations = []
+        self.in_motion_kind = False
         self.escaped_string_literals = []
         self.predefined_uses = []
         self.directive_metadata = []
@@ -669,27 +670,37 @@ class Parser:
         if self.mode=='pythonic' and name in ('OPEN','CLOSE','RELAX') and self.current.value=='HAND':
             self.expect('HAND')
             return Statement('motion_action',token,[name+' HAND',self.expression()])
-        if self.mode=='pythonic' and name=='MOVE':
-            if self.in_handler_actions:self.error('E_CONDITION_ACTION','MOVE is not a global handler action',token)
-            form=self.take()
-            if form.value not in ('TO','NEAR','AWAY','ABOUT','AXIS','RELATIVE','ALONG'):
-                self.error('E_MOTION','Unsupported MOVE form',form)
-            operation='MOVE '+form.value
-            if form.value=='ALONG':
-                path=self.name();arguments=[Expr('name',path,path.value),None,None]
-                if self.accept('['):
-                    arguments[1]=self.expression()
-                    if self.accept('..'):arguments[2]=self.expression()
-                    self.expect(']')
-            else:
-                arguments=[self.expression()]
-                if form.value in ('NEAR','ABOUT','AXIS'):
-                    self.expect('BY');arguments.append(self.expression())
-                elif form.value=='TO' and self.accept('VIA'):arguments.append(self.expression())
-            nowait=bool(self.accept('NOWAIT'))
-            if self.current.value in (',','WHEN','UNTIL','ENDMOVE','VIA','WITH'):
-                self.error('E_MOTION_CLAUSE','Unsupported motion clause or motion-local handler',self.current)
-            return Statement('motion',token,[operation,arguments,nowait])
+        if self.mode=='pythonic' and name in ('HOLD','UNHOLD','CANCEL'):
+            groups=None
+            if self.accept('GROUP'):
+                self.expect('[');groups=[self.expression()]
+                while self.accept(','):
+                    if len(groups)>=31:self.error('E_MOTION_GROUP','Motion control supports at most 31 groups',token)
+                    groups.append(self.expression())
+                self.expect(']')
+            elif self.current.value in ('FILE','PROGRAM'):
+                self.error('E_MOTION_CLAUSE','Unsupported motion control qualifier',self.current)
+            return Statement('motion_control',token,[name,groups])
+        if self.mode=='pythonic' and name=='WITH':
+            if self.in_handler_actions:self.error('E_CONDITION_ACTION','WITH MOVE is not a global handler action',token)
+            settings=[]
+            while True:
+                key=self.take()
+                if key.value not in rt.MOTION_SETTINGS:self.error('E_MOTION_SETTING','Unsupported motion WITH setting',key)
+                group=None
+                if self.accept('['):group=self.expression();self.expect(']')
+                self.expect('=')
+                previous=self.in_motion_kind;self.in_motion_kind=key.value=='$MOTYPE'
+                try:value=self.expression()
+                finally:self.in_motion_kind=previous
+                settings.append((key,group,value))
+                if len(settings)>6:self.error('E_MOTION_SETTING','Motion WITH supports at most six settings',key)
+                self.skip_lines()
+                if not self.accept(','):break
+                self.skip_lines()
+            self.expect('MOVE')
+            return self.motion_statement(token,settings)
+        if self.mode=='pythonic' and name=='MOVE':return self.motion_statement(token)
         if self.mode=='pythonic' and name=='PULSE':
             self.expect('DOUT');self.expect('[');port=self.expression();self.expect(']');self.expect('FOR')
             duration=self.expression();nowait=bool(self.accept('NOWAIT'))
@@ -909,6 +920,28 @@ class Parser:
             arguments = []
         return Statement('call', token, [Expr('call', token, name, arguments)])
 
+    def motion_statement(self,token,settings=None):
+        if self.in_handler_actions:self.error('E_CONDITION_ACTION','MOVE is not a global handler action',token)
+        form=self.take()
+        if form.value not in ('TO','NEAR','AWAY','ABOUT','AXIS','RELATIVE','ALONG'):
+            self.error('E_MOTION','Unsupported MOVE form',form)
+        operation='MOVE '+form.value
+        if form.value=='ALONG':
+            path=self.name();arguments=[Expr('name',path,path.value),None,None]
+            if self.accept('['):
+                arguments[1]=self.expression()
+                if self.accept('..'):arguments[2]=self.expression()
+                self.expect(']')
+        else:
+            arguments=[self.expression()]
+            if form.value in ('NEAR','ABOUT','AXIS'):
+                self.expect('BY');arguments.append(self.expression())
+            elif form.value=='TO' and self.accept('VIA'):arguments.append(self.expression())
+        nowait=bool(self.accept('NOWAIT'))
+        if self.current.value in (',','WHEN','UNTIL','ENDMOVE','VIA','WITH'):
+            self.error('E_MOTION_CLAUSE','Unsupported motion clause or motion-local handler',self.current)
+        return Statement('motion',token,[operation,arguments,nowait,settings or []])
+
     def pythonic_write(self, token):
         if not self.accept('('):
             self.error('E_WRITE_TARGET', 'WRITE supports the omitted-file parenthesized form', token)
@@ -1006,6 +1039,8 @@ class Parser:
             left = Expr('literal', token, value)
         elif token.value in ('TRUE', 'FALSE'):
             left = Expr('literal', token, token.value == 'TRUE')
+        elif self.in_motion_kind and token.value in rt.MOTION_KINDS.values():
+            left=Expr('literal',token,next(number for number,name in rt.MOTION_KINDS.items() if name==token.value))
         elif token.value in PREDEFINED_CONSTANTS:
             if self.current.value in ('(', '[', '.'):
                 self.error('E_PREDEFINED_CONTEXT', 'A predefined constant is a scalar value, not a call or aggregate', token)
@@ -1058,7 +1093,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         if mode=='pythonic' and any(row['name'] in rt.TASK_DIRECTIVES for row in program.directive_metadata): self.cooperative=True
         self.group_uses=[]
         self.using_scopes = []
@@ -1679,7 +1714,7 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
-                if isinstance(node,Statement) and node.kind in ('motion','motion_action'):routine.may_services=True
+                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control'):routine.may_services=True
                 if isinstance(node,Statement) and node.kind=='pulse':
                     routine.may_services=True;routine.may_delay|=not node.args[2]
                 if isinstance(node, Statement) and node.kind in ('delay','wait'):
@@ -3095,9 +3130,37 @@ class Emitter:
         line = token.line
         self.features.add(kind)
         self.line(f'self._state.tick({line})', token)
+        if kind=='motion_control':
+            captured=[]
+            for expr in stmt.args[1] or []:
+                code=self.require_type(expr,'INTEGER');temporary=self.fresh()
+                self.line(f'{temporary}=_rt.integer({code},{expr.token.line})',expr.token);captured.append(temporary)
+            groups='None' if stmt.args[1] is None else '['+','.join(captured)+']'
+            self.features.add('offline motion requests')
+            self.motion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,operation=stmt.args[0],nowait=False,
+                operands_evaluated_once=True,groups='owned at action time' if stmt.args[1] is None else len(captured)))
+            self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{stmt.args[0]!r},{{"groups":{groups}}},False,{line})',token)
+            return
         if kind in ('motion','motion_action'):
             operation=stmt.args[0];captured=[]
+            settings=[]
             if kind=='motion':
+                for key,group,value in stmt.args[3]:
+                    group_code='None'
+                    if group is not None:
+                        code=self.require_type(group,'INTEGER');group_code=self.fresh()
+                        self.line(f'{group_code}=_rt.integer({code},{group.token.line})',group.token)
+                    expected=rt.MOTION_SETTINGS[key.value]
+                    if expected=='POSE':
+                        code,spec=self.expression(value)
+                        if spec[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
+                            self.error('E_MOTION_SETTING','Motion WITH frame/tool requires a Cartesian pose',value.token)
+                    else:
+                        code=self.require_type(value,expected);spec=(expected,)
+                    temporary=self.fresh()
+                    self.line(f'{temporary}=_rt.motion_setting({key.value!r},{code},{spec!r},{value.token.line})',value.token)
+                    settings.append('{'+f'"name":{key.value!r},"group":{group_code},"value":{temporary}'+'}')
                 arguments=stmt.args[1];nowait=stmt.args[2]
                 names={'MOVE TO':('target','via'),'MOVE NEAR':('target','distance'),
                     'MOVE AWAY':('distance',),'MOVE ABOUT':('vector','angle'),
@@ -3127,8 +3190,10 @@ class Emitter:
             self.features.add('offline motion requests')
             self.motion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,operation=operation,nowait=nowait,operands_evaluated_once=True))
+            if settings:self.motion_uses[-1]['settings']=[dict(name=key.value,line=key.line,column=key.column,group_qualified=group is not None) for key,group,_ in stmt.args[3]]
             data='{'+','.join(captured)+'}'
-            self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line})',token)
+            extra=',settings=['+','.join(settings)+']' if settings else ''
+            self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
             return
         if kind=='pulse':
             if 'DOUT' in self.types or 'DOUT' in self.visible_constants(): self.error('E_PULSE','PULSE requires the unshadowed DOUT port bank',token)
@@ -4092,6 +4157,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         motion_request_policy=dict(model='Explicit offline capture-only or immediate scripted completion responses',
             ownership='Explicit GroupLocks ownership; ATTACH and RELEASE validate atomically',
             data='Complete detached positional operands; source order captured once; bounded PATH NODE_POS snapshots',
+            controls='HOLD/UNHOLD flags are independent of active/stopped labels; CANCEL retains holds and preserves stopped work; selections use current root ownership at action time',
+            settings='Six local WITH settings captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
             boundary='No trajectories, physical hands, robot feedback updates, live adapters or native motion-local handlers',
             nowait='Preserved request flag; capture-only acceptance or supplied zero-duration completion, no background queue',
             controller_validated=False),

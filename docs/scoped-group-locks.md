@@ -35,7 +35,7 @@ Each source-defined program/routine uses its module's policy: LOCKGROUP selects
 the listed configured groups, NOLOCKGROUP selects none, and neither directive
 selects all explicitly configured bank groups. Entry checks the entire request
 before making any additional acquisition. Unknown groups, foreign owners and
-unowned executing/stopped labels raise before the callee body runs. Existing
+unowned executing/stopped labels or [hold flags](motion-controls.md) raise before the callee body runs. Existing
 caller ownership remains intact. Native pause/readiness waits are not modeled.
 
 Ownership always belongs to the stable calling task root. A scope records only

@@ -1,0 +1,20 @@
+{
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "capture_only": true
+  },
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {
+      "1": "executing"
+    }
+  }
+}

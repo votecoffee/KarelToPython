@@ -1,0 +1,230 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2,
+      3
+    ],
+    "motion": {
+      "2": "stopped"
+    }
+  },
+  "motion": {
+    "groups": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "hands": {
+      "1": "open",
+      "2": "open"
+    },
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 6,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_CONTROLS",
+        "source_program": "MOTION_CONTROLS",
+        "operation": "HOLD",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "executing",
+                "held": false
+              },
+              "after": {
+                "motion": "executing",
+                "held": true
+              }
+            },
+            {
+              "group": 2,
+              "before": {
+                "motion": "stopped",
+                "held": false
+              },
+              "after": {
+                "motion": "stopped",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_CONTROLS",
+        "source_program": "MOTION_CONTROLS",
+        "operation": "OPEN HAND",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_CONTROLS",
+        "source_program": "MOTION_CONTROLS",
+        "operation": "CANCEL",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "executing",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": true
+              }
+            },
+            {
+              "group": 2,
+              "before": {
+                "motion": "stopped",
+                "held": true
+              },
+              "after": {
+                "motion": "stopped",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MOTION_CONTROLS",
+        "source_program": "MOTION_CONTROLS",
+        "operation": "UNHOLD",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2,
+            3
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            },
+            {
+              "group": 2,
+              "before": {
+                "motion": "stopped",
+                "held": true
+              },
+              "after": {
+                "motion": "stopped",
+                "held": false
+              }
+            },
+            {
+              "group": 3,
+              "before": {
+                "motion": "idle",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MOTION_CONTROLS",
+        "source_program": "MOTION_CONTROLS",
+        "operation": "HOLD",
+        "group": 1,
+        "line": 10,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            3
+          ],
+          "states": [
+            {
+              "group": 3,
+              "before": {
+                "motion": "idle",
+                "held": false
+              },
+              "after": {
+                "motion": "idle",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "MOTION_CONTROLS",
+        "source_program": "MOTION_CONTROLS",
+        "operation": "UNHOLD",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            3
+          ],
+          "states": [
+            {
+              "group": 3,
+              "before": {
+                "motion": "idle",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

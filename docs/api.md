@@ -624,3 +624,9 @@ Reports add `motion_requests` and `motion_request_policy`; context JSON retains
 canonical group/hand keys, detached typed history and remaining immediate replies.
 Ownership is supplied through GroupLocks. Capture-only outcomes are explicit;
 scripted results do not calculate motion or change robot feedback.
+
+[Logical motion controls and local WITH settings](motion-controls.md) add the
+optional `GroupLocks(..., held=[group,...])` configuration. Empty hold sets remain
+omitted from saved JSON. MotionRequests validates before/after control history
+and per-request `settings` records; the translation policy documents action-time
+ownership selection, source capture order and the absence of environment mutation.

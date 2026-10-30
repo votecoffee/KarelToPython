@@ -9,7 +9,7 @@ def rt():
 
 class GroupLocks:
     """Configured motion-group labels; no robot, motion or native locks."""
-    def __init__(self,groups,*,motion=None,apply_directives=False,callee_scopes=False):
+    def __init__(self,groups,*,motion=None,held=None,apply_directives=False,callee_scopes=False):
         if (type(groups) not in (list,tuple) or not groups or len(groups)>31
                 or any(type(group) is not int or not 1<=group<=31 for group in groups)
                 or len(groups)!=len(set(groups))):
@@ -21,6 +21,12 @@ class GroupLocks:
         self.apply_directives=apply_directives;self.callee_scopes=callee_scopes
         self.groups=tuple(sorted(groups));self.motion={};self.owners={};self._ownership_tokens={}
         for group,value in (motion or {}).items(): self.set_motion(group,value)
+        if held is None:held=[]
+        if (type(held) not in (list,tuple) or len(held)>31
+                or any(type(group) is not int or group not in self.groups for group in held)
+                or len(set(held))!=len(held)):
+            raise ValueError('Held groups require distinct configured group numbers')
+        self.held=set(held)
 
     def _automatic_groups(self,state,line=None):
         """Preflight an entire module request without changing ownership."""
@@ -47,7 +53,7 @@ class GroupLocks:
             owner=self.owners.get(group)
             if owner is not None and owner is not root:
                 raise runtime.KarelRuntimeError('Automatic logical group acquisition blocked by another task: '+str(group),line)
-            if owner is None and self.motion.get(group,'idle')!='idle':
+            if owner is None and (self.motion.get(group,'idle')!='idle' or group in self.held):
                 raise runtime.KarelRuntimeError('Automatic logical group acquisition blocked by a busy label: '+str(group),line)
         return root,selected
 
@@ -103,8 +109,8 @@ class GroupLocks:
             if operation=='LOCK_GROUP': self._grant(group,root)
             else:
                 motion=self.motion.get(group,'idle')
-                if owner is root and motion!='idle':
-                    if not code:code=17039 if motion=='executing' else 17040
+                if owner is root and (motion!='idle' or group in self.held):
+                    if not code:code=17040 if motion=='stopped' else 17039
                 else:self.owners.pop(group,None);self._ownership_tokens.pop(group,None)
         return code
 
@@ -116,6 +122,7 @@ class GroupLocks:
     def snapshot(self):
         result={'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())},
                 'owners':{str(key):value.program_name for key,value in sorted(self.owners.items())}}
+        if self.held:result['held']=sorted(self.held)
         if self.apply_directives:result['apply_directives']=True
         if self.callee_scopes:result['callee_scopes']=True
         return result
@@ -123,18 +130,19 @@ class GroupLocks:
     def to_config(self):
         if self.owners: raise ValueError('Cannot persist live group ownership; finish or unlock the task first')
         result={'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())}}
+        if self.held:result['held']=sorted(self.held)
         if self.apply_directives:result['apply_directives']=True
         if self.callee_scopes:result['callee_scopes']=True
         return result
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'groups','motion','apply_directives','callee_scopes'} or 'groups' not in config:
+        if type(config) is not dict or set(config)-{'groups','motion','held','apply_directives','callee_scopes'} or 'groups' not in config:
             raise ValueError('Group lock configuration requires groups and optional motion/directive settings')
         motion=config.get('motion',{})
         if type(motion) is not dict or any(type(key) is not str or not re.fullmatch(r'[1-9][0-9]?',key) for key in motion):
             raise ValueError('Motion keys require canonical group numbers')
-        return cls(config['groups'],motion={int(key):value for key,value in motion.items()},apply_directives=config.get('apply_directives',False),callee_scopes=config.get('callee_scopes',False))
+        return cls(config['groups'],motion={int(key):value for key,value in motion.items()},held=config.get('held'),apply_directives=config.get('apply_directives',False),callee_scopes=config.get('callee_scopes',False))
 
 
 def call_program(state,operation,args,line=None):

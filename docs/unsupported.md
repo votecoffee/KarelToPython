@@ -31,12 +31,13 @@ they are boundaries rather than promises to accept every such source form later.
   completion. [Offline motion requests](motion-requests.md) now translate all
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
-  or immediate scripted responses plus logical ownership. Motion WITH, WHEN/UNTIL,
-  native interpolation settings and group synchronization remain unsupported.
-  `HOLD`, `UNHOLD`, `CANCEL`, `CANCEL FILE` and standalone `PURGE` are not translated;
-  `PURGE CONDITION` is supported. `IN GROUP[n]` does not add other native `IN`
+  or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
+  now support HOLD/UNHOLD/CANCEL, global handler actions and six per-request WITH
+  settings. Remaining WITH variables, cross-group settings, motion-local WHEN/UNTIL,
+  interpolation execution and native group synchronization remain unsupported.
+  `CANCEL FILE` and standalone `PURGE` are not translated; `PURGE CONDITION` is supported. `IN GROUP[n]` does not add other native `IN`
   clauses; `IN DRAM` storage placement is unavailable.
-- Handler actions involving native motion, hold/unhold or file cancellation;
+- Handler actions involving native motion execution or file cancellation;
   path-node arrival (`A TNODE`) conditions. Checkpoint predicates, events, port
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,

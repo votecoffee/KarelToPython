@@ -292,7 +292,7 @@ class DelayRejectionTests(unittest.TestCase):
         data,calls,program,_=execute('x=7',prefix='%DELAY=0')
         self.assertEqual((data['X'],calls,program.source_settings['periodic_delay_ms']),(7,[],0))
     def test_incomplete_condition_handler_rejected(self): self.reject('CONDITION[1]:', 'E_SYNTAX')
-    def test_motion_hold_remains_blocked(self): self.reject('HOLD', 'E_UNSUPPORTED')
+    def test_legacy_motion_hold_remains_blocked(self): self.reject('HOLD', 'E_UNSUPPORTED', _translator=legacy_translate)
     def test_legacy_task_targeted_abort_remains_blocked(self): self.reject('ABORT PROGRAM[1]', 'E_ABORT_TARGET', _translator=legacy_translate)
 
     def test_delay_function_inside_operator_blocked(self):

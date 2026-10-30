@@ -159,3 +159,7 @@ Translation reports expose `controller_policy`; the
 [semantic ledger](semantics/controller_service_semantics.json) records primary
 manual provenance and authored verification. Native controller/servo acceptance,
 binary ABI, physical reset and strict equivalence remain future work.
+
+Separate [HOLD/UNHOLD/CANCEL controls](motion-controls.md) retain hold flags
+independently of work labels. CNCL_STP_MTN clears stopped labels without clearing
+those flags; another explicit UNHOLD is needed before a held group accepts MOVE.

@@ -1,0 +1,16 @@
+{
+  "version": "26.1030.001439",
+  "scope": "Offline Pythonic motion controls and request-local WITH data; no trajectories or controller acceptance",
+  "guide": "docs/motion-controls.md",
+  "controls": "HOLD/UNHOLD change orthogonal hold flags, preserving idle/executing/stopped work labels; CANCEL clears executing labels while preserving stopped work and holds",
+  "selection": "Distinct explicit group expressions captured once in source order, or the root-owned set at action execution; atomic ownership/capacity/history preflight",
+  "handlers": "Controls and logical hands may execute in global handlers; hands are independent of motion holds; linked source calls retain the calling root",
+  "lifetime": "MOVE/ATTACH/RELEASE require idle unheld groups; automatic acquisition cannot steal held groups; root terminal cleanup releases ownership while retaining labels and hold flags",
+  "with_settings": ["$SPEED", "$ROTSPEED", "$MOTYPE", "$UFRAME", "$UTOOL", "$USE_CONFIG"],
+  "capture_order": "Per-entry group then private value, settings in source order before MOVE operands; current selected group only; no global environment or robot-context mutation",
+  "motion_type": "Contextual JOINT/LINEAR/CIRCULAR and INTEGER 6/7/8; explicit CIRCULAR requires MOVE TO VIA, other explicit types reject VIA",
+  "persistence": "Omit empty hold sets; validate typed setting history and control transitions; live ownership is not serializable or restorable",
+  "tests": ["tests/test_motion_controls.py", "examples/motion_controls.kl", "examples/motion_control_handler.kl", "examples/motion_with_settings.kl", "examples/motion_control_project/main.kl"],
+  "remaining": ["Motion-local WHEN/UNTIL handlers", "Queued/delayed execution", "Other WITH variables and cross-group settings", "Global system-variable access", "Native synchronization and physical effects"],
+  "controller_validated": false
+}

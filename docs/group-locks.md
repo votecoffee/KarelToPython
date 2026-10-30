@@ -47,13 +47,15 @@ unlock ordering is a chosen offline policy.
 | 0 | Success |
 | 1 | Invalid or unconfigured mask |
 | 2 | Selected group belongs to another task |
-| 17039 | Owned group has an executing motion label |
+| 17039 | Owned group has executing work or an idle hold flag |
 | 17040 | Owned group has a stopped motion label |
 
-The two busy codes follow the documented UNLOCK_GROUP conditions. The motion
+Executing/stopped codes retain their documented conditions; applying 17039 to
+an idle held group is an explicit offline extension. The motion
 labels are caller-supplied evidence, not simulated or observed robot movement.
 The host can change a label with `bank.set_motion(group,'idle')`, `'executing'`
-or `'stopped'`. An unspecified label is idle. There are no automatic lock waits,
+or `'stopped'`. An unspecified label is idle. A separate [hold flag](motion-controls.md)
+can block new requests without changing that label. There are no automatic lock waits,
 motion-driven acquisitions. The separate [controller service](controller-services.md)
 now lets CNCL_STP_MTN clear only the caller-owned stopped labels, and MOTION_CTL
 query explicit/default group selection. These have no physical motion effects.
@@ -70,7 +72,8 @@ selection, lifecycle and contention. A second opt-in, `callee_scopes=True`, adds
 [scoped acquisitions](scoped-group-locks.md) for called programs and routines.
 
 `bank.snapshot()` returns detached configured groups, motion labels and owner
-source names for inspection. JSON persists configured groups, motion labels and
+source names for inspection. Nonempty hold sets appear as `held`; empty sets
+remain omitted. JSON persists configured groups, motion labels, hold flags and
 the true `apply_directives` and `callee_scopes` flags. Saving context while ownership is live raises
 rather than writing a state that
 could appear to restore task ownership. Finish or explicitly unlock before

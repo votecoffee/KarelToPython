@@ -1,0 +1,42 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "POINT": {
+        "X": 1.0,
+        "Y": 2.0,
+        "Z": 3.0,
+        "W": 0.0,
+        "P": 0.0,
+        "R": 0.0,
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": 0,
+          "CFG_TURN_NO2": 0,
+          "CFG_TURN_NO3": 0,
+          "CFG_FLIP": false,
+          "CFG_LEFT": false,
+          "CFG_UP": false,
+          "CFG_FRONT": false
+        }
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      },
+      "STATUS": 0,
+      "ENTRY": 1,
+      "DONE": true
+    }
+  },
+  "WORKER": {
+    "state": "ready",
+    "values": {
+      "DONE": true
+    }
+  }
+}

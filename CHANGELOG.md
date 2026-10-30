@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1030.001439 - 2026-10-30
+
+- Add logical HOLD/UNHOLD/CANCEL statements and global handler actions with
+  atomic explicit group selection, source-order capture and caller-owned state.
+  Preserve stopped work and keep hold flags independent from work labels.
+- Retain hold flags across canceled work and task termination, block new moves
+  and automatic acquisition while held, and allow logical hand actions during
+  held/active work. Keep stopped cancellation in CNCL_STP_MTN distinct.
+- Capture six local WITH settings before MOVE operands, including checked
+  interpolation types, finite speed values, Boolean configuration and detached
+  Cartesian frame/tool data. Preserve global environments and robot feedback.
+- Persist validated control transitions and typed settings, retaining old empty
+  hold output. Add 41 regressions, three standalone examples and a linked project;
+  update current README, API, backlog and legacy-only HOLD rejection coverage.
+  Queued motion, remaining WITH variables, local handlers and strict remain future work.
+
 ## 26.1029.234813 - 2026-10-29
 
 - Translate all seven basic MOVE forms, VIA, direct PATH-node destinations and

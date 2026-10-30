@@ -10,9 +10,13 @@ import re
 
 MOVES = ('MOVE TO', 'MOVE NEAR', 'MOVE AWAY', 'MOVE ABOUT', 'MOVE AXIS',
          'MOVE RELATIVE', 'MOVE ALONG')
-OPERATIONS = (*MOVES, 'OPEN HAND', 'CLOSE HAND', 'RELAX HAND', 'ATTACH', 'RELEASE')
+CONTROLS = ('HOLD', 'UNHOLD', 'CANCEL')
+OPERATIONS = (*MOVES, *CONTROLS, 'OPEN HAND', 'CLOSE HAND', 'RELAX HAND', 'ATTACH', 'RELEASE')
 POSES = ('POSITION', 'XYZWPR', 'XYZWPREXT', 'JOINTPOS')
 MAX_SEQUENCE = 2147483646
+SETTINGS = {'$SPEED':'REAL', '$ROTSPEED':'REAL', '$MOTYPE':'INTEGER',
+            '$UFRAME':'POSE', '$UTOOL':'POSE', '$USE_CONFIG':'BOOLEAN'}
+KINDS = {6:'JOINT', 7:'LINEAR', 8:'CIRCULAR'}
 
 
 def rt():
@@ -73,6 +77,38 @@ def typed(row, allowed, axes=None):
         canonical = operand(value, decoded_spec)
     if canonical != row:
         raise ValueError('Motion position requires canonical complete data')
+
+
+def setting(name, value, spec, line=None):
+    """Capture one temporary WITH value, without applying an environment."""
+    runtime = rt()
+    if name == '$MOTYPE':
+        value = runtime.integer(value, line)
+        if value not in KINDS:
+            raise runtime.KarelRuntimeError('Motion type requires JOINT/LINEAR/CIRCULAR (6/7/8)', line)
+        return KINDS[value]
+    if name in ('$SPEED', '$ROTSPEED'):
+        value = runtime.real(value, line)
+        if value < 0:
+            raise runtime.KarelRuntimeError('Motion speed settings require nonnegative finite values', line)
+        return value
+    if name == '$USE_CONFIG':
+        return runtime.boolean(value, line)
+    if name in ('$UFRAME', '$UTOOL') and spec[0] in POSES[:-1]:
+        return operand(value, spec, line)
+    raise runtime.KarelRuntimeError('Unsupported motion WITH setting', line)
+
+
+def transition(operation, before):
+    """Hold is orthogonal to stopped/active work; cancellation retains the hold."""
+    after = dict(before)
+    if operation == 'HOLD':
+        after['held'] = True
+    elif operation == 'UNHOLD':
+        after['held'] = False
+    elif operation == 'CANCEL' and before['motion'] == 'executing':
+        after['motion'] = 'idle'
+    return after
 
 
 class MotionRequests:
@@ -151,9 +187,43 @@ class MotionRequests:
             'MOVE ALONG': {'nodes', 'start', 'end'}, 'ATTACH': {'groups'},
             'RELEASE': {'groups'}, 'OPEN HAND': {'hand'}, 'CLOSE HAND': {'hand'},
             'RELAX HAND': {'hand'},
+            **{name:{'groups', 'states'} for name in CONTROLS},
         }[operation]
-        if set(data) != expected and not (operation == 'MOVE TO' and set(data) == expected | {'via'}):
+        optional = ({'settings'} if operation in MOVES else set()) | ({'via'} if operation == 'MOVE TO' else set())
+        if set(data) - optional != expected:
             raise ValueError('Unexpected motion request fields')
+        if 'settings' in data:
+            rows = data['settings']
+            if type(rows) is not list or not 1 <= len(rows) <= len(SETTINGS):
+                raise ValueError('Motion WITH requires 1..6 supported settings')
+            names = set()
+            for row in rows:
+                if type(row) is not dict or set(row) != {'name', 'group', 'value'}:
+                    raise ValueError('Malformed motion WITH setting')
+                name = row['name']
+                if type(name) is not str or name not in SETTINGS or name in names:
+                    raise ValueError('Unknown or duplicate motion WITH setting')
+                names.add(name)
+                if type(row['group']) is not int or row['group'] != group:
+                    raise ValueError('Motion WITH group must match the selected request group')
+                value = row['value']
+                if name == '$MOTYPE':
+                    if type(value) is not str or value not in KINDS.values():
+                        raise ValueError('Invalid motion WITH interpolation type')
+                    if value == 'CIRCULAR' and (operation != 'MOVE TO' or 'via' not in data):
+                        raise ValueError('CIRCULAR motion requires MOVE TO with VIA')
+                    if value != 'CIRCULAR' and 'via' in data:
+                        raise ValueError('VIA conflicts with the explicit motion type')
+                elif name in ('$UFRAME', '$UTOOL'):
+                    typed(value, POSES[:-1])
+                elif name == '$USE_CONFIG':
+                    if type(value) is not bool:
+                        raise ValueError('USE_CONFIG requires BOOLEAN')
+                else:
+                    runtime = rt()
+                    with runtime._numeric_scope('pythonic'):
+                        if runtime.real(value) < 0:
+                            raise ValueError('Motion speed settings must be nonnegative')
         for key in ('target', 'via', 'offset', 'vector'):
             if key in data:
                 allowed = ('VECTOR',) if key == 'vector' else ('VECTOR', *POSES[:-1]) if key == 'offset' else POSES[:-1] if operation == 'MOVE NEAR' or key == 'via' else POSES
@@ -174,6 +244,21 @@ class MotionRequests:
                     or any(type(g) is not int or g not in self.groups for g in groups)
                     or groups != sorted(set(groups))):
                 raise ValueError('Invalid motion ownership selection')
+        if 'states' in data:
+            states = data['states']
+            if type(states) is not list or len(states) != len(data['groups']):
+                raise ValueError('Motion control state count disagrees with groups')
+            for group_number, row in zip(data['groups'], states):
+                if (type(row) is not dict or set(row) != {'group', 'before', 'after'}
+                        or type(row['group']) is not int or row['group'] != group_number):
+                    raise ValueError('Malformed motion control state')
+                for state in (row['before'], row['after']):
+                    if (type(state) is not dict or set(state) != {'motion', 'held'}
+                            or type(state['motion']) is not str or state['motion'] not in ('idle', 'executing', 'stopped')
+                            or type(state['held']) is not bool):
+                        raise ValueError('Invalid motion control label or hold flag')
+                if row['after'] != transition(operation, row['before']):
+                    raise ValueError('Motion control history contains an invalid transition')
         if 'nodes' in data:
             nodes = data['nodes']
             if type(nodes) is not list or not 1 <= len(nodes) <= 256:
@@ -187,7 +272,7 @@ class MotionRequests:
         if len(json.dumps(data, allow_nan=False, separators=(',', ':')).encode('ascii')) > 65536:
             raise ValueError('Motion request exceeds 64 KiB')
 
-    def invoke(self, state, operation, data, nowait=False, line=None):
+    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None):
         runtime = rt()
         group = state.robot_group or 1
         root = runtime.task_root(state)
@@ -196,6 +281,8 @@ class MotionRequests:
             for name in (root.program_name, state.program_name):
                 if type(name) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]{0,253}', name):
                     raise ValueError('Motion request owner requires an ASCII source identifier within 254 characters')
+            if settings and operation not in MOVES:
+                raise ValueError('WITH settings require a MOVE request')
             if operation == 'MOVE ALONG':
                 path, start, end = data.pop('path'), data['start'], data['end']
                 start = 1 if start is None else start
@@ -210,6 +297,22 @@ class MotionRequests:
                     raise ValueError('MOVE ALONG nodes require positional NODE_POS')
                 data = dict(start=start, end=end, nodes=[operand(node.values['NODE_POS'], spec, line)
                             for node in path.nodes[start - 1:end]])
+            if settings:
+                data = dict(data, settings=[dict(row, group=group if row['group'] is None else row['group']) for row in settings])
+            if operation in CONTROLS:
+                groups = data['groups']
+                if groups is None:
+                    groups = [g for g, owner in locks.owners.items() if owner is root]
+                if (type(groups) is not list or len(groups) > 31
+                        or any(type(g) is not int or g not in self.groups for g in groups)
+                        or len(set(groups)) != len(groups)):
+                    raise ValueError('Motion control requires distinct configured group numbers')
+                groups = sorted(groups)
+                states = []
+                for selected_group in groups:
+                    before = dict(motion=locks.motion.get(selected_group, 'idle'), held=selected_group in locks.held)
+                    states.append(dict(group=selected_group, before=before, after=transition(operation, before)))
+                data = dict(groups=groups, states=states)
             if operation == 'RELEASE':
                 data = dict(groups=sorted(g for g, owner in locks.owners.items() if owner is root))
             elif operation == 'ATTACH':
@@ -222,15 +325,15 @@ class MotionRequests:
             self.validate(operation, group, data)
             if any(g not in locks.groups for g in self.groups):
                 raise ValueError('Motion groups must exist in the logical GroupLocks bank')
-            selected = data['groups'] if operation in ('ATTACH', 'RELEASE') else [group]
+            selected = data['groups'] if operation in (*CONTROLS, 'ATTACH', 'RELEASE') else [group]
             for selected_group in selected:
                 owner = locks.owners.get(selected_group)
                 if owner is not None and owner is not root:
                     raise ValueError('Motion group is owned by another task')
                 if operation not in ('ATTACH', 'RELEASE') and (owner is not root or root in self._released):
                     raise ValueError('Motion requires attached logical group ownership')
-                if locks.motion.get(selected_group, 'idle') != 'idle':
-                    raise ValueError('Motion request requires an idle logical group')
+                if operation in (*MOVES, 'ATTACH', 'RELEASE') and (locks.motion.get(selected_group, 'idle') != 'idle' or selected_group in locks.held):
+                    raise ValueError('Motion request requires an idle logical group without a hold')
             if self.sequence >= MAX_SEQUENCE:
                 raise ValueError('Motion request sequence exhausted')
             outcome = 'completed'
@@ -261,6 +364,14 @@ class MotionRequests:
             for selected_group in selected:
                 locks.owners.pop(selected_group, None)
                 locks._ownership_tokens.pop(selected_group, None)
+        elif operation in CONTROLS:
+            for row in data['states']:
+                selected_group = row['group']
+                locks.set_motion(selected_group, row['after']['motion'])
+                if row['after']['held']:
+                    locks.held.add(selected_group)
+                else:
+                    locks.held.discard(selected_group)
         elif operation.endswith(' HAND'):
             self.hands[data['hand']] = {'OPEN HAND': 'open', 'CLOSE HAND': 'closed', 'RELAX HAND': 'relaxed'}[operation]
         if outcome == 'rejected':

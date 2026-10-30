@@ -1,0 +1,181 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "open",
+      "2": "open"
+    },
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 7,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "source_program": "WORKER",
+        "operation": "MOVE TO",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "target": {
+            "type": [
+              "XYZWPR"
+            ],
+            "value": {
+              "X": 1.0,
+              "Y": 2.0,
+              "Z": 3.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          "settings": [
+            {
+              "name": "$SPEED",
+              "group": 1,
+              "value": 30.0
+            },
+            {
+              "name": "$MOTYPE",
+              "group": 1,
+              "value": "JOINT"
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "source_program": "WORKER",
+        "operation": "HOLD",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": false
+              },
+              "after": {
+                "motion": "idle",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "source_program": "WORKER",
+        "operation": "OPEN HAND",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "UNHOLD",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 12,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 1.0
+        }
+      },
+      {
+        "sequence": 7,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 13,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

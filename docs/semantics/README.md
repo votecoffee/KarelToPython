@@ -306,3 +306,7 @@ inputs, caller ownership, root cleanup, artifact hashes and byte quotas.
 The [motion request ledger](motion_request_semantics.json) supersedes blanket
 MOVE/hand/ATTACH/RELEASE translation exclusions in older contracts. The explicit
 request model remains separate from native motion, trajectories and feedback.
+
+The [motion control ledger](motion_control_semantics.json) supersedes the first
+request ledger's HOLD/UNHOLD/CANCEL and blanket WITH exclusions. Native motion,
+pending execution, other WITH variables and synchronization remain separate.

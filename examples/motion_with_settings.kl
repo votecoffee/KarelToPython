@@ -1,0 +1,18 @@
+PROGRAM MOTION_WITH_SETTINGS
+VAR point,tool_frame:XYZWPR config_data:CONFIG status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',config_data,status)
+    point=POS(10,20,30,0,0,0,config_data)
+    tool_frame=POS(40,50,60,0,0,0,config_data)
+    ATTACH
+    WITH $SPEED=250,$ROTSPEED=40,$MOTYPE=LINEAR,
+         $UFRAME=point,$UTOOL=tool_frame,$USE_CONFIG=FALSE
+    MOVE TO point
+    point.x=99
+    tool_frame.x=88
+    MOVE AWAY 1
+    RELEASE
+    done=TRUE
+  ENDIF
+END MOTION_WITH_SETTINGS
