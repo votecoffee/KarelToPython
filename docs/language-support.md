@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1030.014130. Acceptance is specific to
+This is the supported prototype subset as of 26.1030.020945. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -51,7 +51,7 @@ internally and in the historical semantic notes.
 | Collection persistence | PATH and QUEUE_TYPE context variables | Typed partial PATH data, queue FIFO/sequence state and explicit buffer rebinding; portable logical snapshots without native layouts or task checkpoints. |
 | POSITION conversion | Whole assignments among XYZWPR, XYZWPREXT and POSITION; independent location/configuration and checked orientation matrices | Finite complete values; proper unit/orthogonal matrix checks with explicit 1e-9 tolerance; [Cartesian source routine conversions](cartesian-interfaces.md) use private differing representations; whole-array/BYNAME/linked declared types remain exact; context-free Cartesian conversion only; model-backed joint assignments are listed below. Widening zeros external metadata; narrowing drops it. |
 | Output pulses | PULSE DOUT with blocking/NOWAIT statements and blocking handler actions | Explicit bank, rounded duration, host polling or scheduler virtual time; portable override/lifecycle rules. |
-| Kinematic assignment | Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments and [source routine conversions](kinematic-interfaces.md) using supplied robot adapters/models | Selected frame/tool and root group; inverse needs current joints as seed; same-kind source widths use checked zero-padding/zero-only narrowing; whole arrays, BYNAME and declared linkage remain exact. |
+| Kinematic assignment | Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments and [source routine conversions](kinematic-interfaces.md) using supplied robot adapters/models | Selected frame/tool and root group; inverse needs current joints as seed; same-kind source widths use checked zero-padding/zero-only narrowing; [anonymous positional ARRAYs](positional-arrays.md) use context-free changes; named interfaces, BYNAME and declared linkage remain exact. |
 | Joint data | Opaque JOINTPOS1..9, exact-width copies, restricted explicit-context REAL-array conversions | No source field/index access or implicit group discovery. RobotContext supplies explicit kinematics. |
 | VECTOR | VEC construction, arithmetic, cross/dot products, equality, routine values and translation-frame equivalents | Complete finite components; [pose:VECTOR points](vector-frames.md) and [VECTOR translation offsets](vector-translation-frames.md), INV negation and FRAME points with an explicit pose origin. No inferred CONFIG or implicit routine coercion. |
 | Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, UNPOS pose-value and model-backed joint extraction | Bounded width/precision, caller capacities and disjoint outputs; source snapshots and chosen Pythonic formatting/pose conventions. |

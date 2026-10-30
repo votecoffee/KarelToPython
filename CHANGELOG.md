@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1030.020945 - 2026-10-30
+
+- Convert anonymous positional ARRAY values across Cartesian representations or
+  checked JOINTPOS widths in assignments, private source arguments and RETURN.
+  Capture complete data once before later arguments, targets and frame cleanup.
+- Extend GET_VAR/SET_VAR same-rank prefixes to these checked leaf conversions,
+  including named ARRAY components, while preserving receiver schema, aliases,
+  untouched tails and atomic data/cache/status publication.
+- Keep exact bare aliases, partial same-type copies, named source interfaces,
+  BYNAME, linked signatures and raw callback results under existing contracts.
+  Preserve complete geometry, zero-only joint narrowing and allocation guards.
+- Add 44 regressions, three standalone examples and a linked project, including
+  independent ownership, failure ordering, pause, persistence and installed replay.
+- Refresh README, API and support/semantic guidance. Whole-array joint/Cartesian
+  kinematics, inferred robot context, native ABI and strict mode remain separate.
+
 ## 26.1030.014130 - 2026-10-30
 
 - Translate explicit CANCEL FILE selectors in Pythonic source, handler actions

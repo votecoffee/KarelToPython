@@ -1,0 +1,14 @@
+PROGRAM ARRAYVARIABLES
+VAR cfg:CONFIG entry,status:INTEGER a:ARRAY[2]OF XYZWPREXT matrices:ARRAY[3]OF POSITION plain:ARRAY[2]OF XYZWPR done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',cfg,status)
+    a[1]=POS(1,2,3,0,0,90,cfg)
+    a[2]=POS(4,5,6,0,0,0,cfg)
+    a[1].ext1=10
+    matrices[3]=POS(99,0,0,0,0,0,cfg)
+    GET_VAR(entry,'','A',matrices,status)
+    SET_VAR(entry,'','PLAIN',matrices,status)
+    done=TRUE
+  ENDIF
+END ARRAYVARIABLES

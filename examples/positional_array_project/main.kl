@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR cfg:CONFIG status:INTEGER a:ARRAY[2]OF XYZWPR result:ARRAY[2]OF XYZWPREXT done:BOOLEAN
+ROUTINE expanded(points:ARRAY OF POSITION):ARRAY OF XYZWPREXT FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',cfg,status)
+    a[1]=POS(1,2,3,0,0,90,cfg)
+    a[2]=POS(4,5,6,0,0,0,cfg)
+    result=expanded(a)
+    done=TRUE
+  ENDIF
+END MAIN

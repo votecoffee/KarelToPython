@@ -107,14 +107,16 @@ they are boundaries rather than promises to accept every such source form later.
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
 - Direct joint field/index access, nonzero-axis-discarding joint-width conversions,
-  whole-array representation conversion and implicit robot-context discovery.
+  named source ARRAY-interface coercion and implicit robot-context discovery.
   [Source joint-width conversions](joint-width-conversions.md) now pad zeros or
   narrow zero-only trailing axes into complete private values without robot inference.
   [Joint/Cartesian source routine conversions](kinematic-interfaces.md) now require
   explicit models/adapters and current inverse seeds, using private values.
   [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
   use private values across POSITION/XYZWPR/XYZWPREXT; BYNAME, linked declarations,
-  callback raw return types and whole-array elements remain exact. Individual
+  callback raw return types and named source ARRAY identities remain exact.
+  [Anonymous positional ARRAYs](positional-arrays.md) now change Cartesian representation
+  or checked joint width, including same-rank GET_VAR/SET_VAR prefixes. Individual
   [GET_VAR/SET_VAR positional values](positional-variable-transfers.md) now change
   Cartesian representation or checked joint width without inferring kinematics.
   POSITION orientation columns remain recursively read-only source storage.

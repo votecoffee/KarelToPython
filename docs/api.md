@@ -650,3 +650,10 @@ the captured operation, validates live backend identity, and returns portable
 IO_STATUS 6 after unwind. Idle registered FILEs return status zero without data
 changes. Direct host generators and READ_KB jobs remain separate. Reports expose
 `file_cancel_policy`; operation tokens are private and never serialized.
+
+[Positional ARRAY conversion](positional-arrays.md) adds explicit
+`runtime.convert_positional_array(target_spec, value, line=None)` for anonymous
+matching-shape Cartesian/joint-width source values. It prepares complete private
+data without changing generic checked/parameter/result compatibility. Reports
+add `positional_array_conversions` and `positional_array_policy`; GET_VAR/SET_VAR
+reuse checked leaf conversions inside their existing atomic prefix preparation.

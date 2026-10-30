@@ -1186,6 +1186,7 @@ class Emitter:
         self.kinematic_assignment_uses = []
         self.kinematic_interface_uses=[]
         self.joint_width_uses=[]
+        self.positional_array_uses=[]
         self.joint_geometry_uses = []
         self.pulse_uses = []
         self.motion_uses = []
@@ -2730,7 +2731,16 @@ class Emitter:
                 value, actual = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
-            if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:
+            if self.mode=='pythonic' and rt.positional_array_kind(expected,actual):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},_rt.convert_positional_array({expected!r},{value},{line}),{line})'
+                is_reference,actual=False,expected
+                cartesian_conversion=True;conversion_kind='positional_array'
+                self.features.add('positional ARRAY conversion')
+                self.positional_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_joint_width({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -2787,6 +2797,7 @@ class Emitter:
                                                   source_spec=actual, line=line, column=argument.token.column,
                                                   expression_kind=argument.kind, evaluated_once=True,
                                                   independent_writable_copy=True, initialized_elements_required=True))
+                if conversion_kind=='positional_array':self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
             if not is_reference and expected[0] == 'STRING':
                 if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
@@ -3377,7 +3388,13 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
-            if self.mode=='pythonic' and target_type[0]==value_type[0]=='JOINTPOS' and target_type!=value_type:
+            if self.mode=='pythonic' and rt.positional_array_kind(target_type,value_type):
+                value=f'_rt.convert_positional_array({target_type!r},{value},{line})'
+                self.features.add('positional ARRAY conversion')
+                self.positional_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and target_type[0]==value_type[0]=='JOINTPOS' and target_type!=value_type:
                 value=f'_rt.convert_joint_width({target_type!r},{value},{line})'
                 self.features.add('checked joint width conversion')
                 self.joint_width_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
@@ -3698,7 +3715,14 @@ class Emitter:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
-                if self.mode=='pythonic' and spec[0]==value_type[0]=='JOINTPOS' and spec!=value_type:
+                if self.mode=='pythonic' and rt.positional_array_kind(spec,value_type):
+                    value=f'_rt.convert_positional_array({spec!r},{value},{line})'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='positional_array'
+                    self.features.add('positional ARRAY conversion')
+                    self.positional_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and spec[0]==value_type[0]=='JOINTPOS' and spec!=value_type:
                     value=f'_rt.convert_joint_width({spec!r},{value},{line})'
                     value_type=spec;cartesian_conversion=True;conversion_kind='joint_width'
                     self.features.add('checked joint width conversion')
@@ -4242,6 +4266,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
+        positional_array_conversions=emitter.positional_array_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         motion_requests=emitter.motion_uses,
@@ -5724,6 +5749,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         ownership='Converted values are independent; arguments evaluate once into private writable cells without copy-back; RETURN before cleanup and assignment before target capture',
         boundary='Whole arrays, BYNAME, linked declared signatures and raw callback results remain exact; legacy rejects cross-width forms; no robot acquisition or motion',
         guide='docs/joint-width-conversions.md',controller_validated=False)
+    report['positional_array_policy']=dict(
+        source='Anonymous flat ARRAYs of matching rank/dimensions across Cartesian representations or JOINTPOS widths; assignments and private source argument/RETURN values',
+        capture='Evaluate once; validate complete source and prepare every converted element before assignment target selectors, later arguments or routine-frame cleanup',
+        values='Context-free Cartesian geometry and checked joint padding/zero-only narrowing; complete finite geometry required only for changing terminal representation',
+        variables='GET_VAR/SET_VAR same-rank positional prefix conversion, including named components; preserve receiver type, identities and unused tail; copied prefix must be complete',
+        exact='Same-type partial copies and bare aliases unchanged; named source ARRAY interfaces, STRUCTURE schemas, BYNAME, linked declared signatures and raw callback results remain exact',
+        limits='Existing three-rank, concrete shape, 32767-leaf and 64-level guards remain; no joint/Cartesian array kinematics or inferred robot context',
+        guide='docs/positional-arrays.md',controller_validated=False)
+    report['cartesian_interface_policy']['boundary']='Context-free scalar and anonymous positional ARRAY source conversions; BYNAME, named ARRAY interfaces, linked signatures and raw callback results retain exact contracts'
+    report['joint_width_policy']['boundary']='Anonymous ARRAY source values follow positional_array_policy; named interfaces, BYNAME, linked signatures and raw callback results remain exact; no robot acquisition or motion'
+    report['positional_variable_transfer_policy']['conversions']='Individual positional values and same-rank ARRAY prefixes across Cartesian representations or checked JOINTPOS widths; exact partial copies unchanged'
+    report['positional_variable_transfer_policy']['boundary']='No joint/Cartesian ARRAY or variable kinematics, inferred model/group/frame/tool context or controller behavior; source ARRAYs follow positional_array_policy'
+    report['data_record_policy']['boundary']='Checked scalar and anonymous positional ARRAY source conversions; no inferred robot context, STRUCTURE schema coercion or physical motion'
+    report['positional_routine_policy']['boundary']='Private scalar and anonymous positional ARRAY conversions; named interfaces, exact bare references, BYNAME, linked declarations and raw callback results retain their contracts'
+    report['array_routine_policy']['positional_conversions']='Anonymous Cartesian/joint-width source values follow positional_array_policy; raw callbacks and named source identities remain exact'
     report['vision_palette_policy']=dict(
         input='Optional explicit palette on channels=1 index rasters; 1..256 packed RGBA entries as immutable Python bytes or canonical lowercase JSON hex; every index must be in range',
         persistence='Preserve palette and index bytes through supplied captures, image registers, finds and JSON; absent palette retains the existing grayscale interpretation',

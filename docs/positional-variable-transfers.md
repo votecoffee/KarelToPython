@@ -3,7 +3,7 @@
 Pythonic GET_VAR and SET_VAR can convert individual positional values across
 POSITION, XYZWPR and XYZWPREXT representations. They also support differing
 JOINTPOS widths using the existing zero-padding and zero-only narrowing policy.
-This applies to non-ARRAY data selected through existing explicit global,
+This applies to individual values and same-rank ARRAY prefixes selected through explicit global,
 attached-owner, field, ARRAY-element and supplied-binding paths.
 
 ```karel
@@ -32,9 +32,10 @@ remain visible on failure. Successful replacement preserves destination record
 and child identities, including retained aliases and POSITION protection.
 Successful lookup/cache hints and ordinary status conventions remain unchanged.
 
-Whole ARRAY transfers retain exact positional terminal types and joint widths.
-User STRUCTURE nominal identities remain exact. A selected positional element
-can be converted individually. JOINTPOS-to-Cartesian pairs remain incompatible
+[Positional ARRAY prefixes](positional-arrays.md) now change terminal representations
+and checked joint widths while preserving receiver schema and unused tail.
+User STRUCTURE nominal identities remain exact. Selected positional elements
+can also be converted individually. JOINTPOS-to-Cartesian pairs remain incompatible
 with status 3 even when a robot model is supplied; perform an explicit source
 kinematic conversion before transferring that result when needed.
 

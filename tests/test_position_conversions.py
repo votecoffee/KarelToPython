@@ -174,7 +174,7 @@ class PositionConversionGuardTests(unittest.TestCase):
         routine='ROUTINE make: POSITION BEGIN RETURN a END make'
         self.assertEqual(execute('a=POS(1,2,3,0,0,0,cfg) q=make()',routines=routine)['Q']['LOCATION']['X'],1.)
         self.reject('q=make()','E_RETURN',routines=routine,translator=legacy_translate)
-    def test_whole_arrays_do_not_change_component_type(self): self.reject('positions=poses',declarations=DECLARATIONS+' positions: ARRAY[1] OF POSITION poses: ARRAY[1] OF XYZWPR')
+    def test_named_arrays_do_not_change_component_type(self): self.reject('positions=poses',types='TYPE poses_t=ARRAY[1] OF XYZWPR',declarations=DECLARATIONS+' positions: ARRAY[1] OF POSITION poses: poses_t')
     def test_legacy_conversions_remain_blocked(self):
         for body in ('p=a','a=p'):
             with self.subTest(body=body): self.reject(body,translator=legacy_translate)

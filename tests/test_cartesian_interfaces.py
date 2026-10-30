@@ -385,11 +385,11 @@ class CartesianExactBoundaryTests(unittest.TestCase):
                 compile_program('work(a)', decl=f'a:{kind}', prefix='TYPE packet=STRUCTURE pose:XYZWPR ENDSTRUCTURE',
                                 routines='ROUTINE work(v:POSITION) BEGIN END work')
 
-    def test_whole_arrays_do_not_convert_cartesian_leaf_types(self):
+    def test_named_arrays_do_not_convert_cartesian_leaf_types(self):
         with self.assertRaises(TranslationError):
-            compile_program('work(a)', decl='a:ARRAY[1] OF XYZWPR', routines='ROUTINE work(v:ARRAY OF POSITION) BEGIN END work')
+            compile_program('work(a)', prefix='TYPE a_t=ARRAY[1] OF XYZWPR', decl='a:a_t', routines='ROUTINE work(v:ARRAY OF POSITION) BEGIN END work')
         with self.assertRaises(TranslationError):
-            compile_program('', decl='a:ARRAY[1] OF XYZWPR', routines='ROUTINE make:ARRAY OF POSITION BEGIN RETURN a END make')
+            compile_program('', prefix='TYPE a_t=ARRAY[1] OF XYZWPR', decl='a:a_t', routines='ROUTINE make:ARRAY OF POSITION BEGIN RETURN a END make')
 
     def test_byname_requires_exact_declared_cartesian_type(self):
         p, _ = program("entry=77 n=0 work(BYNAME('','A',entry))", routines='ROUTINE work(v:POSITION) BEGIN n=1 END work')

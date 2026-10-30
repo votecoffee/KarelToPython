@@ -143,10 +143,12 @@ class NumericVariableTransferTests(unittest.TestCase):
         project.programs['LIB']._state.values['A'].set(1,7);project.run('MAIN')
         self.assertEqual(project.programs['MAIN'].snapshot()['B'],[7.,MISSING])
 
-    def test_whole_array_positional_representations_remain_exact(self):
+    def test_incomplete_positional_array_conversion_preserves_outputs(self):
         for source_type,target_type in (('XYZWPR','XYZWPREXT'),('JOINTPOS2','JOINTPOS9')):
-            p,_=build('e=99 '+transfer(),f'a:ARRAY[1] OF {source_type} b:ARRAY[1] OF {target_type}')
-            with self.subTest(source=source_type,target=target_type):self.assertEqual((p.run()['S'],p.snapshot()['E']),(3,99))
+            p,_=build('e=99 s=77 '+transfer(),f'a:ARRAY[1] OF {source_type} b:ARRAY[1] OF {target_type}')
+            with self.subTest(source=source_type,target=target_type):
+                with self.assertRaises(rt.KarelRuntimeError):p.run()
+                self.assertEqual((p.snapshot()['S'],p.snapshot()['E']),(77,99))
 
     def test_numeric_reports_describe_missing_and_atomic_prefix_behavior(self):
         _,result=build(transfer(),'a:ARRAY[1] OF INTEGER b:ARRAY[1] OF REAL')

@@ -970,13 +970,17 @@ def variable_transfer(target,source,*,numeric=False,representations=False,line=N
         captured=_variable_copy(source.spec,source.value,line)
         converted=rt.convert_joint_width(spec,captured,line) if spec[0]=='JOINTPOS' else rt.convert_position(spec,captured,line)
         return converted,False
+    array_positional=None
     if arrays:
         leaf=rt.array_leaf_spec(spec);source_leaf=rt.array_leaf_spec(source.spec)
+        array_positional=rt.positional_conversion_kind(leaf,source_leaf) if representations else None
         if (len(rt.array_dimensions(spec))!=len(rt.array_dimensions(source.spec))
-                or not _variable_compatible(leaf,source_leaf,numeric=numeric)): return None
+                or not (array_positional or _variable_compatible(leaf,source_leaf,numeric=numeric))): return None
     elif not _variable_compatible(spec,source.spec,numeric=numeric): return None
     _variable_shape(spec,target.raw(),line)
-    if source.value is rt.UNINITIALIZED: return rt.UNINITIALIZED,True
+    if source.value is rt.UNINITIALIZED:
+        if array_positional:fail('Positional ARRAY conversion requires initialized source values',line)
+        return rt.UNINITIALIZED,True
     if not arrays:
         copied=_variable_copy(spec,_variable_copy(source.spec,source.value,line),line)
         return copied,_variable_missing(copied)
@@ -985,7 +989,11 @@ def variable_transfer(target,source,*,numeric=False,representations=False,line=N
     count=min(math.prod(rt.array_dimensions(spec)),math.prod(rt.array_dimensions(source.spec)))
     missing=False
     for reference,item in zip(_variable_array_targets(spec,copied,count),_variable_array_values(source.spec,source.value)):
-        prepared=_variable_copy(reference.spec,_variable_copy(source_leaf,item,line),line)
+        captured=_variable_copy(source_leaf,item,line)
+        if array_positional:
+            convert=rt.convert_joint_width if reference.spec[0]=='JOINTPOS' else rt.convert_position
+            prepared=convert(reference.spec,captured,line)
+        else:prepared=_variable_copy(reference.spec,captured,line)
         missing|=_variable_missing(prepared)
         reference.storage[reference.key]=rt.replace_value(reference.raw(),prepared)
     return copied,missing

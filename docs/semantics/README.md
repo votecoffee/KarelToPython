@@ -322,3 +322,8 @@ Native timing, inferred arrivals and queued motion remain separate.
 The [FILE cancellation ledger](file_cancel_semantics.json) supersedes blanket
 CANCEL FILE translation exclusions for explicit cooperative typed reads. Native
 pending writes, default aliases and controller status/timing remain separate.
+
+The [positional ARRAY ledger](positional_array_semantics.json) supersedes blanket
+whole-array Cartesian/joint-width exclusions for anonymous source values and
+explicit same-rank variable prefixes. Named source interfaces and joint/Cartesian
+ARRAY kinematics retain their separate boundaries.

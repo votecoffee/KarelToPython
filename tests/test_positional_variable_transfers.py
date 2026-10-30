@@ -76,8 +76,8 @@ class PositionalVariableTransferTests(unittest.TestCase):
             with self.subTest(field=field,value=value),self.assertRaises(rt.KarelRuntimeError):p.run()
             self.assertEqual((p.snapshot()['E'],p.snapshot()['S']),(99,77))
 
-    def test_whole_array_representations_stay_exact(self):
-        for first,second in (('XYZWPR','POSITION'),('JOINTPOS2','JOINTPOS9')):
+    def test_whole_array_kinematic_pairs_stay_incompatible(self):
+        for first,second in (('XYZWPR','JOINTPOS9'),('JOINTPOS2','POSITION')):
             p,_=build('e=99 '+transfer(),f'ARRAY[1] OF {first}',f'ARRAY[1] OF {second}')
             with self.subTest(first=first,second=second):self.assertEqual((p.run()['S'],p.snapshot()['E']),(3,99))
 
@@ -127,7 +127,7 @@ class PositionalVariableTransferTests(unittest.TestCase):
 
     def test_report_keeps_kinematics_and_array_boundaries_explicit(self):
         _,result=build(transfer());policy=result.report['positional_variable_transfer_policy']
-        self.assertIn('Non-ARRAY',policy['conversions']);self.assertIn('kinematics',policy['boundary'])
+        self.assertIn('same-rank ARRAY prefixes',policy['conversions']);self.assertIn('kinematics',policy['boundary'])
 
 
 if __name__=='__main__':unittest.main()

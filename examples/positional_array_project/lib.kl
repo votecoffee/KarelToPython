@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR last:ARRAY[2]OF XYZWPREXT
+ROUTINE expanded(points:ARRAY OF POSITION):ARRAY OF XYZWPREXT
+BEGIN
+  points[1].location.x=points[1].location.x+20
+  last=points
+  RETURN points
+END expanded
+BEGIN
+END LIB

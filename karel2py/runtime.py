@@ -295,6 +295,46 @@ def indexed_type(spec, count):
     raise KarelRuntimeError('Too many ARRAY subscripts')
 
 
+def positional_conversion_kind(target,source):
+    """Describe supported context-free positional changes, without coercing data."""
+    if type(target) is not tuple or type(source) is not tuple or not target or not source or target==source:return None
+    cartesians=(('POSITION',),('XYZWPR',),('XYZWPREXT',))
+    if target in cartesians and source in cartesians:return 'cartesian'
+    if target[0]==source[0]=='JOINTPOS':
+        try:joint_width(target);joint_width(source)
+        except (KarelRuntimeError,TypeError,IndexError):return None
+        return 'joint_width'
+    return None
+
+
+def positional_array_kind(target,source):
+    """Anonymous flat positional ARRAYs retain matching logical dimensions."""
+    if any(type(spec) is not tuple or len(spec)!=3 or spec[0]!='ARRAY' for spec in (target,source)):return None
+    kind=positional_conversion_kind(target[2],source[2])
+    if kind is None:return None
+    shapes=[array_shape(spec) for spec in (target,source)]
+    if (not 1<=len(shapes[0])<=3 or len(shapes[0])!=len(shapes[1])
+            or any(size is not None and (type(size) is not int or not 1<=size<=32767) for shape in shapes for size in shape)
+            or any(a is not None and b is not None and a!=b for a,b in zip(*shapes))):return None
+    return kind
+
+
+def convert_positional_array(target,value,line=None):
+    """Prepare an independent complete ARRAY before publishing any destination."""
+    if not _pythonic():raise KarelRuntimeError('Positional ARRAY conversion requires Pythonic mode',line)
+    if type(value) is not Array or positional_array_kind(target,value.spec) is None:
+        raise KarelRuntimeError('Positional ARRAY conversion requires anonymous matching shapes and convertible terminal types',line)
+    source=_aggregate_value(value.spec,value,line,allow_partial=False)
+    shape=array_shape(source.spec)
+    dimensions=tuple(actual if expected is None else expected for expected,actual in zip(array_shape(target),shape))
+    concrete=('ARRAY',dimensions if type(target[1]) is tuple else dimensions[0] if len(dimensions)==1 else dimensions,target[2])
+    if scalar_leaf_count(concrete)>32767:raise KarelRuntimeError('Positional ARRAY conversion exceeds 32767 scalar leaves',line)
+    result=Array(concrete)
+    convert=convert_joint_width if target[2][0]=='JOINTPOS' else convert_position
+    result.values[:]=[convert(target[2],item,line) for item in source.values]
+    return result
+
+
 def parameter_accepts(formal, actual):
     """Compare formal types; None capacity is inherited from caller storage."""
     if formal[0] != actual[0]: return False

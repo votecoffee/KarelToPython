@@ -1,0 +1,26 @@
+{
+  "version": "26.1030.020945",
+  "scope": "Context-free Pythonic positional ARRAY values and same-rank variable prefixes; no robot/native equivalence",
+  "guide": "docs/positional-arrays.md",
+  "source": "Anonymous flat Cartesian or differing-width JOINTPOS ARRAY assignment, private argument and RETURN; matching rank/dimensions and concrete wildcard capture",
+  "geometry": "Reuse complete scalar Cartesian conversions or joint zero-padding/zero-only narrowing; no model, group, frame/tool or seed inference",
+  "ownership": "Converted values are independent; exact bare references and exact partial copies unchanged; one capture before later arguments/target selectors and RETURN cleanup",
+  "variables": "GET_VAR/SET_VAR checked row-major positional prefixes including named components; preserve receiver schema, identities and tail; only copied prefix must be complete",
+  "failure": "No partial publication or cache/status update; retain earlier explicit effects, pause/resume and cleanup; existing rank/type status and source-location errors",
+  "exact": "Named source ARRAY interfaces, STRUCTURE schema, BYNAME, linked declared signatures and raw callback result contracts",
+  "bounds": "Three logical ranks, matching concrete shapes, 32767 scalar leaves and existing 64-level data guards",
+  "tests": [
+    "tests/test_positional_arrays.py",
+    "examples/positional_array_interfaces.kl",
+    "examples/joint_array_widths.kl",
+    "examples/positional_array_variables.kl",
+    "examples/positional_array_project/main.kl"
+  ],
+  "remaining": [
+    "Joint/Cartesian ARRAY kinematics",
+    "Named source ARRAY interface coercion",
+    "Native ABI/controller equivalence",
+    "Strict mode"
+  ],
+  "controller_validated": false
+}

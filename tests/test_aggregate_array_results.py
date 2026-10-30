@@ -190,11 +190,11 @@ class AggregateArrayRejectionTests(unittest.TestCase):
     def test_multidimensional_record_source_remains_blocked(self):
         self.reject('E_RETURN',routines='ROUTINE make: ARRAY OF item_t VAR p: ARRAY[1,1] OF item_t BEGIN RETURN p END make')
 
-    def test_joint_width_mismatch_in_result(self):
-        self.reject('E_RETURN',types='',declarations='a: ARRAY[1] OF JOINTPOS3',routines='ROUTINE make: ARRAY OF JOINTPOS3 VAR p: ARRAY[1] OF JOINTPOS2 BEGIN RETURN p END make')
+    def test_named_joint_array_result_does_not_convert_width(self):
+        self.reject('E_RETURN',types='TYPE row_t=ARRAY[1] OF JOINTPOS2',declarations='a: ARRAY[1] OF JOINTPOS3',routines='ROUTINE make: ARRAY OF JOINTPOS3 VAR p: row_t BEGIN RETURN p END make')
 
-    def test_joint_width_mismatch_in_destination(self):
-        self.reject('E_TYPE',types='',declarations='a: ARRAY[1] OF JOINTPOS2',routines='ROUTINE make: ARRAY OF JOINTPOS3 VAR p: ARRAY[1] OF JOINTPOS3 BEGIN RETURN p END make')
+    def test_named_joint_array_destination_does_not_convert_width(self):
+        self.reject('E_TYPE',types='TYPE row_t=ARRAY[1] OF JOINTPOS2',declarations='a: row_t',routines='ROUTINE make: ARRAY OF JOINTPOS3 VAR p: ARRAY[1] OF JOINTPOS3 BEGIN RETURN p END make')
 
     def test_array_results_still_require_direct_assignment(self):
         for body in ('a=(make())','use(make())','n=ARRAY_LEN(make())'):

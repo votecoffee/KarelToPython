@@ -104,7 +104,8 @@ model and concrete variable codecs; it does not serialize temporary routine
 cells, executable callbacks or native robot state.
 
 Same-kind JOINTPOS source widths use [checked width conversion](joint-width-conversions.md),
-independent of model inverse padding. Whole ARRAY element types, named
+independent of model inverse padding. [Context-free positional ARRAY changes](positional-arrays.md)
+now use a separate policy; joint/Cartesian whole-array kinematics remain blocked. Named
 aggregate interfaces, `BYNAME` references, linked declaration/definition
 signatures and raw external callback result types also remain exact. A correctly
 declared external result can be converted by an enclosing source expression or
