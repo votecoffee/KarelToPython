@@ -103,7 +103,8 @@ No intermediate handler scan or cooperative yield occurs inside the model call.
 private joint/Cartesian conversions with the same explicit model and context.
 Same-type bare references retain aliases; source joint widths use checked zero
 padding/zero-only narrowing. [Anonymous model-backed ARRAY source values](kinematic-arrays.md)
-now support whole assignments and interfaces. GET_VAR/SET_VAR do not infer kinematics;
+now support whole assignments and interfaces. [Model-backed variable transfers](kinematic-variable-transfers.md)
+now add explicit-context GET_VAR/SET_VAR conversion; no kinematics is inferred.
 BYNAME, declared linkage and raw callback results retain their exact contracts.
 JOINTPOS still has no source field/index access. Supported geometry expressions
 use the explicit [joint geometry](joint-geometry.md) conversion policy since

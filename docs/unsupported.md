@@ -117,8 +117,9 @@ they are boundaries rather than promises to accept every such source form later.
   field-name sets recursively, including record ARRAY terminals.
   [Model-backed record conversion](kinematic-records.md) now extends supplied
   joint/Cartesian models through nested fields and record ARRAYs, with complete
-  data/geometry preflight and staged publication; implicit context and
-  GET_VAR/SET_VAR model inference remain unavailable. Omitted STRING ARRAY
+  data/geometry preflight and staged publication. [Model-backed variable transfers](kinematic-variable-transfers.md)
+  now extend explicit context through GET_VAR/SET_VAR scalar, ARRAY-prefix and record
+  data; implicit context remains unavailable. Omitted STRING ARRAY
   result capacities now [inherit concrete returned storage](inherited-string-array-results.md);
   malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
@@ -168,8 +169,9 @@ they are boundaries rather than promises to accept every such source form later.
   allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,
   checked static paths, [checked numeric scalar/ARRAY transfers](numeric-variable-transfers.md)
   and [compatible context-free record schemas/record ARRAY prefixes](record-variable-transfers.md)
-  with atomic data/cache/status publication. Model-backed record transfers, schema discovery
-  and field renaming remain unavailable. Logical queue transfers, CREATE_VAR and
+  with atomic data/cache/status publication. [Explicit model-backed transfers](kinematic-variable-transfers.md)
+  now cover joint/Cartesian scalar, prefix and record data. Schema discovery and
+  field renaming remain unavailable. Logical queue transfers, CREATE_VAR and
   variable renaming operate on explicit logical storage.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;

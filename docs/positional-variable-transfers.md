@@ -36,12 +36,12 @@ Successful lookup/cache hints and ordinary status conventions remain unchanged.
 and checked joint widths while preserving receiver schema and unused tail.
 Compatible user STRUCTURE fields now follow [record variable transfers](record-variable-transfers.md).
 Selected positional elements
-can also be converted individually. JOINTPOS-to-Cartesian pairs remain incompatible
-with status 3 even when a robot model is supplied; perform an explicit source
-kinematic conversion before transferring that result when needed.
+can also be converted individually. Joint/Cartesian pairs now follow
+[model-backed variable transfers](kinematic-variable-transfers.md) with explicit
+robot context. Without a supplied robot service they retain incompatible status 3.
 
-These operations use no robot model, current state, frame/tool selection or
-physical conversion. Existing overlap, CONFIG-subfield, readonly POSITION and
+Context-free representation changes use no robot model, current state or
+frame/tool selection. Model-backed changes use explicit context without motion. Existing overlap, CONFIG-subfield, readonly POSITION and
 FOR-effect guards remain in force. Context JSON preserves concrete source and
 receiver representations through the ordinary typed codecs.
 

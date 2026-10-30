@@ -1,0 +1,22 @@
+{
+  "version": "26.1030.183431",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../kinematic-variable-transfers.md",
+  "tests": [
+    "tests/test_kinematic_variable_transfers.py"
+  ],
+  "procedures": [
+    "GET_VAR",
+    "SET_VAR"
+  ],
+  "coverage": "Explicit joint/Cartesian scalar values, same-rank outer ARRAY prefixes and compatible nested user STRUCTURE fields",
+  "preflight": "Validate all copied original domains and complete model operands before any adapter call; private receiver-order/row-major plan",
+  "context": "Explicit root-caller group, selected frame/tool and current inverse seed per scalar call; no discovery or hidden seed chaining",
+  "publication": "Recheck receiver storage after callbacks, then publish data/entry/cache/status only after all calls succeed; earlier explicit callback/selector effects remain",
+  "missing": "Whole missing compatible record containers and ordinary partial fields propagate; model operands complete; copied missing data alone sets 12311",
+  "status": "0/1/3/12311 unchanged; missing robot service is incompatible status 3; configured context/model failures retain outputs",
+  "lifecycle": "Synchronous scalar calls without extra checkpoints; sticky ABORT prevents subsequent calls/publication",
+  "boundaries": "Generic transfer helper remains context-free; exact BYNAME/link/raw callback rules, protected aliases, numeric/schema/geometry domains and allocation limits retained; no physical motion/native ABI/controller/strict claim",
+  "supersedes": "Earlier blanket GET_VAR/SET_VAR joint/Cartesian model exclusions; ordinary context-free transfers unchanged"
+}

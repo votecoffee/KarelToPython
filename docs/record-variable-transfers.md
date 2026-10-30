@@ -33,8 +33,9 @@ ARRAY fields within a converted record must match every logical dimension;
 receiver component names and flat/nested layout may differ. Field additions,
 removal/rename, builtin-record/user-record interchange, BOOLEAN/numeric,
 REAL-to-integral and resource fields remain excluded. Joint/Cartesian model
-changes remain incompatible with status 3, including when a model is supplied;
-perform an explicit [source model conversion](kinematic-records.md) first.
+changes now follow [model-backed variable transfers](kinematic-variable-transfers.md)
+when explicit robot context is supplied. With no robot service, they retain
+incompatible status 3. Configured context/data/model failures preserve outputs.
 
 ## Outer record ARRAY prefixes
 

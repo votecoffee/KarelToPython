@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [model-backed variable-transfer ledger](kinematic_variable_transfer_semantics.json)
+supersedes older GET_VAR/SET_VAR model exclusions with explicit context and
+complete-prefix preflight. Generic helpers remain context-free.
+
 The [CONFIG field input ledger](config_field_input_semantics.json) supersedes
 older CONFIG READ-field exclusions with bounded scalar input and complete-response
 validation; generic service/status output aliases remain exact and native layout

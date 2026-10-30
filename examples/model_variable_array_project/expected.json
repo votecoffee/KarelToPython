@@ -1,0 +1,106 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": [
+        [
+          {
+            "POINT": {
+              "axes": [
+                0.0,
+                0.0
+              ]
+            },
+            "COUNT": 7,
+            "LABEL": "abcdefgh"
+          },
+          {
+            "POINT": {
+              "axes": [
+                0.0,
+                0.0
+              ]
+            },
+            "COUNT": 7,
+            "LABEL": "abcdefgh"
+          }
+        ]
+      ],
+      "RESULT": [
+        [
+          {
+            "LABEL": "abc",
+            "COUNT": 7.0,
+            "POINT": {
+              "X": 200.0,
+              "Y": 0.0,
+              "Z": 0.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          {
+            "LABEL": "abc",
+            "COUNT": 7.0,
+            "POINT": {
+              "X": 200.0,
+              "Y": 0.0,
+              "Z": 0.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          {
+            "LABEL": "old",
+            "COUNT": 99.0,
+            "POINT": {
+              "X": 77.0,
+              "Y": 0.0,
+              "Z": 0.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          }
+        ]
+      ],
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ENTRY": 1,
+      "STATUS": 0
+    }
+  }
+}

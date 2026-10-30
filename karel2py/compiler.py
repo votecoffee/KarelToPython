@@ -6156,6 +6156,25 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Existing CONST/FOR/readonly POSITION and aggregate/resource guards remain; generic service output helpers, CONFIG conversion status aliases, native input/parser/ABI and public strict mode unchanged',
         guide='docs/config-field-input.md',controller_validated=False)
     report['read_policy']['config_fields']='Bounded CONFIG scalar input follows config_field_read_policy; whole aggregates and POSITION orientation writes remain blocked'
+    report['kinematic_variable_transfer_policy']=dict(
+        procedures=['GET_VAR','SET_VAR'],
+        values='Individual joint/Cartesian values and compatible user STRUCTURE fields with explicitly supplied robot context',
+        arrays='Same-rank row-major prefix across outer extents/names/layouts; nested record ARRAY fields match logical dimensions; retain latest receiver tail including explicit adapter updates',
+        preflight='Validate complete selected original data and geometry before any model/adaptor call; recheck receiver storage after callbacks and stage every result before data, entry, cache or status publication',
+        context='Each scalar call uses explicit root-caller group, selected frame/tool and current inverse seed; no discovery, automatic robot-state change or hidden seed chaining',
+        order='GET named-source capture after output selectors; SET independent source capture before later selectors; receiver record order and row-major ARRAY order',
+        missing='Whole missing compatible record containers retain missing propagation; partial ordinary fields allowed; selected model geometry must be complete; only copied missing data sets 12311',
+        status='Existing 0/1/3/12311 and cache rules; no supplied robot service leaves model pairs incompatible with status 3; configured context/data/model failures retain outputs',
+        lifecycle='Synchronous scalar conversions without new checkpoints; sticky ABORT prevents later calls/publication; earlier explicit callback effects retained',
+        boundary='No inferred model/group/frame/tool/seed, shape/rank changes inside record fields, field renaming, resource conversion, generic variable helper relaxation, physical motion, native ABI/controller equivalence or strict claim',
+        guide='docs/kinematic-variable-transfers.md',controller_validated=False)
+    report['record_variable_transfer_policy']['models']='Explicit model-backed record fields now follow kinematic_variable_transfer_policy'
+    report['record_variable_transfer_policy']['status']='Existing 0/1/3/12311 and cache rules; incompatible schemas or absent robot service write status 3; copied missing data alone contributes to 12311'
+    report['record_variable_transfer_policy']['boundary']='Explicit model-backed fields require kinematic_variable_transfer_policy; no field renaming/addition/removal, BOOLEAN/numeric, REAL-to-integral, native cache/ABI/controller equivalence, strict mode or generic helper compatibility relaxation'
+    report['positional_variable_transfer_policy']['boundary']='Explicit joint/Cartesian variable kinematics follow kinematic_variable_transfer_policy; no inferred model/group/frame/tool context or controller behavior'
+    report['positional_variable_transfer_policy']['records']='Context-free and explicit-model geometry fields inside compatible user records; model fields follow kinematic_variable_transfer_policy'
+    report['kinematic_array_policy']['boundary']='Source ARRAY policy unchanged; explicit GET_VAR/SET_VAR prefixes follow kinematic_variable_transfer_policy; no inferred context, motion, native ABI/controller equivalence or strict claim'
+    report['named_array_policy']['variables']='Explicit model-backed variable prefixes follow kinematic_variable_transfer_policy; source ARRAY dimension rules unchanged'
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

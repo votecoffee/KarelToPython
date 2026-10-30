@@ -1,0 +1,10 @@
+PROGRAM MODEL_VARIABLE_SCALAR
+VAR joints,result:JOINTPOS2 point:XYZWPR entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    joints=CURJPOS(0,0)
+    GET_VAR(entry,'','JOINTS',point,status)
+    SET_VAR(entry,'','RESULT',point,status)
+    done=TRUE
+  ENDIF
+END MODEL_VARIABLE_SCALAR

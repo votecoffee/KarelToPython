@@ -78,8 +78,8 @@ The operation is synchronous and introduces no intermediate handler checkpoint.
 Sticky ABORT prevents later calls and publication even if an adapter catches the
 abort or raises a later exception. BYNAME, generic checked/value/result helpers,
 context-free record helpers, linked declarations/definitions and raw callback
-result schemas retain their exact contracts. GET_VAR/SET_VAR do not gain implicit
-model-backed record conversion.
+result schemas retain their exact contracts. [Model-backed variable transfers](kinematic-variable-transfers.md)
+now add GET_VAR/SET_VAR record conversion with explicit supplied context.
 
 Bare generic ARRAY source assignments use their actual borrowed receiver schema.
 JSON stores concrete schemas, values and serializable supplied model state; it

@@ -1,0 +1,7 @@
+PROGRAM LIB
+TYPE in_t=STRUCTURE point:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL point:XYZWPR ENDSTRUCTURE
+VAR entry,status:INTEGER
+ROUTINE load(dst:ARRAY[*,*]OF out_t;src:ARRAY[*,*]OF in_t)
+BEGIN SET_VAR(entry,'MAIN','RESULT',src,status) END load
+BEGIN
+END LIB

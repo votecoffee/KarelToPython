@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.180659**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.183431**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -494,6 +494,11 @@ offline save points; see [variable archives](docs/variable-archives.md).
 [Mixed ALLTYPE batches](docs/mixed-archives.md) combine TP and VR dependencies,
 validate hashed member manifests, and preflight backup/restore/clear across both
 stores before committing changes.
+
+[Model-backed variable transfers](docs/kinematic-variable-transfers.md) now apply
+explicit joint/Cartesian models across GET_VAR/SET_VAR values, same-rank ARRAY
+prefixes and nested record fields. Complete preflight and private results preserve
+data, entry and cache outputs on failure.
 
 [Bounded CONFIG input](docs/config-field-input.md) now reads turn integers and
 BOOLEAN flags through callbacks and text/binary FILEs, including captured nested

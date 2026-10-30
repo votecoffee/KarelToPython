@@ -2323,7 +2323,9 @@ class ExecutionContext:
                 if spec is None: fail('SET_VAR requires a typed data input',line)
                 source=variable_value(spec,value,line)
             destination=target
-        prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,line=line)
+        from .variable_kinematics import transfer as model_transfer
+        prepared=model_transfer(state,destination,source,line)
+        if prepared is None:prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,line=line)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
         key=(program.upper() or state.program_name,path.upper())

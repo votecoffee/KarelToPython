@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1030.183431 - 2026-10-30
+
+- Extend GET_VAR/SET_VAR through explicitly supplied joint/Cartesian models for
+  scalar values, same-rank ARRAY prefixes and compatible nested user records.
+  Retain receiver schemas, storage aliases and unused tails without robot discovery.
+- Preflight all copied original data and model geometry before adapter calls;
+  stage complete results before data, entry, cache or status publication. Preserve
+  missing record containers, partial ordinary data and copied-prefix status rules.
+- Use root-caller groups, selected frame/tool and current inverse seeds for each
+  synchronous scalar conversion, without hidden seed chaining or state updates.
+  Sticky ABORT prevents later calls/publication; explicit prior callback effects remain.
+- Keep model pairs incompatible with status 3 when no robot service is supplied.
+  Generic transfer helpers remain context-free; protected aliases, source schema
+  constraints, native/controller boundaries and deferred strict mode remain.
+- Add kinematic_variable_transfer_policy reports, 75 regressions, four examples,
+  two linked projects and compiler-free runtime coverage. Update README, API,
+  current support guides and the semantic ledger.
+
 ## 26.1030.180659 - 2026-10-30
 
 - Accept explicit CONFIG turn and BOOLEAN fields in Pythonic READ, including

@@ -141,6 +141,11 @@ limits. General assignment checks remain unchanged.
 | 3 | Incompatible data type or ARRAY rank; status only |
 | 12311 | Transfer completed and copied missing data |
 
+[Model-backed variable transfers](kinematic-variable-transfers.md) now add
+explicit-context joint/Cartesian conversion for scalar values, same-rank prefixes
+and compatible record fields. No robot service means incompatible status 3;
+configured model failures preserve the existing outputs.
+
 The generated report's `variable_transfer_policy` describes these choices.
 `service_operations` records source sites; runtime `service_requests` records
 operation, line and outcome without data values. Partial results and unknown

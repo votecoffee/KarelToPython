@@ -1,0 +1,61 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": {
+        "axes": [
+          0.0,
+          0.0
+        ]
+      },
+      "RESULT": {
+        "X": 200.0,
+        "Y": 0.0,
+        "Z": 0.0,
+        "W": 0.0,
+        "P": 0.0,
+        "R": 0.0,
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": 0,
+          "CFG_TURN_NO2": 0,
+          "CFG_TURN_NO3": 0,
+          "CFG_FLIP": false,
+          "CFG_LEFT": false,
+          "CFG_UP": false,
+          "CFG_FRONT": false
+        }
+      },
+      "ENTRY": 2,
+      "STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ORIGINAL": {
+        "axes": [
+          0.0,
+          0.0
+        ]
+      },
+      "RESULT": {
+        "X": 200.0,
+        "Y": 0.0,
+        "Z": 0.0,
+        "W": 0.0,
+        "P": 0.0,
+        "R": 0.0,
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": 0,
+          "CFG_TURN_NO2": 0,
+          "CFG_TURN_NO3": 0,
+          "CFG_FLIP": false,
+          "CFG_LEFT": false,
+          "CFG_UP": false,
+          "CFG_FRONT": false
+        }
+      }
+    }
+  }
+}

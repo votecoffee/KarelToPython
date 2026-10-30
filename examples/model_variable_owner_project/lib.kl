@@ -1,0 +1,6 @@
+PROGRAM LIB
+VAR original:JOINTPOS2 result:XYZWPR
+ROUTINE prepare_data
+BEGIN original=CURJPOS(0,0) END prepare_data
+BEGIN
+END LIB

@@ -226,8 +226,8 @@ class RecordGeometryTransferTests(unittest.TestCase):
         p,_=geometry('POSITION','XYZWPR');p._state.values['A'].values['POINT']=pose('POSITION');p._state.values['A'].values['POINT'].values['NORMAL'].values['X']=2.
         with self.assertRaises(rt.KarelRuntimeError):p.run()
 
-    def test_model_backed_fields_remain_status_only_with_no_adapter_calls(self):
-        calls=[];ctx=callback_context(forward=lambda *args:calls.append(1));p,_=geometry('JOINTPOS2','POSITION',body='e=99 '+call(),context=ctx);p._state.values['A'].values['POINT']=joint([0.,0.]);before=p.snapshot()['B']
+    def test_model_backed_fields_without_robot_service_remain_status_only(self):
+        calls=[];p,_=geometry('JOINTPOS2','POSITION',body='e=99 '+call(),context=rt.ExecutionContext());p._state.values['A'].values['POINT']=joint([0.,0.]);before=p.snapshot()['B']
         v=p.run();self.assertEqual((v['B'],v['E'],v['S'],calls),(before,99,3,[]))
 
 

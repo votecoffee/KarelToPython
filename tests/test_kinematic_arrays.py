@@ -250,9 +250,9 @@ class KinematicArrayBoundaryTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'type does not match'):p.run()
         self.assertEqual(p.snapshot()['E'],77)
 
-    def test_variable_transfers_never_infer_model_array_kinematics(self):
+    def test_variable_transfers_without_robot_service_stay_incompatible(self):
         for action in('GET_VAR','SET_VAR'):
-            p,_=build('e=77 '+(transfer(action,'A','b')if action=='GET_VAR'else transfer(action,'B','a')));initialized(p);self.assertEqual((p.run()['S'],p.snapshot()['E']),(3,77));self.assertEqual(history(p),[])
+            p,_=build('e=77 '+(transfer(action,'A','b')if action=='GET_VAR'else transfer(action,'B','a')),ctx=rt.ExecutionContext());initialized(p);self.assertEqual((p.run()['S'],p.snapshot()['E']),(3,77));self.assertEqual(history(p),[])
 
     def test_legacy_source_and_runtime_guards_remain(self):
         for body,routines in[('b=a',''),('work(a)','ROUTINE work(v:ARRAY OF POSITION) BEGIN END work'),('','ROUTINE make:ARRAY OF POSITION BEGIN RETURN a END make')]:

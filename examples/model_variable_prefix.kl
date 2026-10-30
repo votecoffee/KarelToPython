@@ -1,0 +1,10 @@
+PROGRAM MODEL_VARIABLE_PREFIX
+VAR original:ARRAY[2]OF JOINTPOS2 result:ARRAY[3]OF XYZWPREXT entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=CURJPOS(0,0) original[2]=original[1]
+    result[3]=original[1] result[3].x=77 result[3].ext1=9
+    GET_VAR(entry,'','ORIGINAL',result,status)
+    done=TRUE
+  ENDIF
+END MODEL_VARIABLE_PREFIX

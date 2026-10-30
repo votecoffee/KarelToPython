@@ -1,0 +1,14 @@
+PROGRAM MAIN
+TYPE in_t=STRUCTURE point:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL point:XYZWPR ENDSTRUCTURE
+TYPE out_row=ARRAY[3]OF out_t
+VAR original:ARRAY[1,2]OF in_t result:ARRAY[1]OF out_row done:BOOLEAN
+ROUTINE load(dst:ARRAY[*,*]OF out_t;src:ARRAY[*,*]OF in_t) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original[1,1].point=CURJPOS(0,0) original[1,1].count=7 original[1,1].label='abcdefgh'
+    original[1,2]=original[1,1]
+    result[1,3].point=original[1,1].point result[1,3].point.x=77
+    result[1,3].count=99 result[1,3].label='old'
+    load(result,original) done=TRUE
+  ENDIF
+END MAIN

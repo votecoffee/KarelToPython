@@ -81,9 +81,9 @@ class PositionalVariableTransferTests(unittest.TestCase):
             p,_=build('e=99 '+transfer(),f'ARRAY[1] OF {first}',f'ARRAY[1] OF {second}')
             with self.subTest(first=first,second=second):self.assertEqual((p.run()['S'],p.snapshot()['E']),(3,99))
 
-    def test_joint_cartesian_pair_never_infers_a_model_conversion(self):
+    def test_joint_cartesian_pair_without_robot_service_stays_incompatible(self):
         for first,second in (('JOINTPOS2','POSITION'),('XYZWPR','JOINTPOS9')):
-            p,_=build('e=99 '+transfer(),first,second,context=model_context())
+            p,_=build('e=99 '+transfer(),first,second,context=rt.ExecutionContext())
             with self.subTest(first=first,second=second):self.assertEqual((p.run()['S'],p.snapshot()['E']),(3,99))
 
     def test_set_captures_source_before_later_status_selector(self):

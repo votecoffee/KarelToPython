@@ -104,8 +104,8 @@ callbacks, executable links or physical robot state. The [49 authored regression
 cases](../tests/test_kinematic_arrays.py) cover modeled and callback conversions,
 preflight, ordering, ownership, contexts, aborts, pause, linkage and persistence.
 
-GET_VAR/SET_VAR remain storage operations: their Cartesian/joint-width prefixes
-never infer joint/Cartesian kinematics. Context-free [positional ARRAY changes](positional-arrays.md)
-remain separate and need no robot model. Named source-interface coercion,
+GET_VAR/SET_VAR now support [explicit-model prefixes](kinematic-variable-transfers.md)
+with complete preflight and retained tails. Context-free [positional ARRAY changes](positional-arrays.md)
+remain separate and need no robot model. Model discovery,
 physical/controller motion, native ABI equivalence and strict mode remain future
 or excluded work under the existing support contract.

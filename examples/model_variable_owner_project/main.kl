@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR original:JOINTPOS2 result:XYZWPR entry,status:INTEGER done:BOOLEAN
+ROUTINE prepare_data FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original=CURJPOS(0,0) prepare_data()
+    GET_VAR(entry,'LIB','ORIGINAL',result,status)
+    SET_VAR(entry,'LIB','RESULT',original,status)
+    done=TRUE
+  ENDIF
+END MAIN

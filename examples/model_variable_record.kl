@@ -1,0 +1,10 @@
+PROGRAM MODEL_VARIABLE_RECORD
+TYPE in_t=STRUCTURE point:JOINTPOS2 count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL point:XYZWPR ENDSTRUCTURE
+VAR original:in_t result:out_t entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original.point=CURJPOS(0,0) original.count=7 original.label='abcdefgh'
+    GET_VAR(entry,'','ORIGINAL',result,status)
+    done=TRUE
+  ENDIF
+END MODEL_VARIABLE_RECORD

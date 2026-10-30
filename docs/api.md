@@ -2,6 +2,11 @@
 
 ## Translation
 
+[Model-backed variable transfers](kinematic-variable-transfers.md) add
+`kinematic_variable_transfer_policy` reports. Runtime GET_VAR/SET_VAR plan the
+complete selected data before scalar model calls and publish only after success;
+the generic `variable_transfer` helper retains its context-free contract.
+
 [CONFIG scalar input](config-field-input.md) adds `config_field_reads` and
 `config_field_read_policy` reports. Generated READ captures declared CONFIG
 parents with `runtime.config_read_reference`; shared target/value validation
