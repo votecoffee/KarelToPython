@@ -27,10 +27,11 @@ prepare(BYNAME('CACHE','JOBS',entry))
 
 Custom PATH components must be named data STRUCTURE layouts with concrete shapes,
 bounded STRING capacities and at most 64 data-schema levels. Each node/header
-prototype retains the 32767-leaf bound. Embedded resources, FILE creation and
-additional ARRAY dimensions around collection roots are rejected with existing
+prototype retains the 32767-leaf bound. Embedded resources and additional
+ARRAY dimensions around collection roots are rejected with existing
 unsupported-type status 5. Type declarations are supplied explicitly; a custom
 source declaration string or binary environment is not parsed from `type_name`.
+[Root FILE descriptors](dynamic-files.md) use a separate closed-descriptor contract.
 
 Group 0..32 and DRAM/CMOS intent remain metadata. A collection's group value does
 not select a robot, pose frame, tool, axis model or physical mechanism. The same
@@ -39,7 +40,7 @@ name, collision, pool and namespace guards apply to data and collections.
 ## Reserved storage and publication
 
 The combined creation budget remains 32767 reserved units across created roots.
-Ordinary data costs its existing scalar-leaf count. A queue costs one descriptor;
+Ordinary data costs its existing scalar-leaf count. A queue or root FILE costs one descriptor;
 a PATH costs one descriptor plus its immediately allocated header leaves. Its
 node prototype is checked separately before creation. Nodes and queue entries
 grow only through the existing collection operations, with their existing limits;

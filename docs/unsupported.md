@@ -255,8 +255,10 @@ they are boundaries rather than promises to accept every such source form later.
 - Native program load/save/translate/backup/clear/restore, task discovery and
   implicit external linkage. [Dynamic variables and BYNAME](dynamic-variables.md)
   now have explicit offline forms; renaming compiled globals or attached program
-  namespaces, dynamic FILE handles, embedded resources and native allocation remain
-  unsupported. [Dynamic logical collections](dynamic-collections.md) now create root
+  namespaces, embedded resources, restored open FILE handles and native allocation
+  remain unsupported. [Dynamic FILE descriptors](dynamic-files.md) now create root
+  FILE/aliases for explicit typed I/O and cancellation; JSON retains closed
+  allocation intent and resets handle state on restore. [Dynamic logical collections](dynamic-collections.md) now create root
   PATH/QUEUE_TYPE and supplied aliases with checked header/descriptor reservations;
   QUEUE_TYPE native inspection codes and collection ARRAY creation remain unavailable.
   Program catalogs and load status describe attached programs or supplied metadata.

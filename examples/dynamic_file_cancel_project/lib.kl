@@ -1,0 +1,18 @@
+PROGRAM LIB
+VAR value,status:INTEGER
+ROUTINE read_value(handle:FILE):INTEGER
+VAR elapsed:INTEGER
+BEGIN
+  elapsed=0 value=77
+  CONNECT TIMER TO elapsed
+  CONDITION[1]: WHEN elapsed>=10 DO CANCEL FILE handle ENDCONDITION
+  ENABLE CONDITION[1]
+  OPEN FILE handle('RO','P2:')
+  READ handle(value,CR)
+  DISABLE CONDITION[1]
+  status=IO_STATUS(handle)
+  CLOSE FILE handle
+  DISCONNECT TIMER elapsed
+  RETURN status
+END read_value
+BEGIN END LIB

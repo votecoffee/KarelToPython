@@ -13,7 +13,7 @@ def creation_cost(spec):
     rt=runtime()
     from .storage import collection_data_spec
     if type(spec) is not tuple or not spec: raise ValueError('Creation requires a concrete type')
-    if spec==('QUEUE_TYPE',): return 1
+    if spec in (('FILE',),('QUEUE_TYPE',)): return 1
     if spec[0]=='PATH':
         if len(spec)!=3: raise ValueError('Created PATH requires node and header schemas')
         header=0
@@ -29,6 +29,23 @@ def creation_cost(spec):
         return 1+header
     collection_data_spec(spec)
     return rt.scalar_leaf_count(spec)
+
+
+def file_descriptor_payload(value):
+    """Persist allocation intent only, never an open FILE or pending operation."""
+    rt=runtime()
+    if type(value) is not rt.FileHandle:
+        raise ValueError('Created FILE descriptor requires exact FILE storage')
+    if value.owner is not None or value._read_operation is not None:
+        raise ValueError('Created FILE descriptor must be closed without pending I/O')
+    return {'closed':True}
+
+
+def restore_file_descriptor(payload):
+    """Create a fresh closed FILE, without restoring cursor or connection data."""
+    if type(payload) is not dict or set(payload)!={'closed'} or payload['closed'] is not True:
+        raise ValueError('Created FILE descriptor requires exactly closed: true')
+    return runtime().FileHandle()
 
 
 def reserved(store):
@@ -80,13 +97,13 @@ def conflict(paths,root):
 
 
 def concrete_type(context,state,program,text,group,dimensions,line):
-    """Portable data and Pythonic root collections; validate before allocation."""
+    """Portable data and Pythonic root resources; validate before allocation."""
     rt=runtime()
     text=rt.ascii_string(text,line).strip().upper()
     if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'):
         spec=(text,)
-    elif text in ('PATH','QUEUE_TYPE') and rt._pythonic():
-        spec=('PATH',None,None) if text=='PATH' else ('QUEUE_TYPE',)
+    elif text in ('FILE','PATH','QUEUE_TYPE') and rt._pythonic():
+        spec=('PATH',None,None) if text=='PATH' else (text,)
     elif text in ('BYTE','SHORT') and rt._pythonic():
         # Standalone narrow types are an explicit Pythonic extension, using the
         # same checked domains and initial markers as aggregate narrow leaves.
@@ -108,7 +125,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if any(type(size) is not int or not 0<=size<=32767 for size in dimensions): return None
     if (dimensions[1] and not dimensions[0]) or (dimensions[2] and not dimensions[1]): return None
     shape=tuple(size for size in reversed(dimensions) if size)
-    if spec[0] in ('PATH','QUEUE_TYPE') and (not rt._pythonic() or shape): return None
+    if spec[0] in ('FILE','PATH','QUEUE_TYPE') and (not rt._pythonic() or shape): return None
     if shape:
         if spec[0]=='ARRAY': return None
         spec=('ARRAY',shape[0] if len(shape)==1 else shape,spec)

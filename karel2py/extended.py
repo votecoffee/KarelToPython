@@ -1937,12 +1937,17 @@ class ExecutionContext:
                         or set(row)-{'program','path','type','value','creation'}): raise ValueError('Variable state requires program, path, type and value')
                 if type(row['program']) is not str or type(row['path']) is not str: raise ValueError('Variable program/path require strings')
                 if (row['program'].upper(),row['path'].upper()) in variables.bindings: raise ValueError('Duplicate variable binding')
+                created_spec=None
                 if 'creation' in row:
                     from .dynamic import restore_metadata
                     spec=row['type']
                     if type(spec) is str: spec=runtime().joint_spec(spec.upper()) if spec.upper() in runtime().JOINT_TYPE_NAMES else (spec.upper(),)
-                    restore_metadata(variables,row['program'],row['path'],row['creation'],tuple_spec(spec))
-                spec,value=decode_typed({'type':row['type'],'value':row['value']})
+                    created_spec=tuple_spec(spec)
+                    restore_metadata(variables,row['program'],row['path'],row['creation'],created_spec)
+                if created_spec==('FILE',):
+                    from .dynamic import restore_file_descriptor
+                    spec,value=created_spec,restore_file_descriptor(row['value'])
+                else:spec,value=decode_typed({'type':row['type'],'value':row['value']})
                 variables.bind(row['program'],row['path'],runtime().Reference(spec,{'value':value},'value'))
             services['variables']=variables
         if 'robot' in config: services['robot']=RobotContext.from_config(config['robot'])

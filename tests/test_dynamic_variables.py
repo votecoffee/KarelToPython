@@ -65,7 +65,7 @@ class DynamicCreationTests(unittest.TestCase):
         self.assertEqual(instance.context.variables.bindings['CACHE','A'].spec[-1],'SERIES')
 
     def test_invalid_options_never_allocate(self):
-        cases=[('bad.name','INTEGER',0,0,0,0,0,2),('item','FILE',0,0,0,0,0,5),
+        cases=[('bad.name','INTEGER',0,0,0,0,0,2),('item','ARRAY OF FILE',0,0,0,0,0,5),
             ('item','CAM_SETUP',0,0,0,0,0,5),('item','UNKNOWN_TYPE',0,0,0,0,0,5),
             ('item','INTEGER',0,0,1,0,0,5),('item','INTEGER',0,1,0,1,0,5),
             ('item','INTEGER',0,-1,0,0,0,5),('item','INTEGER',0,32767,2,0,0,5),

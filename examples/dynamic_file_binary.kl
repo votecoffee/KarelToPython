@@ -1,0 +1,20 @@
+PROGRAM DYNAMIC_FILE_BINARY
+TYPE fd_t=FILE
+VAR entry,status,integer_value:INTEGER real_value:REAL done:BOOLEAN
+ROUTINE work(handle:fd_t)
+BEGIN
+  OPEN FILE handle('WB','values.bin')
+  WRITE handle(-7,2.5)
+  CLOSE FILE handle
+  OPEN FILE handle('RB','values.bin')
+  READ handle(integer_value,real_value)
+  status=IO_STATUS(handle)
+  CLOSE FILE handle
+END work
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','FILE_DATA','','fd_t',32,0,0,0,status,-1)
+    work(BYNAME('CACHE','FILE_DATA',entry))
+    done=TRUE
+  ENDIF
+END DYNAMIC_FILE_BINARY

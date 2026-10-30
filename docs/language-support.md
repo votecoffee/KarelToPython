@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1030.203037. Acceptance is specific to
+This is the supported prototype subset as of 26.1030.210436. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -319,8 +319,9 @@ Dynamic creation, renaming and typed BYNAME routine aliases follow the
 [dynamic variable contract](dynamic-variables.md), including saved creation policy
 and explicit namespace guards. [Dynamic collections](dynamic-collections.md) add
 root PATH/QUEUE_TYPE and supplied aliases, checked header/descriptor reservations,
-renaming and existing collection persistence. Dynamic FILE handles and embedded
-resources remain excluded. Compiled names and native memory pools stay fixed.
+renaming and existing collection persistence. [Dynamic FILE descriptors](dynamic-files.md)
+add root FILE/aliases, typed operations and closed-descriptor JSON with fresh
+handle state on restore. Embedded resources and restored open handles remain excluded. Compiled names and native memory pools stay fixed.
 
 See [diagnostics](diagnostics.md) for event selection and logical stack queries,
 and [KCL commands](kcl-commands.md) for explicit scripted acceptance/completion.

@@ -4972,7 +4972,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         names='Case-insensitive identifiers up to 36 characters; blank CREATE/RENAME program/type-program defaults to the current source program, blank BYNAME program to the calling root source; renames preserve references and entry caches; namespace moves require unattached ordinary root bindings',
         status='Portable 0 success, 1 missing, 2 invalid name/pool, 3 collision, 4 compiled/protected namespace, 5 unsupported type/dimensions/group, 6 aggregate allocation limit; BYNAME lookup/type failures raise without entry writes',
         persistence='Typed values and creation group/memory_pool metadata round-trip in context variables rows; no alias handles, type declarations or native memory pools persisted',
-        guards='Compile-time indirect FOR/effect/handler guards retained; renaming compiled globals/programs, dynamic FILE handles and embedded resource types remain excluded; root collections follow dynamic_collection_policy',
+        guards='Compile-time indirect FOR/effect/handler guards retained; renaming compiled globals/programs and embedded resource types remain excluded; root collections follow dynamic_collection_policy and FILE descriptors follow dynamic_file_policy',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
         guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
@@ -6211,9 +6211,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         publication='Existing collision/name/group/pool/status rules; budget checkpoint before allocation, then recheck terminal abort/stop, bank identity, roots and reserved capacity before publishing; retain earlier callback effects',
         interfaces='Exact BYNAME resource references, linked routines and existing collection procedures; GET_VAR/SET_VAR retain logical queue transfers and data-only PATH field transfers; native queue inspection type code remains unavailable',
         lifetime='Rename retains live identities and lookup cache hints; pause retains ordinary references; JSON preserves schema, logical state and creation metadata, without queue buffer aliases, callbacks or suspended stacks',
-        boundary='No FILE handles, resource ARRAYs/fields, inferred geometry/group context, native resource allocation/ABI or strict mode',
+        boundary='Root FILE descriptors follow dynamic_file_policy; no resource ARRAYs/fields, inferred geometry/group context, native resource allocation/ABI or strict mode',
         guide='docs/dynamic-collections.md',controller_validated=False)
-    report['dynamic_variable_policy']['collections']='Root PATH/QUEUE_TYPE creation follows dynamic_collection_policy; FILE and embedded resources remain unavailable'
+    report['dynamic_variable_policy']['collections']='Root PATH/QUEUE_TYPE creation follows dynamic_collection_policy; root FILE descriptors follow dynamic_file_policy; embedded resources remain unavailable'
+    report['dynamic_file_policy']=dict(
+        source='Pythonic CREATE_VAR root FILE or supplied transparent alias with zero ARRAY dimensions; one reserved descriptor unit; group/pool metadata only',
+        operations='Exact BYNAME FILE formals, linked routines, ordinary explicit OPEN/CLOSE/READ/WRITE/attributes and cooperative cancellation through supplied backends; rename retains live handle identity',
+        publication='Reuse schema/name/collision/quota checks, terminal abort/stop and bank/root/capacity rechecks after the creation checkpoint; no implicit OPEN or device discovery',
+        persistence='Creation-tagged context variables rows alone accept type FILE with value exactly {closed: true}; require exact closed FILE and no pending I/O before encoding; validate metadata/quota before fresh allocation on restore',
+        reset='Restore a fresh closed FileHandle; filename, cursor, mode, status, attributes, aliases, XML scanners, operation tokens and backend registrations are not retained; backend bytes use existing service snapshots',
+        guards='Generic typed FILE codecs, embedded resources, resource ARRAYs, whole-FILE GET_VAR/SET_VAR, created-handle saves while open/pending and FILE VR archives remain excluded',
+        evidence='Authored offline descriptor extension; no native allocation/ABI/controller or strict-mode equivalence claim',
+        guide='docs/dynamic-files.md',controller_validated=False)
     report['vision_bmp_sample_policy']=dict(
         source='Explicit sample_bits=16 on grayscale/GA/RGB/RGBA rasters; big-endian unsigned components in 0..65535',
         rounding='Round to nearest 8-bit component with (sample+128)//257, independently including alpha; endpoints 0 and 65535 map to 0 and 255',

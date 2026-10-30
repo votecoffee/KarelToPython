@@ -173,6 +173,10 @@ bare references or checked private numeric conversions. [Wildcard renames](wildc
 extend `wildcard_file_policy` with no overwrite and same-bank preflight.
 [Scalar SELECT](scalar-select.md) adds `scalar_select_policy`, per-site selector
 types and comparison categories; BOOLEAN remains distinct from numeric cases.
+[Dynamic FILE descriptors](dynamic-files.md) add `dynamic_file_policy`: root
+FILE/alias creation, exact typed I/O references, cancellation and creation-tagged
+closed-descriptor JSON. Handle state resets on restore; generic typed FILE codecs
+remain excluded.
 [Dynamic collections](dynamic-collections.md) add `dynamic_collection_policy`
 for root PATH/QUEUE_TYPE creation, descriptor/header reservations, checked
 publication, live aliases, JSON and existing queue archives.

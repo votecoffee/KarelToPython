@@ -1,9 +1,14 @@
 # Semantic notes
 
+The [dynamic FILE ledger](dynamic_file_semantics.json) supersedes earlier FILE
+creation exclusions with root-only descriptors, exact typed operations and
+closed allocation intent in context JSON. Open handles and generic FILE value
+codecs retain their exclusions.
+
 The [dynamic collection ledger](dynamic_collection_semantics.json) supersedes
 earlier PATH/QUEUE_TYPE creation exclusions with root-only logical storage,
 checked descriptor/header accounting, live aliases and existing persistence.
-FILE creation and embedded resources remain excluded.
+Root FILE creation follows the descriptor ledger above; embedded resources remain excluded.
 
 The [deceleration-setting ledger](motion_deceleration_semantics.json) adds checked
 DECELTOL/USEMAXACCEL intent and supersedes earlier nine-setting limits.

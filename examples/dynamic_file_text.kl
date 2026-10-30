@@ -1,0 +1,19 @@
+PROGRAM DYNAMIC_FILE_TEXT
+VAR entry,status,value:INTEGER label:STRING[16] done:BOOLEAN
+ROUTINE work(handle:FILE)
+BEGIN
+  OPEN FILE handle('WO','values.txt')
+  WRITE handle(42::0,CR,'hello',CR)
+  CLOSE FILE handle
+  OPEN FILE handle('RO','values.txt')
+  READ handle(value,CR,label,CR)
+  status=IO_STATUS(handle)
+  CLOSE FILE handle
+END work
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','FILE_DATA','','FILE',0,0,0,0,status)
+    work(BYNAME('CACHE','FILE_DATA',entry))
+    done=TRUE
+  ENDIF
+END DYNAMIC_FILE_TEXT

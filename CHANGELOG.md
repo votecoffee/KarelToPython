@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1030.210436 - 2026-10-30
+
+- Add Pythonic CREATE_VAR root FILE descriptors and supplied aliases, costing one
+  reserved unit with zero extra dimensions. Reuse name/type/quota, terminal owner
+  and post-checkpoint bank/root/capacity guards without opening a backend.
+- Carry exact BYNAME FILE formals through text/binary I/O, attributes, linked
+  routines, live renames, pause/abort and cooperative typed/READ_KB cancellation.
+- Add creation-tagged closed-descriptor context rows with exact closed: true
+  payloads. Validate metadata/schema/quota before fresh closed allocation on
+  restore; reset handle state/aliases while retaining existing backend snapshots.
+- Reject open/pending created-handle saves, generic typed FILE values, resource
+  ARRAYs/fields and FILE VR archives. Keep declared FILE save policy, native
+  allocation/ABI/controller boundaries and deferred strict mode.
+- Add 75 regressions, four examples, two linked projects and compiler-free runtime
+  coverage. Update README, support inventory, API, guides and semantic ledgers.
+
 ## 26.1030.203037 - 2026-10-30
 
 - Add Pythonic CREATE_VAR root PATH/QUEUE_TYPE storage and supplied transparent

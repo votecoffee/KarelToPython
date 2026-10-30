@@ -1,7 +1,8 @@
 # Cooperative FILE cancellation
 
 Pythonic `CANCEL FILE f` interrupts the exact active cooperative typed READ on
-an explicitly opened FILE. SerialStreams, opted-in waiting FilePipes, and keyboard
+an explicitly opened FILE. [Dynamically created descriptors](dynamic-files.md)
+participate through exact FILE routine aliases, including linked handlers. SerialStreams, opted-in waiting FilePipes, and keyboard
 line/PASSALL FILE reads support cancellation. It opens no device or GUI.
 
 ```karel

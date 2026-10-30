@@ -405,7 +405,14 @@ def context_config(context):
         if type(context.files) is rt().DeviceFiles: result['device_files']=context.files.to_config()
         else: result['files']={name:{'hex':value.hex()} for name,value in context.files.snapshot().items()}
     if context.variables.bindings:
-        result['variables']=[dict(program=program,path=path,**typed_value(reference.raw(),reference.spec)) for (program,path),reference in sorted(context.variables.bindings.items())]
+        rows=[]
+        for (program,path),reference in sorted(context.variables.bindings.items()):
+            if (program,path) in context.variables.metadata and reference.spec==('FILE',):
+                from .dynamic import file_descriptor_payload
+                value={'type':['FILE'],'value':file_descriptor_payload(reference.raw())}
+            else: value=typed_value(reference.raw(),reference.spec)
+            rows.append(dict(program=program,path=path,**value))
+        result['variables']=rows
     variables={(row['program'],row['path']):row for row in result.get('variables',[])}
     for key,metadata in context.variables.metadata.items():
         if key in variables: variables[key]['creation']=metadata.copy()

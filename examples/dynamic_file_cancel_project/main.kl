@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR entry,status,result:INTEGER done:BOOLEAN
+ROUTINE read_value(handle:FILE):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','FILE_DATA','','FILE',0,0,0,0,status)
+    result=read_value(BYNAME('CACHE','FILE_DATA',entry))
+    done=TRUE
+  ENDIF
+END MAIN

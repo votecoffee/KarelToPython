@@ -42,8 +42,10 @@ existing unknown-byte policy. Group is retained as metadata in 0..32; positional
 leaf types require 1..32. Memory pool is metadata only: omitted/0 means DRAM
 intent and -1 means CMOS intent. Saving JSON preserves values for both policies;
 no power-cycle or native memory behavior is simulated. [Dynamic logical collections](dynamic-collections.md)
-add root PATH/QUEUE_TYPE and supplied aliases with zero extra dimensions. FILE,
-embedded resources, collection ARRAYs and proprietary vision types remain excluded.
+add root PATH/QUEUE_TYPE and supplied aliases with zero extra dimensions.
+[Dynamic FILE descriptors](dynamic-files.md) add root FILE/aliases with typed
+operations and explicit closed-descriptor JSON. Embedded resources, resource
+ARRAYs, restored open handles and proprietary vision types remain excluded.
 
 ## Renaming
 

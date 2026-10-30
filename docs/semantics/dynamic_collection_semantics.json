@@ -1,5 +1,6 @@
 {
   "version": "26.1030.203037",
+  "current_mode_note": "Root FILE creation/closed-descriptor JSON now follow dynamic_file_semantics.json; the earlier FILE exclusions below retain their release scope",
   "mode": "pythonic",
   "controller_validated": false,
   "guide": "../dynamic-collections.md",

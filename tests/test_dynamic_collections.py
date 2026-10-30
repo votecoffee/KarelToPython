@@ -89,8 +89,8 @@ class DynamicCollectionCreationTests(unittest.TestCase):
         v,ctx,_,_=execute(create('PATH')+create('PATH',name='OTHER')+invoke('grow'),routines=GROW)
         self.assertIsNot(ref(ctx).raw(),ref(ctx,'OTHER').raw());self.assertEqual((len(ref(ctx).raw().nodes),ref(ctx,'OTHER').raw().nodes),(1,[]))
 
-    def test_file_and_embedded_resources_remain_rejected(self):
-        for kind in ('FILE','ARRAY OF PATH','ARRAY OF QUEUE_TYPE'):
+    def test_embedded_resource_creation_remains_rejected(self):
+        for kind in ('ARRAY OF FILE','ARRAY OF PATH','ARRAY OF QUEUE_TYPE'):
             v,ctx,_,_=execute(create(kind));self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
 
     def test_preserved_runtime_does_not_gain_collection_creation(self):

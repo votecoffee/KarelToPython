@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR value:INTEGER
+ROUTINE read_value(handle:FILE):INTEGER
+BEGIN
+  OPEN FILE handle('RO','input.txt')
+  READ handle(value,CR)
+  CLOSE FILE handle
+  RETURN value
+END read_value
+BEGIN END LIB

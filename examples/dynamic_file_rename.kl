@@ -1,0 +1,25 @@
+PROGRAM DYNAMIC_FILE_RENAME
+VAR entry,status,value,prior:INTEGER done:BOOLEAN
+ROUTINE work(handle:FILE)
+BEGIN
+  OPEN FILE handle('RO','input.txt')
+  RENAME_VAR('CACHE','FILE_DATA','READING',status)
+  RENAME_VARS('CACHE','SAVED',status)
+  READ handle(value,CR)
+  CLOSE FILE handle
+END work
+ROUTINE again(handle:FILE)
+BEGIN
+  OPEN FILE handle('RO','input.txt')
+  READ handle(value,CR)
+  CLOSE FILE handle
+END again
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','FILE_DATA','','FILE',0,0,0,0,status)
+    work(BYNAME('CACHE','FILE_DATA',entry))
+    prior=entry
+    again(BYNAME('SAVED','READING',entry))
+    done=TRUE
+  ENDIF
+END DYNAMIC_FILE_RENAME

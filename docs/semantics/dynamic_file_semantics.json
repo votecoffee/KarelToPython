@@ -1,0 +1,17 @@
+{
+  "version": "26.1030.210436",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../dynamic-files.md",
+  "tests": [
+    "tests/test_dynamic_files.py"
+  ],
+  "evidence": "Authored Pythonic root descriptor extension; native FILE allocation, binary ABI and controller behavior unverified",
+  "source": "Root FILE or supplied transparent alias, no additional dimensions; one reserved creation unit; no implicit OPEN or supplied backend",
+  "interfaces": "Exact BYNAME FILE formals and linked routines; ordinary file operations/attributes, rename identity, pause/resume and cooperative cancellation; whole-FILE variable transfers and handle fields remain excluded",
+  "creation": "Existing schema/name/group/pool/collision/quota and post-checkpoint terminal/bank/root/capacity guards",
+  "encoding": "Creation-tagged context rows alone accept type FILE with value exactly closed: true; exact FileHandle, owner None and no pending operation required; failed encoding precedes atomic replacement",
+  "restore": "Validate schema/metadata/quota before fresh closed allocation; reset filename/cursor/mode/status/attributes/scanners/aliases/registrations; backend snapshots remain separate",
+  "boundaries": "No resource ARRAYs/fields, generic typed FILE codec relaxation, restored open handles or suspended I/O, implicit backends, FILE VR archive, native equivalence or strict mode",
+  "supersedes": "Earlier blanket dynamic FILE creation exclusion; closed descriptor intent is separate from live-handle persistence"
+}

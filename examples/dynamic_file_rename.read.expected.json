@@ -1,0 +1,32 @@
+[
+  {
+    "line": 8,
+    "targets": [
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      }
+    ],
+    "line_breaks": [
+      1
+    ],
+    "adapter_outcome": "callback_completed"
+  },
+  {
+    "line": 14,
+    "targets": [
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      }
+    ],
+    "line_breaks": [
+      1
+    ],
+    "adapter_outcome": "callback_completed"
+  }
+]
