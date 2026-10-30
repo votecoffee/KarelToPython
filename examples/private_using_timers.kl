@@ -1,0 +1,27 @@
+PROGRAM PRIVATECLK
+TYPE row_t=STRUCTURE elapsed:INTEGER other:INTEGER ENDSTRUCTURE
+VAR seed:row_t calls:INTEGER ready:BOOLEAN done:BOOLEAN
+ROUTINE make:row_t
+BEGIN
+  calls=calls+1
+  RETURN seed
+END make
+BEGIN
+  IF UNINIT(done) THEN
+    calls=0
+    ready=FALSE
+    USING make() DO
+      elapsed=12
+      CONNECT TIMER TO elapsed
+      CONDITION[1]:
+        WHEN EVENT[1] DO
+          ready=elapsed>=12
+          DISCONNECT TIMER elapsed
+      ENDCONDITION
+    ENDUSING
+    ENABLE CONDITION[1]
+    SIGNAL EVENT[1]
+    PURGE CONDITION[1]
+    done=TRUE
+  ENDIF
+END PRIVATECLK

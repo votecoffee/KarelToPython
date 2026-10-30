@@ -87,7 +87,9 @@ explicit pose origin; ordinary exact routine interfaces remain unchanged.
 [Computed USING](computed-using.md) adds checked private record captures for
 function/constructor/operator results. `using_scopes[].selector_captures` records
 storage/computed provenance, ownership and copy-back policy; `computed_using_policy`
-describes capture lifetime and timer restrictions.
+describes capture lifetime. [Private connected timers](private-using-timers.md) add
+`connected_timers` source sites and `connected_timer_policy`, retaining null public
+roots for private captures, whole-root counter protection and terminal cleanup.
 [Private INTEGER counters](private-using-counters.md) add internal protection
 identities, retained-alias checks and `private_using_counter_policy` without
 publishing synthetic source variables. [Scalar BYTE/SHORT](scalar-narrow.md)

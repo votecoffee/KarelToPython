@@ -1,0 +1,27 @@
+PROGRAM LIB
+TYPE row_t=STRUCTURE elapsed:INTEGER ENDSTRUCTURE
+VAR seed:row_t ready:BOOLEAN
+ROUTINE make:row_t
+BEGIN
+  RETURN seed
+END make
+ROUTINE wait_private:BOOLEAN
+BEGIN
+  ready=FALSE
+  USING make() DO
+    CONNECT TIMER TO elapsed
+    CONDITION[1]:
+      WHEN elapsed>=3 DO
+        ready=TRUE
+        DISCONNECT TIMER elapsed
+    ENDCONDITION
+  ENDUSING
+  ENABLE CONDITION[1]
+  WHILE NOT ready DO
+    DELAY 1
+  ENDWHILE
+  PURGE CONDITION[1]
+  RETURN ready
+END wait_private
+BEGIN
+END LIB

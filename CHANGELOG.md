@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1030.111646 - 2026-10-30
+
+- Support CONNECT/DISCONNECT TIMER on ordinary INTEGER leaves in computed USING
+  captures, including nested reference aliases, indexed leaves, retained handlers,
+  ordinary routine returns and pause/resume. Preserve independent copies and the
+  existing whole-root counter protections without source copy-back.
+- Validate initial timer data before clock acquisition; keep unknown initialization
+  and multi-timer updates atomic on errors. Release timer registrations at terminal
+  task cleanup and linked invocation exit, preserving pause and caller lifetimes.
+- Add connected_timers source/provenance reports and connected_timer_policy,
+  42 authored regressions, two standalone examples and two linked projects.
+  Refresh README, API, support backlog and semantic notes. Declared routine-local
+  and formal timer roots, native timing and public strict mode remain separate.
+
 ## 26.1030.031942 - 2026-10-30
 
 - Extend explicit CANCEL FILE to pending READ_KB editors. Return procedure/IO

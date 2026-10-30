@@ -202,7 +202,7 @@ class PrivateUsingCounterProtectionTests(unittest.TestCase):
         v=execute('USING make() DO CONDITION[1]: WHEN EVENT[1] DO slot=99 ENDCONDITION ENDUSING ENABLE CONDITION[1] total=0 USING make() DO FOR slot=1 TO 2 DO SIGNAL EVENT[1] total=total+slot ENDFOR ENDUSING')
         self.assertEqual(v['TOTAL'],3)
 
-    def test_private_connected_timers_remain_blocked(self):self.reject('USING make() DO CONNECT TIMER TO slot ENDUSING','E_TIMER_SCOPE')
+    def test_private_timer_keeps_counter_root_protected(self):self.reject('USING make() DO CONNECT TIMER TO child.count FOR slot=1 TO 2 DO ENDFOR ENDUSING','E_FOR_COUNTER')
 
     def test_private_config_domain_is_still_an_invalid_counter(self):self.reject('USING make_cfg() DO FOR cfg_turn_no1=1 TO 2 DO ENDFOR ENDUSING',routines='ROUTINE make_cfg:CONFIG BEGIN RETURN cfg END make_cfg',decl=DECL+' cfg:CONFIG')
 

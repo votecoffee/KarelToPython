@@ -76,8 +76,9 @@ Condition actions that may write any part of the same private root block its
 counter, whether through assignment, nested FOR, READ, conversion/service output
 or a transitive writable routine argument. Readonly handlers can retain the
 capture and observe its counter or subsequent cleanup. Handlers bound to
-independent computed captures do not alias the counter. Connected timers still
-require declared global storage and reject private captures with `E_TIMER_SCOPE`.
+independent computed captures do not alias the counter. [Private connected timers](private-using-timers.md)
+now accept captured INTEGER leaves, while a lexical connection anywhere in the
+same private root blocks that root from owning a counter.
 
 Indirect variable-name operations cannot resolve an unnamed private root. They
 remain subject to their own output-reference checks and to ordinary protection

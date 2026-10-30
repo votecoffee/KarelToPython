@@ -101,9 +101,10 @@ earlier completed effects intact and prevents entry to the body.
   [FOR counters](private-using-counters.md), with internal whole-root protection
   identities and conservative retained-alias checks. The public source root
   remains null and counter edits never copy back to the source.
-- Connected timers require a declared global storage root; private computed
-  fields fail `E_TIMER_SCOPE`. Other services keep their individual scope and
-  alias restrictions.
+- [Private connected timers](private-using-timers.md) accept ordinary INTEGER
+  leaves under the existing whole-root counter protections. They can retain a
+  capture after lexical exit and end with explicit disconnect or terminal cleanup.
+  Declared routine locals/formals and other service scope restrictions remain.
 - The preserved legacy translator retains its prior selector restrictions.
   These additions describe Pythonic offline execution, with no native or
   controller acceptance claim.

@@ -78,8 +78,9 @@ USING does not make protected fields ordinary unconstrained scalar outputs.
 create explicitly private checked temporaries. Named and grouped storage still
 capture live references. Computed captures have no copy-back or original source
 root. [Private INTEGER counters](private-using-counters.md) use separate internal
-protection identities and reject retained writable aliases; connected timers
-still require declared global storage. Method-like field calls, native ABI,
+protection identities and reject retained writable aliases. [Private connected
+timers](private-using-timers.md) retain captured INTEGER leaves while keeping
+whole-root counter guards and terminal cleanup. Method-like field calls, native ABI,
 asynchronous selection timing, dynamic caller scope and strict mode remain outside
 this contract.
 

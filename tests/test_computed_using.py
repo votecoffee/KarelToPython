@@ -199,7 +199,9 @@ class ComputedUsingValidationAndEffectsTests(unittest.TestCase):
     def test_nested_private_alias_counter_cannot_reuse_active_root(self):
         self.reject('USING make_box() DO FOR slot=1 TO 2 DO USING child DO FOR value=1 TO 2 DO ENDFOR ENDUSING ENDFOR ENDUSING',routines='ROUTINE make_box:box_t BEGIN RETURN box END make_box')
 
-    def test_connected_timer_requires_declared_global_root(self):self.reject('USING make() DO CONNECT TIMER TO value ENDUSING','E_TIMER_SCOPE',cooperative=True)
+    def test_private_connected_timer_is_accepted(self):
+        p,r=build('calls=0 USING make() DO CONNECT TIMER TO value DISCONNECT TIMER value ENDUSING',cooperative=True)
+        p.run();self.assertEqual(r.report['connected_timers'][0]['provenance'],'private_temporary')
 
     def test_readonly_position_columns_remain_readonly_in_computed_selector(self):
         for selector in ('make_pose().normal','(make_pose().orient)','make_pose().approach'):

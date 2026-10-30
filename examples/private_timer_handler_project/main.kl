@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR ready,done:BOOLEAN
+ROUTINE wait_private:BOOLEAN FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    ready=wait_private()
+    done=TRUE
+  ENDIF
+END MAIN

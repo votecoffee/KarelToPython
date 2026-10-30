@@ -1452,12 +1452,16 @@ def connect_timer(state,reference,line=None):
     if type(reference) is not rt.Reference or reference.spec!=('INTEGER',): fail('Timer requires ordinary INTEGER storage',line)
     key=(id(reference.storage),reference.key)
     if key in state._timers: fail('Timer is already connected',line)
+    value=reference.raw()
+    if value is not rt.UNINITIALIZED: rt.require(rt.checked(('INTEGER',),rt.integer(value,line),line),line)
     now=timer_clock(state,line)
-    if reference.raw() is rt.UNINITIALIZED: reference.set(0,line)
+    if value is rt.UNINITIALIZED: reference.set(0,line)
     state._timers[key]=[reference,now,0]
 
 
 def disconnect_timer(state,reference,line=None):
+    rt=runtime()
+    if type(reference) is not rt.Reference or reference.spec!=('INTEGER',): fail('Timer requires ordinary INTEGER storage',line)
     key=(id(reference.storage),reference.key)
     if key not in state._timers: fail('Timer is not connected',line)
     del state._timers[key]

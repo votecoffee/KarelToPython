@@ -2486,6 +2486,7 @@ class State:
         if _pythonic() and self.execution.group_locks is not None:self.execution.group_locks.begin(self)
 
     def finish_teach_programs(self):
+        self._timers.clear()
         if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.finish(self)
         if self._budget_parent is None and self.execution.diagnostics is not None:self.execution.diagnostics.finish(self)
         bank=self.execution.teach_programs

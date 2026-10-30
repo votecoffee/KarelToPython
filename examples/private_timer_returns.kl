@@ -1,0 +1,21 @@
+PROGRAM PRIVATEOUT
+TYPE row_t=STRUCTURE elapsed:INTEGER ENDSTRUCTURE
+VAR seed:row_t ready:BOOLEAN done:BOOLEAN
+ROUTINE make:row_t
+BEGIN
+  RETURN seed
+END make
+ROUTINE inspect_timer(start_value:INTEGER):BOOLEAN
+BEGIN
+  USING make() DO
+    elapsed=start_value
+    CONNECT TIMER TO elapsed
+    RETURN elapsed>=start_value
+  ENDUSING
+END inspect_timer
+BEGIN
+  IF UNINIT(done) THEN
+    ready=inspect_timer(3)
+    done=TRUE
+  ENDIF
+END PRIVATEOUT

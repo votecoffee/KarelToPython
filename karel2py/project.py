@@ -91,9 +91,12 @@ class LinkedRoutine:
         state._sleep=caller._sleep; state._write=caller._write; state._read=caller._read
         state._sleep_injected=caller._sleep_injected
         state.max_steps=caller.max_steps
-        result=getattr(instance,'_routine_'+self.name)(*arguments)
-        if inspect.isgenerator(result): return (yield from result)
-        return result
+        try:
+            result=getattr(instance,'_routine_'+self.name)(*arguments)
+            if inspect.isgenerator(result): return (yield from result)
+            return result
+        finally:
+            state._timers.clear()
 
 
 class Project:

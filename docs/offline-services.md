@@ -57,7 +57,7 @@ source-located error. Strict mode remains a future milestone.
 | `NODE_SIZE`, `INTSCT_VL_PL` | Packed portable node-schema bytes and supplied line/plane intersections | Structural view-line/point PATH schemas, staged append, normalized projected polarity and explicit frame/group metadata; see [PATH geometry](path-geometry.md). |
 | `QUEUE_TYPE` and seven queue procedures | FIFO entries with sequence IDs and an INTEGER backing array | Explicit INIT_QUEUE; fixed capacity; retain original backing-array identity. |
 | `CONDITION`, `WHEN`, `ENABLE/DISABLE/PURGE` | Ordered predicates and generator actions | Checkpoint/interval scanning, events/edges, EVAL capture, multiple WHEN clauses and explicit rearm. |
-| `CONNECT/DISCONNECT TIMER` | Monotonic elapsed milliseconds in global INTEGER references | Updated at execution checkpoints; injectable microsecond clock; fractional milliseconds carried forward. |
+| `CONNECT/DISCONNECT TIMER` | Monotonic elapsed milliseconds in global or private USING INTEGER references | Updated at execution checkpoints; injectable microsecond clock; fractional milliseconds carried forward. |
 | `GET_TIME`, `SET_TIME` | Explicit CalendarClock | Shared packed date/time fields; frozen or supplied elapsed adapter; zero set no-op; no operating-system clock write. |
 | `PAUSE`, host `resume()` | Suspended Python generator | Retains instruction position, routine locals, references and FOR state. |
 | `STOP`, host `stop()` | Terminal offline task state | Closes suspended frames; construct a new Program to restart. This is a Pythonic task-stop convention, not native motion STOP behavior. |
@@ -257,12 +257,14 @@ Scan intervals, event broadcasts and port edges follow the
 [portable project conventions](portable-projects.md). Native interrupt priorities
 and motion scanning are outside the model.
 
-Connected timers require global INTEGER storage. Updates carry fractional
+Connected timers require global or [private captured USING INTEGER storage](private-using-timers.md). Updates carry fractional
 milliseconds and reject backward clocks or overflow. Timers poll at checkpoints,
 including empty loop tests; no background thread runs while Python is idle.
 Elapsed wall time during a pause is applied on the next checkpoint. An injected
 `clock_us` should supply nonnegative integer microseconds for connected timers.
 Handlers/timers that could modify a FOR counter are conservatively rejected.
+Connections retain captures across lexical exit and pause; terminal task cleanup
+releases them. Linked invocation timers end when that invocation returns or closes.
 
 `TaskRegistry.bind(name,program)` supplies named targets. RUN_TASK requires line
 0, no motion and lock mask 0. PAUSE_TASK/ABORT_TASK reject motion flags. CONT_TASK

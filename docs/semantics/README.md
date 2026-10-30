@@ -1,5 +1,8 @@
 # Semantic notes
 
+The [private timer ledger](private_using_timer_semantics.json) supersedes older
+private connected-timer exclusions in the computed-capture/private-counter notes.
+
 Current POSITION geometry follows the [POSITION guide](../position-geometry.md);
 older blanket POSITION geometry exclusions retain the conservative contract.
 

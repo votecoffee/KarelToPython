@@ -1154,6 +1154,7 @@ class Emitter:
         self.private_using_roots = {}
         self.escaped_private_using_roots = set()
         self.reference_for_uses=[]
+        self.connected_timer_uses=[]
         self.external_write_routines=set()
         self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
@@ -3351,11 +3352,21 @@ class Emitter:
             self.line(f'_rt.handler_action(self._state,{stmt.args[0]!r},{line})',token); return
         if kind in ('timer_connect','timer_disconnect'):
             target=stmt.args[0]
-            if self.root_name(target) is None or self.current_routine and self.root_name(target) in self.current_routine.local_types: self.error('E_TIMER_SCOPE','Connected timer storage must have a declared global root',target.token)
+            root=self.root_name(target);protection=self.protection_root(target)
+            private=protection in self.private_using_roots
+            if not private and (root is None or self.current_routine and root in self.current_routine.local_types):
+                self.error('E_TIMER_SCOPE','Connected timer storage requires a declared global root or captured private USING record',target.token)
             if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER','Timer cannot modify active FOR counter',target.token)
             reference,spec=self.reference(target)
             if spec!=('INTEGER',) or self.is_config_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
             method='connect_timer' if kind=='timer_connect' else 'disconnect_timer'
+            self.connected_timer_uses.append(dict(operation='CONNECT' if kind=='timer_connect' else 'DISCONNECT',
+                body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,selector=counter_text(target),root=root,
+                provenance='private_temporary' if private else 'declared_storage',
+                protection_root=protection,evaluated_once=True))
+            self.features.add('connected INTEGER timer')
+            if private:self.features.add('private USING connected timer')
             self.line(f'_rt.{method}(self._state,{reference},{line})',token); return
         if kind=='condition_control':
             number=self.require_type(stmt.args[1],'INTEGER')
@@ -4284,6 +4295,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         config_text_conversions=emitter.config_text_uses,
         time_text_conversions=emitter.time_text_uses,
         microsecond_timers=emitter.microsecond_timer_uses,
+        connected_timers=emitter.connected_timer_uses,
         register_operations=emitter.register_uses,
         service_operations=emitter.service_uses,
         frame_operations=emitter.frame_operation_uses,
@@ -4913,10 +4925,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         generation='Automatic for FILE READ, PULSE, task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
         execution='Generator-based run/resume retains routine/FOR frames; optional deterministic TaskScheduler interleaves checkpoints with virtual time; terminal stop closes generators',
         handlers='Ordered checkpoint scans with optional WITH $SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
-        timers='Global INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry and backward-clock checks',
+        timers='Global or captured private USING INTEGER references updated by monotonic elapsed milliseconds at checkpoints; fractional carry, backward-clock checks and terminal cleanup',
         linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
         requests='Named/numeric remote pause/abort delivered at target checkpoints, including paused-task ABORT handlers; self identity follows linked caller; synchronous child ABORT/STOP does not terminate caller',
         guide='docs/offline-services.md',controller_validated=False)
+    report['connected_timer_policy']=dict(
+        storage='Exact ordinary INTEGER global leaves or captured private computed USING leaves; declared routine locals/formals and CONFIG domains remain blocked',
+        capture='Evaluate each selector once; nested reference USING aliases share scalar identity, independent computed copies do not; no copy-back or implicit private variable name',
+        lifetime='Retain across lexical USING/routine exit and pause within one invocation; explicit DISCONNECT or task terminal cleanup releases registrations; linked invocation timers end with that invocation',
+        updates='Checkpoint monotonic milliseconds with fractional carry; initialized values validated before connection, unknown INTEGER initialized to zero after valid clock; stage every update before publishing any timer',
+        counters='Existing conservative whole-root direct/transitive/handler/timer guards remain; lexical connection sites block counters even if a path disconnects first',
+        persistence='Context JSON stores declared values, without private captures, timer connections, clocks, callbacks or suspended execution',
+        guide='docs/private-using-timers.md',controller_validated=False)
     report['error_history_policy']=dict(
         procedure='ERR_DATA(sequence,error_code,error_string,cause_code,cause_string,time_int,severity,program_name)',
         cursor='Ordinary INTEGER reference: 0 selects oldest, then select the next retained sequence; exhaustion sets only sequence to 0; MAXINT constant selects newest and discards returned sequence',
@@ -5595,7 +5615,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         calls='Private captures are fresh in parameterized routines; unknown external calls without writable private actuals cannot name these roots; declared global/formal rules remain unchanged',
         execution='Capture one exact INTEGER leaf reference before initial/final expressions; both engines retain bound/iterator and clear only that leaf on exit/unwind',
         reports='Private reference_for_counters rows keep root=null and add protection_root plus private_temporary provenance; named storage rows and USING source provenance are unchanged',
-        boundary='Conservative whole-root and lexical escape proof; connected timers still require declared global roots; no direct function-result counter syntax or native/strict/controller equivalence',
+        boundary='Conservative whole-root and lexical escape proof; connected private USING timers retain whole-root counter protection; no direct function-result counter syntax or native/strict/controller equivalence',
         guide='docs/private-using-counters.md',controller_validated=False)
     report['reference_for_counter_policy']=dict(
         selectors='Exact INTEGER names, record fields, ARRAY leaves and resolved USING fields including isolated private computed captures; direct computed/root function-result counter expressions remain blocked',

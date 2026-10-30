@@ -1,6 +1,6 @@
 # Remaining Pythonic support
 
-Audited on 2026-10-29 against the 465-heading, multi-edition KAREL feature
+Audited on 2026-10-30 against the 465-heading, multi-edition KAREL feature
 inventory, the programmer reference and the implemented parser/runtime. This is
 a product backlog, not a controller compatibility certificate. The inventory
 contains statements, actions, clauses, types and directives as well as calls;
@@ -62,8 +62,10 @@ they are boundaries rather than promises to accept every such source form later.
   [Computed record selectors](computed-using.md) now capture checked private values;
   [private INTEGER counters](private-using-counters.md) now use internal lexical
   whole-root identities, including [checked narrow counters](narrow-for.md).
-  Retained writable aliases and private connected timers
-  remain blocked. [Reference FOR counters](reference-for-counters.md)
+  Retained writable aliases remain blocked for counters. [Private connected
+  timers](private-using-timers.md) now retain ordinary INTEGER leaves across
+  lexical exit and pause, with whole-root counter guards and terminal cleanup.
+  Declared routine-local/formal timer roots remain blocked. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
   CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
   calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)

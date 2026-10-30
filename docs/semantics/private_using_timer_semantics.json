@@ -1,0 +1,17 @@
+{
+  "version": "26.1030.111646",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../private-using-timers.md",
+  "tests": [
+    "tests/test_private_using_timers.py"
+  ],
+  "storage": "Exact ordinary INTEGER global leaves or captured private computed USING leaves; no source copy-back or synthetic public roots",
+  "identity": "Selector captured once; nested reference aliases share scalar storage; independent copies and fresh entries differ",
+  "progress": "Checkpoint elapsed milliseconds, fractional carry, backward-clock and storage checks; all timer updates preflight before publication",
+  "lifetime": "Private captures survive lexical exit and ordinary source returns; explicit disconnect or task terminal cleanup releases registrations; linked invocation timers end with their invocation",
+  "initialization": "Validate initialized storage before clock; missing INTEGER becomes zero only after a valid clock; invalid initial values or clock preserve storage and registrations",
+  "counter_guard": "Conservative lexical whole-root timer/counter exclusion, including sibling leaves and nested aliases; independent private copies remain separate",
+  "persistence": "Declared data and logical services only; no private captures, timer connections, clocks, callbacks or suspended stacks",
+  "boundary": "Declared routine locals/formals, narrow/REAL/CONFIG/resource timers, direct uncaptured computed selectors, physical timing, native interrupts and public strict mode remain outside this policy"
+}

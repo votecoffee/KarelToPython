@@ -1,0 +1,18 @@
+PROGRAM LIB
+TYPE row_t=STRUCTURE elapsed:INTEGER ENDSTRUCTURE
+VAR seed:row_t calls:INTEGER
+ROUTINE make:row_t
+BEGIN
+  RETURN seed
+END make
+ROUTINE wait_private:BOOLEAN
+BEGIN
+  calls=1
+  USING make() DO
+    CONNECT TIMER TO elapsed
+    DELAY 3
+    RETURN elapsed>=3
+  ENDUSING
+END wait_private
+BEGIN
+END LIB
