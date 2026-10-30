@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1030.185500 - 2026-10-30
+
+- Expand MOVE WITH from six to nine settings: TERMTYPE/SEGTERMTYPE termination
+  choices and ORIENT_TYPE orientation choices use checked INTEGER domains and
+  contextual names. Accept STRAIGHT as the LINEAR interpolation alias.
+- Accept explicit $GROUP[index].$NAME inputs alongside NAME[index], capturing
+  one group expression then its value once before MOVE operands/local conditions.
+  Reject duplicate canonical names, invalid groups, unsupported domains and
+  cross-group settings before MOVE publication or response consumption.
+- Preserve detached values through immediate, delayed and local/temporal motion
+  scopes. Save canonical enum strings, including STRAIGHT as LINEAR; retain old
+  history compatibility, VIA guards, ownership and pause/abort cleanup rules.
+- Keep settings as offline request metadata without changing robot context,
+  trajectories, settling or native controller behavior; strict mode remains future.
+- Add motion_setting_policy reports, 60 regressions, four examples, two linked
+  projects and compiler-free runtime coverage. Update README, API, support guides
+  and the manual-backed semantic ledger.
+
 ## 26.1030.183431 - 2026-10-30
 
 - Extend GET_VAR/SET_VAR through explicitly supplied joint/Cartesian models for

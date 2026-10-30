@@ -3131,4 +3131,5 @@ from .source_translations import SourceTranslations
 from .record_schemas import record_schema_kind,convert_record_schema,kinematic_record_kind,prepare_kinematic_record
 from .serial_io import SerialStreams
 from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,selector as motion_selector,
-                     SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS)
+                     SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS,
+                     SETTING_CONSTANTS as MOTION_SETTING_CONSTANTS)

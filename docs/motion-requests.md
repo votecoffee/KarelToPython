@@ -19,7 +19,7 @@ perform reachability checks or map hands to physical signals.
 | `OPEN HAND number`, `CLOSE HAND number`, `RELAX HAND number` | Update an explicitly configured logical hand, numbered 1 or 2. These are also accepted global handler actions. |
 | `ATTACH`, `RELEASE` | Acquire or release checked logical group ownership. |
 | `HOLD`, `UNHOLD`, `CANCEL` with optional GROUP selectors | Update owned logical labels/hold flags; see [motion controls](motion-controls.md). |
-| `WITH` before MOVE | Capture six supported local settings, without applying a native environment; see [local settings](motion-controls.md#temporary-with-settings). |
+| `WITH` before MOVE | Capture nine supported local settings, without applying a native environment; see [local settings](motion-controls.md#temporary-with-settings). |
 
 Source operands are evaluated once from left to right and detached before the
 next operand is evaluated. PATH storage is captured before its range expressions;
@@ -123,7 +123,7 @@ controller-validation boundary. Normal source maps retain include origins.
   of the node bound. Sequence numbers stop at 2147483646.
 - NOWAIT/local-clause combinations, unsupplied arrival times, remaining WITH settings and cross-group options,
   native group synchronization, hand-signal routing and controller timing remain
-  unsupported. Supported [logical controls and six WITH values](motion-controls.md)
+  unsupported. Supported [logical controls and nine WITH values](motion-controls.md)
   retain the offline contract. [Boolean local clauses and scripted progress](motion-handlers.md)
   add synchronous request scopes. Unsupported source forms reject before execution.
 

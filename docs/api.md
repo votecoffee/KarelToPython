@@ -2,6 +2,11 @@
 
 ## Translation
 
+[Extended motion settings](extended-motion-settings.md) add `motion_setting_policy`
+reports for nine request-local WITH values, canonical enum domains/aliases and
+explicit group forms. Source captures and validated JSON history use the existing
+MotionRequests service without applying a robot environment.
+
 [Model-backed variable transfers](kinematic-variable-transfers.md) add
 `kinematic_variable_transfer_policy` reports. Runtime GET_VAR/SET_VAR plan the
 complete selected data before scalar model calls and publish only after success;

@@ -2,7 +2,7 @@
 
 Pythonic output supports `HOLD`, `UNHOLD` and `CANCEL` through the explicit
 [MotionRequests](motion-requests.md) and [GroupLocks](group-locks.md) services.
-Six temporary `WITH` settings can accompany any supported MOVE form. These are
+Nine temporary `WITH` settings can accompany any supported MOVE form. These are
 offline state and request models. They do not compute trajectories, operate
 physical hands, change robot feedback or reproduce controller timing.
 
@@ -80,14 +80,18 @@ MOVE TO target
 | Setting | Accepted request value |
 | --- | --- |
 | `$SPEED`, `$ROTSPEED` | Finite nonnegative numeric value, captured as Python float; no inferred native speed limit |
-| `$MOTYPE` | JOINT, LINEAR or CIRCULAR; equivalent INTEGER expressions 6, 7 or 8 |
+| `$MOTYPE` | JOINT, LINEAR/STRAIGHT or CIRCULAR; equivalent INTEGER expressions 6, 7 or 8 |
+| `$TERMTYPE`, `$SEGTERMTYPE` | FINE, COARSE, NOSETTLE, NODECEL or VARDECEL; INTEGER values 1 through 5 |
+| `$ORIENT_TYPE` | RSWORLD, AESWORLD or WRISTJOINT; INTEGER values 1 through 3 |
 | `$UFRAME`, `$UTOOL` | Complete Cartesian POSITION, XYZWPR or XYZWPREXT value, detached with its explicit representation |
 | `$USE_CONFIG` | BOOLEAN, without numeric truthiness |
 
 Each setting optionally accepts a group expression, for example
 `WITH $SPEED[group_number]=speed_value MOVE AWAY distance`. It must resolve to
 the same group as the MOVE request. Cross-group motion settings and duplicate
-settings are rejected. At most six entries are accepted.
+settings are rejected. At most nine entries are accepted. The explicit
+`$GROUP[group].$NAME` spelling and new enum choices follow
+[extended motion settings](extended-motion-settings.md).
 
 For each entry, its group expression is captured first, then its value. Entries
 are evaluated in source order, before the MOVE operands. Frame/tool data is
@@ -98,8 +102,8 @@ request preflight succeeds. Normal terminal ownership cleanup still applies.
 
 The setting data belongs only to that request. It does not write system
 variables, set RobotContext frames, transform destination coordinates or carry
-over to the next MOVE. No default motion environment is discovered. The three
-MOTYPE names are contextual constants within the setting expression; this does
+over to the next MOVE. No default motion environment is discovered. MOTYPE,
+termination and orientation names are contextual within their corresponding setting; this does
 not add global constants or an arbitrary system-variable namespace.
 
 Explicit CIRCULAR requires MOVE TO with VIA. An explicit JOINT or LINEAR setting

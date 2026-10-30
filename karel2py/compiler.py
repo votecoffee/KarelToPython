@@ -245,7 +245,7 @@ def blocked_controller_names(mode):
 class Parser:
     def __init__(self, source, filename, mode='strict'):
         self.continuations = []
-        self.in_motion_kind = False
+        self.motion_setting_constants = {}
         self.in_motion_condition = False
         self.escaped_string_literals = []
         self.predefined_uses = []
@@ -689,16 +689,20 @@ class Parser:
             if self.in_handler_actions:self.error('E_CONDITION_ACTION','WITH MOVE is not a global handler action',token)
             settings=[]
             while True:
-                key=self.take()
+                key=self.take();group=None
+                if key.value=='$GROUP':
+                    self.expect('[');group=self.expression();self.expect(']');self.expect('.')
+                    key=self.take()
                 if key.value not in rt.MOTION_SETTINGS:self.error('E_MOTION_SETTING','Unsupported motion WITH setting',key)
-                group=None
-                if self.accept('['):group=self.expression();self.expect(']')
+                if self.accept('['):
+                    if group is not None:self.error('E_MOTION_GROUP','Motion WITH group can be specified only once',key)
+                    group=self.expression();self.expect(']')
                 self.expect('=')
-                previous=self.in_motion_kind;self.in_motion_kind=key.value=='$MOTYPE'
+                previous=self.motion_setting_constants;self.motion_setting_constants=rt.MOTION_SETTING_CONSTANTS.get(key.value,{})
                 try:value=self.expression()
-                finally:self.in_motion_kind=previous
+                finally:self.motion_setting_constants=previous
                 settings.append((key,group,value))
-                if len(settings)>6:self.error('E_MOTION_SETTING','Motion WITH supports at most six settings',key)
+                if len(settings)>len(rt.MOTION_SETTINGS):self.error('E_MOTION_SETTING','Motion WITH supports at most '+str(len(rt.MOTION_SETTINGS))+' settings',key)
                 self.skip_lines()
                 if not self.accept(','):break
                 self.skip_lines()
@@ -1093,8 +1097,8 @@ class Parser:
             left = Expr('literal', token, value)
         elif token.value in ('TRUE', 'FALSE'):
             left = Expr('literal', token, token.value == 'TRUE')
-        elif self.in_motion_kind and token.value in rt.MOTION_KINDS.values():
-            left=Expr('literal',token,next(number for number,name in rt.MOTION_KINDS.items() if name==token.value))
+        elif token.value in self.motion_setting_constants:
+            left=Expr('literal',token,self.motion_setting_constants[token.value])
         elif token.value in PREDEFINED_CONSTANTS:
             if self.current.value in ('(', '[', '.'):
                 self.error('E_PREDEFINED_CONTEXT', 'A predefined constant is a scalar value, not a call or aggregate', token)
@@ -4485,7 +4489,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
             ownership='Explicit GroupLocks ownership; ATTACH and RELEASE validate atomically',
             data='Complete detached positional operands; source order captured once; bounded PATH NODE_POS snapshots',
             controls='HOLD/UNHOLD flags are independent of active/stopped labels; CANCEL retains holds and preserves stopped work; selections use current root ownership at action time',
-            settings='Six local WITH settings captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
+            settings='Nine local WITH settings, including termination/orientation choices, captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
             boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or queued motion',
             nowait='Immediate requests only; scoped handlers and positive scripted delays reject NOWAIT, no background queue',
             local_handlers='One-shot WHEN and UNTIL/THEN clauses at entry and 10 ms supplied-delay checkpoints; global scans first, local controls target current group; active holds suspend local scans',
@@ -6175,6 +6179,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['positional_variable_transfer_policy']['records']='Context-free and explicit-model geometry fields inside compatible user records; model fields follow kinematic_variable_transfer_policy'
     report['kinematic_array_policy']['boundary']='Source ARRAY policy unchanged; explicit GET_VAR/SET_VAR prefixes follow kinematic_variable_transfer_policy; no inferred context, motion, native ABI/controller equivalence or strict claim'
     report['named_array_policy']['variables']='Explicit model-backed variable prefixes follow kinematic_variable_transfer_policy; source ARRAY dimension rules unchanged'
+    report['motion_setting_policy']=dict(
+        settings=dict(rt.MOTION_SETTINGS),maximum=len(rt.MOTION_SETTINGS),
+        choices={name:dict(values) for name,values in rt.MOTION_SETTING_CONSTANTS.items()},
+        source='Contextual INTEGER names/expressions for MOTYPE, TERMTYPE, SEGTERMTYPE and ORIENT_TYPE; STRAIGHT canonicalizes to LINEAR; ordinary names outside that setting retain lexical lookup',
+        groups='Unqualified NAME, NAME[n] or explicit $GROUP[n].$NAME; exactly one group expression per setting, matching the MOVE selected group; no cross-group settings',
+        capture='Each group expression then setting value once in source order, before MOVE operands and local condition captures; detached frame/tool data',
+        admission='Exact enumeration domains, duplicate canonical names, ownership, group, VIA and history/script checks before response consumption or MOVE publication',
+        execution='Detached request metadata across immediate, delayed and local/temporal scopes; no interpolation, settling, planning, speed application or RobotContext mutation',
+        persistence='Canonical enumeration strings in validated JSON history; source STRAIGHT alias is saved as LINEAR; no callbacks or active scopes',
+        boundary='Other motion variables, cross-group execution, arbitrary system-variable access, NOWAIT scopes, native/compiler/controller equivalence and public strict mode remain unavailable',
+        guide='docs/extended-motion-settings.md',controller_validated=False)
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

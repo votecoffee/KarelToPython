@@ -1,0 +1,76 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "source_program": "LIB",
+        "operation": "MOVE AXIS",
+        "group": 1,
+        "line": 5,
+        "nowait": true,
+        "outcome": "captured",
+        "data": {
+          "axis": 1,
+          "distance": 2.0,
+          "settings": [
+            {
+              "name": "$TERMTYPE",
+              "group": 1,
+              "value": "VARDECEL"
+            },
+            {
+              "name": "$ORIENT_TYPE",
+              "group": 1,
+              "value": "WRISTJOINT"
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

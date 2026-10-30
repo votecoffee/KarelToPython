@@ -119,7 +119,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('model_variable_scalar', 'STATUS', 0),
                     ('model_variable_prefix', 'STATUS', 0),
                     ('model_variable_record', 'STATUS', 0),
-                    ('model_variable_missing', 'STATUS', 12311)]
+                    ('model_variable_missing', 'STATUS', 12311),
+                    ('motion_termination_choices', 'N', 1),
+                    ('motion_qualified_choices', 'N', 123),
+                    ('motion_nine_settings', 'STATUS', 0),
+                    ('motion_enum_expressions', 'N', 30)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

@@ -1,0 +1,80 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_TERMINATION_CHOICES",
+        "source_program": "MOTION_TERMINATION_CHOICES",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_TERMINATION_CHOICES",
+        "source_program": "MOTION_TERMINATION_CHOICES",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$TERMTYPE",
+              "group": 1,
+              "value": "FINE"
+            },
+            {
+              "name": "$SEGTERMTYPE",
+              "group": 1,
+              "value": "NODECEL"
+            },
+            {
+              "name": "$ORIENT_TYPE",
+              "group": 1,
+              "value": "RSWORLD"
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_TERMINATION_CHOICES",
+        "source_program": "MOTION_TERMINATION_CHOICES",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

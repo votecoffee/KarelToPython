@@ -1,0 +1,59 @@
+{
+  "version": "26.1030.185500",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../extended-motion-settings.md",
+  "tests": [
+    "tests/test_extended_motion_settings.py"
+  ],
+  "reference": {
+    "edition": "R-J3iB KAREL Reference Manual, Rev A",
+    "pdf_pages": [
+      66,
+      219,
+      220,
+      228,
+      323,
+      324,
+      744
+    ]
+  },
+  "settings": [
+    "$SPEED",
+    "$ROTSPEED",
+    "$MOTYPE",
+    "$UFRAME",
+    "$UTOOL",
+    "$USE_CONFIG",
+    "$TERMTYPE",
+    "$SEGTERMTYPE",
+    "$ORIENT_TYPE"
+  ],
+  "maximum": 9,
+  "domains": {
+    "termination": {
+      "FINE": 1,
+      "COARSE": 2,
+      "NOSETTLE": 3,
+      "NODECEL": 4,
+      "VARDECEL": 5
+    },
+    "orientation": {
+      "RSWORLD": 1,
+      "AESWORLD": 2,
+      "WRISTJOINT": 3
+    },
+    "motion": {
+      "JOINT": 6,
+      "LINEAR": 7,
+      "STRAIGHT": 7,
+      "CIRCULAR": 8
+    }
+  },
+  "capture": "Contextual names only in corresponding setting expressions; group then value once left-to-right before MOVE operands/local captures; complete detached frame/tool data",
+  "groups": "NAME[group] or explicit $GROUP[group].$NAME Pythonic input spelling; one group selector matching selected MOVE group",
+  "admission": "Distinct canonical names, typed enum domains, group/ownership/VIA/script and bounded history checks before MOVE publication or response consumption",
+  "persistence": "Canonical enum strings, source STRAIGHT saved as LINEAR; validate history domains and groups; preserve old histories and active-scope save guards",
+  "boundaries": "No system-variable writes, RobotContext mutation, native planner/settling/orientation behavior, cross-group settings, NOWAIT scopes, other WITH variables or public strict mode",
+  "supersedes": "Older six-setting limits in current Pythonic guides; native source acceptance unverified"
+}

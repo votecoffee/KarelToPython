@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.183431**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.185500**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -730,7 +730,8 @@ completion responses, immediate by default or with an explicit finite delay. It 
 
 [Motion controls and local settings](docs/motion-controls.md) now add independent
 HOLD/UNHOLD flags, cancellation that preserves stopped work, global handler
-actions and six request-local WITH values. Ownership and JSON history remain
+actions and nine request-local WITH values, including checked termination/orientation
+choices and explicit group-qualified inputs; see [extended settings](docs/extended-motion-settings.md). Ownership and JSON history remain
 explicit; controls do not create trajectories or change robot feedback.
 
 [Motion-local clauses and scripted progress](docs/motion-handlers.md) now support

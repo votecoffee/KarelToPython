@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [extended motion-setting ledger](extended_motion_setting_semantics.json)
+supersedes older six-setting limits with termination/orientation choices, the
+STRAIGHT alias and explicit group prefixes; native planning remains unverified.
+
 The [model-backed variable-transfer ledger](kinematic_variable_transfer_semantics.json)
 supersedes older GET_VAR/SET_VAR model exclusions with explicit context and
 complete-prefix preflight. Generic helpers remain context-free.

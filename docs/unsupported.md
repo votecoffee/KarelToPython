@@ -31,8 +31,8 @@ they are boundaries rather than promises to accept every such source form later.
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
-  now support HOLD/UNHOLD/CANCEL, global handler actions and six per-request WITH
-  settings. [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
+  now support HOLD/UNHOLD/CANCEL, global handler actions and nine per-request WITH
+  settings, including [termination/orientation choices](extended-motion-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
   now use synchronous scopes with pause/resume and cleanup. NOWAIT with local
   clauses/delayed completion, inferred node arrivals, remaining WITH variables,
   cross-group settings, interpolation execution and native synchronization remain unsupported.

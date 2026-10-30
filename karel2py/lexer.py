@@ -26,7 +26,7 @@ PATTERN = re.compile(
     r"(?P<DIRECTIVE>%[^\r\n\f]*)|"
     r"(?P<STRING>'(?:[^'\r\n\f]|'')*')|"
     r"(?P<REAL>(?:\d+\.(?!\.)\d*|\.\d+)(?:[Ee][+-]?\d+)?|\d+[Ee][+-]?\d+)|"
-    r"(?P<INT>\d+)|(?P<NAME>\$(?i:SCAN_TIME|SPEED|ROTSPEED|MOTYPE|UFRAME|UTOOL|USE_CONFIG)(?![A-Za-z_0-9])|[A-Za-z_][A-Za-z_0-9]*)|"
+    r"(?P<INT>\d+)|(?P<NAME>\$(?i:SCAN_TIME|SPEED|ROTSPEED|MOTYPE|UFRAME|UTOOL|USE_CONFIG|TERMTYPE|SEGTERMTYPE|ORIENT_TYPE|GROUP)(?![A-Za-z_0-9])|[A-Za-z_][A-Za-z_0-9]*)|"
     r"(?P<OP>>=<|<=|>=|<>|::|\.\.|[.+*/=<>(),;:@#\[\]-])|(?P<CONT>&)|(?P<BAD>.)"
 )
 

@@ -15,8 +15,16 @@ OPERATIONS = (*MOVES, *CONTROLS, 'OPEN HAND', 'CLOSE HAND', 'RELAX HAND', 'ATTAC
 POSES = ('POSITION', 'XYZWPR', 'XYZWPREXT', 'JOINTPOS')
 MAX_SEQUENCE = 2147483646
 SETTINGS = {'$SPEED':'REAL', '$ROTSPEED':'REAL', '$MOTYPE':'INTEGER',
-            '$UFRAME':'POSE', '$UTOOL':'POSE', '$USE_CONFIG':'BOOLEAN'}
+            '$UFRAME':'POSE', '$UTOOL':'POSE', '$USE_CONFIG':'BOOLEAN',
+            '$TERMTYPE':'INTEGER', '$SEGTERMTYPE':'INTEGER', '$ORIENT_TYPE':'INTEGER'}
 KINDS = {6:'JOINT', 7:'LINEAR', 8:'CIRCULAR'}
+TERMINATIONS = {1:'FINE', 2:'COARSE', 3:'NOSETTLE', 4:'NODECEL', 5:'VARDECEL'}
+ORIENTATIONS = {1:'RSWORLD', 2:'AESWORLD', 3:'WRISTJOINT'}
+ENUM_SETTINGS = {'$MOTYPE':KINDS, '$TERMTYPE':TERMINATIONS,
+                 '$SEGTERMTYPE':TERMINATIONS, '$ORIENT_TYPE':ORIENTATIONS}
+SETTING_CONSTANTS = {key:{name:number for number,name in values.items()}
+                     for key,values in ENUM_SETTINGS.items()}
+SETTING_CONSTANTS['$MOTYPE']['STRAIGHT']=7
 
 
 def rt():
@@ -159,11 +167,12 @@ def typed(row, allowed, axes=None):
 def setting(name, value, spec, line=None):
     """Capture one temporary WITH value, without applying an environment."""
     runtime = rt()
-    if name == '$MOTYPE':
-        value = runtime.integer(value, line)
-        if value not in KINDS:
-            raise runtime.KarelRuntimeError('Motion type requires JOINT/LINEAR/CIRCULAR (6/7/8)', line)
-        return KINDS[value]
+    if name in ENUM_SETTINGS:
+        value = runtime.integer(value, line);values=ENUM_SETTINGS[name]
+        if value not in values:
+            raise runtime.KarelRuntimeError('Motion '+name+' requires '+
+                '/'.join(values.values())+' ('+'/'.join(map(str,values))+')',line)
+        return values[value]
     if name in ('$SPEED', '$ROTSPEED'):
         value = runtime.real(value, line)
         if value < 0:
@@ -321,7 +330,7 @@ class MotionRequests:
         if 'settings' in data:
             rows = data['settings']
             if type(rows) is not list or not 1 <= len(rows) <= len(SETTINGS):
-                raise ValueError('Motion WITH requires 1..6 supported settings')
+                raise ValueError('Motion WITH requires 1..'+str(len(SETTINGS))+' supported settings')
             names = set()
             for row in rows:
                 if type(row) is not dict or set(row) != {'name', 'group', 'value'}:
@@ -333,13 +342,14 @@ class MotionRequests:
                 if type(row['group']) is not int or row['group'] != group:
                     raise ValueError('Motion WITH group must match the selected request group')
                 value = row['value']
-                if name == '$MOTYPE':
-                    if type(value) is not str or value not in KINDS.values():
-                        raise ValueError('Invalid motion WITH interpolation type')
-                    if value == 'CIRCULAR' and (operation != 'MOVE TO' or 'via' not in data):
-                        raise ValueError('CIRCULAR motion requires MOVE TO with VIA')
-                    if value != 'CIRCULAR' and 'via' in data:
-                        raise ValueError('VIA conflicts with the explicit motion type')
+                if name in ENUM_SETTINGS:
+                    if type(value) is not str or value not in ENUM_SETTINGS[name].values():
+                        raise ValueError('Invalid motion WITH '+name+' choice')
+                    if name=='$MOTYPE':
+                        if value == 'CIRCULAR' and (operation != 'MOVE TO' or 'via' not in data):
+                            raise ValueError('CIRCULAR motion requires MOVE TO with VIA')
+                        if value != 'CIRCULAR' and 'via' in data:
+                            raise ValueError('VIA conflicts with the explicit motion type')
                 elif name in ('$UFRAME', '$UTOOL'):
                     typed(value, POSES[:-1])
                 elif name == '$USE_CONFIG':

@@ -1,0 +1,80 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_ENUM_EXPRESSIONS",
+        "source_program": "MOTION_ENUM_EXPRESSIONS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_ENUM_EXPRESSIONS",
+        "source_program": "MOTION_ENUM_EXPRESSIONS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$TERMTYPE",
+              "group": 1,
+              "value": "COARSE"
+            },
+            {
+              "name": "$ORIENT_TYPE",
+              "group": 1,
+              "value": "AESWORLD"
+            },
+            {
+              "name": "$MOTYPE",
+              "group": 1,
+              "value": "LINEAR"
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_ENUM_EXPRESSIONS",
+        "source_program": "MOTION_ENUM_EXPRESSIONS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}
