@@ -1,0 +1,18 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ENTRY": 2,
+      "STATUS": 0,
+      "RESULT": 42,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0,
+      "CALLED": true
+    }
+  }
+}

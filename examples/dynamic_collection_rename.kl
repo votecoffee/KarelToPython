@@ -1,0 +1,17 @@
+PROGRAM DYNAMIC_COLLECTION_RENAME
+VAR entry,status,count:INTEGER done:BOOLEAN
+ROUTINE grow(route:PATH)
+BEGIN
+  APPEND_NODE(route,status)
+  count=PATH_LEN(route)
+END grow
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ROUTE','','PATH',0,0,0,0,status)
+    grow(BYNAME('CACHE','ROUTE',entry))
+    RENAME_VAR('CACHE','ROUTE','KEPT',status)
+    RENAME_VARS('CACHE','SAVED',status)
+    grow(BYNAME('SAVED','KEPT',entry))
+    done=TRUE
+  ENDIF
+END DYNAMIC_COLLECTION_RENAME

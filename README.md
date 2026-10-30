@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.200022**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.203037**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -387,7 +387,9 @@ formats, with whole-page validation before outputs change. See
 [file listings](docs/file-listing.md).
 CREATE_VAR, RENAME_VAR and RENAME_VARS manage explicit variable namespaces;
 BYNAME passes checked named aliases into typed routines, including linked calls
-and cooperative pause/resume. See [dynamic variables](docs/dynamic-variables.md).
+and cooperative pause/resume. [Dynamic collections](docs/dynamic-collections.md)
+now add root PATH/QUEUE_TYPE creation, checked header/descriptor reservations,
+renaming and saved-state replay. See [dynamic variables](docs/dynamic-variables.md).
 CHECK_STACK, SET_DEBUG and SET_DB_EVENT use explicit offline diagnostics with
 bounded event history and configurable logical stack estimates. KCL,
 KCL_NO_WAIT and KCL_STATUS use a scripted command channel with acceptance,

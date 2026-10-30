@@ -8,22 +8,55 @@ IDENTIFIER=r'[A-Z_][A-Z_0-9]{0,35}'
 MAX_LEAVES=32767
 
 
+def creation_cost(spec):
+    """Validate a creation schema and count its immediately reserved storage."""
+    rt=runtime()
+    from .storage import collection_data_spec
+    if type(spec) is not tuple or not spec: raise ValueError('Creation requires a concrete type')
+    if spec==('QUEUE_TYPE',): return 1
+    if spec[0]=='PATH':
+        if len(spec)!=3: raise ValueError('Created PATH requires node and header schemas')
+        header=0
+        for index,component in enumerate(spec[1:],1):
+            if component is None: continue
+            if type(component) is not tuple or not component or component[0]!='STRUCTURE':
+                raise ValueError('Created PATH components require named data STRUCTURE layouts')
+            try: count=rt._validate_data_schema(component)
+            except rt.KarelRuntimeError as exc: raise ValueError('Invalid created PATH data: '+str(exc)) from exc
+            collection_data_spec(component)
+            if index==2: header=count
+        # Nodes allocate through the existing PATH operations, not CREATE_VAR.
+        return 1+header
+    collection_data_spec(spec)
+    return rt.scalar_leaf_count(spec)
+
+
+def reserved(store):
+    # Shared immutable schemas need validation once per accounting pass. Never
+    # keep this cache across a callback/checkpoint or a later restore row.
+    costs={};total=0
+    for key in store.metadata:
+        spec=store.bindings[key].spec;identity=id(spec)
+        if identity not in costs: costs[identity]=creation_cost(spec)
+        total+=costs[identity]
+        if total>MAX_LEAVES: return MAX_LEAVES+1
+    return total
+
+
 def restore_metadata(store,program,path,metadata,spec):
     """Validate saved creation policy and aggregate allocation before decoding."""
-    from .storage import collection_data_spec
     if (type(program) is not str or type(path) is not str
             or not re.fullmatch(IDENTIFIER,program) or not re.fullmatch(IDENTIFIER,path)
             or type(metadata) is not dict or set(metadata)!={'group','memory_pool'}
             or type(metadata['group']) is not int or not 0<=metadata['group']<=32
             or type(metadata['memory_pool']) is not int or metadata['memory_pool'] not in (-1,0)):
         raise ValueError('Invalid dynamic variable creation metadata')
-    collection_data_spec(spec)
+    cost=creation_cost(spec)
     leaf=runtime().array_leaf_spec(spec) if spec[0]=='ARRAY' else spec
     if leaf[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS') and metadata['group']==0:
         raise ValueError('Positional dynamic variables require a group in 1..32')
-    used=sum(runtime().scalar_leaf_count(store.bindings[key].spec) for key in store.metadata)
-    if used+runtime().scalar_leaf_count(spec)>MAX_LEAVES:
-        raise ValueError('Dynamic variables exceed 32767 scalar leaves')
+    if reserved(store)+cost>MAX_LEAVES:
+        raise ValueError('Dynamic variables exceed 32767 reserved creation units')
     store.metadata[program,path]=metadata.copy()
 
 
@@ -47,12 +80,13 @@ def conflict(paths,root):
 
 
 def concrete_type(context,state,program,text,group,dimensions,line):
-    """Only portable data types; validate before constructing any storage."""
+    """Portable data and Pythonic root collections; validate before allocation."""
     rt=runtime()
-    from .storage import collection_data_spec
     text=rt.ascii_string(text,line).strip().upper()
     if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'):
         spec=(text,)
+    elif text in ('PATH','QUEUE_TYPE') and rt._pythonic():
+        spec=('PATH',None,None) if text=='PATH' else ('QUEUE_TYPE',)
     elif text in ('BYTE','SHORT') and rt._pythonic():
         # Standalone narrow types are an explicit Pythonic extension, using the
         # same checked domains and initial markers as aggregate narrow leaves.
@@ -74,6 +108,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if any(type(size) is not int or not 0<=size<=32767 for size in dimensions): return None
     if (dimensions[1] and not dimensions[0]) or (dimensions[2] and not dimensions[1]): return None
     shape=tuple(size for size in reversed(dimensions) if size)
+    if spec[0] in ('PATH','QUEUE_TYPE') and (not rt._pythonic() or shape): return None
     if shape:
         if spec[0]=='ARRAY': return None
         spec=('ARRAY',shape[0] if len(shape)==1 else shape,spec)
@@ -81,7 +116,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if type(group) is not int or not 0<=group<=32: return None
     leaf=rt.array_leaf_spec(spec) if spec[0]=='ARRAY' else spec
     if leaf[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS') and group==0: return None
-    try: collection_data_spec(spec)
+    try: creation_cost(spec)
     except (ValueError,TypeError): return None
     return spec
 
@@ -96,10 +131,17 @@ def create(context,state,args,line):
     if type(pool) is not int or pool not in (-1,0): status.set(2,line);return
     spec=concrete_type(context,state,type_program,text,group,(inner,middle,outer),line)
     if spec is None: status.set(5,line);return
-    used=sum(rt.scalar_leaf_count(store.bindings[key].spec) for key in store.metadata)
-    if used+rt.scalar_leaf_count(spec)>MAX_LEAVES: status.set(6,line);return
+    cost=creation_cost(spec)
+    if reserved(store)+cost>MAX_LEAVES: status.set(6,line);return
     # Budget checkpoint precedes the only allocation and mutation.
     state.tick(line)
+    # A connected-clock callback may have changed lifetime, roots or capacity.
+    for owner in (rt.task_root(state),state):
+        if owner._aborted: raise rt.KarelAbort(owner._abort_line)
+        if owner.task_state=='stopped': raise rt.KarelStop('Task is stopped')
+    if context.variables is not store: fail('Variable store changed during CREATE_VAR',line)
+    if conflict(roots(store,program)|set(declared(context,state,program)),var): status.set(3,line);return
+    if reserved(store)+cost>MAX_LEAVES: status.set(6,line);return
     reference=rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
     key=(program,var);store.bindings[key]=reference
     store.metadata[key]={'group':group,'memory_pool':pool}

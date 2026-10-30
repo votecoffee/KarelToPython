@@ -1,0 +1,19 @@
+PROGRAM DYNAMIC_PATH_VALUES
+TYPE node_t=STRUCTURE id:INTEGER axes:JOINTPOS2 ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR entry,status,value:INTEGER axis:REAL done:BOOLEAN
+ROUTINE fill(route:route_t)
+BEGIN
+  APPEND_NODE(route,status)
+  route[1].id=42 route[1].axes[2]=2.5 route.count=1
+END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ROUTE','','route_t',0,0,0,0,status,-1)
+    fill(BYNAME('CACHE','ROUTE',entry))
+    GET_VAR(entry,'CACHE','ROUTE[1].ID',value,status)
+    GET_VAR(entry,'CACHE','ROUTE[1].AXES[2]',axis,status)
+    done=TRUE
+  ENDIF
+END DYNAMIC_PATH_VALUES

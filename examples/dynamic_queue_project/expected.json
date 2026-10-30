@@ -1,0 +1,23 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ENTRY": 1,
+      "STATUS": 0,
+      "RESULT": 7,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "BUFFER": [
+        9,
+        0
+      ],
+      "STATUS": 0,
+      "VALUE": 7,
+      "SEQUENCE": 1
+    }
+  }
+}

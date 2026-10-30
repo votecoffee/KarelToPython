@@ -70,6 +70,10 @@ context files and permits equal typed routine/copy interfaces. Distinct user
 structure names, header types, capacities and shapes still require exact matches.
 Source-linked TYPE aliases and external routines use the same resolved layouts.
 
+[Dynamic collection creation](dynamic-collections.md) also accepts root PATH and
+supplied PATH aliases, preserving checked NODEDATA/PATHHEADER layouts and
+allocating only the empty descriptor/header at creation.
+
 CREATE_VAR recognizes DISP_DAT_T and STD_PTH_NODE, plus the portable
 [COL_DESC_T and opaque XWORK_T schemas](table-controls.md), including supported
 fixed ARRAY dimensions. It retains existing allocation, dimension, memory-pool,

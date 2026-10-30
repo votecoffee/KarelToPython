@@ -1,5 +1,6 @@
 {
   "version": "26.1026.131437",
+  "current_mode_note": "Root PATH/QUEUE_TYPE creation and reserved-unit accounting now follow dynamic_collection_semantics.json; historical data-only exclusions below retain their release scope",
   "mode": "pythonic",
   "controller_validated": false,
   "sources": [

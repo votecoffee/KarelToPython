@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1030.203037 - 2026-10-30
+
+- Add Pythonic CREATE_VAR root PATH/QUEUE_TYPE storage and supplied transparent
+  aliases, with checked named data-only node/header layouts and no implicit
+  resource arrays, FILE handles or robot-context discovery.
+- Preserve the 32767-unit combined creation budget: ordinary data scalar leaves,
+  queue descriptors, and PATH descriptors plus allocated headers. Validate node
+  prototypes and data-schema depth before allocation and saved-row decoding.
+- Recheck terminal ABORT/stop, bank identity, collisions and capacity after the creation
+  checkpoint. Retain earlier callback writes without overwriting competing roots
+  or exceeding a changed budget; account shared schemas once per pass.
+- Carry existing BYNAME/live aliases, linked routines, rename/cache identities,
+  pause/abort behavior, partial PATH/joint data, logical queue transfers, context
+  replay and portable queue archives through created collection roots.
+- Add 75 regressions, four examples, two linked projects and compiler-free runtime
+  coverage. Update README, support inventory, API and semantic ledgers. Dynamic
+  FILE/embedded resources, native queue type codes, PATH VR archives, native
+  allocation/controller behavior and strict mode retain their existing boundaries.
+
 ## 26.1030.200022 - 2026-10-30
 
 - Expand MOVE WITH capture to eleven settings with checked DECELTOL INTEGER

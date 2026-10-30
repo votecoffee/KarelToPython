@@ -131,7 +131,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('motion_deceleration_intents', 'DONE', True),
                     ('motion_eleven_settings', 'STATUS', 0),
                     ('vision_bmp_gray16', 'STATUS', 0),
-                    ('vision_bmp_rgba16', 'STATUS', 0)]
+                    ('vision_bmp_rgba16', 'STATUS', 0),
+                    ('dynamic_queue_values', 'VALUE', 7),
+                    ('dynamic_path_values', 'AXIS', 2.5),
+                    ('dynamic_collection_rename', 'COUNT', 2),
+                    ('dynamic_queue_archive', 'STATUS', 0)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

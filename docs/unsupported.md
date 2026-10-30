@@ -255,7 +255,10 @@ they are boundaries rather than promises to accept every such source form later.
 - Native program load/save/translate/backup/clear/restore, task discovery and
   implicit external linkage. [Dynamic variables and BYNAME](dynamic-variables.md)
   now have explicit offline forms; renaming compiled globals or attached program
-  namespaces, dynamic resource creation and native allocation remain unsupported.
+  namespaces, dynamic FILE handles, embedded resources and native allocation remain
+  unsupported. [Dynamic logical collections](dynamic-collections.md) now create root
+  PATH/QUEUE_TYPE and supplied aliases with checked header/descriptor reservations;
+  QUEUE_TYPE native inspection codes and collection ARRAY creation remain unavailable.
   Program catalogs and load status describe attached programs or supplied metadata.
   [TRANSLATE](source-translations.md) now generates sibling Python and optional
   listings from explicit stored source; native PC output, implicit include discovery,

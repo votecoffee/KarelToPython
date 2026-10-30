@@ -2,7 +2,9 @@
 
 Pythonic context snapshots now include declared PATH and QUEUE_TYPE globals and
 explicit VariableStore bindings. Saving and loading preserve logical collection
-contents. FILE handles, call stacks and suspended execution remain separate.
+contents. [Dynamically created collection roots](dynamic-collections.md) also
+retain checked creation policy and descriptor/header reservation accounting.
+FILE handles, call stacks and suspended execution remain separate.
 
 Use the existing `ExecutionContext.to_config()`, `from_config()`, `save()` and
 `load()` APIs, or generated script `--context` and `--state-out` options. Context

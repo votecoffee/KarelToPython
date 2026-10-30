@@ -19,7 +19,7 @@ use the currently executing source program. A new namespace needs no compiled
 program. Existing declared globals, explicit roots and descendant bindings prevent
 creation under the same root; an existing value is never reset.
 
-Supported types are INTEGER, REAL, BOOLEAN, BYTE, SHORT, STRING[n], CONFIG, VECTOR, POSITION,
+Supported data types are INTEGER, REAL, BOOLEAN, BYTE, SHORT, STRING[n], CONFIG, VECTOR, POSITION,
 XYZWPR, XYZWPREXT, JOINTPOS and JOINTPOS1..9. STRING defaults to capacity 12;
 explicit capacities are 1..254. JOINTPOS defaults to nine axes. `ARRAY OF BYTE`
 and `ARRAY OF SHORT` require a nonzero inner dimension. Other types can use the
@@ -33,14 +33,17 @@ Dimensions follow the manual's inner-to-outer argument order: inner=4, middle=3,
 outer=2 creates ARRAY[2,3,4]. Used dimensions are contiguous, positive and at most
 32767. Omitted dimensions are zero. An already declared array type takes zero
 dimensions; additional dimensions around a named array are rejected. All created
-variables together are limited to 32767 scalar leaves, checked before allocation.
+variables together are limited to 32767 reserved creation units, checked before
+allocation: ordinary data uses scalar leaves; [root collections](dynamic-collections.md)
+use descriptors and allocated PATH header leaves.
 
 New storage uses ordinary runtime uninitialized defaults. BYTE retains its
 existing unknown-byte policy. Group is retained as metadata in 0..32; positional
 leaf types require 1..32. Memory pool is metadata only: omitted/0 means DRAM
 intent and -1 means CMOS intent. Saving JSON preserves values for both policies;
-no power-cycle or native memory behavior is simulated. FILE, PATH, QUEUE_TYPE
-and proprietary vision types are excluded from dynamic creation.
+no power-cycle or native memory behavior is simulated. [Dynamic logical collections](dynamic-collections.md)
+add root PATH/QUEUE_TYPE and supplied aliases with zero extra dimensions. FILE,
+embedded resources, collection ARRAYs and proprietary vision types remain excluded.
 
 ## Renaming
 
@@ -74,7 +77,9 @@ cooperative pause. Renaming variables does not rename scheduler tasks or program
 
 Failure statuses preserve the variable store. Source inputs and writable status
 references retain the ordinary exact-type, protection and indirect FOR guards.
-Creation and rename commits also charge the execution step budget.
+Creation and rename commits also charge the execution step budget. Creation
+rechecks the bank identity, root collisions and reserved capacity after its
+checkpoint, preserving completed callback effects without overwriting a competing root.
 
 ## BYNAME
 

@@ -1,0 +1,10 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR status:INTEGER called:BOOLEAN
+ROUTINE edit(route:route_t)
+BEGIN
+  APPEND_NODE(route,status)
+  route[1].value=42
+  called=TRUE
+END edit
+BEGIN END LIB

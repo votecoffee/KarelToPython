@@ -1,0 +1,11 @@
+PROGRAM LIB
+VAR buffer:ARRAY[2]OF INTEGER status,value,sequence:INTEGER
+ROUTINE fill(queue:QUEUE_TYPE):INTEGER
+BEGIN
+  INIT_QUEUE(queue)
+  APPEND_QUEUE(7,queue,buffer,sequence,status)
+  APPEND_QUEUE(9,queue,buffer,sequence,status)
+  GET_QUEUE(queue,buffer,value,sequence,status)
+  RETURN value
+END fill
+BEGIN END LIB

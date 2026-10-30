@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [dynamic collection ledger](dynamic_collection_semantics.json) supersedes
+earlier PATH/QUEUE_TYPE creation exclusions with root-only logical storage,
+checked descriptor/header accounting, live aliases and existing persistence.
+FILE creation and embedded resources remain excluded.
+
 The [deceleration-setting ledger](motion_deceleration_semantics.json) adds checked
 DECELTOL/USEMAXACCEL intent and supersedes earlier nine-setting limits.
 The [BMP sample ledger](vision_bmp_sample_semantics.json) supersedes earlier

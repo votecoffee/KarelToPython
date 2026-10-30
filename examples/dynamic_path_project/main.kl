@@ -1,0 +1,12 @@
+PROGRAM MAIN
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR entry,status,result:INTEGER done:BOOLEAN
+ROUTINE edit(route:route_t) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ROUTE','LIB','route_t',0,0,0,0,status)
+    edit(BYNAME('CACHE','ROUTE',entry))
+    GET_VAR(entry,'CACHE','ROUTE[1].VALUE',result,status)
+    done=TRUE
+  ENDIF
+END MAIN

@@ -1,0 +1,19 @@
+{
+  "version": "26.1030.203037",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../dynamic-collections.md",
+  "tests": [
+    "tests/test_dynamic_collections.py"
+  ],
+  "evidence": "Authored Pythonic root-resource extension over existing CREATE_VAR arguments and offline collection operations; native syntax/allocation/controller behavior unverified",
+  "source": "Root PATH, QUEUE_TYPE and resolved supplied transparent aliases; additional dimensions, embedded resources and FILE creation remain excluded",
+  "schemas": "Default portable STD_PTH_NODE; optional resolved named data-only node/header STRUCTURE components, concrete shapes, 64 data levels and 32767 leaves per prototype",
+  "allocation": "Combined 32767 creation units: ordinary data scalar leaves, one queue descriptor, or one path descriptor plus allocated header leaves; node growth uses existing PATH limits",
+  "publication": "Budget checkpoint precedes allocation; require a live owner, unchanged bank and fresh collision/capacity checks; keep earlier explicit callback effects; never overwrite a competing root",
+  "interfaces": "Exact BYNAME aliases, linked routines, PATH field transfers and existing logical queue value transfers; queue inspection type code remains unavailable",
+  "persistence": "Existing typed collection JSON and creation metadata, schemas/quota preflight before row decoding; no buffer/field aliases, executable types, callbacks or suspended stacks",
+  "archives": "Portable queue save/clear/load retains policy and clears buffer links; PATH roots keep explicit VR exclusion",
+  "boundaries": "No root collection ARRAYs, dynamic FILE handles, inferred geometry/group/model, native memory allocation/ABI/controller acceptance or strict mode",
+  "supersedes": "Earlier blanket PATH/QUEUE_TYPE dynamic-creation exclusions; ordinary data allocation semantics retained"
+}

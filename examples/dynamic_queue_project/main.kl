@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR entry,status,result:INTEGER done:BOOLEAN
+ROUTINE fill(queue:QUEUE_TYPE):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','JOBS','','QUEUE_TYPE',0,0,0,0,status)
+    result=fill(BYNAME('CACHE','JOBS',entry))
+    done=TRUE
+  ENDIF
+END MAIN

@@ -1,0 +1,23 @@
+PROGRAM DYNAMIC_QUEUE_ARCHIVE
+VAR buffer:ARRAY[2]OF INTEGER entry,status,value,sequence:INTEGER done:BOOLEAN
+ROUTINE fill(queue:QUEUE_TYPE)
+BEGIN
+  INIT_QUEUE(queue)
+  APPEND_QUEUE(7,queue,buffer,sequence,status)
+  APPEND_QUEUE(9,queue,buffer,sequence,status)
+END fill
+ROUTINE take(queue:QUEUE_TYPE)
+BEGIN
+  GET_QUEUE(queue,buffer,value,sequence,status)
+END take
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','JOBS','','QUEUE_TYPE',0,0,0,0,status,-1)
+    fill(BYNAME('CACHE','JOBS',entry))
+    SAVE('CACHE','jobs.VR',status)
+    CLEAR('CACHE.VR',status)
+    LOAD('jobs.VR',0,status)
+    take(BYNAME('CACHE','JOBS',entry))
+    done=TRUE
+  ENDIF
+END DYNAMIC_QUEUE_ARCHIVE

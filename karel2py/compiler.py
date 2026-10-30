@@ -4967,12 +4967,12 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/wildcard-file-operations.md',rename_guide='docs/wildcard-rename.md',cross_volume_guide='docs/cross-volume-rename.md',controller_validated=False)
     report['dynamic_variable_policy']=dict(
         procedures=['CREATE_VAR','RENAME_VAR','RENAME_VARS'],functions=['BYNAME'],
-        creation='Explicit context roots, portable scalars/records including direct BYTE/SHORT and supplied transparent aliases, fixed STRING capacities, JOINTPOS1..9, narrow arrays and attached user types; contiguous inner/middle/outer dimensions; 32767 aggregate created scalar leaves',
+        creation='Explicit context roots, portable scalars/records including direct BYTE/SHORT and supplied transparent aliases, fixed STRING capacities, JOINTPOS1..9, narrow arrays and attached user types; contiguous inner/middle/outer dimensions; ordinary data uses scalar leaves within 32767 aggregate reserved creation units, with root collections following dynamic_collection_policy',
         aliases='BYNAME only as a direct typed user-routine argument; resolve current/attached/explicit roots and static paths once, preserve uninitialized storage and true references across linked calls and pause; no system/protected fields or overlapping entry output',
         names='Case-insensitive identifiers up to 36 characters; blank CREATE/RENAME program/type-program defaults to the current source program, blank BYNAME program to the calling root source; renames preserve references and entry caches; namespace moves require unattached ordinary root bindings',
         status='Portable 0 success, 1 missing, 2 invalid name/pool, 3 collision, 4 compiled/protected namespace, 5 unsupported type/dimensions/group, 6 aggregate allocation limit; BYNAME lookup/type failures raise without entry writes',
         persistence='Typed values and creation group/memory_pool metadata round-trip in context variables rows; no alias handles, type declarations or native memory pools persisted',
-        guards='Compile-time indirect FOR/effect/handler guards retained; renaming compiled globals/programs and resource-bearing dynamic types remains excluded',
+        guards='Compile-time indirect FOR/effect/handler guards retained; renaming compiled globals/programs, dynamic FILE handles and embedded resource types remain excluded; root collections follow dynamic_collection_policy',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
         guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
@@ -6204,6 +6204,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Canonical enumeration strings in validated JSON history; source STRAIGHT alias is saved as LINEAR; no callbacks or active scopes',
         boundary='Other motion variables, cross-group execution, arbitrary system-variable access, NOWAIT scopes, native/compiler/controller equivalence and public strict mode remain unavailable',
         guide='docs/extended-motion-settings.md',controller_validated=False)
+    report['dynamic_collection_policy']=dict(
+        source='Pythonic CREATE_VAR root PATH and QUEUE_TYPE, including transparent supplied type aliases; no additional ARRAY dimensions or embedded resources',
+        schemas='Default PATH uses portable STD_PTH_NODE and no header; custom NODEDATA/PATHHEADER require resolved named data STRUCTURE layouts, fixed shapes and at most 64 data levels',
+        allocation='32767 combined reserved units across created variables: ordinary scalar leaves, one queue descriptor, or one path descriptor plus allocated header leaves; validate node prototype separately; later nodes/entries use existing collection limits',
+        publication='Existing collision/name/group/pool/status rules; budget checkpoint before allocation, then recheck terminal abort/stop, bank identity, roots and reserved capacity before publishing; retain earlier callback effects',
+        interfaces='Exact BYNAME resource references, linked routines and existing collection procedures; GET_VAR/SET_VAR retain logical queue transfers and data-only PATH field transfers; native queue inspection type code remains unavailable',
+        lifetime='Rename retains live identities and lookup cache hints; pause retains ordinary references; JSON preserves schema, logical state and creation metadata, without queue buffer aliases, callbacks or suspended stacks',
+        boundary='No FILE handles, resource ARRAYs/fields, inferred geometry/group context, native resource allocation/ABI or strict mode',
+        guide='docs/dynamic-collections.md',controller_validated=False)
+    report['dynamic_variable_policy']['collections']='Root PATH/QUEUE_TYPE creation follows dynamic_collection_policy; FILE and embedded resources remain unavailable'
     report['vision_bmp_sample_policy']=dict(
         source='Explicit sample_bits=16 on grayscale/GA/RGB/RGBA rasters; big-endian unsigned components in 0..65535',
         rounding='Round to nearest 8-bit component with (sample+128)//257, independently including alpha; endpoints 0 and 65535 map to 0 and 255',
