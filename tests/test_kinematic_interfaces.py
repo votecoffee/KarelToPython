@@ -482,9 +482,11 @@ class KinematicExactBoundaryTests(unittest.TestCase):
                                      'main': source('MAIN','',routines='ROUTINE work(v:POSITION) FROM LIB')})
         with self.assertRaises(ValueError): project.instantiate()
 
-    def test_named_arrays_and_aggregates_do_not_convert_elements(self):
-        with self.assertRaises(TranslationError): compile_program('work(j)', prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS', decl='j:joints_t', routines='ROUTINE work(v:ARRAY OF POSITION) BEGIN END work')
-        with self.assertRaises(TranslationError): compile_program('', prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS', decl='j:joints_t', routines='ROUTINE make:ARRAY OF POSITION BEGIN RETURN j END make')
+    def test_named_array_model_conversion_preserves_whole_structure_guard(self):
+        p,_=compile_program('work(j)',prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS',decl='j:joints_t',routines='ROUTINE work(v:ARRAY OF POSITION) BEGIN v[1].location.x=99 END work',context=model_context((0.,90.)))
+        p._state.values['J'].values[0]=joint([0.,90.]+[0.]*7);self.assertEqual(p.run()['J'][0]['axes'],[0.,90.]+[0.]*7)
+        p,_=compile_program('b=make()',prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS',decl='j:joints_t b:ARRAY[1]OF POSITION',routines='ROUTINE make:ARRAY OF POSITION BEGIN RETURN j END make',context=model_context((0.,90.)))
+        p._state.values['J'].values[0]=joint([0.,90.]+[0.]*7);self.assertAlmostEqual(p.run()['B'][0]['LOCATION']['X'],100.)
         with self.assertRaises(TranslationError): compile_program('work(box)', decl='box:packet', prefix='TYPE packet=STRUCTURE j:JOINTPOS ENDSTRUCTURE', routines='ROUTINE work(v:POSITION) BEGIN END work')
 
     def test_orientation_outputs_and_explicit_global_counter_effects_stay_guarded(self):

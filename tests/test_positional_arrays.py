@@ -95,9 +95,12 @@ class PositionalArrayAssignmentTests(unittest.TestCase):
         for decl in ['a:ARRAY[2]OF XYZWPR b:ARRAY[3]OF POSITION','a:ARRAY[2]OF XYZWPR b:ARRAY[1,2]OF POSITION']:
             with self.subTest(decl=decl),self.assertRaises(TranslationError):compile_program('b=a',decl=decl)
 
-    def test_named_source_and_target_arrays_do_not_erase_identity(self):
+    def test_named_source_and_target_arrays_keep_receiver_identity(self):
         for prefix,decl in [('TYPE row_t=ARRAY[2]OF XYZWPR','a:row_t b:ARRAY[2]OF POSITION'),('TYPE row_t=ARRAY[2]OF POSITION','a:ARRAY[2]OF XYZWPR b:row_t')]:
-            with self.subTest(decl=decl),self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl=decl)
+            with self.subTest(decl=decl):
+                p,_=compile_program('b=a',prefix=prefix,decl=decl);p._state.values['A'].values[:]=data('XYZWPR').values;before=p._state.values['A'].spec
+                self.assertEqual(p.run()['B'][1]['LOCATION']['X'],2.);self.assertEqual(p._state.values['A'].spec,before)
+                self.assertEqual(p._state.values['B'].spec,p._state.types['B'])
 
     def test_model_does_not_enable_rank_changing_array_conversion(self):
         with self.assertRaises(TranslationError):compile_program('b=a',decl='a:ARRAY[2]OF JOINTPOS2 b:ARRAY[1,2]OF POSITION',context=model_context())

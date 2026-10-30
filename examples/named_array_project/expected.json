@@ -1,0 +1,43 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ],
+      "RESULT": [
+        [
+          7.0,
+          2.0
+        ],
+        [
+          3.0,
+          4.0
+        ]
+      ],
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    }
+  }
+}

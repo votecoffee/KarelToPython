@@ -1,0 +1,15 @@
+PROGRAM MAIN
+%DEFGROUP=2
+TYPE joint_row=ARRAY[2]OF JOINTPOS2 joint_grid=ARRAY[1]OF joint_row
+     point_row=ARRAY[2]OF POSITION point_grid=ARRAY[1]OF point_row
+     result_row=ARRAY[2]OF JOINTPOS9 result_grid=ARRAY[1]OF result_row
+VAR joints:joint_grid restored:result_grid done:BOOLEAN
+ROUTINE roundtrip(points:point_grid):result_grid FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1,1]=CURJPOS(0,0)
+    joints[1,2]=joints[1,1]
+    restored=roundtrip(joints)
+    done=TRUE
+  ENDIF
+END MAIN

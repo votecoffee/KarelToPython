@@ -1,0 +1,16 @@
+PROGRAM NAMEDNUMERIC
+TYPE ints_t=ARRAY[2]OF INTEGER shorts_t=ARRAY[2]OF SHORT reals_t=ARRAY[2]OF REAL
+VAR original:ints_t result:reals_t done:BOOLEAN
+ROUTINE convert(values:shorts_t):reals_t
+BEGIN
+  values[1]=7
+  RETURN values
+END convert
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=1
+    original[2]=2
+    result=convert(original)
+    done=TRUE
+  ENDIF
+END NAMEDNUMERIC

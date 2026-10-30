@@ -1,0 +1,24 @@
+PROGRAM COMPONENTCOUNTER
+TYPE ints_row=ARRAY[2]OF INTEGER ints_t=ARRAY[2]OF ints_row
+     reals_row=ARRAY[2]OF REAL reals_t=ARRAY[2]OF reals_row
+VAR original:ints_t total,calls:INTEGER done:BOOLEAN
+ROUTINE inspect_copy(values:reals_t)
+BEGIN
+  values[1,1]=99
+  calls=calls+1
+END inspect_copy
+BEGIN
+  IF UNINIT(done) THEN
+    original[1,1]=1
+    original[1,2]=2
+    original[2,1]=3
+    original[2,2]=4
+    total=0
+    calls=0
+    FOR original[1,1]=1 TO 2 DO
+      inspect_copy(original)
+      total=total+original[1,1]
+    ENDFOR
+    done=TRUE
+  ENDIF
+END COMPONENTCOUNTER

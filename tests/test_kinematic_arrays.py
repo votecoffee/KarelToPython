@@ -234,9 +234,12 @@ class KinematicArrayInterfaceTests(unittest.TestCase):
 
 
 class KinematicArrayBoundaryTests(unittest.TestCase):
-    def test_named_source_arrays_and_structures_keep_exact_interfaces(self):
+    def test_named_source_arrays_keep_independent_converted_interfaces(self):
         for prefix,decl in [('TYPE joint_array=ARRAY[2]OF JOINTPOS2','a:joint_array b:ARRAY[2]OF POSITION'),('TYPE pose_array=ARRAY[2]OF POSITION','a:ARRAY[2]OF JOINTPOS2 b:pose_array')]:
-            with self.subTest(decl=decl),self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl=decl)
+            with self.subTest(decl=decl):
+                p,_=compile_program('b=a',prefix=prefix,decl=decl,context=model_context((0.,90.)));p._state.values['A'].values[:]=values(2).values
+                before=p._state.values['A'].spec;self.assertAlmostEqual(p.run()['B'][1]['LOCATION']['X'],100.)
+                self.assertEqual(p._state.values['A'].spec,before);self.assertEqual(p._state.values['B'].spec,p._state.types['B'])
 
     def test_rank_and_concrete_shape_changes_stay_rejected(self):
         for decl in('a:ARRAY[2]OF JOINTPOS2 b:ARRAY[1,2]OF POSITION','a:ARRAY[2]OF JOINTPOS2 b:ARRAY[3]OF POSITION'):

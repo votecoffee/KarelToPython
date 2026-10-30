@@ -1,0 +1,18 @@
+{
+  "version": "26.1030.131923",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../named-array-conversions.md",
+  "tests": [
+    "tests/test_named_array_conversions.py"
+  ],
+  "source": "Numeric, Cartesian, joint-width and explicit-model joint/Cartesian source assignment/argument/RETURN conversions",
+  "schemas": "Named outer and matching separately named ARRAY components retain receiver identities; rank 1..3, per-component dimensions, concrete named components and 32767 leaves",
+  "capture": "Evaluate once; capture and convert before later arguments/target selectors; RETURN before frame/counter cleanup",
+  "ownership": "Private converted actuals without copy-back; nested exact aliases and handlers own that private data; exact-type bare actuals remain references",
+  "failure": "Validate all source data and stage every destination; malformed/missing positional data or late narrowing/adapter failures preserve receivers; earlier explicit effects remain",
+  "kinematics": "Complete geometry/allocation preflight, row-major adapter calls, explicit caller group/frame/tool/current inverse seed, no chaining or current-state update",
+  "exact": "No same-terminal nominal retagging, component repartition, whole STRUCTURE coercion, generic helper/BYNAME/raw callback coercion or linked signature relaxation",
+  "persistence": "Data-only concrete schemas and values; no private routine cells, handlers, timer claims, callbacks or execution-stack resume",
+  "boundaries": "No inferred robot context, native layout/ABI/controller equivalence, physical motion or public strict-mode claim"
+}

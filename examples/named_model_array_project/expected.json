@@ -1,0 +1,125 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "JOINTS": [
+        [
+          {
+            "axes": [
+              0.0,
+              90.0
+            ]
+          },
+          {
+            "axes": [
+              0.0,
+              90.0
+            ]
+          }
+        ]
+      ],
+      "RESTORED": [
+        [
+          {
+            "axes": [
+              0.0,
+              90.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          {
+            "axes": [
+              0.0,
+              90.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ]
+      ],
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": [
+        [
+          {
+            "NORMAL": {
+              "X": 0.0,
+              "Y": 1.0,
+              "Z": -0.0
+            },
+            "ORIENT": {
+              "X": -1.0,
+              "Y": 0.0,
+              "Z": 0.0
+            },
+            "APPROACH": {
+              "X": 0.0,
+              "Y": 0.0,
+              "Z": 1.0
+            },
+            "LOCATION": {
+              "X": 100.0,
+              "Y": 100.0,
+              "Z": 0.0
+            },
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          },
+          {
+            "NORMAL": {
+              "X": 0.0,
+              "Y": 1.0,
+              "Z": -0.0
+            },
+            "ORIENT": {
+              "X": -1.0,
+              "Y": 0.0,
+              "Z": 0.0
+            },
+            "APPROACH": {
+              "X": 0.0,
+              "Y": 0.0,
+              "Z": 1.0
+            },
+            "LOCATION": {
+              "X": 100.0,
+              "Y": 100.0,
+              "Z": 0.0
+            },
+            "CONFIG_DATA": {
+              "CFG_TURN_NO1": 0,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        ]
+      ]
+    }
+  }
+}

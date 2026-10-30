@@ -1,17 +1,18 @@
 # Positional ARRAY conversions
 
-Pythonic source can convert whole anonymous arrays between POSITION, XYZWPR and
+Pythonic source can convert whole ARRAY values between POSITION, XYZWPR and
 XYZWPREXT, or between JOINTPOS widths 1..9. This extends the existing scalar
 Cartesian and joint-width conventions. It uses no robot model or implicit frame,
 tool, group, current state or physical motion.
 
 | Boundary | Behavior |
 | --- | --- |
-| Anonymous flat ARRAY assignment | Matching rank/dimensions; convert every complete element before destination publication |
+| Matching-component ARRAY assignment | Matching rank/dimensions; convert every complete element before destination publication |
 | Ordinary source argument | Differing terminal representation creates a private writable converted ARRAY; no copy-back |
 | Source RETURN | Convert before frame/counter cleanup, then return an independent concrete result |
 | GET_VAR/SET_VAR ARRAY | Same-rank row-major prefix conversion; receiver schema, storage identities and unused tail survive |
-| Named source ARRAY interface, BYNAME, raw callback result | Existing exact contracts remain |
+| Named/component source ARRAY interface | Private conversion preserves receiver schemas; component dimensions and boundaries must match |
+| BYNAME, raw callback result | Existing exact contracts remain |
 
 ## Source assignments and routines
 
@@ -41,14 +42,14 @@ Routine RETURN converts before frame and active-counter cleanup. Final concrete
 destination-size checks still belong to the destination reference when its
 compile-time declaration contains wildcard dimensions.
 
-Supported source arrays are anonymous flat declarations with one through three
-logical dimensions and terminal Cartesian or JOINTPOS elements. Known dimensions
-must match. Formal/result wildcards inherit checked concrete input dimensions;
+Supported source arrays have one through three logical dimensions and terminal
+Cartesian or JOINTPOS elements. Known dimensions and per-component boundaries
+must match. Anonymous formal/result wildcards inherit checked concrete dimensions;
 there is no reshape, resize, ragged data or unknown runtime allocation inference.
-Named outer arrays and separately named nested components retain exact source
-interface identities. Their individual positional elements remain convertible.
-Anonymous ARRAY fields in named structures can convert separately; whole
-STRUCTURE schemas do not change.
+[Named outer arrays and nested components](named-array-conversions.md) convert
+privately into the receiver's schema when their terminal representation changes.
+ARRAY fields in named structures can convert separately; whole STRUCTURE schemas
+and same-terminal nominal retagging retain their existing restrictions.
 
 ## Geometry, completeness and bounds
 
@@ -101,8 +102,9 @@ is generated for this context-free operation.
 
 [Explicit-model joint/Cartesian ARRAY conversions](kinematic-arrays.md) now follow
 a separate policy. [Numeric ARRAY source conversions](numeric-arrays.md) now use
-checked integral narrowing and REAL promotion. Named source-interface coercion
-and native ABI/controller equivalence remain outside these policies. Public strict mode remains a future milestone; legacy guards remain.
+checked integral narrowing and REAL promotion. [Named/component source conversions](named-array-conversions.md)
+preserve receiver schemas; native ABI/controller equivalence remains unverified.
+Public strict mode remains a future milestone; legacy guards remain.
 See the authored [Cartesian interfaces](../examples/positional_array_interfaces.kl),
 [joint widths](../examples/joint_array_widths.kl),
 [variable prefixes](../examples/positional_array_variables.kl), and

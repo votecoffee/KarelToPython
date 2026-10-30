@@ -1,0 +1,12 @@
+PROGRAM NAMEDMODEL
+TYPE joint_row=ARRAY[2]OF JOINTPOS2 joint_grid=ARRAY[1]OF joint_row
+     point_row=ARRAY[2]OF XYZWPREXT point_grid=ARRAY[1]OF point_row
+VAR joints:joint_grid points:point_grid done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1,1]=CURJPOS(0,0)
+    joints[1,2]=joints[1,1]
+    points=joints
+    done=TRUE
+  ENDIF
+END NAMEDMODEL

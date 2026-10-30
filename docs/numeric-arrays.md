@@ -1,9 +1,10 @@
 # Numeric ARRAY source conversions
 
-Pythonic source supports checked numeric changes for whole anonymous flat ARRAYs
+Pythonic source supports checked numeric changes for whole ARRAY values
 at assignment, ordinary routine argument and RETURN boundaries. Arrays retain
 matching rank and dimensions. This extends the existing scalar numeric rules;
-it does not change generic runtime type compatibility or named ARRAY identity.
+generic runtime type compatibility remains exact. [Named/component conversions](named-array-conversions.md)
+preserve receiver schemas across named types and matching nested components.
 
 | Source element | Receiver element | Behavior |
 | --- | --- | --- |
@@ -33,8 +34,8 @@ concrete REAL array before the routine frame unwinds.
 
 ## Shapes, capture and ownership
 
-Supported arrays have one through three flat dimensions and ordinary numeric
-terminal elements. Formal/result wildcards inherit concrete dimensions. Known
+Supported arrays have one through three logical dimensions and ordinary numeric
+terminal elements, with matching per-component boundaries for nested arrays. Formal/result wildcards inherit concrete dimensions. Known
 rank or dimension mismatches fail during translation; concrete destination shape
 checks still run when wildcard declarations defer that information. There is no
 reshape, resize, flattening or inferred allocation. The 32767-leaf bound applies.
@@ -79,10 +80,12 @@ Source storage remains independent from normalization in the copied value.
 
 ## Identity, linkage and persistence
 
-Named outer ARRAY types and separately named nested ARRAY components keep exact
-source interface contracts. Transparent scalar aliases still work as numeric
-terminal types. An anonymous numeric ARRAY field inside a named STRUCTURE can
-convert separately; this does not coerce the whole STRUCTURE schema.
+[Named outer ARRAY types and nested components](named-array-conversions.md) now
+convert into independent receiver schemas when their numeric terminal type changes.
+Component dimensions and boundaries must match; same-terminal nominal retagging
+remains blocked. Transparent scalar aliases work as numeric terminal types.
+An ARRAY field inside a named STRUCTURE can convert separately; this does not
+coerce the whole STRUCTURE schema.
 
 Linked routine declarations/definitions must agree exactly. A matching source
 or callback interface can receive privately converted actuals. Raw callback

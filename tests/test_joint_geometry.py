@@ -163,14 +163,16 @@ class JointGeometryGuardTests(unittest.TestCase):
     def test_legacy_unpos_retains_exact_source_interface(self):
         with self.assertRaises(TranslationError): legacy_translate('PROGRAM T VAR j: JOINTPOS x,y,z,w,p,r: REAL cfg: CONFIG BEGIN UNPOS(j,x,y,z,w,p,r,cfg) END T')
 
-    def test_routine_kinematics_are_explicit_and_named_arrays_stay_exact(self):
+    def test_routine_and_named_array_kinematics_keep_explicit_context(self):
         for body,routines in (('take(j)','ROUTINE take(value: POSITION) BEGIN END take'),('e=produce()','ROUTINE produce: POSITION BEGIN RETURN j END produce')):
             with self.subTest(body=body):
                 program,_=compile_program(START+body,decl=DECL,routines=routines,context=model_context((0.,90.)))
                 program.run()
                 self.assertEqual(len([row for row in program.service_requests if row['operation'] in ('KINEMATIC_ARGUMENT','KINEMATIC_RETURN')]),1)
                 with self.assertRaises(TranslationError): legacy_translate('PROGRAM T VAR '+DECL+' '+routines+' BEGIN '+body+' END T')
-        with self.assertRaises(TranslationError): compile_program('a=b',prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS',decl='a: ARRAY[1] OF POSITION b:joints_t')
+        program,_=compile_program('a=b',prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS',decl='a:ARRAY[1]OF POSITION b:joints_t',context=model_context((0.,90.)))
+        program._state.values['B'].values[0]=joint([0.,90.]+[0.]*7)
+        self.assertAlmostEqual(program.run()['A'][0]['LOCATION']['X'],100.);self.assertEqual(program.snapshot()['B'][0]['axes'],[0.,90.]+[0.]*7)
 
     def test_runtime_strict_guard(self):
         p,_=compile_program('',decl=DECL,context=model_context())

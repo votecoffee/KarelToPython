@@ -110,9 +110,12 @@ class NumericArrayAssignmentTests(unittest.TestCase):
         for decl in ('a:ARRAY[2]OF INTEGER b:ARRAY[3]OF REAL','a:ARRAY[2]OF INTEGER b:ARRAY[1,2]OF REAL'):
             with self.subTest(decl=decl),self.assertRaises(TranslationError):compile_program('b=a',decl=decl)
 
-    def test_named_source_and_receiver_identity_is_not_erased(self):
+    def test_named_source_and_receiver_keep_their_own_converted_schema(self):
         for prefix,decl in [('TYPE row_t=ARRAY[2]OF INTEGER','a:row_t b:ARRAY[2]OF REAL'),('TYPE row_t=ARRAY[2]OF REAL','a:ARRAY[2]OF INTEGER b:row_t')]:
-            with self.subTest(decl=decl),self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl=decl)
+            with self.subTest(decl=decl):
+                p,_=compile_program('b=a',prefix=prefix,decl=decl);initialize(p);original=p._state.values['A'].spec
+                self.assertEqual(p.run()['B'],[1.,2.]);self.assertEqual(p._state.values['A'].spec,original)
+                self.assertEqual(p._state.values['B'].spec,p._state.types['B'])
 
     def test_real_to_integral_and_boolean_numeric_pairs_remain_rejected(self):
         for first,second in [('REAL','INTEGER'),('REAL','BYTE'),('REAL','SHORT'),('BOOLEAN','REAL'),('INTEGER','BOOLEAN'),('STRING[4]','REAL')]:
@@ -222,8 +225,9 @@ class NumericArrayInterfaceTests(unittest.TestCase):
             build('FOR a[1]=1 TO 2 DO edit(a) ENDFOR',routines='ROUTINE edit(v:ARRAY OF REAL) BEGIN a[2]=99 END edit')
         self.assertEqual(error.exception.code,'E_FOR_COUNTER')
 
-    def test_named_source_generic_coercion_stays_rejected(self):
-        with self.assertRaises(TranslationError):compile_program('work(a)',decl='a:row_t',prefix='TYPE row_t=ARRAY[2]OF INTEGER',routines='ROUTINE work(v:ARRAY OF REAL) BEGIN END work')
+    def test_named_source_generic_numeric_conversion_is_private(self):
+        p,_=compile_program('work(a)',decl='a:row_t',prefix='TYPE row_t=ARRAY[2]OF INTEGER',routines='ROUTINE work(v:ARRAY OF REAL) BEGIN v[1]=99 END work');initialize(p)
+        self.assertEqual(p.run()['A'],[1,2]);self.assertEqual(rt.array_identity(p._state.values['A'].spec),'ROW_T')
 
     def test_byname_retains_exact_declared_type(self):
         p,_=build("e=77 work(BYNAME('','A',e))",routines='ROUTINE work(v:ARRAY OF REAL) BEGIN END work');initialize(p)
@@ -286,8 +290,10 @@ class NumericArrayRuntimeTests(unittest.TestCase):
         a=object.__new__(rt.Array);a.spec=('ARRAY',(128,256),('INTEGER',));a.shape=(128,256);a.values=[0]*32768
         with self.assertRaisesRegex(rt.KarelRuntimeError,'32767'):self.convert(('ARRAY',(128,256),('REAL',)),a)
 
-    def test_named_array_specs_and_invalid_numeric_pairs_are_not_classified(self):
-        for target,source_spec in [(('ARRAY',2,('REAL',)),('ARRAY',2,('INTEGER',),'ROW')), (('ARRAY',2,('REAL',),'ROW'),('ARRAY',2,('INTEGER',))), (('ARRAY',2,('INTEGER',)),('ARRAY',2,('REAL',))), (('ARRAY',2,('REAL',)),('ARRAY',2,('BOOLEAN',)))]:
+    def test_named_array_specs_classify_only_supported_numeric_changes(self):
+        for target,source_spec in [(('ARRAY',2,('REAL',)),('ARRAY',2,('INTEGER',),'ROW')), (('ARRAY',2,('REAL',),'ROW'),('ARRAY',2,('INTEGER',)))]:
+            self.assertEqual(rt.numeric_array_kind(target,source_spec),'promote_real')
+        for target,source_spec in [(('ARRAY',2,('INTEGER',)),('ARRAY',2,('REAL',))), (('ARRAY',2,('REAL',)),('ARRAY',2,('BOOLEAN',)))]:
             with self.subTest(target=target,source=source_spec):self.assertIsNone(rt.numeric_array_kind(target,source_spec))
 
     def test_legacy_conversion_helper_remains_unavailable(self):

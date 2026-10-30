@@ -1965,7 +1965,7 @@ class Emitter:
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
         actual=self.access_type(argument)
-        if self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):return False
+        if self.mode=='pythonic' and (rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual) or rt.kinematic_array_kind(expected,actual)):return False
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
@@ -5932,6 +5932,42 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='Count index and all RGBA palette bytes together in per-raster/combined quotas before decoding or allocation; retain old G/GA/RGB/RGBA bytes, output limits and publication guards',
         boundary='No palette inference, quantization, color processing, physical depth/proprietary layout, camera acquisition or native renderer equivalence; nonpalette 16-bit samples follow vision_sample_depth_policy',
         guide='docs/vision-palette-images.md',controller_validated=False)
+    def component_names(spec):
+        names=[]
+        while spec[0]=='ARRAY':
+            names.append(rt.array_identity(spec));spec=spec[2]
+        return names
+    report['named_array_conversions']=[]
+    for kind,rows in (('numeric_array',report['numeric_array_conversions']),('positional_array',report['positional_array_conversions']),('kinematic_array',report['kinematic_array_conversions'])):
+        for row in rows:
+            source_names=component_names(row['source_type_spec']);target_names=component_names(row['target_type_spec'])
+            if not any(name is not None for name in source_names+target_names):continue
+            report['named_array_conversions'].append(dict(row,conversion_kind=kind,source_component_names=source_names,target_component_names=target_names))
+    if report['named_array_conversions']:report['features']=sorted(set(report['features'])|{'named/component ARRAY conversion'})
+    report['named_array_policy']=dict(
+        source='Numeric, Cartesian, joint-width and explicit-model joint/Cartesian conversions at source assignment, ordinary argument and RETURN boundaries',
+        schemas='Named outer and separately named nested ARRAY components keep receiver identities; ranks 1..3 and matching per-component dimensions; no flat/nested repartition or reshape',
+        ownership='Capture source once into independent converted storage; converted bare arguments are private without copy-back; exact-type aliases and same-terminal nominal checks remain',
+        validation='Existing numeric domains and missing markers; complete positional elements and matrices; complete preflight before model adapters and staged receiver publication',
+        linkage='Linked declarations/definitions, raw callback results, BYNAME and generic checked/value/result helpers remain exact; no same-terminal named retagging',
+        limits='Explicit Pythonic source conversion; no native ABI/layout, inferred robot context, motion, certified reachability or strict-mode equivalence',
+        guide='docs/named-array-conversions.md',controller_validated=False)
+    report['numeric_array_policy']['boundaries']='Matching-component numeric source ARRAYs, including named types; assignments, private arguments and RETURN'
+    report['numeric_array_policy']['limits']='Ranks 1..3, matching per-component dimensions and 32767 leaves; named_array_policy preserves receiver schemas; no same-terminal nominal retagging, reshape, generic coercion or native/strict equivalence'
+    report['array_routine_policy']['numeric_conversions']='Numeric source ARRAY values follow numeric_array_policy and named_array_policy; no copy-back or raw callback result coercion'
+    report['positional_array_policy']['source']='Matching-component named/anonymous ARRAYs across Cartesian representations or JOINTPOS widths; assignments, private arguments and RETURN'
+    report['array_routine_policy']['named_components']='Inner ARRAYs remain named fixed components; ordinary copies keep exact identity; supported terminal changes use independent receiver schemas under named_array_policy'
+    report['array_routine_policy']['declarations']='Named results retain receiver nominal identity; anonymous results retain anonymous outer storage and matching component boundaries; source conversions prepare matching values first; no resizing or flattening'
+    report['positional_array_policy']['exact']='Exact-type partial copies and bare aliases, STRUCTURE schemas, BYNAME, linked signatures and raw callback results remain exact; named conversions preserve receiver components'
+    report['array_routine_policy']['positional_conversions']='Cartesian/joint-width source values follow positional_array_policy and named_array_policy; raw callbacks remain exact'
+    report['kinematic_array_policy']['source']='Matching-component named/anonymous joint/Cartesian source ARRAY assignments, private arguments and RETURN; raw callback results remain exact'
+    report['kinematic_array_policy']['boundary']='Named/component conversions follow named_array_policy; no GET_VAR/SET_VAR kinematics, inferred context, motion, native ABI/controller equivalence or strict claim'
+    report['cartesian_interface_policy']['boundary']='Context-free scalar and matching-component positional ARRAY source conversions; BYNAME, linked signatures and raw callback results remain exact'
+    report['joint_width_policy']['boundary']='Positional ARRAY source values follow positional_array_policy and named_array_policy; BYNAME, linked signatures and raw callback results remain exact'
+    report['kinematic_interface_policy']['boundary']='Scalar and matching-component ARRAY source conversions require explicit models; BYNAME, linked signatures and raw callback results remain exact; no inferred context or physical motion'
+    report['kinematic_assignment_policy']['boundary']='Matching-component model-backed ARRAY assignments follow kinematic_array_policy; no motion/current-state update or inferred model/native reachability'
+    report['data_record_policy']['boundary']='Private scalar and matching-component positional/model-backed ARRAY conversions; no whole STRUCTURE schema coercion, inferred robot context or motion'
+    report['positional_routine_policy']['boundary']='Private scalar and matching-component source ARRAY conversions; same-type aliases, BYNAME, linked declarations and raw callback results remain exact'
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

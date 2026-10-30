@@ -1,0 +1,59 @@
+{
+  "robot": {
+    "groups": {
+      "1": {
+        "dh": [
+          {
+            "a": 100
+          },
+          {
+            "a": 100
+          }
+        ],
+        "current": {
+          "axis_limit_mask": 0,
+          "overtravel_mask": 0,
+          "joints": {
+            "type": [
+              "JOINTPOS",
+              2
+            ],
+            "value": {
+              "axes": [
+                0.0,
+                0.0
+              ]
+            }
+          }
+        }
+      },
+      "2": {
+        "dh": [
+          {
+            "a": 100
+          },
+          {
+            "a": 100
+          }
+        ],
+        "current": {
+          "axis_limit_mask": 0,
+          "overtravel_mask": 0,
+          "joints": {
+            "type": [
+              "JOINTPOS",
+              2
+            ],
+            "value": {
+              "axes": [
+                0.0,
+                90.0
+              ]
+            }
+          }
+        }
+      }
+    },
+    "active_group": 1
+  }
+}

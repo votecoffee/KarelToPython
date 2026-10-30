@@ -114,7 +114,7 @@ they are boundaries rather than promises to accept every such source form later.
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
 - Direct joint field/index access, nonzero-axis-discarding joint-width conversions,
-  named source ARRAY-interface coercion and implicit robot-context discovery.
+  same-terminal nominal ARRAY retagging and implicit robot-context discovery.
   [Source joint-width conversions](joint-width-conversions.md) now pad zeros or
   narrow zero-only trailing axes into complete private values without robot inference.
   [Joint/Cartesian source routine conversions](kinematic-interfaces.md) now require
@@ -123,7 +123,7 @@ they are boundaries rather than promises to accept every such source form later.
   scalar rules to complete anonymous arrays with atomic receiver publication.
   [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
   use private values across POSITION/XYZWPR/XYZWPREXT; BYNAME, linked declarations,
-  callback raw return types and named source ARRAY identities remain exact.
+  callback raw return types remain exact.
   [Anonymous positional ARRAYs](positional-arrays.md) now change Cartesian representation
   or checked joint width, including same-rank GET_VAR/SET_VAR prefixes. Individual
   [GET_VAR/SET_VAR positional values](positional-variable-transfers.md) now change
@@ -133,9 +133,11 @@ they are boundaries rather than promises to accept every such source form later.
   offsets, independent INV negation and FRAME points. A VECTOR-only origin cannot
   supply CONFIG; complete pose/model context remains mandatory for that role.
 - [Numeric ARRAY source conversions](numeric-arrays.md) now support checked
-  INTEGER/BYTE/SHORT changes and REAL promotion for anonymous flat assignment,
-  argument and RETURN values. Implicit REAL-to-integral conversion, named source
-  ARRAY coercion, rank changes and generic runtime compatibility changes remain blocked.
+  INTEGER/BYTE/SHORT changes and REAL promotion. [Named/component ARRAY conversions](named-array-conversions.md)
+  extend numeric, Cartesian, joint-width and explicit-model source assignments,
+  arguments and RETURN values while preserving receiver schemas. Implicit
+  REAL-to-integral conversion, same-terminal nominal retagging, component
+  repartition, rank changes and generic runtime compatibility changes remain blocked.
 - Unbounded/Unicode strings, lengths above 254, implicit numeric-to-BOOLEAN
   truthiness, arbitrary-size INTEGERs, MAXINT as ordinary initialized storage,
   NaN/Infinity and exact native numeric/storage/rounding equivalence. Public

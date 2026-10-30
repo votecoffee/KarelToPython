@@ -3,11 +3,14 @@
 ## Translation
 
 [Numeric ARRAY conversions](numeric-arrays.md) add
-`runtime.convert_numeric_array(target_spec, value, line=None)` at anonymous
-numeric source assignment, argument and RETURN boundaries. Reports expose
+`runtime.convert_numeric_array(target_spec, value, line=None)` at numeric source
+assignment, argument and RETURN boundaries. Reports expose
 `numeric_array_conversions` and `numeric_array_policy`; converted arguments
-retain source specs and private writable ownership without copy-back. Generic
-checked/value/result helpers and named ARRAY identities retain exact contracts.
+retain source specs and private writable ownership without copy-back.
+[Named/component ARRAY conversions](named-array-conversions.md) add
+`named_array_conversions`, component-name provenance and `named_array_policy`
+across numeric, positional and explicit-model conversions. Receiver schemas
+retain their own names. Generic checked/value/result helpers remain exact.
 
 ```python
 from karel2py import translate

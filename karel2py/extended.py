@@ -2339,13 +2339,14 @@ class ExecutionContext:
         """Stage complete independent elements; never publish partial destinations."""
         rt=runtime();source,result=rt.prepare_kinematic_array(target,value,line)
         root=rt.task_root(state)
-        for index,item in enumerate(source.values):
+        leaf=rt.array_leaf_spec(result.spec)
+        for (storage,key),(output,index) in zip(rt._array_conversion_cells(source),rt._array_conversion_cells(result)):
             if root._aborted:raise rt.KarelAbort(root._abort_line)
             if state._aborted:raise rt.KarelAbort(state._abort_line)
-            converted=self.kinematic_assignment(state,result.spec[2],item,line)
+            converted=self.kinematic_assignment(state,leaf,storage[key],line)
             if root._aborted:raise rt.KarelAbort(root._abort_line)
             if state._aborted:raise rt.KarelAbort(state._abort_line)
-            result.values[index]=converted
+            output[index]=converted
         return result
 
     def kinematic_assignment(self,state,target,value,line=None):

@@ -1,6 +1,6 @@
 # Model-backed joint and Cartesian ARRAY conversion
 
-Pythonic source can convert whole anonymous ARRAY values between JOINTPOS and
+Pythonic source can convert whole ARRAY values between JOINTPOS and
 POSITION, XYZWPR or XYZWPREXT at assignments, ordinary routine arguments and
 RETURN. Every element uses the existing scalar model/adaptor engine and its
 explicit caller-group, selected-frame/tool and current-seed rules. The feature
@@ -44,12 +44,13 @@ Earlier explicit source or host-adapter effects remain; they are neither retried
 nor rolled back. A model's failure to solve a point is not proof of geometric
 impossibility.
 
-Supported source declarations are anonymous flat arrays with one through three
-matching dimensions and terminal joint/Cartesian values. Known dimensions must
-match; formal/result wildcards inherit checked concrete input dimensions. No
-reshape, named-component flattening or inferred allocation is added. Named source
-ARRAY interfaces, whole STRUCTURE schemas, BYNAME, linked declaration/definition
-signatures and raw external callback results retain exact contracts.
+Supported source declarations have one through three logical dimensions and
+terminal joint/Cartesian values. Dimensions and declared component boundaries
+must match; anonymous formal/result wildcards inherit concrete input dimensions.
+[Named ARRAY types and matching nested components](named-array-conversions.md)
+now convert into independent receiver schemas. No reshape, component flattening
+or inferred allocation is added. Whole STRUCTURE schemas, BYNAME, linked
+declaration/definition signatures and raw callback results retain exact contracts.
 
 ## Explicit context at each element
 

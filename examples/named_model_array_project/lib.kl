@@ -1,0 +1,13 @@
+PROGRAM LIB
+%DEFGROUP=1
+TYPE joint_row=ARRAY[2]OF JOINTPOS2 joint_grid=ARRAY[1]OF joint_row
+     point_row=ARRAY[2]OF POSITION point_grid=ARRAY[1]OF point_row
+     result_row=ARRAY[2]OF JOINTPOS9 result_grid=ARRAY[1]OF result_row
+VAR seen:point_grid
+ROUTINE roundtrip(points:point_grid):result_grid
+BEGIN
+  seen=points
+  RETURN points
+END roundtrip
+BEGIN
+END LIB

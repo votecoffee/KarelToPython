@@ -24,9 +24,10 @@ the destination. This is a portable storage convention, without axis-unit,
 group, robot-model or physical-equivalence inference.
 
 Same-width copies retain their existing partial-data behavior. This new complete
-input requirement applies to a width change. Named ARRAY source interfaces and
-STRUCTURE schemas retain their identities; [anonymous positional ARRAY values](positional-arrays.md)
-now support whole-array width conversion as well as individual selected elements.
+input requirement applies to a width change. [Positional ARRAY values](positional-arrays.md)
+also support whole-array width conversion, including [named and matching nested
+components](named-array-conversions.md) with independent receiver schemas.
+Whole STRUCTURE schemas retain their identities.
 
 ## Ownership and evaluation
 
@@ -48,11 +49,11 @@ width conversion itself needs no robot or axis context.
 
 ## Exact boundaries
 
-BYNAME targets, linked routine declarations, raw external callback return types
-and named ARRAY source interfaces retain exact type contracts. Matching linked
-source signatures can accept a privately converted actual from their caller.
-No raw joint indexing, nonzero-axis discard, named-interface coercion or physical
-motion is added. Existing [model-backed conversions](kinematic-interfaces.md)
+BYNAME targets, linked routine declarations and raw external callback return
+types retain exact type contracts. Matching linked source signatures can accept
+privately converted actuals, including named/component ARRAY values.
+No raw joint indexing, nonzero-axis discard, same-terminal nominal retagging or
+physical motion is added. Existing [model-backed conversions](kinematic-interfaces.md)
 remain a separate explicitly configured operation.
 
 Reports contain `joint_width_conversions` sites with assignment/argument/RETURN

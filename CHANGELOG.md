@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1030.131923 - 2026-10-30
+
+- Extend numeric, Cartesian, joint-width and explicit-model ARRAY source
+  conversions to named outer types and matching separately named nested
+  components at assignment, ordinary argument and RETURN boundaries.
+- Preserve receiver schemas, component names and existing child identities.
+  Converted bare arguments remain private without copy-back; shape boundaries,
+  numeric domains, missing data, positional completeness and allocation checks
+  still run before publication. Model adapters retain explicit caller context.
+- Keep exact-type aliases, same-terminal nominal checks, BYNAME, raw callback
+  results, generic helpers and linked declaration signatures intact. Add named
+  conversion provenance/policy reports and transitive private-alias classification.
+- Add 60 authored regressions, four standalone examples and two typed linked
+  projects, including nested counters and caller-group model conversions.
+  Update README, API, support backlog and semantic notes. Strict mode,
+  native ARRAY ABI/controller equivalence and physical motion remain future work.
+
 ## 26.1030.124630 - 2026-10-30
 
 - Support CONNECT/DISCONNECT TIMER on exact INTEGER routine parameters,

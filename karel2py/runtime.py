@@ -307,25 +307,56 @@ def positional_conversion_kind(target,source):
     return None
 
 
-def _flat_array_pair(target,source):
-    """Keep nominal components and concrete shape rules at conversion boundaries."""
-    if any(type(spec) is not tuple or len(spec)!=3 or spec[0]!='ARRAY' for spec in (target,source)):return False
-    shapes=[array_shape(spec) for spec in (target,source)]
-    return (1<=len(shapes[0])<=3 and len(shapes[0])==len(shapes[1])
-        and all(size is None or type(size) is int and 1<=size<=32767 for shape in shapes for size in shape)
-        and all(a is None or b is None or a==b for a,b in zip(*shapes)))
+def _source_array_pair(target,source):
+    """Match checked ARRAY component boundaries without erasing receiver schemas."""
+    rank=0
+    try:
+        while True:
+            if any(type(spec) is not tuple or len(spec) not in (3,4) or spec[0]!='ARRAY' for spec in (target,source)):return False
+            shapes=[array_shape(spec) for spec in (target,source)]
+            if (not shapes[0] or len(shapes[0])!=len(shapes[1])
+                    or any(size is not None and (type(size) is not int or not 1<=size<=32767) for shape in shapes for size in shape)
+                    or any(a is not None and b is not None and a!=b for a,b in zip(*shapes))):return False
+            for spec,shape in zip((target,source),shapes):
+                if array_identity(spec) is not None and any(size is None for size in shape):return False
+                if type(spec[2]) is not tuple or not spec[2]:return False
+            rank+=len(shapes[0])
+            if rank>3:return False
+            target,source=target[2],source[2]
+            if target[0]!='ARRAY' or source[0]!='ARRAY':return target[0]!='ARRAY' and source[0]!='ARRAY'
+            if array_identity(target) is None or array_identity(source) is None:return False
+    except (KarelRuntimeError,TypeError,IndexError):return False
+
+
+def _array_conversion_cells(value):
+    """Visit only ARRAY terminal cells in checked row-major component order."""
+    if value.spec[2][0]=='ARRAY':
+        for child in value.values:yield from _array_conversion_cells(child)
+    else:
+        for index in range(len(value.values)):yield value.values,index
+
+
+def _array_conversion_storage(target,source,line=None):
+    def concrete(expected,actual):
+        dimensions=tuple(b if a is None else a for a,b in zip(array_shape(expected),array_shape(actual)))
+        shape=dimensions if type(expected[1]) is tuple else dimensions[0]
+        element=concrete(expected[2],actual[2]) if expected[2][0]=='ARRAY' else expected[2]
+        return ('ARRAY',shape,element,*expected[3:])
+    spec=concrete(target,source.spec)
+    if scalar_leaf_count(spec)>32767:raise KarelRuntimeError('ARRAY conversion exceeds 32767 scalar leaves',line)
+    return Array(spec)
 
 
 def positional_array_kind(target,source):
-    """Anonymous flat positional ARRAYs retain matching logical dimensions."""
-    return positional_conversion_kind(target[2],source[2]) if _flat_array_pair(target,source) else None
+    """Positional ARRAY values retain matching component dimensions."""
+    return positional_conversion_kind(array_leaf_spec(target),array_leaf_spec(source)) if _source_array_pair(target,source) else None
 
 
 def numeric_array_kind(target,source):
-    """Anonymous numeric arrays use scalar domains without erasing named types."""
+    """Numeric ARRAY values use scalar domains and independent receiver schemas."""
     try:
-        if not _flat_array_pair(target,source):return None
-        first,second=target[2],source[2]
+        if not _source_array_pair(target,source):return None
+        first,second=array_leaf_spec(target),array_leaf_spec(source)
         if any(type(spec) is not tuple or len(spec)!=1 or type(spec[0]) is not str for spec in (first,second)):return None
         integral=(('INTEGER',),('BYTE',),('SHORT',))
         if first==second:return None
@@ -339,20 +370,18 @@ def convert_numeric_array(target,value,line=None):
     """Stage checked numeric leaves and missing data before receiver publication."""
     if not _pythonic():raise KarelRuntimeError('Numeric ARRAY conversion requires Pythonic mode',line)
     if type(value) is not Array or numeric_array_kind(target,value.spec) is None:
-        raise KarelRuntimeError('Numeric ARRAY conversion requires anonymous matching shapes and convertible numeric terminals',line)
+        raise KarelRuntimeError('Numeric ARRAY conversion requires matching component shapes and convertible numeric terminals',line)
     source=_aggregate_value(value.spec,value,line)
-    dimensions=tuple(actual if expected is None else expected for expected,actual in zip(array_shape(target),source.shape))
-    concrete=('ARRAY',dimensions if type(target[1]) is tuple else dimensions[0] if len(dimensions)==1 else dimensions,target[2])
-    if scalar_leaf_count(concrete)>32767:raise KarelRuntimeError('Numeric ARRAY conversion exceeds 32767 scalar leaves',line)
-    result=Array(concrete)
-    result.values[:]=[UNINITIALIZED if item is UNINITIALIZED else checked(target[2],require(item,line),line) for item in source.values]
+    result=_array_conversion_storage(target,source,line);leaf=array_leaf_spec(result.spec)
+    for (output,index),(storage,key) in zip(_array_conversion_cells(result),_array_conversion_cells(source)):
+        item=storage[key];output[index]=UNINITIALIZED if item is UNINITIALIZED else checked(leaf,require(item,line),line)
     return result
 
 
 def kinematic_array_kind(target,source):
     """Describe explicit-model ARRAY conversions without consulting a robot."""
-    if not _flat_array_pair(target,source):return None
-    first,second=target[2],source[2]
+    if not _source_array_pair(target,source):return None
+    first,second=array_leaf_spec(target),array_leaf_spec(source)
     if type(first) is not tuple or not first or type(second) is not tuple or not second:return None
     poses=(('POSITION',),('XYZWPR',),('XYZWPREXT',))
     joint=first if first[0]=='JOINTPOS' and second in poses else second if second[0]=='JOINTPOS' and first in poses else None
@@ -366,28 +395,23 @@ def prepare_kinematic_array(target,value,line=None):
     """Preflight complete geometry and allocate private output before adapters."""
     if not _pythonic():raise KarelRuntimeError('Kinematic ARRAY conversion requires Pythonic mode',line)
     if type(value) is not Array or kinematic_array_kind(target,value.spec) is None:
-        raise KarelRuntimeError('Kinematic ARRAY conversion requires anonymous matching shapes and joint/Cartesian terminals',line)
+        raise KarelRuntimeError('Kinematic ARRAY conversion requires matching component shapes and joint/Cartesian terminals',line)
     source=_aggregate_value(value.spec,value,line,allow_partial=False)
-    if source.spec[2][0]!='JOINTPOS':source.values[:]=[frame_value(item,line) for item in source.values]
-    dimensions=tuple(actual if expected is None else expected for expected,actual in zip(array_shape(target),source.shape))
-    concrete=('ARRAY',dimensions if type(target[1]) is tuple else dimensions[0] if len(dimensions)==1 else dimensions,target[2])
-    if scalar_leaf_count(concrete)>32767:raise KarelRuntimeError('Kinematic ARRAY conversion exceeds 32767 scalar leaves',line)
-    return source,Array(concrete)
+    if array_leaf_spec(source.spec)[0]!='JOINTPOS':
+        for storage,key in _array_conversion_cells(source):storage[key]=frame_value(storage[key],line)
+    return source,_array_conversion_storage(target,source,line)
 
 
 def convert_positional_array(target,value,line=None):
     """Prepare an independent complete ARRAY before publishing any destination."""
     if not _pythonic():raise KarelRuntimeError('Positional ARRAY conversion requires Pythonic mode',line)
     if type(value) is not Array or positional_array_kind(target,value.spec) is None:
-        raise KarelRuntimeError('Positional ARRAY conversion requires anonymous matching shapes and convertible terminal types',line)
+        raise KarelRuntimeError('Positional ARRAY conversion requires matching component shapes and convertible terminal types',line)
     source=_aggregate_value(value.spec,value,line,allow_partial=False)
-    shape=array_shape(source.spec)
-    dimensions=tuple(actual if expected is None else expected for expected,actual in zip(array_shape(target),shape))
-    concrete=('ARRAY',dimensions if type(target[1]) is tuple else dimensions[0] if len(dimensions)==1 else dimensions,target[2])
-    if scalar_leaf_count(concrete)>32767:raise KarelRuntimeError('Positional ARRAY conversion exceeds 32767 scalar leaves',line)
-    result=Array(concrete)
-    convert=convert_joint_width if target[2][0]=='JOINTPOS' else convert_position
-    result.values[:]=[convert(target[2],item,line) for item in source.values]
+    result=_array_conversion_storage(target,source,line);leaf=array_leaf_spec(result.spec)
+    convert=convert_joint_width if leaf[0]=='JOINTPOS' else convert_position
+    for (output,index),(storage,key) in zip(_array_conversion_cells(result),_array_conversion_cells(source)):
+        output[index]=convert(leaf,storage[key],line)
     return result
 
 

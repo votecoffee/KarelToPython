@@ -1,0 +1,16 @@
+PROGRAM MAIN
+TYPE int_row=ARRAY[2]OF INTEGER int_grid=ARRAY[2]OF int_row
+     short_row=ARRAY[2]OF SHORT short_grid=ARRAY[2]OF short_row
+     real_row=ARRAY[2]OF REAL real_grid=ARRAY[2]OF real_row
+VAR original:int_grid result:real_grid done:BOOLEAN
+ROUTINE convert(values:short_grid):real_grid FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original[1,1]=1
+    original[1,2]=2
+    original[2,1]=3
+    original[2,2]=4
+    result=convert(original)
+    done=TRUE
+  ENDIF
+END MAIN

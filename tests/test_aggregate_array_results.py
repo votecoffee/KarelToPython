@@ -190,11 +190,19 @@ class AggregateArrayRejectionTests(unittest.TestCase):
     def test_multidimensional_record_source_remains_blocked(self):
         self.reject('E_RETURN',routines='ROUTINE make: ARRAY OF item_t VAR p: ARRAY[1,1] OF item_t BEGIN RETURN p END make')
 
-    def test_named_joint_array_result_does_not_convert_width(self):
-        self.reject('E_RETURN',types='TYPE row_t=ARRAY[1] OF JOINTPOS2',declarations='a: ARRAY[1] OF JOINTPOS3',routines='ROUTINE make: ARRAY OF JOINTPOS3 VAR p: row_t BEGIN RETURN p END make')
+    def test_named_joint_array_result_converts_width_privately(self):
+        p,_=compile_program(types='TYPE row_t=ARRAY[1]OF JOINTPOS2',declarations='seed:row_t a:ARRAY[1]OF JOINTPOS3',routines='ROUTINE make:ARRAY OF JOINTPOS3 BEGIN RETURN seed END make')
+        p._state.values['SEED'].values[0].values[:]=[1.,2.];self.assertEqual(p.run()['A'][0]['axes'],[1.,2.,0.])
+        self.assertEqual(p.snapshot()['SEED'][0]['axes'],[1.,2.])
 
-    def test_named_joint_array_destination_does_not_convert_width(self):
-        self.reject('E_TYPE',types='TYPE row_t=ARRAY[1] OF JOINTPOS2',declarations='a: row_t',routines='ROUTINE make: ARRAY OF JOINTPOS3 VAR p: ARRAY[1] OF JOINTPOS3 BEGIN RETURN p END make')
+    def test_named_joint_array_destination_checks_discarded_axes(self):
+        for last in (0.,1.):
+            p,_=compile_program(types='TYPE row_t=ARRAY[1]OF JOINTPOS2',declarations='seed:ARRAY[1]OF JOINTPOS3 a:row_t',routines='ROUTINE make:ARRAY OF JOINTPOS3 BEGIN RETURN seed END make')
+            p._state.values['SEED'].values[0].values[:]=[1.,2.,last]
+            if last:
+                with self.assertRaises(rt.KarelRuntimeError):p.run()
+                self.assertIs(p._state.values['A'].values[0].values[0],rt.UNINITIALIZED)
+            else:self.assertEqual(p.run()['A'][0]['axes'],[1.,2.])
 
     def test_array_results_still_require_direct_assignment(self):
         for body in ('a=(make())','use(make())','n=ARRAY_LEN(make())'):

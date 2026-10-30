@@ -146,8 +146,9 @@ ROUTINE work(v:JOINTPOS2; k:INTEGER) BEGIN n=99 END work''')
             with self.subTest(body=body),self.assertRaises(TranslationError):
                 legacy_translate('PROGRAM T VAR a:JOINTPOS2 b:JOINTPOS9 '+routines+' BEGIN '+body+' END T')
 
-    def test_whole_arrays_and_byname_remain_exact(self):
-        with self.assertRaises(TranslationError):compile_program('b=a',prefix='TYPE a_t=ARRAY[1] OF JOINTPOS2 b_t=ARRAY[1] OF JOINTPOS9',decl='a:a_t b:b_t')
+    def test_named_array_widths_convert_while_byname_remains_exact(self):
+        p,_=compile_program('b=a',prefix='TYPE a_t=ARRAY[1] OF JOINTPOS2 b_t=ARRAY[1] OF JOINTPOS9',decl='a:a_t b:b_t');p._state.values['A'].values[0]=joint([1.,2.])
+        self.assertEqual(p.run()['B'][0]['axes'],[1.,2.]+[0.]*7)
         p,_=program("s=77 work(BYNAME('','a',s))",routines='ROUTINE work(v:JOINTPOS9) BEGIN END work')
         p._state.values['A']=joint([1.,2.])
         with self.assertRaisesRegex(rt.KarelRuntimeError,'type does not match'):p.run()
