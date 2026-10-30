@@ -307,16 +307,44 @@ def positional_conversion_kind(target,source):
     return None
 
 
+def _flat_array_pair(target,source):
+    """Keep nominal components and concrete shape rules at conversion boundaries."""
+    if any(type(spec) is not tuple or len(spec)!=3 or spec[0]!='ARRAY' for spec in (target,source)):return False
+    shapes=[array_shape(spec) for spec in (target,source)]
+    return (1<=len(shapes[0])<=3 and len(shapes[0])==len(shapes[1])
+        and all(size is None or type(size) is int and 1<=size<=32767 for shape in shapes for size in shape)
+        and all(a is None or b is None or a==b for a,b in zip(*shapes)))
+
+
 def positional_array_kind(target,source):
     """Anonymous flat positional ARRAYs retain matching logical dimensions."""
-    if any(type(spec) is not tuple or len(spec)!=3 or spec[0]!='ARRAY' for spec in (target,source)):return None
-    kind=positional_conversion_kind(target[2],source[2])
-    if kind is None:return None
-    shapes=[array_shape(spec) for spec in (target,source)]
-    if (not 1<=len(shapes[0])<=3 or len(shapes[0])!=len(shapes[1])
-            or any(size is not None and (type(size) is not int or not 1<=size<=32767) for shape in shapes for size in shape)
-            or any(a is not None and b is not None and a!=b for a,b in zip(*shapes))):return None
-    return kind
+    return positional_conversion_kind(target[2],source[2]) if _flat_array_pair(target,source) else None
+
+
+def kinematic_array_kind(target,source):
+    """Describe explicit-model ARRAY conversions without consulting a robot."""
+    if not _flat_array_pair(target,source):return None
+    first,second=target[2],source[2]
+    if type(first) is not tuple or not first or type(second) is not tuple or not second:return None
+    poses=(('POSITION',),('XYZWPR',),('XYZWPREXT',))
+    joint=first if first[0]=='JOINTPOS' and second in poses else second if second[0]=='JOINTPOS' and first in poses else None
+    if joint is None:return None
+    try:joint_width(joint)
+    except (KarelRuntimeError,TypeError,IndexError):return None
+    return 'inverse' if first[0]=='JOINTPOS' else 'forward'
+
+
+def prepare_kinematic_array(target,value,line=None):
+    """Preflight complete geometry and allocate private output before adapters."""
+    if not _pythonic():raise KarelRuntimeError('Kinematic ARRAY conversion requires Pythonic mode',line)
+    if type(value) is not Array or kinematic_array_kind(target,value.spec) is None:
+        raise KarelRuntimeError('Kinematic ARRAY conversion requires anonymous matching shapes and joint/Cartesian terminals',line)
+    source=_aggregate_value(value.spec,value,line,allow_partial=False)
+    if source.spec[2][0]!='JOINTPOS':source.values[:]=[frame_value(item,line) for item in source.values]
+    dimensions=tuple(actual if expected is None else expected for expected,actual in zip(array_shape(target),source.shape))
+    concrete=('ARRAY',dimensions if type(target[1]) is tuple else dimensions[0] if len(dimensions)==1 else dimensions,target[2])
+    if scalar_leaf_count(concrete)>32767:raise KarelRuntimeError('Kinematic ARRAY conversion exceeds 32767 scalar leaves',line)
+    return source,Array(concrete)
 
 
 def convert_positional_array(target,value,line=None):
@@ -2493,6 +2521,13 @@ class State:
             raise KarelRuntimeError('Kinematic interfaces require one joint and one Cartesian type',line)
         return self._kinematic_conversion(target,value,line,'KINEMATIC_RETURN' if result else 'KINEMATIC_ARGUMENT')
 
+    def kinematic_array(self,target,value,line=None,*,kind='ASSIGNMENT'):
+        """Convert one whole ARRAY under explicit scalar model/adaptor contracts."""
+        if not _pythonic():raise KarelRuntimeError('Kinematic ARRAY conversion requires Pythonic mode',line)
+        if type(kind) is not str or kind not in ('ASSIGNMENT','ARGUMENT','RETURN'):
+            raise KarelRuntimeError('Invalid kinematic ARRAY conversion boundary',line)
+        return self._kinematic_conversion(target,value,line,'KINEMATIC_ARRAY_'+kind)
+
     def geometry_value(self,value,expected,line=None):
         if not _pythonic(): raise KarelRuntimeError('Joint geometry requires Pythonic mode',line)
         if expected[0]!='JOINTPOS': return frame_value(value,line,expected=expected)
@@ -2502,7 +2537,8 @@ class State:
     def _kinematic_conversion(self,target,value,line,operation):
         row=dict(operation=operation,line=line,outcome='requested');self.service_requests.append(row)
         try:
-            result=self.execution.kinematic_assignment(self,target,value,line)
+            convert=self.execution.kinematic_array if operation.startswith('KINEMATIC_ARRAY_') else self.execution.kinematic_assignment
+            result=convert(self,target,value,line)
             root=task_root(self)
             if root._aborted: raise KarelAbort(root._abort_line)
             if self._aborted: raise KarelAbort(self._abort_line)
@@ -2513,7 +2549,7 @@ class State:
             if self._aborted: raise KarelAbort(self._abort_line)
             if isinstance(exc,KarelRuntimeError) and exc.line is None: raise KarelRuntimeError(str(exc),line) from exc
             if isinstance(exc,(ValueError,TypeError,KeyError,IndexError)):
-                label='Joint geometry' if operation=='JOINT_GEOMETRY' else 'Kinematic interface' if operation in ('KINEMATIC_ARGUMENT','KINEMATIC_RETURN') else 'Kinematic assignment'
+                label='Joint geometry' if operation=='JOINT_GEOMETRY' else 'Kinematic ARRAY' if operation.startswith('KINEMATIC_ARRAY_') else 'Kinematic interface' if operation in ('KINEMATIC_ARGUMENT','KINEMATIC_RETURN') else 'Kinematic assignment'
                 raise KarelRuntimeError(label+' failed: '+str(exc),line) from exc
             raise
         row['outcome']='completed';return result

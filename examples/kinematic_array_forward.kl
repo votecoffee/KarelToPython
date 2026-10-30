@@ -1,0 +1,10 @@
+PROGRAM MODELFORWARD
+VAR joints:ARRAY[2]OF JOINTPOS2 points:ARRAY[2]OF XYZWPREXT done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=CURJPOS(0,0)
+    joints[2]=joints[1]
+    points=joints
+    done=TRUE
+  ENDIF
+END MODELFORWARD

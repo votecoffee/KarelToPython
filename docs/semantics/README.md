@@ -327,3 +327,8 @@ The [positional ARRAY ledger](positional_array_semantics.json) supersedes blanke
 whole-array Cartesian/joint-width exclusions for anonymous source values and
 explicit same-rank variable prefixes. Named source interfaces and joint/Cartesian
 ARRAY kinematics retain their separate boundaries.
+
+The [kinematic ARRAY ledger](kinematic_array_semantics.json) supersedes blanket
+joint/Cartesian whole-array source exclusions for anonymous values with explicit
+models/adapters. Named interfaces, storage-only variable transfers and physical
+robot/native ABI acceptance remain separate.

@@ -1185,6 +1185,7 @@ class Emitter:
         self.position_conversion_uses = []
         self.kinematic_assignment_uses = []
         self.kinematic_interface_uses=[]
+        self.kinematic_array_uses=[]
         self.joint_width_uses=[]
         self.positional_array_uses=[]
         self.joint_geometry_uses = []
@@ -2740,6 +2741,16 @@ class Emitter:
                 self.positional_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
                     source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.kinematic_array_kind(expected,actual):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},self._state.kinematic_array({expected!r},{value},{line},kind="ARGUMENT"),{line})'
+                is_reference,actual=False,expected
+                cartesian_conversion=True;conversion_kind='kinematic_array'
+                self.features.update(('extended services','kinematic ARRAY conversion'))
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
             elif self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_joint_width({expected!r},{value},{line}),{line})'
@@ -2797,7 +2808,7 @@ class Emitter:
                                                   source_spec=actual, line=line, column=argument.token.column,
                                                   expression_kind=argument.kind, evaluated_once=True,
                                                   independent_writable_copy=True, initialized_elements_required=True))
-                if conversion_kind=='positional_array':self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
+                if conversion_kind in ('positional_array','kinematic_array'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
             if not is_reference and expected[0] == 'STRING':
                 if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
@@ -3394,6 +3405,13 @@ class Emitter:
                 self.positional_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
                     line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
                     evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.kinematic_array_kind(target_type,value_type):
+                value=f'self._state.kinematic_array({target_type!r},{value},{line})'
+                self.features.update(('extended services','kinematic ARRAY conversion'))
+                if self.current_routine:self.current_routine.may_services=True
+                self.kinematic_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
             elif self.mode=='pythonic' and target_type[0]==value_type[0]=='JOINTPOS' and target_type!=value_type:
                 value=f'_rt.convert_joint_width({target_type!r},{value},{line})'
                 self.features.add('checked joint width conversion')
@@ -3720,6 +3738,14 @@ class Emitter:
                     value_type=spec;cartesian_conversion=True;conversion_kind='positional_array'
                     self.features.add('positional ARRAY conversion')
                     self.positional_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.kinematic_array_kind(spec,value_type):
+                    value=f'self._state.kinematic_array({spec!r},{value},{line},kind="RETURN")'
+                    value_type=spec;cartesian_conversion=True;conversion_kind='kinematic_array'
+                    self.current_routine.may_services=True
+                    self.features.update(('extended services','kinematic ARRAY conversion'))
+                    self.kinematic_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
                         line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
                         evaluated_once=True,independent_value=True,before_cleanup=True))
                 elif self.mode=='pythonic' and spec[0]==value_type[0]=='JOINTPOS' and spec!=value_type:
@@ -4076,7 +4102,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         emitter.features.add('doubled apostrophe STRING literal')
     emitter.features.update('predefined ' + use['name'] for use in parser.predefined_uses)
     generated = emitter.emit()
-    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses or emitter.joint_width_uses: emitter.analyze_routine_effects()
+    if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses or emitter.kinematic_array_uses or emitter.joint_width_uses: emitter.analyze_routine_effects()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
@@ -4266,7 +4292,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         waits=emitter.wait_uses,
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
-        positional_array_conversions=emitter.positional_array_uses,
+        positional_array_conversions=emitter.positional_array_uses, kinematic_array_conversions=emitter.kinematic_array_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         motion_requests=emitter.motion_uses,
@@ -5764,6 +5790,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['data_record_policy']['boundary']='Checked scalar and anonymous positional ARRAY source conversions; no inferred robot context, STRUCTURE schema coercion or physical motion'
     report['positional_routine_policy']['boundary']='Private scalar and anonymous positional ARRAY conversions; named interfaces, exact bare references, BYNAME, linked declarations and raw callback results retain their contracts'
     report['array_routine_policy']['positional_conversions']='Anonymous Cartesian/joint-width source values follow positional_array_policy; raw callbacks and named source identities remain exact'
+    report['kinematic_array_policy']=dict(
+        source='Anonymous matching-shape joint/Cartesian ARRAY assignments, private arguments and RETURN; named source interfaces and raw callback results retain exact contracts',
+        preflight='Capture complete source, validate every Cartesian matrix and allocation bound before any adapter; prepare all output elements before receiver publication',
+        model='Apply existing scalar model/adaptor rules in row-major order using caller-root group and currently supplied frame/tool/current seed at each element; no implicit seed chaining or robot-state update',
+        effects='No intermediate checkpoint or yield; captured source is isolated, earlier explicit adapter effects remain on failure, no rollback/retry, sticky abort stops further elements',
+        observations='One value-free KINEMATIC_ARRAY_ASSIGNMENT/ARGUMENT/RETURN record per requested ARRAY, with source line and completed/failed outcome',
+        ownership='Independent converted values without copy-back; preserve later-argument/target-selector order, pause/resume and frame/counter cleanup',
+        boundary='No named-array coercion, GET_VAR/SET_VAR kinematics, inferred robot/model/frame context, physical motion or native ABI/controller equivalence; strict deferred',
+        guide='docs/kinematic-arrays.md',controller_validated=False)
+    report['positional_array_policy']['limits']='Three-rank, concrete shape, 32767-leaf and 64-level guards remain; model-backed joint/Cartesian arrays follow kinematic_array_policy'
+    report['kinematic_interface_policy']['boundary']='Scalar and anonymous ARRAY source conversions require explicit models; named arrays, BYNAME, linked signatures and raw callback results retain exact contracts; no inferred context or physical motion'
+    report['kinematic_assignment_policy']['boundary']='Anonymous model-backed ARRAY assignments follow kinematic_array_policy; no motion/current-state update, inferred model, native branch selection, collision or certified reachability'
+    report['joint_geometry_policy']['boundary']='No raw joint algebra, orientation defaults, calibration or native equivalence; scalar geometry and explicit-model source ARRAY conversion have separate policies'
+    report['data_record_policy']['boundary']='Private scalar and anonymous positional/model-backed ARRAY conversions; no STRUCTURE schema coercion, inferred robot context or physical motion'
+    report['positional_routine_policy']['boundary']='Private scalar and anonymous source ARRAY conversions; named interfaces, same-type references, BYNAME, linked signatures and raw callback results retain their contracts'
     report['vision_palette_policy']=dict(
         input='Optional explicit palette on channels=1 index rasters; 1..256 packed RGBA entries as immutable Python bytes or canonical lowercase JSON hex; every index must be in range',
         persistence='Preserve palette and index bytes through supplied captures, image registers, finds and JSON; absent palette retains the existing grayscale interpretation',

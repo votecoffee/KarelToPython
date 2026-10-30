@@ -1,0 +1,14 @@
+PROGRAM MODELINTERFACE
+VAR joints:ARRAY[2]OF JOINTPOS2 restored:ARRAY[2]OF JOINTPOS9 done:BOOLEAN
+ROUTINE roundtrip(points:ARRAY OF XYZWPREXT):ARRAY OF JOINTPOS9
+BEGIN
+  RETURN points
+END roundtrip
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=CURJPOS(0,0)
+    joints[2]=joints[1]
+    restored=roundtrip(joints)
+    done=TRUE
+  ENDIF
+END MODELINTERFACE

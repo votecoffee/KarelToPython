@@ -1,0 +1,27 @@
+{
+  "version": "26.1030.023712",
+  "scope": "Offline explicit-model joint/Cartesian anonymous ARRAY source conversion; no physical/controller acceptance",
+  "guide": "docs/kinematic-arrays.md",
+  "source": "Whole anonymous matching-shape ARRAY assignments, private arguments and RETURN; existing one-through-three ranks and wildcard shape capture",
+  "preflight": "Complete private source snapshot, proper POSITION matrices and target allocation before any model adapter; model-specific constraints checked per element",
+  "context": "Caller-root group and current explicit frame/tool/seed per scalar element; no seed chaining or robot-state update, detached callback inputs",
+  "effects": "Row-major synchronous conversion, stage whole result before publication; retain prior host effects without retry/rollback; sticky abort stops further elements",
+  "lifecycle": "Capture before later arguments and target selectors; RETURN before counter/frame cleanup; paused callee retains private data and stop/failure unwinds",
+  "observation": "One value-free KINEMATIC_ARRAY_ASSIGNMENT/ARGUMENT/RETURN outcome per requested ARRAY, not a native/per-element receipt",
+  "persistence": "Existing concrete ARRAY and serializable model codecs; no callback, frame or native state restoration",
+  "exact": "Named source arrays, STRUCTURE schemas, BYNAME, declared linkage and raw callback results; GET_VAR/SET_VAR do not infer kinematics",
+  "tests": [
+    "tests/test_kinematic_arrays.py",
+    "examples/kinematic_array_forward.kl",
+    "examples/kinematic_array_roundtrip.kl",
+    "examples/kinematic_array_interfaces.kl",
+    "examples/kinematic_array_project/main.kl"
+  ],
+  "remaining": [
+    "Named source ARRAY interface coercion",
+    "Native ABI/controller equivalence",
+    "Physical robot execution",
+    "Strict mode"
+  ],
+  "controller_validated": false
+}

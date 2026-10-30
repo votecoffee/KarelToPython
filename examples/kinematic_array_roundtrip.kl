@@ -1,0 +1,11 @@
+PROGRAM MODELROUNDTRIP
+VAR joints:ARRAY[2]OF JOINTPOS9 points:ARRAY[2]OF POSITION restored:ARRAY[2]OF JOINTPOS9 done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=CURJPOS(0,0)
+    joints[2]=joints[1]
+    points=joints
+    restored=points
+    done=TRUE
+  ENDIF
+END MODELROUNDTRIP

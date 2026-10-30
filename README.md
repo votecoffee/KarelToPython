@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.020945**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.023712**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -716,6 +716,10 @@ reads retain outputs and unread input, then continue with a portable status.
 representations and checked joint widths through whole assignments, private
 routine arguments/results and GET_VAR/SET_VAR prefixes, without robot inference.
 
+[Model-backed ARRAY conversions](docs/kinematic-arrays.md) now carry whole
+joint/Cartesian arrays through assignments and routine interfaces using explicit
+models/adapters. Complete preflight and private staging preserve atomic output.
+
 ## Roadmap
 
 Continue expanding functional Pythonic conversion coverage. A planned
@@ -750,7 +754,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 54 complete linked source projects. It also checks that unsupported NOWAIT/local-handler combinations are rejected.
+fixtures, plus 55 complete linked source projects. It also checks that unsupported NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

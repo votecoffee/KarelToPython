@@ -99,8 +99,8 @@ class PositionalArrayAssignmentTests(unittest.TestCase):
         for prefix,decl in [('TYPE row_t=ARRAY[2]OF XYZWPR','a:row_t b:ARRAY[2]OF POSITION'),('TYPE row_t=ARRAY[2]OF POSITION','a:ARRAY[2]OF XYZWPR b:row_t')]:
             with self.subTest(decl=decl),self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl=decl)
 
-    def test_model_does_not_enable_whole_array_kinematic_conversion(self):
-        with self.assertRaises(TranslationError):build(first='JOINTPOS2',second='POSITION',context=model_context())
+    def test_model_does_not_enable_rank_changing_array_conversion(self):
+        with self.assertRaises(TranslationError):compile_program('b=a',decl='a:ARRAY[2]OF JOINTPOS2 b:ARRAY[1,2]OF POSITION',context=model_context())
 
     def test_assignment_from_function_evaluates_body_once(self):
         p,_=build('n=0 b=make()',routines='ROUTINE make:ARRAY OF XYZWPR BEGIN n=n+1 RETURN a END make');assign(p)

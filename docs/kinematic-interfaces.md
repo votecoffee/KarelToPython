@@ -105,7 +105,8 @@ cells, executable callbacks or native robot state.
 
 Same-kind JOINTPOS source widths use [checked width conversion](joint-width-conversions.md),
 independent of model inverse padding. [Context-free positional ARRAY changes](positional-arrays.md)
-now use a separate policy; joint/Cartesian whole-array kinematics remain blocked. Named
+now use a separate policy; [model-backed ARRAY source conversions](kinematic-arrays.md)
+now apply the explicit scalar model rules to anonymous arrays. Named
 aggregate interfaces, `BYNAME` references, linked declaration/definition
 signatures and raw external callback result types also remain exact. A correctly
 declared external result can be converted by an enclosing source expression or

@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1030.023712 - 2026-10-30
+
+- Convert anonymous whole joint/Cartesian ARRAYs in assignments, private source
+  arguments and RETURN with explicit scalar robot models/adapters and root groups.
+- Preflight complete source geometry and output allocation before adapters, then
+  stage row-major results before publication. Preserve current seed/frame/tool
+  rules, external axes, model limits, independent values and zero-copyback behavior.
+- Keep prior explicit host effects without retry or rollback; sticky abort stops
+  further elements and prevents output. Preserve pause, stop and frame/counter
+  cleanup. Record one value-free outcome per requested ARRAY conversion.
+- Add 49 regressions, three standalone examples and a linked caller-group project;
+  verify model JSON round trips, generated execution, installed CLI and saved replay.
+- Update README, API and support/semantic guidance. Named source interfaces,
+  storage-only GET_VAR/SET_VAR, raw callbacks and legacy guards retain their contracts;
+  physical motion, native ABI and strict mode remain separate.
+
 ## 26.1030.020945 - 2026-10-30
 
 - Convert anonymous positional ARRAY values across Cartesian representations or

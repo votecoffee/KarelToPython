@@ -183,8 +183,8 @@ class AssignmentOwnershipTests(unittest.TestCase):
         for body,routines in (('take(j)','ROUTINE take(value: POSITION) BEGIN END take'),('p=produce()','ROUTINE produce: POSITION BEGIN RETURN j END produce')):
             with self.subTest(body=body),self.assertRaises(TranslationError): legacy_translate(f'PROGRAM T VAR {DECL} {routines} BEGIN {body} END T')
 
-    def test_whole_arrays_do_not_gain_element_conversion(self):
-        with self.assertRaises(TranslationError): compile_program('poses=joints',decl='poses: ARRAY[2] OF POSITION joints: ARRAY[2] OF JOINTPOS')
+    def test_named_arrays_do_not_gain_element_conversion(self):
+        with self.assertRaises(TranslationError): compile_program('poses=joints',prefix='TYPE joints_t=ARRAY[2]OF JOINTPOS',decl='poses: ARRAY[2] OF POSITION joints:joints_t')
 
     def test_conversion_of_function_result_precedes_target_selector(self):
         trace=[]

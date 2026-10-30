@@ -657,3 +657,11 @@ matching-shape Cartesian/joint-width source values. It prepares complete private
 data without changing generic checked/parameter/result compatibility. Reports
 add `positional_array_conversions` and `positional_array_policy`; GET_VAR/SET_VAR
 reuse checked leaf conversions inside their existing atomic prefix preparation.
+
+[Model-backed ARRAY conversion](kinematic-arrays.md) adds
+`State.kinematic_array(target_spec, value, line=None, kind="ASSIGNMENT")`; kind
+also accepts ARGUMENT or RETURN. It preflights complete source geometry and output
+allocation, then stages existing scalar model conversions in row-major order.
+Reports add `kinematic_array_conversions`/`kinematic_array_policy`; one value-free
+service record describes the whole request. Generic ARRAY checked/value/result
+helpers and storage-only GET_VAR/SET_VAR keep their separate contracts.

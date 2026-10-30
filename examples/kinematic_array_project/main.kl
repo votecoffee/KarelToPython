@@ -1,0 +1,12 @@
+PROGRAM MAIN
+%DEFGROUP=2
+VAR joints:ARRAY[2]OF JOINTPOS2 restored:ARRAY[2]OF JOINTPOS9 done:BOOLEAN
+ROUTINE roundtrip(points:ARRAY OF POSITION):ARRAY OF JOINTPOS9 FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=CURJPOS(0,0)
+    joints[2]=joints[1]
+    restored=roundtrip(joints)
+    done=TRUE
+  ENDIF
+END MAIN

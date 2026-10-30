@@ -112,6 +112,8 @@ they are boundaries rather than promises to accept every such source form later.
   narrow zero-only trailing axes into complete private values without robot inference.
   [Joint/Cartesian source routine conversions](kinematic-interfaces.md) now require
   explicit models/adapters and current inverse seeds, using private values.
+  [Model-backed ARRAY source conversions](kinematic-arrays.md) now apply these
+  scalar rules to complete anonymous arrays with atomic receiver publication.
   [Cartesian source argument/RETURN conversions](cartesian-interfaces.md) now
   use private values across POSITION/XYZWPR/XYZWPREXT; BYNAME, linked declarations,
   callback raw return types and named source ARRAY identities remain exact.

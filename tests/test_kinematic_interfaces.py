@@ -482,9 +482,9 @@ class KinematicExactBoundaryTests(unittest.TestCase):
                                      'main': source('MAIN','',routines='ROUTINE work(v:POSITION) FROM LIB')})
         with self.assertRaises(ValueError): project.instantiate()
 
-    def test_whole_arrays_and_named_aggregates_do_not_convert_elements(self):
-        with self.assertRaises(TranslationError): compile_program('work(j)', decl='j:ARRAY[1] OF JOINTPOS', routines='ROUTINE work(v:ARRAY OF POSITION) BEGIN END work')
-        with self.assertRaises(TranslationError): compile_program('', decl='j:ARRAY[1] OF JOINTPOS', routines='ROUTINE make:ARRAY OF POSITION BEGIN RETURN j END make')
+    def test_named_arrays_and_aggregates_do_not_convert_elements(self):
+        with self.assertRaises(TranslationError): compile_program('work(j)', prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS', decl='j:joints_t', routines='ROUTINE work(v:ARRAY OF POSITION) BEGIN END work')
+        with self.assertRaises(TranslationError): compile_program('', prefix='TYPE joints_t=ARRAY[1]OF JOINTPOS', decl='j:joints_t', routines='ROUTINE make:ARRAY OF POSITION BEGIN RETURN j END make')
         with self.assertRaises(TranslationError): compile_program('work(box)', decl='box:packet', prefix='TYPE packet=STRUCTURE j:JOINTPOS ENDSTRUCTURE', routines='ROUTINE work(v:POSITION) BEGIN END work')
 
     def test_orientation_outputs_and_explicit_global_counter_effects_stay_guarded(self):
