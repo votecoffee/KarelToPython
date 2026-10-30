@@ -1,0 +1,17 @@
+PROGRAM RECORDNESTED
+TYPE child_in=STRUCTURE n:INTEGER label:STRING[6] ENDSTRUCTURE
+     child_out=STRUCTURE label:STRING[2] n:REAL ENDSTRUCTURE
+     row_t=ARRAY[2]OF REAL
+     in_t=STRUCTURE child:child_in samples:ARRAY[2,2]OF INTEGER ENDSTRUCTURE
+     out_t=STRUCTURE samples:ARRAY[2]OF row_t child:child_out ENDSTRUCTURE
+VAR original:in_t result:out_t done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original.child.n=7 original.child.label='abcdef'
+    original.samples[1,1]=1 original.samples[1,2]=2
+    original.samples[2,1]=3
+    result=original
+    original.child.n=9 original.samples[1,1]=99
+    done=TRUE
+  ENDIF
+END RECORDNESTED

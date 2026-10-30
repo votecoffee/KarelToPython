@@ -2,6 +2,15 @@
 
 ## Translation
 
+[Source STRUCTURE schemas](record-schema-conversions.md) add
+`runtime.convert_record_schema(target_spec, value, line=None, *, source_spec=None)`
+for independent context-free user record and record ARRAY conversions. Generated
+calls supply the declared source schema; bare generic ARRAY receiver assignments
+use `State.array_assignment_value(..., source_spec=...)` with their actual target
+schema. Reports expose `record_schema_conversions` and `record_schema_policy`.
+Exact generic helpers, BYNAME, declared links and raw callback results retain
+their existing contracts.
+
 [Source ARRAY schemas](array-schema-conversions.md) add
 `runtime.convert_array_schema(target_spec, value, line=None)` for independent
 data copies across ARRAY names, STRING capacities and logical-shape-preserving

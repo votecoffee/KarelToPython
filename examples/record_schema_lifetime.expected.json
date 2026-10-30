@@ -1,0 +1,14 @@
+{
+  "ORIGINAL": {
+    "COUNT": {
+      "uninitialized": true
+    },
+    "LABEL": "abcdefgh"
+  },
+  "RESULT": {
+    "LABEL": "abc",
+    "COUNT": 1.0
+  },
+  "SEEN": 99.0,
+  "DONE": true
+}

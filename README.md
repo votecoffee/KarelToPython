@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.141231**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.145630**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -213,7 +213,10 @@ outer types and nested components, retaining private arguments and receiver
 schemas. [Source ARRAY schema conversions](docs/array-schema-conversions.md)
 also support same-element named copies, bounded STRING capacities and flat/nested
 layouts with matching logical dimensions; compatible generic arguments still
-borrow caller storage.
+borrow caller storage. [Source STRUCTURE conversions](docs/record-schema-conversions.md)
+also map matching field names across record types, including nested records and
+record ARRAYs, checked numeric/STRING fields and context-free geometry. Receiver
+schemas remain intact and converted arguments stay private.
 Resource-free aggregate copies now preserve missing scalar fields across
 assignments, private arguments and returns. Reads and geometry still reject
 unavailable components; see [partial aggregate values](docs/partial-aggregate-values.md).

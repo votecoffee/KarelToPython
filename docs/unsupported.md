@@ -108,7 +108,10 @@ they are boundaries rather than promises to accept every such source form later.
   domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries;
-  dimension flattening, whole STRUCTURE schema coercion and resource fields. Omitted STRING ARRAY
+  dimension flattening, field-set changes/renaming and resource fields. Context-free
+  [STRUCTURE source conversion](record-schema-conversions.md) now maps identical
+  field-name sets recursively, including record ARRAY terminals; model-backed
+  joint/Cartesian changes inside records still require explicit field conversion. Omitted STRING ARRAY
   result capacities now [inherit concrete returned storage](inherited-string-array-results.md);
   malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
@@ -139,7 +142,7 @@ they are boundaries rather than promises to accept every such source form later.
   [Source schema conversion](array-schema-conversions.md) now adds same-terminal
   ARRAY names, bounded STRING capacities and flat/nested layouts with matching
   logical dimensions, including actual generic receiver schemas. Implicit
-  REAL-to-integral conversion, different record-terminal schemas, rank/dimension
+  REAL-to-integral conversion, incompatible record fields, rank/dimension
   changes, equal-count reshape and generic runtime compatibility changes remain blocked.
 - Unbounded/Unicode strings, lengths above 254, implicit numeric-to-BOOLEAN
   truthiness, arbitrary-size INTEGERs, MAXINT as ordinary initialized storage,

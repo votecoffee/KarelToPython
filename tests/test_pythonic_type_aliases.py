@@ -214,10 +214,11 @@ class AggregateAliasTests(unittest.TestCase):
         self.assertEqual((p.run()['A'][0],p.snapshot()['B'][0]),(7,9))
         self.assertNotEqual(p._state.raw('A').spec[3],p._state.raw('B').spec[3])
 
-    def test_new_structure_definition_still_distinct(self):
-        with self.assertRaises(TranslationError):
-            compile_program('b=a', types='TYPE a_t=STRUCTURE x: INTEGER ENDSTRUCTURE alias_t=a_t b_t=STRUCTURE x: INTEGER ENDSTRUCTURE',
-                            declarations='a: alias_t b: b_t')
+    def test_new_structure_definition_keeps_independent_receiver_identity(self):
+        program,_=compile_program('a.x=7 b=a b.x=9',types='TYPE a_t=STRUCTURE x:INTEGER ENDSTRUCTURE alias_t=a_t b_t=STRUCTURE x:INTEGER ENDSTRUCTURE',declarations='a:alias_t b:b_t')
+        state=program.run();self.assertEqual((state['A']['X'],state['B']['X']),(7,9))
+        self.assertEqual((program._state.values['A'].spec[1],program._state.values['B'].spec[1]),('A_T','B_T'))
+        with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):rt.checked(program._state.types['B'],program._state.values['A'])
 
     def test_array_alias_result_preserves_missing_leaf_and_private_storage(self):
         program, _ = compile_program('a[1]=1 b=copy() b[1]=9', types=self.TYPES, declarations='a: row_t b: row_chain',

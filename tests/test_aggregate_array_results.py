@@ -159,12 +159,14 @@ class AggregateArrayRejectionTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(**kwargs)
         self.assertEqual(caught.exception.code,code)
 
-    def test_different_structure_names_in_return_are_not_coerced(self):
-        routine = 'ROUTINE make: ARRAY OF item_t VAR p: ARRAY[1] OF other_t BEGIN RETURN p END make'
-        self.reject('E_RETURN',routines=routine)
+    def test_compatible_record_array_return_owns_declared_terminal(self):
+        routine='ROUTINE make:ARRAY OF item_t VAR p:ARRAY[1]OF other_t BEGIN '+initialize()+' RETURN p END make'
+        p,_=compile_program(routines=routine);self.assertEqual(p.run()['A'],[item()])
+        self.assertEqual(p._state.values['A'].values[0].spec[1],'ITEM_T')
 
-    def test_different_structure_names_in_destination_are_not_coerced(self):
-        self.reject('E_TYPE',declarations='a: ARRAY[1] OF other_t')
+    def test_compatible_record_array_result_assignment_owns_receiver_terminal(self):
+        p,_=compile_program(declarations='a:ARRAY[1]OF other_t');self.assertEqual(p.run()['A'],[item()])
+        self.assertEqual(p._state.values['A'].values[0].spec[1],'OTHER_T')
 
     def test_unknown_element_type_rejected(self):
         self.reject('E_TYPE',routines='ROUTINE make: ARRAY OF missing_t BEGIN END make')

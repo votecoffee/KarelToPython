@@ -1,0 +1,11 @@
+PROGRAM MAIN
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:INTEGER ENDSTRUCTURE
+VAR original:in_t result:out_t done:BOOLEAN
+ROUTINE change(value:out_t):in_t FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original.count=7 original.label='abcdefgh'
+    result=change(original)
+    done=TRUE
+  ENDIF
+END MAIN

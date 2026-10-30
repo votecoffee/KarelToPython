@@ -335,8 +335,9 @@ class NamedArrayBoundaryTests(unittest.TestCase):
         sources=[('ARRAY',None,('INTEGER',),'ROW'),('ARRAY',True,('INTEGER',),'ROW'),('ARRAY',2,('ARRAY',2,('INTEGER',))),('ARRAY',2,('INTEGER',),'')]
         for source in sources:self.assertIsNone(rt.numeric_array_kind(('ARRAY',2,('REAL',),'OUT'),source))
 
-    def test_resource_and_whole_structure_coercion_remain_rejected(self):
-        with self.assertRaises(TranslationError):compile_program('b=a',prefix='TYPE a_t=STRUCTURE data:ARRAY[2]OF INTEGER ENDSTRUCTURE b_t=STRUCTURE data:ARRAY[2]OF REAL ENDSTRUCTURE',decl='a:a_t b:b_t')
+    def test_record_array_fields_convert_while_resources_remain_rejected(self):
+        p,_=compile_program('a.data[1]=7 b=a a.data[1]=9',prefix='TYPE a_t=STRUCTURE data:ARRAY[2]OF INTEGER ENDSTRUCTURE b_t=STRUCTURE data:ARRAY[2]OF REAL ENDSTRUCTURE',decl='a:a_t b:b_t')
+        self.assertEqual(p.run()['B']['DATA'],[7.,U])
         with self.assertRaises(TranslationError):compile_program('b=a',prefix='TYPE a_t=ARRAY[2]OF FILE',decl='a:a_t b:ARRAY[2]OF REAL')
 
     def test_legacy_named_array_conversion_remains_blocked(self):

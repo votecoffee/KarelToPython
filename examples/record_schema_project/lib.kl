@@ -1,0 +1,7 @@
+PROGRAM LIB
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:INTEGER ENDSTRUCTURE
+VAR seen:out_t
+ROUTINE change(value:out_t):in_t
+BEGIN value.count=99 seen=value RETURN value END change
+BEGIN
+END LIB

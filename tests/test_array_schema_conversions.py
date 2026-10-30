@@ -280,9 +280,10 @@ class GenericArrayReceiverTests(unittest.TestCase):
         routines='ROUTINE make:in_t BEGIN n=7 RETURN a END make ROUTINE work(dst:ARRAY[*,*]OF INTEGER) BEGIN dst=make() END work'
         p,_=build('work(b)',routines=routines);initialize(p);p.run();self.assertEqual((p.snapshot()['N'],outputs(p)),(7,[1,2,3,4]))
 
-    def test_generic_receiver_does_not_enable_record_schema_coercion(self):
+    def test_generic_receiver_uses_actual_record_schema(self):
         prefix='TYPE one=STRUCTURE n:INTEGER ENDSTRUCTURE two=STRUCTURE n:INTEGER ENDSTRUCTURE'
-        with self.assertRaises(TranslationError):compile_program('work(b,a)',prefix=prefix,decl='a:ARRAY[2]OF one b:ARRAY[2]OF two',routines='ROUTINE work(dst:ARRAY OF two;src:ARRAY OF one) BEGIN dst=src END work')
+        p,_=compile_program('a[1].n=7 work(b,a) a[1].n=9',prefix=prefix,decl='a:ARRAY[2]OF one b:ARRAY[2]OF two',routines='ROUTINE work(dst:ARRAY OF two;src:ARRAY OF one) BEGIN dst=src END work')
+        self.assertEqual(p.run()['B'],[{'N':7},{'N':U}]);self.assertEqual(p._state.values['B'].values[0].spec[1],'TWO')
 
 
 class ArraySchemaBoundaryTests(unittest.TestCase):
@@ -298,9 +299,11 @@ class ArraySchemaBoundaryTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'type does not match'):p.run()
         self.assertEqual(p.snapshot()['E'],77)
 
-    def test_different_named_record_terminals_remain_rejected(self):
+    def test_compatible_record_terminals_retain_receiver_names(self):
         prefix='TYPE one=STRUCTURE n:INTEGER ENDSTRUCTURE two=STRUCTURE n:INTEGER ENDSTRUCTURE in_t=ARRAY[2]OF one out_t=ARRAY[2]OF two'
-        with self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl='a:in_t b:out_t')
+        p,_=compile_program('a[1].n=7 b=a a[1].n=9',prefix=prefix,decl='a:in_t b:out_t')
+        self.assertEqual(p.run()['B'],[{'N':7},{'N':U}]);self.assertEqual(p._state.values['B'].spec[3],'OUT_T')
+        self.assertEqual(p._state.values['B'].values[0].spec[1],'TWO')
 
     def test_boolean_and_numeric_terminals_remain_separate(self):
         for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN'),('REAL','INTEGER')):

@@ -42,8 +42,9 @@ leaves and 64 schema levels. Anonymous formal/result wildcards inherit concrete
 dimensions; named storage remains concrete.
 
 Identical scalar/data-record/joint terminal types may be copied across ARRAY
-names and layouts. Record terminal schemas retain exact nominal identity; this
-does not coerce different STRUCTURE types or the surrounding record schema.
+names and layouts. Compatible different user record terminals and surrounding
+STRUCTURE schemas follow the separate [record conversion rules](record-schema-conversions.md),
+matching field names recursively and retaining receiver identities.
 FILE/PATH/QUEUE values do not become copyable data ARRAY elements.
 
 Existing missing scalar markers remain missing. Same-type BYTE copies retain

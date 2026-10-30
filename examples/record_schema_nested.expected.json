@@ -1,0 +1,39 @@
+{
+  "ORIGINAL": {
+    "CHILD": {
+      "N": 9,
+      "LABEL": "abcdef"
+    },
+    "SAMPLES": [
+      [
+        99,
+        2
+      ],
+      [
+        3,
+        {
+          "uninitialized": true
+        }
+      ]
+    ]
+  },
+  "RESULT": {
+    "SAMPLES": [
+      [
+        1.0,
+        2.0
+      ],
+      [
+        3.0,
+        {
+          "uninitialized": true
+        }
+      ]
+    ],
+    "CHILD": {
+      "LABEL": "ab",
+      "N": 7.0
+    }
+  },
+  "DONE": true
+}

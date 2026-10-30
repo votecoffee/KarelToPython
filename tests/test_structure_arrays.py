@@ -272,12 +272,15 @@ class StructureArrayBoundaryTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body, **kwargs)
         self.assertEqual(caught.exception.code, code, str(caught.exception))
 
-    def test_identical_fields_do_not_erase_named_type_identity(self):
-        for body in ('items = alien', 'items[1] = alien[1]'):
-            with self.subTest(body=body): self.rejected(body)
+    def test_compatible_record_copies_keep_receiver_names(self):
+        for body in ('items=alien','items[1]=alien[1]'):
+            p,_=compile_program('alien[1].count=7 '+body+' alien[1].count=9')
+            self.assertEqual(p.run()['ITEMS'][0]['COUNT'],7)
+            self.assertEqual(p._state.values['ITEMS'].values[0].spec[1],'ITEM_T')
 
-    def test_wrong_named_type_formal_is_rejected(self):
-        self.rejected('put(alien)', routines='ROUTINE put(p: ARRAY OF item_t) BEGIN END put')
+    def test_compatible_named_record_formal_is_private(self):
+        p,_=compile_program('alien[1].count=7 put(alien)',routines='ROUTINE put(p:ARRAY OF item_t) BEGIN p[1].count=9 result=p[1].count END put')
+        state=p.run();self.assertEqual((state['ALIEN'][0]['COUNT'],state['RESULT']),(7,9))
 
     def test_wrong_rank_formal_is_rejected(self):
         self.rejected('put(items)', routines='ROUTINE put(p: ARRAY[*,*] OF item_t) BEGIN END put')

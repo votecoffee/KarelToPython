@@ -11,6 +11,10 @@ blanket named-interface conversion exclusions for supported terminal changes.
 The [source ARRAY schema ledger](array_schema_conversion_semantics.json) supersedes
 older nominal ARRAY, STRING-capacity and component-layout source exclusions.
 Receiver schemas and generic checked/value/result exactness remain.
+The [source STRUCTURE schema ledger](record_schema_conversion_semantics.json)
+supersedes older whole-record and different-record-terminal source exclusions
+for identical field-name sets with recursively compatible context-free data.
+Declared links, BYNAME, raw callback results and generic helpers remain exact.
 
 The [private timer ledger](private_using_timer_semantics.json) supersedes older
 private connected-timer exclusions in the computed-capture/private-counter notes.

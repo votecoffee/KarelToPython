@@ -1,0 +1,20 @@
+{
+  "version": "26.1030.145630",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../record-schema-conversions.md",
+  "tests": [
+    "tests/test_record_schema_conversions.py"
+  ],
+  "boundaries": "Source assignment, ordinary arguments and RETURN; user STRUCTURE roots and record ARRAY terminals",
+  "fields": "Identical field-name sets mapped recursively in receiver order; retain receiver record names, STRING capacities and logical ARRAY layout",
+  "leaves": "Exact data, checked integral family and integral-to-REAL, bounded ASCII STRING, complete context-free Cartesian representation and joint widths",
+  "validation": "Declared source spec and original domains before conversion; 32767 leaves and 64 schema levels; complete independent output before publication",
+  "ownership": "Existing compatible arguments retain references; schema-changing arguments own private writable values without copy-back; generic ARRAY receivers use actual borrowed schema",
+  "ordering": "RHS once before target selectors/later arguments; RETURN before frame/counter/timer cleanup; prior independent effects retained on failure",
+  "exact": "BYNAME, generic typed-reference/value/result helpers, declared linkage and raw callback result schemas remain exact",
+  "excluded": "Field-set changes/rename, resources, builtin/user interchange, BOOLEAN/numeric, REAL-to-integral, logical reshape and model-backed joint/Cartesian record fields",
+  "persistence": "Typed data/schema JSON only; no private cells, handlers, timers, callbacks or suspended execution",
+  "supersedes": "Older whole STRUCTURE and different-record-terminal source conversion exclusions; existing native, resource and strict-mode boundaries remain",
+  "evidence": "Offline implementation and authored source tests; no controller/native ABI equivalence"
+}

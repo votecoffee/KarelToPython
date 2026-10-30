@@ -51,7 +51,8 @@ there is no reshape, resize, ragged data or unknown runtime allocation inference
 privately into the receiver's schema when their terminal representation changes.
 ARRAY fields in named structures can convert separately. Same-terminal ARRAY
 names/layouts follow [source schema conversion](array-schema-conversions.md);
-whole STRUCTURE schema coercion remains unavailable.
+compatible whole STRUCTURE changes follow [source record conversions](record-schema-conversions.md),
+without model-backed joint/Cartesian field conversion.
 
 ## Geometry, completeness and bounds
 

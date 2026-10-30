@@ -42,6 +42,9 @@ formal/result shapes resolve through the existing checked concrete-shape rules;
 no array resizing, flattening, identity erasure or new implicit conversion is
 introduced by the generic copy contract. Separate [numeric ARRAY conversions](numeric-arrays.md)
 retain missing leaves while checking every known source and receiver domain.
+[Source record conversions](record-schema-conversions.md) separately map compatible
+field-name sets, including nested records and ARRAYs, into independent receiver
+schemas while retaining missing data.
 POSITION orientation columns remain read-only source storage,
 including after partial copies. Detached standalone VECTOR copies remain writable.
 

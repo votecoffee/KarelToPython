@@ -99,14 +99,18 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('file_move', 'MOVE_STATUS', 0),
                     ('file_move_guards', 'BUSY_STATUS', 3),
                     ('port_configuration', 'ACTIVE_MODE', 0),
-                    ('port_configuration_guards', 'WRONG_DIRECTION', 3)]
+                    ('port_configuration_guards', 'WRONG_DIRECTION', 3),
+                    ('record_schema_fields', 'RESULT', {'LABEL':'abc','COUNT':7.}),
+                    ('record_schema_nested', 'RESULT', {'SAMPLES':[[1.,2.],[3.,{'uninitialized':True}]],'CHILD':{'LABEL':'ab','N':7.}}),
+                    ('record_schema_geometry', 'STATUS', 0),
+                    ('record_schema_lifetime', 'RESULT', {'LABEL':'abc','COUNT':1.})]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'serial_io.py', 'motion.py', 'remote.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'record_schemas.py', 'serial_io.py', 'motion.py', 'remote.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'
@@ -145,7 +149,7 @@ class RuntimePortabilityTests(unittest.TestCase):
         worker=translate('PROGRAM WORKER VAR n: INTEGER BEGIN n=1 PAUSE n=2 END WORKER')
         with tempfile.TemporaryDirectory() as folder:
             target=Path(folder);package=target/'karel2py';package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'serial_io.py', 'motion.py'):
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'record_schemas.py', 'serial_io.py', 'motion.py'):
                 shutil.copyfile(ROOT/'karel2py'/name,package/name)
             (target/'observer.py').write_text(observer.python_source,encoding='utf-8')
             (target/'worker.py').write_text(worker.python_source,encoding='utf-8')

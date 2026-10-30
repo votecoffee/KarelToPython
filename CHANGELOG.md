@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1030.145630 - 2026-10-30
+
+- Convert compatible user STRUCTURE schemas and record ARRAY terminals at
+  Pythonic source assignment, ordinary argument and RETURN boundaries. Match
+  identical field-name sets in receiver order, including nested records, ARRAY
+  names/layouts, integral/REAL fields, STRING capacities and context-free geometry.
+- Keep receiver schemas and stable child storage. Validate declared source specs,
+  original data and complete independent output before publication; preserve
+  partial data and existing domain, schema-depth and allocation guards.
+- Give schema-changing arguments private writable values without copy-back;
+  retain compatible references, actual generic ARRAY receiver schemas and RETURN
+  capture before frame/counter/timer cleanup. Keep exact BYNAME, generic helpers,
+  linked signatures and raw callback results.
+- Add record_schema_policy/provenance reports, 72 authored regressions, four
+  examples and two linked projects. Replace obsolete source exclusions with
+  execution and source-isolation checks; refresh README, API and remaining-support
+  inventory. Model-backed record-field conversion, field-set changes, native ABI
+  or controller equivalence and public strict mode remain outside this change.
+
 ## 26.1030.141231 - 2026-10-30
 
 - Support same-terminal ARRAY names, bounded STRING capacities and flat/nested

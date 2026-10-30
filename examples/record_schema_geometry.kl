@@ -1,0 +1,14 @@
+PROGRAM RECORDGEOMETRY
+TYPE in_t=STRUCTURE pose:XYZWPR joints:JOINTPOS2 ENDSTRUCTURE
+     out_t=STRUCTURE joints:JOINTPOS9 pose:POSITION ENDSTRUCTURE
+VAR original:in_t result:out_t cfg:CONFIG axes:ARRAY[2]OF REAL status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N R U T, 0, 0, 0',cfg,status)
+    original.pose=POS(1,2,3,0,0,0,cfg)
+    axes[1]=10 axes[2]=-20
+    CNV_REL_JPOS(axes,original.joints,status)
+    result=original
+    done=TRUE
+  ENDIF
+END RECORDGEOMETRY

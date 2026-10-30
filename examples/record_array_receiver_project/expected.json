@@ -1,0 +1,38 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": [
+        [
+          {
+            "COUNT": 7,
+            "LABEL": "abcdefgh"
+          },
+          {
+            "COUNT": 8,
+            "LABEL": "xy"
+          }
+        ]
+      ],
+      "RESULT": [
+        [
+          {
+            "LABEL": "abc",
+            "COUNT": 7.0
+          },
+          {
+            "LABEL": "xy",
+            "COUNT": 8.0
+          }
+        ]
+      ],
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": 7.0
+    }
+  }
+}

@@ -374,14 +374,18 @@ def _array_conversion_cells(value):
         for index in range(len(value.values)):yield value.values,index
 
 
-def _array_conversion_storage(target,source,line=None):
-    axes=iter(array_dimensions(source.spec));source_leaf=array_leaf_spec(source.spec)
+def _array_conversion_spec(target,source_spec):
+    axes=iter(array_dimensions(source_spec));source_leaf=array_leaf_spec(source_spec)
     def concrete(expected):
         dimensions=tuple(next(axes) for _ in array_shape(expected))
         shape=dimensions if type(expected[1]) is tuple else dimensions[0]
         element=concrete(expected[2]) if expected[2][0]=='ARRAY' else source_leaf if expected[2]==('STRING',None) else expected[2]
         return ('ARRAY',shape,element,*expected[3:])
-    spec=concrete(target)
+    return concrete(target)
+
+
+def _array_conversion_storage(target,source,line=None):
+    spec=_array_conversion_spec(target,source.spec)
     if scalar_leaf_count(spec)>32767:raise KarelRuntimeError('ARRAY conversion exceeds 32767 scalar leaves',line)
     return Array(spec)
 
@@ -1391,8 +1395,8 @@ def array_result(spec, value, line=None):
     return _aggregate_value(value.spec, value, line)
 
 
-def _partial_aggregate_value(spec, value, line=None):
-    """Validate every declared field before detaching partial data-only values."""
+def _validate_data_schema(spec,line=None):
+    """Validate a bounded data-only schema before allocation or value capture."""
     schema_cache={}
     def schema(expected,trail=()):
         if type(expected) is not tuple or not expected or type(expected[0]) is not str:
@@ -1443,10 +1447,15 @@ def _partial_aggregate_value(spec, value, line=None):
         if count>32767:raise KarelRuntimeError('Aggregate values are limited to 32767 scalar leaves by the prototype',line)
         schema_cache[id(expected)]=(count,height);return count
 
-    try:schema(spec)
+    try:return schema(spec)
     except KarelRuntimeError as exc:
         if exc.line is None and line is not None:raise KarelRuntimeError(str(exc),line) from None
         raise
+
+
+def _partial_aggregate_value(spec, value, line=None):
+    """Validate every declared field before detaching partial data-only values."""
+    _validate_data_schema(spec,line)
     def copy_value(expected,item,trail=()):
         kind=expected[0]
         if kind in ('ARRAY','JOINTPOS',*RECORD_TYPES):
@@ -2617,13 +2626,18 @@ class State:
             raise KarelRuntimeError('Kinematic interfaces require one joint and one Cartesian type',line)
         return self._kinematic_conversion(target,value,line,'KINEMATIC_RETURN' if result else 'KINEMATIC_ARGUMENT')
 
-    def array_assignment_value(self,value,target,line=None):
+    def array_assignment_value(self,value,target,line=None,*,source_spec=None):
         """Honor the actual schema of a borrowed generic ARRAY receiver."""
         if not _pythonic():raise KarelRuntimeError('Source ARRAY assignment requires Pythonic mode',line)
         if type(value) is not Array:raise KarelRuntimeError('Source ARRAY assignment requires ARRAY data',line)
+        if source_spec is not None:
+            _validate_data_schema(value.spec,line)
+            if not parameter_accepts(source_spec,value.spec):
+                raise KarelRuntimeError('STRUCTURE conversion source storage does not match its declared schema',line)
         if numeric_array_kind(target,value.spec):return convert_numeric_array(target,value,line)
         if positional_array_kind(target,value.spec):return convert_positional_array(target,value,line)
         if kinematic_array_kind(target,value.spec):return self.kinematic_array(target,value,line)
+        if record_schema_kind(target,value.spec):return convert_record_schema(target,value,line,source_spec=source_spec)
         return convert_array_schema(target,value,line)
 
     def kinematic_array(self,target,value,line=None,*,kind='ASSIGNMENT'):
@@ -3075,6 +3089,7 @@ from .forms import FormControls,FORM_CALLS
 from .controller import ControllerServices,CONTROLLER_CALLS
 from .vision import VisionServices,VISION_CALLS
 from .source_translations import SourceTranslations
+from .record_schemas import record_schema_kind,convert_record_schema
 from .serial_io import SerialStreams
 from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,selector as motion_selector,
                      SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS)

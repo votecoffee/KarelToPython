@@ -1,0 +1,88 @@
+{
+  "ORIGINAL": {
+    "POSE": {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": 3.0,
+      "W": 0.0,
+      "P": 0.0,
+      "R": 0.0,
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": true,
+        "CFG_FRONT": true
+      }
+    },
+    "JOINTS": {
+      "axes": [
+        10.0,
+        -20.0
+      ]
+    }
+  },
+  "RESULT": {
+    "JOINTS": {
+      "axes": [
+        10.0,
+        -20.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "POSE": {
+      "NORMAL": {
+        "X": 1.0,
+        "Y": 0.0,
+        "Z": 0.0
+      },
+      "ORIENT": {
+        "X": 0.0,
+        "Y": 1.0,
+        "Z": 0.0
+      },
+      "APPROACH": {
+        "X": 0.0,
+        "Y": 0.0,
+        "Z": 1.0
+      },
+      "LOCATION": {
+        "X": 1.0,
+        "Y": 2.0,
+        "Z": 3.0
+      },
+      "CONFIG_DATA": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": false,
+        "CFG_LEFT": false,
+        "CFG_UP": true,
+        "CFG_FRONT": true
+      }
+    }
+  },
+  "CFG": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": true,
+    "CFG_FRONT": true
+  },
+  "AXES": [
+    10.0,
+    -20.0
+  ],
+  "STATUS": 0,
+  "DONE": true
+}

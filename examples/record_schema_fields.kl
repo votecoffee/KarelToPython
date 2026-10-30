@@ -1,0 +1,15 @@
+PROGRAM RECORDFIELDS
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE
+     out_t=STRUCTURE label:STRING[3] count:REAL ENDSTRUCTURE
+VAR original:in_t result:out_t seen:REAL done:BOOLEAN
+ROUTINE edit(value:out_t)
+BEGIN value.count=99 seen=value.count END edit
+ROUTINE make:out_t BEGIN RETURN original END make
+BEGIN
+  IF UNINIT(done) THEN
+    original.count=7 original.label='abcdefgh'
+    edit(original)
+    result=make()
+    done=TRUE
+  ENDIF
+END RECORDFIELDS

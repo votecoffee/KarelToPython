@@ -46,10 +46,11 @@ components remain concrete. The existing 32767-leaf bound remains.
 ARRAY names, bounded STRING capacities and rebuilding a flat ARRAY[2,2] as two
 named rows of length two. It preserves logical coordinates and receiver schemas;
 equal element counts alone do not permit reshape or dimension changes.
-Whole STRUCTURE schema coercion remains unavailable.
+Compatible whole STRUCTURE and record-terminal changes follow
+[source record conversions](record-schema-conversions.md), with identical field-name sets.
 
-A numeric ARRAY field within a STRUCTURE can convert separately. This does not
-convert the surrounding STRUCTURE or grant writes to POSITION orientation fields.
+A numeric ARRAY field within a STRUCTURE can also convert separately. Neither
+operation grants writes to POSITION orientation fields.
 Complete chained selectors and selected named subarrays use their existing
 capture rules.
 

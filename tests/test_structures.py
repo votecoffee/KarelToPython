@@ -260,11 +260,14 @@ class StructureRejectionTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body, routines, **kwargs)
         self.assertEqual(caught.exception.code, code, str(caught.exception))
 
-    def test_identical_shape_different_type_cannot_assign(self):
-        self.rejected('item = alien')
+    def test_identical_shape_different_type_assigns_an_independent_value(self):
+        p,_=compile_program('alien.count=7 item=alien alien.count=9')
+        self.assertEqual(p.run()['ITEM']['COUNT'],7)
+        self.assertEqual(p._state.values['ITEM'].spec[1],'INNER')
 
-    def test_identical_shape_different_type_cannot_bind(self):
-        self.rejected('fill(alien)', 'ROUTINE fill(p: inner) BEGIN END fill')
+    def test_identical_shape_different_type_argument_is_private(self):
+        p,_=compile_program('alien.count=7 fill(alien)','ROUTINE fill(p:inner) BEGIN p.count=9 result=p.count END fill')
+        state=p.run();self.assertEqual((state['ALIEN']['COUNT'],state['RESULT']),(7,9))
 
     def test_strict_parenthesized_structure_requires_initialized_value(self):
         program,_=compile_program('fill((item))','ROUTINE fill(p: inner) BEGIN END fill', _translator=legacy_translate)

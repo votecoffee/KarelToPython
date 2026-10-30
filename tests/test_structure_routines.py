@@ -136,8 +136,13 @@ class StructureRoutineGuardTests(unittest.TestCase):
     def reject(self,code,body='',**kwargs):
         with self.assertRaises(TranslationError) as caught: compile_program(body,**kwargs)
         self.assertEqual(caught.exception.code,code,str(caught.exception))
-    def test_distinct_nominal_result_type(self): self.reject('E_RETURN',declarations='alien: other_t',routines='ROUTINE get: child_t BEGIN RETURN alien END get')
-    def test_distinct_nominal_argument_type(self): self.reject('E_TYPE','change((alien))',declarations='alien: other_t',routines='ROUTINE change(p: child_t) BEGIN END change')
+    def test_distinct_nominal_result_is_an_independent_declared_value(self):
+        p,_=compile_program("alien.count=7 alien.label='abc' result=get() alien.count=9",declarations='alien:other_t result:child_t',routines='ROUTINE get:child_t BEGIN RETURN alien END get')
+        self.assertEqual(p.run()['RESULT'],{'COUNT':7,'LABEL':'abc'})
+        self.assertEqual(p._state.values['RESULT'].spec[1],'CHILD_T')
+    def test_distinct_nominal_argument_owns_private_storage(self):
+        p,_=compile_program("alien.count=7 change((alien))",declarations='alien:other_t seen:INTEGER',routines='ROUTINE change(p:child_t) BEGIN p.count=9 seen=p.count END change')
+        state=p.run();self.assertEqual((state['ALIEN']['COUNT'],state['SEEN']),(7,9))
     def test_wrong_scalar_return(self): self.reject('E_RETURN',routines='ROUTINE get: packet_t BEGIN RETURN 1 END get')
     def test_missing_return_expression(self): self.reject('E_RETURN',routines='ROUTINE get: packet_t BEGIN RETURN END get')
     def test_unknown_return_type(self): self.reject('E_TYPE',routines='ROUTINE get: missing_t BEGIN END get')

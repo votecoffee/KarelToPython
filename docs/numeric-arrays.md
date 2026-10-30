@@ -86,8 +86,8 @@ convert into independent receiver schemas when their numeric terminal type chang
 Logical dimensions must match. [Schema conversions](array-schema-conversions.md)
 also copy same-terminal ARRAY names and rebuild compatible component layouts.
 Transparent scalar aliases work as numeric terminal types.
-An ARRAY field inside a named STRUCTURE can convert separately; this does not
-coerce the whole STRUCTURE schema.
+An ARRAY field inside a named STRUCTURE can convert separately. Compatible
+whole records follow [source record conversions](record-schema-conversions.md).
 
 Linked routine declarations/definitions must agree exactly. A matching source
 or callback interface can receive privately converted actuals. Raw callback

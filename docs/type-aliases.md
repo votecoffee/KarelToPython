@@ -45,7 +45,8 @@ The same distinction applies to an alias of a STRUCTURE versus a new STRUCTURE
 definition. Nested ARRAY aliases retain their original component identities.
 Compatible [source ARRAY schema conversion](array-schema-conversions.md) may copy
 between distinct ARRAY names into private receiver schemas; it does not make
-them aliases or coerce whole STRUCTURE definitions.
+them aliases. Compatible whole STRUCTURE definitions follow
+[source record conversions](record-schema-conversions.md) and keep receiver identities.
 
 Scalar aliases use the underlying arithmetic and comparison rules, including
 INTEGER-to-REAL promotion and Pythonic numeric approximations. Bounded STRING

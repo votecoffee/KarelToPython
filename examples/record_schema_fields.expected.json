@@ -1,0 +1,12 @@
+{
+  "ORIGINAL": {
+    "COUNT": 7,
+    "LABEL": "abcdefgh"
+  },
+  "RESULT": {
+    "LABEL": "abc",
+    "COUNT": 7.0
+  },
+  "SEEN": 99.0,
+  "DONE": true
+}
