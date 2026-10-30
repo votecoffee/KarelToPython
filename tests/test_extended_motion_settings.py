@@ -218,8 +218,8 @@ class MotionSettingHistoryTests(unittest.TestCase):
     def test_old_six_setting_history_remains_valid(self):
         _,ctx,_,_=execute('ATTACH WITH '+','.join(ALL.split(',')[:6])+' MOVE TO p');saved=ctx.motion.to_config();self.assertEqual(rt.MotionRequests.from_config(saved).to_config(),saved)
 
-    def test_nine_setting_limit_is_enforced_at_translation(self):
-        with self.assertRaises(TranslationError):program('ATTACH WITH '+ALL+',$SPEED=1 MOVE TO p')
+    def test_eleven_setting_limit_is_enforced_at_translation(self):
+        with self.assertRaises(TranslationError):program('ATTACH WITH '+ALL+',$DECELTOL=50,$USEMAXACCEL=TRUE,$SPEED=1 MOVE TO p')
 
 
 class MotionSettingScopeTests(unittest.TestCase):
@@ -252,7 +252,7 @@ class MotionSettingScopeTests(unittest.TestCase):
         _,_,_,r=execute('ATTACH WITH $GROUP[1].$TERMTYPE=FINE MOVE AWAY 1');site=r.report['motion_requests'][-1]['settings'][0];self.assertEqual((site['name'],site['group_qualified']),('$TERMTYPE',True));self.assertGreater(site['column'],1)
 
     def test_report_lists_domains_alias_and_limit(self):
-        _,_,_,r=execute('ATTACH WITH $TERMTYPE=FINE MOVE AWAY 1');policy=r.report['motion_setting_policy'];self.assertEqual(policy['maximum'],9);self.assertEqual(policy['choices']['$MOTYPE']['STRAIGHT'],7);self.assertFalse(policy['controller_validated']);json.dumps(r.report)
+        _,_,_,r=execute('ATTACH WITH $TERMTYPE=FINE MOVE AWAY 1');policy=r.report['motion_setting_policy'];self.assertEqual(policy['maximum'],11);self.assertEqual(policy['choices']['$MOTYPE']['STRAIGHT'],7);self.assertFalse(policy['controller_validated']);json.dumps(r.report)
 
     def test_context_frames_and_feedback_are_not_applied(self):
         from tests.test_joint_interoperability import model_context
@@ -260,7 +260,7 @@ class MotionSettingScopeTests(unittest.TestCase):
         execute('ATTACH WITH $TERMTYPE=FINE,$ORIENT_TYPE=WRISTJOINT,$UFRAME=p,$UTOOL=q MOVE TO p',ctx=ctx);self.assertEqual(robot.to_config(),before)
 
     def test_other_motion_variables_remain_rejected(self):
-        for name in ('$ACCEL_OVRD','$SEG_TIME','$REF_POS','$DYN_I_COMP'):
+        for name in ('$ACCEL_OVRD','$SEG_TIME','$REF_POS','$DYN_I_COMP','$ACCU_NUM','$CNSTNT_PATH','$CONTAXISVEL','$TIME_SHIFT','$USE_CARTACC','$USERELACCEL','$USETIMESHFT'):
             with self.subTest(name=name),self.assertRaises(TranslationError):program('ATTACH WITH '+name+'=1 MOVE AWAY 1')
 
     def test_strict_mode_remains_a_future_milestone(self):

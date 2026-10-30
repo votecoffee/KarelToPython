@@ -108,8 +108,9 @@ forms are rejected; no compression flag or iPC connection is guessed.
 
 Filename suffixes `.PNG` and `.BMP` are case-insensitive. PNG export uses the
 supplied 8/16-bit depth, noninterlaced grayscale/truecolor with optional alpha,
-filter zero and zlib compression. A 16-bit BMP save returns unsupported status 2;
-no sample scaling is performed.
+filter zero and zlib compression. [BMP from 16-bit samples](vision-bmp-samples.md)
+uses explicit per-component rounding to eight bits, including alpha; source
+samples and PNG output retain full precision.
 Existing grayscale/RGB BMP export retains bottom-up 24-bit BGR rows with padding.
 Alpha BMP uses 32-bit BGRA, a V4 header and explicit bit masks; grayscale-alpha
 replicates gray into RGB while retaining alpha. See [alpha images](vision-alpha-images.md).

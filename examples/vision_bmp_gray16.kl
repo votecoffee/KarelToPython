@@ -1,0 +1,9 @@
+PROGRAM VISION_BMP_GRAY16
+VAR status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    V_SAVE_IMREG(1,'out.bmp',status)
+    V_SAVE_IMREG(1,'out.png',status)
+    done=TRUE
+  ENDIF
+END VISION_BMP_GRAY16

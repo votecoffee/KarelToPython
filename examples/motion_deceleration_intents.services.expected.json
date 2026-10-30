@@ -1,0 +1,100 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_DECELERATION_INTENTS",
+        "source_program": "MOTION_DECELERATION_INTENTS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_DECELERATION_INTENTS",
+        "source_program": "MOTION_DECELERATION_INTENTS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 10.0,
+          "settings": [
+            {
+              "name": "$DECELTOL",
+              "group": 1,
+              "value": 50
+            },
+            {
+              "name": "$USEMAXACCEL",
+              "group": 1,
+              "value": true
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_DECELERATION_INTENTS",
+        "source_program": "MOTION_DECELERATION_INTENTS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 5.0,
+          "settings": [
+            {
+              "name": "$DECELTOL",
+              "group": 1,
+              "value": 0
+            },
+            {
+              "name": "$USEMAXACCEL",
+              "group": 1,
+              "value": false
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MOTION_DECELERATION_INTENTS",
+        "source_program": "MOTION_DECELERATION_INTENTS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

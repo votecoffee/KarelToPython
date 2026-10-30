@@ -337,9 +337,9 @@ class MotionControlExclusions(unittest.TestCase):
                      'n=$SPEED','$SPEED=25'):
             with self.subTest(body=body),self.assertRaises(TranslationError):program(body)
 
-    def test_more_than_31_control_groups_or_nine_settings_is_rejected(self):
+    def test_more_than_31_control_groups_or_eleven_settings_is_rejected(self):
         for body in ('HOLD GROUP['+','.join('1' for _ in range(32))+']',
-                     'WITH '+','.join('$SPEED=1' for _ in range(10))+' MOVE AWAY 1'):
+                     'WITH '+','.join('$SPEED=1' for _ in range(12))+' MOVE AWAY 1'):
             with self.subTest(body=body),self.assertRaises(TranslationError):program(body)
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1030.200022 - 2026-10-30
+
+- Expand MOVE WITH capture to eleven settings with checked DECELTOL INTEGER
+  0..99 and exact BOOLEAN USEMAXACCEL. Retain zero as unspecified default intent,
+  ordered group/value capture, scope lifetimes and validated saved history.
+- Export supplied 16-bit grayscale/GA/RGB/RGBA samples as ordinary 24-bit RGB or
+  32-bit alpha BMP, rounding each component with (sample+128)//257. Keep exact
+  source samples, captures, registers, saved context and lossless PNG output.
+- Preserve complete raw/encoded-size preflight, per-row execution checkpoints,
+  file busy/read-only/capacity guards and atomic publication. Retain existing
+  8-bit/palette artifact bytes, supplied motion timing and explicit robot context.
+- Add sixty regressions, four examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory, API, guides and ledgers.
+  Native motion, packed 16-bit BMP pixels and strict mode remain separate boundaries.
+
 ## 26.1030.192713 - 2026-10-30
 
 - Add checked one-based JOINTPOS axis subscripts as a Pythonic input extension.

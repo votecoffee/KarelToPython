@@ -1,0 +1,32 @@
+{
+  "files": {},
+  "vision": {
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "runs": [],
+        "parameters": {}
+      }
+    },
+    "io": {
+      "image_count": 1,
+      "images": {
+        "1": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 2,
+            "height": 1,
+            "channels": 2,
+            "sample_bits": 16,
+            "pixels": "0123fffffedc0000"
+          }
+        }
+      }
+    }
+  }
+}

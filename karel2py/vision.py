@@ -509,20 +509,25 @@ class VisionIO:
 
 
 def encode_raster(image,format,limit,check):
-    """Encode checked 8-bit samples, retaining explicit unassociated alpha."""
+    """Encode checked samples; BMP rounds 16-bit components to eight bits."""
     import struct
     import zlib
     image=raster(image,_IMAGE_RAW_LIMIT)
     if format not in ('PNG','BMP'):raise ValueError('Raster export requires PNG or BMP')
     width,height,channels,pixels=(image[k] for k in ('width','height','channels','pixels'))
     palette=image.get('palette');bits=image.get('sample_bits',8)
-    if format=='BMP' and bits==16:raise ValueError('16-bit sample BMP export is unsupported; use PNG')
+    def bmp_row(y):
+        # Called after size preflight and a row checkpoint, before publication.
+        stride=width*channels*(bits//8);row=pixels[y*stride:(y+1)*stride]
+        if bits==16:
+            row=bytes((row[i]*256+row[i+1]+128)//257 for i in range(0,len(row),2))
+        return row
     if format=='BMP' and (channels in (2,4) or palette is not None):
         stride=width*4;offset=14+108;size=offset+stride*height
         if size>limit:return None
         rows=[];colors=None if palette is None else tuple(bytes((palette[i+2],palette[i+1],palette[i],palette[i+3])) for i in range(0,len(palette),4))
         for y in range(height-1,-1,-1):
-            check();row=pixels[y*width*channels:(y+1)*width*channels]
+            check();row=bmp_row(y)
             if colors is not None:rows.append(b''.join(colors[index] for index in row));continue
             bgra=bytearray(stride)
             if channels==2:
@@ -538,7 +543,7 @@ def encode_raster(image,format,limit,check):
         if size>limit:return None
         rows=[]
         for y in range(height-1,-1,-1):
-            check();row=pixels[y*width*channels:(y+1)*width*channels]
+            check();row=bmp_row(y)
             if channels==1:row=b''.join(bytes((v,v,v)) for v in row)
             else:
                 bgr=bytearray(len(row));bgr[0::3]=row[2::3];bgr[1::3]=row[1::3];bgr[2::3]=row[0::3];row=bytes(bgr)
@@ -664,10 +669,6 @@ def invoke_io(bank,state,operation,args,line):
             else:
                 extension=filename.rsplit('.',1)[-1].upper() if '.' in filename else ''
                 if extension not in ('PNG','BMP'):code=2
-                elif extension=='BMP' and type(io.images[number]['image'].get('sample_bits')) is int and io.images[number]['image']['sample_bits']==16:
-                    try:raster(io.images[number]['image'],_IMAGE_RAW_LIMIT)
-                    except ValueError as exc:raise rt().KarelRuntimeError('Invalid supplied image: '+str(exc),line) from exc
-                    code=2
                 else:
                     files=state.execution.require('files',line)
                     try:data=encode_raster(io.images[number]['image'],extension,files.limit,lambda:state.tick(line))

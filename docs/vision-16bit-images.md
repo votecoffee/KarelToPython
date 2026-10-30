@@ -37,10 +37,10 @@ Dimensions remain 1 through 4096.
 
 V_SAVE_IMREG exports these rasters to PNG through existing file backends and
 publication guards. PNG capacity, busy-file, budget and publication failures
-preserve previous output bytes and raster data. A 16-bit BMP save returns portable
-unsupported status 2 without changing the output; this encoder does not silently
-reduce the data to eight bits. Direct `encode_raster(..., 'BMP', ...)` raises a
-ValueError for such valid 16-bit data. Malformed supplied data remains an error.
+preserve previous output bytes and raster data. [BMP export](vision-bmp-samples.md)
+now rounds each 16-bit component to eight bits, including alpha, while preserving
+all original register/capture/JSON samples. PNG remains lossless. Malformed supplied
+data remains an error.
 
 Existing 8-bit grayscale, alpha, RGB, RGBA and palette artifact bytes remain
 unchanged. No depth-map units, proprietary image layouts, image processing,

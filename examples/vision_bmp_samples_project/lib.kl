@@ -1,0 +1,6 @@
+PROGRAM LIB
+ROUTINE save_image(status:INTEGER)
+BEGIN
+  V_SAVE_IMREG(1,'linked.bmp',status)
+END save_image
+BEGIN END LIB

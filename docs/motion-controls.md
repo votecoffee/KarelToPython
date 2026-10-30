@@ -2,7 +2,7 @@
 
 Pythonic output supports `HOLD`, `UNHOLD` and `CANCEL` through the explicit
 [MotionRequests](motion-requests.md) and [GroupLocks](group-locks.md) services.
-Nine temporary `WITH` settings can accompany any supported MOVE form. These are
+Eleven temporary `WITH` settings can accompany any supported MOVE form. These are
 offline state and request models. They do not compute trajectories, operate
 physical hands, change robot feedback or reproduce controller timing.
 
@@ -84,12 +84,13 @@ MOVE TO target
 | `$TERMTYPE`, `$SEGTERMTYPE` | FINE, COARSE, NOSETTLE, NODECEL or VARDECEL; INTEGER values 1 through 5 |
 | `$ORIENT_TYPE` | RSWORLD, AESWORLD or WRISTJOINT; INTEGER values 1 through 3 |
 | `$UFRAME`, `$UTOOL` | Complete Cartesian POSITION, XYZWPR or XYZWPREXT value, detached with its explicit representation |
-| `$USE_CONFIG` | BOOLEAN, without numeric truthiness |
+| `$USE_CONFIG`, `$USEMAXACCEL` | BOOLEAN, without numeric truthiness |
+| `$DECELTOL` | INTEGER 0..99; zero unspecified default intent, 1..99 percentage intent; see [deceleration settings](motion-deceleration-settings.md) |
 
 Each setting optionally accepts a group expression, for example
 `WITH $SPEED[group_number]=speed_value MOVE AWAY distance`. It must resolve to
 the same group as the MOVE request. Cross-group motion settings and duplicate
-settings are rejected. At most nine entries are accepted. The explicit
+settings are rejected. At most eleven entries are accepted. The explicit
 `$GROUP[group].$NAME` spelling and new enum choices follow
 [extended motion settings](extended-motion-settings.md).
 

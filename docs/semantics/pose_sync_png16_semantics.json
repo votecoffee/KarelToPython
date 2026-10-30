@@ -1,5 +1,6 @@
 {
   "version": "26.1029.231800",
+  "current_mode_note": "The earlier BMP exclusion below is superseded by vision_bmp_sample_semantics.json; PNG and saved source samples remain exact",
   "scope": "Offline Pythonic data/source execution; native/controller behavior unverified",
   "features": {
     "positional_transfers": {

@@ -127,7 +127,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('joint_axis_values', 'VALUE', -2.5),
                     ('joint_axis_aliases', 'VALUE', 7.),
                     ('joint_axis_file', 'STATUS', 0),
-                    ('joint_axis_paths', 'OUT', 7.5)]
+                    ('joint_axis_paths', 'OUT', 7.5),
+                    ('motion_deceleration_intents', 'DONE', True),
+                    ('motion_eleven_settings', 'STATUS', 0),
+                    ('vision_bmp_gray16', 'STATUS', 0),
+                    ('vision_bmp_rgba16', 'STATUS', 0)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

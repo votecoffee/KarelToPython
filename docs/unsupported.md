@@ -31,8 +31,9 @@ they are boundaries rather than promises to accept every such source form later.
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
-  now support HOLD/UNHOLD/CANCEL, global handler actions and nine per-request WITH
-  settings, including [termination/orientation choices](extended-motion-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
+  now support HOLD/UNHOLD/CANCEL, global handler actions and eleven per-request WITH
+  settings, including [termination/orientation choices](extended-motion-settings.md)
+  and [deceleration/acceleration intent](motion-deceleration-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
   now use synchronous scopes with pause/resume and cleanup. NOWAIT with local
   clauses/delayed completion, inferred node arrivals, remaining WITH variables,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
@@ -360,7 +361,9 @@ they are boundaries rather than promises to accept every such source form later.
   PNG/32-bit BMP transparency. [Explicit palette images](vision-palette-images.md)
   now retain 8-bit indices and supplied RGBA colors with indexed PNG/BMP export.
   Explicit [16-bit samples](vision-16bit-images.md) now retain grayscale/GA/RGB/RGBA
-  PNG data; 16-bit BMP remains unsupported. Physical depth maps, proprietary image
+  PNG data; [BMP export](vision-bmp-samples.md) now rounds those components to
+  eight bits while preserving exact source samples. Packed 16-bit BMP pixels,
+  physical depth maps, proprietary image
   layouts and color/calibration transforms remain unavailable. Twelve
   [legacy tracking calls](vision-tracking.md) now add timed queues, receipts,
   VT result/lookup forms, supplied point maps and a portable local outbox.

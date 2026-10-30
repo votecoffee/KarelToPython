@@ -1,0 +1,17 @@
+{
+  "version": "26.1030.200022",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../vision-bmp-samples.md",
+  "tests": [
+    "tests/test_vision_bmp_samples.py",
+    "tests/test_vision_16bit_images.py"
+  ],
+  "input": "Explicit unsigned big-endian 16-bit components on grayscale/GA/RGB/RGBA supplied rasters",
+  "rounding": "(sample+128)//257 per component including alpha; nearest 8-bit value; endpoints retained, reconstruction error at most 128 input units",
+  "encoding": "Bottom-up padded 24-bit BGR or 32-bit V4 BITFIELDS BGRA; preserve hidden colors and independent alpha",
+  "preflight": "Complete raw validation/quotas before encoded-size preflight; size checked before bounded row allocation and checkpoints; existing file publication guards",
+  "lifetime": "Source image/captures/registers and JSON remain exact; PNG stays lossless; prior bytes/status retained on errors",
+  "boundaries": "No packed 16-bit BMP, color/calibration processing, premultiplication, native renderer/camera/controller or strict equivalence",
+  "supersedes": "Previous unsupported status 2 for valid 16-bit-sample BMP output"
+}

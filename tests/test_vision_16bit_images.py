@@ -126,13 +126,14 @@ class SixteenBitImageTests(unittest.TestCase):
         self.assertEqual(state['S'],0);self.assertEqual(decoded(ctx.files.snapshot()['out.png'])[3],[[0x0102,0xabcd,0xffff,0],[0x8000,1,0x1234,0xff]])
         self.assertEqual(ctx.vision.io.to_config(),before)
 
-    def test_16bit_bmp_returns_unsupported_without_changing_existing_file(self):
+    def test_16bit_bmp_replaces_existing_file_without_changing_supplied_samples(self):
         ctx=supplied();ctx.files.files['out.bmp']=bytearray(b'keep');before=deepcopy(ctx.vision.io.to_config())
         state,_,_=execute("V_SAVE_IMREG(1,'out.bmp',s)",ctx)
-        self.assertEqual((state['S'],ctx.files.snapshot()['out.bmp']),(2,b'keep'));self.assertEqual(ctx.vision.io.to_config(),before)
-        with self.assertRaisesRegex(ValueError,'use PNG'):encode_raster(image(),'BMP',1000,lambda:None)
+        self.assertEqual(state['S'],0);self.assertTrue(ctx.files.snapshot()['out.bmp'].startswith(b'BM'))
+        self.assertEqual(ctx.vision.io.to_config(),before)
+        self.assertEqual(ctx.files.snapshot()['out.bmp'],encode_raster(image(),'BMP',1000,lambda:None))
 
-    def test_bmp_unsupported_does_not_hide_mutated_malformed_raster(self):
+    def test_bmp_export_rejects_mutated_malformed_raster(self):
         ctx=supplied();ctx.vision.io.images[1]['image']['pixels']=b'bad'
         p,_=compile_program("s=77 V_SAVE_IMREG(1,'out.bmp',s)",context=ctx)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'Invalid supplied image'):p.run()

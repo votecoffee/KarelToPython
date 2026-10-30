@@ -5972,9 +5972,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/synchronous-program-calls.md',controller_validated=False)
     report['vision_sample_depth_policy']=dict(
         input='Optional sample_bits=8 or 16 on supplied 1/2/3/4-channel rasters; omitted retains 8; 16-bit samples use explicit big-endian bytes and retain every component including alpha',
-        export='16-bit grayscale/GA/RGB/RGBA PNG uses matching IHDR depth and color type with unscaled bytes; 16-bit BMP source saves return unsupported status 2 without file changes',
+        export='16-bit grayscale/GA/RGB/RGBA PNG preserves samples; BMP uses vision_bmp_sample_policy to round each component into the existing 24-bit RGB or 32-bit RGBA encoding',
         limits='Compute raw and combined quotas from bytes per sample before hex decoding/allocation; preserve sample_bits through captures/finds/registers and JSON',
-        boundary='Palette indices remain 8-bit; no sample-depth inference, scaling, proprietary depth layout, calibration, hardware acquisition or native format equivalence; legacy 8-bit artifacts unchanged',
+        boundary='Palette indices remain 8-bit; BMP-only rounding follows vision_bmp_sample_policy; no source/PNG scaling, sample-depth inference, proprietary depth layout, calibration, hardware acquisition or native format equivalence; legacy 8-bit artifacts unchanged',
         guide='docs/vision-16bit-images.md',controller_validated=False)
     report['dynamic_select_policy']=dict(
         source='Compatible scalar expressions in CASE lists; declared/lexical fields, indices, operators and typed functions retain ordinary effect guards',
@@ -6194,6 +6194,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['motion_setting_policy']=dict(
         settings=dict(rt.MOTION_SETTINGS),maximum=len(rt.MOTION_SETTINGS),
         choices={name:dict(values) for name,values in rt.MOTION_SETTING_CONSTANTS.items()},
+        deceleration='DECELTOL is INTEGER 0..99; zero retains an unspecified configured-default intent without resolving it; 1..99 retain percentage intent',
+        acceleration='USEMAXACCEL is exact BOOLEAN; request-local intent only, with no generated acceleration profile',
         source='Contextual INTEGER names/expressions for MOTYPE, TERMTYPE, SEGTERMTYPE and ORIENT_TYPE; STRAIGHT canonicalizes to LINEAR; ordinary names outside that setting retain lexical lookup',
         groups='Unqualified NAME, NAME[n] or explicit $GROUP[n].$NAME; exactly one group expression per setting, matching the MOVE selected group; no cross-group settings',
         capture='Each group expression then setting value once in source order, before MOVE operands and local condition captures; detached frame/tool data',
@@ -6202,6 +6204,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Canonical enumeration strings in validated JSON history; source STRAIGHT alias is saved as LINEAR; no callbacks or active scopes',
         boundary='Other motion variables, cross-group execution, arbitrary system-variable access, NOWAIT scopes, native/compiler/controller equivalence and public strict mode remain unavailable',
         guide='docs/extended-motion-settings.md',controller_validated=False)
+    report['vision_bmp_sample_policy']=dict(
+        source='Explicit sample_bits=16 on grayscale/GA/RGB/RGBA rasters; big-endian unsigned components in 0..65535',
+        rounding='Round to nearest 8-bit component with (sample+128)//257, independently including alpha; endpoints 0 and 65535 map to 0 and 255',
+        format='Existing bottom-up 24-bit RGB BMP for grayscale/RGB; 32-bit V4 BITFIELDS BMP for GA/RGBA; no 16-bit packed-pixel BMP or source mutation',
+        limits='Validate complete raster and raw byte quotas first; exact encoded-size preflight before row allocation/checkpoints; existing file publication, busy, read-only, quota and budget guards',
+        lifetime='Supplied samples, captures, registers and JSON remain exact 16-bit data; PNG export remains lossless; no color management, premultiplication or calibration',
+        evidence='Explicit lossy Pythonic export policy; no native renderer, camera/controller or strict equivalence claim',
+        guide='docs/vision-bmp-samples.md',controller_validated=False)
     report['joint_axis_policy']=dict(
         source='Pythonic one-based JOINTPOS axis subscripts; one axis after complete ARRAY indexes, including chained/named components, nested fields and exact routine formals',
         values='Selected axes use finite REAL storage under the existing portable joint conventions; declared widths 1..9, unsuffixed JOINTPOS9; unselected axes may remain missing',

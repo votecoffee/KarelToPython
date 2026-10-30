@@ -1,5 +1,6 @@
 {
   "version": "26.1030.185500",
+  "current_mode_note": "Current eleven-setting maximum and DECELTOL/USEMAXACCEL follow motion_deceleration_semantics.json; historical nine-setting details below retain their release scope",
   "mode": "pythonic",
   "controller_validated": false,
   "guide": "../extended-motion-settings.md",

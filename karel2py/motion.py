@@ -16,7 +16,8 @@ POSES = ('POSITION', 'XYZWPR', 'XYZWPREXT', 'JOINTPOS')
 MAX_SEQUENCE = 2147483646
 SETTINGS = {'$SPEED':'REAL', '$ROTSPEED':'REAL', '$MOTYPE':'INTEGER',
             '$UFRAME':'POSE', '$UTOOL':'POSE', '$USE_CONFIG':'BOOLEAN',
-            '$TERMTYPE':'INTEGER', '$SEGTERMTYPE':'INTEGER', '$ORIENT_TYPE':'INTEGER'}
+            '$TERMTYPE':'INTEGER', '$SEGTERMTYPE':'INTEGER', '$ORIENT_TYPE':'INTEGER',
+            '$DECELTOL':'INTEGER', '$USEMAXACCEL':'BOOLEAN'}
 KINDS = {6:'JOINT', 7:'LINEAR', 8:'CIRCULAR'}
 TERMINATIONS = {1:'FINE', 2:'COARSE', 3:'NOSETTLE', 4:'NODECEL', 5:'VARDECEL'}
 ORIENTATIONS = {1:'RSWORLD', 2:'AESWORLD', 3:'WRISTJOINT'}
@@ -178,7 +179,12 @@ def setting(name, value, spec, line=None):
         if value < 0:
             raise runtime.KarelRuntimeError('Motion speed settings require nonnegative finite values', line)
         return value
-    if name == '$USE_CONFIG':
+    if name == '$DECELTOL':
+        value = runtime.integer(value, line)
+        if not 0 <= value <= 99:
+            raise runtime.KarelRuntimeError('Motion DECELTOL requires INTEGER 0..99', line)
+        return value
+    if name in SETTINGS and SETTINGS[name] == 'BOOLEAN':
         return runtime.boolean(value, line)
     if name in ('$UFRAME', '$UTOOL') and spec[0] in POSES[:-1]:
         return operand(value, spec, line)
@@ -352,9 +358,11 @@ class MotionRequests:
                             raise ValueError('VIA conflicts with the explicit motion type')
                 elif name in ('$UFRAME', '$UTOOL'):
                     typed(value, POSES[:-1])
-                elif name == '$USE_CONFIG':
+                elif name == '$DECELTOL':
+                    bounded(value, 0, 99, 'DECELTOL requires INTEGER 0..99')
+                elif SETTINGS[name] == 'BOOLEAN':
                     if type(value) is not bool:
-                        raise ValueError('USE_CONFIG requires BOOLEAN')
+                        raise ValueError(name+' requires BOOLEAN')
                 else:
                     runtime = rt()
                     with runtime._numeric_scope('pythonic'):

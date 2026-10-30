@@ -1,0 +1,183 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_ELEVEN_SETTINGS",
+        "source_program": "MOTION_ELEVEN_SETTINGS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_ELEVEN_SETTINGS",
+        "source_program": "MOTION_ELEVEN_SETTINGS",
+        "operation": "MOVE TO",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "target": {
+            "type": [
+              "XYZWPR"
+            ],
+            "value": {
+              "X": 10.0,
+              "Y": 20.0,
+              "Z": 30.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          "settings": [
+            {
+              "name": "$SPEED",
+              "group": 1,
+              "value": 25.0
+            },
+            {
+              "name": "$ROTSPEED",
+              "group": 1,
+              "value": 10.0
+            },
+            {
+              "name": "$MOTYPE",
+              "group": 1,
+              "value": "LINEAR"
+            },
+            {
+              "name": "$UFRAME",
+              "group": 1,
+              "value": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 10.0,
+                  "Y": 20.0,
+                  "Z": 30.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              }
+            },
+            {
+              "name": "$UTOOL",
+              "group": 1,
+              "value": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 40.0,
+                  "Y": 50.0,
+                  "Z": 60.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              }
+            },
+            {
+              "name": "$USE_CONFIG",
+              "group": 1,
+              "value": false
+            },
+            {
+              "name": "$TERMTYPE",
+              "group": 1,
+              "value": "FINE"
+            },
+            {
+              "name": "$SEGTERMTYPE",
+              "group": 1,
+              "value": "NOSETTLE"
+            },
+            {
+              "name": "$ORIENT_TYPE",
+              "group": 1,
+              "value": "WRISTJOINT"
+            },
+            {
+              "name": "$DECELTOL",
+              "group": 1,
+              "value": 75
+            },
+            {
+              "name": "$USEMAXACCEL",
+              "group": 1,
+              "value": true
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_ELEVEN_SETTINGS",
+        "source_program": "MOTION_ELEVEN_SETTINGS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 13,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

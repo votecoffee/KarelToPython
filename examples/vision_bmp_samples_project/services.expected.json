@@ -1,0 +1,63 @@
+{
+  "vision": {
+    "count": 10,
+    "registers": {},
+    "processes": {
+      "SCAN": {
+        "views": [
+          1
+        ],
+        "parameters": {},
+        "overwritten": {},
+        "temporary": {},
+        "runs": [],
+        "active": null,
+        "cursor": 0,
+        "reference": null
+      }
+    },
+    "overrides": {},
+    "limit": 500,
+    "sequence": 1,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "V_SAVE_IMREG",
+        "target": "1",
+        "status": 0
+      }
+    ],
+    "io": {
+      "image_count": 1,
+      "image_limit": 16777216,
+      "images": {
+        "1": {
+          "process": "SCAN",
+          "views": [
+            1
+          ],
+          "image": {
+            "width": 2,
+            "height": 1,
+            "channels": 2,
+            "pixels": "0123fffffedc0000",
+            "sample_bits": 16
+          }
+        }
+      },
+      "captures": [],
+      "cameras": {},
+      "calibrations": {},
+      "display_tools": {},
+      "displayed": null,
+      "led_channels": [],
+      "led": null
+    }
+  },
+  "files": {
+    "linked.bmp": {
+      "hex": "424d82000000000000007a0000006c0000000200000001000000010020000300000008000000000000000000000000000000000000000000ff0000ff0000ff000000000000ff42475273000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010101fffefefe00"
+    }
+  }
+}

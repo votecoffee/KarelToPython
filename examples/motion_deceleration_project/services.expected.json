@@ -1,0 +1,75 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "source_program": "LIB",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$DECELTOL",
+              "group": 1,
+              "value": 25
+            },
+            {
+              "name": "$USEMAXACCEL",
+              "group": 1,
+              "value": true
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.192713**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.200022**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -722,6 +722,8 @@ individual Cartesian representations and checked joint widths in GET_VAR/SET_VAR
 [Attached synchronous programs](docs/synchronous-program-calls.md) can run through
 CALL_PROG without resetting caller-owned state. Supplied [16-bit PNG rasters](docs/vision-16bit-images.md)
 retain explicit sample depth, byte order and alpha through saved context.
+[BMP export](docs/vision-bmp-samples.md) rounds these samples into ordinary 8-bit
+components while retaining exact source data and lossless PNG output.
 
 [Offline motion requests](docs/motion-requests.md) now cover all seven basic MOVE
 forms, VIA, PATH ranges, hand statements and logical ATTACH/RELEASE ownership.
@@ -730,8 +732,9 @@ completion responses, immediate by default or with an explicit finite delay. It 
 
 [Motion controls and local settings](docs/motion-controls.md) now add independent
 HOLD/UNHOLD flags, cancellation that preserves stopped work, global handler
-actions and nine request-local WITH values, including checked termination/orientation
-choices and explicit group-qualified inputs; see [extended settings](docs/extended-motion-settings.md). Ownership and JSON history remain
+actions and eleven request-local WITH values, including checked termination/orientation
+choices, [deceleration/acceleration intent](docs/motion-deceleration-settings.md)
+and explicit group-qualified inputs; see [extended settings](docs/extended-motion-settings.md). Ownership and JSON history remain
 explicit; controls do not create trajectories or change robot feedback.
 
 [Motion-local clauses and scripted progress](docs/motion-handlers.md) now support

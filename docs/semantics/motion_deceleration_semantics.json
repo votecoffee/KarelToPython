@@ -1,0 +1,29 @@
+{
+  "version": "26.1030.200022",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../motion-deceleration-settings.md",
+  "tests": [
+    "tests/test_motion_deceleration_settings.py"
+  ],
+  "maximum": 11,
+  "settings": {
+    "$DECELTOL": "INTEGER 0..99; zero unspecified default intent, 1..99 percentage intent",
+    "$USEMAXACCEL": "exact BOOLEAN"
+  },
+  "reference": {
+    "R-J3iB Rev A PDF pages": [
+      220,
+      324
+    ],
+    "SYSTEM R-J2 Version 4.30/4.31 PDF pages": [
+      177,
+      456
+    ]
+  },
+  "capture": "Group then value once, in source order before operands/local captures; duplicate/domain/group and ownership checks before MOVE publication or script consumption",
+  "execution": "Request metadata only; seven MOVE forms, immediate NOWAIT and existing local/temporal synchronous scopes; pause retains captures; terminal cleanup unchanged",
+  "persistence": "Canonical INTEGER/BOOLEAN metadata; bounded history validation; older histories preserved",
+  "boundaries": "No resolved default, native out-of-range fallback, planning, speed/acceleration application, feedback, delayed NOWAIT, cross-group execution, native equivalence or strict mode",
+  "supersedes": "Earlier nine-setting maxima in current Pythonic guides"
+}

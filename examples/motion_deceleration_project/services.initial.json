@@ -1,0 +1,13 @@
+{
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "capture_only": true
+  },
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  }
+}

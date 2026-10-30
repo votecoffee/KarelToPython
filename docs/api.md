@@ -7,8 +7,10 @@
 schema with `runtime.joint_index_reference`, returning an ordinary REAL reference.
 Explicit GET_VAR/SET_VAR/BYNAME paths use the same width checks.
 
-[Extended motion settings](extended-motion-settings.md) add `motion_setting_policy`
-reports for nine request-local WITH values, canonical enum domains/aliases and
+[Deceleration/acceleration settings](motion-deceleration-settings.md) extend
+`motion_setting_policy` with checked INTEGER percentage/default intent and exact
+BOOLEAN acceleration intent. [Extended motion settings](extended-motion-settings.md) add `motion_setting_policy`
+reports for eleven request-local WITH values, canonical enum domains/aliases and
 explicit group forms. Source captures and validated JSON history use the existing
 MotionRequests service without applying a robot environment.
 
@@ -689,7 +691,8 @@ and checked joint-width GET_VAR/SET_VAR conversions. ARRAY representations stay 
 `synchronous_program_call_policy` describes newly generated `_execute_sync` bodies
 used by nested program calls; standalone `run()` retains its ordinary begin/cleanup.
 `vision_sample_depth_policy` describes explicit `sample_bits=16`, lossless PNG,
-raw byte quotas and unsupported 16-bit BMP status. See [positional transfers](positional-variable-transfers.md),
+raw byte quotas and [rounded BMP export](vision-bmp-samples.md), recorded in
+`vision_bmp_sample_policy`. See [positional transfers](positional-variable-transfers.md),
 [synchronous calls](synchronous-program-calls.md) and [16-bit images](vision-16bit-images.md).
 
 [Motion requests](motion-requests.md) use `runtime.MotionRequests(groups, *, hands=None,

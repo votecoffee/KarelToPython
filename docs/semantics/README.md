@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [deceleration-setting ledger](motion_deceleration_semantics.json) adds checked
+DECELTOL/USEMAXACCEL intent and supersedes earlier nine-setting limits.
+The [BMP sample ledger](vision_bmp_sample_semantics.json) supersedes earlier
+16-bit-sample BMP exclusions with explicit lossy export and exact source retention.
+
 The [joint-axis ledger](joint_axis_semantics.json) supersedes older blanket joint
 index exclusions for checked Pythonic REAL data cells. Direct joint fields, native
 syntax/units and complete geometry/model guards retain their boundaries.
