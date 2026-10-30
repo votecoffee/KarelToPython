@@ -81,8 +81,13 @@ class ArrayResultFailureTests(unittest.TestCase):
     def test_result_cannot_be_operator_operand(self): self.rejected('a=make()+a', _translator=legacy_translate)
     def test_result_cannot_be_condition(self): self.rejected('IF make() THEN ENDIF', _translator=legacy_translate)
     def test_result_cannot_be_select_selector(self): self.rejected('SELECT make() OF CASE(1): ENDSELECT', _translator=legacy_translate)
-    def test_wrong_element_type_in_assignment(self): self.rejected('a=make()','E_TYPE',declarations='a: ARRAY[3] OF REAL')
-    def test_wrong_element_type_in_return(self): self.rejected('','E_RETURN',routines='ROUTINE make: ARRAY OF REAL VAR p: ARRAY[1] OF INTEGER BEGIN p[1]=1 RETURN p END make')
+    def test_numeric_assignment_promotes_and_preserves_legacy_guard(self):
+        self.rejected('a=make()','E_TYPE',declarations='a: ARRAY[3] OF REAL',_translator=legacy_translate)
+        self.assertEqual(execute('a=make()',declarations='a: ARRAY[3] OF REAL')['A'],[1.,2.,3.])
+    def test_numeric_return_promotes_and_preserves_legacy_guard(self):
+        routine='ROUTINE make: ARRAY OF REAL VAR p: ARRAY[1] OF INTEGER BEGIN p[1]=1 RETURN p END make'
+        self.rejected('','E_RETURN',routines=routine,_translator=legacy_translate)
+        self.assertEqual(execute('a=make()',routines=routine,declarations='a:ARRAY[1]OF REAL')['A'],[1.])
     def test_array_result_return_requires_value(self): self.rejected('','E_RETURN',routines='ROUTINE make: ARRAY OF INTEGER BEGIN RETURN END make')
     def test_fixed_or_wildcard_result_dimensions_are_blocked(self):
         for dimensions in ('[1]','[*]','[*,*]'):

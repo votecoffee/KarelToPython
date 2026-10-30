@@ -1,0 +1,21 @@
+PROGRAM HANDLERCOPY
+VAR original:ARRAY[2]OF INTEGER observed:INTEGER done:BOOLEAN
+ROUTINE retain_copy(values:ARRAY OF REAL)
+BEGIN
+  CONDITION[1]:
+    WHEN EVENT[1] DO
+      values[1]=99
+      observed=TRUNC(values[1])
+  ENDCONDITION
+END retain_copy
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=1
+    original[2]=2
+    retain_copy(original)
+    ENABLE CONDITION[1]
+    SIGNAL EVENT[1]
+    PURGE CONDITION[1]
+    done=TRUE
+  ENDIF
+END HANDLERCOPY

@@ -1,0 +1,17 @@
+PROGRAM NUMARRAY
+VAR original:ARRAY[3]OF INTEGER result:ARRAY[3]OF REAL count:INTEGER done:BOOLEAN
+ROUTINE shifted(values:ARRAY OF SHORT):ARRAY OF REAL
+BEGIN
+  values[1]=-7
+  RETURN values
+END shifted
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=1
+    original[2]=2
+    original[3]=32767
+    result=shifted(original)
+    count=ARRAY_LEN(result)
+    done=TRUE
+  ENDIF
+END NUMARRAY

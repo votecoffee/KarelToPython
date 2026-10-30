@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.111646**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.114424**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -205,6 +205,9 @@ for reference aliasing and compatibility changes.
 Whole ARRAY value arguments use private checked copies. ARRAY results can be
 passed onward, forwarded by RETURN, or read directly with `make()[1]`.
 See the [ARRAY values guide](docs/pythonic-arrays.md) for ownership and limits.
+[Numeric ARRAY conversions](docs/numeric-arrays.md) add checked integral narrowing
+and REAL promotion across assignment, private arguments and RETURN, preserving
+missing data, shape and named-type boundaries.
 Resource-free aggregate copies now preserve missing scalar fields across
 assignments, private arguments and returns. Reads and geometry still reject
 unavailable components; see [partial aggregate values](docs/partial-aggregate-values.md).

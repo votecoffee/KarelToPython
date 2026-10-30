@@ -1189,6 +1189,7 @@ class Emitter:
         self.kinematic_array_uses=[]
         self.joint_width_uses=[]
         self.positional_array_uses=[]
+        self.numeric_array_uses=[]
         self.joint_geometry_uses = []
         self.pulse_uses = []
         self.motion_uses = []
@@ -1940,6 +1941,7 @@ class Emitter:
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
         actual=self.access_type(argument)
+        if self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):return False
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
@@ -2733,7 +2735,16 @@ class Emitter:
                 value, actual = self.expression(argument)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
-            if self.mode=='pythonic' and rt.positional_array_kind(expected,actual):
+            if self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},_rt.convert_numeric_array({expected!r},{value},{line}),{line})'
+                is_reference,actual=False,expected
+                conversion_kind='numeric_array'
+                self.features.add('numeric ARRAY conversion')
+                self.numeric_array_uses.append(dict(operation='ARGUMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+                    source_type_spec=source_actual,target_type_spec=expected,evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.positional_array_kind(expected,actual):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_positional_array({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -2809,7 +2820,8 @@ class Emitter:
                                                   source_spec=actual, line=line, column=argument.token.column,
                                                   expression_kind=argument.kind, evaluated_once=True,
                                                   independent_writable_copy=True, initialized_elements_required=True))
-                if conversion_kind in ('positional_array','kinematic_array'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
+                if conversion_kind in ('positional_array','kinematic_array','numeric_array'):self.array_value_uses[-1].update(source_spec=source_actual,converted=True,conversion_kind=conversion_kind)
+                if conversion_kind=='numeric_array':self.array_value_uses[-1].update(initialized_elements_required=False,missing_data_preserved=True)
             if not is_reference and expected[0] == 'STRING':
                 if self.mode != 'pythonic' and formal.value in routine.parameter_writes:
                     self.error('E_STRING_VALUE', 'STRING value arguments require a read-only formal; this parameter may be written through assignments or nested calls', argument.token)
@@ -3410,7 +3422,13 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
-            if self.mode=='pythonic' and rt.positional_array_kind(target_type,value_type):
+            if self.mode=='pythonic' and rt.numeric_array_kind(target_type,value_type):
+                value=f'_rt.convert_numeric_array({target_type!r},{value},{line})'
+                self.features.add('numeric ARRAY conversion')
+                self.numeric_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
+                    line=line,column=token.column,source_type_spec=value_type,target_type_spec=target_type,
+                    evaluated_once=True,independent_value=True))
+            elif self.mode=='pythonic' and rt.positional_array_kind(target_type,value_type):
                 value=f'_rt.convert_positional_array({target_type!r},{value},{line})'
                 self.features.add('positional ARRAY conversion')
                 self.positional_array_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name if self.current_routine else self.program.name,
@@ -3744,7 +3762,14 @@ class Emitter:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
-                if self.mode=='pythonic' and rt.positional_array_kind(spec,value_type):
+                if self.mode=='pythonic' and rt.numeric_array_kind(spec,value_type):
+                    value=f'_rt.convert_numeric_array({spec!r},{value},{line})'
+                    value_type=spec;conversion_kind='numeric_array'
+                    self.features.add('numeric ARRAY conversion')
+                    self.numeric_array_uses.append(dict(operation='RETURN',body=self.current_routine.name,routine=self.current_routine.name,
+                        line=line,column=token.column,source_type_spec=source_type_spec,target_type_spec=spec,
+                        evaluated_once=True,independent_value=True,before_cleanup=True))
+                elif self.mode=='pythonic' and rt.positional_array_kind(spec,value_type):
                     value=f'_rt.convert_positional_array({spec!r},{value},{line})'
                     value_type=spec;cartesian_conversion=True;conversion_kind='positional_array'
                     self.features.add('positional ARRAY conversion')
@@ -4305,6 +4330,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
         positional_array_conversions=emitter.positional_array_uses, kinematic_array_conversions=emitter.kinematic_array_uses,
+        numeric_array_conversions=emitter.numeric_array_uses,
         joint_geometry=emitter.joint_geometry_uses,
         pulses=emitter.pulse_uses,
         motion_requests=emitter.motion_uses,
@@ -5778,11 +5804,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         reports='selects retains constant case_values; dynamic slots are null, distinguished by case_expressions, case_types, dynamic_cases and explicit case_evaluation',
         boundary='Explicit Pythonic extension; no mixed-category/aggregate/resource labels or native equivalence; legacy retains INTEGER constant cases',
         guide='docs/dynamic-select.md',controller_validated=False)
+    report['numeric_array_policy']=dict(
+        boundaries='Pythonic whole anonymous flat ARRAY assignment, ordinary source arguments and source RETURN; matching ranks/dimensions, with formal/result wildcard dimensions inherited from concrete storage',
+        conversions='Checked INTEGER/BYTE/SHORT family changes and integral-to-REAL promotion; no REAL-to-integral, BOOLEAN or STRING coercion',
+        validation='Validate every known source leaf in its declared domain before receiver conversion; preserve missing markers, reject unknown BYTE promotion and retain SHORT 32767 missing semantics',
+        ownership='Stage independent converted storage before receiver publication or later arguments; converted bare actuals are private writable copies with no copy-back, including pause/failure/stop',
+        effects='Detached converted formals cannot write caller roots; exact aliases, explicit globals, output selectors, active-counter and retained-alias guards remain',
+        linkage='Linked declaration/definition and raw callback ARRAY results remain exact; matching linked/callback argument interfaces can receive privately converted actuals',
+        limits='Anonymous flat ranks 1..3 and 32767 leaves; no named source ARRAY identity erasure, reshape, flattening, resize, generic checked/value/result coercion or native/strict equivalence',
+        guide='docs/numeric-arrays.md',controller_validated=False)
+    report['array_routine_policy']['numeric_conversions']='Anonymous numeric source ARRAY values follow numeric_array_policy; no copy-back, named identity erasure or raw callback result coercion'
     report['numeric_variable_transfer_policy']=dict(
         conversions='GET_VAR and SET_VAR scalar and same-rank ARRAY prefix transfers accept checked INTEGER/BYTE/SHORT family conversion and integral-to-REAL promotion',
         validation='Check declared source domain before receiver conversion; preserve numeric receiver bounds, MAXINT exclusion, SHORT sentinel, missing markers and unknown BYTE restrictions',
         atomicity='Prepare the complete copied prefix before data/cache entry/status publication; retain receiver tail and stable storage identities',
-        boundary='No implicit REAL-to-integral, BOOLEAN/numeric or array rank conversion; individual positional values follow positional_variable_transfer_policy; ordinary assignment/routine rules unchanged',
+        boundary='No implicit REAL-to-integral, BOOLEAN/numeric or array rank conversion; individual positional values follow positional_variable_transfer_policy; source ARRAY conversions follow numeric_array_policy',
         guide='docs/numeric-variable-transfers.md',controller_validated=False)
     report['xml_record_root_policy']=dict(
         targets='Explicit user STRUCTURE, VECTOR, CONFIG, XYZWPR, XYZWPREXT or POSITION roots; fields/elements and attached owners use existing static resolution',

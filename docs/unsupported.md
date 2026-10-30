@@ -128,6 +128,10 @@ they are boundaries rather than promises to accept every such source form later.
   [VECTOR translation frames](vector-translation-frames.md) now support left
   offsets, independent INV negation and FRAME points. A VECTOR-only origin cannot
   supply CONFIG; complete pose/model context remains mandatory for that role.
+- [Numeric ARRAY source conversions](numeric-arrays.md) now support checked
+  INTEGER/BYTE/SHORT changes and REAL promotion for anonymous flat assignment,
+  argument and RETURN values. Implicit REAL-to-integral conversion, named source
+  ARRAY coercion, rank changes and generic runtime compatibility changes remain blocked.
 - Unbounded/Unicode strings, lengths above 254, implicit numeric-to-BOOLEAN
   truthiness, arbitrary-size INTEGERs, MAXINT as ordinary initialized storage,
   NaN/Infinity and exact native numeric/storage/rounding equivalence. Public

@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR seen:INTEGER
+ROUTINE shifted(values:ARRAY OF SHORT):ARRAY OF REAL
+BEGIN
+  seen=ARRAY_LEN(values)
+  values[1]=99
+  RETURN values
+END shifted
+BEGIN
+END LIB

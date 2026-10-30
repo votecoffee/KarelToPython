@@ -1,0 +1,14 @@
+PROGRAM PARTIALNUM
+VAR original:ARRAY[2]OF SHORT promoted:ARRAY[2]OF REAL narrowed:ARRAY[2]OF BYTE
+    integers:ARRAY[2]OF INTEGER signed:ARRAY[2]OF SHORT done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=7
+    promoted=original
+    narrowed=original
+    integers[1]=32767
+    integers[2]=255
+    signed=integers
+    done=TRUE
+  ENDIF
+END PARTIALNUM

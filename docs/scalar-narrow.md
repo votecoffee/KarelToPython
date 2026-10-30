@@ -106,8 +106,9 @@ restoring it does not turn unknown or missing contents into initialized values.
 [Dynamic narrow CREATE_VAR](dynamic-narrow.md) now creates direct BYTE/SHORT or
 supplied transparent aliases with existing initialization and allocation checks.
 Builtins that require INTEGER output references still require INTEGER storage,
-and whole array interfaces do
-not convert their element types.
+while [anonymous numeric ARRAY source conversions](numeric-arrays.md) apply
+checked numeric domains at assignment, ordinary argument and RETURN boundaries.
+Named ARRAY interfaces and generic runtime compatibility stay exact.
 
 The translation report records `scalar_narrow_policy`. Authored regression
 coverage is in [test_scalar_narrow.py](../tests/test_scalar_narrow.py), with legacy

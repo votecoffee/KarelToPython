@@ -321,6 +321,34 @@ def positional_array_kind(target,source):
     return positional_conversion_kind(target[2],source[2]) if _flat_array_pair(target,source) else None
 
 
+def numeric_array_kind(target,source):
+    """Anonymous numeric arrays use scalar domains without erasing named types."""
+    try:
+        if not _flat_array_pair(target,source):return None
+        first,second=target[2],source[2]
+        if any(type(spec) is not tuple or len(spec)!=1 or type(spec[0]) is not str for spec in (first,second)):return None
+        integral=(('INTEGER',),('BYTE',),('SHORT',))
+        if first==second:return None
+        if first==('REAL',) and second in integral:return 'promote_real'
+        if first in integral and second in integral:return 'checked_integral'
+    except (KarelRuntimeError,TypeError,IndexError):return None
+    return None
+
+
+def convert_numeric_array(target,value,line=None):
+    """Stage checked numeric leaves and missing data before receiver publication."""
+    if not _pythonic():raise KarelRuntimeError('Numeric ARRAY conversion requires Pythonic mode',line)
+    if type(value) is not Array or numeric_array_kind(target,value.spec) is None:
+        raise KarelRuntimeError('Numeric ARRAY conversion requires anonymous matching shapes and convertible numeric terminals',line)
+    source=_aggregate_value(value.spec,value,line)
+    dimensions=tuple(actual if expected is None else expected for expected,actual in zip(array_shape(target),source.shape))
+    concrete=('ARRAY',dimensions if type(target[1]) is tuple else dimensions[0] if len(dimensions)==1 else dimensions,target[2])
+    if scalar_leaf_count(concrete)>32767:raise KarelRuntimeError('Numeric ARRAY conversion exceeds 32767 scalar leaves',line)
+    result=Array(concrete)
+    result.values[:]=[UNINITIALIZED if item is UNINITIALIZED else checked(target[2],require(item,line),line) for item in source.values]
+    return result
+
+
 def kinematic_array_kind(target,source):
     """Describe explicit-model ARRAY conversions without consulting a robot."""
     if not _flat_array_pair(target,source):return None

@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [numeric ARRAY ledger](numeric_array_semantics.json) supersedes older blanket
+numeric element-conversion exclusions at anonymous source ARRAY boundaries.
+Generic checked/value/result helper and named-type restrictions remain.
+
 The [private timer ledger](private_using_timer_semantics.json) supersedes older
 private connected-timer exclusions in the computed-capture/private-counter notes.
 

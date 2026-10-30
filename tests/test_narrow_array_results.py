@@ -131,16 +131,16 @@ class NarrowArrayFailureTests(unittest.TestCase):
     def test_length_mismatch_does_not_resize_destination(self):
         self.failure(factory(values=(0,1,255)),message='identical type and size')
 
-    def test_no_whole_array_numeric_promotion_in_return(self):
+    def test_legacy_no_whole_array_numeric_promotion_in_return(self):
         for result,source in (('BYTE','INTEGER'),('SHORT','INTEGER'),('SHORT','BYTE'),('BYTE','SHORT')):
             with self.subTest(result=result,source=source):
-                self.rejected('E_RETURN',body='',routines=f'ROUTINE make: ARRAY OF {result} VAR p: ARRAY[1] OF {source} BEGIN p[1]=1 RETURN p END make')
+                self.rejected('E_RETURN',body='',routines=f'ROUTINE make: ARRAY OF {result} VAR p: ARRAY[1] OF {source} BEGIN p[1]=1 RETURN p END make',_translator=legacy_translate)
 
-    def test_no_whole_array_numeric_promotion_in_assignment(self):
+    def test_legacy_no_whole_array_numeric_promotion_in_assignment(self):
         for kind in ('BYTE','SHORT'):
             for destination in ('INTEGER','REAL','BOOLEAN',('SHORT' if kind=='BYTE' else 'BYTE')):
                 with self.subTest(kind=kind,destination=destination):
-                    self.rejected('E_TYPE',kind=kind,declarations=f'a: ARRAY[2] OF {destination}')
+                    self.rejected('E_TYPE',kind=kind,declarations=f'a: ARRAY[2] OF {destination}',_translator=legacy_translate)
 
     def test_result_still_requires_direct_assignment_context(self):
         for kind in ('BYTE','SHORT'):

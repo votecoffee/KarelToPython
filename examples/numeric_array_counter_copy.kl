@@ -1,0 +1,19 @@
+PROGRAM COUNTERCOPY
+VAR original:ARRAY[2]OF INTEGER total,calls:INTEGER done:BOOLEAN
+ROUTINE edit_copy(values:ARRAY OF REAL)
+BEGIN
+  values[1]=99
+  calls=calls+1
+END edit_copy
+BEGIN
+  IF UNINIT(done) THEN
+    original[2]=9
+    calls=0
+    total=0
+    FOR original[1]=1 TO 2 DO
+      edit_copy(original)
+      total=total+original[1]
+    ENDFOR
+    done=TRUE
+  ENDIF
+END COUNTERCOPY

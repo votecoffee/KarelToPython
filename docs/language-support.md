@@ -1,6 +1,6 @@
 # Language support
 
-This is the supported prototype subset as of 26.1030.111646. Acceptance is specific to
+This is the supported prototype subset as of 26.1030.114424. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -24,7 +24,7 @@ internally and in the historical semantic notes.
 | Trig | General degree SIN/COS/TAN/ASIN/ACOS and ATAN2 | Inverse/domain checks remain. ATAN2 uses KAREL `(x,y)` order, all quadrants and Python -180..180 degree output. |
 | STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison, clipped SUB_STR and INDEX including empty searches | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. SUB_STR returns at most 254; positive start and nonnegative count. |
 | BYTE/SHORT | Aggregate and standalone storage, TYPE aliases, exact references, checked private numeric arguments and initialized routine results | BYTE 0..255, SHORT -32768..32766; initial BYTE is unknown and its UNINIT is blocked. SHORT 32767 means uninitialized; [narrow counters](narrow-for.md) restore BYTE unknown and SHORT missing state on exit. [Dynamic narrow creation](dynamic-narrow.md) retains exact types and initialization markers. See [scalar narrow integers](scalar-narrow.md). |
-| Arrays | One-based fixed/named arrays up to logical rank three, complete [chained subscripts](chained-array-indexes.md), exact whole copies, reference/value arguments and named subarrays | Copies preserve missing markers with 32767 scalar leaves and 64 schema levels; nominal identity, exact shape and known scalar validation remain. |
+| Arrays | One-based fixed/named arrays up to logical rank three, complete [chained subscripts](chained-array-indexes.md), exact whole copies, reference/value arguments and named subarrays | Copies preserve missing markers with 32767 scalar leaves and 64 schema levels; nominal identity, exact shape and known scalar validation remain. [Anonymous numeric conversions](numeric-arrays.md) add checked integral narrowing and REAL promotion at source assignment/argument/RETURN boundaries. |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded or inherited-capacity STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Missing markers preserved and known leaves validated; exact nominal/component identities and STRING capacities; logical rank up to three. Anonymous declarations require anonymous outer storage. Omitted STRING result capacity inherits concrete returned storage; no resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries | Nominal identity, known scalar/capacity checks and missing-marker preservation; no ABI claim. |
@@ -248,7 +248,9 @@ Use a bare zero-argument function name or an explicit call. Results compose in
 grouping, compatible user-routine arguments, direct RETURN forwarding and
 ARRAY_LEN returning the first dimension. Explicit calls or groups support returned aggregate
 subscripts and fields. Destination type and length must
-match exactly; no element coercion, resizing or nominal identity erasure occurs.
+match under the generic copy contract. Separate [numeric ARRAY conversions](numeric-arrays.md)
+add checked integral narrowing and REAL promotion; resizing and nominal identity
+erasure remain unavailable.
 POSITION orientation remains protected, with no source acquisition or default
 values. Exact joint copying needs no axis context; conversion procedures retain
 their existing explicit-context requirements. The full contract and unresolved

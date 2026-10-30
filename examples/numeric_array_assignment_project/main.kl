@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR original:ARRAY[2]OF INTEGER result:ARRAY[2]OF REAL done:BOOLEAN
+ROUTINE copied:ARRAY OF REAL FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=7
+    original[2]=8
+    result=copied()
+    done=TRUE
+  ENDIF
+END MAIN

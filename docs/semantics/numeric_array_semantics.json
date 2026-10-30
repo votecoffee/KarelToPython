@@ -1,0 +1,22 @@
+{
+  "version": "26.1030.114424",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../numeric-arrays.md",
+  "tests": [
+    "tests/test_numeric_arrays.py"
+  ],
+  "forms": [
+    "whole anonymous flat ARRAY assignment",
+    "ordinary source argument",
+    "source RETURN"
+  ],
+  "conversions": "Checked INTEGER/BYTE/SHORT family changes and integral-to-REAL promotion; same rank and dimensions with concrete wildcard inheritance",
+  "validation": "Validate every known source leaf before receiver conversion; preserve missing markers, reject unknown BYTE conversion, normalize SHORT 32767 to missing and preflight every element before publication",
+  "ownership": "Converted arguments own writable private storage even for bare actuals; no copy-back on success, retained handlers, pause/resume, stop or failure",
+  "order": "Assignment before target selectors; argument at its left-to-right position before later actuals; RETURN before frame and counter cleanup",
+  "identity": "Anonymous numeric ARRAY fields may convert; named outer/nested ARRAY identity, whole STRUCTURE schemas, BYNAME and linked declarations remain exact",
+  "limits": "Ranks 1..3, matching dimensions and 32767 leaves; no reshape/resize, REAL-to-integral or Boolean/string coercion",
+  "persistence": "Typed receiver data and missing markers through existing context codec; no private argument cells, closures or suspended execution",
+  "boundaries": "Explicit Pythonic source policy; raw callback results and generic checked/value/result helpers do not gain coercion; native ABI/controller equivalence and public strict mode remain unavailable"
+}

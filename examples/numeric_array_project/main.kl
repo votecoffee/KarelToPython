@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR original:ARRAY[3]OF INTEGER result:ARRAY[3]OF REAL done:BOOLEAN
+ROUTINE shifted(values:ARRAY OF SHORT):ARRAY OF REAL FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=1
+    original[2]=2
+    original[3]=32767
+    result=shifted(original)
+    done=TRUE
+  ENDIF
+END MAIN

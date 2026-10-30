@@ -305,10 +305,12 @@ class BoundaryTests(unittest.TestCase):
     def test_narrow_scalar_cannot_bind_boolean_formal(self):
         self.rejected('work(bytes[1])', 'ROUTINE work(p: BOOLEAN) BEGIN END work')
 
-    def test_whole_arrays_do_not_convert_element_types(self):
-        self.rejected('shorts = bytes')
-        self.rejected('work(bytes)', 'ROUTINE work(p: ARRAY OF INTEGER) BEGIN END work')
-        self.rejected('work(shorts)', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN END work')
+    def test_numeric_arrays_convert_with_preserved_legacy_guards(self):
+        self.rejected('shorts = bytes',_translator=legacy_translate)
+        self.rejected('work(bytes)', 'ROUTINE work(p: ARRAY OF INTEGER) BEGIN END work',_translator=legacy_translate)
+        self.rejected('work(shorts)', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN END work',_translator=legacy_translate)
+        state=execute('bytes[1]=0 bytes[2]=7 bytes[3]=255 shorts=bytes work(bytes)',routines='ROUTINE work(p:ARRAY OF INTEGER) BEGIN p[1]=99 END work')
+        self.assertEqual((state['SHORTS'],state['BYTES']),([0,7,255],[0,7,255]))
 
     def test_whole_narrow_array_value_passing_remains_blocked(self):
         self.rejected('work((bytes))', 'ROUTINE work(p: ARRAY OF BYTE) BEGIN END work', code='E_ARRAY_VALUE', _translator=legacy_translate)

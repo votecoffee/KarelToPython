@@ -338,10 +338,10 @@ class ArrayFailureTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program('use((a))',routine)
         self.assertEqual(caught.exception.code,'E_TYPE')
 
-    def test_array_numeric_element_coercion_remains_blocked(self):
-        routine='ROUTINE use(p: ARRAY OF REAL) BEGIN END use'
-        with self.assertRaises(TranslationError) as caught: compile_program('use((a))',routine)
-        self.assertEqual(caught.exception.code,'E_TYPE')
+    def test_numeric_array_argument_uses_independent_converted_storage(self):
+        routine='ROUTINE use(p: ARRAY OF REAL) BEGIN p[1]=99 x=TRUNC(p[2]) END use'
+        values=execute(INITIALIZE+'use((a))',routine)
+        self.assertEqual((values['A'],values['X']),([1,2,3],2))
 
     def test_nominal_type_mismatch_remains_blocked(self):
         routine='ROUTINE use(p: row_t) BEGIN END use'

@@ -40,7 +40,9 @@ existing destination storage, preserving captured aliases to its descendants.
 These rules keep exact nominal identities and concrete dimensions. Wildcard
 formal/result shapes resolve through the existing checked concrete-shape rules;
 no array resizing, flattening, identity erasure or new implicit conversion is
-introduced. POSITION orientation columns remain read-only source storage,
+introduced by the generic copy contract. Separate [numeric ARRAY conversions](numeric-arrays.md)
+retain missing leaves while checking every known source and receiver domain.
+POSITION orientation columns remain read-only source storage,
 including after partial copies. Detached standalone VECTOR copies remain writable.
 
 ## Missing and known leaves

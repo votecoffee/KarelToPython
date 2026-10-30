@@ -1,0 +1,16 @@
+{
+  "ORIGINAL": [
+    1,
+    2,
+    32767
+  ],
+  "RESULT": [
+    -7.0,
+    2.0,
+    {
+      "uninitialized": true
+    }
+  ],
+  "COUNT": 3,
+  "DONE": true
+}

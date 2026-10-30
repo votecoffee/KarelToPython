@@ -56,7 +56,9 @@ minimum possible size already exceeds that limit fail during translation.
 
 Named result declarations require the exact named type. Another type with the
 same shape is not interchangeable. Anonymous result declarations require
-anonymous outer storage, matching outer rank and exact element/component types.
+anonymous outer storage and matching outer rank. Exact element/component types
+remain the generic contract; supported [numeric](numeric-arrays.md) and
+[positional](positional-arrays.md) source conversions use separate checked copies.
 Flat matrices and matrices built from named rows remain distinct representations.
 RETURN never flattens, reshapes, resizes or erases nominal identity.
 [Complete chained indexing](chained-array-indexes.md) can consume returned values
@@ -94,9 +96,10 @@ same interface information at each RETURN site. `array_routine_policy` and
 `array_length_policy` describe the chosen rules.
 
 Composition, argument ownership and aggregate access follow the
-[ARRAY values guide](pythonic-arrays.md). Unspecified STRING element capacities,
-anonymous nested ARRAY component syntax, unsupported ranks and implicit element
-coercion remain blocked. Public strict mode is still a future milestone.
+[ARRAY values guide](pythonic-arrays.md). Omitted STRING element capacities follow
+the [inherited-capacity rules](inherited-string-array-results.md). Anonymous nested
+ARRAY component syntax, unsupported ranks and conversions outside the explicit
+source policies remain blocked. Public strict mode is still a future milestone.
 
 These are chosen Pythonic declaration and length policies. Passing authored
 offline tests does not establish native compiler, call ABI or controller behavior.

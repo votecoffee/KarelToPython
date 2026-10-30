@@ -1,5 +1,20 @@
 # Changelog
 
+## 26.1030.114424 - 2026-10-30
+
+- Support anonymous numeric ARRAY assignment, ordinary routine arguments and
+  RETURN: checked INTEGER/BYTE/SHORT family changes and integral-to-REAL promotion
+  retain matching rank/dimensions and concrete wildcard shapes.
+- Stage all elements before destination publication, target selectors or later
+  arguments. Preserve missing data, SHORT sentinels and unknown-BYTE restrictions;
+  reject malformed source domains and narrowing overflow without partial writes.
+- Give converted arguments private writable storage without copy-back, including
+  retained handlers, forwarding, pause/resume and failure. Preserve exact aliases,
+  named ARRAY identity, counter effects, linked signatures and raw callback results.
+- Add numeric_array_conversions reports and numeric_array_policy, 54 regressions,
+  four standalone examples and two linked projects. Refresh README, API, support
+  and semantic guides; legacy and generic runtime ARRAY guards remain exact.
+
 ## 26.1030.111646 - 2026-10-30
 
 - Support CONNECT/DISCONNECT TIMER on ordinary INTEGER leaves in computed USING

@@ -1,8 +1,9 @@
 # Pythonic ARRAY values and results
 
 Pythonic mode supports writable private ARRAY arguments and composable ARRAY
-results. Bare arrays still pass caller storage by reference; grouping the whole
-actual argument selects a checked deep copy.
+results. Exact-type bare arrays still pass caller storage by reference; grouping the whole
+actual argument selects a checked deep copy. [Numeric conversions](numeric-arrays.md)
+create private writable arrays when supported numeric terminal types differ.
 
 ```karel
 PROGRAM array_values
@@ -42,7 +43,9 @@ Value copies retain concrete dimensions, nominal array and record identities,
 STRING capacities, narrow integer element types and joint widths. Flat and named
 multidimensional arrays are supported up to logical rank three. Copies validate
 every known scalar leaf and preserve missing/unknown markers; they do not resize
-arrays, coerce element types or truncate corrupt STRING contents. The limits are
+arrays, erase named identities or truncate corrupt STRING contents. Separate
+[numeric source conversions](numeric-arrays.md) change supported numeric terminals
+without changing this generic copy contract. The limits are
 32767 scalar leaves and 64 schema levels; see
 [partial aggregate values](partial-aggregate-values.md).
 

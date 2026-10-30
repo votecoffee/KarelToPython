@@ -13,7 +13,9 @@ scalars and terminal elements of same-rank ARRAY prefix transfers:
 
 The [existing variable transfer contract](variable-transfers.md) defines lookup,
 reference capture, aliases, missing data, cache IDs and statuses. Both directions
-now use the same numeric rules. For example:
+now use the same numeric rules. Separate [numeric source ARRAY conversions](numeric-arrays.md)
+apply those domains to complete anonymous assignments/arguments/returns, without
+changing this prefix/status contract. For example:
 
 ```karel
 VAR source:ARRAY[2] OF SHORT target:ARRAY[3] OF REAL entry,status:INTEGER

@@ -1,0 +1,25 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ORIGINAL": [
+        7,
+        8
+      ]
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": [
+        7,
+        8
+      ],
+      "RESULT": [
+        7.0,
+        8.0
+      ],
+      "DONE": true
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": 3
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": [
+        1,
+        2,
+        32767
+      ],
+      "RESULT": [
+        99.0,
+        2.0,
+        {
+          "uninitialized": true
+        }
+      ],
+      "DONE": true
+    }
+  }
+}

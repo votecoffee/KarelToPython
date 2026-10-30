@@ -1,0 +1,31 @@
+{
+  "ORIGINAL": [
+    7,
+    {
+      "uninitialized": true
+    }
+  ],
+  "PROMOTED": [
+    7.0,
+    {
+      "uninitialized": true
+    }
+  ],
+  "NARROWED": [
+    7,
+    {
+      "uninitialized": true
+    }
+  ],
+  "INTEGERS": [
+    32767,
+    255
+  ],
+  "SIGNED": [
+    {
+      "uninitialized": true
+    },
+    255
+  ],
+  "DONE": true
+}

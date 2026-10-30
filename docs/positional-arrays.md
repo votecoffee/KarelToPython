@@ -100,8 +100,9 @@ source type and mark the conversion. No service request or robot state update
 is generated for this context-free operation.
 
 [Explicit-model joint/Cartesian ARRAY conversions](kinematic-arrays.md) now follow
-a separate policy. Named source-interface coercion, numeric ARRAY assignment
-promotion and native ABI/controller equivalence remain outside this policy. Public strict mode remains a future milestone; legacy guards remain.
+a separate policy. [Numeric ARRAY source conversions](numeric-arrays.md) now use
+checked integral narrowing and REAL promotion. Named source-interface coercion
+and native ABI/controller equivalence remain outside these policies. Public strict mode remains a future milestone; legacy guards remain.
 See the authored [Cartesian interfaces](../examples/positional_array_interfaces.kl),
 [joint widths](../examples/joint_array_widths.kl),
 [variable prefixes](../examples/positional_array_variables.kl), and
