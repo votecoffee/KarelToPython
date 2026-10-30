@@ -1434,7 +1434,29 @@ def timer_clock(state,line=None):
     return value
 
 
+def _timer_frame(state,scoped,line=None):
+    if type(scoped) is not bool:fail('Timer scope flag must be BOOLEAN',line)
+    if not scoped:return None
+    if not runtime()._pythonic():fail('Routine-local timers require Pythonic mode',line)
+    frame=state.local_frames[-1] if state.local_frames else None
+    if frame is None or not any(frame is live for live in state._timer_frames):
+        fail('Routine-local timer requires an active routine frame',line)
+    return frame
+
+
+def release_frame_timers(state,frame):
+    """Release only registrations retained by this exact active routine frame."""
+    for key,binding in list(state._frame_timers.items()):
+        owner,record=binding
+        if owner is not frame:continue
+        if state._timers.get(key) is record:del state._timers[key]
+        if state._frame_timers.get(key) is binding:del state._frame_timers[key]
+
+
 def update_timers(state,line=None):
+    for key,(frame,record) in state._frame_timers.items():
+        if state._timers.get(key) is not record or not any(frame is live for live in state._timer_frames):
+            fail('Routine-local timer registration changed or its frame is inactive',line)
     if not state._timers: return
     now=timer_clock(state,line); pending=[]
     for record in state._timers.values():
@@ -1447,8 +1469,8 @@ def update_timers(state,line=None):
         record[0].set(value,line); record[1:]=[now,remainder]
 
 
-def connect_timer(state,reference,line=None):
-    rt=runtime()
+def connect_timer(state,reference,line=None,*,scoped=False):
+    rt=runtime();frame=_timer_frame(state,scoped,line)
     if type(reference) is not rt.Reference or reference.spec!=('INTEGER',): fail('Timer requires ordinary INTEGER storage',line)
     key=(id(reference.storage),reference.key)
     if key in state._timers: fail('Timer is already connected',line)
@@ -1456,15 +1478,21 @@ def connect_timer(state,reference,line=None):
     if value is not rt.UNINITIALIZED: rt.require(rt.checked(('INTEGER',),rt.integer(value,line),line),line)
     now=timer_clock(state,line)
     if value is rt.UNINITIALIZED: reference.set(0,line)
-    state._timers[key]=[reference,now,0]
+    record=[reference,now,0]
+    state._timers[key]=record
+    if scoped:state._frame_timers[key]=(frame,record)
 
 
-def disconnect_timer(state,reference,line=None):
-    rt=runtime()
+def disconnect_timer(state,reference,line=None,*,scoped=False):
+    rt=runtime();frame=_timer_frame(state,scoped,line)
     if type(reference) is not rt.Reference or reference.spec!=('INTEGER',): fail('Timer requires ordinary INTEGER storage',line)
     key=(id(reference.storage),reference.key)
     if key not in state._timers: fail('Timer is not connected',line)
+    record=state._timers[key];binding=state._frame_timers.get(key)
+    if (binding is not None and binding[1] is not record) or (scoped and (binding is None or binding[0] is not frame)):
+        fail('Routine-local timer registration changed or belongs to another frame',line)
     del state._timers[key]
+    if binding is not None:del state._frame_timers[key]
 
 
 def define_condition(state,number,clauses,line=None,*,scan_ms=0):

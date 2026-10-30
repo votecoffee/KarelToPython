@@ -2398,6 +2398,7 @@ class State:
         self.call_depth = 0
         self.local_frames = []
         self._group_scope_frames = []
+        self._timer_frames=[];self._frame_timers={}
         self._aborted = False
         self._abort_line = None
 
@@ -2509,12 +2510,13 @@ class State:
         self.register_requests.clear()
         self.service_requests.clear()
         self._handlers.clear(); self._timers.clear()
+        self._frame_timers.clear();self._timer_frames.clear()
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
         if self.execution.diagnostics is not None:self.execution.diagnostics.begin(self)
         if _pythonic() and self.execution.group_locks is not None:self.execution.group_locks.begin(self)
 
     def finish_teach_programs(self):
-        self._timers.clear()
+        self._timers.clear();self._frame_timers.clear();self._timer_frames.clear()
         if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.finish(self)
         if self._budget_parent is None and self.execution.diagnostics is not None:self.execution.diagnostics.finish(self)
         bank=self.execution.teach_programs
@@ -2765,13 +2767,15 @@ class State:
             if not external:scope=bank.enter_scope(self,line)
         self.call_depth += 1
         self.local_frames.append((declarations, values))
+        self._timer_frames.append(self.local_frames[-1])
         self._group_scope_frames.append((bank,scope))
         task_root(self)._task_frames.append((self,routine))
         try:
             if self.execution.diagnostics is not None:
                 self.execution.diagnostics.observe(self);self.execution.diagnostics.record(self,'CALL',line)
         except BaseException:
-            self.call_depth-=1;self.local_frames.pop();self._group_scope_frames.pop()
+            release_frame_timers(self,self.local_frames[-1])
+            self.call_depth-=1;self.local_frames.pop();self._timer_frames.pop();self._group_scope_frames.pop()
             task_root(self)._task_frames.pop()
             if bank is not None:bank.leave_scope(scope)
             raise
@@ -2781,10 +2785,11 @@ class State:
         try:
             if self.execution.diagnostics is not None:self.execution.diagnostics.record(self,'RTN_FRM_RTN',task_root(self)._task_line or None)
         finally:
+            release_frame_timers(self,frame)
             for number,handler in list(self._handlers.items()):
                 if handler.get('local_frame') is frame: self._handlers.pop(number,None)
             self.call_depth -= 1
-            self.local_frames.pop();self._group_scope_frames.pop()
+            self.local_frames.pop();self._timer_frames.pop();self._group_scope_frames.pop()
             task_root(self)._task_frames.pop()
             if bank is not None:bank.leave_scope(scope)
 
@@ -2961,7 +2966,7 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
 from .extended import (ExecutionContext, StringRegisters, PositionRegisters, PortBank, RegisterComments, CallParameters, ProgramCatalog, ProgramAttributes, PROGRAM_CONSTANTS, PeerBanks, PEER_UNAVAILABLE,
                        SerialPorts,SERIAL_CONSTANTS,XML_CONSTANTS,
                        VariableStore, variable_value, variable_reference, MemoryFiles, FileHandle, PathValue, QueueValue, RobotContext, RobotState, file_piece,
-                        TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer,
+                        TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer, release_frame_timers,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
 from .storage import DirectoryFiles

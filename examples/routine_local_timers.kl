@@ -1,0 +1,21 @@
+PROGRAM LOCALCLOCK
+TYPE row_t=STRUCTURE elapsed:INTEGER ENDSTRUCTURE
+VAR ready,done:BOOLEAN calls:INTEGER
+ROUTINE inspect_clock:BOOLEAN
+VAR elapsed:INTEGER item:row_t
+BEGIN
+  calls=calls+1
+  elapsed=7
+  item.elapsed=9
+  CONNECT TIMER TO elapsed
+  CONNECT TIMER TO item.elapsed
+  DISCONNECT TIMER elapsed
+  RETURN (elapsed>=7) AND (item.elapsed>=9)
+END inspect_clock
+BEGIN
+  IF UNINIT(done) THEN
+    calls=0
+    ready=inspect_clock()
+    done=TRUE
+  ENDIF
+END LOCALCLOCK

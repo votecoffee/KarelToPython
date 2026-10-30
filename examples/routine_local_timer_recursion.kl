@@ -1,0 +1,19 @@
+PROGRAM LOCALRECUR
+VAR result,calls:INTEGER done:BOOLEAN
+ROUTINE nested(depth:INTEGER):INTEGER
+VAR elapsed:INTEGER
+BEGIN
+  calls=calls+1
+  CONNECT TIMER TO elapsed
+  IF depth=0 THEN
+    RETURN 1
+  ENDIF
+  RETURN 1+nested(depth-1)
+END nested
+BEGIN
+  IF UNINIT(done) THEN
+    calls=0
+    result=nested(3)
+    done=TRUE
+  ENDIF
+END LOCALRECUR

@@ -97,6 +97,10 @@ storage/computed provenance, ownership and copy-back policy; `computed_using_pol
 describes capture lifetime. [Private connected timers](private-using-timers.md) add
 `connected_timers` source sites and `connected_timer_policy`, retaining null public
 roots for private captures, whole-root counter protection and terminal cleanup.
+[Routine-local timers](routine-local-timers.md) add `routine_local_timer_policy`
+and rows with `provenance=routine_local`, `lifetime=routine_frame`. Generated local
+operations use `runtime.connect_timer`/`disconnect_timer` with `scoped=True`;
+actual live-frame ownership controls pause and exact-frame cleanup.
 [Private INTEGER counters](private-using-counters.md) add internal protection
 identities, retained-alias checks and `private_using_counter_policy` without
 publishing synthetic source variables. [Scalar BYTE/SHORT](scalar-narrow.md)

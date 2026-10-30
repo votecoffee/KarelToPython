@@ -1,0 +1,19 @@
+PROGRAM LOCALCOUNT
+VAR n,total,calls:INTEGER done:BOOLEAN
+ROUTINE local_clock
+VAR n:INTEGER
+BEGIN
+  CONNECT TIMER TO n
+  calls=calls+1
+END local_clock
+BEGIN
+  IF UNINIT(done) THEN
+    calls=0
+    total=0
+    FOR n=1 TO 2 DO
+      local_clock()
+      total=total+n
+    ENDFOR
+    done=TRUE
+  ENDIF
+END LOCALCOUNT

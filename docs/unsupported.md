@@ -65,7 +65,9 @@ they are boundaries rather than promises to accept every such source form later.
   Retained writable aliases remain blocked for counters. [Private connected
   timers](private-using-timers.md) now retain ordinary INTEGER leaves across
   lexical exit and pause, with whole-root counter guards and terminal cleanup.
-  Declared routine-local/formal timer roots remain blocked. [Reference FOR counters](reference-for-counters.md)
+  [Routine-local timers](routine-local-timers.md) now accept fresh declared
+  INTEGER leaves with exact-frame cleanup and pause retention; borrowed formal
+  timer roots remain blocked. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
   CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
   calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)

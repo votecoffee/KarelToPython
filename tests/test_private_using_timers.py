@@ -150,8 +150,9 @@ class PrivateUsingTimerTests(unittest.TestCase):
         v=self.parity('total=0 USING make() DO CONNECT TIMER TO elapsed FOR seed.other=1 TO 2 DO total=total+seed.other ENDFOR DISCONNECT TIMER elapsed ENDUSING')
         self.assertEqual((v['TOTAL'],v['SEED']['OTHER']),(3,U))
 
-    def test_declared_routine_local_storage_stays_blocked(self):
-        self.reject('work()',code='E_TIMER_SCOPE',routines=MAKE+' ROUTINE work VAR item:row_t BEGIN USING item DO CONNECT TIMER TO elapsed ENDUSING END work')
+    def test_declared_local_using_timer_ends_at_routine_return(self):
+        p,_=build('work()',routines=MAKE+' ROUTINE work VAR item:row_t BEGIN USING item DO CONNECT TIMER TO elapsed ENDUSING END work')
+        p.run();self.assertEqual((p._state._timers,p._state._frame_timers),({},{}))
 
     def test_declared_formal_storage_stays_blocked(self):
         self.reject('work(result)',code='E_TIMER_SCOPE',routines=MAKE+' ROUTINE work(value:INTEGER) BEGIN CONNECT TIMER TO value END work')

@@ -1,0 +1,18 @@
+{
+  "version": "26.1030.120651",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../routine-local-timers.md",
+  "tests": [
+    "tests/test_routine_local_timers.py"
+  ],
+  "forms": "Fresh declared routine-local exact INTEGER scalars, fields, ARRAY leaves and captured named/grouped USING aliases",
+  "identity": "Capture selector once; retain the actual live defining frame and exact timer record independently of retained handler frame lists",
+  "lifetime": "Pause/nested calls retain connections; explicit disconnect or exact-frame unwind releases them on normal/early return, failure, stop, abort, budget and generator close",
+  "handlers": "Live defining frames permit timer control from captured handlers; returned frames retain readable frozen data but cannot reconnect or disconnect scoped timers",
+  "cleanup": "Remove only exact owned records; reject changed/lost scoped registrations before clock/value updates; preserve caller and sibling connections",
+  "counters": "Conservative lexical whole-root exclusion within the defining routine; fresh locals in other routines and global roots with the same spelling are separate for timer interference",
+  "linkage": "Linked/concurrent invocations retain independent local frames; existing global/private timer invocation lifetimes remain separate",
+  "persistence": "No local values, frames, ownership bindings, live clocks or suspended execution in context JSON",
+  "boundary": "Borrowed formal timer roots, non-INTEGER/config/readonly domains, inferred alias ownership, native timing and public strict mode remain unsupported"
+}

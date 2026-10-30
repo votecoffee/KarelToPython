@@ -1,5 +1,8 @@
 # Semantic notes
 
+The [routine-local timer ledger](routine_local_timer_semantics.json) supersedes
+older declared-local timer exclusions. Formal timer roots remain blocked.
+
 The [numeric ARRAY ledger](numeric_array_semantics.json) supersedes older blanket
 numeric element-conversion exclusions at anonymous source ARRAY boundaries.
 Generic checked/value/result helper and named-type restrictions remain.

@@ -1,5 +1,21 @@
 # Changelog
 
+## 26.1030.120651 - 2026-10-30
+
+- Support CONNECT/DISCONNECT TIMER for fresh routine-local INTEGER scalars,
+  record fields, ARRAY leaves and captured named/grouped USING aliases.
+  Bind connections to actual live defining frames; retain them across pause/nested
+  calls and release exact owned registrations on RETURN and terminal unwind.
+- Keep retained handler data readable after return while rejecting timer control
+  through inactive frames. Preserve caller/global/private connections, recursive
+  and concurrent invocation ownership, and changed-registration evidence.
+- Distinguish local timer roots in other routines and globals with the same name
+  for counter interference; retain conservative whole-root and handler/call guards.
+- Add routine_local_timer_policy and frame-lifetime/provenance reports, 49 authored
+  regressions, four standalone examples and two linked projects. Update README,
+  API, support backlog and semantic notes. Formal timer roots and strict remain
+  separate work; no native timer/controller equivalence is implied.
+
 ## 26.1030.114424 - 2026-10-30
 
 - Support anonymous numeric ARRAY assignment, ordinary routine arguments and

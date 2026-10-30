@@ -1,0 +1,12 @@
+PROGRAM LIB
+VAR calls:INTEGER
+ROUTINE wait_local:BOOLEAN
+VAR elapsed:INTEGER
+BEGIN
+  calls=1
+  CONNECT TIMER TO elapsed
+  DELAY 3
+  RETURN elapsed>=3
+END wait_local
+BEGIN
+END LIB

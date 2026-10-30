@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.114424**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.120651**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -327,7 +327,9 @@ copy-back; see [computed USING](docs/computed-using.md). Isolated integral field
 in those captures can serve as [private FOR counters](docs/private-using-counters.md),
 with whole-root alias protection and cleanup. [Private connected timers](docs/private-using-timers.md)
 retain captured INTEGER leaves across lexical exit and pause, with explicit
-disconnect and terminal/invocation cleanup. [Scalar BYTE/SHORT](docs/scalar-narrow.md)
+disconnect and terminal/invocation cleanup. [Routine-local timers](docs/routine-local-timers.md)
+accept fresh local INTEGER leaves, retain them across pause and release each
+connection when its defining routine frame unwinds. [Scalar BYTE/SHORT](docs/scalar-narrow.md)
 add typed variables, aliases and routine interfaces with checked private numeric
 conversions. [Wildcard renames](docs/wildcard-rename.md) move closed files or plain
 pipe configurations after batch preflight, without overwrite.

@@ -104,7 +104,8 @@ earlier completed effects intact and prevents entry to the body.
 - [Private connected timers](private-using-timers.md) accept ordinary INTEGER
   leaves under the existing whole-root counter protections. They can retain a
   capture after lexical exit and end with explicit disconnect or terminal cleanup.
-  Declared routine locals/formals and other service scope restrictions remain.
+  [Declared local timers](routine-local-timers.md) use their defining routine
+  frame lifetime. Formal timer roots and other service scope restrictions remain.
 - The preserved legacy translator retains its prior selector restrictions.
   These additions describe Pythonic offline execution, with no native or
   controller acceptance claim.

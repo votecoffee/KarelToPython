@@ -26,8 +26,9 @@ class ExtendedBoundaryTests(unittest.TestCase):
     def test_connected_counter_cannot_enter_loop(self):
         self.reject('CONNECT TIMER TO n FOR n=1 TO 2 DO ENDFOR', 'E_FOR_COUNTER')
 
-    def test_timer_local_storage_rejected(self):
-        self.reject('work()', 'E_TIMER_SCOPE', routines='ROUTINE work VAR local: INTEGER BEGIN CONNECT TIMER TO local END work')
+    def test_timer_local_storage_uses_routine_lifetime(self):
+        p,_=compile_program('work()',routines='ROUTINE work VAR local:INTEGER BEGIN CONNECT TIMER TO local END work')
+        p.run();self.assertEqual((p._state._timers,p._state._frame_timers,p._state._timer_frames),({},{},[]))
 
     def test_condition_multiple_when_and_comma_actions(self):
         state=run('n=0 CONDITION[1]: WHEN FALSE DO n=90 WHEN TRUE DO n=7,s=8 ENDCONDITION ENABLE CONDITION[1] n=n+1')

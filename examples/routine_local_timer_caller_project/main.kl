@@ -1,0 +1,13 @@
+PROGRAM MAIN
+VAR elapsed:INTEGER ready,caller_ok,done:BOOLEAN
+ROUTINE wait_local:BOOLEAN FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CONNECT TIMER TO elapsed
+    ready=wait_local()
+    caller_ok=elapsed>=0
+    DISCONNECT TIMER elapsed
+    elapsed=0
+    done=TRUE
+  ENDIF
+END MAIN
