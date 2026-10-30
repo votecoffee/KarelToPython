@@ -125,8 +125,9 @@ silently skipping the delay.
 NOWAIT with local clauses is rejected at translation. NOWAIT with a positive
 scripted delay is rejected before response consumption. Immediate NOWAIT requests
 retain their original capture behavior. Queued motion, native scan timing,
-AT NODE/TIME BEFORE/AFTER conditions, trajectory interpolation and native
-multi-group synchronization remain unsupported.
+inferred arrivals, trajectory interpolation and native multi-group synchronization
+remain unsupported. [Local AT NODE/TIME predicates](motion-timeline.md) now use
+complete supplied schedules and exact progress breakpoints.
 
 See the authored [local clauses](../examples/local_motion_handlers.kl),
 [delayed progress](../examples/scripted_motion_progress.kl),

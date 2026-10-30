@@ -1,0 +1,229 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "open",
+      "2": "open"
+    },
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "PATH_TIMELINE_EVENTS",
+        "source_program": "PATH_TIMELINE_EVENTS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 13,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "PATH_TIMELINE_EVENTS",
+        "source_program": "PATH_TIMELINE_EVENTS",
+        "operation": "MOVE ALONG",
+        "group": 1,
+        "line": 14,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "nodes": [
+            {
+              "type": [
+                "POSITION"
+              ],
+              "value": {
+                "LOCATION": {
+                  "X": 10.0,
+                  "Y": 0.0,
+                  "Z": 0.0
+                },
+                "NORMAL": {
+                  "X": 1.0,
+                  "Y": 0.0,
+                  "Z": 0.0
+                },
+                "ORIENT": {
+                  "X": 0.0,
+                  "Y": 1.0,
+                  "Z": 0.0
+                },
+                "APPROACH": {
+                  "X": 0.0,
+                  "Y": 0.0,
+                  "Z": 1.0
+                },
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            },
+            {
+              "type": [
+                "POSITION"
+              ],
+              "value": {
+                "LOCATION": {
+                  "X": 40.0,
+                  "Y": 0.0,
+                  "Z": 0.0
+                },
+                "NORMAL": {
+                  "X": 1.0,
+                  "Y": 0.0,
+                  "Z": 0.0
+                },
+                "ORIENT": {
+                  "X": 0.0,
+                  "Y": 1.0,
+                  "Z": 0.0
+                },
+                "APPROACH": {
+                  "X": 0.0,
+                  "Y": 0.0,
+                  "Z": 1.0
+                },
+                "CONFIG_DATA": {
+                  "CFG_TURN_NO1": 0,
+                  "CFG_TURN_NO2": 0,
+                  "CFG_TURN_NO3": 0,
+                  "CFG_FLIP": false,
+                  "CFG_LEFT": false,
+                  "CFG_UP": false,
+                  "CFG_FRONT": false
+                }
+              }
+            }
+          ],
+          "start": 1,
+          "end": 2,
+          "execution": {
+            "delay_ms": 23,
+            "elapsed_ms": 23,
+            "handlers": [
+              {
+                "kind": "WHEN",
+                "line": 15
+              },
+              {
+                "kind": "WHEN",
+                "line": 16
+              },
+              {
+                "kind": "WHEN",
+                "line": 17
+              },
+              {
+                "kind": "WHEN",
+                "line": 20
+              },
+              {
+                "kind": "WHEN",
+                "line": 21
+              },
+              {
+                "kind": "WHEN",
+                "line": 22
+              }
+            ],
+            "triggered": [
+              1,
+              2,
+              3,
+              5,
+              4,
+              6
+            ],
+            "node_times": {
+              "0": 0,
+              "1": 7,
+              "2": 23
+            },
+            "conditions": [
+              {
+                "kind": "AT",
+                "node": 0,
+                "offset_ms": 0
+              },
+              {
+                "kind": "BEFORE",
+                "node": 1,
+                "offset_ms": 3
+              },
+              {
+                "kind": "AT",
+                "node": 1,
+                "offset_ms": 0
+              },
+              {
+                "kind": "AFTER",
+                "node": 1,
+                "offset_ms": 2
+              },
+              {
+                "kind": "BEFORE",
+                "node": 2,
+                "offset_ms": 100
+              },
+              {
+                "kind": "AT",
+                "node": 2,
+                "offset_ms": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "PATH_TIMELINE_EVENTS",
+        "source_program": "PATH_TIMELINE_EVENTS",
+        "operation": "OPEN HAND",
+        "group": 1,
+        "line": 19,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "PATH_TIMELINE_EVENTS",
+        "source_program": "PATH_TIMELINE_EVENTS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 24,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -30,6 +30,83 @@ def bounded(value, low, high, message):
     return value
 
 
+def selector(kind, offset_ms, node, line=None):
+    """Freeze one local temporal selector, independently of any motion service."""
+    try:
+        if type(kind) is not str or kind not in ('AT', 'BEFORE', 'AFTER'):
+            raise ValueError('Unknown motion temporal condition')
+        bounded(offset_ms, 0, 86400000, 'Motion time offset must be in 0..86400000 ms')
+        if kind == 'AT' and offset_ms != 0:
+            raise ValueError('AT NODE cannot contain a time offset')
+        if type(node) is not str or node != '*':
+            bounded(node, 0, 32767, 'Motion condition node must be in 0..32767 or *')
+    except ValueError as error:
+        raise rt().KarelRuntimeError(str(error), line) from error
+    return dict(kind=kind, node=node, offset_ms=offset_ms)
+
+
+def node_times(values, duration):
+    """Validate caller-supplied arrivals; no path geometry or feedback inference."""
+    if type(values) is not dict or not 2 <= len(values) <= 257:
+        raise ValueError('Motion node_times requires start and 1..256 destination arrivals')
+    result = {}
+    for key, value in values.items():
+        if type(key) is not str or not re.fullmatch(r'0|[1-9][0-9]{0,4}', key):
+            raise ValueError('Motion node keys require canonical nonnegative integers')
+        bounded(int(key), 0, 32767, 'Motion node number exceeds 32767')
+        result[int(key)] = bounded(value, 0, duration, 'Motion arrival must be within the supplied delay')
+    if result.get(0) != 0:
+        raise ValueError('Motion node_times must explicitly place NODE[0] at zero')
+    ordered = sorted(result)
+    if any(result[left] > result[right] for left, right in zip(ordered, ordered[1:])):
+        raise ValueError('Motion arrivals must be nondecreasing in node order')
+    if result[ordered[-1]] != duration:
+        raise ValueError('Last motion arrival must equal the supplied delay')
+    return result
+
+
+def temporal_events(data, execution, operation):
+    """Precompute finite exact progress breakpoints and constant-time predicates."""
+    conditions = execution.get('conditions', [])
+    if 'node_times' not in execution:
+        if conditions:
+            raise ValueError('AT NODE/TIME conditions require explicit scripted node_times')
+        return {}, ()
+    times = node_times(execution['node_times'], execution['delay_ms'])
+    expected = [0, *range(data['start'], data['end'] + 1)] if operation == 'MOVE ALONG' else [0, 1]
+    if sorted(times) != expected:
+        raise ValueError('Motion node_times must match the complete selected move range')
+    last = expected[-1]
+    previous = {node: expected[index-1] for index, node in enumerate(expected) if index}
+    events, breakpoints = {}, set(times.values())
+    for condition in conditions:
+        if type(condition) is not dict or set(condition) != {'kind', 'node', 'offset_ms'}:
+            raise ValueError('Malformed motion temporal selector')
+        try:
+            normalized = selector(condition['kind'], condition['offset_ms'], condition['node'])
+        except rt().KarelRuntimeError as error:
+            raise ValueError(str(error)) from error
+        if normalized != condition:
+            raise ValueError('Motion temporal selector is not canonical')
+        kind, node, offset = condition['kind'], condition['node'], condition['offset_ms']
+        targets = expected[1:] if node == '*' else [node]
+        if any(target not in times for target in targets):
+            raise ValueError('Temporal condition references a node outside the selected move')
+        due = set()
+        for target in targets:
+            if kind == 'AT':
+                due.add(times[target])
+            elif kind == 'BEFORE' and target != 0:
+                due.add(max(times[previous[target]], times[target] - offset))
+            elif kind == 'AFTER' and target != last:
+                when = times[target] + offset
+                if when <= execution['delay_ms']:
+                    due.add(when)
+        events[kind, node, offset] = frozenset(due)
+        breakpoints.update(due)
+    return events, tuple(sorted(breakpoints))
+
+
 def operand(value, spec, line=None):
     """Validate and freeze each source operand before evaluating the next one."""
     runtime = rt()
@@ -140,12 +217,16 @@ class MotionRequests:
             raise ValueError('Motion responses exceed the finite script limit')
         for row in responses:
             if (type(row) is not dict or not {'operation', 'completed'} <= set(row)
-                    or set(row) - {'operation', 'completed', 'delay_ms'}
+                    or set(row) - {'operation', 'completed', 'delay_ms', 'node_times'}
                     or type(row['operation']) is not str or row['operation'] not in MOVES
                     or type(row['completed']) is not bool):
                 raise ValueError('Motion response requires operation and BOOLEAN completed')
             if 'delay_ms' in row:
                 bounded(row['delay_ms'], 0, 86400000, 'Motion delay must be in 0..86400000 ms')
+            if 'node_times' in row:
+                if 'delay_ms' not in row:
+                    raise ValueError('Motion node_times requires an explicit delay_ms')
+                node_times(row['node_times'], row['delay_ms'])
         if capture_only and responses:
             raise ValueError('Choose capture-only or scripted motion responses')
         self.responses = deepcopy(responses)
@@ -188,6 +269,8 @@ class MotionRequests:
                     raise ValueError('Completed motion history requires its full supplied progress')
                 if row['outcome'] == 'captured' and execution['delay_ms']:
                     raise ValueError('Capture-only motion cannot claim a delayed completion')
+                if row['outcome'] == 'captured' and 'node_times' in execution:
+                    raise ValueError('Capture-only motion cannot claim scripted node arrivals')
                 if row['outcome'] == 'rejected' and (execution['elapsed_ms'] or execution['triggered']):
                     raise ValueError('Rejected motion cannot contain executed handlers or progress')
                 if (any(execution['handlers'][index-1]['kind'] == 'UNTIL' for index in execution['triggered'])
@@ -214,7 +297,9 @@ class MotionRequests:
             raise ValueError('Unexpected motion request fields')
         if 'execution' in data:
             execution = data['execution']
-            if type(execution) is not dict or set(execution) != {'delay_ms', 'elapsed_ms', 'handlers', 'triggered'}:
+            required = {'delay_ms', 'elapsed_ms', 'handlers', 'triggered'}
+            if (type(execution) is not dict or not required <= set(execution)
+                    or set(execution) - required - {'node_times', 'conditions'}):
                 raise ValueError('Malformed motion execution metadata')
             duration = bounded(execution['delay_ms'], 0, 86400000, 'Invalid motion execution delay')
             bounded(execution['elapsed_ms'], 0, duration, 'Motion progress exceeds its supplied delay')
@@ -230,6 +315,9 @@ class MotionRequests:
                     or any(type(index) is not int or not 1 <= index <= len(handlers) for index in triggered)
                     or len(set(triggered)) != len(triggered)):
                 raise ValueError('Invalid local motion trigger sequence')
+            if 'conditions' in execution and (type(execution['conditions']) is not list
+                    or not 1 <= len(execution['conditions']) <= 64):
+                raise ValueError('Motion execution supports 1..64 temporal selectors')
         if 'settings' in data:
             rows = data['settings']
             if type(rows) is not list or not 1 <= len(rows) <= len(SETTINGS):
@@ -307,8 +395,10 @@ class MotionRequests:
                 raise ValueError('Motion PATH range disagrees with nodes')
             for node in nodes:
                 typed(node, POSES, self.groups[group])
+        events, breakpoints = temporal_events(data, data['execution'], operation) if 'execution' in data else ({}, ())
         if len(json.dumps(data, allow_nan=False, separators=(',', ':')).encode('ascii')) > 65536:
             raise ValueError('Motion request exceeds 64 KiB')
+        return events, breakpoints
 
     def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None):
         runtime = rt()
@@ -367,7 +457,7 @@ class MotionRequests:
                 data = dict(groups=sorted(groups))
             if _execution is not None:
                 data = dict(data, execution=_execution)
-            self.validate(operation, group, data)
+            events, breakpoints = self.validate(operation, group, data)
             if any(g not in locks.groups for g in self.groups):
                 raise ValueError('Motion groups must exist in the logical GroupLocks bank')
             selected = data['groups'] if operation in (*CONTROLS, 'ATTACH', 'RELEASE') else [group]
@@ -388,7 +478,7 @@ class MotionRequests:
                 else:
                     if not self.responses or self.responses[0]['operation'] != operation:
                         raise ValueError('Motion requires the next explicit matching completion response')
-                    if self.responses[0].get('delay_ms', 0) and _execution is None:
+                    if (self.responses[0].get('delay_ms', 0) or 'node_times' in self.responses[0]) and _execution is None:
                         raise ValueError('Delayed motion requires newly generated cooperative output without NOWAIT')
                     outcome = 'completed' if self.responses[0]['completed'] else 'rejected'
         except (ValueError, runtime.KarelRuntimeError) as error:
@@ -430,7 +520,7 @@ class MotionRequests:
         if _execution is not None:
             scope = dict(group=group, root=root, state=state, locks=locks,
                 grant=locks._ownership_tokens.get(group), request=request,
-                outcome=outcome, cancelled=False, consumer=object())
+                outcome=outcome, cancelled=False, consumer=object(), events=events, breakpoints=breakpoints)
             request['outcome'] = 'pending'
             self._active[group] = scope
             locks.set_motion(group, 'executing')
@@ -452,6 +542,15 @@ class MotionRequests:
             raise rt().KarelRuntimeError('Active motion lost its logical ownership grant', line)
         if not scope['cancelled'] and scope['locks'].motion.get(scope['group'], 'idle') != 'executing':
             raise rt().KarelRuntimeError('Active motion work label was changed externally', line)
+
+    def condition(self, state, descriptor, line=None):
+        scope = self._local_actions.get(rt().task_root(state))
+        if scope is None:
+            raise rt().KarelRuntimeError('AT NODE/TIME requires an active local motion predicate', line)
+        key = descriptor['kind'], descriptor['node'], descriptor['offset_ms']
+        if key not in scope['events']:
+            raise rt().KarelRuntimeError('Motion temporal selector was not captured for this scope', line)
+        return scope['request']['data']['execution']['elapsed_ms'] in scope['events'][key]
 
     def scan_local(self, scope, clauses, line):
         """One-shot clauses in source order, isolated from global event cursors."""
@@ -495,22 +594,28 @@ class MotionRequests:
                 for current, previous in chain:
                     current._in_handler = previous
 
-    def execute(self, state, operation, data, nowait=False, line=None, *, settings=None, clauses=()):
+    def execute(self, state, operation, data, nowait=False, line=None, *, settings=None, clauses=(), conditions=()):
         """Scoped synchronous request with explicit progress, never queued motion."""
         runtime = rt()
-        delay = 0
+        delay, plan = 0, None
         if not self.capture_only and self.responses and self.responses[0]['operation'] == operation:
             delay = self.responses[0].get('delay_ms', 0)
-        scoped = bool(clauses) or bool(delay)
+            plan = self.responses[0].get('node_times')
+        scoped = bool(clauses) or bool(delay) or plan is not None or bool(conditions)
         if not scoped:
             self.invoke(state, operation, data, nowait, line, settings=settings)
             return
         execution = dict(delay_ms=delay, elapsed_ms=0,
             handlers=[dict(kind=kind, line=location) for kind, _, _, location in clauses], triggered=[])
+        if plan is not None:
+            execution['node_times'] = {str(key): value for key, value in sorted(node_times(plan, delay).items())}
+        if conditions:
+            execution['conditions'] = list(conditions)
         scope = self.invoke(state, operation, data, nowait, line, settings=settings, _execution=execution)
         outcome = 'failed'
         try:
             progress = scope['request']['data']['execution']
+            event_cursor = 0
             while True:
                 yield from runtime.checkpoint(state, line)
                 self.verify_scope(scope, line)
@@ -529,6 +634,10 @@ class MotionRequests:
                     outcome = scope['outcome']
                     break
                 step = 10 if held else min(10, delay - progress['elapsed_ms'])
+                while event_cursor < len(scope['breakpoints']) and scope['breakpoints'][event_cursor] <= progress['elapsed_ms']:
+                    event_cursor += 1
+                if not held and event_cursor < len(scope['breakpoints']):
+                    step = min(step, scope['breakpoints'][event_cursor] - progress['elapsed_ms'])
                 yield from runtime.delay_execution(state, step, line)
                 if not held:
                     progress['elapsed_ms'] += step

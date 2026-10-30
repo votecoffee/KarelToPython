@@ -245,6 +245,7 @@ class Parser:
     def __init__(self, source, filename, mode='strict'):
         self.continuations = []
         self.in_motion_kind = False
+        self.in_motion_condition = False
         self.escaped_string_literals = []
         self.predefined_uses = []
         self.directive_metadata = []
@@ -945,9 +946,10 @@ class Parser:
             while self.current.value in ('WHEN','UNTIL'):
                 clause=self.take()
                 if len(clauses)>=32:self.error('E_MOTION_CLAUSE','MOVE supports at most 32 local clauses',clause)
-                previous=self.in_condition;self.in_condition=True
+                previous,previous_motion=self.in_condition,self.in_motion_condition
+                self.in_condition=True;self.in_motion_condition=True
                 try:condition=self.expression()
-                finally:self.in_condition=previous
+                finally:self.in_condition,self.in_motion_condition=previous,previous_motion
                 actions=[]
                 if clause.value=='WHEN':self.expect('DO');has_actions=True
                 else:has_actions=bool(self.accept('THEN'))
@@ -1037,11 +1039,35 @@ class Parser:
                 base = Expr('field', member, member.value, [base])
         return base
 
+    def motion_time_follows(self):
+        # TIME remains an ordinary identifier unless a top-level BEFORE/AFTER
+        # NODE marker makes the local-condition grammar unambiguous.
+        depth=0
+        for index in range(self.position,len(self.tokens)):
+            token=self.tokens[index];value=token.value
+            if token.kind=='EOF' or depth==0 and value in ('DO','THEN','ENDMOVE',')',']','AND','OR'):
+                return False
+            if depth==0 and value in ('BEFORE','AFTER') and index+1<len(self.tokens) and self.tokens[index+1].value=='NODE':return True
+            if value in ('(','['):depth+=1
+            elif value in (')',']'):depth-=1
+        return False
+
+    def motion_node_selector(self):
+        self.expect('NODE');self.expect('[')
+        node=None if self.accept('*') else self.expression()
+        self.expect(']');return node
+
     def expression(self, minimum=0, *, allow_relative=True):
         self.skip_lines()
         token = self.take()
         if self.mode=='pythonic' and token.value in ('EVENT','SEMAPHORE'):
             self.expect('['); number=self.expression(); self.expect(']'); left=Expr('event' if token.value=='EVENT' else 'semaphore',token,args=[number])
+        elif self.in_motion_condition and token.value=='AT' and self.current.value=='NODE':
+            left=Expr('motion_condition',token,'AT',[None,self.motion_node_selector()])
+        elif self.in_motion_condition and token.value=='TIME' and self.motion_time_follows():
+            offset=self.expression();self.skip_lines();direction=self.take()
+            if direction.value not in ('BEFORE','AFTER'):self.error('E_MOTION_CONDITION','TIME requires BEFORE/AFTER NODE',direction)
+            left=Expr('motion_condition',token,direction.value,[offset,self.motion_node_selector()])
         elif self.in_condition and token.value=='ERROR':
             self.expect('[')
             arguments=[] if self.accept('*') else [self.expression()]
@@ -2125,6 +2151,8 @@ class Emitter:
                 all(a == b or a is None or b is None for a, b in zip(target_shape, source_shape)))
 
     def expression(self, expr, raw=False, *, allow_array_result=False):
+        if expr.kind=='motion_event':
+            return f'self._state.execution.require("motion",{expr.token.line}).condition(self._state,{expr.value},{expr.token.line})',('BOOLEAN',)
         if expr.kind=='captured': return expr.value
         if expr.kind=='using_ref':
             code=f'{expr.value[0]}.raw()'
@@ -3150,7 +3178,7 @@ class Emitter:
                         if any(mode in ('o', 'r','m') and self.protection_root(value) == name for value, (mode, _) in zip(action.args, signature)): return True
         return False
 
-    def condition_callbacks(self,clauses):
+    def condition_callbacks(self,clauses,*,motion_terms=None):
         pairs=[]
         for clause in clauses:
             for item in reversed(list(self.walk_nodes([*clause.args,*clause.body]))):
@@ -3158,6 +3186,21 @@ class Emitter:
                     code,spec=self.expression(item.args[0]); temporary=self.fresh()
                     self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})',item.token)
                     item.kind='captured'; item.value=(temporary,spec); item.args=[]
+            for item in list(self.walk_nodes(clause.args)):
+                if not isinstance(item,Expr) or item.kind!='motion_condition':continue
+                if motion_terms is None:self.error('E_MOTION_CONDITION','AT NODE/TIME requires a motion-local predicate',item.token)
+                if len(motion_terms)>=64:self.error('E_MOTION_CONDITION','MOVE supports at most 64 temporal selectors',item.token)
+                offset,node=item.args;offset_code='0';node_code=repr('*')
+                if offset is not None:
+                    code=self.require_type(offset,'INTEGER');offset_code=self.fresh()
+                    self.line(f'{offset_code}=_rt.integer({code},{offset.token.line})',offset.token)
+                if node is not None:
+                    code=self.require_type(node,'INTEGER');node_code=self.fresh()
+                    self.line(f'{node_code}=_rt.integer({code},{node.token.line})',node.token)
+                temporary=self.fresh()
+                self.line(f'{temporary}=_rt.motion_selector({item.value!r},{offset_code},{node_code},{item.token.line})',item.token)
+                motion_terms.append((temporary,dict(kind=item.value,line=item.token.line,column=item.token.column,wildcard=node is None,evaluated_once=True)))
+                item.kind='motion_event';item.value=temporary;item.args=[]
             for action_node in self.walk_nodes(clause.body):
                 if isinstance(action_node,Statement) and action_node.kind in ('label','goto','return','condition'):
                     self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
@@ -3233,17 +3276,21 @@ class Emitter:
                 self.line(f'{temporary}=_rt.motion_operand({code},{spec!r},{line})',expr.token)
                 captured.append(repr(key)+':'+temporary)
             self.features.add('offline motion requests')
-            self.motion_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                line=line,column=token.column,operation=operation,nowait=nowait,operands_evaluated_once=True))
-            if settings:self.motion_uses[-1]['settings']=[dict(name=key.value,line=key.line,column=key.column,group_qualified=group is not None) for key,group,_ in stmt.args[3]]
+            request_use=dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,operation=operation,nowait=nowait,operands_evaluated_once=True)
+            self.motion_uses.append(request_use)
+            if settings:request_use['settings']=[dict(name=key.value,line=key.line,column=key.column,group_qualified=group is not None) for key,group,_ in stmt.args[3]]
             data='{'+','.join(captured)+'}'
             extra=',settings=['+','.join(settings)+']' if settings else ''
             if kind=='motion':
-                pairs=self.condition_callbacks(stmt.body)
+                terms=[];pairs=self.condition_callbacks(stmt.body,motion_terms=terms)
                 callbacks=','.join(f'({clause.token.value!r},{predicate},{action},{clause.token.line})' for clause,(predicate,action) in zip(stmt.body,pairs))
                 if pairs:
                     extra+=',clauses=['+callbacks+']'
-                    self.motion_uses[-1]['local_handlers']=[dict(kind=clause.token.value,line=clause.token.line,column=clause.token.column) for clause in stmt.body]
+                    request_use['local_handlers']=[dict(kind=clause.token.value,line=clause.token.line,column=clause.token.column) for clause in stmt.body]
+                if terms:
+                    extra+=',conditions=['+','.join(name for name,_ in terms)+']'
+                    request_use['conditions']=[info for _,info in terms]
                 self.line(f'yield from self._state.execution.require("motion",{line}).execute(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
             else:
                 self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
@@ -4198,10 +4245,11 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
             data='Complete detached positional operands; source order captured once; bounded PATH NODE_POS snapshots',
             controls='HOLD/UNHOLD flags are independent of active/stopped labels; CANCEL retains holds and preserves stopped work; selections use current root ownership at action time',
             settings='Six local WITH settings captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
-            boundary='No trajectories, physical hands, robot feedback updates, live adapters, node/time conditions or queued motion',
+            boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or queued motion',
             nowait='Immediate requests only; scoped handlers and positive scripted delays reject NOWAIT, no background queue',
             local_handlers='One-shot WHEN and UNTIL/THEN clauses at entry and 10 ms supplied-delay checkpoints; global scans first, local controls target current group; active holds suspend local scans',
             delayed_completion='Explicit finite delay_ms response, cooperative pause/resume and root-owned cleanup; no trajectory or feedback inference',
+            temporal_conditions='Captured AT NODE and TIME BEFORE/AFTER selectors require complete explicit node_times; exact modeled breakpoints, start node zero and wildcard destinations, no geometry inference',
             controller_validated=False),
         initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,

@@ -1,0 +1,102 @@
+{
+  "POINT": {
+    "X": 40.0,
+    "Y": 0.0,
+    "Z": 0.0,
+    "W": 0.0,
+    "P": 0.0,
+    "R": 0.0,
+    "CONFIG_DATA": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "CONFIG_DATA": {
+    "CFG_TURN_NO1": 0,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "TRACK": {
+    "nodes": [
+      {
+        "NODE_POS": {
+          "LOCATION": {
+            "X": 10.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "NORMAL": {
+            "X": 1.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "ORIENT": {
+            "X": 0.0,
+            "Y": 1.0,
+            "Z": 0.0
+          },
+          "APPROACH": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 1.0
+          },
+          "CONFIG_DATA": {
+            "CFG_TURN_NO1": 0,
+            "CFG_TURN_NO2": 0,
+            "CFG_TURN_NO3": 0,
+            "CFG_FLIP": false,
+            "CFG_LEFT": false,
+            "CFG_UP": false,
+            "CFG_FRONT": false
+          }
+        }
+      },
+      {
+        "NODE_POS": {
+          "LOCATION": {
+            "X": 40.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "NORMAL": {
+            "X": 1.0,
+            "Y": 0.0,
+            "Z": 0.0
+          },
+          "ORIENT": {
+            "X": 0.0,
+            "Y": 1.0,
+            "Z": 0.0
+          },
+          "APPROACH": {
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 1.0
+          },
+          "CONFIG_DATA": {
+            "CFG_TURN_NO1": 0,
+            "CFG_TURN_NO2": 0,
+            "CFG_TURN_NO3": 0,
+            "CFG_FLIP": false,
+            "CFG_LEFT": false,
+            "CFG_UP": false,
+            "CFG_FRONT": false
+          }
+        }
+      }
+    ],
+    "data": null
+  },
+  "STATUS": 0,
+  "N": 123546,
+  "DONE": true
+}

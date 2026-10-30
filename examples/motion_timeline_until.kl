@@ -1,0 +1,24 @@
+PROGRAM MOTION_TIMELINE_UNTIL
+VAR point:XYZWPR config_data:CONFIG track:PATH status,n:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',config_data,status)
+    point=POS(10,0,0,0,0,0,config_data)
+    APPEND_NODE(track,status)
+    track[1].node_pos=point
+    point.x=20
+    APPEND_NODE(track,status)
+    track[2].node_pos=point
+    point.x=30
+    APPEND_NODE(track,status)
+    track[3].node_pos=point
+    n=0
+    ATTACH
+    MOVE ALONG track[2..3],
+      WHEN AT NODE[2] DO n=2
+      UNTIL TIME 3 BEFORE NODE[3] THEN n=n+10
+    ENDMOVE
+    RELEASE
+    done=TRUE
+  ENDIF
+END MOTION_TIMELINE_UNTIL

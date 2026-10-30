@@ -34,12 +34,14 @@ they are boundaries rather than promises to accept every such source form later.
   now support HOLD/UNHOLD/CANCEL, global handler actions and six per-request WITH
   settings. [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
   now use synchronous scopes with pause/resume and cleanup. NOWAIT with local
-  clauses/delayed completion, node/time conditions, remaining WITH variables,
+  clauses/delayed completion, inferred node arrivals, remaining WITH variables,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
+  [AT NODE and TIME BEFORE/AFTER](motion-timeline.md) now require a complete supplied
+  arrival schedule; global temporal predicates and physical arrival discovery remain unavailable.
   `CANCEL FILE` and standalone `PURGE` are not translated; `PURGE CONDITION` is supported. `IN GROUP[n]` does not add other native `IN`
   clauses; `IN DRAM` storage placement is unavailable.
 - Handler actions involving native motion execution or file cancellation;
-  path-node arrival (`A TNODE`) conditions. Checkpoint predicates, events, port
+  native path-node arrival discovery. Checkpoint predicates, events, port
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,
   asynchronous native interrupts and physical node-arrival scans are unavailable.

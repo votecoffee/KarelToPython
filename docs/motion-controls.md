@@ -128,6 +128,6 @@ See the authored [controls](../examples/motion_controls.kl),
 [settings](../examples/motion_with_settings.kl) and
 [linked calls](../examples/motion_control_project/main.kl).
 Local [Boolean WHEN/UNTIL and finite delayed responses](motion-handlers.md) are
-supported through synchronous scopes. NOWAIT queues, node/time conditions,
-remaining WITH variables, global system-variable access and native multi-group
-synchronization remain unsupported.
+supported through synchronous scopes. [Local node/time predicates](motion-timeline.md)
+use complete supplied schedules. NOWAIT queues, inferred arrivals, remaining WITH
+variables, global system-variable access and native synchronization remain unsupported.

@@ -637,3 +637,9 @@ retains private callbacks and routine frames for synchronous scopes; save guards
 reject active scopes and loaded history validates progress, triggers and outcomes.
 Reports add local clause locations and scope rules. Older direct-invoke output
 must be retranslated for delayed responses. No queued/native motion is inferred.
+
+[Explicit temporal predicates](motion-timeline.md) use optional response
+`node_times` with an explicit delay_ms. Complete selected-range schedules and
+concrete selector metadata persist in execution history. Reports add
+`motion_request_policy.temporal_conditions` and per-MOVE condition locations;
+handler action reports cannot take ownership of their enclosing MOVE metadata.

@@ -1,0 +1,28 @@
+{
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "responses": [
+      {
+        "operation": "MOVE ALONG",
+        "completed": true,
+        "delay_ms": 23,
+        "node_times": {
+          "0": 0,
+          "1": 7,
+          "2": 23
+        }
+      }
+    ]
+  },
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  }
+}

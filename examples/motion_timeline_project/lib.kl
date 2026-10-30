@@ -1,0 +1,15 @@
+PROGRAM LIB
+VAR last:INTEGER
+ROUTINE work(target,offset:INTEGER):INTEGER
+VAR local:INTEGER
+BEGIN
+  local=0
+  MOVE AWAY 1,
+    WHEN TIME offset BEFORE NODE[target] DO local=7
+    WHEN AT NODE[target] DO local=9
+  ENDMOVE
+  last=local
+  RETURN local
+END work
+BEGIN
+END LIB

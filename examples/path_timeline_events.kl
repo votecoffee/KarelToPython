@@ -1,0 +1,27 @@
+PROGRAM PATH_TIMELINE_EVENTS
+VAR point:XYZWPR config_data:CONFIG track:PATH status,n:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N',config_data,status)
+    point=POS(10,0,0,0,0,0,config_data)
+    APPEND_NODE(track,status)
+    track[1].node_pos=point
+    point.x=40
+    APPEND_NODE(track,status)
+    track[2].node_pos=point
+    n=0
+    ATTACH
+    MOVE ALONG track,
+      WHEN AT NODE[0] DO n=n*10+1
+      WHEN TIME 3 BEFORE NODE[1] DO n=n*10+2
+      WHEN AT NODE[1] DO
+        n=n*10+3
+        OPEN HAND 1
+      WHEN TIME 2 AFTER NODE[1] DO n=n*10+4
+      WHEN TIME 100 BEFORE NODE[2] DO n=n*10+5
+      WHEN AT NODE[2] DO n=n*10+6
+    ENDMOVE
+    RELEASE
+    done=TRUE
+  ENDIF
+END PATH_TIMELINE_EVENTS

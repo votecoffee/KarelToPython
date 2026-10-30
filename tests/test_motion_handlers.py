@@ -443,7 +443,7 @@ class MotionScopeSourceGuards(unittest.TestCase):
     def test_unsupported_source_shapes_remain_blocked(self):
         for body in ('MOVE TO p NOWAIT, WHEN TRUE DO n=1 ENDMOVE','MOVE AWAY 1, ENDMOVE',
                      'MOVE AWAY 1, WHEN TRUE DO ENDMOVE','MOVE AWAY 1, UNTIL TRUE THEN ENDMOVE',
-                     'MOVE AWAY 1, WHEN TRUE DO n=1','MOVE AWAY 1, WHEN AT NODE[1] DO n=1 ENDMOVE',
+                     'MOVE AWAY 1, WHEN TRUE DO n=1','MOVE AWAY 1, WHEN AT NODE[] DO n=1 ENDMOVE',
                      'MOVE AWAY 1, WHEN TIME 10 DO n=1 ENDMOVE','MOVE AWAY 1, WHEN 1 DO n=1 ENDMOVE',
                      'MOVE AWAY 1, WHEN TRUE DO RETURN ENDMOVE','MOVE AWAY 1, WHEN TRUE DO GOTO x ENDMOVE',
                      'MOVE AWAY 1, WHEN TRUE DO MOVE AWAY 1 ENDMOVE',

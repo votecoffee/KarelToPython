@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.004838**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.011911**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -700,8 +700,13 @@ explicit; controls do not create trajectories or change robot feedback.
 [Motion-local clauses and scripted progress](docs/motion-handlers.md) now support
 one-shot WHEN actions, UNTIL/THEN cancellation and finite supplied response delays.
 They retain caller-owned local frames across pause/resume, validate completion
-history and clean up on cancellation or failure. NOWAIT queues and node/time
-arrival conditions remain unsupported.
+history and clean up on cancellation or failure. NOWAIT queues and inferred
+arrival timing remain unsupported.
+
+[Explicit motion timelines](docs/motion-timeline.md) now support local AT NODE and
+TIME BEFORE/AFTER predicates, including wildcard destinations, using complete
+supplied node schedules. Captured selectors and exact progress breakpoints persist
+in validated history; no arrival times are inferred from robot geometry.
 
 ## Roadmap
 
@@ -737,7 +742,7 @@ Routine development validation uses the local CLI commands above.
 
 The example runner translates all authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 49 complete linked source projects. It also checks that unsupported NOWAIT/local-handler combinations are rejected.
+fixtures, plus 50 complete linked source projects. It also checks that unsupported NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

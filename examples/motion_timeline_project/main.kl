@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR result:INTEGER done:BOOLEAN
+ROUTINE work(target,offset:INTEGER):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    ATTACH
+    result=work(1,2)
+    RELEASE
+    done=TRUE
+  ENDIF
+END MAIN

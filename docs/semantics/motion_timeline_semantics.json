@@ -1,0 +1,17 @@
+{
+  "version": "26.1030.011911",
+  "scope": "Offline explicit node schedules and local temporal predicates; no geometry-derived arrivals or controller acceptance",
+  "guide": "docs/motion-timeline.md",
+  "source": "AT NODE[n/*] and TIME integer-expression BEFORE/AFTER NODE[n/*], captured in local WHEN/UNTIL predicates only",
+  "schedule": "Explicit response node_times and delay_ms; node zero at zero, complete selected destinations, monotone integer times, final arrival at delay",
+  "boundaries": "NODE[0] starts the move; non-path NODE[1] ends it; path ranges keep original indexes; BEFORE clamps to the preceding segment start, BEFORE zero and AFTER final never fire",
+  "wildcard": "Selected destination nodes only, excluding zero; independent one-shot clauses can match later wildcard events after earlier gate misses",
+  "capture": "Offset then node expression once at definition, after existing EVAL captures; strict integer bounds and existing counter protection",
+  "progress": "Exact declared/event breakpoints within the cooperative progress loop; globals first, local source order, constant-time event lookup and bounded cursor advancement",
+  "lifetime": "Pause/hold freezes progress; resume preserves event maps; cancellation/abort/failure retain checked cleanup and distinguish declared future arrivals from reached progress",
+  "history": "Optional execution node_times and concrete conditions with strict admission/restore checks; no pending restoration or active saves",
+  "limits": {"destination_nodes": 256, "temporal_selectors": 64, "offset_ms": 86400000, "node_number": 32767},
+  "tests": ["tests/test_motion_timeline.py", "examples/motion_node_events.kl", "examples/path_timeline_events.kl", "examples/motion_timeline_until.kl", "examples/motion_timeline_project/main.kl"],
+  "remaining": ["NOWAIT schedules and queues", "Global temporal predicates", "Inferred node arrivals", "Trajectories and physical timing", "Native multi-group synchronization"],
+  "controller_validated": false
+}

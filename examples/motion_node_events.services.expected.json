@@ -1,0 +1,100 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_NODE_EVENTS",
+        "source_program": "MOTION_NODE_EVENTS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_NODE_EVENTS",
+        "source_program": "MOTION_NODE_EVENTS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 7,
+            "elapsed_ms": 7,
+            "handlers": [
+              {
+                "kind": "WHEN",
+                "line": 8
+              },
+              {
+                "kind": "WHEN",
+                "line": 9
+              }
+            ],
+            "triggered": [
+              1,
+              2
+            ],
+            "node_times": {
+              "0": 0,
+              "1": 7
+            },
+            "conditions": [
+              {
+                "kind": "AT",
+                "node": 0,
+                "offset_ms": 0
+              },
+              {
+                "kind": "AT",
+                "node": 1,
+                "offset_ms": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_NODE_EVENTS",
+        "source_program": "MOTION_NODE_EVENTS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

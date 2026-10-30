@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1030.011911 - 2026-10-30
+
+- Translate local AT NODE and TIME BEFORE/AFTER NODE conditions, including
+  wildcard destinations and one-time integer selector capture, using complete
+  explicit node_times response schedules. Preserve original selected path indexes.
+- Scan exact declared/event progress breakpoints; clamp BEFORE to segment starts,
+  exclude start from wildcard destinations and preserve final-node AFTER rules.
+  Keep holds, pause/resume, cancellation and caller ownership in existing scopes.
+- Validate schedule shape, range, temporal references and saved history before
+  admission. Preserve old response behavior and reject unsupplied/inferred arrivals
+  or unsupported NOWAIT schedules without consuming responses.
+- Keep MOVE clause/condition report metadata on its request when handler actions
+  append their own uses. Add 40 regressions, three standalone examples and a linked
+  project, with fresh installed CLI and saved-context replay checks.
+- Refresh current README/API/backlog. Native timing, trajectory inference,
+  asynchronous queues, multi-group synchronization and strict remain outside this model.
+
 ## 26.1030.004838 - 2026-10-30
 
 - Translate motion-local Boolean WHEN/DO and UNTIL/optional THEN clauses with

@@ -314,3 +314,7 @@ pending execution, other WITH variables and synchronization remain separate.
 The [local motion ledger](motion_handler_semantics.json) supersedes prior blanket
 local-handler and delayed-response exclusions for Boolean clauses and finite
 synchronous scopes. Native timing, node conditions and NOWAIT queues remain outside it.
+
+The [motion timeline ledger](motion_timeline_semantics.json) supersedes blanket
+AT NODE/TIME exclusions for local predicates with complete explicit schedules.
+Native timing, inferred arrivals and queued motion remain separate.

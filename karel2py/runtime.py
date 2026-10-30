@@ -2823,5 +2823,5 @@ from .controller import ControllerServices,CONTROLLER_CALLS
 from .vision import VisionServices,VISION_CALLS
 from .source_translations import SourceTranslations
 from .serial_io import SerialStreams
-from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,
+from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,selector as motion_selector,
                      SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS)
