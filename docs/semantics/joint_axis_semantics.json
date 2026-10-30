@@ -1,0 +1,17 @@
+{
+  "version": "26.1030.192713",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../joint-axis-access.md",
+  "tests": [
+    "tests/test_joint_axis_access.py"
+  ],
+  "scope": "Explicit Pythonic input extension for one-based JOINTPOS axis data; not native source/compiler evidence",
+  "types": "Declared JOINTPOS1..9, unsuffixed nine slots; selected finite REAL storage and partial unselected axes",
+  "capture": "Base once then all indexes left-to-right; declared source schema and selected container/width checks; RHS before target; no partial flat ARRAY rows",
+  "interfaces": "Ordinary REAL aliases, private grouped actuals, READ/FILE/scalar outputs, GET_VAR/SET_VAR/BYNAME paths and exact linked/generic formals",
+  "lifetime": "Ordinary whole-joint replacement retains axis storage; pause retains captured references without replay; existing cancellation and terminal cleanup",
+  "boundaries": "No direct joint field names, implicit INTEGER controls/status/FOR aliases, robot/group/axis-unit discovery, geometry certification, nonzero-axis discard or strict-mode relaxation",
+  "persistence": "Typed axes and ordinary missing markers only; no references, captured selectors or paused stacks",
+  "supersedes": "Older blanket Pythonic joint-index exclusions; legacy translator and generic indexed_type remain ARRAY-only"
+}

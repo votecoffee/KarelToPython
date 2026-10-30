@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [joint-axis ledger](joint_axis_semantics.json) supersedes older blanket joint
+index exclusions for checked Pythonic REAL data cells. Direct joint fields, native
+syntax/units and complete geometry/model guards retain their boundaries.
+
 The [extended motion-setting ledger](extended_motion_setting_semantics.json)
 supersedes older six-setting limits with termination/orientation choices, the
 STRAIGHT alias and explicit group prefixes; native planning remains unverified.

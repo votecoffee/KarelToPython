@@ -1,0 +1,14 @@
+{
+  "JOINTS": {
+    "axes": [
+      10.0,
+      7.5,
+      99.0
+    ]
+  },
+  "VALUE": 7.5,
+  "OUT": 7.5,
+  "ENTRY": 2,
+  "STATUS": 0,
+  "DONE": true
+}

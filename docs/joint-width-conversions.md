@@ -53,8 +53,8 @@ BYNAME targets, linked routine declarations and raw external callback return
 types retain exact type contracts. Matching linked source signatures can accept
 privately converted actuals, including named/component ARRAY values.
 [Source ARRAY schemas](array-schema-conversions.md) also support same-width
-ARRAY names/layouts. Raw joint indexing, nonzero-axis discard and physical
-motion remain unavailable. Existing [model-backed conversions](kinematic-interfaces.md)
+ARRAY names/layouts. [Checked Pythonic joint-axis data access](joint-axis-access.md)
+is now available. Nonzero-axis discard and physical motion remain unavailable. Existing [model-backed conversions](kinematic-interfaces.md)
 remain a separate explicitly configured operation.
 
 Reports contain `joint_width_conversions` sites with assignment/argument/RETURN

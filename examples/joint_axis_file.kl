@@ -1,0 +1,11 @@
+PROGRAM JOINT_AXIS_FILE
+VAR joints:JOINTPOS3 f:FILE status:INTEGER
+BEGIN
+  OPEN FILE f('WB','axes.bin')
+  WRITE f(1.25,-2.5)
+  CLOSE FILE f
+  OPEN FILE f('RB','axes.bin')
+  READ f(joints[1],joints[3])
+  status=IO_STATUS(f)
+  CLOSE FILE f
+END JOINT_AXIS_FILE

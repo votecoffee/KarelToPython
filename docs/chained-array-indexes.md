@@ -90,6 +90,10 @@ argument aliases, handlers and service outputs just as they cover comma access.
 POSITION orientation descendants remain readonly, CONFIG subfields retain their
 bounded/output rules, and BYTE unknown contents do not become initialized data.
 
+[Checked joint-axis access](joint-axis-access.md) can now terminate a complete
+ARRAY chain at one additional one-based REAL axis. It preserves ARRAY boundaries
+and does not create partial flat rows.
+
 Both structured code and the label dispatcher use the same normalization.
 Existing FOR bounds, RETURN snapshots, GOTO entry restrictions, errors and
 cleanup apply. INTEGER, BYTE and SHORT chained counters retain their respective

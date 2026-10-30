@@ -1,0 +1,31 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ITEMS": [
+        [
+          {
+            "axes": [
+              1.0,
+              2.0
+            ]
+          },
+          {
+            "axes": [
+              3.0,
+              4.0
+            ]
+          }
+        ]
+      ],
+      "VALUE": 4.0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "VISITS": 4
+    }
+  }
+}

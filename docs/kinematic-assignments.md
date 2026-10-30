@@ -106,7 +106,8 @@ padding/zero-only narrowing. [Anonymous model-backed ARRAY source values](kinema
 now support whole assignments and interfaces. [Model-backed variable transfers](kinematic-variable-transfers.md)
 now add explicit-context GET_VAR/SET_VAR conversion; no kinematics is inferred.
 BYNAME, declared linkage and raw callback results retain their exact contracts.
-JOINTPOS still has no source field/index access. Supported geometry expressions
+[Checked Pythonic joint-axis data access](joint-axis-access.md) is now available;
+direct joint fields remain unavailable. Supported geometry expressions
 use the explicit [joint geometry](joint-geometry.md) conversion policy since
 0.94.0. POSITION orientation destinations remain protected.
 

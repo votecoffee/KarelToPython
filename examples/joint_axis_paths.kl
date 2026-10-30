@@ -1,0 +1,13 @@
+PROGRAM JOINT_AXIS_PATHS
+VAR joints:JOINTPOS3 value,out:REAL entry,status:INTEGER done:BOOLEAN
+ROUTINE edit_axis(v:REAL)
+BEGIN v=99 END edit_axis
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=10 joints[2]=20 joints[3]=30 value=7.5
+    SET_VAR(entry,'','JOINTS[2]',value,status)
+    GET_VAR(entry,'','JOINTS[2]',out,status)
+    edit_axis(BYNAME('','JOINTS[3]',entry))
+    done=TRUE
+  ENDIF
+END JOINT_AXIS_PATHS

@@ -123,7 +123,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('motion_termination_choices', 'N', 1),
                     ('motion_qualified_choices', 'N', 123),
                     ('motion_nine_settings', 'STATUS', 0),
-                    ('motion_enum_expressions', 'N', 30)]
+                    ('motion_enum_expressions', 'N', 30),
+                    ('joint_axis_values', 'VALUE', -2.5),
+                    ('joint_axis_aliases', 'VALUE', 7.),
+                    ('joint_axis_file', 'STATUS', 0),
+                    ('joint_axis_paths', 'OUT', 7.5)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

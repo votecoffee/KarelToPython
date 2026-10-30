@@ -2,6 +2,11 @@
 
 ## Translation
 
+[Joint-axis access](joint-axis-access.md) adds `joint_axis_accesses` and
+`joint_axis_policy` reports. Generated source captures a declared joint/ARRAY
+schema with `runtime.joint_index_reference`, returning an ordinary REAL reference.
+Explicit GET_VAR/SET_VAR/BYNAME paths use the same width checks.
+
 [Extended motion settings](extended-motion-settings.md) add `motion_setting_policy`
 reports for nine request-local WITH values, canonical enum domains/aliases and
 explicit group forms. Source captures and validated JSON history use the existing

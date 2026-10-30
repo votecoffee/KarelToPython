@@ -124,8 +124,10 @@ they are boundaries rather than promises to accept every such source form later.
   malformed/mixed capacities remain blocked. [Partial data copies](partial-aggregate-values.md) now
   preserve missing scalar leaves across assignments, private arguments and results;
   malformed known data, resource-bearing values and schemas above64 levels remain blocked.
-- Direct joint field/index access, nonzero-axis-discarding joint-width conversions,
-  and implicit robot-context discovery.
+- Direct joint field access, nonzero-axis-discarding joint-width conversions,
+  and implicit robot-context discovery. [Checked Pythonic axis subscripts](joint-axis-access.md)
+  now support REAL data cells, nested/ARRAY joint elements, captured aliases, input
+  and explicit variable paths; native source acceptance and axis units remain unverified.
   [Source joint-width conversions](joint-width-conversions.md) now pad zeros or
   narrow zero-only trailing axes into complete private values without robot inference.
   [Joint/Cartesian source routine conversions](kinematic-interfaces.md) now require

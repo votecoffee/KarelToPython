@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1030.192713 - 2026-10-30
+
+- Add checked one-based JOINTPOS axis subscripts as a Pythonic input extension.
+  Select finite REAL cells within declared widths 1..9, including nested records,
+  named/generic ARRAY components and complete chained indexes without row views.
+- Validate declared schemas and selected containers before capture; retain base/
+  index evaluation order, ordinary REAL aliases, private grouped values, whole-
+  joint storage identity and pause/resume without selector replay.
+- Extend READ, scalar conversion outputs and GET_VAR/SET_VAR/BYNAME paths through
+  those cells, retaining complete-response/file-cursor preflight, cancellation,
+  missing-data/cache rules and protected INTEGER/status/FOR boundaries.
+- Keep complete geometry and width-conversion guards, explicit robot context,
+  legacy ARRAY-only indexing, native syntax/unit boundaries and deferred strict mode.
+- Add joint_axis_accesses/joint_axis_policy reports, 72 regressions, four examples,
+  two linked projects and compiler-free runtime coverage. Update README, API,
+  source support guides and the semantic ledger.
+
 ## 26.1030.185500 - 2026-10-30
 
 - Expand MOVE WITH from six to nine settings: TERMTYPE/SEGTERMTYPE termination

@@ -14,7 +14,8 @@ user frame and tool, then participates in the existing Cartesian operation.
 | `APPROACH(value)` / `ORIENT(value)` | Return positive Z / positive Y from the converted pose | Independent writable VECTOR |
 | `left >=< right` | Compare the converted Cartesian poses | BOOLEAN |
 
-The source remains opaque joint storage. Complete values, exact declared width,
+[Pythonic axis subscripts](joint-axis-access.md) now expose checked REAL data cells.
+Geometry still requires complete values, exact declared width,
 model axis count, padded-nine-slot rules, finite components and configured limits
 still apply. Unsupported widths, absent models or invalid adapter results raise
 errors before assigning the expression result. Ordinary JOINTPOS copies retain

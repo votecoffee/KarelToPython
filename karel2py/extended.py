@@ -2304,7 +2304,13 @@ class ExecutionContext:
                     if len(numbers)!=1: fail('PATH requires one node index',line)
                     value.node(numbers[0],line)
                     reference=rt.Reference(value.node_spec,value.nodes,numbers[0]-1)
-                else: reference=rt.index_reference(value,numbers[0] if len(numbers)==1 else numbers,line)
+                else:
+                    selected=numbers[0] if len(numbers)==1 else numbers
+                    if rt._pythonic() and any(rt.joint_axis_access(reference.spec,n) for n in range(1,5)):
+                        if type(value) not in (rt.Array,rt.JointPosition) or not rt.parameter_accepts(reference.spec,value.spec):fail('Joint variable path storage does not match its declared schema',line)
+                        reference=(rt.joint_index_reference(value,selected,reference.spec,line) if rt.joint_axis_access(reference.spec,len(numbers))
+                                   else rt.index_reference(value,selected,line))
+                    else:reference=rt.index_reference(value,selected,line)
                 rest=rest[index.end():]
             else: fail('Invalid static variable path',line)
         return reference

@@ -1,0 +1,6 @@
+PROGRAM LIB
+VAR joints FROM MAIN:JOINTPOS2 seen:REAL
+ROUTINE edit_axis(v:REAL)
+BEGIN v=v+5.0 seen=joints[2] END edit_axis
+BEGIN
+END LIB

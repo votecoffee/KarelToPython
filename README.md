@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.185500**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.192713**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -670,7 +670,7 @@ source. Strict mode remains a future milestone.
 - Reference/value parameters, bare zero-argument function calls, checked aggregate
   copies, restricted scalar, bounded STRING, record, joint and named-component
   ARRAY functions, selected built-ins, general degree trig, SQRT, EXP and LN.
-- Positional data records, POS/XYZWPR construction, opaque joint values,
+- Positional data records, POS/XYZWPR construction, checked [joint-axis data access](docs/joint-axis-access.md),
   VECTOR construction/signs/products and explicit-context offline conversion subsets.
 - CONFIG text parsing/formatting, with checked complete outputs and portable status.
 - Explicit XYZWPR frame composition and inversion, with independent CONFIG copies.

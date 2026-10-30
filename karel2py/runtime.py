@@ -295,6 +295,23 @@ def indexed_type(spec, count):
     raise KarelRuntimeError('Too many ARRAY subscripts')
 
 
+def joint_axis_access(spec,count):
+    """Recognize a single terminal joint axis after complete ARRAY components."""
+    if type(count) is not int or not 1<=count<=4:return False
+    rank=0
+    try:
+        for _ in range(4):
+            if type(spec) is not tuple or not spec:return False
+            if spec[0]=='JOINTPOS':return bool(joint_width(spec)) and count==rank+1
+            if spec[0]!='ARRAY' or len(spec) not in (3,4):return False
+            shape=array_shape(spec)
+            if not 1<=len(shape)<=3 or rank+len(shape)>3:return False
+            if any(size is not None and (type(size) is not int or not 1<=size<=32767) for size in shape):return False
+            rank+=len(shape);spec=spec[2]
+    except (KarelRuntimeError,TypeError,IndexError):pass
+    return False
+
+
 def positional_conversion_kind(target,source):
     """Describe supported context-free positional changes, without coercing data."""
     if type(target) is not tuple or type(source) is not tuple or not target or not source or target==source:return None
@@ -644,7 +661,7 @@ def initial_value(spec):
 
 
 class JointPosition:
-    """Opaque offline joint values; no KAREL field/index syntax is invented."""
+    """Explicit offline joint storage; Pythonic axis indexes use checked helpers."""
     def __init__(self, spec):
         self.spec = spec
         self.values = [UNINITIALIZED] * joint_width(spec)
@@ -761,16 +778,21 @@ def load_field(value, name, line=None):
 
 
 def raw_index(array, index, line=None):
+    if _pythonic() and isinstance(array,JointPosition):return index_reference(array,index,line).raw()
     if not isinstance(array, Array):
         raise KarelRuntimeError('Expected ARRAY', line)
     return array.raw(index, line)
 
 
 def load_index(array, index, line=None):
-    return require(raw_index(array, index, line), line)
+    value=raw_index(array,index,line)
+    count=len(index) if type(index) is tuple else 1
+    if _pythonic() and isinstance(array,(Array,JointPosition)) and joint_axis_access(array.spec,count):return real(value,line)
+    return require(value,line)
 
 
 def store_index(array, index, value, line=None):
+    if _pythonic() and isinstance(array,JointPosition):return index_reference(array,index,line).set(value,line)
     if not isinstance(array, Array):
         raise KarelRuntimeError('Expected ARRAY', line)
     array.set(index, value, line)
@@ -944,7 +966,42 @@ def unpos(source, outputs, line=None):
     for reference, value in zip(outputs, values): reference.set(value, line)
 
 
+def joint_index_reference(value,index,expected,line=None):
+    """Capture one source-declared joint axis without materializing partial rows."""
+    if not _pythonic():raise KarelRuntimeError('Joint axis access requires Pythonic mode',line)
+    indexes=index if type(index) is tuple else (index,)
+    try:
+        if not joint_axis_access(expected,len(indexes)):
+            raise KarelRuntimeError('Joint axis access requires one axis after complete ARRAY indexes',line)
+        if (type(value) not in (Array,JointPosition) or not joint_axis_access(value.spec,len(indexes))
+                or not parameter_accepts(expected,value.spec)):
+            raise KarelRuntimeError('Joint axis source storage does not match its declared schema',line)
+        current=value;declared=value.spec
+        while declared[0]=='ARRAY':
+            shape=array_shape(declared)
+            if (type(current) is not Array or current.spec!=declared or current.shape!=shape
+                    or type(current.values) is not list or len(current.values)!=math.prod(shape)):
+                raise KarelRuntimeError('Malformed ARRAY storage before joint axis',line)
+            width=len(shape);offset=current.offset(indexes[:width],line)
+            current=current.values[offset];indexes=indexes[width:];declared=declared[2]
+        width=joint_width(declared)
+        if (type(current) is not JointPosition or current.spec!=declared
+                or type(current.values) is not list or len(current.values)!=width):
+            raise KarelRuntimeError('Malformed joint axis storage',line)
+        axis=integer(indexes[0],line)
+        if not 1<=axis<=width:raise KarelRuntimeError(f'Joint axis {axis} outside 1..{width}',line)
+        return Reference(REAL,current.values,axis-1)
+    except KarelRuntimeError as exc:
+        if exc.line is None:raise KarelRuntimeError(str(exc),line) from exc
+        raise
+    except (TypeError,IndexError,KeyError,AttributeError) as exc:
+        raise KarelRuntimeError('Malformed joint axis storage: '+str(exc),line) from exc
+
+
 def index_reference(array, index, line=None):
+    if _pythonic() and isinstance(array,(Array,JointPosition)):
+        count=len(index) if type(index) is tuple else 1
+        if joint_axis_access(array.spec,count):return joint_index_reference(array,index,array.spec,line)
     if isinstance(array,PathValue):
         array.node(index,line)
         return Reference(array.node_spec,array.nodes,index-1)

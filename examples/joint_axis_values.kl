@@ -1,0 +1,9 @@
+PROGRAM JOINT_AXIS_VALUES
+VAR joints,copy_value:JOINTPOS3 value:REAL done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=1.25 joints[2]=-2.5 joints[3]=3
+    value=joints[2] copy_value=joints copy_value[1]=7
+    done=TRUE
+  ENDIF
+END JOINT_AXIS_VALUES

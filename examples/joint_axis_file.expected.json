@@ -1,0 +1,19 @@
+{
+  "JOINTS": {
+    "axes": [
+      1.25,
+      {
+        "uninitialized": true
+      },
+      -2.5
+    ]
+  },
+  "F": {
+    "file": "axes.bin",
+    "open": false,
+    "position": 8,
+    "binary": true,
+    "status": 0
+  },
+  "STATUS": 0
+}

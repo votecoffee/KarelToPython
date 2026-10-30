@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR joints:JOINTPOS2 value:REAL done:BOOLEAN
+ROUTINE edit_axis(v:REAL) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=1 joints[2]=2
+    edit_axis(joints[2]) value=joints[2] done=TRUE
+  ENDIF
+END MAIN

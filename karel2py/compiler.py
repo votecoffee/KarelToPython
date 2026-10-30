@@ -1198,6 +1198,7 @@ class Emitter:
         self.joint_width_uses=[]
         self.positional_array_uses=[]
         self.numeric_array_uses=[]
+        self.joint_axis_uses=[]
         self.array_schema_uses=[]
         self.record_schema_uses=[]
         self.joint_geometry_uses = []
@@ -2062,6 +2063,7 @@ class Emitter:
         if expr.kind == 'index':
             spec = self.access_type(expr.args[0])
             if spec[0]=='PATH': return rt.PathValue(spec).node_spec
+            if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return ('REAL',)
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
             try: return rt.indexed_type(spec, len(expr.args) - 1)
             except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
@@ -2147,19 +2149,26 @@ class Emitter:
             if len(expr.args)!=2: self.error('E_ARRAY_RANK','PATH requires one node index',expr.token)
             index=self.require_type(expr.args[1],'INTEGER')
             return f'_rt.index_reference({base},{index},{line})',rt.PathValue(spec).node_spec
-        if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
+        if spec[0]!='ARRAY' and not (self.mode=='pythonic' and spec[0]=='JOINTPOS'):self.error('E_TYPE','Indexing requires ARRAY or Pythonic JOINTPOS',expr.token)
         index, selected = self.index_code(expr, spec)
+        if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
 
     def index_code(self, expr, spec):
         indexes = expr.args[1:]
         if self.mode!='pythonic' and expr.args[0].kind == 'index':
             self.error('E_ARRAY_RANK', 'Chained ARRAY indexes need grammar validation; use comma-separated subscripts', expr.token)
-        try: selected = rt.indexed_type(spec, len(indexes))
+        axis=self.mode=='pythonic' and rt.joint_axis_access(spec,len(indexes))
+        try: selected = ('REAL',) if axis else rt.indexed_type(spec, len(indexes))
         except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
         if self.mode == 'strict' and len(indexes) > 1 and any(self.has_routine_call(index) for index in indexes):
             self.error('E_EVALUATION_ORDER', 'Multiple ARRAY subscripts containing routine calls need evaluation-order validation', expr.token)
         codes = [self.require_type(index, 'INTEGER') for index in indexes]
+        if axis:
+            self.features.add('checked joint axis access')
+            self.joint_axis_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=expr.token.line,column=expr.token.column,source_type_spec=spec,joint_type_spec=rt.array_leaf_spec(spec),
+                selected_type_spec=('REAL',),subscript_count=len(indexes),evaluated_once=True,declared_schema_checked=True))
         if len(indexes) > 1: self.features.add('multidimensional ARRAY indexing')
         if selected[0] == 'ARRAY':
             self.features.add('named subarray reference')
@@ -2257,8 +2266,11 @@ class Emitter:
                 if len(expr.args)!=2: self.error('E_ARRAY_RANK','PATH requires one node index',expr.token)
                 index=self.require_type(expr.args[1],'INTEGER')
                 return f'{base}.node({index},{line})',rt.PathValue(spec).node_spec
-            if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
+            if spec[0]!='ARRAY' and not (self.mode=='pythonic' and spec[0]=='JOINTPOS'):self.error('E_TYPE','Indexing requires ARRAY or Pythonic JOINTPOS',expr.token)
             index, selected = self.index_code(expr, spec)
+            if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):
+                code=f'_rt.joint_index_reference({base},{index},{spec!r},{line}).raw()'
+                return code if raw else f'_rt.real({code},{line})',selected
             method = 'raw_index' if raw else 'load_index'
             return f'_rt.{method}({base}, {index}, {line})', selected
         if expr.kind == 'field':
@@ -4482,7 +4494,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         positional_array_conversions=emitter.positional_array_uses, kinematic_array_conversions=emitter.kinematic_array_uses,
         numeric_array_conversions=emitter.numeric_array_uses,array_schema_conversions=emitter.array_schema_uses,
         record_schema_conversions=emitter.record_schema_uses,kinematic_record_conversions=emitter.kinematic_record_uses,
-        joint_geometry=emitter.joint_geometry_uses,
+        joint_geometry=emitter.joint_geometry_uses,joint_axis_accesses=emitter.joint_axis_uses,
         pulses=emitter.pulse_uses,
         motion_requests=emitter.motion_uses,
         motion_request_policy=dict(model='Explicit offline capture-only or immediate scripted completion responses',
@@ -6190,6 +6202,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Canonical enumeration strings in validated JSON history; source STRAIGHT alias is saved as LINEAR; no callbacks or active scopes',
         boundary='Other motion variables, cross-group execution, arbitrary system-variable access, NOWAIT scopes, native/compiler/controller equivalence and public strict mode remain unavailable',
         guide='docs/extended-motion-settings.md',controller_validated=False)
+    report['joint_axis_policy']=dict(
+        source='Pythonic one-based JOINTPOS axis subscripts; one axis after complete ARRAY indexes, including chained/named components, nested fields and exact routine formals',
+        values='Selected axes use finite REAL storage under the existing portable joint conventions; declared widths 1..9, unsuffixed JOINTPOS9; unselected axes may remain missing',
+        capture='Base then all indexes once left-to-right; validate declared schema and selected ARRAY/joint containers before capturing an ordinary REAL reference; no partial row views',
+        interfaces='Exact REAL routine aliases, private grouped values, READ and scalar service outputs; GET_VAR/SET_VAR/BYNAME paths use the same declared joint checks',
+        ordering='Assignment RHS before target selectors; READ captures destination before formats; retained references survive ordinary whole-joint replacement and cooperative pause without recapture',
+        boundaries='REAL axes remain invalid INTEGER/status/FOR controls; no joint field names, implicit robot/group/unit discovery, geometry certification or relaxation of complete model/width conversion checks',
+        persistence='Ordinary typed joint axes and partial markers only; no references, captured selectors or suspended execution',
+        evidence='Authored Pythonic input extension; no native KAREL syntax/compiler/controller or strict-mode equivalence claim',
+        guide='docs/joint-axis-access.md',controller_validated=False)
+    report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']
