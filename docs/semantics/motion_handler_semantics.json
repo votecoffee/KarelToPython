@@ -1,0 +1,16 @@
+{
+  "version": "26.1030.004838",
+  "scope": "Offline Pythonic local motion clauses and finite supplied progress; no trajectories or controller acceptance",
+  "guide": "docs/motion-handlers.md",
+  "source": "MOVE comma followed by 1..32 local WHEN/DO or UNTIL/optional THEN clauses, ending in ENDMOVE; Pythonic Boolean expression and captured routine/USING values",
+  "scanning": "Global scans first, independent one-shot clauses in source order at entry and supplied progress checkpoints; local event/error/edge cursors are isolated and purged",
+  "until": "Cancel the current group before THEN actions; continue after ENDMOVE unless task control or failure terminates/suspends execution",
+  "progress": "Optional response delay_ms in 0..86400000, bounded 10 ms cooperative steps; progress excludes callback/hold time, no native timing inference",
+  "controls": "Unqualified local controls target the active group; holds suspend local scans/progress while global polling continues; task abort/pause requests must be honored before completion",
+  "ownership": "Retain root and opaque grant identity across linked calls; changed ownership/work labels fail without overwriting foreign/stopped state",
+  "lifetime": "Pause retains local scope and remaining progress; stop/abort cancel, runtime/budget failures fail; finally purge consumers and remove transient work state",
+  "persistence": "Active saves and pending-history reload are rejected; completed data validates bounded progress, clauses, trigger indexes and outcomes; old zero-duration payloads remain unchanged",
+  "tests": ["tests/test_motion_handlers.py", "examples/local_motion_handlers.kl", "examples/scripted_motion_progress.kl", "examples/motion_until_progress.kl", "examples/motion_handler_project/main.kl"],
+  "remaining": ["NOWAIT with local clauses or delayed completion", "Queued motion", "AT NODE/TIME conditions", "Native scan timing and multi-group synchronization", "Trajectory calculation and feedback"],
+  "controller_validated": false
+}

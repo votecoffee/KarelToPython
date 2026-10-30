@@ -174,7 +174,7 @@ PREDEFINED_CONSTANTS = {'ON': True, 'OFF': False, 'MAXINT': 2147483647, 'MININT'
                         **{name:row[0] for name,row in rt.ERROR_SEVERITIES.items()},**rt.TASK_CONSTANTS,**rt.PROGRAM_CONSTANTS,**rt.TPE_CONSTANTS}
 BLOCK_ENDS = {'ELSE', 'ENDIF', 'ENDWHILE', 'ENDFOR', 'UNTIL', 'CASE', 'ENDSELECT', 'ENDUSING', 'END'}
 RESERVED = BLOCK_ENDS | {
-    'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','PURGE','EVENT','WITH',
+    'CONNECT','DISCONNECT','TIMER','WHEN','ENDCONDITION','ENDMOVE','PURGE','EVENT','WITH',
     'SEMAPHORE','POWERUP','ERROR','NOABORT','NOPAUSE','NOMESSAGE',
     'PROGRAM', 'CONST', 'VAR', 'TYPE', 'BEGIN', 'IF', 'THEN', 'SELECT', 'OF',
     'FOR', 'TO', 'DOWNTO', 'DO', 'WHILE', 'REPEAT', 'RETURN', 'ROUTINE',
@@ -938,9 +938,34 @@ class Parser:
                 self.expect('BY');arguments.append(self.expression())
             elif form.value=='TO' and self.accept('VIA'):arguments.append(self.expression())
         nowait=bool(self.accept('NOWAIT'))
-        if self.current.value in (',','WHEN','UNTIL','ENDMOVE','VIA','WITH'):
+        clauses=[]
+        if self.accept(','):
+            if nowait:self.error('E_MOTION_NOWAIT','NOWAIT with local handlers requires unsupported queued motion',token)
+            self.skip_lines()
+            while self.current.value in ('WHEN','UNTIL'):
+                clause=self.take()
+                if len(clauses)>=32:self.error('E_MOTION_CLAUSE','MOVE supports at most 32 local clauses',clause)
+                previous=self.in_condition;self.in_condition=True
+                try:condition=self.expression()
+                finally:self.in_condition=previous
+                actions=[]
+                if clause.value=='WHEN':self.expect('DO');has_actions=True
+                else:has_actions=bool(self.accept('THEN'))
+                self.skip_lines()
+                previous=self.in_handler_actions;self.in_handler_actions=True
+                try:
+                    if has_actions:
+                        while self.current.value not in ('WHEN','UNTIL','ENDMOVE'):
+                            if self.current.kind=='EOF':self.error('E_MOTION_CLAUSE','Unterminated MOVE local handler',clause)
+                            actions.append(self.statement());self.accept(',');self.skip_lines()
+                        if not actions:self.error('E_CONDITION_ACTION','Local DO/THEN requires an action',clause)
+                finally:self.in_handler_actions=previous
+                clauses.append(Statement('motion_clause',clause,[condition],actions))
+            if not clauses:self.error('E_MOTION_CLAUSE','MOVE comma requires local WHEN or UNTIL clauses',token)
+            self.expect('ENDMOVE')
+        elif self.current.value in ('WHEN','UNTIL','ENDMOVE','VIA','WITH'):
             self.error('E_MOTION_CLAUSE','Unsupported motion clause or motion-local handler',self.current)
-        return Statement('motion',token,[operation,arguments,nowait,settings or []])
+        return Statement('motion',token,[operation,arguments,nowait,settings or []],clauses)
 
     def pythonic_write(self, token):
         if not self.accept('('):
@@ -3125,6 +3150,26 @@ class Emitter:
                         if any(mode in ('o', 'r','m') and self.protection_root(value) == name for value, (mode, _) in zip(action.args, signature)): return True
         return False
 
+    def condition_callbacks(self,clauses):
+        pairs=[]
+        for clause in clauses:
+            for item in reversed(list(self.walk_nodes([*clause.args,*clause.body]))):
+                if isinstance(item,Expr) and item.kind=='eval':
+                    code,spec=self.expression(item.args[0]); temporary=self.fresh()
+                    self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})',item.token)
+                    item.kind='captured'; item.value=(temporary,spec); item.args=[]
+            for action_node in self.walk_nodes(clause.body):
+                if isinstance(action_node,Statement) and action_node.kind in ('label','goto','return','condition'):
+                    self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
+            predicate=self.fresh(); action=self.fresh()
+            condition=self.require_type(clause.args[0],'BOOLEAN')
+            defaults=self.using_defaults([clause.args,clause.body])
+            self.line(f'def {predicate}({defaults}):'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
+            self.line(f'def {action}({defaults}):'); self.indent+=1; self.line('if False: yield None')
+            self.block(clause.body); self.indent-=1
+            pairs.append((predicate,action))
+        return pairs
+
     def statement(self, stmt, file_code=None):
         token, kind = stmt.token, stmt.kind
         line = token.line
@@ -3193,7 +3238,15 @@ class Emitter:
             if settings:self.motion_uses[-1]['settings']=[dict(name=key.value,line=key.line,column=key.column,group_qualified=group is not None) for key,group,_ in stmt.args[3]]
             data='{'+','.join(captured)+'}'
             extra=',settings=['+','.join(settings)+']' if settings else ''
-            self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
+            if kind=='motion':
+                pairs=self.condition_callbacks(stmt.body)
+                callbacks=','.join(f'({clause.token.value!r},{predicate},{action},{clause.token.line})' for clause,(predicate,action) in zip(stmt.body,pairs))
+                if pairs:
+                    extra+=',clauses=['+callbacks+']'
+                    self.motion_uses[-1]['local_handlers']=[dict(kind=clause.token.value,line=clause.token.line,column=clause.token.column) for clause in stmt.body]
+                self.line(f'yield from self._state.execution.require("motion",{line}).execute(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
+            else:
+                self.line(f'self._state.execution.require("motion",{line}).invoke(self._state,{operation!r},{data},{nowait!r},{line}{extra})',token)
             return
         if kind=='pulse':
             if 'DOUT' in self.types or 'DOUT' in self.visible_constants(): self.error('E_PULSE','PULSE requires the unshadowed DOUT port bank',token)
@@ -3238,21 +3291,7 @@ class Emitter:
             self.line(f'_rt.condition_control(self._state,{stmt.args[0]!r},{number},{line})',token); return
         if kind=='condition':
             number=self.require_type(stmt.args[0],'INTEGER'); pairs=[]
-            for clause in stmt.body:
-                for item in reversed(list(self.walk_nodes([*clause.args,*clause.body]))):
-                    if isinstance(item,Expr) and item.kind=='eval':
-                        code,spec=self.expression(item.args[0]); temporary=self.fresh()
-                        self.line(f'{temporary}=_rt.assignment_value({code},{item.token.line})',item.token)
-                        item.kind='captured'; item.value=(temporary,spec); item.args=[]
-                for action_node in self.walk_nodes(clause.body):
-                    if isinstance(action_node,Statement) and action_node.kind in ('label','goto','return','condition'):
-                        self.error('E_CONDITION_ACTION','Handler actions cannot define handlers, jump or RETURN',action_node.token)
-                predicate=self.fresh(); action=self.fresh()
-                condition=self.require_type(clause.args[0],'BOOLEAN')
-                defaults=self.using_defaults([clause.args,clause.body])
-                self.line(f'def {predicate}({defaults}):'); self.indent+=1; self.line(f'return {condition}'); self.indent-=1
-                self.line(f'def {action}({defaults}):'); self.indent+=1; self.line('if False: yield None')
-                self.block(clause.body); self.indent-=1; pairs.append(f'({predicate},{action})')
+            pairs=[f'({predicate},{action})' for predicate,action in self.condition_callbacks(stmt.body)]
             scan=self.require_type(stmt.args[1],'INTEGER') if len(stmt.args)>1 else '0'
             self.line(f'_rt.define_condition(self._state,{number},[{", ".join(pairs)}],{line},scan_ms={scan})',token); return
         if kind in ('file_read','file_write'):
@@ -4159,8 +4198,10 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
             data='Complete detached positional operands; source order captured once; bounded PATH NODE_POS snapshots',
             controls='HOLD/UNHOLD flags are independent of active/stopped labels; CANCEL retains holds and preserves stopped work; selections use current root ownership at action time',
             settings='Six local WITH settings captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
-            boundary='No trajectories, physical hands, robot feedback updates, live adapters or native motion-local handlers',
-            nowait='Preserved request flag; capture-only acceptance or supplied zero-duration completion, no background queue',
+            boundary='No trajectories, physical hands, robot feedback updates, live adapters, node/time conditions or queued motion',
+            nowait='Immediate requests only; scoped handlers and positive scripted delays reject NOWAIT, no background queue',
+            local_handlers='One-shot WHEN and UNTIL/THEN clauses at entry and 10 ms supplied-delay checkpoints; global scans first, local controls target current group; active holds suspend local scans',
+            delayed_completion='Explicit finite delay_ms response, cooperative pause/resume and root-owned cleanup; no trajectory or feedback inference',
             controller_validated=False),
         initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,

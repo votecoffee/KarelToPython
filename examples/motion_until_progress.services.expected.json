@@ -1,0 +1,107 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_UNTIL_PROGRESS",
+        "source_program": "MOTION_UNTIL_PROGRESS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 12,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_UNTIL_PROGRESS",
+        "source_program": "MOTION_UNTIL_PROGRESS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 13,
+        "nowait": false,
+        "outcome": "cancelled",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 100,
+            "elapsed_ms": 20,
+            "handlers": [
+              {
+                "kind": "UNTIL",
+                "line": 14
+              }
+            ],
+            "triggered": [
+              1
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_UNTIL_PROGRESS",
+        "source_program": "MOTION_UNTIL_PROGRESS",
+        "operation": "CANCEL",
+        "group": 1,
+        "line": 14,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "executing",
+                "held": false
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MOTION_UNTIL_PROGRESS",
+        "source_program": "MOTION_UNTIL_PROGRESS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 16,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

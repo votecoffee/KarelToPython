@@ -74,7 +74,7 @@ Root completion, stop, abort and failure clear released-task bindings, including
 nested calls. Ownership remains with the calling task across linked routines and
 CALL_PROG. The history records both task owner and source module.
 
-## Captures and immediate completion scripts
+## Captures and scripted completions
 
 `capture_only: true` records moves with outcome `captured`, allowing the Python
 source to continue without claiming completion. Logical ownership and hand
@@ -98,9 +98,10 @@ and raises a source-located runtime error. A true response records `completed`
 for that explicitly supplied offline result. Operand, ownership and capacity
 validation precede response consumption and history publication.
 
-These responses have zero modeled duration. NOWAIT is retained in the request;
-there is no queued motion, asynchronous completion or interpolation model. Do not
-interpret a scripted completion as controller or mechanism feedback.
+Responses have zero modeled duration by default. An explicit finite `delay_ms`
+adds [cooperative progress and optional local clauses](motion-handlers.md).
+NOWAIT remains limited to immediate requests; there is no background motion
+queue or interpolation model. Scripted results are supplied offline data.
 
 ## Persistence, reports and bounds
 
@@ -120,10 +121,11 @@ controller-validation boundary. Normal source maps retain include origins.
   indexes. Its nodes need a positional NODE_POS field; no associations are inferred.
 - Each request payload is limited to 64 KiB of canonical compact JSON, independently
   of the node bound. Sequence numbers stop at 2147483646.
-- Motion-local WHEN/UNTIL/ENDMOVE, remaining WITH settings and cross-group options,
+- NOWAIT/local-clause combinations, AT NODE/TIME conditions, remaining WITH settings and cross-group options,
   native group synchronization, hand-signal routing and controller timing remain
   unsupported. Supported [logical controls and six WITH values](motion-controls.md)
-  retain the request-only contract. Unsupported clauses reject before execution.
+  retain the offline contract. [Boolean local clauses and scripted progress](motion-handlers.md)
+  add synchronous request scopes. Unsupported source forms reject before execution.
 
 See the authored [motion requests](../examples/motion_requests.kl),
 [scripted motion](../examples/scripted_motion.kl),

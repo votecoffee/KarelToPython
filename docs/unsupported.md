@@ -27,21 +27,22 @@ they are boundaries rather than promises to accept every such source form later.
   An opted-in GroupLocks bank applies root LOCKGROUP/NOLOCKGROUP policies;
   a second opt-in enables [callee scopes](scoped-group-locks.md), while native
   waits remain unavailable. Include search does not discover native support installations.
-- Native motion execution, trajectories, feedback updates and queued/delayed
-  completion. [Offline motion requests](motion-requests.md) now translate all
+- Native motion execution, trajectories, feedback updates and queued completion. [Offline motion requests](motion-requests.md) now translate all
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
   now support HOLD/UNHOLD/CANCEL, global handler actions and six per-request WITH
-  settings. Remaining WITH variables, cross-group settings, motion-local WHEN/UNTIL,
-  interpolation execution and native group synchronization remain unsupported.
+  settings. [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
+  now use synchronous scopes with pause/resume and cleanup. NOWAIT with local
+  clauses/delayed completion, node/time conditions, remaining WITH variables,
+  cross-group settings, interpolation execution and native synchronization remain unsupported.
   `CANCEL FILE` and standalone `PURGE` are not translated; `PURGE CONDITION` is supported. `IN GROUP[n]` does not add other native `IN`
   clauses; `IN DRAM` storage placement is unavailable.
 - Handler actions involving native motion execution or file cancellation;
   path-node arrival (`A TNODE`) conditions. Checkpoint predicates, events, port
   edges, semaphores, errors and lifecycle notifications have offline models.
   TIME-style behavior uses connected timers and comparisons; motion timing,
-  asynchronous native interrupts and motion-local handlers are unavailable.
+  asynchronous native interrupts and physical node-arrival scans are unavailable.
 - Transfers across program/routine bodies and entry into an uncaptured USING or
   unstarted FOR scope. [FOR jumps](for-jumps.md) now support same-loop labels,
   nested active-loop transfers and exits with counter cleanup under an explicit

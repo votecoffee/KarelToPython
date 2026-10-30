@@ -1,0 +1,84 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "SCRIPTED_MOTION_PROGRESS",
+        "source_program": "SCRIPTED_MOTION_PROGRESS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "SCRIPTED_MOTION_PROGRESS",
+        "source_program": "SCRIPTED_MOTION_PROGRESS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 25,
+            "elapsed_ms": 25,
+            "handlers": [
+              {
+                "kind": "WHEN",
+                "line": 8
+              },
+              {
+                "kind": "WHEN",
+                "line": 9
+              }
+            ],
+            "triggered": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "SCRIPTED_MOTION_PROGRESS",
+        "source_program": "SCRIPTED_MOTION_PROGRESS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

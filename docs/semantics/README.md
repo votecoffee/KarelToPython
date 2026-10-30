@@ -310,3 +310,7 @@ request model remains separate from native motion, trajectories and feedback.
 The [motion control ledger](motion_control_semantics.json) supersedes the first
 request ledger's HOLD/UNHOLD/CANCEL and blanket WITH exclusions. Native motion,
 pending execution, other WITH variables and synchronization remain separate.
+
+The [local motion ledger](motion_handler_semantics.json) supersedes prior blanket
+local-handler and delayed-response exclusions for Boolean clauses and finite
+synchronous scopes. Native timing, node conditions and NOWAIT queues remain outside it.

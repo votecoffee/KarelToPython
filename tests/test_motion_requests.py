@@ -392,7 +392,7 @@ class MotionConfigTests(unittest.TestCase):
 
 class MotionExclusionTests(unittest.TestCase):
     def test_unsupported_clauses_and_types_fail_translation(self):
-        for body in ('MOVE TO p, WHEN TRUE DO CANCEL ENDMOVE','WITH n=1 MOVE TO p',
+        for body in ('MOVE TO p NOWAIT, WHEN TRUE DO CANCEL ENDMOVE','WITH n=1 MOVE TO p',
             'MOVE AWAY 1 VIA p','MOVE TO p WHEN TRUE DO CANCEL','MOVE TO p UNTIL TRUE',
             'MOVE TO v','MOVE ABOUT p BY 2','MOVE NEAR j BY 2','MOVE RELATIVE j',
             'MOVE ALONG route[1,2]','MOVE AXIS TRUE BY 1','MOVE SOMETHING p','CANCEL FILE route',

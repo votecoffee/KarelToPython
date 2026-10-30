@@ -1,0 +1,24 @@
+{
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "relaxed",
+      "2": "open"
+    },
+    "capture_only": false,
+    "responses": [
+      {
+        "operation": "MOVE AWAY",
+        "completed": true,
+        "delay_ms": 100
+      }
+    ]
+  },
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  }
+}

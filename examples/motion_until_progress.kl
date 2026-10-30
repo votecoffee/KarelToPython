@@ -1,0 +1,19 @@
+PROGRAM MOTION_UNTIL_PROGRESS
+VAR checks,result:INTEGER done:BOOLEAN
+ROUTINE observed:BOOLEAN
+BEGIN
+  checks=checks+1
+  RETURN checks>=3
+END observed
+BEGIN
+  IF UNINIT(done) THEN
+    checks=0
+    result=0
+    ATTACH
+    MOVE AWAY 1,
+      UNTIL observed() THEN result=checks
+    ENDMOVE
+    RELEASE
+    done=TRUE
+  ENDIF
+END MOTION_UNTIL_PROGRESS

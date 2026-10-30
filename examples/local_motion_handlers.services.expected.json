@@ -1,0 +1,130 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {
+      "1": "open",
+      "2": "open"
+    },
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 5,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "LOCAL_MOTION_HANDLERS",
+        "source_program": "LOCAL_MOTION_HANDLERS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "LOCAL_MOTION_HANDLERS",
+        "source_program": "LOCAL_MOTION_HANDLERS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "cancelled",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 0,
+            "elapsed_ms": 0,
+            "handlers": [
+              {
+                "kind": "WHEN",
+                "line": 8
+              },
+              {
+                "kind": "WHEN",
+                "line": 9
+              },
+              {
+                "kind": "UNTIL",
+                "line": 12
+              }
+            ],
+            "triggered": [
+              1,
+              2,
+              3
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "LOCAL_MOTION_HANDLERS",
+        "source_program": "LOCAL_MOTION_HANDLERS",
+        "operation": "OPEN HAND",
+        "group": 1,
+        "line": 10,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "hand": 1
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "LOCAL_MOTION_HANDLERS",
+        "source_program": "LOCAL_MOTION_HANDLERS",
+        "operation": "CANCEL",
+        "group": 1,
+        "line": 12,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "executing",
+                "held": false
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "LOCAL_MOTION_HANDLERS",
+        "source_program": "LOCAL_MOTION_HANDLERS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 14,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

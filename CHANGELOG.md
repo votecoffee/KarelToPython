@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1030.004838 - 2026-10-30
+
+- Translate motion-local Boolean WHEN/DO and UNTIL/optional THEN clauses with
+  independent one-shot state, private EVAL captures, routine/USING storage and
+  scoped unqualified controls. Preserve global condition numbers and consumers.
+- Add explicit finite delay_ms responses and cooperative progress, active hold
+  polling, pause/resume and current-group cancellation. Retain immediate output
+  behavior and reject unsupported NOWAIT combinations before response consumption.
+- Track root-owned active scopes with opaque grant identities; honor deferred
+  abort/pause requests before completion and clean up stop/failure paths without
+  overwriting foreign or externally stopped work labels.
+- Persist validated progress, local trigger metadata and terminal outcomes; block
+  active saves and pending reloads. Add 51 regressions, three standalone examples
+  and a linked project, with fresh package and saved-context replay checks.
+- Refresh current README/API/backlog. Queued/native motion, node/time conditions,
+  trajectory calculation and strict mode remain outside the released model.
+
 ## 26.1030.001439 - 2026-10-30
 
 - Add logical HOLD/UNHOLD/CANCEL statements and global handler actions with

@@ -1,7 +1,7 @@
 """Explicit offline motion requests, detached data and logical hand state.
 
 Nothing in this module computes a trajectory or changes robot feedback. A host
-must opt into capture-only execution or supply immediate completion responses.
+must opt into capture-only execution or supply finite scripted completion responses.
 """
 from copy import deepcopy
 import json
@@ -139,14 +139,19 @@ class MotionRequests:
         if type(responses) is not list or len(responses) > 4096:
             raise ValueError('Motion responses exceed the finite script limit')
         for row in responses:
-            if (type(row) is not dict or set(row) != {'operation', 'completed'}
+            if (type(row) is not dict or not {'operation', 'completed'} <= set(row)
+                    or set(row) - {'operation', 'completed', 'delay_ms'}
                     or type(row['operation']) is not str or row['operation'] not in MOVES
                     or type(row['completed']) is not bool):
                 raise ValueError('Motion response requires operation and BOOLEAN completed')
+            if 'delay_ms' in row:
+                bounded(row['delay_ms'], 0, 86400000, 'Motion delay must be in 0..86400000 ms')
         if capture_only and responses:
             raise ValueError('Choose capture-only or scripted motion responses')
         self.responses = deepcopy(responses)
         self._released = {}
+        self._active = {}
+        self._local_actions = {}
         if history is None:
             history = []
         if type(history) is not list or len(history) > self.limit:
@@ -165,14 +170,29 @@ class MotionRequests:
                 raise ValueError('Invalid motion operation')
             if type(row['nowait']) is not bool or row['nowait'] and row['operation'] not in MOVES:
                 raise ValueError('Invalid motion NOWAIT flag')
-            if type(row['outcome']) is not str or row['outcome'] not in ('captured', 'completed', 'rejected'):
+            if type(row['outcome']) is not str or row['outcome'] not in ('captured', 'completed', 'rejected', 'cancelled', 'failed'):
                 raise ValueError('Invalid motion outcome')
             if row['operation'] not in MOVES and row['outcome'] != 'completed':
                 raise ValueError('Logical motion actions require completed history')
+            if row['outcome'] in ('cancelled', 'failed') and (type(row['data']) is not dict or 'execution' not in row['data']):
+                raise ValueError('Cancelled/failed motion history requires an execution scope')
             try:
                 self.validate(row['operation'], row['group'], row['data'])
             except rt().KarelRuntimeError as error:
                 raise ValueError(str(error)) from error
+            execution = row['data'].get('execution')
+            if execution is not None:
+                if row['nowait']:
+                    raise ValueError('Scoped motion history cannot use NOWAIT')
+                if row['outcome'] in ('captured', 'completed') and execution['elapsed_ms'] != execution['delay_ms']:
+                    raise ValueError('Completed motion history requires its full supplied progress')
+                if row['outcome'] == 'captured' and execution['delay_ms']:
+                    raise ValueError('Capture-only motion cannot claim a delayed completion')
+                if row['outcome'] == 'rejected' and (execution['elapsed_ms'] or execution['triggered']):
+                    raise ValueError('Rejected motion cannot contain executed handlers or progress')
+                if (any(execution['handlers'][index-1]['kind'] == 'UNTIL' for index in execution['triggered'])
+                        and row['outcome'] not in ('cancelled', 'failed')):
+                    raise ValueError('A triggered UNTIL must cancel or fail the motion')
         self.history = deepcopy(history)
 
     def validate(self, operation, group, data):
@@ -189,9 +209,27 @@ class MotionRequests:
             'RELAX HAND': {'hand'},
             **{name:{'groups', 'states'} for name in CONTROLS},
         }[operation]
-        optional = ({'settings'} if operation in MOVES else set()) | ({'via'} if operation == 'MOVE TO' else set())
+        optional = ({'settings', 'execution'} if operation in MOVES else set()) | ({'via'} if operation == 'MOVE TO' else set())
         if set(data) - optional != expected:
             raise ValueError('Unexpected motion request fields')
+        if 'execution' in data:
+            execution = data['execution']
+            if type(execution) is not dict or set(execution) != {'delay_ms', 'elapsed_ms', 'handlers', 'triggered'}:
+                raise ValueError('Malformed motion execution metadata')
+            duration = bounded(execution['delay_ms'], 0, 86400000, 'Invalid motion execution delay')
+            bounded(execution['elapsed_ms'], 0, duration, 'Motion progress exceeds its supplied delay')
+            handlers, triggered = execution['handlers'], execution['triggered']
+            if type(handlers) is not list or len(handlers) > 32:
+                raise ValueError('Motion execution supports at most 32 local clauses')
+            for handler in handlers:
+                if (type(handler) is not dict or set(handler) != {'kind', 'line'}
+                        or type(handler['kind']) is not str or handler['kind'] not in ('WHEN', 'UNTIL')):
+                    raise ValueError('Malformed local motion clause metadata')
+                bounded(handler['line'], 1, MAX_SEQUENCE, 'Invalid local motion clause line')
+            if (type(triggered) is not list or len(triggered) > len(handlers)
+                    or any(type(index) is not int or not 1 <= index <= len(handlers) for index in triggered)
+                    or len(set(triggered)) != len(triggered)):
+                raise ValueError('Invalid local motion trigger sequence')
         if 'settings' in data:
             rows = data['settings']
             if type(rows) is not list or not 1 <= len(rows) <= len(SETTINGS):
@@ -272,7 +310,7 @@ class MotionRequests:
         if len(json.dumps(data, allow_nan=False, separators=(',', ':')).encode('ascii')) > 65536:
             raise ValueError('Motion request exceeds 64 KiB')
 
-    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None):
+    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None):
         runtime = rt()
         group = state.robot_group or 1
         root = runtime.task_root(state)
@@ -283,6 +321,10 @@ class MotionRequests:
                     raise ValueError('Motion request owner requires an ASCII source identifier within 254 characters')
             if settings and operation not in MOVES:
                 raise ValueError('WITH settings require a MOVE request')
+            if operation in MOVES and group in self._active:
+                raise ValueError('Motion group already has an active request scope')
+            if _execution is not None and (operation not in MOVES or nowait or state._in_handler):
+                raise ValueError('Scoped motion cannot use NOWAIT or start from a handler action')
             if operation == 'MOVE ALONG':
                 path, start, end = data.pop('path'), data['start'], data['end']
                 start = 1 if start is None else start
@@ -302,7 +344,8 @@ class MotionRequests:
             if operation in CONTROLS:
                 groups = data['groups']
                 if groups is None:
-                    groups = [g for g, owner in locks.owners.items() if owner is root]
+                    local = self._local_actions.get(root)
+                    groups = [local['group']] if local is not None else [g for g, owner in locks.owners.items() if owner is root]
                 if (type(groups) is not list or len(groups) > 31
                         or any(type(g) is not int or g not in self.groups for g in groups)
                         or len(set(groups)) != len(groups)):
@@ -322,6 +365,8 @@ class MotionRequests:
                     if groups is None:
                         groups = self.groups
                 data = dict(groups=sorted(groups))
+            if _execution is not None:
+                data = dict(data, execution=_execution)
             self.validate(operation, group, data)
             if any(g not in locks.groups for g in self.groups):
                 raise ValueError('Motion groups must exist in the logical GroupLocks bank')
@@ -343,14 +388,17 @@ class MotionRequests:
                 else:
                     if not self.responses or self.responses[0]['operation'] != operation:
                         raise ValueError('Motion requires the next explicit matching completion response')
+                    if self.responses[0].get('delay_ms', 0) and _execution is None:
+                        raise ValueError('Delayed motion requires newly generated cooperative output without NOWAIT')
                     outcome = 'completed' if self.responses[0]['completed'] else 'rejected'
         except (ValueError, runtime.KarelRuntimeError) as error:
             raise runtime.KarelRuntimeError(str(error), line) from error
         # All data, ownership, capacity and scripted response checks precede publication.
         self.sequence += 1
-        self.history.append(dict(sequence=self.sequence, program=root.program_name,
+        request = dict(sequence=self.sequence, program=root.program_name,
             source_program=state.program_name, operation=operation, group=group,
-            line=line, nowait=nowait, outcome=outcome, data=deepcopy(data)))
+            line=line, nowait=nowait, outcome=outcome, data=deepcopy(data))
+        self.history.append(request)
         del self.history[:-self.limit]
         if operation in MOVES and not self.capture_only:
             self.responses.pop(0)
@@ -367,6 +415,9 @@ class MotionRequests:
         elif operation in CONTROLS:
             for row in data['states']:
                 selected_group = row['group']
+                scope = self._active.get(selected_group)
+                if operation == 'CANCEL' and scope is not None and row['before']['motion'] != 'stopped':
+                    scope['cancelled'] = True
                 locks.set_motion(selected_group, row['after']['motion'])
                 if row['after']['held']:
                     locks.held.add(selected_group)
@@ -376,11 +427,133 @@ class MotionRequests:
             self.hands[data['hand']] = {'OPEN HAND': 'open', 'CLOSE HAND': 'closed', 'RELAX HAND': 'relaxed'}[operation]
         if outcome == 'rejected':
             raise runtime.KarelRuntimeError('Scripted motion completion rejected: ' + operation, line)
+        if _execution is not None:
+            scope = dict(group=group, root=root, state=state, locks=locks,
+                grant=locks._ownership_tokens.get(group), request=request,
+                outcome=outcome, cancelled=False, consumer=object())
+            request['outcome'] = 'pending'
+            self._active[group] = scope
+            locks.set_motion(group, 'executing')
+            return scope
+
+    def owns_scope(self, scope):
+        locks, group = scope['locks'], scope['group']
+        return locks.owners.get(group) is scope['root'] and locks._ownership_tokens.get(group) is scope['grant']
+
+    def finish_scope(self, scope, outcome):
+        scope['request']['outcome'] = outcome
+        if self.owns_scope(scope) and scope['locks'].motion.get(scope['group']) == 'executing':
+            scope['locks'].set_motion(scope['group'], 'idle')
+        if self._active.get(scope['group']) is scope:
+            self._active.pop(scope['group'])
+
+    def verify_scope(self, scope, line):
+        if not self.owns_scope(scope) or self._active.get(scope['group']) is not scope:
+            raise rt().KarelRuntimeError('Active motion lost its logical ownership grant', line)
+        if not scope['cancelled'] and scope['locks'].motion.get(scope['group'], 'idle') != 'executing':
+            raise rt().KarelRuntimeError('Active motion work label was changed externally', line)
+
+    def scan_local(self, scope, clauses, line):
+        """One-shot clauses in source order, isolated from global event cursors."""
+        runtime, state = rt(), scope['state']
+        execution = scope['request']['data']['execution']
+        for index, (kind, predicate, action, location) in enumerate(clauses, 1):
+            if scope['cancelled'] or scope['group'] in scope['locks'].held:
+                return
+            if index in execution['triggered']:
+                continue
+            chain, current = [], state
+            while current is not None:
+                chain.append((current, current._in_handler))
+                current._in_handler = True
+                current = current._budget_parent
+            previous_scan, previous_error = state._scanning_condition, state._current_error
+            original, depth = state.local_frames, state.call_depth
+            previous_action = self._local_actions.get(scope['root'])
+            self._local_actions[scope['root']] = scope
+            state._scanning_condition = (scope['consumer'], index)
+            try:
+                result = predicate()
+                if runtime.inspect.isgenerator(result):
+                    result = yield from result
+                if scope['cancelled']:
+                    return
+                if runtime.boolean(result, location):
+                    execution['triggered'].append(index)
+                    if kind == 'UNTIL':
+                        self.invoke(state, 'CANCEL', {'groups':[scope['group']]}, False, location)
+                    result = action()
+                    if runtime.inspect.isgenerator(result):
+                        yield from result
+            finally:
+                state.local_frames, state.call_depth = original, depth
+                state._scanning_condition, state._current_error = previous_scan, previous_error
+                if previous_action is None:
+                    self._local_actions.pop(scope['root'], None)
+                else:
+                    self._local_actions[scope['root']] = previous_action
+                for current, previous in chain:
+                    current._in_handler = previous
+
+    def execute(self, state, operation, data, nowait=False, line=None, *, settings=None, clauses=()):
+        """Scoped synchronous request with explicit progress, never queued motion."""
+        runtime = rt()
+        delay = 0
+        if not self.capture_only and self.responses and self.responses[0]['operation'] == operation:
+            delay = self.responses[0].get('delay_ms', 0)
+        scoped = bool(clauses) or bool(delay)
+        if not scoped:
+            self.invoke(state, operation, data, nowait, line, settings=settings)
+            return
+        execution = dict(delay_ms=delay, elapsed_ms=0,
+            handlers=[dict(kind=kind, line=location) for kind, _, _, location in clauses], triggered=[])
+        scope = self.invoke(state, operation, data, nowait, line, settings=settings, _execution=execution)
+        outcome = 'failed'
+        try:
+            progress = scope['request']['data']['execution']
+            while True:
+                yield from runtime.checkpoint(state, line)
+                self.verify_scope(scope, line)
+                if scope['cancelled']:
+                    outcome = 'cancelled'
+                    break
+                yield from self.scan_local(scope, clauses, line)
+                if state._abort_requested or state._pause_requested:
+                    yield from runtime.checkpoint(state, line)
+                self.verify_scope(scope, line)
+                if scope['cancelled']:
+                    outcome = 'cancelled'
+                    break
+                held = scope['group'] in scope['locks'].held
+                if not held and progress['elapsed_ms'] >= delay:
+                    outcome = scope['outcome']
+                    break
+                step = 10 if held else min(10, delay - progress['elapsed_ms'])
+                yield from runtime.delay_execution(state, step, line)
+                if not held:
+                    progress['elapsed_ms'] += step
+        except (GeneratorExit, runtime.KarelStop, runtime.KarelAbort):
+            outcome = 'cancelled'
+            raise
+        finally:
+            consumer = scope['consumer']
+            for cache in (state._event_seen, state._edge_history):
+                for key in list(cache):
+                    identity = key[0]
+                    if type(identity) is tuple and len(identity) == 2 and identity[0] is consumer:
+                        cache.pop(key)
+            self.finish_scope(scope, outcome)
 
     def finish(self, state):
-        self._released.pop(rt().task_root(state), None)
+        root = rt().task_root(state)
+        for scope in list(self._active.values()):
+            if scope['root'] is root:
+                self.finish_scope(scope, 'cancelled')
+        self._released.pop(root, None)
 
     def to_config(self):
+        if self._active:
+            raise ValueError('Finish or stop active motion scopes before saving context')
         if self._released:
             raise ValueError('Finish or reattach released motion tasks before saving context')
         return dict(groups={str(k):v for k,v in sorted(self.groups.items())},

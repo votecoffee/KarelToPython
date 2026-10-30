@@ -630,3 +630,10 @@ optional `GroupLocks(..., held=[group,...])` configuration. Empty hold sets rema
 omitted from saved JSON. MotionRequests validates before/after control history
 and per-request `settings` records; the translation policy documents action-time
 ownership selection, source capture order and the absence of environment mutation.
+
+[Motion-local handlers and scripted progress](motion-handlers.md) accept an optional
+`delay_ms` on each MotionRequests response. Generated cooperative MOVE output
+retains private callbacks and routine frames for synchronous scopes; save guards
+reject active scopes and loaded history validates progress, triggers and outcomes.
+Reports add local clause locations and scope rules. Older direct-invoke output
+must be retranslated for delayed responses. No queued/native motion is inferred.

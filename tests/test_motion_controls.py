@@ -332,7 +332,7 @@ class MotionControlExclusions(unittest.TestCase):
                      'WITH $SPEED=TRUE MOVE AWAY 1','WITH $USE_CONFIG=1 MOVE AWAY 1',
                      'WITH $UFRAME=v MOVE AWAY 1','WITH $UTOOL=j MOVE AWAY 1',
                      'WITH $MOTYPE=6.0 MOVE AWAY 1','WITH $SPEED=1 OPEN HAND 1',
-                     'WITH $SPEED=1 MOVE AWAY 1, WHEN TRUE DO CANCEL ENDMOVE',
+                     'WITH $SPEED=1 MOVE AWAY 1 NOWAIT, WHEN TRUE DO CANCEL ENDMOVE',
                      'CONDITION[1]: WHEN TRUE DO WITH $SPEED=1 MOVE AWAY 1 ENDCONDITION',
                      'n=$SPEED','$SPEED=25'):
             with self.subTest(body=body),self.assertRaises(TranslationError):program(body)

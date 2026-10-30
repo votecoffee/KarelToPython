@@ -1,0 +1,14 @@
+PROGRAM LIB
+VAR last:INTEGER
+ROUTINE work(value:INTEGER):INTEGER
+VAR local:INTEGER
+BEGIN
+  local=value
+  MOVE AWAY 1,
+    WHEN TRUE DO local=local+1
+  ENDMOVE
+  last=local
+  RETURN local
+END work
+BEGIN
+END LIB
