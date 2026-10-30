@@ -1,0 +1,12 @@
+PROGRAM LIB
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL ENDSTRUCTURE
+ in_array=ARRAY[1,2]OF in_t out_row=ARRAY[3]OF out_t out_array=ARRAY[1]OF out_row
+VAR entry,status,first_entry:INTEGER
+ROUTINE copy(dst:ARRAY[*,*]OF out_t;src:ARRAY[*,*]OF in_t)
+BEGIN
+  GET_VAR(entry,'MAIN','ORIGINAL',dst,status)
+  first_entry=entry
+  SET_VAR(entry,'MAIN','RESULT',src,status)
+END copy
+BEGIN
+END LIB

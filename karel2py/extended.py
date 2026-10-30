@@ -925,6 +925,34 @@ def _variable_copy(spec,value,line=None):
     return rt.checked(spec,value,line)
 
 
+def _variable_record_copy(spec,source_spec,value,line=None):
+    """Convert selected context-free record data, retaining explicit missing containers."""
+    rt=runtime()
+    if not rt._pythonic() or rt.record_schema_kind(spec,source_spec)!='structure':
+        fail('Record variable conversion requires compatible Pythonic record schemas',line)
+    rt._validate_data_schema(spec,line);rt._validate_data_schema(source_spec,line)
+    _variable_shape(source_spec,value,line)
+    def convert(expected,actual,item):
+        kind=rt.positional_conversion_kind(expected,actual)
+        if kind:
+            captured=_variable_copy(actual,item,line)
+            return (rt.convert_joint_width if kind=='joint_width' else rt.convert_position)(expected,captured,line)
+        if item is rt.UNINITIALIZED:return item
+        if expected==actual:return _variable_copy(actual,item,line)
+        if expected[0]==actual[0]=='STRUCTURE':
+            result=rt.Structure(expected);fields=dict(rt.record_fields(actual))
+            for name,field in rt.record_fields(expected):result.values[name]=convert(field,fields[name],item.values[name])
+            return result
+        if expected[0]==actual[0]=='ARRAY':
+            result=rt._array_conversion_storage(expected,item,line)
+            first,second=rt.array_leaf_spec(expected),rt.array_leaf_spec(actual)
+            for (storage,key),member in zip(rt._array_conversion_cells(result),_variable_array_values(actual,item)):
+                storage[key]=convert(first,second,member)
+            return result
+        return _variable_copy(expected,_variable_copy(actual,item,line),line)
+    return convert(spec,source_spec,value)
+
+
 def _variable_missing(value):
     rt=runtime()
     if value is rt.UNINITIALIZED: return True
@@ -954,7 +982,7 @@ def _variable_array_targets(spec,value,limit):
             yield rt.Reference(spec[2],value.values,index);limit-=1
 
 
-def variable_transfer(target,source,*,numeric=False,representations=False,line=None):
+def variable_transfer(target,source,*,numeric=False,representations=False,records=False,line=None):
     """Prepare one complete replacement, preserving an ARRAY's unused tail."""
     rt=runtime();spec=target.spec;arrays=spec[0]==source.spec[0]=='ARRAY'
     _variable_data_spec(source.spec,line,queue=True);_variable_data_spec(spec,line,queue=True)
@@ -970,19 +998,23 @@ def variable_transfer(target,source,*,numeric=False,representations=False,line=N
         captured=_variable_copy(source.spec,source.value,line)
         converted=rt.convert_joint_width(spec,captured,line) if spec[0]=='JOINTPOS' else rt.convert_position(spec,captured,line)
         return converted,False
-    array_positional=None
+    array_positional=None;record_schema=records and rt._pythonic() and rt.record_schema_kind(spec,source.spec)
+    array_record=None
     if arrays:
         leaf=rt.array_leaf_spec(spec);source_leaf=rt.array_leaf_spec(source.spec)
         array_positional=rt.positional_conversion_kind(leaf,source_leaf) if representations else None
+        array_record=records and rt._pythonic() and rt.record_schema_kind(leaf,source_leaf)
         if (len(rt.array_dimensions(spec))!=len(rt.array_dimensions(source.spec))
-                or not (array_positional or _variable_compatible(leaf,source_leaf,numeric=numeric))): return None
-    elif not _variable_compatible(spec,source.spec,numeric=numeric): return None
+                or not (array_positional or array_record or _variable_compatible(leaf,source_leaf,numeric=numeric))): return None
+    elif not (record_schema or _variable_compatible(spec,source.spec,numeric=numeric)): return None
+    if record_schema or array_record:
+        rt._validate_data_schema(spec,line);rt._validate_data_schema(source.spec,line)
     _variable_shape(spec,target.raw(),line)
     if source.value is rt.UNINITIALIZED:
         if array_positional:fail('Positional ARRAY conversion requires initialized source values',line)
         return rt.UNINITIALIZED,True
     if not arrays:
-        copied=_variable_copy(spec,_variable_copy(source.spec,source.value,line),line)
+        copied=_variable_record_copy(spec,source.spec,source.value,line) if record_schema else _variable_copy(spec,_variable_copy(source.spec,source.value,line),line)
         return copied,_variable_missing(copied)
     current=target.raw()
     copied=rt.Array(spec) if current is rt.UNINITIALIZED else deepcopy(current)
@@ -993,6 +1025,7 @@ def variable_transfer(target,source,*,numeric=False,representations=False,line=N
         if array_positional:
             convert=rt.convert_joint_width if reference.spec[0]=='JOINTPOS' else rt.convert_position
             prepared=convert(reference.spec,captured,line)
+        elif array_record:prepared=_variable_record_copy(reference.spec,source_leaf,captured,line)
         else:prepared=_variable_copy(reference.spec,captured,line)
         missing|=_variable_missing(prepared)
         reference.storage[reference.key]=rt.replace_value(reference.raw(),prepared)
@@ -2290,7 +2323,7 @@ class ExecutionContext:
                 if spec is None: fail('SET_VAR requires a typed data input',line)
                 source=variable_value(spec,value,line)
             destination=target
-        prepared=variable_transfer(destination,source,numeric=True,representations=True,line=line)
+        prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,line=line)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
         key=(program.upper() or state.program_name,path.upper())

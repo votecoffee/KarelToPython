@@ -34,7 +34,8 @@ Successful lookup/cache hints and ordinary status conventions remain unchanged.
 
 [Positional ARRAY prefixes](positional-arrays.md) now change terminal representations
 and checked joint widths while preserving receiver schema and unused tail.
-User STRUCTURE nominal identities remain exact. Selected positional elements
+Compatible user STRUCTURE fields now follow [record variable transfers](record-variable-transfers.md).
+Selected positional elements
 can also be converted individually. JOINTPOS-to-Cartesian pairs remain incompatible
 with status 3 even when a robot model is supplied; perform an explicit source
 kinematic conversion before transferring that result when needed.

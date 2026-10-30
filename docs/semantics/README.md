@@ -18,6 +18,9 @@ Declared links, BYNAME, raw callback results and generic helpers remain exact.
 The [model-backed STRUCTURE ledger](kinematic_record_semantics.json) supersedes
 older model-field exclusions for compatible user record trees, using complete
 data/geometry preflight and existing explicit scalar model/adaptor contracts.
+The [record variable transfer ledger](record_variable_transfer_semantics.json)
+supersedes older exact nominal GET_VAR/SET_VAR record exclusions, retaining
+context-free field conversions and existing prefix/status/cache contracts.
 
 The [private timer ledger](private_using_timer_semantics.json) supersedes older
 private connected-timer exclusions in the computed-capture/private-counter notes.

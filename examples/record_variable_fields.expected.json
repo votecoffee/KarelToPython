@@ -1,0 +1,18 @@
+{
+  "ORIGINAL": {
+    "COUNT": 9,
+    "LABEL": "abcdefgh"
+  },
+  "RESULT": {
+    "LABEL": "abc",
+    "COUNT": 9.0
+  },
+  "SAVED": {
+    "LABEL": "abc",
+    "COUNT": 7.0
+  },
+  "ENTRY": 2,
+  "STATUS": 0,
+  "FIRST_ENTRY": 1,
+  "DONE": true
+}

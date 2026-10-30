@@ -79,6 +79,12 @@ Typed JSON stores the resulting schemas and data. It does not serialize private
 cells, live handlers, timers, callbacks or suspended execution. The DONE guards
 in the authored examples allow deterministic data replay.
 
+## Variable storage transfers
+
+[GET_VAR/SET_VAR record transfers](record-variable-transfers.md) separately apply
+compatible context-free field schemas to explicit variable storage and record
+ARRAY prefixes. They retain their own missing-container, cache and status rules.
+
 ## Remaining exclusions
 
 Field additions, removal and renaming, builtin-record/user-STRUCTURE interchange,

@@ -49,7 +49,8 @@ ARRAY transfers use these bounded rules:
 - Source and receiver must have the same logical rank, from one through three.
   Named ARRAY components contribute their dimensions to that rank.
 - Outer ARRAY names and extents may differ. Terminal element types must match;
-  named STRUCTURE types and JOINTPOS widths retain exact identity. Numeric
+  compatible user STRUCTURE terminals now follow [record conversion](record-variable-transfers.md).
+  Context-free positional widths/representations use their separate policy. Numeric
   leaves also permit [checked integral-family/integral-to-REAL conversion](numeric-variable-transfers.md).
 - STRING elements may have different capacities. Copied strings truncate to the
   receiver's capacity. Numeric receiver bounds and declared source domains remain checked.
@@ -59,9 +60,12 @@ ARRAY transfers use these bounded rules:
 
 For example, a `[2,2]` source holding `[[1,2],[3,4]]` copied into a `[2,3]`
 receiver becomes `[[1,2,3],[4,old5,old6]]`. Rank changes do not flatten implicitly.
-Ordinary whole ARRAY assignment, routine parameters and RETURN keep their
-existing nominal type and shape rules.
+Ordinary whole ARRAY assignment, routine parameters and RETURN follow their
+[source schema rules](array-schema-conversions.md), matching every logical
+dimension. Variable-transfer prefix rules remain separate.
 
+Compatible whole user STRUCTURE values now use [record transfer rules](record-variable-transfers.md),
+including nested fields and context-free geometry.
 Non-ARRAY GET and SET permit identical data types, receiver-capacity STRING
 truncation, checked integral-family conversion and integral-to-REAL promotion.
 The same numeric choices now apply to ARRAY prefixes. REAL-to-integer conversion

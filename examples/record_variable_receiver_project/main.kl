@@ -1,0 +1,14 @@
+PROGRAM MAIN
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL ENDSTRUCTURE
+ in_array=ARRAY[1,2]OF in_t out_row=ARRAY[3]OF out_t out_array=ARRAY[1]OF out_row
+VAR original:in_array result:out_array done:BOOLEAN
+ROUTINE copy(dst:ARRAY[*,*]OF out_t;src:ARRAY[*,*]OF in_t) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original[1,1].count=1 original[1,1].label='abcdefgh'
+    original[1,2].count=2 original[1,2].label='xy'
+    result[1,3].count=99 result[1,3].label='old'
+    copy(result,original)
+    done=TRUE
+  ENDIF
+END MAIN

@@ -107,7 +107,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('kinematic_record_forward', 'DONE', True),
                     ('kinematic_record_roundtrip', 'RESULT', {'VALUE':{'axes':[0.,0.]},'COUNT':99,'LABEL':'abc'}),
                     ('kinematic_record_nested', 'DONE', True),
-                    ('kinematic_record_lifetime', 'SEEN', 99.)]
+                    ('kinematic_record_lifetime', 'SEEN', 99.),
+                    ('record_variable_fields', 'RESULT', {'LABEL':'abc','COUNT':9.}),
+                    ('record_variable_prefix', 'STATUS', 0),
+                    ('record_variable_missing', 'STATUS', 12311),
+                    ('record_variable_geometry', 'STATUS', 0)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

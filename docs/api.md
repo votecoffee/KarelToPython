@@ -2,6 +2,13 @@
 
 ## Translation
 
+[Record GET_VAR/SET_VAR transfers](record-variable-transfers.md) add
+`record_variable_transfer_policy` reports. Source service calls opt into compatible
+context-free record schemas while preserving the existing prefix/status/cache
+contract. The internal `extended.variable_transfer(..., records=False)` helper
+retains its exact-record default; explicit `records=True` is Pythonic-only and
+stages independent receiver data without publishing it.
+
 [Model-backed record conversion](kinematic-records.md) adds
 `State.kinematic_record(target_spec, value, line=None, *, kind="ASSIGNMENT", source_spec=None)`.
 Generated source supplies its declared source schema and selects ASSIGNMENT,

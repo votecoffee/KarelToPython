@@ -86,9 +86,10 @@ class BoundedArrayTransferTests(unittest.TestCase):
         state=run('e=9 a[1]=7 b[1]=9 '+transfer('SET_VAR','B','a'),decl=BASE+' a: ARRAY[1] OF INTEGER b: ARRAY[1] OF REAL')
         self.assertEqual((state['B'],state['E'],state['S']),([7.],1,0))
 
-    def test_nominal_record_leaf_types_remain_exact(self):
-        state=run('e=9 b[1].id=7 '+transfer(),decl=BASE+' a: ARRAY[1] OF first_t b: ARRAY[2] OF second_t',prefix='TYPE first_t=STRUCTURE id: INTEGER ENDSTRUCTURE second_t=STRUCTURE id: INTEGER ENDSTRUCTURE')
-        self.assertEqual((state['B'][0]['ID'],state['E'],state['S']),(7,9,3))
+    def test_compatible_record_leaf_types_convert_into_receiver_identity(self):
+        program,_=compile_program('e=9 a[1].id=5 b[2].id=7 '+transfer(),decl=BASE+' a:ARRAY[1]OF first_t b:ARRAY[2]OF second_t',prefix='TYPE first_t=STRUCTURE id:INTEGER ENDSTRUCTURE second_t=STRUCTURE id:INTEGER ENDSTRUCTURE')
+        state=program.run();self.assertEqual((state['B'][0]['ID'],state['B'][1]['ID'],state['E'],state['S']),(5,7,1,0))
+        self.assertEqual(program._state.values['B'].values[0].spec[1],'SECOND_T')
 
     def test_late_invalid_selected_value_preserves_all_outputs(self):
         program,_=compile_program('e=9 b[1]=99 b[2]=88 '+transfer(),decl=BASE+' a,b: ARRAY[2] OF REAL')

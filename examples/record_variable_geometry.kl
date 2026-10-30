@@ -1,0 +1,13 @@
+PROGRAM RECORDVARIABLEGEOMETRY
+TYPE in_t=STRUCTURE point:XYZWPR label:STRING[8] ENDSTRUCTURE
+     out_t=STRUCTURE label:STRING[3] point:POSITION ENDSTRUCTURE
+VAR original:in_t result:out_t cfg:CONFIG entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CNV_STR_CONF('N R U T, 0, 0, 0',cfg,status)
+    original.point=POS(1,2,3,0,0,0,cfg) original.label='abcdefgh'
+    GET_VAR(entry,'','ORIGINAL',result,status)
+    SET_VAR(entry,'','RESULT',original,status)
+    done=TRUE
+  ENDIF
+END RECORDVARIABLEGEOMETRY

@@ -1,0 +1,31 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": {
+        "COUNT": 9,
+        "LABEL": "xyzuvw"
+      },
+      "RESULT": {
+        "LABEL": "abc",
+        "COUNT": 7.0
+      },
+      "ENTRY": 2,
+      "STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ORIGINAL": {
+        "COUNT": 7,
+        "LABEL": "abcdefgh"
+      },
+      "RESULT": {
+        "LABEL": "xyz",
+        "COUNT": 9.0
+      }
+    }
+  }
+}

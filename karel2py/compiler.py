@@ -6121,6 +6121,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['record_schema_policy']['models']='Compatible model-backed JOINT/Cartesian fields follow kinematic_record_policy and explicit scalar context'
     report['record_schema_policy']['limits']='No field additions/removal/rename, resource fields, builtin-record/user-STRUCTURE interchange, BOOLEAN/numeric, REAL-to-integral or logical reshape; model-backed fields require kinematic_record_policy'
     report['data_record_policy']['boundary']='Private source scalar/ARRAY and compatible user STRUCTURE conversions; model-backed fields follow kinematic_record_policy; no inferred robot context or motion'
+    report['record_variable_transfer_policy']=dict(
+        procedures=['GET_VAR','SET_VAR'],
+        records='Compatible user STRUCTURE field-name sets in receiver order; nested record names, fixed logical ARRAY layout, bounded STRING, checked integral family/integral-to-REAL and context-free Cartesian/joint-width fields',
+        arrays='Same logical rank; copy the smaller row-major terminal-record count across outer names/layouts/extents; preserve receiver tail; nested ARRAY fields within each record match every logical dimension',
+        capture='Existing SET source capture before later selectors and GET named-source capture after output selectors; exact declared source storage and copied original domains checked',
+        missing='Compatible whole missing containers clear without inventing data; partial scalar/record fields retain missing markers; changed ARRAY layouts rebuild missing terminal data; representation-changing geometry operands must be complete',
+        status='Existing 0/1/3/12311 status and context-local cache rules; incompatible record fields/models write status 3 only; copied missing data alone contributes to 12311',
+        publication='Stage the entire selected prefix before data, entry, cache or status publication; validation failures retain all outputs and prior independent effects; stable known receiver child identities',
+        validation='Known source domains before receiver narrowing/truncation; 32767 scalar leaves and 64 schema levels; existing alias, protected-field, resource and FOR guards',
+        boundary='No model-backed joint/Cartesian fields, field renaming/addition/removal, BOOLEAN/numeric, REAL-to-integral, native cache/ABI/controller equivalence, strict mode or generic helper compatibility relaxation',
+        guide='docs/record-variable-transfers.md',controller_validated=False)
+    report['variable_transfer_policy']['records']='Compatible user STRUCTURE values and same-rank record ARRAY prefixes follow record_variable_transfer_policy; receiver schemas and unused tails retained'
+    report['positional_variable_transfer_policy']['records']='Context-free geometry fields inside compatible user records follow record_variable_transfer_policy; model-backed changes remain incompatible'
+    report['variable_transfer_policy']['arrays']='Same logical rank with exact/numeric/context-free positional or compatible user-record terminals; smaller row-major prefix, receiver tail retained; record fields follow record_variable_transfer_policy'
     expansion.annotate(report)
     if expansion.events:
         report['expanded_source_sha256']=report['source_sha256']

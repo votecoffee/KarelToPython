@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.151821**. It is a
+tool are named **karel2py**. The current implementation is **26.1030.154410**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -610,6 +610,10 @@ VAR_INFO inspects canonical types, dimensions, capacities and initialization.
 VAR_LIST filters and pages explicit global names with checked output formats.
 See [variable inspection](docs/variable-inspection.md) for static paths, supplied
 namespaces and portable resource/initialization choices.
+
+[Record variable transfers](docs/record-variable-transfers.md) now map compatible
+user STRUCTURE fields in GET_VAR/SET_VAR, including nested records, geometry and
+same-rank record ARRAY prefixes with preserved receiver tails.
 
 GET_VAR/SET_VAR copy bounded ARRAY prefixes across different sizes and preserve
 the receiver tail. Typed SET sources and partial aggregates can transfer missing

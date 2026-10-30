@@ -1,0 +1,16 @@
+{
+  "ORIGINAL": {
+    "COUNT": 32767,
+    "LABEL": "abcdefgh"
+  },
+  "RESULT": {
+    "LABEL": "abc",
+    "COUNT": {
+      "uninitialized": true
+    }
+  },
+  "ENTRY": 2,
+  "STATUS": 12311,
+  "FIRST_STATUS": 12311,
+  "DONE": true
+}

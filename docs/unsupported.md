@@ -163,7 +163,9 @@ they are boundaries rather than promises to accept every such source form later.
   dynamic routine-local lookup, native cached variable table IDs and native
   allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,
   checked static paths, [checked numeric scalar/ARRAY transfers](numeric-variable-transfers.md)
-  and documented aggregate/queue transfers; CREATE_VAR and
+  and [compatible context-free record schemas/record ARRAY prefixes](record-variable-transfers.md)
+  with atomic data/cache/status publication. Model-backed record transfers, schema discovery
+  and field renaming remain unavailable. Logical queue transfers, CREATE_VAR and
   variable renaming operate on explicit logical storage.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;

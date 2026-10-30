@@ -1,0 +1,7 @@
+PROGRAM LIB
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL ENDSTRUCTURE
+VAR original:in_t result:out_t
+ROUTINE prepare_data
+BEGIN original.count=7 original.label='abcdefgh' END prepare_data
+BEGIN
+END LIB

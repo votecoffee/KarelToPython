@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1030.154410 - 2026-10-30
+
+- Extend GET_VAR/SET_VAR to compatible context-free user STRUCTURE schemas and
+  same-rank record ARRAY prefixes. Match identical field-name sets in receiver
+  order; support nested record/ARRAY layouts, bounded STRING, checked numeric
+  domains and context-free Cartesian/joint-width fields while retaining receiver tails.
+- Validate copied original data before conversion and stage the complete selected
+  result before data, entry, cache or status publication. Preserve missing record/
+  ARRAY containers, partial data, distinct BYTE unknown values, SHORT sentinels,
+  stable known child storage and existing capture/overlap/protected-field/FOR guards.
+- Keep model-backed record variable transfers incompatible with status 3; supplied
+  robot models are never inferred. Generic transfer helpers retain their exact
+  record default unless explicitly opted into this Pythonic policy.
+- Add record_variable_transfer_policy reports, 72 authored regressions, four
+  examples, two linked projects and compiler-free runtime coverage. Update README,
+  API and remaining-support inventory; preserve native cache/status/ABI boundaries
+  and defer strict mode.
+
 ## 26.1030.151821 - 2026-10-30
 
 - Extend explicit joint/Cartesian model conversion through compatible user

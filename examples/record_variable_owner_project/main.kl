@@ -1,0 +1,13 @@
+PROGRAM MAIN
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL ENDSTRUCTURE
+VAR original:in_t result:out_t entry,status:INTEGER done:BOOLEAN
+ROUTINE prepare_data FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    original.count=9 original.label='xyzuvw'
+    prepare_data()
+    GET_VAR(entry,'LIB','ORIGINAL',result,status)
+    SET_VAR(entry,'LIB','RESULT',original,status)
+    done=TRUE
+  ENDIF
+END MAIN

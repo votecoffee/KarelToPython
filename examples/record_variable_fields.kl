@@ -1,0 +1,13 @@
+PROGRAM RECORDVARIABLEFIELDS
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE label:STRING[3] count:REAL ENDSTRUCTURE
+VAR original:in_t result,saved:out_t entry,status,first_entry:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original.count=7 original.label='abcdefgh'
+    GET_VAR(entry,'','ORIGINAL',result,status)
+    first_entry=entry saved=result
+    original.count=9
+    SET_VAR(entry,'','RESULT',original,status)
+    done=TRUE
+  ENDIF
+END RECORDVARIABLEFIELDS

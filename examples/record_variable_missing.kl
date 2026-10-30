@@ -1,0 +1,13 @@
+PROGRAM RECORDVARIABLEMISSING
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE
+     out_t=STRUCTURE label:STRING[3] count:SHORT ENDSTRUCTURE
+VAR original:in_t result:out_t entry,status,first_status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    original.label='abcdefgh'
+    GET_VAR(entry,'','ORIGINAL',result,status)
+    first_status=status original.count=32767
+    SET_VAR(entry,'','RESULT',original,status)
+    done=TRUE
+  ENDIF
+END RECORDVARIABLEMISSING

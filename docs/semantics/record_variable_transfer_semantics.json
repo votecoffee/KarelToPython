@@ -1,0 +1,21 @@
+{
+  "version": "26.1030.154410",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../record-variable-transfers.md",
+  "tests": [
+    "tests/test_record_variable_transfers.py"
+  ],
+  "boundaries": "GET_VAR/SET_VAR user STRUCTURE values and same-rank record ARRAY prefixes; explicit global/attached/bound roots and static fields/elements/PATH nodes",
+  "schemas": "Identical field-name sets in receiver order; nested records, bounded STRING, checked integral-family/integral-to-REAL and context-free Cartesian/joint-width fields; inner ARRAY logical dimensions match",
+  "prefix": "Outer ARRAY names/layout/extents may differ at equal rank 1..3; smaller row-major terminal-record count; receiver tail retained",
+  "validation": "Original selected domains before receiver conversion; source structural and STRING-capacity capture checks retained; 32767 scalar leaves and 64 schema levels",
+  "capture": "SET independent typed source before later selectors; GET named source after output selectors; existing protected/alias/FOR guards",
+  "missing": "Whole compatible record/ARRAY containers clear; partial missing leaves/records propagate; changed layouts rebuild missing terminal data; positional representation changes still require complete geometry",
+  "publication": "Entire selected result staged before data/cache/entry/status publication; late failures preserve outputs and prior source effects; known receiver child storage remains attached",
+  "status": "Existing portable 0/1/3/12311; compatibility before missing propagation; copied missing data only; unknown BYTE distinct; cache IDs after successful preparation only",
+  "excluded": "Model-backed joint/Cartesian fields, field-set changes/rename, resources, builtin/user interchange, BOOLEAN/numeric, REAL-to-integral and implicit schema discovery",
+  "exact": "Generic variable_transfer helper requires explicit Pythonic records opt-in; generic checked/value/result helpers, BYNAME, declared links and raw callback schemas unchanged",
+  "persistence": "Typed concrete data and schemas only; no cache IDs, references, callbacks or suspended execution",
+  "supersedes": "Older blanket exact nominal user STRUCTURE and record ARRAY terminal GET_VAR/SET_VAR exclusions; native/controller/strict boundaries remain"
+}
