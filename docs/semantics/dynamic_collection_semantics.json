@@ -1,4 +1,5 @@
 {
+  "path_transfer_mode_note":"../path-transfers.md adds an authored exact whole-PATH Pythonic copy extension; older whole-PATH exclusions below retain their historical/manual evidence boundary.",
   "version": "26.1030.203037",
   "current_mode_note": "Root FILE creation/closed-descriptor JSON now follow dynamic_file_semantics.json; the earlier FILE exclusions below retain their release scope",
   "mode": "pythonic",

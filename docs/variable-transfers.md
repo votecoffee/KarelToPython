@@ -74,9 +74,10 @@ Cartesian/joint-width values can use [checked positional conversion](positional-
 Representation changes require complete source data, while exact copies retain
 their missing-data contract. Known value/range/config checks remain.
 Since 0.99.0, whole QUEUE_TYPE values support independent
-[logical queue transfers](queue-transfers.md). Whole FILE/PATH and embedded
-resources remain excluded; static data fields and nodes can be addressed
-individually.
+[logical queue transfers](queue-transfers.md). Whole PATH now supports an
+[exact logical copy extension](path-transfers.md) in Pythonic mode. Whole FILE
+and embedded resources remain excluded; static data fields and nodes can also
+be addressed individually.
 
 ## Missing values
 
@@ -127,6 +128,9 @@ replacement is prepared before publishing data, entry and status. Existing
 aggregate cells retain their identity when updated, preserving captured aliases.
 Whole [queue transfers](queue-transfers.md) validate their complete logical source
 at capture and retain the receiver object while releasing its buffer binding.
+Whole [PATH transfers](path-transfers.md) preserve the root and compatible header
+aliases while replacing nodes with detached copies; captured old node aliases
+remain on the previous storage. Both sides have a 32767-total-leaf transfer bound.
 
 Malformed storage, invalid known values, invalid output aliases and forbidden
 resources raise runtime errors. They preserve transfer outputs and storage;

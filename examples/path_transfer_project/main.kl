@@ -1,0 +1,14 @@
+PROGRAM MAIN
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source,target:route_t status:INTEGER done:BOOLEAN
+ROUTINE take(route:route_t) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(source,status)
+    source[1].value=42 source.count=1
+    take(target)
+    done=TRUE
+  ENDIF
+END MAIN

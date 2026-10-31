@@ -161,11 +161,11 @@ class QueueTransferGuardTests(unittest.TestCase):
         value=rt.Array(('ARRAY',1,('QUEUE_TYPE',)))
         with self.assertRaisesRegex(rt.KarelRuntimeError,'without resources'): rt.variable_value(value.spec,value)
 
-    def test_file_and_path_targets_remain_excluded_at_runtime(self):
-        for kind in ('FILE','PATH'):
-            with self.subTest(kind=kind):
-                program,_=compile_program(SEED+call('SET_VAR',path='RESOURCE'),decl=DECL+' resource: '+kind)
-                with self.assertRaisesRegex(rt.KarelRuntimeError,'without resources'): program.run()
+    def test_file_target_remains_excluded_and_path_mismatch_is_status_only(self):
+        program,_=compile_program(SEED+call('SET_VAR',path='RESOURCE'),decl=DECL+' resource: FILE')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'without resources'):program.run()
+        program,_=compile_program(SEED+call('SET_VAR',path='RESOURCE'),decl=DECL+' resource: PATH')
+        self.assertEqual(program.run()['STATUS'],3);self.assertEqual(program._state.values['RESOURCE'].nodes,[])
 
     def test_ordinary_queue_assignment_remains_rejected(self):
         program,_=compile_program('target=source',decl=DECL)

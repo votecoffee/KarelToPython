@@ -1,0 +1,13 @@
+PROGRAM PATH_TRANSFER_PARTIAL
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source,target:route_t entry,status,n,m:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(source,status)
+    GET_VAR(entry,'','SOURCE',target,status)
+    n=0 m=0
+    done=TRUE
+  ENDIF
+END PATH_TRANSFER_PARTIAL

@@ -1,4 +1,5 @@
 {
+  "path_transfer_mode_note":"../path-transfers.md adds an authored exact whole-PATH Pythonic copy extension; older whole-PATH exclusions below retain their historical/manual evidence boundary.",
   "version":"0.99.0",
   "mode":"pythonic",
   "controller_validated":false,

@@ -79,8 +79,10 @@ over-capacity strings are rejected rather than normalized by truncation.
 These are data snapshots. POSITION orientation columns are preserved as data;
 geometry operations retain their separate proper-matrix checks. Restored PATH
 nodes and headers support the ordinary field, node, copy and inspection APIs.
-Whole PATH remains excluded from GET_VAR/SET_VAR, as in the reviewed manual;
-node/header data paths can select supported data values.
+Whole PATH now supports a [Pythonic GET_VAR/SET_VAR extension](path-transfers.md)
+with exact schemas, bounded copies and explicit alias lifetime. The reviewed
+manual excludes that whole-PATH source form; native acceptance remains unverified.
+Node/header data paths can still select supported data values.
 
 ## Queue values and buffer binding
 

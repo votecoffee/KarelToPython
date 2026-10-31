@@ -4815,7 +4815,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         missing='Whole missing source clears a compatible receiver; partial missing leaves propagate in the transferred prefix; status 12311 reflects copied missing data only; unknown BYTE retained distinctly without inventing readable contents',
         status='Portable 0 success, 1 lookup missing, 3 incompatible type/rank, 12311 transferred missing data; type guard precedes missing propagation; failed lookup/type writes status only; cache IDs published only after complete data validation',
         outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
-        boundary='Resource-free data and whole logical QUEUE_TYPE snapshots; whole FILE/PATH and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
+        boundary='Resource-free data, whole logical QUEUE_TYPE snapshots and exact whole PATH Pythonic copies; whole FILE and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
     report['variable_archive_policy']=dict(
         procedures=['SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM'],
@@ -4976,6 +4976,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
         guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
+    report['path_transfer_policy']=dict(
+        procedures=['GET_VAR','SET_VAR'],
+        source='Pythonic extension for whole PATH values with exact resolved NODEDATA/PATHHEADER schemas; no implicit field, capacity, pose, model or layout conversions',
+        capture='SET snapshots source once before later selectors; GET resolves and snapshots named source after output selectors; validate bounded schemas and complete source/receiver data before publication',
+        limits='At most 64 data-schema levels and 32767 header-plus-node scalar leaves on each side; validate bounds before payload allocation; existing PATH collection/persistence limits remain independent',
+        receiver='Preserve existing PathValue identity; retain compatible header containers through ordinary stable data replacement; install a fresh detached nodes list so captured old node references are not retargeted; applies to self-copy',
+        missing='Preserve partial scalar/node/header markers and known BYTE values; status 12311 for copied uninitialized data, with BYTE unknown contents retaining their existing no-initialization-tracking policy; empty headerless PATH succeeds',
+        guards='Missing names return 1, incompatible schemas/resources return 3 with status only; malformed/over-limit state raises without data/cache/status publication; exact disjoint outputs and SET target overlap checks remain',
+        boundaries='Whole missing PATH roots, resource fields/ARRAYs, generic ANY/strict helper relaxation, node/header conversion, inferred robot context, native GET_VAR/SET_VAR PATH acceptance/ABI or controller equivalence remain unavailable',
+        guide='docs/path-transfers.md',controller_validated=False)
     report['queue_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         snapshot='Whole QUEUE_TYPE only; independent checked initialization flag, ordered sequence/value pairs and last sequence counter; exclude source backing ARRAY reference and capacity',

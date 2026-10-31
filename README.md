@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1030.210436**. It is a
+tool are named **karel2py**. The current implementation is **26.1031.123221**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -639,6 +639,12 @@ Whole QUEUE_TYPE values also transfer logical contents and sequence counters
 through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue
 operation. See [queue transfers](docs/queue-transfers.md).
 
+Whole PATH values now support an exact Pythonic GET_VAR/SET_VAR copy extension,
+including partial nodes/header, created roots and linked references. Copies keep
+the root and compatible header aliases, and detach the old nodes. This extends
+beyond the reviewed manual, which excludes whole PATH for these calls. See
+[PATH transfers](docs/path-transfers.md) for limits and native evidence boundaries.
+
 CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files
 through explicit memory or mapped directory backends, with batch preflight and
 documented late-failure behavior. See [file management](docs/file-management.md).
@@ -801,9 +807,10 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates all authored runnable examples, checks complete
+The example runner translates 320 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 58 complete linked source projects. It also checks that unsupported NOWAIT/local-handler combinations are rejected.
+fixtures, plus 92 complete linked source projects. It also checks that unsupported
+NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

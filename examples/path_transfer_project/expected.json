@@ -1,0 +1,36 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "SOURCE": {
+        "nodes": [
+          {
+            "VALUE": 42
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      },
+      "TARGET": {
+        "nodes": [
+          {
+            "VALUE": 42
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      },
+      "STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ENTRY": 1,
+      "STATUS": 0
+    }
+  }
+}

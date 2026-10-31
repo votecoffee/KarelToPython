@@ -1,4 +1,5 @@
 {
+  "path_transfer_mode_note":"../path-transfers.md adds an authored exact whole-PATH Pythonic copy extension; older whole-PATH exclusions below retain their historical/manual evidence boundary.",
   "queue_transfer_mode_note":"Since 0.99.0, ../queue-transfers.md extends GET_VAR/SET_VAR to whole logical queue snapshots; earlier whole-queue exclusions below describe the 0.98.0 boundary.",
   "version":"0.98.0",
   "mode":"pythonic",

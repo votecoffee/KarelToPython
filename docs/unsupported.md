@@ -175,7 +175,11 @@ they are boundaries rather than promises to accept every such source form later.
   with atomic data/cache/status publication. [Explicit model-backed transfers](kinematic-variable-transfers.md)
   now cover joint/Cartesian scalar, prefix and record data. Schema discovery and
   field renaming remain unavailable. Logical queue transfers, CREATE_VAR and
-  variable renaming operate on explicit logical storage.
+  variable renaming operate on explicit logical storage. Whole PATH now has an
+  [exact Pythonic copy extension](path-transfers.md) with bounded partial data
+  and documented detached-node aliases; the reviewed manual excludes the native
+  whole-PATH call form. Whole FILE transfer, PATH VR archives, resource embedding
+  and native PATH layout/association records remain unavailable.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;
   they do not establish network sessions, discover peers or convert robot poses.

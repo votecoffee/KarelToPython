@@ -269,7 +269,7 @@ def matches(spec, kind):
     if kind=='ERROR_CURSOR': return spec==('INTEGER',)
     if kind=='DICT_ELEMENT': return spec[0] in ('INTEGER','STRING')
     if kind=='CHECK_INIT': return spec[0] in ('BOOLEAN','INTEGER','SHORT','BYTE')
-    if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or matches(spec,'ANY')
+    if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or spec[0]=='PATH' and len(spec)==3 or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
     if kind=='GEOMETRY_POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
@@ -842,9 +842,10 @@ class VariableValue:
     def __init__(self,spec,value): self.spec,self.value=spec,value
 
 
-def _variable_data_spec(spec,line=None,*,queue=False):
+def _variable_data_spec(spec,line=None,*,queue=False,paths=False):
     rt=runtime();kind=spec[0]
     if queue and spec==('QUEUE_TYPE',): return
+    if paths and kind=='PATH' and len(spec)==3: return
     if kind=='ARRAY': _variable_data_spec(spec[2],line)
     elif kind in rt.RECORD_TYPES:
         for _,field in rt.record_fields(spec): _variable_data_spec(field,line)
@@ -885,11 +886,40 @@ def queue_variable_value(value,line=None):
     except (ValueError,rt.KarelRuntimeError) as error: fail('Queue variable transfer: '+str(error),line)
 
 
+def path_variable_value(spec,value,line=None):
+    """Bound and detach one exact logical PATH, retaining partial data markers."""
+    from .storage import collection_data_spec,collection_payload,restore_collection
+    rt=runtime()
+    if not rt._pythonic(): fail('PATH variable transfers require Pythonic mode',line)
+    def layout(expected):
+        if type(expected) is not tuple or len(expected)!=3 or expected[0]!='PATH':
+            raise ValueError('PATH requires exact node/header type metadata')
+        counts=[]
+        for component in (rt.PREDEFINED_STRUCTURES['STD_PTH_NODE'] if expected[1] is None else expected[1],expected[2]):
+            if component is None: counts.append(0);continue
+            if type(component) is not tuple or not component or component[0]!='STRUCTURE':
+                raise ValueError('PATH components require named data STRUCTURE layouts')
+            counts.append(rt._validate_data_schema(component));collection_data_spec(component)
+        return counts
+    try:
+        node,header=layout(spec)
+        if type(value) is not PathValue: raise ValueError('PATH requires exact logical storage')
+        if value.spec is not spec: layout(value.spec)
+        if value.spec!=spec: raise ValueError('PATH storage does not match its declared type')
+        if type(value.nodes) is not list or len(value.nodes)>32767:
+            raise ValueError('PATH requires a bounded node list')
+        if header+len(value.nodes)*node>32767:
+            raise ValueError('PATH variable copies are limited to 32767 scalar leaves')
+        return restore_collection(spec,collection_payload(spec,value))
+    except (ValueError,rt.KarelRuntimeError) as error: fail('PATH variable transfer: '+str(error),line)
+
+
 def variable_value(spec,value,line=None):
     """Capture source data once before later output-selector effects."""
     rt=runtime()
     if spec[0]=='ARRAY' and isinstance(value,rt.Array) and rt.parameter_accepts(spec,value.spec): spec=value.spec
-    _variable_data_spec(spec,line,queue=True)
+    _variable_data_spec(spec,line,queue=True,paths=True)
+    if spec[0]=='PATH': return VariableValue(spec,path_variable_value(spec,value,line))
     if spec==('QUEUE_TYPE',): return VariableValue(spec,queue_variable_value(value,line))
     _variable_shape(spec,value,line)
     return VariableValue(spec,deepcopy(value))
@@ -958,6 +988,7 @@ def _variable_missing(value):
     if value is rt.UNINITIALIZED: return True
     if isinstance(value,(rt.Array,rt.JointPosition)): return any(_variable_missing(item) for item in value.values)
     if isinstance(value,rt.Structure): return any(_variable_missing(item) for item in value.values.values())
+    if isinstance(value,PathValue): return _variable_missing(value.data) or any(_variable_missing(node) for node in value.nodes)
     return False
 
 
@@ -982,10 +1013,15 @@ def _variable_array_targets(spec,value,limit):
             yield rt.Reference(spec[2],value.values,index);limit-=1
 
 
-def variable_transfer(target,source,*,numeric=False,representations=False,records=False,line=None):
+def variable_transfer(target,source,*,numeric=False,representations=False,records=False,paths=False,line=None):
     """Prepare one complete replacement, preserving an ARRAY's unused tail."""
     rt=runtime();spec=target.spec;arrays=spec[0]==source.spec[0]=='ARRAY'
-    _variable_data_spec(source.spec,line,queue=True);_variable_data_spec(spec,line,queue=True)
+    paths=paths and rt._pythonic()
+    _variable_data_spec(source.spec,line,queue=True,paths=paths);_variable_data_spec(spec,line,queue=True,paths=paths)
+    if 'PATH' in (spec[0],source.spec[0]):
+        if spec!=source.spec: return None
+        copied=path_variable_value(spec,source.value,line);path_variable_value(spec,target.raw(),line)
+        return copied,_variable_missing(copied)
     if 'QUEUE_TYPE' in (spec[0],source.spec[0]):
         if spec!=source.spec: return None
         copied=queue_variable_value(source.value,line);queue_variable_value(target.raw(),line)
@@ -2336,7 +2372,7 @@ class ExecutionContext:
             destination=target
         from .variable_kinematics import transfer as model_transfer
         prepared=model_transfer(state,destination,source,line)
-        if prepared is None:prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,line=line)
+        if prepared is None:prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,paths=True,line=line)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
         key=(program.upper() or state.program_name,path.upper())
@@ -2345,6 +2381,9 @@ class ExecutionContext:
         if type(current) is rt.QueueValue and type(copied) is rt.QueueValue:
             current.initialized=copied.initialized;current.sequence=copied.sequence
             current.entries=copied.entries;current.buffer=None
+        elif type(current) is PathValue and type(copied) is PathValue:
+            current.data=rt.replace_value(current.data,copied.data)
+            current.nodes=copied.nodes
         else: destination.storage[destination.key]=rt.replace_value(current,copied)
         entry.set(self.entries[key],line); status.set(12311 if missing else 0,line)
     def queue(self,name,args,line):

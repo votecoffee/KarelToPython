@@ -1,5 +1,23 @@
 # Changelog
 
+## 26.1031.123221 - 2026-10-31
+
+- Add exact whole-PATH GET_VAR/SET_VAR copies as a Pythonic extension beyond the
+  reviewed KAREL manual exclusion. Support declared/supplied/created roots,
+  BYNAME reference formals, linked programs and context JSON replay.
+- Preserve partial node/header data and unknown BYTE markers, with checked known
+  values and status 12311 for initialization-tracked missing data. Bound each
+  side to 64 data-schema levels and 32767 total header-plus-node scalar leaves.
+- Preserve receiver root and compatible header aliases, install independent
+  nodes, and keep captured old node aliases on detached old storage. Validate
+  before data/cache/output publication; retain source-order selector effects,
+  pause/resume, overlap and active-FOR guards.
+- Keep exact node/header schemas, whole missing-root rejection, embedded-resource
+  and whole FILE exclusions, PATH VR archive boundaries and deferred strict mode.
+  Do not infer robot context, native source acceptance or controller behavior.
+- Add 75 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory, API and semantic guides.
+
 ## 26.1030.210436 - 2026-10-30
 
 - Add Pythonic CREATE_VAR root FILE descriptors and supplied aliases, costing one

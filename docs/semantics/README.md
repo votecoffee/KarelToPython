@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [PATH transfer ledger](path_transfer_semantics.json) adds an authored Pythonic
+extension for exact logical GET_VAR/SET_VAR copies, including partial data and
+explicit alias lifetime. It supersedes earlier Pythonic whole-PATH exclusions;
+the reviewed manual exclusion remains the native source evidence boundary.
+
 The [dynamic FILE ledger](dynamic_file_semantics.json) supersedes earlier FILE
 creation exclusions with root-only descriptors, exact typed operations and
 closed allocation intent in context JSON. Open handles and generic FILE value

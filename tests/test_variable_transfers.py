@@ -265,9 +265,10 @@ class DynamicTransferOrderAndGuardTests(unittest.TestCase):
     def test_active_for_counter_guard_remains(self):
         with self.assertRaises(TranslationError): compile_program('FOR n=1 TO 2 DO '+transfer('SET_VAR','A','7')+' ENDFOR',decl=BASE+' a: INTEGER')
 
-    def test_whole_file_and_path_resources_remain_rejected(self):
-        for kind in ('FILE','PATH'):
-            with self.subTest(kind=kind),self.assertRaises(TranslationError): compile_program(transfer('SET_VAR','VALUE','value'),decl=BASE+' value: '+kind)
+    def test_whole_file_stays_rejected_and_pythonic_path_set_succeeds(self):
+        with self.assertRaises(TranslationError): compile_program(transfer('SET_VAR','VALUE','value'),decl=BASE+' value: FILE')
+        state=run(transfer('SET_VAR','VALUE','value'),decl=BASE+' value: PATH')
+        self.assertEqual((state['S'],state['VALUE']),(0,dict(nodes=[],data=None)))
 
 
 class VariableTransferIntegrationTests(unittest.TestCase):

@@ -1,0 +1,16 @@
+PROGRAM PATH_DYNAMIC_TRANSFER
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source,target:route_t entry,status,n,m:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ROUTE','','route_t',0,0,0,0,status)
+    APPEND_NODE(source,status)
+    source[1].value=42 source.count=1
+    SET_VAR(entry,'CACHE','ROUTE',source,status)
+    GET_VAR(entry,'CACHE','ROUTE',target,status)
+    n=target[1].value m=target.count
+    done=TRUE
+  ENDIF
+END PATH_DYNAMIC_TRANSFER

@@ -137,9 +137,10 @@ class DynamicCollectionInterfaceTests(unittest.TestCase):
         v,ctx,p,_=execute(create('QUEUE_TYPE')+invoke()+" GET_VAR(entry,'CACHE','ITEM',copy,status) SET_VAR(entry,'CACHE','ITEM',copy,status)",routines=FILL,decl=DECL+' copy:QUEUE_TYPE')
         self.assertEqual(v['STATUS'],0);self.assertIsNone(ref(ctx).raw().buffer);self.assertEqual(ref(ctx).raw().entries,[(1,7),(2,9)])
 
-    def test_whole_path_variable_transfer_remains_a_data_boundary(self):
-        from karel2py.lexer import TranslationError
-        with self.assertRaises(TranslationError):program(create('PATH')+" GET_VAR(entry,'CACHE','ITEM',local,status)",decl=DECL+' local:PATH')
+    def test_whole_created_path_variable_transfer_uses_exact_layout(self):
+        v,ctx,p,_=execute(create('PATH')+" GET_VAR(entry,'CACHE','ITEM',local,status)",decl=DECL+' local:PATH')
+        self.assertEqual(v['STATUS'],0);self.assertEqual(p._state.values['LOCAL'].nodes,[])
+        self.assertIsNot(p._state.values['LOCAL'],ref(ctx).raw())
 
     def test_byname_type_mismatch_preserves_entry_and_routine_effects(self):
         p,_=program(create('PATH')+" entry=77 n=0 "+invoke(),routines=FILL)

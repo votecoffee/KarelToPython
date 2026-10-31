@@ -611,6 +611,11 @@ types, preserved tails, status codes and validation boundaries. SET snapshots
 source references before later output selectors; GET snapshots the resolved
 global after selectors. See [variable transfers](variable-transfers.md).
 
+`path_transfer_policy` describes exact whole-PATH Pythonic copies, bounded
+source/receiver validation, partial values, SET/GET capture timing and preserved
+root/header versus detached-node aliases. This is an extension beyond the reviewed
+manual; native source acceptance remains unverified. See [PATH transfers](path-transfers.md).
+
 `queue_transfer_policy` describes whole QUEUE_TYPE logical copies, checked
 initialization/order/counter state and receiver buffer release. Explicit
 `VariableStore.define` queue values detach using the same codec. See

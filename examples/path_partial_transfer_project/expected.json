@@ -1,0 +1,44 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "SOURCE": {
+        "nodes": [
+          {
+            "VALUE": {
+              "uninitialized": true
+            }
+          }
+        ],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      },
+      "TARGET": {
+        "nodes": [
+          {
+            "VALUE": {
+              "uninitialized": true
+            }
+          }
+        ],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      },
+      "STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ENTRY": 1,
+      "STATUS": 12311
+    }
+  }
+}

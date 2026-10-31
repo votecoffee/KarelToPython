@@ -61,8 +61,9 @@ pass, with a fresh accounting pass after a checkpoint and for each restored row.
 Pass the root through exact `BYNAME` routine formals to use ordinary PATH/QUEUE
 procedures, including explicitly linked routines. PATH header/node data fields
 also use existing GET_VAR/SET_VAR/static BYNAME paths, with ordinary type, missing,
-read-only POSITION/CONFIG and joint-axis checks. Whole-PATH variable transfer
-remains excluded. Logical queue GET_VAR/SET_VAR transfers keep their existing
+read-only POSITION/CONFIG and joint-axis checks. Whole-PATH variable transfers
+now use the [exact Pythonic copy extension](path-transfers.md). Logical queue
+GET_VAR/SET_VAR transfers keep their existing
 independent-copy rules and clear buffer links on publication.
 
 Renaming a root or unattached namespace preserves live references, creation

@@ -32,8 +32,9 @@ entries whose sequence IDs are out of numeric order. Empty initialized queues
 retain their counter, so later APPEND_QUEUE continues issuing IDs correctly.
 
 Both queues must be whole QUEUE_TYPE values. Queue/data type mismatches return
-status 3 without changing the entry output or receiver. Whole FILE/PATH values
-and resources embedded inside ARRAY/STRUCTURE remain excluded. Ordinary QUEUE
+status 3 without changing the entry output or receiver. Whole FILE values and
+resources embedded inside ARRAY/STRUCTURE remain excluded. Whole PATH has a
+separate [Pythonic copy extension](path-transfers.md). Ordinary QUEUE
 assignment, value parameters and RETURN retain their existing exclusions.
 UNINIT(whole_queue) and VAR_INFO's unsupported QUEUE metadata code also remain
 unchanged; transfer status uses the explicit flag described below.

@@ -1,0 +1,19 @@
+PROGRAM PATH_TRANSFER_ALIAS
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source,target:route_t entry,status,n,m:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(source,status)
+    source[1].value=7 source.count=1
+    APPEND_NODE(target,status)
+    target[1].value=99 target.count=8
+    USING target[1] DO
+      GET_VAR(entry,'','SOURCE',target,status)
+      n=value
+    ENDUSING
+    m=target[1].value
+    done=TRUE
+  ENDIF
+END PATH_TRANSFER_ALIAS

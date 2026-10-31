@@ -1,0 +1,56 @@
+{
+  "version": "26.1031.123221",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored Pythonic extension; existing reviewed GET_VAR/SET_VAR manual evidence excludes whole PATH and does not prove this source form",
+  "sources": [
+    {
+      "manual": "MARRC75KR07091E Rev N",
+      "pdf_pages": [
+        420,
+        556
+      ],
+      "printed_pages": [
+        370,
+        506
+      ],
+      "topic": "Reviewed whole-PATH exclusion; retained as native evidence boundary, not claimed support for this extension"
+    }
+  ],
+  "implemented": {
+    "layout": "Exact resolved named NODEDATA/PATHHEADER and default STD_PTH_NODE; no conversion or robot service",
+    "limits": "64 data-schema levels and 32767 header-plus-node scalar leaves per side, checked before payload allocation",
+    "capture": "SET source snapshot before later selectors; GET named source snapshot after selectors",
+    "publication": "Validate source and receiver, preserve root and compatible header identity, install detached independent node list",
+    "missing": "Partial known/missing data with status 12311; unknown BYTE alone is not initialization-tracked; whole missing roots reject",
+    "status": "Missing names 1 and schema/resource mismatch 3 change status only; successful copy 0 or 12311",
+    "guards": "Exact/disjoint outputs, dynamic target overlaps and active FOR protection; malformed state publishes no data/cache/status",
+    "integration": "Supplied/created roots, exact BYNAME, USING and captured handler aliases, linked modules and context JSON"
+  },
+  "portable_choices": [
+    "Whole PATH GET_VAR/SET_VAR is an intentional Pythonic extension beyond reviewed manual support",
+    "Self-copy also detaches nodes; existing old node aliases remain valid on detached old data",
+    "Header stable replacement preserves compatible aggregate/field aliases",
+    "Source and receiver known values must be valid even when other fields are missing",
+    "No geometry inference, numeric/record conversion, resource embedding or generic helper relaxation"
+  ],
+  "remaining": [
+    "Native whole-PATH source acceptance",
+    "Native association records/layout and cache/status equivalence",
+    "Whole FILE variable transfer",
+    "PATH portable VR archives",
+    "Strict mode",
+    "Controller execution"
+  ],
+  "verification": [
+    "tests/test_path_transfers.py",
+    "tests/test_runtime_portability.py",
+    "examples/path_transfer.kl",
+    "examples/path_transfer_partial.kl",
+    "examples/path_transfer_alias.kl",
+    "examples/path_dynamic_transfer.kl",
+    "examples/path_transfer_project/main.kl",
+    "examples/path_partial_transfer_project/main.kl"
+  ],
+  "guide": "../path-transfers.md"
+}

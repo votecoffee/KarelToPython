@@ -1,0 +1,10 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR entry,status:INTEGER
+ROUTINE take(route:route_t)
+BEGIN
+  GET_VAR(entry,'MAIN','SOURCE',route,status)
+END take
+BEGIN END LIB
