@@ -1,0 +1,21 @@
+PROGRAM PATH_ARCHIVE_VALUES
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR route:route_t value:INTEGER done:BOOLEAN
+ROUTINE transact
+VAR status:INTEGER
+BEGIN
+  APPEND_NODE(route,status)
+  route[1].value=7 route.count=1
+  SAVE('PATH_ARCHIVE_VALUES','values.VR',status)
+  route[1].value=99 route.count=8
+  LOAD('values.VR',0,status)
+  value=route[1].value
+END transact
+BEGIN
+  IF UNINIT(done) THEN
+    transact
+    done=TRUE
+  ENDIF
+END PATH_ARCHIVE_VALUES

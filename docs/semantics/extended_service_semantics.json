@@ -171,6 +171,7 @@
   "program_archives": "program_archive_semantics.json",
   "includes": "include_semantics.json",
   "variable_archives": "variable_archive_semantics.json",
+  "path_archives": "path_archive_semantics.json",
   "external_types": "external_type_semantics.json",
   "using_selectors": "using_selector_semantics.json",
   "path_declarations": "path_declaration_semantics.json",

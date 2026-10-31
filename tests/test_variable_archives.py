@@ -76,11 +76,12 @@ class VariableArchiveSourceTests(unittest.TestCase):
             routines="ROUTINE stash VAR s:INTEGER BEGIN SAVE('T','FR:T.VR',s) END stash ROUTINE restore(alias:INTEGER) VAR s:INTEGER BEGIN LOAD('FR:T.VR',0,s) observed=alias END restore")
         original=p._state.values['DATA'];data=p.run();self.assertEqual((data['DATA'],data['OBSERVED']),([7,8],7));self.assertIs(p._state.values['DATA'],original)
 
-    def test_resources_are_excluded_and_remain_live_storage(self):
+    def test_file_is_excluded_and_path_is_archived_without_replacing_live_root(self):
         ctx=context();p,_=compile_program('n=7 stash',decl='n:INTEGER f:FILE trail:PATH',context=ctx,
             routines="ROUTINE stash VAR s:INTEGER BEGIN SAVE('T','FR:T.VR',s) END stash")
         handle=p._state.values['F'];path=p._state.values['TRAIL'];p.run();row=json.loads(bytes(ctx.files.files['FR:T.VR']))
-        self.assertEqual(row['excluded'],['F','TRAIL']);self.assertEqual(set(row['variables']),{'N'})
+        self.assertEqual(row['excluded'],['F']);self.assertEqual(set(row['variables']),{'N','TRAIL'})
+        self.assertEqual(row['variables']['TRAIL']['value'],dict(nodes=[],data=None))
         self.assertIs(p._state.values['F'],handle);self.assertIs(p._state.values['TRAIL'],path)
 
     def test_imported_globals_are_excluded_from_the_importers_archive(self):
@@ -94,11 +95,11 @@ class VariableArchiveSourceTests(unittest.TestCase):
         before=set(ctx.variables.bindings);self.assertEqual(execute(ctx,"LOAD('FR:CACHE.VR',0,s)")['S'],6)
         self.assertEqual(ctx.variables.bindings['CACHE','VALUE'].raw(),17);self.assertEqual(set(ctx.variables.bindings),before)
 
-    def test_archive_cannot_replace_an_import_or_file_declaration(self):
-        for variables in ({'F':{'type':['INTEGER'],'value':1}}, {'TRAIL':{'type':['INTEGER'],'value':1}}):
-            ctx=context();install(ctx,envelope('T',variables),'FR:T.VR')
+    def test_archive_cannot_replace_file_or_change_path_to_scalar(self):
+        for key,expected in (('F',4),('TRAIL',6)):
+            ctx=context();install(ctx,envelope('T',{key:{'type':['INTEGER'],'value':1}}),'FR:T.VR')
             p,_=compile_program("LOAD('FR:T.VR',0,s)",decl='s:INTEGER f:FILE trail:PATH',context=ctx)
-            self.assertEqual(p.run()['S'],4)
+            self.assertEqual(p.run()['S'],expected)
 
     def test_sparse_and_overlapping_namespace_bindings_reject(self):
         ctx=context();ctx.variables.bind('CACHE','ALIAS',ctx.variables.bindings['CACHE','VALUE'])

@@ -1,4 +1,5 @@
 {
+  "path_archive_mode_note":"../path-archives.md supersedes earlier Pythonic PATH VR exclusions with exact logical snapshots; native VR binaries remain unverified.",
   "version": "26.1031.123221",
   "mode": "pythonic",
   "controller_validated": false,

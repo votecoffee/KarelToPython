@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [PATH archive ledger](path_archive_semantics.json) supersedes earlier PATH
+VR exclusions with checked logical rows, recursive/mixed batches and explicit
+DRAM restore. Native VR binaries and association records remain unverified.
+
 The [PATH transfer ledger](path_transfer_semantics.json) adds an authored Pythonic
 extension for exact logical GET_VAR/SET_VAR copies, including partial data and
 explicit alias lifetime. It supersedes earlier Pythonic whole-PATH exclusions;

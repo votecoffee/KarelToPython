@@ -1,0 +1,24 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "RESULT": 42,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "ROUTE": {
+        "nodes": [
+          {
+            "VALUE": 42
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    }
+  }
+}

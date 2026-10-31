@@ -1,0 +1,21 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR entry,status,value:INTEGER
+ROUTINE fill(route:route_t)
+BEGIN
+  APPEND_NODE(route,status)
+  route[1].value=42 route.count=1
+END fill
+ROUTINE work:INTEGER
+BEGIN
+  CREATE_VAR('CACHE','ROUTE','','route_t',0,0,0,0,status,-1)
+  fill(BYNAME('CACHE','ROUTE',entry))
+  SAVE('CACHE','CACHE.VR',status)
+  CLEAR('CACHE.VR',status)
+  LOAD('CACHE.VR',0,status)
+  GET_VAR(entry,'CACHE','ROUTE[1].VALUE',value,status)
+  RETURN value
+END work
+BEGIN END LIB

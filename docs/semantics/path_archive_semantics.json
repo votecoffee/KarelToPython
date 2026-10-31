@@ -1,0 +1,53 @@
+{
+  "version": "26.1031.125547",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored logical PATH extension of existing variable archive services and collection codecs; no native VR binary or controller restore proof",
+  "procedures": [
+    "SAVE",
+    "LOAD",
+    "CLEAR",
+    "PROG_BACKUP",
+    "PROG_CLEAR",
+    "PROG_RESTORE",
+    "SAVE_DRAM"
+  ],
+  "implemented": {
+    "format": "Existing karel2py-variables-v1 typed PATH rows; legacy excluded PATH names remain unchanged",
+    "state": "Exact named node/header schema, all nodes, known/partial/missing and unknown BYTE data",
+    "identity": "Retain existing root and compatible header containers; independent detached node list; clear empties nodes and resets header data",
+    "limits": "32767 snapshot units including each PATH descriptor, header and every node; 64-level data schemas plus separate 32-level JSON/byte/namespace limits",
+    "preflight": "All record schemas, counts and creation policies before typed decoding; validate current receivers and entire recursive/mixed plan before publication",
+    "guards": "Root/node/list/index/nested joint identity; disjoint outputs, ordinary sparse bindings, foreign active aliases, timers and FOR guards",
+    "integration": "Declared and created roots, exact dynamic policy, linked routines, recursive PBR, mixed TP/VR manifests, explicit DRAM restore and context JSON"
+  },
+  "portable_choices": [
+    "Logical data extension without native VR bytes or association records",
+    "Old captured node aliases stay on detached old storage; compatible header aliases observe replacement",
+    "Dynamic creation reservation remains descriptor/header-only and differs from complete snapshot accounting",
+    "Missing containers count full schema width; whole missing roots remain invalid",
+    "Fresh PATH roots publish decoded storage directly; no automatic flash restore"
+  ],
+  "remaining": [
+    "Native VR and PATH association layouts",
+    "Native cache/status/allocation equivalence",
+    "FILE value archives and embedded resources",
+    "Executable source layouts or suspended stacks",
+    "Strict mode",
+    "Controller acceptance"
+  ],
+  "verification": [
+    "tests/test_path_archives.py",
+    "tests/test_variable_archives.py",
+    "tests/test_dynamic_collections.py",
+    "tests/test_mixed_archives.py",
+    "tests/test_runtime_portability.py",
+    "examples/path_archive_values.kl",
+    "examples/path_archive_partial.kl",
+    "examples/path_dynamic_archive.kl",
+    "examples/path_dram_archive.kl",
+    "examples/path_archive_project/main.kl",
+    "examples/path_dynamic_archive_project/main.kl"
+  ],
+  "guide": "../path-archives.md"
+}

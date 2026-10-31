@@ -4820,7 +4820,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['variable_archive_policy']=dict(
         procedures=['SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM'],
         forms='VR SAVE/LOAD/CLEAR; variable-only PBR_VRTYPE/PBR_PCTYPE backup/clear; explicit VR recursive restore; SAVE_DRAM with explicit VariableArchives',
-        data='Owned declared globals and ordinary explicit roots, exact concrete typed schemas and partial/unknown markers; arrays/records/joints/CONFIG and logical queues; imports, FILE and PATH excluded',
+        data='Owned declared globals and ordinary explicit roots, exact concrete typed schemas and partial/unknown markers; arrays/records/joints/CONFIG, logical queues and exact logical PATH roots; imports and FILE excluded',
         restoration='Exact types, retain unlisted roots, create missing ordinary roots and validated dynamic creation intent; preserve aggregate/queue object aliases, reset missing aggregate leaves and drop queue buffer association',
         guards='Preflight complete batch; disjoint roots and status cells, ordinary dictionary/list reference storage, foreign active/paused tasks and aliases, connected timers and explicit protection/activity flags; possible VR writes retain direct/transitive/handler FOR guards',
         clear='Reset owned values to initial missing/empty storage, preserve declarations, dynamic bindings/creation metadata and ordinary aliases; no code unload or namespace deletion',
@@ -4976,6 +4976,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
         guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
+    report['path_archive_policy']=dict(
+        forms='VR SAVE/LOAD/CLEAR, variable-only and mixed recursive PBR batches, SAVE_DRAM and explicit host restore_dram',
+        data='Owned declared or ordinary explicit PATH roots with exact resolved node/header schemas and checked known/partial/unknown data; no native VR binary claim',
+        limits='Per snapshot: 32767 total units across data, one PATH descriptor, header leaves and all node leaves; 64 data-schema levels and existing 32-level JSON/byte/namespace limits; schemas and creation policies checked before typed decode',
+        identity='Preserve existing PATH root and compatible header aliases; fresh detached node list on load/clear/DRAM restore; old node aliases stay on detached storage',
+        guards='Whole-batch schema/policy/quota and storage checks; status/root/descendant overlap, foreign active aliases, timers, protection and FOR guards; FILE and embedded resources remain excluded',
+        compatibility='Existing v1 variable archive format gains PATH rows; older excluded PATH rows retain current storage; no alias/stack serialization, automatic flash restore, native layout or controller equivalence; strict deferred',
+        guide='docs/path-archives.md',controller_validated=False)
     report['path_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         source='Pythonic extension for whole PATH values with exact resolved NODEDATA/PATHHEADER schemas; no implicit field, capacity, pose, model or layout conversions',

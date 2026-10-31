@@ -86,8 +86,9 @@ must supply a compatible explicit INTEGER buffer. Live buffer/field aliases,
 callbacks, suspended stacks and executable type declarations are not saved.
 
 Portable variable archives already support logical queues. Created queue policy
-now follows their existing save/clear/load and restore guards. PATH roots retain
-the archive's explicit exclusion; use context JSON to retain their contents.
+now follows their existing save/clear/load and restore guards. Created PATH roots
+also support [logical PATH archives](path-archives.md), retaining policy and partial
+node/header data with complete snapshot accounting and detached-node aliases.
 Reattach source layouts for later custom-type creation or linked calls.
 
 Reports add `dynamic_collection_policy`, and `dynamic_variable_policy` links the

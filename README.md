@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1031.123221**. It is a
+tool are named **karel2py**. The current implementation is **26.1031.125547**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -639,6 +639,10 @@ Whole QUEUE_TYPE values also transfer logical contents and sequence counters
 through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue
 operation. See [queue transfers](docs/queue-transfers.md).
 
+[Logical PATH archives](docs/path-archives.md) now include partial node/header data
+in SAVE/LOAD/CLEAR, recursive and mixed batches, and explicit DRAM restore. They
+retain exact schemas and root/header aliases, with detached old node storage.
+
 Whole PATH values now support an exact Pythonic GET_VAR/SET_VAR copy extension,
 including partial nodes/header, created roots and linked references. Copies keep
 the root and compatible header aliases, and detach the old nodes. This extends
@@ -807,9 +811,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 320 authored runnable examples, checks complete
+The example runner translates 324 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 92 complete linked source projects. It also checks that unsupported
+fixtures, plus 94 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

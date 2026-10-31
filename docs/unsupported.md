@@ -1,6 +1,6 @@
 # Remaining Pythonic support
 
-Audited on 2026-10-30 against the 465-heading, multi-edition KAREL feature
+Audited on 2026-10-31 against the 465-heading, multi-edition KAREL feature
 inventory, the programmer reference and the implemented parser/runtime. This is
 a product backlog, not a controller compatibility certificate. The inventory
 contains statements, actions, clauses, types and directives as well as calls;
@@ -178,8 +178,9 @@ they are boundaries rather than promises to accept every such source form later.
   variable renaming operate on explicit logical storage. Whole PATH now has an
   [exact Pythonic copy extension](path-transfers.md) with bounded partial data
   and documented detached-node aliases; the reviewed manual excludes the native
-  whole-PATH call form. Whole FILE transfer, PATH VR archives, resource embedding
-  and native PATH layout/association records remain unavailable.
+  whole-PATH call form. [Logical PATH archives](path-archives.md) now cover portable
+  VR, recursive/mixed batches and explicit DRAM restore. Whole FILE transfer,
+  resource embedding and native PATH/VR layout/association records remain unavailable.
 - Automatic application of staged I/O assignments/modes. The host must explicitly
   apply the supplied offline configuration. Remote bank calls model named peers;
   they do not establish network sessions, discover peers or convert robot poses.

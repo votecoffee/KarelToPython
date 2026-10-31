@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1031.125547 - 2026-10-31
+
+- Include exact logical PATH roots in portable VR SAVE/LOAD/CLEAR, recursive
+  variable-only and mixed PBR batches, SAVE_DRAM and explicit host DRAM restore.
+  Preserve partial node/header data, BYTE markers and dynamic creation policy.
+- Preflight all record schemas, node/leaf totals and creation metadata before
+  typed decode. Count each PATH descriptor, header and node against the snapshot
+  limit while keeping dynamic creation reservation independent.
+- Preserve existing PATH roots and compatible header aliases; install detached
+  nodes on restore and clear. Fresh roots publish decoded storage directly.
+- Extend archive overlap checks to empty PATH/list identities, node/index cells
+  and nested joint aliases. Retain foreign active-owner, timer, status, FOR,
+  protection and complete recursive/mixed publication guards.
+- Keep legacy excluded-PATH v1 rows readable without replacing those roots.
+  Retain FILE/embedded-resource exclusions, native VR/association boundaries,
+  explicit-only flash restoration and deferred strict mode.
+- Add 64 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and archive contracts.
+
 ## 26.1031.123221 - 2026-10-31
 
 - Add exact whole-PATH GET_VAR/SET_VAR copies as a Pythonic extension beyond the

@@ -53,8 +53,9 @@ traversal, so unprotected descendants can still be processed.
 
 A TP record can share an identity with its explicit VR namespace. Each is saved
 in its own `.TP` or `.VR` member. TP-local register banks remain part of the TP
-record; ordinary KAREL variables remain in VR. FILE/PATH roots stay excluded from
-VR snapshots and retain live storage on clear/restore.
+record; ordinary KAREL variables remain in VR. Logical [PATH roots](path-archives.md)
+now participate in VR preflight and publication, including partial data and created
+policy. FILE roots remain excluded and retain live storage on clear/restore.
 
 ## Portable manifest
 
@@ -94,8 +95,9 @@ not lose reachable dependencies. Graph capacities are checked before commit.
 
 Clear preflights both stores before removing selected TP records and resetting
 owned VR values to missing/empty storage. It preserves source code, declarations,
-namespace identities, dynamic creation metadata, ordinary aliases, FILE/PATH
-resources and executable links. It does not unload KAREL source programs.
+namespace identities, dynamic creation metadata, ordinary data/header aliases,
+FILE resources and executable links. PATH nodes are emptied and old node aliases
+remain detached, following the logical PATH archive contract. It does not unload KAREL source programs.
 
 Selected/open/bound TP records, protected or explicitly active identities,
 foreign running/paused variable owners, connected timers and output/status aliases

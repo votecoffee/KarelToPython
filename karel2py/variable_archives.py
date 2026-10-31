@@ -51,8 +51,19 @@ def ordinary(reference):
 
 
 def cells(reference):
-    result=rt()._reference_cells(reference);value=reference.raw()
-    if isinstance(value,(rt().Array,rt().Structure,rt().JointPosition,rt().QueueValue)):result.add((id(value),'aggregate'))
+    runtime=rt();result=runtime._reference_cells(reference);pending=[reference.raw()];seen=set()
+    while pending:
+        value=pending.pop()
+        if not isinstance(value,(runtime.Array,runtime.Structure,runtime.JointPosition,runtime.QueueValue,runtime.PathValue)) or id(value) in seen:continue
+        seen.add(id(value));result.add((id(value),'aggregate'))
+        if isinstance(value,runtime.PathValue):
+            if type(value.nodes) is not list:raise ValueError('Malformed PATH node storage')
+            result.add((id(value.nodes),'path_nodes'))
+            result.update((id(value.nodes),index) for index in range(len(value.nodes)))
+            pending.extend(value.nodes);pending.append(value.data)
+        elif isinstance(value,runtime.Structure):pending.extend(value.values.values())
+        elif isinstance(value,(runtime.Array,runtime.JointPosition)):
+            result.update((id(value.values),index) for index in range(len(value.values)));pending.extend(value.values)
     return result
 
 
@@ -64,7 +75,7 @@ def roots(context,state,program):
     imported={row[0] for row in getattr(getattr(owner,'program',None),'imported_variables',())}
     if owner is not None:
         for key,spec in owner.types.items():
-            if key in imported or spec[0] in ('FILE','PATH'):excluded.append(key);continue
+            if key in imported or spec[0]=='FILE':excluded.append(key);continue
             value=owner.values[key]
             result[key]=value if type(value) is runtime.Reference else runtime.Reference(spec,owner.values,key)
     for (scope,path),reference in store.bindings.items():
@@ -72,14 +83,14 @@ def roots(context,state,program):
         if not re.fullmatch(IDENTIFIER,path):
             root=re.match(IDENTIFIER,path)
             if root is None or root[0] not in result:raise Failure(4,'Sparse variable bindings cannot be archived')
-            try:selected=context.descend(result[root[0]],path[root.end():])
+            try:selected=context.descend(result[root[0]],path[root.end():],path_nodes=True)
             except runtime.KarelRuntimeError as exc:raise Failure(4,'Sparse variable binding does not match its root') from exc
             if (not ordinary(reference) or not ordinary(selected) or reference.spec!=selected.spec
                     or reference.storage is not selected.storage or reference.key!=selected.key):
                 raise Failure(4,'Sparse variable binding is independent of its root')
             continue
         if owner is not None and path in owner.types:continue
-        if reference.spec[0] in ('FILE','PATH'):excluded.append(path);continue
+        if reference.spec[0]=='FILE':excluded.append(path);continue
         result[path]=reference
     if owner is None and not result and not excluded:raise Failure(1,'Variable namespace is absent')
     occupied=set()
@@ -91,12 +102,23 @@ def roots(context,state,program):
     return result,sorted(set(excluded))
 
 
-def schema(spec):
+def schema(spec,value=None):
     from .storage import collection_data_spec
     if spec==('QUEUE_TYPE',):return 1
-    collection_data_spec(spec)
-    leaves=rt().scalar_leaf_count(spec)
-    if not 1<=leaves<=MAX_LEAVES:raise ValueError('Variable data requires 1..32767 leaves')
+    if type(spec) is tuple and spec and spec[0]=='PATH':
+        from .dynamic import creation_cost
+        leaves=creation_cost(spec)
+        node=rt().PREDEFINED_STRUCTURES['STD_PTH_NODE'] if spec[1] is None else spec[1]
+        width=rt()._validate_data_schema(node)
+        if type(value) is rt().PathValue:nodes=value.nodes
+        else:
+            if type(value) is not dict or set(value)!={'nodes','data'}:raise ValueError('PATH archive requires nodes and data')
+            nodes=value['nodes']
+        if type(nodes) is not list or len(nodes)>MAX_LEAVES:raise ValueError('PATH archive requires a bounded node list')
+        leaves+=len(nodes)*width
+    else:
+        collection_data_spec(spec);leaves=rt().scalar_leaf_count(spec)
+    if not 1<=leaves<=MAX_LEAVES:raise ValueError('Variable data requires 1..32767 leaves including PATH descriptors and contents')
     return leaves
 
 
@@ -106,7 +128,7 @@ def capture(context,state,program,*,calls=(),limit=16*1024*1024):
     from .archives import encode_json
     variables,excluded=roots(context,state,program);records={};leaves=0;remaining=limit
     for key,reference in sorted(variables.items()):
-        leaves+=schema(reference.spec)
+        leaves+=schema(reference.spec,reference.raw())
         if leaves>MAX_LEAVES:raise Failure(5,'Variable snapshot exceeds 32767 leaves')
         copied=variable_reference(reference).value;records[key]=typed_value(copied,reference.spec)
         metadata=context.variables.metadata.get((program,key))
@@ -142,20 +164,20 @@ def validate(row):
         raise ValueError('Invalid variable archive root lists')
     if any(name(key)!=key for key in excluded) or len(set(excluded))!=len(excluded) or set(excluded)&set(records):
         raise ValueError('Invalid excluded variable roots')
-    specs={};leaves=0
+    specs={};leaves=0;metadata=VariableStore()
     for key,record in records.items():
         if name(key)!=key or type(record) is not dict or set(record)-{'type','value','creation'} or not {'type','value'}<=set(record):
             raise ValueError('Invalid variable archive row')
         markers(record['value'])
-        spec=tuple_spec(record['type']);leaves+=schema(spec);specs[key]=spec
+        spec=tuple_spec(record['type']);leaves+=schema(spec,record['value']);specs[key]=spec
         if leaves>MAX_LEAVES:raise ValueError('Variable snapshot exceeds 32767 leaves')
-    decoded={};metadata=VariableStore()
+        metadata.bind(program,key,rt().Reference(spec,{'value':rt().UNINITIALIZED},'value'))
+        if 'creation' in record:restore_metadata(metadata,program,key,record['creation'],spec)
+    decoded={}
     for key,record in records.items():
         typed={field:record[field] for field in ('type','value')}
         spec,value=decode_typed(typed)
         if typed_value(value,spec)!=typed:raise ValueError('Variable archive requires canonical typed data')
-        reference=rt().Reference(spec,{'value':value},'value');metadata.bind(program,key,reference)
-        if 'creation' in record:restore_metadata(metadata,program,key,record['creation'],spec)
         decoded[key]=(spec,value,record.get('creation'))
     return program,decoded
 
@@ -167,7 +189,7 @@ def active(owner):
 
 def prepare(context,state,bank,snapshots,status=None,*,clear=False):
     from .inspection import attached_programs,any_initialized
-    from .extended import VariableStore,_variable_shape
+    from .extended import VariableStore,_variable_shape,path_variable_value
     from .dynamic import restore_metadata
     runtime=rt();store=context.variables;owners=attached_programs(context,state);current=runtime.task_root(state)
     protected=set() if status is None else cells(status);updates=[];new=[];occupied=set();initializations={}
@@ -196,14 +218,16 @@ def prepare(context,state,bank,snapshots,status=None,*,clear=False):
         owner=owner_of(context,state,program)
         if not clear:graph[program]=list(snapshot['calls'])
         for key,(spec,value,creation) in records.items():
-            reference=existing.get(key)
-            if reference is None:
+            reference=existing.get(key);new_root=reference is None
+            if new_root:
                 if owner is not None and key in owner.types:raise Failure(4,'Archive cannot replace imported or resource globals')
                 if clear:raise Failure(4,'Clear requires existing variable roots')
-                reference=runtime.Reference(spec,{'value':runtime.initial_value(spec)},'value');new.append((program,key,reference))
+                reference=runtime.Reference(spec,{'value':runtime.UNINITIALIZED if spec[0]=='PATH' else runtime.initial_value(spec)},'value');new.append((program,key,reference))
                 temporary.bind(program,key,reference)
             if reference.spec!=spec:raise Failure(6,'Variable archive type differs from destination')
-            _variable_shape(spec,reference.raw()) if spec!=('QUEUE_TYPE',) else None
+            if spec[0]=='PATH':
+                if not new_root:schema(spec,reference.raw());path_variable_value(spec,reference.raw())
+            elif spec!=('QUEUE_TYPE',):_variable_shape(spec,reference.raw())
             selected=cells(reference)
             if selected&(protected|occupied):raise Failure(4,'Variable archive overlaps protected/output storage')
             occupied.update(selected)
@@ -232,6 +256,8 @@ def commit(context,bank,prepared):
         current=reference.raw()
         if type(current) is runtime.QueueValue and type(value) is runtime.QueueValue:
             current.initialized=value.initialized;current.sequence=value.sequence;current.entries=list(value.entries);current.buffer=None
+        elif type(current) is runtime.PathValue and type(value) is runtime.PathValue:
+            current.data=runtime.replace_value(current.data,value.data);current.nodes=value.nodes
         else:reference.storage[reference.key]=runtime.replace_value(current,value)
     for program,key,reference in new:context.variables.bind(program,key,reference)
     context.variables.metadata=metadata;bank.calls=graph

@@ -88,7 +88,9 @@ dynamically resolved target. Active FOR guards remain in force.
 
 Existing typed context JSON preserves logical copied nodes/header and partial
 markers. It restores data, without captured aliases or suspended execution.
-PATH remains excluded from portable VR variable archives; use context JSON.
+[Logical PATH archives](path-archives.md) now support portable VR and explicit DRAM
+save/restore with exact schemas, complete snapshot accounting and the same alias
+lifetime choices. Native VR binaries remain unverified.
 Native association records, byte layouts, cache/status equivalence and controller
 execution remain unverified. See [collection persistence](collection-persistence.md).
 

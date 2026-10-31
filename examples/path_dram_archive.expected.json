@@ -1,0 +1,14 @@
+{
+  "ROUTE": {
+    "nodes": [
+      {
+        "VALUE": 42
+      }
+    ],
+    "data": {
+      "COUNT": 1
+    }
+  },
+  "VALUE": 42,
+  "DONE": true
+}

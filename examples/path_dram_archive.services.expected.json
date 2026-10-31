@@ -1,0 +1,73 @@
+{
+  "variable_archives": {
+    "limit": 16777216,
+    "program_limit": 256,
+    "calls": {},
+    "flash": {
+      "PATH_DRAM_ARCHIVE": {
+        "format": "karel2py-variables-v1",
+        "program": "PATH_DRAM_ARCHIVE",
+        "variables": {
+          "DONE": {
+            "type": [
+              "BOOLEAN"
+            ],
+            "value": {
+              "uninitialized": true
+            }
+          },
+          "ROUTE": {
+            "type": [
+              "PATH",
+              [
+                "STRUCTURE",
+                "NODE_T",
+                [
+                  [
+                    "VALUE",
+                    [
+                      "INTEGER"
+                    ]
+                  ]
+                ]
+              ],
+              [
+                "STRUCTURE",
+                "HEADER_T",
+                [
+                  [
+                    "COUNT",
+                    [
+                      "INTEGER"
+                    ]
+                  ]
+                ]
+              ]
+            ],
+            "value": {
+              "nodes": [
+                {
+                  "VALUE": 42
+                }
+              ],
+              "data": {
+                "COUNT": 1
+              }
+            }
+          },
+          "VALUE": {
+            "type": [
+              "INTEGER"
+            ],
+            "value": {
+              "uninitialized": true
+            }
+          }
+        },
+        "excluded": [],
+        "calls": []
+      }
+    }
+  },
+  "files": {}
+}

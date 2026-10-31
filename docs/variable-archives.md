@@ -55,21 +55,25 @@ consistent with the manual's VR-only description; it does not archive PC code.
 
 Snapshots contain owned declared globals and ordinary explicit root bindings.
 Constants, routine locals, imported FROM globals, system paths and external
-namespaces are not inferred as owned data. FILE and PATH roots are recorded as
-excluded names and retain their current runtime storage. Embedded resources and
+namespaces are not inferred as owned data. FILE roots are recorded as excluded
+names and retain their current runtime storage. Logical [PATH roots](path-archives.md)
+now participate in snapshot/load/clear and explicit DRAM restore. Embedded resources and
 sparse standalone field/index bindings reject instead of producing an incomplete
 archive. Ordinary references must use exact dictionary or list storage.
 
 Supported data includes INTEGER, REAL, BOOLEAN, bounded STRING, aggregate
 BYTE/SHORT data, concrete arrays, structures, CONFIG, Cartesian data records,
-exact-width joints and logical queues. Types and nominal identities are stored
+exact-width joints, logical queues and PATH nodes/header. Snapshot bounds include
+one PATH descriptor plus every header/node scalar leaf, even for missing containers.
+Types and nominal identities are stored
 alongside values. Missing leaves and unknown BYTE contents retain explicit true
 markers; uninitialized integers are not replaced with guessed defaults.
 Known values must satisfy the existing finite numeric and capacity checks.
 
 LOAD requires exact destination schemas. It preserves array, structure, joint
 and queue object identities so captured aliases continue to refer to the live
-storage. A whole missing aggregate is restored as an existing-shaped tree of
+storage. PATH roots and compatible header aliases survive, while old node aliases
+remain on detached storage after independent nodes are installed. A whole missing aggregate is restored as an existing-shaped tree of
 missing/unknown initial leaves. Logical queue initialization, sequence and entries
 are restored; its runtime backing-buffer association is dropped. A subsequent
 queue operation can bind an explicit compatible buffer again.
@@ -149,7 +153,8 @@ typed variables, excluded root names and calls. Compact sorted JSON ends in one
 LF. Loading rejects duplicate keys, native bytes, noncanonical typed payloads,
 invalid true markers and excessive JSON nesting beyond 32 containers.
 The shared byte budget defaults to 16 MiB and accepts 1..64 MiB. Program limits
-are 1..4096, default 256. Each namespace has at most 32767 scalar leaves; call
+are 1..4096, default 256. Each snapshot has at most 32767 units, including data
+leaves and one descriptor for each PATH in addition to its header/node leaves; call
 graphs have at most the configured program count of keys/targets per row and
 32767 total edges. Recursive batches and saved flash also honor their combined
 byte/count limits.

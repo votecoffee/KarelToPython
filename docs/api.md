@@ -179,7 +179,7 @@ closed-descriptor JSON. Handle state resets on restore; generic typed FILE codec
 remain excluded.
 [Dynamic collections](dynamic-collections.md) add `dynamic_collection_policy`
 for root PATH/QUEUE_TYPE creation, descriptor/header reservations, checked
-publication, live aliases, JSON and existing queue archives.
+publication, live aliases, JSON and logical queue/PATH archives.
 [Dynamic narrow creation](dynamic-narrow.md) extends `dynamic_variable_policy`
 with direct BYTE/SHORT and supplied transparent aliases. [Cross-volume renames](cross-volume-rename.md)
 extend the wildcard policy with complete DeviceFiles capacity and garbage preflight.
@@ -610,6 +610,10 @@ missing/partial data. `variable_transfer_policy` records capture timing, compati
 types, preserved tails, status codes and validation boundaries. SET snapshots
 source references before later output selectors; GET snapshots the resolved
 global after selectors. See [variable transfers](variable-transfers.md).
+
+`path_archive_policy` describes logical PATH rows in VR, recursive/mixed batches
+and explicit DRAM save/restore, including snapshot accounting and retained root/header
+versus detached-node aliases. See [PATH archives](path-archives.md).
 
 `path_transfer_policy` describes exact whole-PATH Pythonic copies, bounded
 source/receiver validation, partial values, SET/GET capture timing and preserved

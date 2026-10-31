@@ -238,9 +238,10 @@ class DynamicCollectionPersistenceTests(unittest.TestCase):
         v,_,_,_=execute("LOAD('queue.VR',0,status) "+invoke('take'),context=fresh,routines=TAKE)
         self.assertEqual((v['STATUS'],v['N'],fresh.variables.metadata['CACHE','ITEM']),(0,7,dict(group=0,memory_pool=-1)))
 
-    def test_variable_archives_keep_path_roots_explicitly_excluded(self):
+    def test_variable_archives_preserve_empty_created_path_and_policy(self):
         ctx=rt.ExecutionContext(variable_archives=rt.VariableArchives(),files=rt.MemoryFiles());execute(create('PATH')+" SAVE('CACHE','path.VR',status)",context=ctx)
-        saved=ctx.variable_archives.decode(ctx.files.snapshot()['PATH.VR']);self.assertIn('ITEM',saved['excluded']);self.assertEqual(saved['variables'],{})
+        saved=ctx.variable_archives.decode(ctx.files.snapshot()['PATH.VR']);self.assertEqual(saved['excluded'],[])
+        self.assertEqual(saved['variables']['ITEM'],dict(type=['PATH',None,None],value=dict(nodes=[],data=None),creation=dict(group=0,memory_pool=0)))
 
 
 class DynamicCollectionAllocationTests(unittest.TestCase):

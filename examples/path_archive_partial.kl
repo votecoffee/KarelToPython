@@ -1,0 +1,20 @@
+PROGRAM PATH_ARCHIVE_PARTIAL
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR route:route_t missing:BOOLEAN done:BOOLEAN
+ROUTINE transact
+VAR status:INTEGER
+BEGIN
+  APPEND_NODE(route,status)
+  SAVE('PATH_ARCHIVE_PARTIAL','partial.VR',status)
+  CLEAR('PATH_ARCHIVE_PARTIAL.VR',status)
+  LOAD('partial.VR',0,status)
+  missing=UNINIT(route[1].value)
+END transact
+BEGIN
+  IF UNINIT(done) THEN
+    transact
+    done=TRUE
+  ENDIF
+END PATH_ARCHIVE_PARTIAL
