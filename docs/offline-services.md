@@ -253,7 +253,10 @@ explicit ports, or `WHEN PAUSE` for a pending pause. Handler definitions retain
 their lexical frame references. Actions may call routines, assign values, control
 handlers or pause/abort; local jumps, RETURN and nested definitions are rejected.
 Handler reentry is suppressed. Actions for a pending pause run before suspension.
-Scan intervals, event broadcasts and port edges follow the
+[Handler priority](handler-priority-and-system-poses.md) orders eligible scans
+within each namespace, with definition-order ties and existing deferred control
+delivery. Explicit frame/tool source values and model-free JSON tables are
+described in the same guide. Scan intervals, event broadcasts and port edges follow the
 [portable project conventions](portable-projects.md). Native interrupt priorities
 and motion scanning are outside the model.
 

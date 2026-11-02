@@ -1465,16 +1465,16 @@ class RobotContext:
             groups={str(group):value.to_config() for group,value in self.groups.items()}
             if not any(value is not None for value in groups.values()): return None
             if any(value is not None for value in groups.values()):
-                if any(value is None for value in groups.values()): raise ValueError('Cannot persist robot groups without a model or current state')
+                if any(value is None for value in groups.values()): raise ValueError('Cannot persist robot groups without a model, tables, limits or current state')
                 config['groups']=groups
                 if self.model_config is None: config['active_group']=self.active_group
             if self.active_group!=config.get('active_group',min(self.groups)): config['active_group']=self.active_group
         elif self.current is not None: config['current']=self.current.to_config()
         else:
             config.pop('current',None)
-            if 'dh' not in config and 'joint_limits' not in config: return None
+            if 'dh' not in config and 'joint_limits' not in config and not self.frames and not self.tools: return None
         if not self.groups and self.active_group!=config.get('active_group',1): config['active_group']=self.active_group
-        if self.model is not None:
+        if self.model is not None or self.frames or self.tools:
             from .storage import typed_value,decode_typed
             from .kinematics import pose
             identity=typed_value(pose())
@@ -1483,10 +1483,11 @@ class RobotContext:
                 observed={}
                 for number in values:
                     row=typed_value(getter(number)); text=str(number)
-                    if number==0 and text not in original and row==identity: continue
+                    if self.model is not None and number==0 and text not in original and row==identity: continue
                     observed[text]=deepcopy(original[text]) if text in original and typed_value(decode_typed(original[text])[1])==row else row
                 if observed or key in config: config[key]=observed
-            self.frame(self.active_frame); self.tool(self.active_tool)
+            if self.model is not None or self.active_frame!=0 or 'frame' in config:self.frame(self.active_frame)
+            if self.model is not None or self.active_tool!=0 or 'tool' in config:self.tool(self.active_tool)
             if self.active_frame!=config.get('frame',0): config['frame']=self.active_frame
             if self.active_tool!=config.get('tool',0): config['tool']=self.active_tool
         if self.model_config is None and config and self.active_group!=1: config['active_group']=self.active_group
@@ -1641,14 +1642,16 @@ def disconnect_timer(state,reference,line=None,*,scoped=False):
     if binding is not None:del state._frame_timers[key]
 
 
-def define_condition(state,number,clauses,line=None,*,scan_ms=0):
+def define_condition(state,number,clauses,line=None,*,scan_ms=0,priority=50):
     number=runtime().integer(number,line)
     if not 1<=number<=1000: fail('Condition number must be in 1..1000',line)
     if number in state._handlers: fail('Purge an existing condition before redefining it',line)
     scan_ms=runtime().integer(scan_ms,line)
     if not 0<=scan_ms<=86400000: fail('Handler scan interval must be in 0..86400000 ms',line)
+    priority=runtime().integer(priority,line)
+    if not 1<=priority<=99:fail('Handler priority must be in 1..99',line)
     local_frame=state.local_frames[-1] if state.execution.local_handlers and state.local_frames else None
-    state._handlers[number]=dict(clauses=clauses,enabled=False,frames=list(state.local_frames),scan_ms=scan_ms,due=None,local_frame=local_frame)
+    state._handlers[number]=dict(clauses=clauses,enabled=False,frames=list(state.local_frames),scan_ms=scan_ms,priority=priority,due=None,local_frame=local_frame)
 
 
 def condition_control(state,operation,number,line=None):
@@ -1669,7 +1672,7 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
     parent=state._budget_parent
     if parent is not None: yield from checkpoint(parent,line,_defer_control=True)
     if not state._in_handler:
-        for number in list(state._handlers):
+        for number in sorted(state._handlers,key=lambda key:state._handlers[key].get('priority',50)):
             handler=state._handlers.get(number)
             if handler is None or not handler['enabled']: continue
             if handler['scan_ms']:
@@ -2476,6 +2479,18 @@ class ExecutionContext:
             if state._aborted:raise rt.KarelAbort(state._abort_line)
             output[index]=converted
         return result
+
+    def system_pose(self,kind,group,number=None,line=None):
+        rt=runtime()
+        if kind not in ('FRAME','TOOL','ACTIVE_FRAME','ACTIVE_TOOL'):
+            fail('Unsupported robot system pose',line)
+        robot=self.require('robot',line).for_group(rt.integer(group,line),line)
+        if kind.startswith('ACTIVE_'):
+            if number is not None:fail('Active robot system pose takes only a group',line)
+            number=robot.active_frame if kind=='ACTIVE_FRAME' else robot.active_tool
+        else:number=rt.integer(number,line)
+        value=robot.frame(number) if kind in ('FRAME','ACTIVE_FRAME') else robot.tool(number)
+        return value if value.spec==('POSITION',) else rt.convert_position(('POSITION',),value,line)
 
     def kinematic_assignment(self,state,target,value,line=None):
         """Use the ordinary model/adapters with explicit selected frame/tool data."""

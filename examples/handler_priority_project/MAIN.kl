@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR trace:STRING[8] ready,done:BOOLEAN value:INTEGER
+ROUTINE work FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    trace='' ready=FALSE
+    CONDITION[1]: WITH $PRIORITY=99
+      WHEN ready DO trace=trace+'p'
+    ENDCONDITION
+    ENABLE CONDITION[1] work value=STR_LEN(trace) done=TRUE
+  ENDIF
+END MAIN

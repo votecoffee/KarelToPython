@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [handler/pose ledger](handler_pose_semantics.json) adds definition-time handler
+priority capture, stable checkpoint ordering, independent frame/tool source values
+and model-free table contexts. Native interrupts, writable system aliases and
+automatic robot/system-variable discovery retain their exclusions.
+
 The [source-form ledger](source_form_semantics.json) adds per-declaration CMOS/DRAM
 intent, Boolean identity, Boolean/integer simulation flags and shared portable
 Cartesian/joint predicates. It supersedes earlier source-form exclusions while

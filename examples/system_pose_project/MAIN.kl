@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR value:INTEGER done:BOOLEAN
+ROUTINE frame_x(group_no,slot:INTEGER):REAL FROM LIB
+BEGIN
+  IF UNINIT(done) THEN value=ROUND(frame_x(2,2)) done=TRUE ENDIF
+END MAIN

@@ -92,6 +92,11 @@ class FlowNode:
 def counter_text(value):
     """Describe source storage without evaluating a captured counter selector."""
     if not isinstance(value,Expr):return value.value
+    if value.kind=='system_pose':
+        parts=','.join(counter_text(item) for item in value.args)
+        if value.value in ('FRAME','TOOL'):
+            return ('$MNUFRAME' if value.value=='FRAME' else '$MNUTOOL')+'['+parts+']'
+        return '$GROUP['+parts+'].'+('$UFRAME' if value.value=='ACTIVE_FRAME' else '$UTOOL')
     if value.kind=='using_ref':return value.value[4]
     if value.kind=='field':return counter_text(value.args[0])+'.'+value.value
     if value.kind=='index':return counter_text(value.args[0])+'['+','.join(counter_text(item) for item in value.args[1:])+']'
@@ -750,9 +755,17 @@ class Parser:
             return Statement('timer_connect' if name=='CONNECT' else 'timer_disconnect',token,[self.storage_selector()])
         if self.mode=='pythonic' and name=='CONDITION':
             self.expect('['); number=self.expression(); self.expect(']'); self.expect(':'); self.skip_lines()
-            scan=None
+            options=[];seen=set()
             if self.accept('WITH'):
-                self.expect('$SCAN_TIME'); self.expect('='); scan=self.expression(); self.skip_lines()
+                self.skip_lines()
+                while True:
+                    key=self.take()
+                    if key.value not in ('$SCAN_TIME','$PRIORITY'):
+                        self.error('E_CONDITION_OPTION','Handler WITH requires $SCAN_TIME or $PRIORITY',key)
+                    if key.value in seen:self.error('E_CONDITION_OPTION','Duplicate handler WITH option',key)
+                    seen.add(key.value);self.expect('=');options.append((key,self.expression()));self.skip_lines()
+                    if self.accept(',') or self.accept('WITH'):self.skip_lines();continue
+                    break
             clauses=[]
             while self.current.value=='WHEN':
                 when=self.take()
@@ -768,13 +781,15 @@ class Parser:
                 clauses.append(Statement('condition_clause',when,[condition],actions))
             if not clauses: self.error('E_SYNTAX','CONDITION requires at least one WHEN clause')
             self.expect('ENDCONDITION')
-            return Statement('condition',token,[number,*([scan] if scan else [])],clauses)
+            return Statement('condition',token,[number,options],clauses)
         if self.mode=='pythonic' and name in ('ENABLE','DISABLE','PURGE'):
             self.expect('CONDITION'); self.expect('['); number=self.expression(); self.expect(']')
             return Statement('condition_control',token,[name,number])
         if self.accept('::'):
             self.check_label_name(token)
             return Statement('label', token, [token])
+        if self.mode=='pythonic' and name in ('$MNUFRAME','$MNUTOOL','$GROUP'):
+            self.error('E_SYSTEM_POSE_READ_ONLY','Robot system poses are independent read-only source values',token)
         if name in PREDEFINED_CONSTANTS:
             self.error('E_PREDEFINED_TARGET', 'A predefined constant cannot be an assignment target or procedure call', token)
         if name in ('GO', 'GOTO'):
@@ -1050,6 +1065,18 @@ class Parser:
         self.expect(')')
         return result
 
+    def system_pose(self,token):
+        self.expect('[');group=self.expression()
+        if token.value in ('$MNUFRAME','$MNUTOOL'):
+            self.expect(',');number=self.expression();self.expect(']')
+            kind='FRAME' if token.value=='$MNUFRAME' else 'TOOL'
+            return self.access(Expr('system_pose',token,kind,[group,number]))
+        self.expect(']');self.expect('.');member=self.take()
+        if member.value not in ('$UFRAME','$UTOOL'):
+            self.error('E_SYSTEM_POSE','Only $GROUP[n].$UFRAME/$UTOOL is supported',member)
+        kind='ACTIVE_FRAME' if member.value=='$UFRAME' else 'ACTIVE_TOOL'
+        return self.access(Expr('system_pose',token,kind,[group]))
+
     def access(self, base):
         while self.current.value in ('[', '.'):
             token = self.take()
@@ -1131,6 +1158,8 @@ class Parser:
             left = Expr('group', token, args=[child])
         elif token.kind == 'REAL':
             left = Expr('real_literal', token, token.value)
+        elif self.mode=='pythonic' and token.value in ('$MNUFRAME','$MNUTOOL','$GROUP'):
+            left=self.system_pose(token)
         elif token.kind == 'NAME' and token.value not in RESERVED:
             if self.accept('('): left = Expr('call', token, token.value, self.arguments())
             else: left = self.access(Expr('name', token, token.value))
@@ -1178,6 +1207,8 @@ class Emitter:
         self.retained_timer_alias_roots=set()
         self.reference_for_uses=[]
         self.connected_timer_uses=[]
+        self.handler_uses=[]
+        self.system_pose_uses=[]
         self.external_write_routines=set()
         self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
@@ -1660,6 +1691,7 @@ class Emitter:
     def resolve_using_fields(self):
         """Resolve lexical field aliases before effect and control-flow analysis."""
         def path_text(expr):
+            if expr.kind=='system_pose':return counter_text(expr)
             if expr.kind == 'using_ref': return expr.value[4]
             if expr.kind == 'field': return path_text(expr.args[0])+'.'+expr.value
             if expr.kind == 'index': return path_text(expr.args[0])+'['+','.join(path_text(arg) for arg in expr.args[1:])+']'
@@ -1821,6 +1853,7 @@ class Emitter:
                     routine.may_abort = True
                 if isinstance(node, Expr) and node.kind == 'call' and self.mode == 'pythonic' and node.value == 'GET_USEC_TIM' and node.value not in self.routines:
                     routine.may_clock = True
+                if isinstance(node,Expr) and node.kind=='system_pose':routine.may_services=True
                 if isinstance(node,Expr) and node.kind=='call' and self.mode=='pythonic' and node.value in ex.PROCEDURES.keys()|ex.FUNCTIONS.keys() and node.value not in self.routines:
                     routine.may_services=True
                     if node.value=='PRINT_FILE': routine.may_write=True
@@ -2069,6 +2102,7 @@ class Emitter:
 
     def access_type(self, expr):
         """Inspect receiver types without emitting calls or duplicate call-site reports."""
+        if expr.kind=='system_pose':return ('POSITION',)
         if expr.kind == 'group': return self.access_type(expr.args[0])
         if expr.kind == 'using_ref': return expr.value[1]
         if self.mode=='pythonic' and expr.kind=='call' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
@@ -2165,8 +2199,15 @@ class Emitter:
             while expr.kind == 'group': expr = expr.args[0]
         return expr.kind == 'using_ref' and expr.value[3]
 
+    @staticmethod
+    def is_system_pose_path(expr):
+        while expr.kind in ('field','index','group'):expr=expr.args[0]
+        return expr.kind=='system_pose'
+
     def reference(self, expr, *, config_read=False, allow_prefix=False):
         line = expr.token.line
+        if self.is_system_pose_path(expr):
+            self.error('E_SYSTEM_POSE_READ_ONLY','Robot system poses cannot supply writable references',expr.token)
         if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
         if expr.kind == 'group': return self.reference(expr.args[0],config_read=config_read,allow_prefix=allow_prefix)
         if expr.kind == 'name':
@@ -2269,6 +2310,15 @@ class Emitter:
                 all(a == b or a is None or b is None for a, b in zip(target_shape, source_shape)))
 
     def expression(self, expr, raw=False, *, allow_array_result=False):
+        if expr.kind=='system_pose':
+            codes=[self.require_type(argument,'INTEGER') for argument in expr.args]
+            codes=[f'_rt.integer({code},{argument.token.line})' for code,argument in zip(codes,expr.args)]
+            row=dict(operation=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=expr.token.line,column=expr.token.column,evaluated_once=True,independent_value=True,result_type='POSITION')
+            if row not in self.system_pose_uses:self.system_pose_uses.append(row)
+            self.features.update(('robot system pose value','extended services'))
+            number=codes[1] if len(codes)>1 else 'None'
+            return f'self._state.system_pose({expr.value!r},{codes[0]},{number},{expr.token.line})',('POSITION',)
         if expr.kind=='motion_event':
             return f'self._state.execution.require("motion",{expr.token.line}).condition(self._state,{expr.value},{expr.token.line})',('BOOLEAN',)
         if expr.kind=='captured': return expr.value
@@ -2633,6 +2683,7 @@ class Emitter:
             else:
                 variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
                 reference_input=(variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
+                                 and not self.is_system_pose_path(discarded)
                                  and not (expr.value=='SET_VAR' and self.is_array_prefix_value(discarded)))
                 if reference_input: code,spec=self.reference(discarded)
                 else: code,spec=self.expression(value)
@@ -2834,12 +2885,12 @@ class Emitter:
                 self.features.update(('BYNAME','extended services','parameter by reference'))
                 self.service_uses.append(dict(operation='BYNAME',body=self.current_routine.name if self.current_routine else self.program.name,line=line,column=argument.token.column))
                 continue
-            if self.is_position_read_only_access(argument):
+            if self.is_position_read_only_access(argument) and not self.is_system_pose_path(argument):
                 self.error('E_POSITION_READ_ONLY_ARG', 'Bare POSITION orientation arguments need read-only passing evidence; use an explicit scalar expression for a value', argument.token)
             # Bare variable and indexed-variable arguments retain their storage.
             # Any grouping node, constant or expression is a temporary value.
             is_reference = (argument.kind in ('name', 'index', 'field') and self.root_name(argument) not in self.visible_constants()
-                            and not self.is_array_prefix_value(argument))
+                            and not self.is_array_prefix_value(argument) and not self.is_system_pose_path(argument))
             if is_reference:
                 code, actual = self.reference(argument)
                 if self.is_config_subfield(argument):
@@ -3544,10 +3595,16 @@ class Emitter:
             number=self.require_type(stmt.args[1],'INTEGER')
             self.line(f'_rt.condition_control(self._state,{stmt.args[0]!r},{number},{line})',token); return
         if kind=='condition':
-            number=self.require_type(stmt.args[0],'INTEGER'); pairs=[]
+            number=self.require_type(stmt.args[0],'INTEGER');captured=self.fresh()
+            self.line(f'{captured}=_rt.integer({number},{stmt.args[0].token.line})',token)
+            options={'$SCAN_TIME':'0','$PRIORITY':'50'}
+            for key,value in stmt.args[1]:
+                code=self.require_type(value,'INTEGER');temporary=self.fresh()
+                self.line(f'{temporary}=_rt.integer({code},{value.token.line})',value.token);options[key.value]=temporary
             pairs=[f'({predicate},{action})' for predicate,action in self.condition_callbacks(stmt.body)]
-            scan=self.require_type(stmt.args[1],'INTEGER') if len(stmt.args)>1 else '0'
-            self.line(f'_rt.define_condition(self._state,{number},[{", ".join(pairs)}],{line},scan_ms={scan})',token); return
+            self.handler_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,option_order=[key.value for key,_ in stmt.args[1]],clauses=len(stmt.body),evaluated_once=True))
+            self.line(f'_rt.define_condition(self._state,{captured},[{", ".join(pairs)}],{line},scan_ms={options["$SCAN_TIME"]},priority={options["$PRIORITY"]})',token); return
         if kind in ('file_read','file_write'):
             file_value=self.require_type(stmt.args[0],'FILE'); captured_file=self.fresh()
             self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
@@ -4727,6 +4784,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
                     for t, metadata in zip(program.directives, program.directive_metadata)],
         directive_metadata=[dict(row) for row in program.directive_metadata],
         storage_declarations=[dict(row) for row in program.storage_declarations],
+        handler_definitions=emitter.handler_uses,
+        system_pose_values=emitter.system_pose_uses,
         limitations=['Offline subset; no controller behavior validation',
                      'WRITE accepts one STRING with checked literal formats or one unformatted BOOLEAN/nonnegative INTEGER with exactly one leading blank; BOOLEAN/INTEGER formats, negative INTEGER/REAL output, direct BYTE/SHORT items, quoted truncation/fallback/apostrophes, signed widths, device/stdout mapping, buffering, CR and IO_STATUS remain blocked',
                      'DELAY uses checked host time.sleep or an injected synchronous sleeper; controller timing, motion, pause and abort behavior remain unverified; step budget is not a wall-clock limit',
@@ -5275,11 +5334,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         enabled=report['cooperative_execution'],
         generation='Automatic for FILE READ, PULSE, task control, handlers, connected timers or external routines; optional cooperative=True for host-controlled ordinary source',
         execution='Generator-based run/resume retains routine/FOR frames; optional deterministic TaskScheduler interleaves checkpoints with virtual time; terminal stop closes generators',
-        handlers='Ordered checkpoint scans with optional WITH $SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
+        handlers='Stable priority checkpoint scans with optional WITH $PRIORITY/$SCAN_TIME, multiple WHEN clauses, EVENT broadcasts, port edges, EVAL capture and lifecycle conditions; one-shot rearm and optional routine-local lifetime',
         timers='Global/private invocation timers and local/borrowed formal frame timers update INTEGER references at checkpoints; shared-context cell claims, fractional carry and exact frame/terminal cleanup',
         linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
         requests='Named/numeric remote pause/abort delivered at target checkpoints, including paused-task ABORT handlers; self identity follows linked caller; synchronous child ABORT/STOP does not terminate caller',
         guide='docs/offline-services.md',controller_validated=False)
+    report['handler_priority_policy']=dict(
+        syntax='CONDITION[n]: WITH $PRIORITY=INTEGER, $SCAN_TIME=INTEGER; comma-separated options or repeated WITH, no duplicates',
+        capture='Number then option expressions once in source order; complete validation before registration; priority 1..99, lower first, default 50',
+        scan='Stable per-namespace priority order at checkpoint entry; ties retain definition order, skip disabled/not-due handlers, one-shot clauses and existing caller-before-callee scans',
+        boundary='No preemption, global cross-task priority merge, live priority mutation, saved continuations or native interrupt timing; strict remains future work',
+        guide='docs/handler-priority-and-system-poses.md',controller_validated=False)
+    report['system_pose_policy']=dict(
+        source='$MNUFRAME[group,number], $MNUTOOL[group,number], $GROUP[group].$UFRAME and .$UTOOL',
+        context='Only explicitly supplied RobotContext groups, frame/tool tables and active selections; no VariableStore discovery or controller access',
+        persistence='Standalone frame/tool tables may roundtrip without a DH model; preserve explicit identity entries and selections without inventing absent tables or robot callbacks',
+        values='Independent complete POSITION snapshots; checked INTEGER selectors once left-to-right; ordinary fields, conversions, private routine values and computed USING copies',
+        boundary='Direct assignments and writable service/READ references are rejected; no native writes, aliases, unknown dollar roots, implicit frames or external-axis frame metadata',
+        guide='docs/handler-priority-and-system-poses.md',controller_validated=False)
     report['connected_timer_policy']=dict(
         storage='Exact ordinary INTEGER global/local, borrowed formal or captured private USING leaves; CONFIG domains and readonly storage remain blocked',
         capture='Evaluate each selector once; nested reference USING aliases share scalar identity, independent computed copies do not; no copy-back or implicit private variable name',

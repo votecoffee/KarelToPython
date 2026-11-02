@@ -1,0 +1,34 @@
+{
+  "version": "26.1102.163727",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored synthetic handler, source pose, table context, CLI/replay and runtime-only execution tests; no native interrupt or controller behavior",
+  "implemented": {
+    "handler_options": "Unique priority/scan options, comma or repeated WITH syntax, number/options captured once in source order, complete pre-registration validation",
+    "handler_order": "Portable priority 1..99, lower first, default 50; stable definition-order ties within each checkpoint namespace; existing caller-before-callee and deferred control delivery",
+    "handler_lifetime": "Existing one-shot/rearm, scan due times, captured lexical frames, pause/resume and optional local handler cleanup; no context serialization",
+    "source_poses": "Explicit numbered MNUFRAME/MNUTOOL and GROUP active UFRAME/UTOOL reads, checked selectors and independent complete POSITION values",
+    "ownership": "Read-only source roots, private routine and computed USING values, ordinary scalar/config/orientation reads; no writable system references",
+    "table_context": "Model-free complete typed frame/tool tables, explicit bounded canonical keys/selections, optional current/limits, grouped JSON and exact explicit identity retention",
+    "observations": "Source definition/value records, value-free SYSTEM_POSE outcomes and source-located failures"
+  },
+  "remaining": [
+    "Native interrupts/preemption, task-wide priority merging and exact controller priority values",
+    "Direct system pose writes, aliases, arbitrary system roots and automatic controller discovery",
+    "Automatic identity/current-state/robot-model inference for standalone tables",
+    "Serialized callbacks, live handlers/continuations, external-axis frame ABI and strict mode"
+  ],
+  "verification": [
+    "tests/test_handler_priority.py",
+    "tests/test_system_pose_values.py",
+    "tests/test_frame_table_contexts.py",
+    "tests/test_runtime_portability.py",
+    "examples/handler_priority.kl",
+    "examples/handler_scan_options.kl",
+    "examples/system_pose_tables.kl",
+    "examples/system_pose_linkage.kl",
+    "examples/handler_priority_project/MAIN.kl",
+    "examples/system_pose_project/MAIN.kl"
+  ],
+  "guide": "../handler-priority-and-system-poses.md"
+}

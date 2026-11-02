@@ -217,6 +217,10 @@ BEGIN
 END EVENTS
 ```
 
+[Handler priority options](handler-priority-and-system-poses.md) add
+`$PRIORITY` with stable per-namespace ordering; combine it with `$SCAN_TIME` using
+a comma or repeated WITH. Frame/tool tables now also persist without a model.
+
 WITH $SCAN_TIME supplies a nonnegative millisecond scan interval. Zero scans
 at every checkpoint; ENABLE permits an immediate first scan. PAUSE/ABORT
 conditions observe explicit source requests; CONTINUE observes continuation.

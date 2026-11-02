@@ -1,0 +1,4 @@
+PROGRAM LIB
+ROUTINE frame_x(group_no,slot:INTEGER):REAL
+BEGIN RETURN $MNUFRAME[group_no,slot].location.x+$GROUP[group_no].$UTOOL.location.x END frame_x
+BEGIN END LIB

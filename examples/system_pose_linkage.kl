@@ -1,0 +1,10 @@
+PROGRAM SYSTEM_POSE_LINKAGE
+VAR value:INTEGER n,m:REAL done:BOOLEAN
+ROUTINE change(v:POSITION):REAL
+BEGIN v.location.x=99 RETURN v.location.x END change
+BEGIN
+  IF UNINIT(done) THEN
+    n=change($MNUFRAME[1,2]) m=$GROUP[1].$UFRAME.location.x
+    value=ROUND(m) done=TRUE
+  ENDIF
+END SYSTEM_POSE_LINKAGE

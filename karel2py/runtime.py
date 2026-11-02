@@ -2964,6 +2964,16 @@ class State:
             raise
         row['outcome']='completed'; return result
 
+    def system_pose(self,kind,group,number=None,line=None):
+        if not _pythonic():raise KarelRuntimeError('Robot system poses require Pythonic mode',line)
+        row=dict(operation='SYSTEM_POSE',line=line,outcome='requested');self.service_requests.append(row)
+        try:result=self.execution.system_pose(kind,group,number,line)
+        except Exception as exc:
+            row['outcome']='failed'
+            if isinstance(exc,KarelRuntimeError) and exc.line is None:raise KarelRuntimeError(str(exc),line) from exc
+            raise
+        row['outcome']='completed';return result
+
     def byname_argument(self,expected,program,path,entry,line=None):
         from .dynamic import byname
         return byname(self,expected,program,path,entry,line)

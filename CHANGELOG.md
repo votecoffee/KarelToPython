@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1102.163727 - 2026-11-02
+
+- Add Pythonic handler WITH $PRIORITY and combined $SCAN_TIME options. Capture
+  number/options once in source order, validate before registration, and scan
+  stably by portable priority 1..99 with default 50 and definition-order ties.
+- Preserve namespace boundaries, caller-before-callee scans, one-shot/rearm,
+  due intervals, captured frames, pause/resume and deferred control delivery.
+  Native preemption/interrupt ordering and handler checkpoint persistence remain excluded.
+- Add explicit $MNUFRAME/$MNUTOOL and active $GROUP UFRAME/UTOOL source reads.
+  Return independent checked POSITION values, with private routine/USING values,
+  normal field access, typed variable transfers and source-located observations.
+- Reject direct system pose writes and writable aliases. Keep generic system
+  discovery, unknown dollar roots and implicit frame/model inference excluded.
+- Load/save standalone typed frame/tool contexts without DH parameters, retaining
+  explicit selections, identity entries, values and groups. Preserve existing DH
+  behavior and keep callbacks, kinematic math and live system state separate.
+- Add 100 regressions, four examples, two linked projects, compiler-free execution
+  and saved-context replay. Update README, support guides and semantic contracts.
+
 ## 26.1102.160516 - 2026-11-02
 
 - Accept Pythonic global/routine VAR IN CMOS and IN DRAM clauses as placement

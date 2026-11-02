@@ -1,0 +1,14 @@
+PROGRAM HANDLER_SCAN_OPTIONS
+VAR trace:STRING[8] ready,done:BOOLEAN value:INTEGER
+ROUTINE number:INTEGER BEGIN trace=trace+'n' RETURN 1 END number
+ROUTINE priority:INTEGER BEGIN trace=trace+'p' RETURN 20 END priority
+ROUTINE scan:INTEGER BEGIN trace=trace+'s' RETURN 0 END scan
+BEGIN
+  IF UNINIT(done) THEN
+    trace='' ready=FALSE
+    CONDITION[number()]: WITH $PRIORITY=priority(),$SCAN_TIME=scan()
+      WHEN ready DO trace=trace+'a'
+    ENDCONDITION
+    ENABLE CONDITION[1] ready=TRUE value=0 value=STR_LEN(trace) done=TRUE
+  ENDIF
+END HANDLER_SCAN_OPTIONS

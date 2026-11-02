@@ -13,8 +13,12 @@ diagnostics or runtime errors. The translator does not connect to a robot.
 Boolean/integer port-simulation flags. Both range predicates accept Cartesian or
 joint values using explicit reachability adapters or axis limits.
 
+[Handler priority and frame/tool values](docs/handler-priority-and-system-poses.md)
+add stable checkpoint ordering, explicit `$MNUFRAME`/`$MNUTOOL` and active group
+frame/tool reads. Supplied frame/tool tables now save/load without a robot model.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1102.160516**. It is a
+tool are named **karel2py**. The current implementation is **26.1102.163727**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -845,9 +849,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 356 authored runnable examples, checks complete
+The example runner translates 360 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 110 complete linked source projects. It also checks that unsupported
+fixtures, plus 112 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

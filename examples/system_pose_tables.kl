@@ -1,0 +1,10 @@
+PROGRAM SYSTEM_POSE_TABLES
+VAR value:INTEGER n,m:REAL done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    n=$MNUFRAME[1,2].location.x m=$MNUTOOL[1,3].location.x
+    value=ROUND(n+m)
+    USING $GROUP[1].$UFRAME DO location.x=99 ENDUSING
+    n=$GROUP[1].$UFRAME.location.x m=$GROUP[1].$UTOOL.location.x done=TRUE
+  ENDIF
+END SYSTEM_POSE_TABLES

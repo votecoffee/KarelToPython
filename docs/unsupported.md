@@ -183,6 +183,9 @@ they are boundaries rather than promises to accept every such source form later.
 - Live controller banks, physical I/O reads/writes, rack/slot discovery, hardware
   routing, automatic polling and native alarm/status mappings. Numeric, string,
   position and port services use explicit offline banks.
+- [Four source frame/tool reads](handler-priority-and-system-poses.md) now use
+  supplied frame/tool tables and active selections, with independent POSITION
+  values and model-free JSON persistence. Writable source aliases remain excluded.
 - Automatic system-variable schemas, arbitrary host/Python attribute access,
   dynamic routine-local lookup, native cached variable table IDs and native
   allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,

@@ -1,0 +1,18 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "READY": true,
+      "TRACE": "pl"
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "TRACE": "pl",
+      "READY": true,
+      "DONE": true,
+      "VALUE": 2
+    }
+  }
+}
