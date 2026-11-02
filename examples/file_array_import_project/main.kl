@@ -1,0 +1,5 @@
+PROGRAM MAIN
+VAR streams FROM LIB:ARRAY[2] OF FILE value:INTEGER
+BEGIN
+  OPEN FILE streams[1]('WO','out') WRITE streams[1](19) CLOSE FILE streams[1] value=19
+END MAIN

@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1102.195453
+
+- Add Pythonic fixed FILE ARRAY storage with independent descriptors, named and
+  multidimensional components, supplied wildcard shapes and fresh local arrays.
+- Borrow ARRAY/FILE cells through generic/named formals, BYNAME and linked
+  routines/imports; preserve indexed I/O capture, cancellation and pause/resume.
+- Exclude static FILE ARRAY roots from context/VR data and reject value copies,
+  grouped arguments, resource fields, results, codecs and dynamic creation.
+- Add 80 regression tests, four runnable examples and two linked projects;
+  correct stale whole-FILE UNINIT exclusions in the current support guide.
+
 ## 26.1102.171841 - 2026-11-02
 
 - Add Pythonic whole-PATH WRITE and captured in-place READ. Expand the optional

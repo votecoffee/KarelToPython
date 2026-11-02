@@ -1,0 +1,7 @@
+PROGRAM LIB
+ROUTINE use(row:ARRAY OF FILE)
+BEGIN
+  OPEN FILE row[2]('WO','out') WRITE row[2](17) CLOSE FILE row[2]
+END use
+BEGIN
+END LIB

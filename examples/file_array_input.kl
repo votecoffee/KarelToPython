@@ -1,0 +1,6 @@
+PROGRAM FILE_ARRAY_INPUT
+VAR streams:ARRAY[2] OF FILE first,second,value:INTEGER
+BEGIN
+  OPEN FILE streams[2]('RO','in') READ streams[2](first,CR,second,CR) CLOSE FILE streams[2]
+  value=first+second
+END FILE_ARRAY_INPUT

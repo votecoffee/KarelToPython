@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [FILE ARRAY ledger](file_array_semantics.json) adds indexed descriptor
+storage, borrowed interfaces and linked imports. It supersedes blanket static
+FILE ARRAY exclusions while retaining resource-copy, codec, creation and native
+boundaries. Static FILE ARRAY roots are omitted from context/VR variable data.
+
 The [PATH I/O ledger](path_io_semantics.json) adds root-PATH scalar READ/WRITE
 and FILE open-state queries. It supersedes earlier blanket resource-I/O/FILE
 query exclusions while keeping native framing, nested resources and live handles

@@ -662,7 +662,7 @@ class Parser:
             element = self.take()
             if element.value in rt.JOINT_TYPE_NAMES:
                 return ('ARRAY', shape, self.group_spec(rt.joint_spec(element.value),element))
-            if element.value not in (*ARRAY_SCALARS, *DATA_RECORD_TYPES):
+            if element.value not in (*ARRAY_SCALARS, *DATA_RECORD_TYPES) and not (self.mode=='pythonic' and element.value=='FILE'):
                 if element.kind == 'NAME' and element.value not in RESERVED | BUILTINS:
                     return ('ARRAY', shape, ('NAMED', element))
                 self.error('E_PARAMETERS', 'ARRAY parameters require supported scalar elements or a named STRUCTURE type', element)
@@ -1369,6 +1369,7 @@ class Emitter:
             if wildcard is not None:
                 self.error('E_VARIABLE_ARRAY_SCOPE', 'Variable-sized ARRAYs are supported only as direct global VAR declarations with explicit translation context; TYPE/fields/routine locals remain blocked', wildcard.token)
             element = self.resolve_spec(spec[2])
+            if self.mode=='pythonic' and element==('FILE',):self.features.add('reference-only FILE ARRAY')
             if element[0] == 'ARRAY':
                 if rt.array_identity(element) is None:
                     self.error('E_NESTED_NAMED_ARRAY', 'Nested ARRAY elements require a separately named type', spec[2][1])
@@ -1391,7 +1392,7 @@ class Emitter:
             for size in sizes: total *= size
             if total > 32767:
                 self.error('E_ARRAY_CAPACITY', 'Prototype arrays are limited to 32767 scalar elements in total', spec[1][0].token)
-            if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY'):
+            if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY') and not (self.mode=='pythonic' and element==('FILE',)):
                 self.error('E_TYPE', 'ARRAY elements require supported scalars or named STRUCTURE types', spec[1][0].token)
             if rt.scalar_leaf_count(('ARRAY', tuple(sizes), element)) > 32767:
                 self.error('E_ARRAY_CAPACITY', 'Prototype arrays are limited to 32767 scalar leaves including STRUCTURE fields', spec[1][0].token)
@@ -1402,7 +1403,7 @@ class Emitter:
         if type(size) is not int or not 1 <= size <= limit:
             self.error('E_SIZE', f'{spec[0]} size must be INTEGER in 1..{limit}', spec[1].token)
         if spec[0] == 'STRING': return (spec[0], size)
-        if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY'):
+        if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY') and not (self.mode=='pythonic' and element==('FILE',)):
             self.error('E_TYPE', 'ARRAY elements require supported scalars or named STRUCTURE types; nested arrays are blocked', spec[1].token)
         if rt.scalar_leaf_count(('ARRAY', size, element)) > 32767:
             self.error('E_ARRAY_CAPACITY', 'Prototype arrays are limited to 32767 scalar leaves including STRUCTURE fields', spec[1].token)
@@ -1496,7 +1497,7 @@ class Emitter:
             for member, spec in definition:
                 if member.value in resolved: self.error('E_DUPLICATE', 'Duplicate STRUCTURE field', member)
                 resolved[member.value] = self.resolve_spec(spec)
-                if resolved[member.value][0] in ('FILE','PATH','QUEUE_TYPE'):
+                if resolved[member.value][0] in ('FILE','PATH','QUEUE_TYPE') or rt.file_storage_type(resolved[member.value]):
                     self.error('E_TYPE','Resource fields in STRUCTURE are not supported',member)
             self.user_types[token.value] = ('STRUCTURE', token.value, tuple(resolved.items()))
             self.features.add('named STRUCTURE definition')
@@ -2905,6 +2906,8 @@ class Emitter:
                                                        line=line, column=argument.token.column, evaluated_once=True))
             else:
                 value, actual = self.expression(argument)
+                if actual[0]=='ARRAY' and rt.file_storage_type(actual):
+                    self.error('E_FILE_ARRAY_VALUE','FILE ARRAY arguments require borrowed storage without grouping',argument.token)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
             if self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):
@@ -3645,6 +3648,8 @@ class Emitter:
                 self.prefix_assignment(target,expr,token)
                 return
             reference, target_type = self.reference(target)
+            if target_type[0]=='ARRAY' and rt.file_storage_type(target_type):
+                self.error('E_FILE_ARRAY_VALUE','FILE ARRAY storage cannot be assigned; pass its reference',target.token)
             value, value_type = self.expression(expr, allow_array_result=True)
             generic_receiver=(self.mode=='pythonic' and target_type[0]=='ARRAY' and target.kind=='name'
                 and self.current_routine is not None and target.value in {name.value for name,_ in self.current_routine.parameters}
@@ -6516,6 +6521,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Ordinary typed joint axes and partial markers only; no references, captured selectors or suspended execution',
         evidence='Authored Pythonic input extension; no native KAREL syntax/compiler/controller or strict-mode equivalence claim',
         guide='docs/joint-axis-access.md',controller_validated=False)
+    report['file_array_policy']=dict(
+        source='Pythonic global and routine-local ARRAY OF FILE, named ARRAY components and supplied wildcard outer dimensions; one independent closed descriptor per cell',
+        interfaces='Borrowed exact named or rank-compatible generic ARRAY formals, fully selected named rows, FILE element formals, BYNAME and source-linked imports; no private ARRAY value copies',
+        operations='Indexed OPEN/CLOSE/READ/WRITE, attributes, status, cursors, initialization queries and cancellation reuse explicit FILE transports and capture rules',
+        persistence='Static FILE ARRAY globals omitted from context variables and VR archives; backend bytes retain ordinary service persistence; new Program allocates fresh closed descriptors',
+        boundary='No whole ARRAY assignment/READ/WRITE/UNINIT, prefix values, return values, STRUCTURE fields, generic typed codecs or dynamic FILE ARRAY creation; no native storage/ABI/controller or strict equivalence claim',
+        guide='docs/file-arrays.md',controller_validated=False)
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:

@@ -1,0 +1,8 @@
+PROGRAM FILE_ARRAY_TEXT
+VAR streams:ARRAY[2] OF FILE before,during,after:BOOLEAN value:INTEGER
+BEGIN
+  before=UNINIT(streams[1])
+  OPEN FILE streams[1]('WO','one') OPEN FILE streams[2]('WO','two')
+  during=UNINIT(streams[1]) WRITE streams[1](17,CR) WRITE streams[2]('ready',CR)
+  CLOSE FILE streams[1] CLOSE FILE streams[2] after=UNINIT(streams[1]) value=17
+END FILE_ARRAY_TEXT

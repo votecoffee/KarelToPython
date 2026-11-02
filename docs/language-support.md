@@ -1,5 +1,10 @@
 # Language support
 
+[FILE arrays](file-arrays.md) now support indexed global/local descriptors,
+borrowed named/generic ARRAY interfaces, FILE cell arguments and source-linked
+imports. Existing explicit FILE operations and cooperative lifetime apply;
+static resource roots are excluded from saved variable data.
+
 [Whole-PATH I/O and FILE queries](path-io-and-file-initialization.md) now add
 header/node scalar output, captured in-place input and exact descriptor open-state
 queries, with ordinary text/binary transports and saved-data replay.
@@ -27,7 +32,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.171841. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.195453. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -52,6 +57,7 @@ internally and in the historical semantic notes.
 | STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison, clipped SUB_STR and INDEX including empty searches | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. SUB_STR returns at most 254; positive start and nonnegative count. |
 | BYTE/SHORT | Aggregate and standalone storage, TYPE aliases, exact references, checked private numeric arguments and initialized routine results | BYTE 0..255, SHORT -32768..32766; initial BYTE is unknown and its UNINIT is blocked. SHORT 32767 means uninitialized; [narrow counters](narrow-for.md) restore BYTE unknown and SHORT missing state on exit. [Dynamic narrow creation](dynamic-narrow.md) retains exact types and initialization markers. See [scalar narrow integers](scalar-narrow.md). |
 | Arrays | One-based fixed/named arrays up to logical rank three, complete [chained subscripts](chained-array-indexes.md), exact whole copies, reference/value arguments and named subarrays | Copies preserve missing markers with 32767 scalar leaves and 64 schema levels; receiver schema, logical shape and known scalar validation remain. [Numeric conversions](numeric-arrays.md) add checked integral narrowing and REAL promotion; [named/component conversions](named-array-conversions.md) preserve receiver schemas at source assignment/argument/RETURN boundaries. [Schema conversions](array-schema-conversions.md) add same-terminal names, STRING capacities and compatible flat/nested layouts. |
+| FILE arrays | Independent indexed global/local FILE descriptors, named types/components, borrowed ARRAY/FILE formals, BYNAME and linked imports | Rank up to three and 32767 descriptor cells; ordinary explicit FILE I/O and cancellation. Static descriptors omitted from context/VR data; no whole copies, grouped values, results, fields, dynamic creation or live-handle restoration. See [FILE arrays](file-arrays.md). |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded or inherited-capacity STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Missing markers preserved and known leaves validated; declared output names/layout and bounded/inherited STRING capacities; logical rank up to three. Source RETURN prepares its independent output schema. Omitted STRING result capacity inherits concrete returned storage; no resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries; [source schema conversions](record-schema-conversions.md) | Matching field-name sets convert recursively into receiver schemas, including record ARRAY terminals; checked numeric/STRING and context-free pose/joint changes; [explicit-model geometry fields](kinematic-records.md). Private converted arguments, partial-data preservation and exact generic/BYNAME/link/callback contracts; no ABI claim. |
@@ -60,7 +66,7 @@ internally and in the historical semantic notes.
 | External types | Full TYPE name FROM owner definitions; supported aliases, structures, arrays and resource schemas | Standalone layout and owner metadata; source projects validate exact resolved schemas, self owners and acyclic reexports before allocation. No binary environments or native owner-qualified ABI. |
 | USING | Nested scopes; named/grouped record storage references and independent computed record captures | One-time left-to-right capture, inner/right-most field priority and handler lifetime. No copy-back for computed values; isolated private integral counters use whole-root/retained-alias proofs. [Private timers](private-using-timers.md) accept ordinary INTEGER leaves with terminal cleanup; whole ARRAY/resource/joint selectors remain blocked. See [computed USING](computed-using.md). |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
-| Initialization queries | UNINIT on supported scalar/joint storage and whole builtin records, including nested fields and individual ARRAY elements | Any missing builtin-record leaf means TRUE; read-only schema/type checks. Whole ARRAY, PATH, user STRUCTURE, FILE, QUEUE_TYPE and BYTE queries remain blocked. |
+| Initialization queries | UNINIT on supported scalar/joint storage and whole builtin records, including nested fields and individual ARRAY elements | Any missing builtin-record leaf means TRUE; read-only schema/type checks. Whole ARRAY, PATH, user STRUCTURE, QUEUE_TYPE and BYTE queries remain blocked. FILE descriptors, including ARRAY cells, use the [open-state policy](path-io-and-file-initialization.md). |
 | Variable inspection | VAR_INFO metadata and VAR_LIST filtered/paged global names | Current/attached declarations and explicit bindings; canonical types, bounded dimensions/formats, portable initialization flags and statuses; no local/controller discovery. |
 | Program listing | PROG_LIST with optional cursor | Attached Programs and explicit immutable metadata; type filters, sorted pages, checked formats and persisted catalogs; no program discovery or loading. |
 | Program metadata | LOAD_STATUS, GET_ATTR_PRG, SET_ATTR_PRG | Attached load/partial global initialization, explicit snapshots and typed attributes; four metadata writes with active-task guards, portable constants/statuses and persistence; no native loading or task-policy writes. |

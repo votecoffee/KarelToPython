@@ -1,0 +1,7 @@
+PROGRAM FILE_ARRAY_BINARY
+VAR streams:ARRAY[2] OF FILE first,second,value:INTEGER
+BEGIN
+  OPEN FILE streams[1]('WB','data') WRITE streams[1](17,-9) CLOSE FILE streams[1]
+  OPEN FILE streams[2]('RB','data') READ streams[2](first,second) CLOSE FILE streams[2]
+  value=first+second
+END FILE_ARRAY_BINARY

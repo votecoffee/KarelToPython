@@ -187,7 +187,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('whole_path_write', 'VALUE', 16),
                     ('whole_path_read', 'VALUE', 36),
                     ('whole_path_binary', 'VALUE', 16),
-                    ('file_uninit', 'VALUE', 1)]
+                    ('file_uninit', 'VALUE', 1),
+                    ('file_array_text', 'VALUE', 17),
+                    ('file_array_binary', 'VALUE', 8),
+                    ('file_array_nested', 'VALUE', 17),
+                    ('file_array_input', 'VALUE', 36)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

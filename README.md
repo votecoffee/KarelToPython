@@ -21,8 +21,13 @@ frame/tool reads. Supplied frame/tool tables now save/load without a robot model
 supplied headers/nodes through ordinary READ/WRITE scalar transports and expose
 FILE open-state initialization queries. PATH input keeps its existing node count.
 
+[FILE arrays](docs/file-arrays.md) now provide independent indexed streams,
+borrowed routine arguments, named rows and linked imports. Existing text/binary
+I/O, cancellation and pause/resume retain the selected descriptor. Static arrays
+are excluded from saved variable data; a new Program creates closed descriptors.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1102.171841**. It is a
+tool are named **karel2py**. The current implementation is **26.1102.195453**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -853,9 +858,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 364 authored runnable examples, checks complete
+The example runner translates 368 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 114 complete linked source projects. It also checks that unsupported
+fixtures, plus 116 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

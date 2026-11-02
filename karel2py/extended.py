@@ -270,7 +270,7 @@ def matches(spec, kind):
     if kind=='DICT_ELEMENT': return spec[0] in ('INTEGER','STRING')
     if kind=='CHECK_INIT': return spec[0] in ('BOOLEAN','INTEGER','SHORT','BYTE')
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or spec[0]=='PATH' and len(spec)==3 or matches(spec,'ANY')
-    if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
+    if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE') and not rt.file_storage_type(spec)
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
     if kind in ('GEOMETRY_POSE','RANGE_POSITION'): return spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
     if kind=='PORT_VALUE': return spec[0] in ('INTEGER','REAL','BOOLEAN','STRING')
@@ -1083,7 +1083,12 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
 class VariableStore:
     def __init__(self): self.bindings={}; self.programs={}; self.metadata={}
     def attach(self,name,state):
-        name=name.upper(); self.programs.setdefault(name,state)
+        name=name.upper()
+        for (program,path),reference in self.bindings.items():
+            if (program==name and path in state.types and state.types[path]==reference.spec
+                    and reference.spec[0]=='ARRAY' and runtime().file_storage_type(reference.spec)):
+                raise ValueError('FILE ARRAY storage cannot be restored or copied into attached globals')
+        self.programs.setdefault(name,state)
         for (program,path),reference in self.bindings.items():
             if program==name and path in state.types and state.types[path]==reference.spec:
                 state.values[path]=deepcopy(reference.raw())

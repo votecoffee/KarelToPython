@@ -177,7 +177,8 @@ class PathCopyGuardTests(unittest.TestCase):
 
     def test_embedded_resources_remain_invalid_variable_data(self):
         for kind in ('PATH','FILE','QUEUE_TYPE'):
-            spec=('ARRAY',1,('PATH',None,None) if kind=='PATH' else (kind,));value=rt.Array(spec)
+            spec=('ARRAY',1,('PATH',None,None) if kind=='PATH' else (kind,))
+            with rt._numeric_scope('pythonic'):value=rt.Array(spec)
             with self.subTest(kind=kind),self.assertRaises(rt.KarelRuntimeError):rt.variable_value(spec,value)
 
     def test_any_interfaces_do_not_inherit_path_resource_acceptance(self):

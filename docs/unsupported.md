@@ -133,7 +133,7 @@ remain excluded. FILE UNINIT uses the explicit descriptor open-state convention.
   unavailable. [CONFIG scalar-field READ](config-field-input.md) now supports
   bounded turn integers and BOOLEAN flags through callbacks and
   explicit FILE transports; no compact native CONFIG binary layout is inferred.
-- Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries;
+- Whole ARRAY, PATH, user STRUCTURE and QUEUE_TYPE UNINIT queries;
   dimension flattening, field-set changes/renaming and resource fields. Context-free
   [STRUCTURE source conversion](record-schema-conversions.md) now maps identical
   field-name sets recursively, including record ARRAY terminals.
@@ -216,6 +216,11 @@ remain excluded. FILE UNINIT uses the explicit descriptor open-state convention.
   files, execution and physical controller data remain unavailable.
 
 ## Files and collections
+
+[Static FILE arrays](file-arrays.md) now support indexed streams and borrowed
+routine/source-linked storage. Dynamic creation, whole ARRAY copies/results,
+resource STRUCTURE fields, generic codecs and live descriptor restoration remain
+excluded. Whole ARRAY READ/WRITE is still a data-only operation.
 
 - Physical device mounting/formatting/purging, sockets, serial devices, pipes,
   device discovery and unrestricted absolute-path file access. Six device/storage

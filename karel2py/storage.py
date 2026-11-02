@@ -25,7 +25,7 @@ def typed_value(value, spec=None):
         spec=getattr(value,'spec',None)
         if spec is None:
             spec=('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254) if type(value) is str else None
-    if spec is None or spec[0]=='FILE': raise ValueError('A serializable value requires an explicit data type')
+    if spec is None or runtime.file_storage_type(spec): raise ValueError('A serializable value requires an explicit data type without FILE storage')
     if spec[0] in ('PATH','QUEUE_TYPE'):
         with runtime._numeric_scope('pythonic'): payload=collection_payload(spec,value)
         return {'type':json.loads(json.dumps(spec)),'value':payload}
@@ -41,7 +41,7 @@ def array_state_values(shape,payload):
 
 def restore_value(spec, payload):
     runtime=rt(); spec=tuple_spec(spec)
-    if spec[0]=='FILE': raise ValueError('FILE handles are not persistent values')
+    if runtime.file_storage_type(spec): raise ValueError('FILE handles and FILE ARRAYs are not persistent values')
     if spec[0] in ('PATH','QUEUE_TYPE'): return restore_collection(spec,payload)
     if payload=={'uninitialized':True}: return runtime.UNINITIALIZED
     if payload=={'unknown_byte':True}:
@@ -418,7 +418,7 @@ def context_config(context):
         if key in variables: variables[key]['creation']=metadata.copy()
     for name,state in context.variables.programs.items():
         for path,spec in state.types.items():
-            if spec[0]!='FILE':
+            if not rt().file_storage_type(spec):
                 value=state.values[path]
                 if isinstance(value,rt().Reference): value=value.raw()
                 variables[name,path]=dict(program=name,path=path,**typed_value(value,spec))

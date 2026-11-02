@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR streams:ARRAY[2] OF FILE value:INTEGER
+ROUTINE use(row:ARRAY OF FILE) FROM LIB
+BEGIN
+  use(streams) value=17
+END MAIN

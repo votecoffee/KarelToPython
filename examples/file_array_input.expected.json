@@ -1,0 +1,21 @@
+{
+  "STREAMS": [
+    {
+      "file": null,
+      "open": false,
+      "position": 0,
+      "binary": false,
+      "status": 0
+    },
+    {
+      "file": "in",
+      "open": false,
+      "position": 6,
+      "binary": false,
+      "status": 0
+    }
+  ],
+  "FIRST": 17,
+  "SECOND": 19,
+  "VALUE": 36
+}

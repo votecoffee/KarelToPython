@@ -675,6 +675,8 @@ def scalar_leaf_count(spec, limit=32767):
 class Array:
     def __init__(self, spec):
         array_identity(spec)
+        if file_storage_type(spec) and not _pythonic():
+            raise KarelRuntimeError('FILE ARRAY storage requires Pythonic mode')
         if spec[2][0] == 'ARRAY' and array_identity(spec[2]) is None:
             raise KarelRuntimeError('Nested ARRAY elements require a separately named type')
         self.spec = spec
@@ -722,10 +724,17 @@ class Array:
         index_reference(self, index, line).set(value, line)
 
     def clone(self):
+        if file_storage_type(self.spec):
+            raise KarelRuntimeError('FILE ARRAY storage cannot be copied; pass its reference')
         result = Array(self.spec)
         result.values = [value.clone() if isinstance(value, (Array, Structure, JointPosition)) else value
                          for value in self.values]
         return result
+
+
+def file_storage_type(spec):
+    """FILE descriptors, including reference-only ARRAY roots; never data values."""
+    return spec[0] == 'FILE' or spec[0] == 'ARRAY' and array_leaf_spec(spec)[0] == 'FILE'
 
 
 def initial_value(spec):

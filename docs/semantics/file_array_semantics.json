@@ -1,0 +1,31 @@
+{
+  "version": "26.1102.195453",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored FILE ARRAY storage, transport, borrowed linkage, lifecycle and serialization tests; no native compiler/controller execution",
+  "implemented": {
+    "storage": "Independent closed FILE descriptors in fixed global/local arrays, named types/components, one to three logical dimensions and supplied global wildcard shapes",
+    "interfaces": "Borrowed exact named or rank-compatible generic formals, selected named rows, FILE cells, BYNAME, source-linked routines and imported globals",
+    "operations": "Existing indexed OPEN/CLOSE/READ/WRITE, attributes, status, cursor, initialization and cancellation contracts",
+    "capture": "Original descriptor and storage retained through expression effects, cooperative pause/resume and pending read cancellation or stop cleanup",
+    "persistence": "Static FILE ARRAY roots omitted from context variables and VR data; ordinary backend bytes retain service persistence; fresh descriptors on new Program"
+  },
+  "remaining": [
+    "Dynamic FILE ARRAY creation",
+    "Whole ARRAY copies, grouped values, results, prefix values and STRUCTURE resource fields",
+    "Generic FILE ARRAY codecs, live handle/cursor/stack restoration",
+    "Native descriptor/storage/controller semantics and public strict mode"
+  ],
+  "verification": [
+    "tests/test_file_arrays.py",
+    "tests/test_file_array_boundaries.py",
+    "tests/test_runtime_portability.py",
+    "examples/file_array_text.kl",
+    "examples/file_array_binary.kl",
+    "examples/file_array_nested.kl",
+    "examples/file_array_input.kl",
+    "examples/file_array_project/main.kl",
+    "examples/file_array_import_project/main.kl"
+  ],
+  "guide": "../file-arrays.md"
+}
