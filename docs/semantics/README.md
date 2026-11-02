@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [frame/tool selection ledger](frame_selection_semantics.json) adds source
+active-ID reads/assignments and shared model integration. It supersedes earlier
+selection-assignment exclusions while retaining ordinary value ownership,
+configured-row checks, native special-number and controller boundaries.
+
 The [system pose write ledger](system_pose_write_semantics.json) adds dedicated
 offline table assignments and staged location/configuration edits. It supersedes
 the handler/pose ledger's direct-write exclusion while retaining independent

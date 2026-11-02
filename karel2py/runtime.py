@@ -3048,6 +3048,26 @@ class State:
             raise
         row['outcome']='completed';return result
 
+    def system_selection(self,kind,group,line=None):
+        if not _pythonic():raise KarelRuntimeError('Frame/tool selections require Pythonic mode',line)
+        row=dict(operation='SYSTEM_SELECTION_READ',line=line,outcome='requested');self.service_requests.append(row)
+        try:result=self.execution.system_selection(kind,group,line)
+        except Exception as exc:
+            row['outcome']='failed'
+            if isinstance(exc,KarelRuntimeError) and exc.line is None:raise KarelRuntimeError(str(exc),line) from exc
+            raise
+        row['outcome']='completed';return result
+
+    def system_selection_write(self,kind,group,value,line=None):
+        if not _pythonic():raise KarelRuntimeError('Frame/tool selections require Pythonic mode',line)
+        row=dict(operation='SYSTEM_SELECTION_WRITE',line=line,outcome='requested');self.service_requests.append(row)
+        try:self.execution.system_selection_write(kind,group,value,line)
+        except Exception as exc:
+            row['outcome']='failed'
+            if isinstance(exc,KarelRuntimeError) and exc.line is None:raise KarelRuntimeError(str(exc),line) from exc
+            raise
+        row['outcome']='completed'
+
     def system_pose_write(self,kind,group,number,value,path=(),line=None):
         if not _pythonic():raise KarelRuntimeError('Robot system pose writes require Pythonic mode',line)
         row=dict(operation='SYSTEM_POSE_WRITE',line=line,outcome='requested');self.service_requests.append(row)

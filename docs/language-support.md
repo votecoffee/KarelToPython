@@ -1,5 +1,9 @@
 # Language support
 
+[Active frame/tool numbers](frame-tool-selection.md) now support INTEGER source
+reads and dedicated assignments, with configured-row validation, private values,
+shared active-pose/model context and saved-selection replay.
+
 [Offline frame/tool assignments](system-pose-writes.md) now support whole Cartesian
 rows and staged LOCATION/CONFIG_DATA edits on explicit tables and active selected
 rows. Independent reads, geometry/config guards, external-axis preservation and
@@ -41,7 +45,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.203514. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.205619. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

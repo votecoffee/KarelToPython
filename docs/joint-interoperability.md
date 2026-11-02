@@ -92,8 +92,10 @@ assert restored.robot.frame(2).values["LOCATION"].values["X"] == 50.0
 Saving preserves latest frame/tool values, removals and selections. Unchanged
 typed input representations and omitted default identity entries retain their
 legacy shape. Invalid maps or active selections fail before replacing a saved
-file. Frame/tool edits are host-owned operations; update between cooperative
-execution steps. These changes do not add a native frame-discovery service.
+file. Host edits remain available between cooperative execution steps;
+[dedicated source table writes](system-pose-writes.md) and
+[active selection assignments](frame-tool-selection.md) now share that context.
+These changes do not add a native frame-discovery service.
 
 Current-state queries, conversions, IN_RANGE and J_IN_RANGE all select the
 calling root task's group across linked routines. This prevents a library from

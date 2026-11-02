@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1102.205619 - 2026-11-02
+
+- Add Pythonic $MNUFRAMENUM/$MNUTOOLNUM reads and dedicated assignments with
+  explicit group/row validation, private INTEGER values and staged ID publication.
+- Share selections with active pose views/edits, linked routines/handlers and
+  existing model-backed CURPOS, conversions and range checks; retain current state.
+- Preserve selections through existing robot JSON; keep writable aliases, implicit
+  rows, native special-number handling and controller execution excluded.
+- Add 77 regression tests, four runnable examples and two linked projects.
+
 ## 26.1102.203514 - 2026-11-02
 
 - Add dedicated offline numbered/active frame and tool assignments for complete

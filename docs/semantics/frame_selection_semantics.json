@@ -1,0 +1,35 @@
+{
+  "version": "26.1102.205619",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored source active-ID values/assignments, reference guards, model-free/grouped/model contexts, conversion integration and JSON replay; no native compiler/controller execution",
+  "implemented": {
+    "source": "$MNUFRAMENUM[group] and $MNUTOOLNUM[group] INTEGER reads or dedicated assignments",
+    "validation": "Explicit context/group, ordinary configured table, complete Cartesian row and portable IDs 0..32767 before read/result or selection publication",
+    "capture": "Read group once; assignment RHS snapshot before group selector; private INTEGER values and no writable aliases",
+    "integration": "Shared source active-pose views and edits, linked routines/handlers, existing model-backed CURPOS/conversions/reachability; table rows and current feedback snapshots retained",
+    "persistence": "Existing RobotContext JSON active frame/tool values, grouped tables and explicit models",
+    "observations": "Value-free runtime read/write outcomes and report source/capture metadata"
+  },
+  "remaining": [
+    "Writable READ/service/timer/FOR selection aliases",
+    "Automatic native special-ID interpretation and KAREL/TP frame copying",
+    "Implicit system/context discovery and hardware/controller writes",
+    "Native/strict equivalence and suspended execution restoration"
+  ],
+  "verification": [
+    "tests/test_frame_tool_selection.py",
+    "tests/test_frame_tool_selection_guards.py",
+    "tests/test_system_pose_values.py",
+    "tests/test_system_pose_writes.py",
+    "tests/test_joint_interoperability.py",
+    "tests/test_runtime_portability.py",
+    "examples/frame_tool_selection.kl",
+    "examples/frame_selection_pose.kl",
+    "examples/tool_selection_pose.kl",
+    "examples/frame_selection_model.kl",
+    "examples/frame_selection_project/main.kl",
+    "examples/frame_selection_handler_project/main.kl"
+  ],
+  "guide": "../frame-tool-selection.md"
+}

@@ -37,8 +37,13 @@ rows and staged location/configuration edits. Writes preserve supplied external
 axes, use explicit configured groups, and retain independent read snapshots.
 Linked routines, handlers and saved-context replay share the same table policy.
 
+[Active frame/tool selection](docs/frame-tool-selection.md) now translates
+`$MNUFRAMENUM[group]` and `$MNUTOOLNUM[group]` reads and assignments. Supplied rows
+are validated before selection changes; active pose views, model-backed conversions,
+linked routines, handlers and JSON replay use the same offline context.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1102.203514**. It is a
+tool are named **karel2py**. The current implementation is **26.1102.205619**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -869,9 +874,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 376 authored runnable examples, checks complete
+The example runner translates 380 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 120 complete linked source projects. It also checks that unsupported
+fixtures, plus 122 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

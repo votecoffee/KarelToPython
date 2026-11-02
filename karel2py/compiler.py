@@ -92,6 +92,8 @@ class FlowNode:
 def counter_text(value):
     """Describe source storage without evaluating a captured counter selector."""
     if not isinstance(value,Expr):return value.value
+    if value.kind=='system_selection':
+        return ('$MNUFRAMENUM' if value.value=='FRAME' else '$MNUTOOLNUM')+'['+counter_text(value.args[0])+']'
     if value.kind=='system_pose':
         parts=','.join(counter_text(item) for item in value.args)
         if value.value in ('FRAME','TOOL'):
@@ -788,6 +790,9 @@ class Parser:
         if self.accept('::'):
             self.check_label_name(token)
             return Statement('label', token, [token])
+        if self.mode=='pythonic' and name in ('$MNUFRAMENUM','$MNUTOOLNUM'):
+            target=self.system_selection(token);self.expect('=')
+            return Statement('system_selection_assign',token,[target,self.expression()])
         if self.mode=='pythonic' and name in ('$MNUFRAME','$MNUTOOL','$GROUP'):
             target=self.system_pose(token);self.expect('=')
             return Statement('system_pose_assign',token,[target,self.expression()])
@@ -1066,6 +1071,10 @@ class Parser:
         self.expect(')')
         return result
 
+    def system_selection(self,token):
+        self.expect('[');group=self.expression();self.expect(']')
+        return self.access(Expr('system_selection',token,'FRAME' if token.value=='$MNUFRAMENUM' else 'TOOL',[group]))
+
     def system_pose(self,token):
         self.expect('[');group=self.expression()
         if token.value in ('$MNUFRAME','$MNUTOOL'):
@@ -1159,6 +1168,8 @@ class Parser:
             left = Expr('group', token, args=[child])
         elif token.kind == 'REAL':
             left = Expr('real_literal', token, token.value)
+        elif self.mode=='pythonic' and token.value in ('$MNUFRAMENUM','$MNUTOOLNUM'):
+            left=self.system_selection(token)
         elif self.mode=='pythonic' and token.value in ('$MNUFRAME','$MNUTOOL','$GROUP'):
             left=self.system_pose(token)
         elif token.kind == 'NAME' and token.value not in RESERVED:
@@ -1211,6 +1222,7 @@ class Emitter:
         self.handler_uses=[]
         self.system_pose_uses=[]
         self.system_pose_writes=[]
+        self.system_selection_uses=[]
         self.external_write_routines=set()
         self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
@@ -1694,7 +1706,7 @@ class Emitter:
     def resolve_using_fields(self):
         """Resolve lexical field aliases before effect and control-flow analysis."""
         def path_text(expr):
-            if expr.kind=='system_pose':return counter_text(expr)
+            if expr.kind in ('system_pose','system_selection'):return counter_text(expr)
             if expr.kind == 'using_ref': return expr.value[4]
             if expr.kind == 'field': return path_text(expr.args[0])+'.'+expr.value
             if expr.kind == 'index': return path_text(expr.args[0])+'['+','.join(path_text(arg) for arg in expr.args[1:])+']'
@@ -1836,7 +1848,7 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
-                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control','file_cancel','system_pose_assign'):routine.may_services=True
+                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control','file_cancel','system_pose_assign','system_selection_assign'):routine.may_services=True
                 if isinstance(node,Statement) and node.kind=='pulse':
                     routine.may_services=True;routine.may_delay|=not node.args[2]
                 if isinstance(node, Statement) and node.kind in ('delay','wait'):
@@ -1856,7 +1868,7 @@ class Emitter:
                     routine.may_abort = True
                 if isinstance(node, Expr) and node.kind == 'call' and self.mode == 'pythonic' and node.value == 'GET_USEC_TIM' and node.value not in self.routines:
                     routine.may_clock = True
-                if isinstance(node,Expr) and node.kind=='system_pose':routine.may_services=True
+                if isinstance(node,Expr) and node.kind in ('system_pose','system_selection'):routine.may_services=True
                 if isinstance(node,Expr) and node.kind=='call' and self.mode=='pythonic' and node.value in ex.PROCEDURES.keys()|ex.FUNCTIONS.keys() and node.value not in self.routines:
                     routine.may_services=True
                     if node.value=='PRINT_FILE': routine.may_write=True
@@ -2105,6 +2117,7 @@ class Emitter:
 
     def access_type(self, expr):
         """Inspect receiver types without emitting calls or duplicate call-site reports."""
+        if expr.kind=='system_selection':return ('INTEGER',)
         if expr.kind=='system_pose':return ('POSITION',)
         if expr.kind == 'group': return self.access_type(expr.args[0])
         if expr.kind == 'using_ref': return expr.value[1]
@@ -2209,6 +2222,10 @@ class Emitter:
 
     def reference(self, expr, *, config_read=False, allow_prefix=False):
         line = expr.token.line
+        selection_root=expr
+        while selection_root.kind in ('field','index','group'):selection_root=selection_root.args[0]
+        if selection_root.kind=='system_selection':
+            self.error('E_SYSTEM_SELECTION_REFERENCE','Active frame/tool numbers cannot supply writable references',expr.token)
         if self.is_system_pose_path(expr):
             self.error('E_SYSTEM_POSE_READ_ONLY','Robot system poses cannot supply writable references',expr.token)
         if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
@@ -2313,6 +2330,12 @@ class Emitter:
                 all(a == b or a is None or b is None for a, b in zip(target_shape, source_shape)))
 
     def expression(self, expr, raw=False, *, allow_array_result=False):
+        if expr.kind=='system_selection':
+            group=self.require_type(expr.args[0],'INTEGER')
+            self.system_selection_uses.append(dict(operation='READ_'+expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=expr.token.line,column=expr.token.column,evaluated_once=True,private_value=True,result_type='INTEGER'))
+            self.features.update(('robot frame/tool selection','extended services'))
+            return f'self._state.system_selection({expr.value!r},_rt.integer({group},{expr.args[0].token.line}),{expr.token.line})',('INTEGER',)
         if expr.kind=='system_pose':
             codes=[self.require_type(argument,'INTEGER') for argument in expr.args]
             codes=[f'_rt.integer({code},{argument.token.line})' for code,argument in zip(codes,expr.args)]
@@ -3626,6 +3649,17 @@ class Emitter:
                 self.line(f'self._state.file_open({file_value},{mode},{name},{line})',token)
             else: self.line(f'self._state.file_close({file_value},{line})',token)
             return
+        if kind=='system_selection_assign':
+            self.check_for_call(token);target,expr=stmt.args
+            if target.kind!='system_selection':self.error('E_SYSTEM_SELECTION_TARGET','Active frame/tool assignment requires one group selector and no descendant fields',target.token)
+            value=self.require_type(expr,'INTEGER');captured=self.fresh()
+            self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
+            group=self.require_type(target.args[0],'INTEGER');selected=self.fresh()
+            self.line(f'{selected}=_rt.integer({group},{target.args[0].token.line})',target.token)
+            self.line(f'self._state.system_selection_write({target.value!r},{selected},{captured},{line})',token)
+            self.system_selection_uses.append(dict(operation='WRITE_'+target.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,evaluated_once=True,rhs_before_selector=True,atomic_selection=True))
+            self.features.update(('robot frame/tool selection','extended services'));return
         if kind=='system_pose_assign':
             self.check_for_call(token)
             target,expr=stmt.args;root=target;path=[]
@@ -4823,6 +4857,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         handler_definitions=emitter.handler_uses,
         system_pose_values=emitter.system_pose_uses,
         system_pose_writes=emitter.system_pose_writes,
+        system_selections=emitter.system_selection_uses,
         limitations=['Offline subset; no controller behavior validation',
                      'WRITE accepts one STRING with checked literal formats or one unformatted BOOLEAN/nonnegative INTEGER with exactly one leading blank; BOOLEAN/INTEGER formats, negative INTEGER/REAL output, direct BYTE/SHORT items, quoted truncation/fallback/apostrophes, signed widths, device/stdout mapping, buffering, CR and IO_STATUS remain blocked',
                      'DELAY uses checked host time.sleep or an injected synchronous sleeper; controller timing, motion, pause and abort behavior remain unverified; step budget is not a wall-clock limit',
@@ -6571,8 +6606,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='RHS snapshot before group/number selectors, selectors once left-to-right; no writable system aliases; active rows selected after selector effects',
         publication='Existing explicit RobotContext/group required; numbered whole writes may populate a row, active and field writes require existing rows; publish one independent validated table entry',
         persistence='Existing table/current/model JSON retains published rows and active selections; no hardware or current robot-state update',
-        boundary='No orientation-column edits, joint conversion, active ID changes, service/READ output references, generic system-variable discovery, controller write or strict equivalence',
+        boundary='No orientation-column edits, joint conversion, service/READ output references, generic system-variable discovery, controller write or strict equivalence; active IDs follow frame_selection_policy',
         guide='docs/system-pose-writes.md',controller_validated=False)
+    report['frame_selection_policy']=dict(
+        source='$MNUFRAMENUM[group] and $MNUTOOLNUM[group] as INTEGER reads or dedicated assignments',
+        validation='Explicit RobotContext/group, ordinary configured frame/tool row, complete Cartesian geometry and portable IDs 0..32767 for both read and write',
+        capture='Read group once; assignment snapshots RHS before group selector; publish one active ID after full validation; ordinary prior effects retained on failure',
+        integration='Shared active frame/tool context used by source active-pose reads/writes and existing model-backed CURPOS, conversions and range checks; current robot state and table rows unchanged',
+        persistence='Existing robot JSON selections; values are private INTEGERs, never writable READ/service/timer/FOR aliases',
+        boundary='Portable selection policy only; no native special-number mapping, automatic KAREL/TP frame copying, discovery, hardware/controller writes or strict equivalence',
+        guide='docs/frame-tool-selection.md',controller_validated=False)
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:

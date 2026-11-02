@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR selection:INTEGER
+ROUTINE select_zero
+BEGIN
+  $MNUFRAMENUM[1]=0 $MNUTOOLNUM[1]=0 selection=$MNUFRAMENUM[1]
+END select_zero
+BEGIN END LIB

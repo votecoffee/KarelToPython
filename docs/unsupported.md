@@ -89,8 +89,10 @@ they are boundaries rather than promises to accept every such source form later.
 
 [Offline frame/tool writes](system-pose-writes.md) now accept whole Cartesian
 poses and staged location/configuration edits, including retained external axes.
-Writable aliases, direct orientation-column writes, active selection ID assignment,
-automatic joint conversion and native/controller writes remain excluded.
+[Active selection IDs](frame-tool-selection.md) now support checked source reads
+and assignments using supplied rows. Writable aliases, direct orientation-column
+writes, automatic joint conversion, native special-ID interpretation and
+native/controller writes remain excluded.
 
 [Root PATH READ/WRITE](path-io-and-file-initialization.md) now expands supplied
 header/node data through scalar transports. Automatic node allocation, native
@@ -195,7 +197,8 @@ remain excluded. FILE UNINIT uses the explicit descriptor open-state convention.
   position and port services use explicit offline banks.
 - [Four source frame/tool reads](handler-priority-and-system-poses.md) now use
   supplied frame/tool tables and active selections, with independent POSITION
-  values and model-free JSON persistence. Writable source aliases remain excluded.
+  values and model-free JSON persistence. [Active selection numbers](frame-tool-selection.md)
+  add private INTEGER reads and checked assignments; writable source aliases remain excluded.
 - Automatic system-variable schemas, arbitrary host/Python attribute access,
   dynamic routine-local lookup, native cached variable table IDs and native
   allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,

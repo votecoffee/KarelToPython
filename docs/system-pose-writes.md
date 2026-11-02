@@ -57,8 +57,9 @@ and frame/tool-only contexts use the same serialization rules as before.
 
 This extension creates no live system-variable aliases. Generic GET_VAR/SET_VAR
 and BYNAME discovery is unchanged. READ/service outputs, direct orientation-column
-writes, unknown dollar roots, active ID assignments and automatic joint conversion
-remain unavailable. The existing POSITION read view does not expose external-axis
+writes, unknown dollar roots and automatic joint conversion remain unavailable.
+[Active ID assignments](frame-tool-selection.md) use a separate checked selection
+operation. The existing POSITION read view does not expose external-axis
 metadata; supplied XYZWPREXT whole values and the saved table retain those axes.
 Native table storage, controller writes, physical robot behavior and strict-mode
 equivalence are outside this offline contract.

@@ -2497,6 +2497,32 @@ class ExecutionContext:
         value=robot.frame(number) if kind in ('FRAME','ACTIVE_FRAME') else robot.tool(number)
         return value if value.spec==('POSITION',) else rt.convert_position(('POSITION',),value,line)
 
+    def _system_selection_context(self,kind,group,line):
+        rt=runtime()
+        if not rt._pythonic():fail('Frame/tool selections require Pythonic mode',line)
+        if kind not in ('FRAME','TOOL'):fail('Unsupported frame/tool selection',line)
+        robot=self.require('robot',line).for_group(rt.integer(group,line),line)
+        table=robot.frames if kind=='FRAME' else robot.tools
+        if type(table) is not dict:fail('Frame/tool selections require ordinary configured tables',line)
+        return robot,table,'active_frame' if kind=='FRAME' else 'active_tool'
+
+    def _system_selection_number(self,table,value,line):
+        rt=runtime();number=rt.integer(value,line)
+        if not 0<=number<=32767:fail('Frame/tool selection must be in 0..32767',line)
+        if number not in table:fail('Selected frame/tool row is not configured',line)
+        if type(table[number]) is not rt.Structure:fail('Selected frame/tool requires an ordinary Cartesian record',line)
+        rt.frame_value(table[number],line)
+        return number
+
+    def system_selection(self,kind,group,line=None):
+        robot,table,attribute=self._system_selection_context(kind,group,line)
+        return self._system_selection_number(table,getattr(robot,attribute),line)
+
+    def system_selection_write(self,kind,group,value,line=None):
+        robot,table,attribute=self._system_selection_context(kind,group,line)
+        number=self._system_selection_number(table,value,line)
+        setattr(robot,attribute,number)
+
     def system_pose_write(self,kind,group,number,value,path=(),line=None):
         """Publish one detached complete pose; never hand out writable table cells."""
         rt=runtime()

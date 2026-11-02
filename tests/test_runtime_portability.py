@@ -199,7 +199,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('system_pose_write_frame', 'VALUE', 30),
                     ('system_pose_write_fields', 'VALUE', 23),
                     ('system_pose_write_extended', 'VALUE', 40),
-                    ('system_pose_write_active', 'VALUE', 70)]
+                    ('system_pose_write_active', 'VALUE', 70),
+                    ('frame_tool_selection', 'VALUE', 5),
+                    ('frame_selection_pose', 'VALUE', 45),
+                    ('tool_selection_pose', 'VALUE', 50),
+                    ('frame_selection_model', 'VALUE', 110)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
