@@ -1,7 +1,8 @@
 # Dynamic FILE descriptors
 
 Pythonic `CREATE_VAR` accepts a root `FILE` or a supplied transparent FILE alias,
-with zero extra ARRAY dimensions. Creation allocates a fresh closed logical
+with zero extra ARRAY dimensions. [FILE ARRAY creation](dynamic-file-arrays.md)
+extends these descriptors to bounded indexed banks. Scalar creation allocates a fresh closed logical
 handle and costs one reserved creation unit. It neither opens a file nor supplies
 an I/O service. This is an authored offline extension over the existing
 [dynamic variable arguments](dynamic-variables.md); native resource allocation
@@ -24,8 +25,8 @@ read_value(BYNAME('CACHE','INPUT',entry))
 Supply the selected memory, rooted directory, virtual volume, serial stream,
 keyboard, pipe or other supported offline backend explicitly. Group 0..32 and
 DRAM/CMOS intent remain metadata and do not route files or connect a device.
-Dynamic arrays/fields containing resources remain excluded; [static FILE arrays](file-arrays.md)
-use separate borrowed-storage rules. The existing name, schema,
+PATH/QUEUE ARRAYs and resource fields remain excluded; [FILE arrays](file-arrays.md)
+use separate borrowed-storage rules and [created-array markers](dynamic-file-arrays.md). The existing name, schema,
 collision, quota, callback and terminal ABORT/stop creation guards still apply.
 
 ## Typed use and lifetime

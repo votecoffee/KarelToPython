@@ -407,9 +407,9 @@ def context_config(context):
     if context.variables.bindings:
         rows=[]
         for (program,path),reference in sorted(context.variables.bindings.items()):
-            if (program,path) in context.variables.metadata and reference.spec==('FILE',):
-                from .dynamic import file_descriptor_payload
-                value={'type':['FILE'],'value':file_descriptor_payload(reference.raw())}
+            from .dynamic import file_storage_cost,file_storage_payload
+            if (program,path) in context.variables.metadata and file_storage_cost(reference.spec) is not None:
+                value={'type':json.loads(json.dumps(reference.spec)),'value':file_storage_payload(reference.spec,reference.raw())}
             else: value=typed_value(reference.raw(),reference.spec)
             rows.append(dict(program=program,path=path,**value))
         result['variables']=rows

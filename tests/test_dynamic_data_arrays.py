@@ -177,7 +177,7 @@ class DynamicArrayBoundsTests(unittest.TestCase):
     def test_inline_nested_array_grammar_is_not_parsed(self):
         v,ctx,_,_=run(kind='ARRAY OF ARRAY OF INTEGER');self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
     def test_resource_array_forms_remain_rejected(self):
-        for kind in ('FILE','PATH','QUEUE_TYPE'):
+        for kind in ('PATH','QUEUE_TYPE'):
             with self.subTest(kind=kind):
                 v,ctx,_,_=run(kind='ARRAY OF '+kind);self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
     def test_positional_element_requires_explicit_group(self):

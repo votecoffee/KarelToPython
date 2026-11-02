@@ -26,8 +26,14 @@ borrowed routine arguments, named rows and linked imports. Existing text/binary
 I/O, cancellation and pause/resume retain the selected descriptor. Static arrays
 are excluded from saved variable data; a new Program creates closed descriptors.
 
+[Dynamic FILE arrays](docs/dynamic-file-arrays.md) now allocate checked descriptor
+banks through CREATE_VAR and borrowed BYNAME interfaces. Creation-tagged JSON
+retains the ARRAY schema and a closed-allocation marker; restored cells are fresh
+closed descriptors. Text/binary I/O, renaming and timed cancellation use the same
+explicit backends.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1102.195453**. It is a
+tool are named **karel2py**. The current implementation is **26.1102.201426**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -858,9 +864,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 368 authored runnable examples, checks complete
+The example runner translates 372 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 116 complete linked source projects. It also checks that unsupported
+fixtures, plus 118 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

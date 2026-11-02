@@ -1,0 +1,34 @@
+{
+  "version": "26.1102.201426",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored dynamic FILE ARRAY allocation, borrowed I/O, lifecycle, closed-marker persistence and schema/quota rejection; no native compiler/controller execution",
+  "implemented": {
+    "creation": "FILE with dimensions, ARRAY OF FILE and supplied FILE/named ARRAY aliases; concrete inner-to-outer dimensions with bounded named components",
+    "accounting": "One descriptor per cell, shared 32767 reserved-unit budget and rank at most three; schema validation before allocation and checkpoint rechecks before publication",
+    "interfaces": "Borrowed BYNAME whole/named ARRAY, selected named rows and FILE cells; source-linked routines, renames and FILE metadata inspection",
+    "lifetime": "Existing text/binary FILE transports, cooperative pause/resume, cancel and stop cleanup retain original descriptors",
+    "persistence": "Creation-tagged exact closed-true allocation marker after full container/descriptor validation; schema/metadata/quota before fresh independent closed storage on restore",
+    "boundaries": "Generic data codecs/copies and resource fields still reject FILE ARRAYs; static context/VR exclusions retained"
+  },
+  "remaining": [
+    "PATH/QUEUE ARRAY creation and resource STRUCTURE fields",
+    "Whole FILE ARRAY value copies, grouped arguments, results and generic typed codecs",
+    "Live FILE/cursor/alias/stack restoration",
+    "Native allocation, descriptor ABI, controller behavior and public strict mode"
+  ],
+  "verification": [
+    "tests/test_dynamic_file_arrays.py",
+    "tests/test_dynamic_file_array_state.py",
+    "tests/test_dynamic_files.py",
+    "tests/test_file_array_boundaries.py",
+    "tests/test_runtime_portability.py",
+    "examples/dynamic_file_array_text.kl",
+    "examples/dynamic_file_array_binary.kl",
+    "examples/dynamic_file_array_nested.kl",
+    "examples/dynamic_file_array_rename.kl",
+    "examples/dynamic_file_array_project/main.kl",
+    "examples/dynamic_file_array_cancel_project/main.kl"
+  ],
+  "guide": "../dynamic-file-arrays.md"
+}

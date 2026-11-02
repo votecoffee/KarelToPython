@@ -58,10 +58,10 @@ class DynamicFileCreationTests(unittest.TestCase):
     def test_group_and_pool_are_metadata_with_no_device_discovery(self):
         v,ctx,_,_=execute(create('FILE',group=32,pool=-1));self.assertEqual(v['STATUS'],0);self.assertEqual(ctx.variables.metadata['CACHE','ITEM'],dict(group=32,memory_pool=-1));self.assertIsNone(ctx.files)
 
-    def test_additional_dimensions_are_rejected_for_file_and_alias(self):
+    def test_additional_dimensions_create_file_array_storage(self):
         for kind in ('FILE','fd_t'):
             for dims in ((1,0,0),(2,3,0),(1,1,1)):
-                v,ctx,_,_=execute(create(kind,dims=dims),prefix='TYPE fd_t=FILE');self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
+                v,ctx,_,_=execute(create(kind,dims=dims),prefix='TYPE fd_t=FILE');self.assertEqual(v['STATUS'],0);self.assertEqual(rt.array_dimensions(ref(ctx).spec),tuple(reversed([n for n in dims if n])))
 
     def test_preserved_runtime_does_not_gain_file_creation(self):
         p,_=program(prefix='TYPE fd_t=FILE')
@@ -87,7 +87,7 @@ class DynamicFileCreationTests(unittest.TestCase):
         self.assertEqual(v['STATUS'],6);self.assertEqual(set(ctx.variables.bindings),{('CACHE','DATA'),('CACHE','ITEM')})
 
     def test_malformed_file_schema_and_embedded_file_are_rejected(self):
-        for spec in [('FILE',1),('ARRAY',1,FILE),('STRUCTURE','BAD_T',(('F',FILE),))]:
+        for spec in [('FILE',1),('ARRAY',1,('FILE',1)),('STRUCTURE','BAD_T',(('F',FILE),))]:
             with self.subTest(spec=spec),self.assertRaises(ValueError):creation_cost(spec)
 
     def test_invalid_name_group_pool_never_allocate(self):

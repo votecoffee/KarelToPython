@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [dynamic FILE ARRAY ledger](dynamic_file_array_semantics.json) adds bounded
+creation and closed allocation markers, superseding earlier creation exclusions
+in the static FILE ARRAY and dynamic FILE/data ARRAY ledgers. Generic data-copy
+and codec, resource-field, live restoration and native boundaries remain.
+
 The [FILE ARRAY ledger](file_array_semantics.json) adds indexed descriptor
 storage, borrowed interfaces and linked imports. It supersedes blanket static
 FILE ARRAY exclusions while retaining resource-copy, codec, creation and native

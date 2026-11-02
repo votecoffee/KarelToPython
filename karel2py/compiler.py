@@ -6491,16 +6491,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         publication='Existing collision/name/group/pool/status rules; budget checkpoint before allocation, then recheck terminal abort/stop, bank identity, roots and reserved capacity before publishing; retain earlier callback effects',
         interfaces='Exact BYNAME resource references, linked routines and existing collection procedures; GET_VAR/SET_VAR retain logical queue transfers and data-only PATH field transfers; native queue inspection type code remains unavailable',
         lifetime='Rename retains live identities and lookup cache hints; pause retains ordinary references; JSON preserves schema, logical state and creation metadata, without queue buffer aliases, callbacks or suspended stacks',
-        boundary='Root FILE descriptors follow dynamic_file_policy; no resource ARRAYs/fields, inferred geometry/group context, native resource allocation/ABI or strict mode',
+        boundary='Root FILE descriptors follow dynamic_file_policy and FILE ARRAYs follow dynamic_file_array_policy; no PATH/QUEUE ARRAYs, resource fields, inferred geometry/group context, native allocation/ABI or strict mode',
         guide='docs/dynamic-collections.md',controller_validated=False)
-    report['dynamic_variable_policy']['collections']='Root PATH/QUEUE_TYPE creation follows dynamic_collection_policy; root FILE descriptors follow dynamic_file_policy; embedded resources remain unavailable'
+    report['dynamic_variable_policy']['collections']='Root PATH/QUEUE_TYPE creation follows dynamic_collection_policy; root FILE descriptors follow dynamic_file_policy; FILE ARRAYs follow dynamic_file_array_policy; resource fields remain unavailable'
     report['dynamic_file_policy']=dict(
         source='Pythonic CREATE_VAR root FILE or supplied transparent alias with zero ARRAY dimensions; one reserved descriptor unit; group/pool metadata only',
         operations='Exact BYNAME FILE formals, linked routines, ordinary explicit OPEN/CLOSE/READ/WRITE/attributes and cooperative cancellation through supplied backends; rename retains live handle identity',
         publication='Reuse schema/name/collision/quota checks, terminal abort/stop and bank/root/capacity rechecks after the creation checkpoint; no implicit OPEN or device discovery',
         persistence='Creation-tagged context variables rows alone accept type FILE with value exactly {closed: true}; require exact closed FILE and no pending I/O before encoding; validate metadata/quota before fresh allocation on restore',
         reset='Restore a fresh closed FileHandle; filename, cursor, mode, status, attributes, aliases, XML scanners, operation tokens and backend registrations are not retained; backend bytes use existing service snapshots',
-        guards='Generic typed FILE codecs, embedded resources, resource ARRAYs, whole-FILE GET_VAR/SET_VAR, created-handle saves while open/pending and FILE VR archives remain excluded',
+        guards='Generic typed FILE codecs, resource fields and non-FILE resource ARRAYs, whole-FILE GET_VAR/SET_VAR, created-handle saves while open/pending and FILE VR archives remain excluded; FILE ARRAY creation follows dynamic_file_array_policy',
         evidence='Authored offline descriptor extension; no native allocation/ABI/controller or strict-mode equivalence claim',
         guide='docs/dynamic-files.md',controller_validated=False)
     report['vision_bmp_sample_policy']=dict(
@@ -6526,8 +6526,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         interfaces='Borrowed exact named or rank-compatible generic ARRAY formals, fully selected named rows, FILE element formals, BYNAME and source-linked imports; no private ARRAY value copies',
         operations='Indexed OPEN/CLOSE/READ/WRITE, attributes, status, cursors, initialization queries and cancellation reuse explicit FILE transports and capture rules',
         persistence='Static FILE ARRAY globals omitted from context variables and VR archives; backend bytes retain ordinary service persistence; new Program allocates fresh closed descriptors',
-        boundary='No whole ARRAY assignment/READ/WRITE/UNINIT, prefix values, return values, STRUCTURE fields, generic typed codecs or dynamic FILE ARRAY creation; no native storage/ABI/controller or strict equivalence claim',
+        boundary='No whole ARRAY assignment/READ/WRITE/UNINIT, prefix values, return values, STRUCTURE fields or generic typed codecs; created FILE ARRAYs follow dynamic_file_array_policy; no native storage/ABI/controller or strict equivalence claim',
         guide='docs/file-arrays.md',controller_validated=False)
+    report['dynamic_file_array_policy']=dict(
+        source='Pythonic CREATE_VAR FILE/ARRAY OF FILE and supplied FILE or named ARRAY aliases, with bounded inner-to-outer dimensions and at most three logical dimensions',
+        allocation='One reserved unit per descriptor cell, shared 32767 creation budget; complete bounded schema validation before allocation; ordinary checkpoint/collision/bank/terminal guards',
+        interfaces='Borrowed generic/named ARRAY or selected FILE BYNAME formals, linked routines, indexed I/O and cancellation; rename retains storage and lookup hints',
+        persistence='Creation-tagged FILE ARRAY rows use exact {closed: true} allocation intent; preflight every exact container and closed/pending-free descriptor; retain schema/group/pool, reset every descriptor on restore',
+        guards='Validate schema, metadata and aggregate reserved budget before fresh allocation; generic FILE ARRAY codecs, value copies, STRUCTURE fields, PATH/QUEUE arrays and FILE VR archives remain excluded',
+        guide='docs/dynamic-file-arrays.md',controller_validated=False)
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:

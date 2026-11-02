@@ -1,0 +1,16 @@
+PROGRAM LIB
+VAR value,status:INTEGER
+ROUTINE read_value(a:ARRAY OF FILE):INTEGER
+VAR elapsed:INTEGER
+BEGIN
+  elapsed=0 value=77
+  CONNECT TIMER TO elapsed
+  CONDITION[1]: WHEN elapsed>=10 DO CANCEL FILE a[2] ENDCONDITION
+  ENABLE CONDITION[1]
+  OPEN FILE a[2]('RO','P2:') READ a[2](value,CR)
+  DISABLE CONDITION[1]
+  status=IO_STATUS(a[2]) CLOSE FILE a[2]
+  DISCONNECT TIMER elapsed
+  RETURN status
+END read_value
+BEGIN END LIB

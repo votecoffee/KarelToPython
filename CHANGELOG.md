@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1102.201426 - 2026-11-02
+
+- Add Pythonic CREATE_VAR FILE/ARRAY OF FILE, aliases and named ARRAY components
+  with shared descriptor quotas, bounded shapes and checkpoint publication guards.
+- Borrow created arrays/cells through BYNAME and linked routines; retain renames,
+  text/binary I/O, inspection and cooperative cancellation/pause/stop behavior.
+- Add creation-tagged closed allocation markers with full storage preflight and
+  fresh independent descriptors on restore; keep generic codecs and VR exclusions.
+- Add 75 regression tests, four runnable examples and two linked projects.
+
 ## 26.1102.195453
 
 - Add Pythonic fixed FILE ARRAY storage with independent descriptors, named and

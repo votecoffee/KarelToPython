@@ -1,5 +1,9 @@
 # Language support
 
+[Dynamic FILE arrays](dynamic-file-arrays.md) now add checked CREATE_VAR allocation,
+borrowed BYNAME interfaces, shared descriptor quotas and creation-tagged closed
+allocation markers with fresh descriptors on JSON restore.
+
 [FILE arrays](file-arrays.md) now support indexed global/local descriptors,
 borrowed named/generic ARRAY interfaces, FILE cell arguments and source-linked
 imports. Existing explicit FILE operations and cooperative lifetime apply;
@@ -32,7 +36,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.195453. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.201426. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -57,7 +61,7 @@ internally and in the historical semantic notes.
 | STRING | Bounded ASCII storage, right truncation, internal STRING/STRING[n] function results, writable value arguments, concatenation/comparison, clipped SUB_STR and INDEX including empty searches | Default result/value capacity 254; explicit result capacity 1..254. Bare arguments keep caller references. SUB_STR returns at most 254; positive start and nonnegative count. |
 | BYTE/SHORT | Aggregate and standalone storage, TYPE aliases, exact references, checked private numeric arguments and initialized routine results | BYTE 0..255, SHORT -32768..32766; initial BYTE is unknown and its UNINIT is blocked. SHORT 32767 means uninitialized; [narrow counters](narrow-for.md) restore BYTE unknown and SHORT missing state on exit. [Dynamic narrow creation](dynamic-narrow.md) retains exact types and initialization markers. See [scalar narrow integers](scalar-narrow.md). |
 | Arrays | One-based fixed/named arrays up to logical rank three, complete [chained subscripts](chained-array-indexes.md), exact whole copies, reference/value arguments and named subarrays | Copies preserve missing markers with 32767 scalar leaves and 64 schema levels; receiver schema, logical shape and known scalar validation remain. [Numeric conversions](numeric-arrays.md) add checked integral narrowing and REAL promotion; [named/component conversions](named-array-conversions.md) preserve receiver schemas at source assignment/argument/RETURN boundaries. [Schema conversions](array-schema-conversions.md) add same-terminal names, STRING capacities and compatible flat/nested layouts. |
-| FILE arrays | Independent indexed global/local FILE descriptors, named types/components, borrowed ARRAY/FILE formals, BYNAME and linked imports | Rank up to three and 32767 descriptor cells; ordinary explicit FILE I/O and cancellation. Static descriptors omitted from context/VR data; no whole copies, grouped values, results, fields, dynamic creation or live-handle restoration. See [FILE arrays](file-arrays.md). |
+| FILE arrays | Independent indexed global/local FILE descriptors, named types/components, borrowed ARRAY/FILE formals, BYNAME and linked imports | Rank up to three and 32767 descriptor cells; ordinary explicit FILE I/O and cancellation. Static descriptors omitted from context/VR data; no whole copies, grouped values, results, fields or live-handle restoration. [Dynamic creation](dynamic-file-arrays.md) adds bounded allocations and closed allocation markers. See [FILE arrays](file-arrays.md). |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded or inherited-capacity STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Missing markers preserved and known leaves validated; declared output names/layout and bounded/inherited STRING capacities; logical rank up to three. Source RETURN prepares its independent output schema. Omitted STRING result capacity inherits concrete returned storage; no resize or flattening. |
 | Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries; [source schema conversions](record-schema-conversions.md) | Matching field-name sets convert recursively into receiver schemas, including record ARRAY terminals; checked numeric/STRING and context-free pose/joint changes; [explicit-model geometry fields](kinematic-records.md). Private converted arguments, partial-data preservation and exact generic/BYNAME/link/callback contracts; no ABI claim. |

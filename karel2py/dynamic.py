@@ -8,12 +8,61 @@ IDENTIFIER=r'[A-Z_][A-Z_0-9]{0,35}'
 MAX_LEAVES=32767
 
 
+def file_storage_cost(spec):
+    """Validate bounded ARRAY containers; identify FILE allocation intent only."""
+    rt=runtime();count=1;rank=0;depth=0;current=spec
+    while True:
+        if type(current) is not tuple or not current:
+            raise ValueError('Created storage requires a concrete type')
+        if current[0]!='ARRAY':return count if current==('FILE',) else None
+        if len(current) not in (3,4):raise ValueError('Invalid created ARRAY schema')
+        try:identity=rt.array_identity(current)
+        except rt.KarelRuntimeError as exc:raise ValueError('Invalid created ARRAY identity') from exc
+        if depth and identity is None:raise ValueError('Nested created ARRAY components require names')
+        shape=rt.array_shape(current);rank+=len(shape);depth+=1
+        if not shape or rank>3:raise ValueError('Created ARRAYs require one through three logical dimensions')
+        for size in shape:
+            if type(size) is not int or not 1<=size<=MAX_LEAVES:
+                raise ValueError('Created ARRAY dimensions require INTEGER in 1..32767')
+            count*=size
+            if count>MAX_LEAVES:raise ValueError('Created ARRAY exceeds 32767 cells')
+        current=current[2]
+
+
+def file_storage_payload(spec,value):
+    """Preflight every created descriptor before encoding allocation intent."""
+    rt=runtime()
+    if file_storage_cost(spec) is None:raise ValueError('Created FILE storage requires FILE descriptors')
+    pending=[(spec,value)]
+    while pending:
+        schema,current=pending.pop()
+        if schema==('FILE',):file_descriptor_payload(current);continue
+        shape=rt.array_shape(schema);size=1
+        for dimension in shape:size*=dimension
+        if (type(current) is not rt.Array or current.spec!=schema or current.shape!=shape
+                or type(current.values) is not list or len(current.values)!=size):
+            raise ValueError('Created FILE ARRAY storage does not match its schema')
+        pending.extend((schema[2],item) for item in current.values)
+    return {'closed':True}
+
+
+def restore_file_storage(spec,payload):
+    """Restore fresh closed storage after schema, quota and marker validation."""
+    rt=runtime()
+    if file_storage_cost(spec) is None:raise ValueError('Created FILE storage requires FILE descriptors')
+    if spec==('FILE',):return restore_file_descriptor(payload)
+    _closed_file_payload(payload)
+    with rt._numeric_scope('pythonic'):return rt.initial_value(spec)
+
+
 def creation_cost(spec):
     """Validate a creation schema and count its immediately reserved storage."""
     rt=runtime()
     from .storage import collection_data_spec
     if type(spec) is not tuple or not spec: raise ValueError('Creation requires a concrete type')
-    if spec in (('FILE',),('QUEUE_TYPE',)): return 1
+    descriptors=file_storage_cost(spec)
+    if descriptors is not None:return descriptors
+    if spec==('QUEUE_TYPE',): return 1
     if spec[0]=='PATH':
         if len(spec)!=3: raise ValueError('Created PATH requires node and header schemas')
         header=0
@@ -43,10 +92,14 @@ def file_descriptor_payload(value):
     return {'closed':True}
 
 
-def restore_file_descriptor(payload):
-    """Create a fresh closed FILE, without restoring cursor or connection data."""
+def _closed_file_payload(payload):
     if type(payload) is not dict or set(payload)!={'closed'} or payload['closed'] is not True:
         raise ValueError('Created FILE descriptor requires exactly closed: true')
+
+
+def restore_file_descriptor(payload):
+    """Create a fresh closed FILE, without restoring cursor or connection data."""
+    _closed_file_payload(payload)
     return runtime().FileHandle()
 
 
@@ -136,7 +189,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if any(type(size) is not int or not 0<=size<=32767 for size in dimensions): return None
     if (dimensions[1] and not dimensions[0]) or (dimensions[2] and not dimensions[1]): return None
     shape=tuple(size for size in reversed(dimensions) if size)
-    if spec[0] in ('FILE','PATH','QUEUE_TYPE') and (not rt._pythonic() or shape): return None
+    if spec[0] in ('FILE','PATH','QUEUE_TYPE') and (not rt._pythonic() or shape and spec[0]!='FILE'): return None
     if shape:
         if spec[0]=='ARRAY' and (not rt._pythonic() or rt.array_identity(spec) is None):return None
         spec=('ARRAY',shape[0] if len(shape)==1 else shape,spec)
@@ -144,7 +197,9 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if type(group) is not int or not 0<=group<=32: return None
     leaf=rt.array_leaf_spec(spec) if spec[0]=='ARRAY' else spec
     if leaf[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS') and group==0: return None
-    try: creation_cost(spec)
+    try:
+        creation_cost(spec)
+        if not rt._pythonic() and rt.file_storage_type(spec):return None
     except (ValueError,TypeError): return None
     return spec
 

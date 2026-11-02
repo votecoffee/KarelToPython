@@ -1,0 +1,16 @@
+PROGRAM DYNAMIC_FILE_ARRAY_BINARY
+TYPE fd_t=FILE
+VAR entry,status,value:INTEGER done:BOOLEAN first,second:INTEGER
+ROUTINE work(a:ARRAY OF FILE)
+BEGIN
+  OPEN FILE a[1]('WB','data') WRITE a[1](17,-9) CLOSE FILE a[1]
+  OPEN FILE a[2]('RB','data') READ a[2](first,second) status=IO_STATUS(a[2]) CLOSE FILE a[2]
+  value=first+second
+END work
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','','fd_t',32,2,0,0,status)
+    done=TRUE
+  ENDIF
+  work(BYNAME('CACHE','ITEM',entry))
+END DYNAMIC_FILE_ARRAY_BINARY

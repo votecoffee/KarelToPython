@@ -217,10 +217,11 @@ remain excluded. FILE UNINIT uses the explicit descriptor open-state convention.
 
 ## Files and collections
 
-[Static FILE arrays](file-arrays.md) now support indexed streams and borrowed
-routine/source-linked storage. Dynamic creation, whole ARRAY copies/results,
-resource STRUCTURE fields, generic codecs and live descriptor restoration remain
-excluded. Whole ARRAY READ/WRITE is still a data-only operation.
+[FILE arrays](file-arrays.md) now support indexed streams and borrowed
+routine/source-linked storage. [Dynamic creation](dynamic-file-arrays.md) adds
+checked allocations and closed creation-tagged JSON markers. Whole ARRAY
+copies/results, resource STRUCTURE fields, generic codecs and live descriptor
+restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operation.
 
 - Physical device mounting/formatting/purging, sockets, serial devices, pipes,
   device discovery and unrestricted absolute-path file access. Six device/storage

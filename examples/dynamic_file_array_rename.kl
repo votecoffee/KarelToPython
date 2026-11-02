@@ -1,0 +1,16 @@
+PROGRAM DYNAMIC_FILE_ARRAY_RENAME
+
+VAR entry,status,value:INTEGER done:BOOLEAN
+ROUTINE work(a:ARRAY OF FILE)
+BEGIN
+  OPEN FILE a[1]('WO','out') WRITE a[1](19) status=IO_STATUS(a[1]) CLOSE FILE a[1]
+  value=19
+END work
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','','FILE',0,2,0,0,status)
+    RENAME_VAR('CACHE','ITEM','KEPT',status)
+    done=TRUE
+  ENDIF
+  work(BYNAME('CACHE','KEPT',entry))
+END DYNAMIC_FILE_ARRAY_RENAME

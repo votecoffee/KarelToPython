@@ -191,7 +191,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('file_array_text', 'VALUE', 17),
                     ('file_array_binary', 'VALUE', 8),
                     ('file_array_nested', 'VALUE', 17),
-                    ('file_array_input', 'VALUE', 36)]
+                    ('file_array_input', 'VALUE', 36),
+                    ('dynamic_file_array_text', 'VALUE', 36),
+                    ('dynamic_file_array_binary', 'VALUE', 8),
+                    ('dynamic_file_array_nested', 'VALUE', 17),
+                    ('dynamic_file_array_rename', 'VALUE', 19)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

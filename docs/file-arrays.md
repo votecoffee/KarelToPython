@@ -70,9 +70,10 @@ registrations and pending work are not restored.
 
 Generic typed FILE ARRAY codecs, explicit FILE ARRAY binding snapshots and copying
 such bindings into attached globals fail. An explicit external BYNAME binding may
-borrow live storage, but cannot turn it into serializable data. CREATE_VAR FILE
-arrays remain unavailable, including named FILE ARRAY schemas. No implicit resize,
-resource prefix copies, native FILE layout or strict-mode equivalence is added.
+borrow live storage, but cannot turn it into serializable data. [CREATE_VAR FILE
+arrays](dynamic-file-arrays.md) use a separate creation-tagged closed-allocation
+marker. No implicit resize, resource prefix copies, native FILE layout or
+strict-mode equivalence is added.
 
 The [semantic ledger](semantics/file_array_semantics.json) lists the verification
 sources. Runnable examples cover text, binary, named rows, input, linked routines

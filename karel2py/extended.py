@@ -2015,9 +2015,9 @@ class ExecutionContext:
                     if type(spec) is str: spec=runtime().joint_spec(spec.upper()) if spec.upper() in runtime().JOINT_TYPE_NAMES else (spec.upper(),)
                     created_spec=tuple_spec(spec)
                     restore_metadata(variables,row['program'],row['path'],row['creation'],created_spec)
-                if created_spec==('FILE',):
-                    from .dynamic import restore_file_descriptor
-                    spec,value=created_spec,restore_file_descriptor(row['value'])
+                if created_spec is not None and runtime().file_storage_type(created_spec):
+                    from .dynamic import restore_file_storage
+                    spec,value=created_spec,restore_file_storage(created_spec,row['value'])
                 else:spec,value=decode_typed({'type':row['type'],'value':row['value']})
                 variables.bind(row['program'],row['path'],runtime().Reference(spec,{'value':value},'value'))
             services['variables']=variables

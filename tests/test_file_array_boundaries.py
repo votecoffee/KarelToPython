@@ -62,18 +62,18 @@ class FileArrayBoundaryTests(unittest.TestCase):
             with self.subTest(spec=spec),self.assertRaises(ValueError):restore_value(spec,{'uninitialized':True})
     def test_restore_rejects_even_root_missing_marker(self):
         with self.assertRaises(ValueError):restore_value(SPEC,{'uninitialized':True})
-    def test_dynamic_creation_cost_rejects_file_array(self):
-        with self.assertRaises(ValueError):creation_cost(SPEC)
+    def test_dynamic_creation_cost_counts_each_descriptor(self):
+        self.assertEqual(creation_cost(SPEC),2)
     def test_vr_save_clear_load_skips_live_descriptor_array(self):
         ctx=rt.ExecutionContext(files=rt.MemoryFiles(),variable_archives=rt.VariableArchives())
         p,_=build("OPEN FILE streams[1]('WO','out') n=17 SAVE('T','T.VR',s) n=99",context=ctx)
         p.run();row=json.loads(ctx.files.snapshot()['T.VR']);self.assertIn('STREAMS',row['excluded']);self.assertNotIn('STREAMS',row['variables'])
         r=translate("PROGRAM CONTROL VAR s:INTEGER BEGIN CLEAR('T.VR',s) LOAD('T.VR',0,s) END CONTROL");ns={'__name__':'file_array_archive'};exec(r.python_source,ns);control=ns['Program'](context=ctx);self.assertEqual(control.run()['S'],0)
         self.assertEqual(p.snapshot()['N'],17);self.assertIs(handles(p)[0].owner,ctx.files);ctx.files.close(handles(p)[0])
-    def test_dynamic_named_file_array_creation_stays_rejected(self):
+    def test_dynamic_named_file_array_creation_uses_reserved_units(self):
         from tests.test_dynamic_narrow import create
         p,_=build(create('streams_t',dims=(0,0,0)).replace('status','s'),prefix='TYPE streams_t=ARRAY[2] OF FILE')
-        self.assertEqual(p.run()['S'],5);self.assertFalse(p._state.execution.variables.metadata)
+        self.assertEqual(p.run()['S'],0);self.assertIn(('CACHE','ITEM'),p._state.execution.variables.metadata)
     def test_static_context_omits_descriptor_arrays(self):
         p,_=build('n=7');p.run();rows=p._state.execution.to_config()['variables'];self.assertNotIn('STREAMS',{r['path'] for r in rows});self.assertIn('N',{r['path'] for r in rows})
     def test_context_roundtrip_allocates_fresh_closed_descriptors(self):
