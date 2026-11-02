@@ -109,10 +109,10 @@ class SystemPoseValueTests(unittest.TestCase):
         v,p,r=run('USING $MNUFRAME[1,2] DO location.x=99 n=location.x ENDUSING');self.assertEqual((v['N'],p._state.execution.robot.frame(2).values['X']),(99.,12.));self.assertTrue(r.report['using_scopes'][0]['selector_captures'][0]['independent_copy'])
     def test_using_location_captures_private_vector(self):
         v,p,_=run('USING $MNUFRAME[1,2].location DO x=99 n=x ENDUSING');self.assertEqual((v['N'],p._state.execution.robot.frame(2).values['X']),(99.,12.))
-    def test_direct_system_assignments_are_rejected(self):
-        for target in ('$MNUFRAME[1,2]','$MNUTOOL[1,3].location.x','$GROUP[1].$UFRAME'):
+    def test_direct_system_orientation_assignments_remain_rejected(self):
+        for target in ('$MNUFRAME[1,2].normal','$MNUTOOL[1,3].orient.x','$GROUP[1].$UFRAME.approach'):
             with self.subTest(target=target),self.assertRaises(TranslationError) as caught:program(target+'=p')
-            self.assertEqual(caught.exception.code,'E_SYSTEM_POSE_READ_ONLY')
+            self.assertEqual(caught.exception.code,'E_SYSTEM_POSE_TARGET')
     def test_read_and_service_output_aliases_are_rejected(self):
         for body in ('READ($MNUFRAME[1,2].location.x)',"GET_VAR(entry,'','n',$MNUFRAME[1,2].location.x,s)"):
             with self.subTest(body=body),self.assertRaises(TranslationError) as caught:program(body)

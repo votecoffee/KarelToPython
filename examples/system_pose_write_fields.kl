@@ -1,0 +1,8 @@
+PROGRAM SYSTEM_POSE_WRITE_FIELDS
+VAR p:POSITION value:INTEGER
+BEGIN
+  p=$MNUTOOL[1,3] $MNUFRAME[1,2].location=p.location
+  $MNUFRAME[1,2].config_data.cfg_turn_no1=7
+  $MNUFRAME[1,2].config_data.cfg_flip=TRUE
+  value=ROUND($GROUP[1].$UFRAME.location.x)
+END SYSTEM_POSE_WRITE_FIELDS

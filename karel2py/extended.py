@@ -2497,6 +2497,44 @@ class ExecutionContext:
         value=robot.frame(number) if kind in ('FRAME','ACTIVE_FRAME') else robot.tool(number)
         return value if value.spec==('POSITION',) else rt.convert_position(('POSITION',),value,line)
 
+    def system_pose_write(self,kind,group,number,value,path=(),line=None):
+        """Publish one detached complete pose; never hand out writable table cells."""
+        rt=runtime()
+        if not rt._pythonic():fail('Robot system pose writes require Pythonic mode',line)
+        if kind not in ('FRAME','TOOL','ACTIVE_FRAME','ACTIVE_TOOL'):fail('Unsupported robot system pose write',line)
+        allowed={(),('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),
+            ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',)))}
+        if type(path) is not tuple or any(type(part) is not str for part in path) or path not in allowed:fail('Unsupported robot system pose write field',line)
+        robot=self.require('robot',line).for_group(rt.integer(group,line),line)
+        table=robot.frames if kind in ('FRAME','ACTIVE_FRAME') else robot.tools
+        if type(table) is not dict:fail('Robot system pose writes require ordinary configured tables',line)
+        if kind.startswith('ACTIVE_'):
+            if number is not None:fail('Active robot system pose takes only a group',line)
+            number=robot.active_frame if kind=='ACTIVE_FRAME' else robot.active_tool
+        number=rt.integer(number,line)
+        if not 0<=number<=32767:fail('Frame/tool identifier must be in 0..32767',line)
+        if kind.startswith('ACTIVE_') and number not in table:fail('Active robot system pose is not configured',line)
+        if not path:
+            if type(value) is not rt.Structure:fail('System pose writes require ordinary Cartesian records',line)
+            prepared=rt.frame_value(value,line)
+        else:
+            if number not in table:fail('Requested frame/tool is not configured',line)
+            if type(table[number]) is not rt.Structure:fail('System pose table requires ordinary Cartesian records',line)
+            prepared=rt.frame_value(table[number],line)
+            if path[0]=='LOCATION':
+                if len(path)==1:
+                    updated=rt.vector_value(value,line)
+                    for axis in ('X','Y','Z'):
+                        if prepared.spec==('POSITION',):prepared.values['LOCATION'].values[axis]=updated.values[axis]
+                        else:prepared.values[axis]=updated.values[axis]
+                else:
+                    location=prepared.values['LOCATION'] if prepared.spec==('POSITION',) else prepared
+                    rt.field_reference(location,path[1],line).set(value,line)
+            elif len(path)==1:rt.field_reference(prepared,'CONFIG_DATA',line).set(value,line)
+            else:rt.field_reference(prepared.values['CONFIG_DATA'],path[1],line).set(value,line)
+            prepared=rt.frame_value(prepared,line)
+        table[number]=prepared
+
     def kinematic_assignment(self,state,target,value,line=None):
         """Use the ordinary model/adapters with explicit selected frame/tool data."""
         rt=runtime();poses=(('POSITION',),('XYZWPR',),('XYZWPREXT',))

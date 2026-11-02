@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR value:REAL
+ROUTINE adjust
+BEGIN
+  $MNUFRAME[1,2].location.x=30 value=$MNUFRAME[1,2].location.x
+END adjust
+BEGIN END LIB

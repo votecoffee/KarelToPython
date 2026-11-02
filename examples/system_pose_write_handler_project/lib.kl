@@ -1,0 +1,7 @@
+PROGRAM LIB
+ROUTINE adjust
+BEGIN
+  $GROUP[2].$UFRAME.location.x=40
+  $GROUP[2].$UFRAME.config_data.cfg_turn_no2=-8
+END adjust
+BEGIN END LIB

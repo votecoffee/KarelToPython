@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR value:INTEGER
+ROUTINE adjust FROM LIB
+BEGIN
+  adjust value=ROUND($MNUFRAME[1,2].location.x)
+END MAIN

@@ -1,5 +1,10 @@
 # Language support
 
+[Offline frame/tool assignments](system-pose-writes.md) now support whole Cartesian
+rows and staged LOCATION/CONFIG_DATA edits on explicit tables and active selected
+rows. Independent reads, geometry/config guards, external-axis preservation and
+existing context JSON remain in effect.
+
 [Dynamic FILE arrays](dynamic-file-arrays.md) now add checked CREATE_VAR allocation,
 borrowed BYNAME interfaces, shared descriptor quotas and creation-tagged closed
 allocation markers with fresh descriptors on JSON restore.
@@ -36,7 +41,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.201426. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.203514. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

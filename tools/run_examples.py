@@ -108,6 +108,10 @@ def run_example(source, *, inject_write=False):
         assert observed == read_json(services_expected), name + ': offline service state'
     else:
         assert not services_expected.exists(), name + ': service expectation requires explicit initial context'
+    robot_expected=fixture/f'{name}.robot.expected.json'
+    if robot_expected.exists():
+        assert services is not None and services.robot is not None, name+': robot expectation requires explicit context'
+        assert services.robot.to_config()==read_json(robot_expected), name+': robot tables'
     assert program._state.local_frames == [] and program._state.call_depth == 0, name + ': frames'
     sleep_file = fixture / f'{name}.sleep.expected.json'
     assert delays == (read_json(sleep_file) if sleep_file.exists() else []), name + ': delays'
@@ -143,9 +147,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 372, 'Update the expected example count when adding examples'
+    assert count == 376, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==118, 'Update the expected project count when adding projects'
+    assert len(projects)==120, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
@@ -157,6 +161,10 @@ def main(argv=None):
         if services is not None:
             assert service_snapshot(services)==read_json(expected_services), folder.name+': service state'
         else: assert not expected_services.exists(), folder.name+': service state requires context'
+        robot_expected=folder/'robot.expected.json'
+        if robot_expected.exists():
+            assert services is not None and services.robot is not None, folder.name+': robot expectation requires explicit context'
+            assert services.robot.to_config()==read_json(robot_expected), folder.name+': robot tables'
         print('PASS '+folder.name+' (linked source project)')
     print(f'{count} examples and {len(projects)} linked projects passed; unsupported motion-local clause rejected; no generated files written')
     return 0

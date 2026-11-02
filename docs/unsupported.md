@@ -87,6 +87,11 @@ they are boundaries rather than promises to accept every such source form later.
 
 ## Types, expressions and interfaces
 
+[Offline frame/tool writes](system-pose-writes.md) now accept whole Cartesian
+poses and staged location/configuration edits, including retained external axes.
+Writable aliases, direct orientation-column writes, active selection ID assignment,
+automatic joint conversion and native/controller writes remain excluded.
+
 [Root PATH READ/WRITE](path-io-and-file-initialization.md) now expands supplied
 header/node data through scalar transports. Automatic node allocation, native
 PATH framing, empty headerless input, formatted empty output and POSITION input

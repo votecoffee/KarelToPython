@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1102.203514 - 2026-11-02
+
+- Add dedicated offline numbered/active frame and tool assignments for complete
+  Cartesian poses and staged LOCATION/CONFIG_DATA fields, preserving external axes.
+- Capture RHS before selectors; validate complete geometry/config data before one
+  independent row publication; preserve read snapshots and writable-alias guards.
+- Retain table JSON, grouped/model contexts, identity overrides, linked routines
+  and handler use; leave current robot state and active selection IDs unchanged.
+- Add 76 regression tests, four runnable examples, two linked projects and optional
+  independent robot-table fixtures in the example runner.
+
 ## 26.1102.201426 - 2026-11-02
 
 - Add Pythonic CREATE_VAR FILE/ARRAY OF FILE, aliases and named ARRAY components

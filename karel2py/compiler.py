@@ -789,7 +789,8 @@ class Parser:
             self.check_label_name(token)
             return Statement('label', token, [token])
         if self.mode=='pythonic' and name in ('$MNUFRAME','$MNUTOOL','$GROUP'):
-            self.error('E_SYSTEM_POSE_READ_ONLY','Robot system poses are independent read-only source values',token)
+            target=self.system_pose(token);self.expect('=')
+            return Statement('system_pose_assign',token,[target,self.expression()])
         if name in PREDEFINED_CONSTANTS:
             self.error('E_PREDEFINED_TARGET', 'A predefined constant cannot be an assignment target or procedure call', token)
         if name in ('GO', 'GOTO'):
@@ -1209,6 +1210,7 @@ class Emitter:
         self.connected_timer_uses=[]
         self.handler_uses=[]
         self.system_pose_uses=[]
+        self.system_pose_writes=[]
         self.external_write_routines=set()
         self.control_flow = dict(program=None, routines={}, jump_policy='body_labels_no_new_for_or_using' if mode=='pythonic' else 'same_block_or_ancestor_no_for', controller_validated=False)
         self.select_scopes = []
@@ -1834,7 +1836,7 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
-                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control','file_cancel'):routine.may_services=True
+                if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control','file_cancel','system_pose_assign'):routine.may_services=True
                 if isinstance(node,Statement) and node.kind=='pulse':
                     routine.may_services=True;routine.may_delay|=not node.args[2]
                 if isinstance(node, Statement) and node.kind in ('delay','wait'):
@@ -3624,6 +3626,33 @@ class Emitter:
                 self.line(f'self._state.file_open({file_value},{mode},{name},{line})',token)
             else: self.line(f'self._state.file_close({file_value},{line})',token)
             return
+        if kind=='system_pose_assign':
+            self.check_for_call(token)
+            target,expr=stmt.args;root=target;path=[]
+            while root.kind in ('field','group'):
+                if root.kind=='field':path.insert(0,root.value)
+                root=root.args[0]
+            allowed={(),('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),
+                ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',)))}
+            if root.kind!='system_pose' or tuple(path) not in allowed:
+                self.error('E_SYSTEM_POSE_TARGET','System pose writes require whole poses, LOCATION or CONFIG_DATA fields; orientation and writable aliases remain blocked',target.token)
+            value,actual=self.expression(expr)
+            expected=self.access_type(target)
+            if not path:
+                if actual[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
+                    self.error('E_TYPE','System pose assignment requires a Cartesian pose',expr.token)
+            elif not self.compatible(expected,actual):
+                self.error('E_TYPE',f'System pose field requires {expected}',expr.token)
+            captured=self.fresh();self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
+            selectors=[]
+            for argument in root.args:
+                code=self.require_type(argument,'INTEGER');temporary=self.fresh()
+                self.line(f'{temporary}=_rt.integer({code},{argument.token.line})',argument.token);selectors.append(temporary)
+            number=selectors[1] if len(selectors)>1 else 'None'
+            self.line(f'self._state.system_pose_write({root.value!r},{selectors[0]},{number},{captured},{tuple(path)!r},{line})',token)
+            self.system_pose_writes.append(dict(operation=root.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=line,column=token.column,path=tuple(path),source_type=actual,evaluated_once=True,rhs_before_selectors=True,atomic_table_publication=True))
+            self.features.update(('robot system pose assignment','extended services'));return
         if kind == 'assign':
             target, expr = stmt.args
             if self.mode=='pythonic' and target.kind=='index' and target.args[0].kind=='name' and target.args[0].value in ex.PORT_TYPES and target.args[0].value not in self.types:
@@ -4793,6 +4822,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         storage_declarations=[dict(row) for row in program.storage_declarations],
         handler_definitions=emitter.handler_uses,
         system_pose_values=emitter.system_pose_uses,
+        system_pose_writes=emitter.system_pose_writes,
         limitations=['Offline subset; no controller behavior validation',
                      'WRITE accepts one STRING with checked literal formats or one unformatted BOOLEAN/nonnegative INTEGER with exactly one leading blank; BOOLEAN/INTEGER formats, negative INTEGER/REAL output, direct BYTE/SHORT items, quoted truncation/fallback/apostrophes, signed widths, device/stdout mapping, buffering, CR and IO_STATUS remain blocked',
                      'DELAY uses checked host time.sleep or an injected synchronous sleeper; controller timing, motion, pause and abort behavior remain unverified; step budget is not a wall-clock limit',
@@ -5365,7 +5395,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Only explicitly supplied RobotContext groups, frame/tool tables and active selections; no VariableStore discovery or controller access',
         persistence='Standalone frame/tool tables may roundtrip without a DH model; preserve explicit identity entries and selections without inventing absent tables or robot callbacks',
         values='Independent complete POSITION snapshots; checked INTEGER selectors once left-to-right; ordinary fields, conversions, private routine values and computed USING copies',
-        boundary='Direct assignments and writable service/READ references are rejected; no native writes, aliases, unknown dollar roots, implicit frames or external-axis frame metadata',
+        boundary='Dedicated assignments follow system_pose_write_policy; writable service/READ references remain rejected; no native writes, aliases, unknown dollar roots or implicit frames from reads',
         guide='docs/handler-priority-and-system-poses.md',controller_validated=False)
     report['connected_timer_policy']=dict(
         storage='Exact ordinary INTEGER global/local, borrowed formal or captured private USING leaves; CONFIG domains and readonly storage remain blocked',
@@ -6535,6 +6565,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Creation-tagged FILE ARRAY rows use exact {closed: true} allocation intent; preflight every exact container and closed/pending-free descriptor; retain schema/group/pool, reset every descriptor on restore',
         guards='Validate schema, metadata and aggregate reserved budget before fresh allocation; generic FILE ARRAY codecs, value copies, STRUCTURE fields, PATH/QUEUE arrays and FILE VR archives remain excluded',
         guide='docs/dynamic-file-arrays.md',controller_validated=False)
+    report['system_pose_write_policy']=dict(
+        targets='Whole numbered frame/tool poses or active selected rows; LOCATION vectors/scalars and CONFIG_DATA whole/scalar fields only',
+        values='Complete Cartesian records, private snapshots and staged geometry/config validation; preserve supplied representation and external axes on field edits',
+        capture='RHS snapshot before group/number selectors, selectors once left-to-right; no writable system aliases; active rows selected after selector effects',
+        publication='Existing explicit RobotContext/group required; numbered whole writes may populate a row, active and field writes require existing rows; publish one independent validated table entry',
+        persistence='Existing table/current/model JSON retains published rows and active selections; no hardware or current robot-state update',
+        boundary='No orientation-column edits, joint conversion, active ID changes, service/READ output references, generic system-variable discovery, controller write or strict equivalence',
+        guide='docs/system-pose-writes.md',controller_validated=False)
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:

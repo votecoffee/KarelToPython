@@ -1,0 +1,34 @@
+{
+  "version": "26.1102.203514",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored offline table assignment, field staging, geometry/config rejection, linked/handler execution and JSON replay; no native compiler/controller execution",
+  "implemented": {
+    "targets": "Whole numbered frame/tool entries and active selected rows; LOCATION vector/scalars and CONFIG_DATA whole/scalar fields",
+    "values": "Complete Cartesian records; preserve whole source representation/external axes and unedited fields during staged partial edits",
+    "capture": "Capture RHS before group/number selectors, selectors once left-to-right; final active selection after selector effects",
+    "publication": "Explicit context/group only; numbered whole writes can populate rows, active/field writes require existing rows; independent row replacement after complete validation",
+    "persistence": "Existing RobotContext table/model JSON, explicit identity overrides, grouped contexts and supplied external axes",
+    "observations": "Value-free SYSTEM_POSE_WRITE outcomes plus source-located report target/capture metadata"
+  },
+  "remaining": [
+    "Writable table aliases through READ/services/BYNAME",
+    "Orientation-column and active selection ID assignments",
+    "Automatic joint conversion and inferred robot context",
+    "Native/controller storage and execution, hardware motion and public strict mode"
+  ],
+  "verification": [
+    "tests/test_system_pose_writes.py",
+    "tests/test_system_pose_write_guards.py",
+    "tests/test_system_pose_values.py",
+    "tests/test_frame_table_contexts.py",
+    "tests/test_runtime_portability.py",
+    "examples/system_pose_write_frame.kl",
+    "examples/system_pose_write_fields.kl",
+    "examples/system_pose_write_extended.kl",
+    "examples/system_pose_write_active.kl",
+    "examples/system_pose_write_project/main.kl",
+    "examples/system_pose_write_handler_project/main.kl"
+  ],
+  "guide": "../system-pose-writes.md"
+}

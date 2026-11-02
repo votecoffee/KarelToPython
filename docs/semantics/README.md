@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [system pose write ledger](system_pose_write_semantics.json) adds dedicated
+offline table assignments and staged location/configuration edits. It supersedes
+the handler/pose ledger's direct-write exclusion while retaining independent
+reads, writable-alias, orientation, discovery and native boundaries.
+
 The [dynamic FILE ARRAY ledger](dynamic_file_array_semantics.json) adds bounded
 creation and closed allocation markers, superseding earlier creation exclusions
 in the static FILE ARRAY and dynamic FILE/data ARRAY ledgers. Generic data-copy

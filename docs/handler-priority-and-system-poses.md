@@ -68,9 +68,9 @@ Bare fields of these computed values are private routine arguments. Computed
 USING also captures a private copy, so editing it leaves the configured table
 unchanged.
 
-Direct source assignment to these roots/descendants and writable READ/service
-references are rejected. No source operation in this extension writes a table or
-creates a live system alias. Generic GET_VAR/SET_VAR/BYNAME discovery is unchanged;
+[Dedicated table assignments](system-pose-writes.md) now accept whole poses and
+staged LOCATION/CONFIG_DATA edits. Writable READ/service references remain rejected,
+and these expressions create no live system alias. Generic GET_VAR/SET_VAR/BYNAME discovery is unchanged;
 explicit VariableStore bindings remain separate. Other dollar roots and members,
 whole `$GROUP` objects, bare `$UFRAME`/`$UTOOL` values and chained table index
 syntax remain unsupported.
