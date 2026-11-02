@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [PATH I/O ledger](path_io_semantics.json) adds root-PATH scalar READ/WRITE
+and FILE open-state queries. It supersedes earlier blanket resource-I/O/FILE
+query exclusions while keeping native framing, nested resources and live handles
+outside these data and descriptor policies.
+
 The [handler/pose ledger](handler_pose_semantics.json) adds definition-time handler
 priority capture, stable checkpoint ordering, independent frame/tool source values
 and model-free table contexts. Native interrupts, writable system aliases and

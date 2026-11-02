@@ -1,0 +1,8 @@
+PROGRAM MAIN
+VAR stream:FILE before,during,after:BOOLEAN value:INTEGER
+ROUTINE closed(stream:FILE):BOOLEAN FROM LIB
+BEGIN
+  before=closed(stream) OPEN FILE stream('WO','output') during=closed(stream)
+  CLOSE FILE stream after=closed(stream)
+  IF before AND NOT during AND after THEN value=1 ELSE value=0 ENDIF
+END MAIN

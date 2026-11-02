@@ -61,7 +61,9 @@ input. Malformed schemas/shapes and invalid known existing aggregate values are
 also rejected before the callback or FILE read. No container or robot defaults
 are invented. Existing constants, FOR counters and readonly guards remain.
 POSITION, including nested POSITION, is excluded because its orientation storage
-remains readonly. FILE, PATH, QUEUE_TYPE and embedded resources remain excluded.
+remains readonly. [Root PATH input](path-io-and-file-initialization.md) now expands
+its supplied header/nodes under an explicit in-place extension. FILE, QUEUE_TYPE
+and embedded resources remain excluded.
 
 The complete typed response is validated before any scalar destination is written,
 including late CONFIG turn bounds. An invalid late value leaves earlier ordinary

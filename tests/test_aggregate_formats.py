@@ -192,7 +192,7 @@ class AggregateFormatGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError):reader('READ(a::4)',decl='a:POSITION')
 
     def test_resource_output_remains_excluded(self):
-        with self.assertRaises(TranslationError):writer('WRITE(a::4)',decl='a:PATH')
+        with self.assertRaises(TranslationError):writer('WRITE(a::4)',decl='a:FILE')
 
     def test_runtime_helpers_reject_invalid_format_types(self):
         p,_=writer();p.run()

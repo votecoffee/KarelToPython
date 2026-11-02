@@ -1,0 +1,37 @@
+{
+  "SOURCE": {
+    "nodes": [
+      {
+        "VALUE": 7
+      },
+      {
+        "VALUE": 9
+      }
+    ],
+    "data": {
+      "COUNT": 2
+    }
+  },
+  "TARGET": {
+    "nodes": [
+      {
+        "VALUE": 7
+      },
+      {
+        "VALUE": 9
+      }
+    ],
+    "data": {
+      "COUNT": 2
+    }
+  },
+  "VALUE": 16,
+  "STATUS": 0,
+  "STREAM": {
+    "file": "output",
+    "open": false,
+    "position": 12,
+    "binary": true,
+    "status": 0
+  }
+}

@@ -1,0 +1,5 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+ROUTINE fill(route:PATH NODEDATA=node_t PATHHEADER=header_t;stream:FILE):INTEGER
+BEGIN READ stream(route) RETURN route[1].value+route[2].value END fill
+BEGIN END LIB

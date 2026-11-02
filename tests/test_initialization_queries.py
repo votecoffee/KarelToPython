@@ -165,7 +165,7 @@ class InitializationValidationTests(unittest.TestCase):
         with self.assertRaises(TranslationError): legacy_translate('PROGRAM T VAR v: VECTOR flag: BOOLEAN BEGIN flag=UNINIT(v) END T')
 
     def test_arrays_paths_structures_and_resources_remain_blocked(self):
-        declarations=('items: ARRAY[2] OF INTEGER','items: PATH','items: FILE','items: QUEUE_TYPE','items: packet')
+        declarations=('items: ARRAY[2] OF INTEGER','items: PATH','items: QUEUE_TYPE','items: packet')
         for declaration in declarations:
             with self.subTest(declaration=declaration),self.assertRaises(TranslationError):
                 compile_program('flag=UNINIT(items)',decl=declaration+' flag: BOOLEAN',prefix='TYPE packet=STRUCTURE n: INTEGER ENDSTRUCTURE')

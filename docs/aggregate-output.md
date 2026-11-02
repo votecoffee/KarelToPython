@@ -1,5 +1,9 @@
 # Whole data aggregate WRITE
 
+[Whole-PATH output](path-io-and-file-initialization.md) now captures its supplied
+header/nodes as ordinary scalar fields, with explicit empty-path and layout
+boundaries. Nested resources remain excluded.
+
 Pythonic WRITE accepts complete ARRAY, user STRUCTURE, VECTOR, CONFIG,
 Cartesian/POSITION and JOINTPOS values. This is an authored source extension
 through existing scalar output transports, without native aggregate WRITE,

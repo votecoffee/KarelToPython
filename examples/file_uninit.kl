@@ -1,0 +1,7 @@
+PROGRAM FILE_UNINIT
+VAR stream:FILE before,during,after:BOOLEAN value:INTEGER
+BEGIN
+  before=UNINIT(stream) OPEN FILE stream('WO','output') during=UNINIT(stream)
+  CLOSE FILE stream after=UNINIT(stream)
+  IF before AND NOT during AND after THEN value=1 ELSE value=0 ENDIF
+END FILE_UNINIT

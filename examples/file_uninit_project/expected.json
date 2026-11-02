@@ -1,0 +1,22 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "STREAM": {
+        "file": "output",
+        "open": false,
+        "position": 0,
+        "binary": false,
+        "status": 0
+      },
+      "BEFORE": true,
+      "DURING": false,
+      "AFTER": true,
+      "VALUE": 1
+    }
+  }
+}

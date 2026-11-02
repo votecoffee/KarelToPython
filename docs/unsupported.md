@@ -87,6 +87,11 @@ they are boundaries rather than promises to accept every such source form later.
 
 ## Types, expressions and interfaces
 
+[Root PATH READ/WRITE](path-io-and-file-initialization.md) now expands supplied
+header/node data through scalar transports. Automatic node allocation, native
+PATH framing, empty headerless input, formatted empty output and POSITION input
+remain excluded. FILE UNINIT uses the explicit descriptor open-state convention.
+
 - `COMMON_ASSOC`, `GROUP_ASSOC` and the obsolete `STD_PTH_NODE.GROUP_DATA` /
   `COMMON_DATA` association layouts. [Predefined structures](path-declarations.md)
   now expose DISP_DAT_T data and the portable STD_PTH_NODE NODE_POS field; PATH

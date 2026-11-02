@@ -1,0 +1,10 @@
+PROGRAM WHOLE_PATH_WRITE
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t value,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    INSERT_NODE(route,1,status) INSERT_NODE(route,2,status)
+    route.count=2 route[1].value=7 route[2].value=9
+    WRITE(route,CR) value=route[1].value+route[2].value done=TRUE
+  ENDIF
+END WHOLE_PATH_WRITE

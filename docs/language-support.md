@@ -1,5 +1,9 @@
 # Language support
 
+[Whole-PATH I/O and FILE queries](path-io-and-file-initialization.md) now add
+header/node scalar output, captured in-place input and exact descriptor open-state
+queries, with ordinary text/binary transports and saved-data replay.
+
 [Handler priorities and source frame/tool values](handler-priority-and-system-poses.md)
 now provide stable checkpoint ordering, explicit system pose reads and model-free
 frame/tool table contexts with saved-JSON replay.
@@ -23,7 +27,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.163727. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.171841. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

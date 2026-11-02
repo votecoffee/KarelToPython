@@ -1,0 +1,8 @@
+PROGRAM MAIN
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t value,status:INTEGER stream:FILE
+ROUTINE fill(route:PATH NODEDATA=node_t PATHHEADER=header_t;stream:FILE):INTEGER FROM LIB
+BEGIN
+  IF PATH_LEN(route)=0 THEN INSERT_NODE(route,1,status) INSERT_NODE(route,2,status) ENDIF
+  OPEN FILE stream('RB','input') value=fill(route,stream) CLOSE FILE stream
+END MAIN

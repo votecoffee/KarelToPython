@@ -1,5 +1,9 @@
 # Uniform aggregate READ and WRITE formats
 
+[Root PATH I/O](path-io-and-file-initialization.md) also uses these uniform scalar
+controls after header/node capture. Formatted empty PATH output and empty
+headerless input remain excluded.
+
 Pythonic whole-data READ and WRITE now accept the scalar `::width` and second
 format expressions on aggregate items. Evaluate each format expression once,
 then interpret that list separately for every expanded scalar field. This is an

@@ -183,7 +183,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('handler_priority', 'VALUE', 3),
                     ('handler_scan_options', 'VALUE', 4),
                     ('system_pose_tables', 'VALUE', 35),
-                    ('system_pose_linkage', 'VALUE', 12)]
+                    ('system_pose_linkage', 'VALUE', 12),
+                    ('whole_path_write', 'VALUE', 16),
+                    ('whole_path_read', 'VALUE', 36),
+                    ('whole_path_binary', 'VALUE', 16),
+                    ('file_uninit', 'VALUE', 1)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

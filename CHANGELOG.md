@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1102.171841 - 2026-11-02
+
+- Add Pythonic whole-PATH WRITE and captured in-place READ. Expand the optional
+  header before existing nodes through ordinary declaration/row-major/joint-axis
+  scalar order, without node allocation or implicit framing.
+- Validate exact PATH/component storage and known data before formats/transport.
+  Detach complete output values and retain original input cells through later
+  selector effects, node deletion, borrowed routines and cooperative transports.
+- Reuse uniform aggregate formats, typed callbacks and text/binary FILE rules,
+  including scalar encodings, capacities, cursor rollback and publication checks.
+  Retain component schema and 1024-field/CR limits; POSITION input stays excluded.
+- Support unformatted empty PATH output as one empty item. Reject formatted empty
+  output and headerless empty input; native PATH layouts remain unclaimed.
+- Add exact FILE UNINIT open-state queries across aliases and ordinary descriptors.
+  Opening/closing ownership controls the result without backend I/O or metadata
+  changes; retain BYTE and other whole-resource query exclusions.
+- Add 83 regressions, four examples, two linked projects, compiler-free execution
+  and saved-context replay. Update legacy exclusions, README and semantic guides.
+
 ## 26.1102.163727 - 2026-11-02
 
 - Add Pythonic handler WITH $PRIORITY and combined $SCAN_TIME options. Capture

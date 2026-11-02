@@ -1445,7 +1445,14 @@ def _record_uninitialized(value,spec,line=None):
     return missing
 
 
+def file_uninit(value,line=None):
+    if not _pythonic() or type(value) is not FileHandle:
+        raise KarelRuntimeError('FILE initialization queries require ordinary Pythonic descriptors',line)
+    return value.owner is None
+
+
 def uninit(value,line=None):
+    if isinstance(value,FileHandle):return file_uninit(value,line)
     if isinstance(value, JointPosition): return not fully_initialized(value)
     if isinstance(value,Structure) and value.spec[0] in DATA_RECORD_TYPES:
         if not _pythonic(): raise KarelRuntimeError('Whole record initialization queries require Pythonic mode',line)
@@ -2392,10 +2399,40 @@ def capture_read_target(target, formats, line=None):
     return target, read_formats(target.spec, formats, line)
 
 
+def path_io_components(spec,line=None):
+    """Concrete data schemas only; PATH remains a root-only I/O extension."""
+    if type(spec) is not tuple or len(spec)!=3 or spec[0]!='PATH':
+        raise KarelRuntimeError('PATH I/O requires an exact PATH schema',line)
+    node=PREDEFINED_STRUCTURES['STD_PTH_NODE'] if spec[1] is None else spec[1];header=spec[2]
+    if (type(node) is not tuple or not node or node[0]!='STRUCTURE'
+            or header is not None and (type(header) is not tuple or not header or header[0]!='STRUCTURE')):
+        raise KarelRuntimeError('PATH I/O requires STRUCTURE node/header schemas',line)
+    for component in (node,header):
+        if component is not None:_validate_data_schema(component,line)
+    return node,header
+
+
+def _path_io_values(spec,value,line=None):
+    node,header=path_io_components(spec,line)
+    if type(value) is not PathValue or value.spec!=spec or type(value.nodes) is not list or len(value.nodes)>32767:
+        raise KarelRuntimeError('PATH I/O requires matching ordinary PATH storage',line)
+    if header is None and value.data is not None:
+        raise KarelRuntimeError('PATH I/O found unexpected header storage',line)
+    count=(scalar_leaf_count(header) if header is not None else 0)+len(value.nodes)*scalar_leaf_count(node)
+    if count>1024:raise KarelRuntimeError('PATH I/O is limited to 1024 scalar fields including CR',line)
+    values=([(header,value.data)] if header is not None else [])+[(node,item) for item in value.nodes]
+    for expected,item in values:_aggregate_value(expected,item,line,allow_partial=True)
+    return values
+
+
 def aggregate_write_type(spec,trail=()):
     """Type-only output eligibility; POSITION is readable data, resources are not."""
     if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:return False
     kind=spec[0];trail=trail+(id(spec),)
+    if kind=='PATH' and len(trail)==1:
+        try:components=path_io_components(spec)
+        except (KarelRuntimeError,TypeError,IndexError):return False
+        return all(aggregate_write_type(item,trail) for item in components if item is not None)
     if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING','JOINTPOS'):return True
     if kind=='ARRAY':return aggregate_write_type(spec[2],trail)
     if kind in RECORD_TYPES:return all(aggregate_write_type(member,trail) for _,member in record_fields(spec))
@@ -2407,6 +2444,11 @@ def aggregate_format_kinds(spec,trail=()):
     if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:
         raise KarelRuntimeError('Aggregate format schema is malformed or exceeds 64 levels')
     kind=spec[0];trail=trail+(id(spec),)
+    if kind=='PATH' and len(trail)==1:
+        kinds=set()
+        for item in path_io_components(spec):
+            if item is not None:kinds.update(aggregate_format_kinds(item,trail))
+        return kinds
     if kind=='ARRAY':return aggregate_format_kinds(spec[2],trail)
     if kind=='JOINTPOS':return {'REAL'}
     if kind in RECORD_TYPES:
@@ -2425,6 +2467,11 @@ class _AggregateWriteValue:
 def capture_aggregate_write(spec,value,line=None):
     """Validate and detach complete immutable scalar leaves before format calls."""
     if not _pythonic():raise KarelRuntimeError('Aggregate WRITE requires Pythonic mode',line)
+    if spec[0]=='PATH':
+        fields=[]
+        for expected,item in _path_io_values(spec,value,line):
+            fields.extend(capture_aggregate_write(expected,item,line).fields)
+        return _AggregateWriteValue(spec,fields)
     actual=getattr(value,'spec',None)
     if spec[0]=='ARRAY' and actual is not None and parameter_accepts(spec,actual):spec=actual
     count=_validate_data_schema(spec,line)
@@ -2445,10 +2492,15 @@ def capture_aggregate_write(spec,value,line=None):
 
 def format_aggregate_write(captured,formats=(),line=None,*,file=None):
     """Interpret one captured format list separately for every scalar kind."""
-    if not _pythonic() or type(captured) is not _AggregateWriteValue or type(captured.fields) is not tuple or not 1<=len(captured.fields)<=1024:
+    if not _pythonic() or type(captured) is not _AggregateWriteValue or type(captured.fields) is not tuple or not 0<=len(captured.fields)<=1024:
         raise KarelRuntimeError('Aggregate WRITE requires checked captured data',line)
     if type(formats) not in (list,tuple) or len(formats)>2 or any(type(value) is not int for value in formats):
         raise KarelRuntimeError('WRITE requires at most two INTEGER format specifiers',line)
+    if not captured.fields:
+        if not aggregate_write_type(captured.spec) or captured.spec[0]!='PATH':
+            raise KarelRuntimeError('Only an empty PATH may omit captured output fields',line)
+        if formats:raise KarelRuntimeError('Empty PATH output requires unformatted WRITE',line)
+        return [b''] if file is not None and file.binary else ['']
     result=[]
     for expected,item in captured.fields:
         kind=expected[0];controls=formats
@@ -2466,6 +2518,10 @@ def aggregate_read_type(spec,trail=()):
     """Type-only eligibility, including generic source ARRAY/STRING formals."""
     if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:return False
     kind=spec[0];trail=trail+(id(spec),)
+    if kind=='PATH' and len(trail)==1:
+        try:components=path_io_components(spec)
+        except (KarelRuntimeError,TypeError,IndexError):return False
+        return all(aggregate_read_type(item,trail) for item in components if item is not None)
     if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING','JOINTPOS'):return True
     if kind=='ARRAY':return aggregate_read_type(spec[2],trail)
     if kind in RECORD_TYPES and kind!='POSITION':return all(aggregate_read_type(member,trail) for _,member in record_fields(spec))
@@ -2480,6 +2536,15 @@ def capture_aggregate_read_target(target,formats,line=None):
         raise KarelRuntimeError('Aggregate READ requires writable resource-free data without POSITION',line)
     if type(formats) not in (list,tuple) or formats:
         raise KarelRuntimeError('Aggregate READ formats require selecting scalar fields',line)
+    if target.spec[0]=='PATH':
+        value=target.raw();components=_path_io_values(target.spec,value,line)
+        if not components:raise KarelRuntimeError('PATH READ requires an existing header or node',line)
+        result=[]
+        if target.spec[2] is not None:
+            result.extend(capture_aggregate_read_target(Reference(target.spec[2],vars(value),'data'),[],line))
+        for index in range(len(value.nodes)):
+            result.extend(capture_aggregate_read_target(Reference(value.node_spec,value.nodes,index),[],line))
+        return result
     count=_validate_data_schema(target.spec,line)
     if count>1024:raise KarelRuntimeError('Aggregate READ is limited to 1024 scalar destinations including CR',line)
     # Check exact host schemas and all known values; no source data is consumed.

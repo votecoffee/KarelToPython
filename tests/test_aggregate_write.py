@@ -145,7 +145,7 @@ class AggregateWriteGuardTests(unittest.TestCase):
         p,_=build('a[1]=7 a[2]=9 WRITE(a::3::16)');p.run();self.assertEqual(texts(p),[' 07 09'])
 
     def test_resources_remain_excluded(self):
-        for kind in ('FILE','PATH','QUEUE_TYPE'):
+        for kind in ('FILE','QUEUE_TYPE'):
             with self.assertRaises(TranslationError):build('WRITE(a)',decl='a:'+kind)
 
     def test_malformed_array_shape_rejects(self):

@@ -238,7 +238,7 @@ class PythonicWriteValidationTests(unittest.TestCase):
         return caught.exception
 
     def test_resource_output_types_remain_explicit(self):
-        for spec in ('FILE','PATH','QUEUE_TYPE'):
+        for spec in ('FILE','QUEUE_TYPE'):
             self.reject('WRITE(value)','E_TYPE',declarations=f'value: {spec}')
 
     def test_empty_and_trailing_items(self):

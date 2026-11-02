@@ -1,0 +1,13 @@
+PROGRAM WHOLE_PATH_BINARY
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+VAR source,target:PATH NODEDATA=node_t PATHHEADER=header_t value,status:INTEGER stream:FILE
+BEGIN
+  IF PATH_LEN(source)=0 THEN
+    INSERT_NODE(source,1,status) INSERT_NODE(source,2,status)
+    source.count=2 source[1].value=7 source[2].value=9
+  ENDIF
+  IF PATH_LEN(target)=0 THEN INSERT_NODE(target,1,status) INSERT_NODE(target,2,status) ENDIF
+  OPEN FILE stream('WB','output') WRITE stream(source) CLOSE FILE stream
+  OPEN FILE stream('RB','output') READ stream(target) CLOSE FILE stream
+  value=target[1].value+target[2].value
+END WHOLE_PATH_BINARY

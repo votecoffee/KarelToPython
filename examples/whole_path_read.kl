@@ -1,0 +1,8 @@
+PROGRAM WHOLE_PATH_READ
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+VAR route:PATH NODEDATA=node_t PATHHEADER=header_t value,status:INTEGER input:FILE
+BEGIN
+  IF PATH_LEN(route)=0 THEN INSERT_NODE(route,1,status) INSERT_NODE(route,2,status) ENDIF
+  OPEN FILE input('RB','input') READ input(route) CLOSE FILE input
+  value=route[1].value+route[2].value
+END WHOLE_PATH_READ

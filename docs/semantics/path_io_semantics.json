@@ -1,0 +1,37 @@
+{
+  "version": "26.1102.171841",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored whole-PATH scalar I/O and FILE descriptor query tests; no native PATH file-layout or initialization-bit equivalence",
+  "implemented": {
+    "path_order": "Optional header followed by supplied nodes; declaration/row-major/joint-axis order with exact concrete resource-free component schemas",
+    "output": "Validate and detach complete values before formats; uniform scalar rendering and existing single output publication; unformatted empty PATH emits one empty item",
+    "input": "Capture original existing header/node scalar cells before formats; no automatic allocation/resizing; preserve ordinary validation, cursor and response publication rules",
+    "bounds": "Existing 64-level component schemas and 1024 expanded scalar/CR cap; no nested resources or POSITION input",
+    "transports": "Typed callbacks/TextInput/JSON and existing text/binary/cooperative FILE contracts; no new separators or self-describing framing",
+    "file_query": "UNINIT on exact ordinary FILE descriptor reports absent owner; pure open-state query with existing aliases, cancel and close behavior",
+    "persistence": "Existing PATH data codecs and explicit backend data snapshots; no capture objects, live handles or suspended operation restoration"
+  },
+  "remaining": [
+    "Automatic node allocation/length framing and native PATH binary records",
+    "Formatted empty PATH output, empty headerless PATH input and POSITION input",
+    "Resource ARRAY/field I/O and generic FILE codecs",
+    "Packed CONFIG-number encoding, native initialization flags and strict mode"
+  ],
+  "verification": [
+    "tests/test_path_io.py",
+    "tests/test_file_initialization.py",
+    "tests/test_aggregate_read.py",
+    "tests/test_aggregate_write.py",
+    "tests/test_aggregate_formats.py",
+    "tests/test_initialization_queries.py",
+    "tests/test_runtime_portability.py",
+    "examples/whole_path_write.kl",
+    "examples/whole_path_read.kl",
+    "examples/whole_path_binary.kl",
+    "examples/file_uninit.kl",
+    "examples/whole_path_project/MAIN.kl",
+    "examples/file_uninit_project/MAIN.kl"
+  ],
+  "guide": "../path-io-and-file-initialization.md"
+}

@@ -2513,7 +2513,7 @@ class Emitter:
             code, spec = self.expression(argument, raw=True)
             if spec[0] == 'BYTE':
                 self.error('E_BYTE_UNINIT', 'BYTE initialization queries are not implemented; the manual specifies no uninitialized checking for BYTE', argument.token)
-            supported=('INTEGER','SHORT','BOOLEAN','REAL','STRING','JOINTPOS')+(DATA_RECORD_TYPES if self.mode=='pythonic' else ())
+            supported=('INTEGER','SHORT','BOOLEAN','REAL','STRING','JOINTPOS')+((*DATA_RECORD_TYPES,'FILE') if self.mode=='pythonic' else ())
             if spec[0] not in supported:
                 self.error('E_TYPE', 'Invalid UNINIT argument type', expr.token)
             if self.root_name(argument) in self.visible_constants():
@@ -2590,6 +2590,8 @@ class Emitter:
             self.atan2_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, argument_order=['x','y'],
                                        arguments_evaluated_once=True, runtime_exact_subset_guard=self.mode == 'strict', result_type='REAL'))
+        if expr.value=='UNINIT' and spec==('FILE',):
+            return f'_rt.file_uninit({codes[0]},{expr.token.line})',result_type
         return f'_rt.builtin({expr.value!r}, [{", ".join(codes)}], {expr.token.line})', result_type
 
     def conversion_procedure(self, expr):
@@ -3814,7 +3816,7 @@ class Emitter:
                 items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
                                   format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
                 if aggregate:
-                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
+                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='PATH-header/nodes/declaration/row-major/joint-axis' if data_type=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                     self.features.add('whole data aggregate WRITE')
                 self.features.add(f'WRITE {data_type} output request')
                 if formats: self.features.add(f'WRITE {data_type} formatting')
@@ -3917,7 +3919,7 @@ class Emitter:
                 destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
                                          line=target.token.line, column=target.token.column))
                 if aggregate:
-                    destinations[-1].update(aggregate=True,scalar_order='declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
+                    destinations[-1].update(aggregate=True,scalar_order='PATH-header/nodes/declaration/row-major/joint-axis' if spec[0]=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                     self.features.add('whole data aggregate READ')
                 if self.mode=='pythonic' and self.is_config_subfield(target):
                     self.features.add('bounded CONFIG field READ')
@@ -5161,7 +5163,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='READ captures all selected leaf references before format calls; WRITE detaches complete immutable scalar fields before format calls; later selectors and pause retain captures',
         transports='Existing typed callback/TextInput/text and binary FILE contracts, including scalar binary width restrictions and explicit STRING width overrides; no native packed layout',
         limits='Existing 64-level schema, 1024 expanded scalar/CR and output/backend limits unchanged; mixed records reject formats unsupported by any scalar kind',
-        boundaries='No per-field format mapping, resource input/output, POSITION input/orientation writes, missing-container input, partial output, native/controller or strict claim',
+        boundaries='Root PATH data follows path_io_policy; no per-field format mapping, other resource input/output, POSITION input/orientation writes, missing-container input, partial output, native/controller or strict claim',
         guide='docs/aggregate-formats.md',controller_validated=False)
     report['aggregate_write_policy']=dict(
         mode='Pythonic whole ARRAY/user STRUCTURE/VECTOR/CONFIG/Cartesian/POSITION/JOINTPOS output; not native aggregate WRITE acceptance',
@@ -5169,7 +5171,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 data-schema levels and 1024 total expanded scalar items including CR; omitted-file text retains 254 characters; FILE capacity remains backend-defined',
         rendering='Default or uniform scalar formats, no extra separators; format expressions evaluate once after complete data capture. Binary STRING leaves default to declared capacity, with explicit widths overriding it and NUL padding retained by ordinary reads; no native packed layout',
         publication='One recorder/callback request or FILE write after complete rendering; missing/unknown/invalid data publishes no outer output; prior source and nested-output effects remain',
-        boundaries='No resources/embedded resources, partial-data placeholders, generic service changes, native binary/layout/status/controller acceptance or strict claim; POSITION is output data only',
+        boundaries='Root PATH output follows path_io_policy; no other resources/embedded resources, partial-data placeholders, generic service changes, native binary/layout/status/controller acceptance or strict claim; POSITION is output data only',
         guide='docs/aggregate-output.md',controller_validated=False)
     report['aggregate_read_policy']=dict(
         mode='Pythonic extension for whole ARRAY, user STRUCTURE, VECTOR, CONFIG, XYZWPR/XYZWPREXT and JOINTPOS destinations; not native aggregate READ acceptance',
@@ -5177,7 +5179,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         validation='Exact concrete storage, at most 64 schema levels and 1024 expanded scalar destinations plus CR; missing scalar leaves allowed, missing containers rejected; preserve root/field identities and validate complete responses before scalar publication',
         formats='Aggregate items use defaults or uniform scalar formats evaluated once after leaf capture. Callback/JSON responses are flat scalar batches; FILE binary data uses ordinary separate scalar widths, never packed native records',
         transports='Existing callback, TextInput, ordinary text/binary FILE, serial, pipe and keyboard transports; retained capture through cooperative waits/pause/cancellation',
-        boundaries='No POSITION orientation writes, resources/embedded resources, inferred robot data, generic service alias relaxation, native packed layout, controller acceptance or strict mode',
+        boundaries='Root PATH input follows path_io_policy; no POSITION orientation writes, other resources/embedded resources, inferred robot data, generic service alias relaxation, native packed layout, controller acceptance or strict mode',
         guide='docs/aggregate-input.md',controller_validated=False)
     report['path_archive_policy']=dict(
         forms='VR SAVE/LOAD/CLEAR, variable-only and mixed recursive PBR batches, SAVE_DRAM and explicit host restore_dram',
@@ -5339,6 +5341,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         linkage='Explicit callbacks and TaskRegistry retained; translate_project/load_project links typed FROM routines and imported globals among supplied KAREL sources; no native ABI or motion semantics',
         requests='Named/numeric remote pause/abort delivered at target checkpoints, including paused-task ABORT handlers; self identity follows linked caller; synchronous child ABORT/STOP does not terminate caller',
         guide='docs/offline-services.md',controller_validated=False)
+    report['path_io_policy']=dict(
+        source='Whole PATH WRITE and in-place READ, including exact linked/borrowed PATH formals; header fields followed by existing nodes in declaration/row-major/joint-axis order',
+        capture='Validate exact PATH/container schemas and all known data before formats or transport; WRITE detaches values and READ captures original scalar cells without resizing',
+        formats='Reuse uniform scalar aggregate controls and ordinary text/binary/default-input transports; 1024 scalar fields including CR and existing output/file limits',
+        empty='Unformatted empty PATH WRITE produces one empty item; READ requires an existing header or node, and formatted empty output is rejected',
+        file_initialization='UNINIT on an ordinary FILE descriptor returns owner-is-absent; opening initializes, closing/cancel semantics follow existing descriptor ownership; no I/O or cursor changes',
+        boundary='No PATH length/type framing, native PATH storage encoding, automatic node allocation, POSITION input, nested resources or generic FILE codecs; strict remains future work',
+        guide='docs/path-io-and-file-initialization.md',controller_validated=False)
     report['handler_priority_policy']=dict(
         syntax='CONDITION[n]: WITH $PRIORITY=INTEGER, $SCAN_TIME=INTEGER; comma-separated options or repeated WITH, no duplicates',
         capture='Number then option expressions once in source order; complete validation before registration; priority 1..99, lower first, default 50',
@@ -5777,7 +5787,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         meaning='Whole builtin record is uninitialized when any nested leaf or complete nested record is uninitialized; inspect without initializing, copying or changing source storage',
         validation='Validate record schema and known scalar types/domains; inspect all fields even when another is uninitialized; no proper-rotation or robot/configuration validity query',
         operands='Variable, field or individual ARRAY-element storage; Pythonic parentheses unwrap storage; computed selectors evaluate once; constants and direct function/literal/constructor results rejected; existing temporary-field/element selectors retained',
-        exclusions='Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE remain blocked; BYTE unknown contents remain distinct from uninitialized state',
+        exclusions='Whole ARRAY, PATH, user STRUCTURE and QUEUE_TYPE remain blocked; FILE uses Pythonic open-state queries; BYTE unknown contents remain distinct from uninitialized state',
         boundary='Portable partial-record rule rather than native allocation flags; existing scalar/joint behavior and exact interfaces retained; strict remains future work',
         guide='docs/initialization-queries.md',controller_validated=False)
     report['data_record_policy']['initialization']='Scalar leaves start uninitialized; whole builtin-record UNINIT follows initialization_query_policy; copies still require complete values'

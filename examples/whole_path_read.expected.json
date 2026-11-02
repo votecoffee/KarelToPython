@@ -1,0 +1,24 @@
+{
+  "ROUTE": {
+    "nodes": [
+      {
+        "VALUE": 17
+      },
+      {
+        "VALUE": 19
+      }
+    ],
+    "data": {
+      "COUNT": 3
+    }
+  },
+  "VALUE": 36,
+  "STATUS": 0,
+  "INPUT": {
+    "file": "input",
+    "open": false,
+    "position": 12,
+    "binary": true,
+    "status": 0
+  }
+}

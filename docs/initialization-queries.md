@@ -39,8 +39,9 @@ query result. Initialized records need not describe a proper rotation, reachable
 pose or valid robot configuration: geometry operations perform their own checks.
 
 Whole ARRAY, PATH and user STRUCTURE queries remain rejected, following the
-manual's explicit exclusions. Whole FILE and QUEUE_TYPE queries also remain
-blocked. Constants, literals and direct constructor/function results are rejected.
+manual's explicit exclusions. QUEUE_TYPE queries remain blocked.
+[FILE queries](path-io-and-file-initialization.md) now report the descriptor
+open-state convention, without backend I/O or a native initialization-bit claim. Constants, literals and direct constructor/function results are rejected.
 Existing field/element selectors on aggregate temporaries retain their ordinary
 behavior, including `UNINIT(make()[1])`. BYTE remains distinct: unknown BYTE contents are not an
 uninitialized value, and BYTE queries remain rejected even after a write.
