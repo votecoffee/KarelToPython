@@ -1,0 +1,9 @@
+{
+  "files": {},
+  "variable_archives": {
+    "limit": 16777216,
+    "program_limit": 256,
+    "calls": {},
+    "flash": {}
+  }
+}

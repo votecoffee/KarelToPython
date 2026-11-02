@@ -1,0 +1,9 @@
+PROGRAM LIB
+TYPE row_t=ARRAY[3]OF INTEGER
+VAR status:INTEGER
+ROUTINE change(data:ARRAY OF row_t):INTEGER
+BEGIN
+  RENAME_VAR('CACHE','ITEM','ROWS',status) data[1,1]=7 data[2,3]=9
+  RETURN data[1,1]+data[2,3]
+END change
+BEGIN END LIB

@@ -9,7 +9,7 @@ offline runtime and practical Python numeric equivalents. Unsupported syntax pro
 diagnostics or runtime errors. The translator does not connect to a robot.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1102.150334**. It is a
+tool are named **karel2py**. The current implementation is **26.1102.153623**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -639,6 +639,10 @@ Whole QUEUE_TYPE values also transfer logical contents and sequence counters
 through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue
 operation. See [queue transfers](docs/queue-transfers.md).
 
+[Dynamic typed data arrays](docs/dynamic-data-arrays.md) now accept ARRAY OF data
+types/aliases and extra outer dimensions around named arrays. Created layouts
+retain typed children through BYNAME, transfers, JSON and portable archives.
+
 [Selected ARRAY variable transfers](docs/prefix-variable-transfers.md) now let
 GET_VAR/SET_VAR copy named rows/planes, capture SET source prefixes and write GET
 data-output prefixes, with existing conversions and metadata/overlap guards.
@@ -836,9 +840,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 348 authored runnable examples, checks complete
+The example runner translates 352 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 106 complete linked source projects. It also checks that unsupported
+fixtures, plus 108 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

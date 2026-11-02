@@ -1,0 +1,28 @@
+{
+  "robot": {
+    "dh": [
+      {
+        "a": 100
+      },
+      {
+        "a": 100
+      }
+    ],
+    "current": {
+      "axis_limit_mask": 0,
+      "overtravel_mask": 0,
+      "joints": {
+        "type": [
+          "JOINTPOS",
+          2
+        ],
+        "value": {
+          "axes": [
+            0.0,
+            90.0
+          ]
+        }
+      }
+    }
+  }
+}

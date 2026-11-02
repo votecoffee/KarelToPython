@@ -1,0 +1,12 @@
+PROGRAM DYNAMIC_ARRAY_POSE
+TYPE joints_t=ARRAY[2]OF JOINTPOS2
+VAR poses:ARRAY[2]OF XYZWPR value,entry,status:INTEGER done:BOOLEAN
+ROUTINE fill(data:ARRAY OF joints_t)
+BEGIN data[1,1][1]=0 data[1,1][2]=90 data[1,2][1]=0 data[1,2][2]=90 END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','','ARRAY OF JOINTS_T',1,2,0,0,status)
+    fill(BYNAME('CACHE','ITEM',entry)) GET_VAR(entry,'CACHE','ITEM[1]',poses,status)
+    value=ROUND(poses[1].x)+ROUND(poses[2].x) done=TRUE
+  ENDIF
+END DYNAMIC_ARRAY_POSE

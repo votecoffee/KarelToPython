@@ -274,7 +274,9 @@ they are boundaries rather than promises to accept every such source form later.
   controller task identifiers remain unverified.
 - Native program load/save/translate/backup/clear/restore, task discovery and
   implicit external linkage. [Dynamic variables and BYNAME](dynamic-variables.md)
-  now have explicit offline forms; renaming compiled globals or attached program
+  now have explicit offline forms. [Typed data arrays](dynamic-data-arrays.md)
+  now add ARRAY OF data aliases and named-array outer dimensions, with bounded
+  schema/reservation checks and ordinary saved/archive layouts; renaming compiled globals or attached program
   namespaces, embedded resources, restored open FILE handles and native allocation
   remain unsupported. [Dynamic FILE descriptors](dynamic-files.md) now create root
   FILE/aliases for explicit typed I/O and cancellation; JSON retains closed

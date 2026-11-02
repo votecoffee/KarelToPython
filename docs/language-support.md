@@ -10,7 +10,11 @@ ordinary scalar input transports.
 GET_VAR/SET_VAR named paths, source copies and GET data outputs across rows/planes
 without introducing general prefix references.
 
-This is the supported prototype subset as of 26.1102.150334. Acceptance is specific to
+[Dynamic typed arrays](dynamic-data-arrays.md) now accept ARRAY OF data aliases
+and named-array outer dimensions, preserving typed children and bounded creation
+metadata through aliases, saved contexts and portable archives.
+
+This is the supported prototype subset as of 26.1102.153623. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

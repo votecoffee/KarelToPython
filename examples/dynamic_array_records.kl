@@ -1,0 +1,12 @@
+PROGRAM DYNAMIC_ARRAY_RECORDS
+TYPE item_t=STRUCTURE count:INTEGER label:STRING[4] ENDSTRUCTURE
+VAR items:ARRAY[2]OF item_t value,entry,status:INTEGER done:BOOLEAN
+ROUTINE fill(data:ARRAY OF item_t)
+BEGIN READ(data) END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','','ARRAY OF ITEM_T',0,2,0,0,status)
+    fill(BYNAME('CACHE','ITEM',entry)) GET_VAR(entry,'CACHE','ITEM',items,status)
+    value=items[1].count+items[2].count done=TRUE
+  ENDIF
+END DYNAMIC_ARRAY_RECORDS

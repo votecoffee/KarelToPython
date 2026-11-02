@@ -1,0 +1,11 @@
+PROGRAM MAIN
+TYPE row_t FROM LIB=ARRAY[3]OF INTEGER
+VAR value,tail,entry,status:INTEGER done:BOOLEAN
+ROUTINE change(data:ARRAY OF row_t):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','LIB','ARRAY OF ROW_T',0,2,0,0,status)
+    value=change(BYNAME('CACHE','ITEM',entry))
+    GET_VAR(entry,'CACHE','ROWS[2,3]',tail,status) value=value+tail done=TRUE
+  ENDIF
+END MAIN

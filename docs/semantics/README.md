@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [dynamic ARRAY creation ledger](dynamic_array_creation_semantics.json) adds
+typed ARRAY OF data aliases and extra named-array dimensions. Bounded schema
+validation now precedes all data creation/restore accounting; resource arrays
+and native allocation remain excluded.
+
 The [prefix variable-transfer ledger](prefix_variable_transfer_semantics.json)
 adds selected named ARRAY paths, SET input copies and GET output captures.
 General service/BYNAME aliases remain complete, with separate overlap and

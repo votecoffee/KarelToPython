@@ -1,0 +1,17 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "VALUE": 16,
+      "ENTRY": {
+        "uninitialized": true
+      },
+      "STATUS": 0,
+      "DONE": true
+    }
+  }
+}

@@ -1,0 +1,12 @@
+PROGRAM DYNAMIC_ARRAY_NAMED
+TYPE row_t=ARRAY[3]OF INTEGER
+VAR row:ARRAY[3]OF INTEGER value,entry,status:INTEGER done:BOOLEAN
+ROUTINE fill(data:ARRAY OF row_t)
+BEGIN data[1,1]=7 data[1,2]=9 data[1,3]=11 data[2]=data[1] END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','','ROW_T',0,2,0,0,status)
+    fill(BYNAME('CACHE','ITEM',entry)) GET_VAR(entry,'CACHE','ITEM[2]',row,status)
+    value=row[1]+row[2]+row[3] done=TRUE
+  ENDIF
+END DYNAMIC_ARRAY_NAMED

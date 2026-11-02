@@ -1,0 +1,13 @@
+PROGRAM DYNAMIC_ARRAY_ARCHIVE
+TYPE row_t=ARRAY[3]OF SHORT
+VAR value,entry,status:INTEGER done:BOOLEAN
+ROUTINE fill(data:ARRAY OF row_t)
+BEGIN data[1,1]=7 data[2,3]=9 END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ITEM','','ARRAY OF ROW_T',0,2,0,0,status,-1)
+    fill(BYNAME('CACHE','ITEM',entry)) SAVE('CACHE','FR:ROWS.VR',status)
+    CLEAR('CACHE.VR',status) LOAD('FR:ROWS.VR',0,status)
+    GET_VAR(entry,'CACHE','ITEM[2,3]',value,status) done=TRUE
+  ENDIF
+END DYNAMIC_ARRAY_ARCHIVE

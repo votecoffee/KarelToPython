@@ -1,0 +1,33 @@
+{
+  "version": "26.1102.153623",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored typed data ARRAY creation and bounded schema validation; no native allocation/layout/controller acceptance",
+  "implemented": {
+    "syntax": "ARRAY OF supported data type/alias with positive inner dimension; plain named ARRAY types may take extra outer dimensions",
+    "layout": "Outer slots retain inner-to-outer order; preserve concrete named child schemas/capacities and total logical rank at most three",
+    "data": "Fresh ordinary storage with missing scalars, unknown BYTE contents and SHORT sentinels; resources excluded",
+    "schema": "Validate all data creation/restore schemas to 64 levels and 32767 leaves; reject empty records, cycles, malformed/nonconcrete or anonymous nested components before allocation",
+    "reservation": "Count every new outer/inner scalar leaf in the existing 32767-unit combined budget; preserve collection accounting and checkpoint rechecks",
+    "lifetime": "Captured immutable type schema; exact BYNAME aliases survive rename, pause and error/abort cleanup",
+    "integration": "Typed source/variable transfers, aggregate I/O, VAR_INFO, JSON, VR archives and explicit DRAM restore reuse concrete schemas and compatible aliases",
+    "groups": "Retain direct positional group and memory-pool intent without selecting hardware or robot context"
+  },
+  "remaining": [
+    "Ragged/wildcard runtime dimensions, rank above three and inline nested type grammar",
+    "Resource ARRAYs, embedded resources and restored live handles",
+    "Native allocation/layout/power-cycle/controller equivalence and strict mode"
+  ],
+  "verification": [
+    "tests/test_dynamic_data_arrays.py",
+    "tests/test_dynamic_collections.py",
+    "tests/test_runtime_portability.py",
+    "examples/dynamic_array_named.kl",
+    "examples/dynamic_array_records.kl",
+    "examples/dynamic_array_archive.kl",
+    "examples/dynamic_array_pose.kl",
+    "examples/dynamic_array_project/main.kl",
+    "examples/dynamic_array_lifetime_project/main.kl"
+  ],
+  "guide": "../dynamic-data-arrays.md"
+}

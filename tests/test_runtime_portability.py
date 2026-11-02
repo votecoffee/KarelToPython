@@ -171,7 +171,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('prefix_variable_paths', 'VALUE', 11),
                     ('prefix_variable_values', 'VALUE', 119),
                     ('prefix_variable_records', 'VALUE', 16),
-                    ('prefix_variable_models', 'VALUE', 200)]
+                    ('prefix_variable_models', 'VALUE', 200),
+                    ('dynamic_array_named', 'VALUE', 27),
+                    ('dynamic_array_records', 'VALUE', 16),
+                    ('dynamic_array_archive', 'VALUE', 9),
+                    ('dynamic_array_pose', 'VALUE', 200)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

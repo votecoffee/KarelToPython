@@ -27,8 +27,10 @@ def creation_cost(spec):
             if index==2: header=count
         # Nodes allocate through the existing PATH operations, not CREATE_VAR.
         return 1+header
+    try:count=rt._validate_data_schema(spec)
+    except rt.KarelRuntimeError as exc:raise ValueError('Invalid created data schema: '+str(exc)) from exc
     collection_data_spec(spec)
-    return rt.scalar_leaf_count(spec)
+    return count
 
 
 def file_descriptor_payload(value):
@@ -100,6 +102,15 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     """Portable data and Pythonic root resources; validate before allocation."""
     rt=runtime()
     text=rt.ascii_string(text,line).strip().upper()
+    if (type(dimensions) not in (tuple,list) or len(dimensions)!=3
+            or any(type(size) is not int or not 0<=size<=32767 for size in dimensions)):
+        return None
+    if rt._pythonic():
+        array=re.fullmatch(r'ARRAY +OF +(.+)',text)
+        if array:
+            if not dimensions[0]:return None
+            text=array[1]
+            if text.startswith('ARRAY '):return None
     if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'):
         spec=(text,)
     elif text in ('FILE','PATH','QUEUE_TYPE') and rt._pythonic():
@@ -127,7 +138,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     shape=tuple(size for size in reversed(dimensions) if size)
     if spec[0] in ('FILE','PATH','QUEUE_TYPE') and (not rt._pythonic() or shape): return None
     if shape:
-        if spec[0]=='ARRAY': return None
+        if spec[0]=='ARRAY' and (not rt._pythonic() or rt.array_identity(spec) is None):return None
         spec=('ARRAY',shape[0] if len(shape)==1 else shape,spec)
     if spec[0] in ('BYTE','SHORT') and not rt._pythonic(): return None
     if type(group) is not int or not 0<=group<=32: return None

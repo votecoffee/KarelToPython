@@ -6090,6 +6090,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         schema='Preserve actual suffix dimensions, named children and STRING capacities; use existing context-free or explicit-model source conversions; validate full source receiver storage at capture',
         limits='Existing 32767-leaf/64-level data schemas and 1024 input destinations/CR; no resources, POSITION input, generic output targets, persistent views, native/controller or strict claim',
         guide='docs/array-prefix-targets.md',controller_validated=False)
+    report['dynamic_array_creation_policy']=dict(
+        syntax='Pythonic ARRAY OF followed by an existing supported data type/alias with positive inner dimension; plain named ARRAY types may also take extra outer dimensions',
+        layout='Dimension slots retain inner-to-outer order for new outer storage; preserve resolved named inner ARRAY boundaries, field schemas and capacities; total logical rank at most three',
+        validation='Bound every data creation schema to 64 levels and 32767 scalar leaves before allocation/reservation and each restore row; reject cycles, anonymous nested components, resources and malformed named schemas',
+        publication='Existing status, collision, group/pool, whole-bank reservation and checkpoint rechecks; no allocation before complete schema/quota preflight',
+        integration='Exact BYNAME formals, scalar/aggregate/prefix variable transfers, VAR_INFO, rename lifetimes and ordinary JSON/portable archives use existing concrete storage',
+        boundaries='No runtime wildcard/ragged dimensions, inline nested type grammar, resource ARRAYs, native allocation/layout/group effects, controller acceptance or strict extension',
+        guide='docs/dynamic-data-arrays.md',controller_validated=False)
     report['prefix_variable_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         paths='Final incomplete flat row/plane selections in current/attached or explicit variable roots; adjacent numeric bracket groups normalize only for these transfers; exact bindings keep lookup precedence',

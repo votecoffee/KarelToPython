@@ -1,0 +1,8 @@
+PROGRAM LIB
+TYPE row_t=ARRAY[2]OF INTEGER
+ROUTINE edit(data:ARRAY OF row_t):INTEGER
+BEGIN data[2,1]=7 data[2,2]=9 RETURN data[2,1]+data[2,2] END edit
+ROUTINE fill:INTEGER
+VAR entry:INTEGER
+BEGIN RETURN edit(BYNAME('CACHE','ITEM',entry)) END fill
+BEGIN END LIB

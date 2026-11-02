@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1102.153623 - 2026-11-02
+
+- Extend Pythonic CREATE_VAR with ARRAY OF supported data types/aliases and extra
+  outer dimensions around named ARRAYs. Preserve resolved child identities,
+  capacities, physical component boundaries and total logical rank at most three.
+- Validate every data creation schema to 64 levels and 32767 scalar leaves before
+  collection checks, reservation and restore decoding. Reject empty/malformed
+  records, cycles, anonymous nested components and nonconcrete layouts.
+- Retain fresh missing/unknown defaults, direct positional group and pool intent,
+  combined creation quotas, collisions and post-checkpoint bank/lifetime guards.
+  Capture the immutable supplied type before checkpoint callbacks can change maps.
+- Reuse exact BYNAME references, aggregate I/O, VAR_INFO and prefix variable
+  transfers. Preserve child aliases and creation policy through rename, pause,
+  JSON, portable VR archives and explicit DRAM restoration.
+- Keep inline nested type grammar, resource ARRAYs, runtime wildcards, ragged
+  layouts, native allocation/controller equivalence and strict mode excluded.
+- Add 60 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and semantic contracts.
+
 ## 26.1102.150334 - 2026-11-02
 
 - Add Pythonic GET_VAR/SET_VAR row/plane data transfers through selected named

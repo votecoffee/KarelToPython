@@ -22,7 +22,9 @@ creation under the same root; an existing value is never reset.
 Supported data types are INTEGER, REAL, BOOLEAN, BYTE, SHORT, STRING[n], CONFIG, VECTOR, POSITION,
 XYZWPR, XYZWPREXT, JOINTPOS and JOINTPOS1..9. STRING defaults to capacity 12;
 explicit capacities are 1..254. JOINTPOS defaults to nine axes. `ARRAY OF BYTE`
-and `ARRAY OF SHORT` require a nonzero inner dimension. Other types can use the
+and `ARRAY OF SHORT` retain their existing domains. The
+[typed ARRAY extension](dynamic-data-arrays.md) now accepts `ARRAY OF` any supported
+data type/alias, with a nonzero inner dimension. Other types can use the
 resolved user-type declarations of the specified attached program, including
 named arrays and structures containing portable data.
 [Direct narrow types and transparent aliases](dynamic-narrow.md) use ordinary
@@ -32,7 +34,8 @@ and checked values under the existing metadata/allocation limits.
 Dimensions follow the manual's inner-to-outer argument order: inner=4, middle=3,
 outer=2 creates ARRAY[2,3,4]. Used dimensions are contiguous, positive and at most
 32767. Omitted dimensions are zero. An already declared array type takes zero
-dimensions; additional dimensions around a named array are rejected. All created
+dimensions when its exact root type is requested. Extra dimensions now wrap a named
+array as a component under the [typed ARRAY rules](dynamic-data-arrays.md). All created
 variables together are limited to 32767 reserved creation units, checked before
 allocation: ordinary data uses scalar leaves; [root collections](dynamic-collections.md)
 use descriptors and allocated PATH header leaves.
