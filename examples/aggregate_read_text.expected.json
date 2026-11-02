@@ -1,0 +1,18 @@
+{
+  "VALUES": [
+    7,
+    9
+  ],
+  "CFG": {
+    "CFG_TURN_NO1": -8,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 7,
+    "CFG_FLIP": true,
+    "CFG_LEFT": false,
+    "CFG_UP": true,
+    "CFG_FRONT": false
+  },
+  "STATUS": 0,
+  "VALUE": 16,
+  "DONE": true
+}

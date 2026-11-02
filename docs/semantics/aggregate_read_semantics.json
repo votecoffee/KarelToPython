@@ -1,0 +1,39 @@
+{
+  "version": "26.1102.122646",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored Pythonic extension built from existing checked scalar input and CONFIG-field transports; native whole-aggregate READ acceptance unverified",
+  "implemented": {
+    "types": "ARRAY/user STRUCTURE/VECTOR/CONFIG/XYZWPR/XYZWPREXT/JOINTPOS; exact existing shaped storage",
+    "order": "Capture each root once; declaration fields, row-major ARRAY components and joint axes; flatten CR source-item offsets",
+    "validation": "64 schema levels; 1024 total expanded scalars plus CR; exact schemas/known current values and complete response before scalar publication",
+    "identity": "Preserve existing root and child objects; captured old leaves remain selected after host root replacement; repeated aliases last valid value wins",
+    "transports": "Typed callback/JSON/TextInput, memory/rooted/device text/binary FILE and cooperative serial/pipe/keyboard input",
+    "lifecycle": "Existing pause/resume, cancellation, stop/abort, cursor/status and pending-read guards"
+  },
+  "portable_choices": [
+    "Whole data READ is a Pythonic source extension, not native layout acceptance",
+    "Flat scalar callback batches and default formats for aggregate items",
+    "Missing scalar leaves allowed; missing whole or nested containers reject before input",
+    "Retain exact CONFIG turn/flag domains and raw SHORT normalization",
+    "Separate scalar binary fields rather than native packed records"
+  ],
+  "remaining": [
+    "POSITION orientation destinations and embedded POSITION",
+    "Resource input and missing-container materialization",
+    "Explicit whole-aggregate formats and packed native layouts",
+    "Native controller input and strict mode"
+  ],
+  "verification": [
+    "tests/test_aggregate_read.py",
+    "tests/test_config_field_input.py",
+    "tests/test_runtime_portability.py",
+    "examples/aggregate_read_values.kl",
+    "examples/aggregate_read_text.kl",
+    "examples/aggregate_read_binary.kl",
+    "examples/aggregate_read_serial.kl",
+    "examples/aggregate_read_project/main.kl",
+    "examples/aggregate_read_cancel_project/main.kl"
+  ],
+  "guide": "../aggregate-input.md"
+}

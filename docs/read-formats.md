@@ -81,7 +81,9 @@ transitive FOR-counter checks. Formatted READ targets remain writable outputs.
 Formatted callback targets add a `format_specifiers` tuple containing the
 evaluated integers. Unformatted targets retain their previous metadata shape.
 Translation reports record literal formats or source positions for dynamic
-expressions. CR offsets still count scalar destinations alone.
+expressions. CR offsets count scalar destinations; [whole-data READ](aggregate-input.md)
+remaps source-item offsets after expansion. Aggregate items use default scalar
+formats; select individual fields for explicit formats.
 
 `TextInput` validates all target metadata before consuming input, then validates
 each decoded field before reading the next. A failed field keeps consumed input

@@ -2279,6 +2279,60 @@ def capture_read_target(target, formats, line=None):
     return target, read_formats(target.spec, formats, line)
 
 
+def aggregate_read_type(spec,trail=()):
+    """Type-only eligibility, including generic source ARRAY/STRING formals."""
+    if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:return False
+    kind=spec[0];trail=trail+(id(spec),)
+    if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING','JOINTPOS'):return True
+    if kind=='ARRAY':return aggregate_read_type(spec[2],trail)
+    if kind in RECORD_TYPES and kind!='POSITION':return all(aggregate_read_type(member,trail) for _,member in record_fields(spec))
+    return False
+
+
+def capture_aggregate_read_target(target,formats,line=None):
+    """Capture shaped data leaves once; keep ordinary scalar input transports."""
+    if not _pythonic() or type(target) is not Reference or not aggregate_read_type(target.spec):
+        raise KarelRuntimeError('Aggregate READ requires writable resource-free data without POSITION',line)
+    if type(formats) not in (list,tuple) or formats:
+        raise KarelRuntimeError('Aggregate READ formats require selecting scalar fields',line)
+    count=_validate_data_schema(target.spec,line)
+    if count>1024:raise KarelRuntimeError('Aggregate READ is limited to 1024 scalar destinations including CR',line)
+    # Check exact host schemas and all known values; no source data is consumed.
+    _aggregate_value(target.spec,target.raw(),line)
+    result=[]
+    def descend(reference):
+        spec=reference.spec;kind=spec[0]
+        if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING'):
+            result.append(capture_read_target(reference,[],line));return
+        value=reference.raw()
+        if value is UNINITIALIZED:raise KarelRuntimeError('Aggregate READ requires existing shaped containers; missing scalar leaves are allowed',line)
+        if kind=='ARRAY':
+            for index in range(len(value.values)):descend(Reference(spec[2],value.values,index))
+        elif kind=='JOINTPOS':
+            for index in range(len(value.values)):descend(Reference(REAL,value.values,index))
+        else:
+            for name,member in record_fields(spec):
+                descend(config_read_reference(value,name,line) if kind=='CONFIG' else Reference(member,value.values,name))
+    descend(target)
+    return result
+
+
+def flatten_read_groups(groups,line_breaks=(),line=None):
+    """Translate source item CR offsets to the expanded scalar request offsets."""
+    if type(groups) not in (list,tuple):raise KarelRuntimeError('READ requires captured target groups',line)
+    positions=_read_line_breaks(len(groups),line_breaks,line);targets=[];formats=[];offsets=[0]
+    for group in groups:
+        if type(group) not in (list,tuple) or not group:raise KarelRuntimeError('READ target groups require scalar fields',line)
+        for item in group:
+            if type(item) is not tuple or len(item)!=2:raise KarelRuntimeError('Malformed READ target group',line)
+            target,controls=item;_validate_read_target(target,line)
+            targets.append(target);formats.append(read_formats(target.spec,controls,line))
+        offsets.append(len(targets))
+    breaks=tuple(offsets[position] for position in positions)
+    _read_line_breaks(len(targets),breaks,line)
+    return targets,formats,breaks
+
+
 class TextInput:
     """Explicit ASCII text adapter for Pythonic READ, with a persistent cursor."""
     def __init__(self, text, *, terminator=None, field_mode=False, final=True):

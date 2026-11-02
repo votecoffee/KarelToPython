@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [aggregate READ ledger](aggregate_read_semantics.json) adds an authored
+Pythonic whole-data extension through existing scalar transports. It supersedes
+earlier blanket aggregate READ exclusions while retaining POSITION/resource,
+missing-container and native input boundaries.
+
 The [PATH archive ledger](path_archive_semantics.json) supersedes earlier PATH
 VR exclusions with checked logical rows, recursive/mixed batches and explicit
 DRAM restore. Native VR binaries and association records remain unverified.

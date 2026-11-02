@@ -1,4 +1,5 @@
 {
+  "aggregate_read_mode_note":"../aggregate-input.md adds whole shaped data READ with bounded scalar expansion; older whole-aggregate exclusions below are historical.",
   "version": "26.1030.180659",
   "mode": "pythonic",
   "controller_validated": false,

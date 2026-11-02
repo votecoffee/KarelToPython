@@ -1,4 +1,5 @@
 {
+  "aggregate_read_mode_note":"../aggregate-input.md extends shaped whole-data READ through existing scalar transports; older blanket aggregate exclusions below are historical.",
   "version": "26.1028.200539",
   "mode": "pythonic",
   "controller_validated": false,

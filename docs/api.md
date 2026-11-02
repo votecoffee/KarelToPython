@@ -419,6 +419,9 @@ not rolled back by failures or ABORT.
 - `write(text)` handles supported text `WRITE` requests. Without it, requests
   are recorded in `write_requests`; this is not controller output. A callback
   receives one complete statement and must return `None` synchronously.
+- [Whole-data READ](aggregate-input.md) expands shaped data to declaration/row-major
+  scalar order, with remapped CR and existing atomic input transports;
+  `aggregate_read_policy` and aggregate `reads` destination metadata describe it.
 - `read(request)` supplies typed scalar `READ` values as a list/tuple matching
   defensive line/type metadata. An explicit callback is required when READ
   executes. `read_requests` records defensive metadata and outcomes; generated

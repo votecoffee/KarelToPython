@@ -1,0 +1,14 @@
+PROGRAM AGGREGATE_READ_SERIAL
+VAR values:ARRAY[2]OF INTEGER status,value:INTEGER done:BOOLEAN
+ROUTINE work
+VAR f:FILE
+BEGIN
+  OPEN FILE f('RO','P2:')
+  READ f(values,CR)
+  status=IO_STATUS(f)
+  CLOSE FILE f
+  value=values[1]+values[2]
+END work
+BEGIN
+  IF UNINIT(done) THEN work done=TRUE ENDIF
+END AGGREGATE_READ_SERIAL

@@ -1,0 +1,17 @@
+{
+  "PACKET": {
+    "VALUES": [
+      7,
+      9
+    ],
+    "AXES": {
+      "axes": [
+        2.5,
+        3.5
+      ]
+    }
+  },
+  "STATUS": 0,
+  "VALUE": 16,
+  "DONE": true
+}

@@ -1,6 +1,6 @@
 # Remaining Pythonic support
 
-Audited on 2026-10-31 against the 465-heading, multi-edition KAREL feature
+Audited on 2026-11-02 against the 465-heading, multi-edition KAREL feature
 inventory, the programmer reference and the implemented parser/runtime. This is
 a product backlog, not a controller compatibility certificate. The inventory
 contains statements, actions, clauses, types and directives as well as calls;
@@ -108,8 +108,11 @@ they are boundaries rather than promises to accept every such source form later.
   values. [Narrow FOR counters](narrow-for.md) now enforce initialized BYTE/SHORT
   domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
-- Whole aggregate/resource READ, readonly POSITION input destinations and generic
-  CONFIG conversion/status aliases remain blocked. [CONFIG scalar-field READ](config-field-input.md)
+- Resource READ, missing whole/nested data containers, readonly POSITION input
+  destinations and generic CONFIG conversion/status aliases remain blocked.
+  [Whole-data READ](aggregate-input.md) now supports shaped ARRAY/record/CONFIG/
+  Cartesian/joint data through flat scalar callbacks and existing FILE transports;
+  aggregate formats and native packed layouts remain unavailable. [CONFIG scalar-field READ](config-field-input.md)
   now supports bounded turn integers and BOOLEAN flags through callbacks and
   explicit FILE transports; no compact native CONFIG binary layout is inferred.
 - Whole ARRAY, PATH, user STRUCTURE, FILE and QUEUE_TYPE UNINIT queries;

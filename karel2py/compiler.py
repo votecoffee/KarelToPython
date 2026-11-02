@@ -3726,6 +3726,7 @@ class Emitter:
                                                       else 'fixed' if formats else 'unformatted')))
         elif kind == 'read':
             references, destinations, line_breaks = [], [], []
+            read_groups=[];aggregate_input=False
             formatted = any(item.kind == 'read_item' for item in stmt.args)
             for item in stmt.args:
                 if item.kind == 'read_cr':
@@ -3745,8 +3746,11 @@ class Emitter:
                 if self.is_config_subfield(target) and self.mode!='pythonic':
                     self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
                 reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target))
-                if spec[0] not in (*INTEGRAL_TYPES, 'BOOLEAN', 'REAL', 'STRING'):
-                    self.error('E_READ_TYPE', 'READ supports INTEGER/BOOLEAN/REAL/STRING and narrow scalar elements/fields', target.token)
+                aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
+                if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
+                    self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data without POSITION',target.token)
+                if aggregate and format_exprs:self.error('E_READ_FORMAT','Aggregate READ formats require selecting scalar fields',target.token)
+                aggregate_input=aggregate_input or aggregate
                 format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
                 literals = [self.format_literal(expr) for expr in format_exprs]
                 if literals and literals[0] is not None and not 0 <= literals[0] <= 254:
@@ -3756,10 +3760,15 @@ class Emitter:
                     valid = (spec[0] in ('BOOLEAN', 'REAL') or spec[0] == 'STRING' and second in (0, 2)
                              or spec[0] in INTEGRAL_TYPES and second in (0, *range(2, 17)))
                     if not valid: self.error('E_READ_FORMAT', f'Invalid {spec[0]} READ second format specifier', format_exprs[1].token)
+                read_groups.append(f'_rt.capture_aggregate_read_target({reference}, [], {line})' if aggregate
+                                   else f'[_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})]')
                 references.append(f'_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})'
                                   if formatted else reference)
                 destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
                                          line=target.token.line, column=target.token.column))
+                if aggregate:
+                    destinations[-1].update(aggregate=True,scalar_order='declaration/row-major/joint-axis',formats='scalar defaults')
+                    self.features.add('whole data aggregate READ')
                 if self.mode=='pythonic' and self.is_config_subfield(target):
                     self.features.add('bounded CONFIG field READ')
                     destination=dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -3778,7 +3787,12 @@ class Emitter:
             cooperative_file=bool(file_code) and self.cooperative
             reader=f'_rt.cooperative_file_read(self._state,{file_code},' if cooperative_file else f'self._state.file_read({file_code},' if file_code else 'self._state.read_items('
             prefix='yield from ' if cooperative_file else ''
-            if formatted:
+            if aggregate_input:
+                captured=self.fresh();flat_targets=self.fresh();flat_formats=self.fresh();flat_breaks=self.fresh()
+                self.line(f'{captured} = [{", ".join(read_groups)}]',token)
+                self.line(f'{flat_targets}, {flat_formats}, {flat_breaks} = _rt.flatten_read_groups({captured}, {tuple(line_breaks)!r}, {line})',token)
+                self.line(f'{prefix}{reader}{flat_targets}, {line}, line_breaks={flat_breaks}, formats={flat_formats})',token)
+            elif formatted:
                 captured = self.fresh()
                 self.line(f'{captured} = [{", ".join(references)}]', token)
                 self.line(f'{prefix}{reader}[item[0] for item in {captured}], {line}{controls}, formats=[item[1] for item in {captured}])', token)
@@ -4976,6 +4990,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
         guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
+    report['aggregate_read_policy']=dict(
+        mode='Pythonic extension for whole ARRAY, user STRUCTURE, VECTOR, CONFIG, XYZWPR/XYZWPREXT and JOINTPOS destinations; not native aggregate READ acceptance',
+        order='Capture each shaped target once before later selectors; flatten declaration fields, physical row-major ARRAY components and joint axes; remap CR after complete source items',
+        validation='Exact concrete storage, at most 64 schema levels and 1024 expanded scalar destinations plus CR; missing scalar leaves allowed, missing containers rejected; preserve root/field identities and validate complete responses before scalar publication',
+        formats='Aggregate items have default scalar formats; select individual fields for explicit formats. Callback/JSON responses are flat scalar batches; FILE binary data uses ordinary separate scalar widths, never packed native records',
+        transports='Existing callback, TextInput, ordinary text/binary FILE, serial, pipe and keyboard transports; retained capture through cooperative waits/pause/cancellation',
+        boundaries='No POSITION orientation writes, resources/embedded resources, inferred robot data, generic service alias relaxation, native packed layout, controller acceptance or strict mode',
+        guide='docs/aggregate-input.md',controller_validated=False)
     report['path_archive_policy']=dict(
         forms='VR SAVE/LOAD/CLEAR, variable-only and mixed recursive PBR batches, SAVE_DRAM and explicit host restore_dram',
         data='Owned declared or ordinary explicit PATH roots with exact resolved node/header schemas and checked known/partial/unknown data; no native VR binary claim',
@@ -5280,7 +5302,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['mode_policy'] = dict(selected=mode, strict='Future milestone; not publicly available',
                                scope='Practical Python numeric, typed input, text output, STRING and evaluation behavior; checked source forms, types, initialization and ownership')
     report['read_policy'] = dict(
-        destinations='Omitted-file READ with 1..1024 scalar destinations or CR markers; INTEGER/BOOLEAN/REAL/STRING variables, fields/elements and BYTE/SHORT leaves',
+        destinations='Omitted-file READ with 1..1024 expanded scalar destinations or CR markers; ordinary scalar cells plus Pythonic aggregate_read_policy for whole resource-free shaped data',
         capture='Resolve writable destinations once left to right before one input callback; retain concrete capacities and captured storage',
         callback='Explicit synchronous Program(read=...) receives defensive line/type metadata; returns an exact list/tuple with one typed value per target; no automatic retry',
         validation='Validate the entire response before assigning in destination order; repeated aliases use the last value; STRING input at most 254 ASCII characters before destination truncation',
@@ -5291,7 +5313,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         format_order='Capture each destination, then its width and second format once; validate formats before the next destination; callback runs after all captures; typed responses are already decoded',
         text_adapter='runtime.TextInput: explicit ASCII text, Python int/float fields, case-insensitive BOOLEAN tokens, STRING remainders or quoted fields with doubled-apostrophe escapes; exact positive widths stay on one physical line; persistent defensive cursor; CR discards current remainder',
         scripts='Choose --read-values JSON batches or --read-text UTF-8 ASCII text, with optional BOM; explicit paths and mutually exclusive adapters',
-        boundary='No implicit stdin, controller file/device access, binary transfer, native EOF/alarm/status mapping, aggregate destinations or POSITION orientation writes; bounded CONFIG fields follow config_field_read_policy',
+        boundary='No implicit stdin, controller file/device access, binary transfer, native EOF/alarm/status mapping or POSITION orientation writes; bounded CONFIG fields follow config_field_read_policy',
         controller_validated=False)
     report['evaluation_policy'] = dict(
         operands='Evaluate once left to right; VECTOR values captured before the next operand',
@@ -6187,9 +6209,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         transports='Typed callbacks/JSON/TextInput; existing memory/rooted/device/messaging/acquisition FILEs; finite or cooperative serial, waiting/snapshot pipes and injected keyboard line input',
         lifecycle='Capture each destination and its formats once; existing pause/resume, cancellation, stop/abort and pending-read ownership checks remain; no replay or new checkpoint',
         failure='All destinations unchanged on invalid typed input; typed FILE failure retains cursor under existing portable status1 policy; capture failures precede I/O; direct callbacks may already consume input; existing request outcome/history contracts',
-        boundary='Existing CONST/FOR/readonly POSITION and aggregate/resource guards remain; generic service output helpers, CONFIG conversion status aliases, native input/parser/ABI and public strict mode unchanged',
+        boundary='Existing CONST/FOR/readonly POSITION and resource guards remain; whole data follows aggregate_read_policy; generic service output helpers, CONFIG conversion status aliases, native input/parser/ABI and public strict mode unchanged',
         guide='docs/config-field-input.md',controller_validated=False)
-    report['read_policy']['config_fields']='Bounded CONFIG scalar input follows config_field_read_policy; whole aggregates and POSITION orientation writes remain blocked'
+    report['read_policy']['config_fields']='Bounded CONFIG scalar input follows config_field_read_policy; whole shaped data follows aggregate_read_policy and POSITION orientation writes remain blocked'
     report['kinematic_variable_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         values='Individual joint/Cartesian values and compatible user STRUCTURE fields with explicitly supplied robot context',

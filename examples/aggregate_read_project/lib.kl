@@ -1,0 +1,11 @@
+PROGRAM LIB
+ROUTINE take(values:ARRAY OF INTEGER):INTEGER
+VAR f:FILE status:INTEGER
+BEGIN
+  OPEN FILE f('RO','input')
+  READ f(values,CR)
+  status=IO_STATUS(f)
+  CLOSE FILE f
+  RETURN status
+END take
+BEGIN END LIB

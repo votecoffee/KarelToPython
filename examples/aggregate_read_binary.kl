@@ -1,0 +1,18 @@
+PROGRAM AGGREGATE_READ_BINARY
+TYPE packet_t=STRUCTURE values:ARRAY[2]OF INTEGER axes:JOINTPOS2 ENDSTRUCTURE
+VAR packet:packet_t status,value:INTEGER done:BOOLEAN
+ROUTINE work
+VAR f:FILE
+BEGIN
+  OPEN FILE f('WB','input')
+  WRITE f(7,9,2.5,3.5)
+  CLOSE FILE f
+  OPEN FILE f('RB','input')
+  READ f(packet)
+  status=IO_STATUS(f)
+  CLOSE FILE f
+  value=packet.values[1]+packet.values[2]
+END work
+BEGIN
+  IF UNINIT(done) THEN work done=TRUE ENDIF
+END AGGREGATE_READ_BINARY

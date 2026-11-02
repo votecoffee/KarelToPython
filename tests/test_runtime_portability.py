@@ -147,7 +147,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('path_archive_values', 'VALUE', 7),
                     ('path_archive_partial', 'MISSING', True),
                     ('path_dynamic_archive', 'VALUE', 42),
-                    ('path_dram_archive', 'VALUE', 42)]
+                    ('path_dram_archive', 'VALUE', 42),
+                    ('aggregate_read_values', 'VALUE', 16),
+                    ('aggregate_read_text', 'VALUE', 16),
+                    ('aggregate_read_binary', 'VALUE', 16),
+                    ('aggregate_read_serial', 'VALUE', 16)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

@@ -1,5 +1,9 @@
 # Pythonic typed input
 
+[Whole-data READ](aggregate-input.md) now extends this contract to shaped ARRAY,
+record, CONFIG and joint destinations using flat scalar response batches. Existing
+scalar-only behavior remains unchanged; native aggregate input remains unverified.
+
 Since 0.63.0, Pythonic mode supports scalar READ through an explicit synchronous
 host callback. The callback supplies typed Python values for offline execution.
 Since 0.64.0, [TextInput and CR](text-input.md) also support explicit text and
@@ -41,9 +45,10 @@ Use `READ(destination,...)` with 1..1024 total scalar destinations and CR marker
 CR-only requests are allowed. Scalar destinations are rooted in ordinary
 variable storage: INTEGER, BOOLEAN, REAL, bounded STRING and BYTE/SHORT aggregate
 leaves, including TYPE aliases. Each destination may be a variable, field or
-ARRAY element. Aggregates, grouped/computed targets, fields of returned
-temporaries, constants, active FOR counters and POSITION orientation writes
-remain blocked. [CONFIG scalar fields](config-field-input.md) now accept bounded
+ARRAY element. [Shaped whole data](aggregate-input.md) expands to these same
+scalar leaves with a total limit including CR. Missing containers, grouped/computed
+targets, fields of returned temporaries, constants, active FOR counters and POSITION
+orientation writes remain blocked. [CONFIG scalar fields](config-field-input.md) now accept bounded
 turn integers and BOOLEAN flags through the shared input validation policy.
 
 The callback returns an exact list or tuple with one typed value per destination:

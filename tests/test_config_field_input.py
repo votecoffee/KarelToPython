@@ -336,9 +336,9 @@ class ConfigKeyboardInputTests(unittest.TestCase):
 
 
 class ConfigReadBoundaryTests(unittest.TestCase):
-    def test_whole_config_read_remains_rejected(self):
-        with self.assertRaises(TranslationError) as error:build('READ(cfg)')
-        self.assertEqual(error.exception.code,'E_READ_TYPE')
+    def test_whole_config_read_uses_bounded_scalar_field_order(self):
+        p,_=callback([-8,0,7,True,False,True,False],'READ(cfg)')
+        self.assertEqual(p.run()['CFG'],dict(zip(FIELDS,[-8,0,7,True,False,True,False])))
 
     def test_position_orientation_read_remains_rejected(self):
         with self.assertRaises(TranslationError) as error:build('READ(point.normal.x)',decl=DECL+' point:POSITION')

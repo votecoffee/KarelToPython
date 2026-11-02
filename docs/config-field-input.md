@@ -74,8 +74,9 @@ live handles explicitly before context save. No native device or GUI opens.
 
 ## Boundaries and metadata
 
-Whole aggregate/resource READ, constants, active counters and POSITION orientation
-writes remain blocked. CONFIG turn fields do not become FOR counters. Generic
+[Whole-data READ](aggregate-input.md) now expands shaped CONFIG and other supported
+data into bounded scalar fields. Resource READ, missing containers, constants,
+active counters and POSITION orientation writes remain blocked. CONFIG turn fields do not become FOR counters. Generic
 service output aliases and conversion status outputs such as CNV_STR_CONF still
 require their existing ordinary writable references. Public strict mode remains
 future work; native input parsing, controller status, compact layout and runtime

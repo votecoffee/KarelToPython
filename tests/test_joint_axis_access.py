@@ -200,8 +200,9 @@ class JointAxisInputTests(unittest.TestCase):
         def sleep(_):rt.cancel_file(p._state,p._state.values['F'])
         p,_=build("OPEN FILE f('RO','P2:') READ f(j[2],CR) s=IO_STATUS(f) CLOSE FILE f",context=ctx,sleep=sleep);v=p.run();self.assertEqual((v['J']['axes'],v['S']),( [10.,20.],6));self.assertFalse(bank._pending)
 
-    def test_whole_joint_read_stays_rejected(self):
-        with self.assertRaises(TranslationError):build('READ(j)')
+    def test_whole_joint_read_uses_pythonic_axis_order(self):
+        p,_=build('READ(j)',read=lambda request:[1.5,2.5])
+        self.assertEqual(p.run()['J'],{'axes':[1.5,2.5]})
 
 
 class JointAxisVariablePathTests(unittest.TestCase):

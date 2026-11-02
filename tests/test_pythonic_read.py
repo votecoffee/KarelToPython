@@ -286,7 +286,9 @@ class ReadSourceGuardTests(unittest.TestCase):
     def test_expression_destination(self): self.reject('READ(x+1)','E_READ_ITEM')
     def test_grouped_destination(self): self.reject('READ((x))','E_READ_ITEM')
     def test_constant_destination(self): self.reject('READ(code)','E_CONST_ASSIGN',constants='CONST code=7')
-    def test_aggregate_destination(self): self.reject('READ(a)','E_READ_TYPE')
+    def test_aggregate_destination_uses_pythonic_flat_scalar_batch(self):
+        p,_=compile_program('READ(a)',batches=[[7,9]])
+        self.assertEqual(p.run()['A'],[7,9])
     def test_temporary_field_destination(self): self.reject('READ(VEC(1,2,3).x)','E_READ_ITEM')
     def test_position_orientation(self): self.reject('READ(p.normal.x)','E_POSITION_READ_ONLY',declarations='p: POSITION')
     def test_config_field_uses_bounded_input_policy(self):

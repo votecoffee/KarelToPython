@@ -1,5 +1,22 @@
 # Changelog
 
+## 26.1102.122646 - 2026-11-02
+
+- Add whole-data READ as a Pythonic extension for ARRAY, user STRUCTURE, VECTOR,
+  CONFIG, XYZWPR/XYZWPREXT and JOINTPOS storage. Capture declaration/row-major/axis
+  leaves once and reuse existing scalar callback, text and FILE transports.
+- Remap source CR offsets after complete aggregate items; retain scalar formats,
+  flat typed response batches, repeated-alias ordering and exact CONFIG domains.
+  Aggregate items use default scalar formats with a 1024-total-field/CR limit.
+- Preserve shaped root/child storage and validate complete responses before any
+  output assignment. Support finite/binary files, rooted/device backends,
+  cooperative serial/pipe/keyboard reads, cancellation and linked reference formals.
+- Retain POSITION orientation/resource exclusions, missing-container rejection,
+  FOR/constant guards and deferred strict mode. Do not infer native aggregate
+  source acceptance, packed record layout, robot context or controller input.
+- Add 64 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and input semantic contracts.
+
 ## 26.1031.125547 - 2026-10-31
 
 - Include exact logical PATH roots in portable VR SAVE/LOAD/CLEAR, recursive
