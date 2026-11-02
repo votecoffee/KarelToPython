@@ -278,7 +278,7 @@ class PrefixTargetGuardTests(unittest.TestCase):
         with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):rt.index_reference(array,1)
         with self.assertRaises(rt.KarelRuntimeError):rt.array_prefix_target(array,1,array.spec)
 
-    def test_service_output_does_not_gain_prefix_aliases(self):self.reject("GET_VAR(n,'MAIN','M',m[1],n)",'E_ARRAY_RANK')
+    def test_service_output_does_not_gain_prefix_aliases(self):self.reject("CNV_STR_INT('7',m[1])",'E_ARRAY_RANK')
     def test_active_counter_root_rejects_prefix_assignment(self):self.reject('FOR m[1,1]=1 TO 2 DO m[2]=row ENDFOR','E_FOR_COUNTER')
     def test_active_counter_root_rejects_prefix_read(self):self.reject('FOR m[1,1]=1 TO 2 DO READ(m[2]) ENDFOR','E_FOR_COUNTER')
     def test_position_prefix_input_remains_rejected(self):self.reject('READ(m[1])','E_READ_TYPE',decl='m:ARRAY[2,2]OF POSITION')

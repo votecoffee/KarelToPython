@@ -291,9 +291,19 @@ def matches(spec, kind):
     return spec[0]==kind
 
 
-def outputs_checked(signature, arguments, line=None):
+def _variable_cells(reference,line=None):
+    """Selected original addresses for the explicit prefix-transfer contract."""
+    rt=runtime()
+    if rt._pythonic() and type(reference) is rt._ArrayPrefixTarget:
+        cells=set()
+        for item in reference.references(line):cells.update(rt._reference_cells(item))
+        return cells
+    return rt._reference_cells(reference)
+
+
+def outputs_checked(signature, arguments, line=None, *, prefix_outputs=()):
     rt=runtime(); occupied=set()
-    for (mode,kind), value in zip(signature,arguments):
+    for position,((mode,kind),value) in enumerate(zip(signature,arguments)):
         if kind=='TABLE_ACTION' and type(value) is int:continue
         if kind=='ERROR_CURSOR' and type(value) is int and value==2147483647: continue
         if mode=='m' and type(value) is int and value==0: continue
@@ -304,8 +314,9 @@ def outputs_checked(signature, arguments, line=None):
             if not isinstance(value,rt.Reference) or not matches(value.spec,kind):fail('Service static input requires an exact typed reference',line)
             continue
         if mode not in ('o','r','m'): continue
-        if type(value) is not rt.Reference or not matches(value.spec,kind): fail('Service output requires an ordinary exact-type writable reference',line)
-        cells=rt._reference_cells(value)
+        prefix=(rt._pythonic() and position in prefix_outputs and kind=='VARIABLE' and type(value) is rt._ArrayPrefixTarget)
+        if (not prefix and type(value) is not rt.Reference) or not matches(value.spec,kind): fail('Service output requires an ordinary exact-type writable reference',line)
+        cells=_variable_cells(value,line) if prefix else rt._reference_cells(value)
         if occupied & cells: fail('Service output/resource references must not overlap',line)
         occupied.update(cells)
 
@@ -2008,7 +2019,7 @@ class ExecutionContext:
             group=rt.task_root(state).robot_group
             args.insert(OPTIONAL_GROUP[name],1 if group is None else group)
         if len(args)!=len(signature): fail('Service argument count mismatch',line)
-        outputs_checked(signature,args,line)
+        outputs_checked(signature,args,line,prefix_outputs=(3,) if name=='GET_VAR' else ())
         if name=='TRANSLATE':
             from .source_translations import invoke
             return invoke(self,state,args,line)
@@ -2309,7 +2320,7 @@ class ExecutionContext:
             return all(lo<=axis<=hi for axis,(lo,hi) in zip(values,robot.joint_limits))
         if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=rt.task_root(state).robot_group)
         fail('Unsupported extended operation '+name,line)
-    def resolve(self,state,program,path,line=None,*,path_nodes=False):
+    def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False):
         rt=runtime(); program=program.upper(); path=path.upper()
         # Explicit system roots and full-path bindings have precedence over discovery.
         selected=program if program not in ('',state.program_name) else state.program_name
@@ -2321,10 +2332,10 @@ class ExecutionContext:
             candidates=[(key,reference) for (owner,key),reference in self.variables.bindings.items() if owner in (program,selected,'SYSTEM','*SYSTEM*','') and (path==key or path.startswith(key+'.') or path.startswith(key+'['))]
             if candidates:
                 key,reference=max(candidates,key=lambda item:len(item[0])); rest=path[len(key):]
-                return self.descend(reference,rest,line,path_nodes=path_nodes)
+                return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes)
         if root is not None and (owner is None or root[0] not in owner.types):
             reference=self.variables.bindings.get((selected,root[0])) or self.variables.bindings.get((program,root[0]))
-            if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes)
+            if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes,prefixes=prefixes)
         if program not in ('',state.program_name):
             state=self.variables.programs.get(program)
             if state is None: fail('Variable program is not attached to the explicit context',line)
@@ -2332,38 +2343,45 @@ class ExecutionContext:
         if not tokens or tokens[1] not in state.types: fail('Variable path requires a static declared global',line)
         value=state.values[tokens[1]]
         reference=value if isinstance(value,rt.Reference) else rt.Reference(state.types[tokens[1]],state.values,tokens[1]); rest=tokens[2]
-        return self.descend(reference,rest,line,path_nodes=path_nodes)
-    def descend(self,reference,rest,line=None,*,path_nodes=False):
+        return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes)
+    def descend(self,reference,rest,line=None,*,path_nodes=False,prefixes=False):
         rt=runtime()
         while rest:
             field=re.match(r'\.([A-Z_][A-Z_0-9]*)',rest)
             index=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest)
             if field: reference=rt.field_reference(reference.raw(),field[1],line); rest=rest[field.end():]
             elif index:
-                numbers=tuple(int(x) for x in index[1].split(',')); value=reference.raw()
+                consumed=index.end();numbers=tuple(int(x) for x in index[1].split(','));value=reference.raw()
+                if prefixes and rt._pythonic():
+                    while True:
+                        following=re.match(r'\[([0-9]+(?:,[0-9]+)*)\]',rest[consumed:])
+                        if following is None:break
+                        numbers+=tuple(int(x) for x in following[1].split(','));consumed+=following.end()
                 if path_nodes and isinstance(value,PathValue):
                     if len(numbers)!=1: fail('PATH requires one node index',line)
                     value.node(numbers[0],line)
                     reference=rt.Reference(value.node_spec,value.nodes,numbers[0]-1)
                 else:
                     selected=numbers[0] if len(numbers)==1 else numbers
-                    if rt._pythonic() and any(rt.joint_axis_access(reference.spec,n) for n in range(1,5)):
+                    if prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
+                        reference=rt.array_prefix_target(value,selected,reference.spec,line)
+                    elif rt._pythonic() and any(rt.joint_axis_access(reference.spec,n) for n in range(1,5)):
                         if type(value) not in (rt.Array,rt.JointPosition) or not rt.parameter_accepts(reference.spec,value.spec):fail('Joint variable path storage does not match its declared schema',line)
                         reference=(rt.joint_index_reference(value,selected,reference.spec,line) if rt.joint_axis_access(reference.spec,len(numbers))
                                    else rt.index_reference(value,selected,line))
                     else:reference=rt.index_reference(value,selected,line)
-                rest=rest[index.end():]
+                rest=rest[consumed:]
             else: fail('Invalid static variable path',line)
         return reference
     def variable(self,state,name,args,line):
         rt=runtime(); entry,program,path,value,status=args
-        try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line)
+        try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,prefixes=rt._pythonic())
         except rt.KarelRuntimeError: status.set(1,line); return
-        if type(target) is not rt.Reference: fail('Protected variable storage cannot be a GET_VAR/SET_VAR alias',line)
+        if type(target) is not rt.Reference and not (rt._pythonic() and type(target) is rt._ArrayPrefixTarget): fail('Protected variable storage cannot be a GET_VAR/SET_VAR alias',line)
         if name=='GET_VAR':
             source=variable_value(target.spec,target.raw(),line);destination=value
         else:
-            if rt._reference_cells(target) & (rt._reference_cells(entry)|rt._reference_cells(status)): fail('SET_VAR target overlaps entry/status',line)
+            if _variable_cells(target,line) & (rt._reference_cells(entry)|rt._reference_cells(status)): fail('SET_VAR target overlaps entry/status',line)
             if type(value) is VariableValue: source=value
             else:
                 spec=getattr(value,'spec',None) or (('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254) if type(value) is str else None)
@@ -2376,15 +2394,19 @@ class ExecutionContext:
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
         key=(program.upper() or state.program_name,path.upper())
-        if key not in self.entries: self.entries[key]=len(self.entries)+1
+        prefix=rt._pythonic() and type(destination) is rt._ArrayPrefixTarget
+        if prefix and _variable_cells(destination,line) & (rt._reference_cells(entry)|rt._reference_cells(status)):
+            fail('Prefix variable target overlaps entry/status',line)
         current=destination.raw()
-        if type(current) is rt.QueueValue and type(copied) is rt.QueueValue:
+        if prefix:destination.set(copied,line)
+        elif type(current) is rt.QueueValue and type(copied) is rt.QueueValue:
             current.initialized=copied.initialized;current.sequence=copied.sequence
             current.entries=copied.entries;current.buffer=None
         elif type(current) is PathValue and type(copied) is PathValue:
             current.data=rt.replace_value(current.data,copied.data)
             current.nodes=copied.nodes
         else: destination.storage[destination.key]=rt.replace_value(current,copied)
+        if key not in self.entries:self.entries[key]=len(self.entries)+1
         entry.set(self.entries[key],line); status.set(12311 if missing else 0,line)
     def queue(self,name,args,line):
         rt=runtime()

@@ -1,4 +1,5 @@
 {
+  "prefix_variable_mode_note": "../prefix-variable-transfers.md adds explicit GET_VAR output captures and selected GET_VAR/SET_VAR paths/input values; general reference aliases remain excluded.",
   "version": "26.1102.142849",
   "mode": "pythonic",
   "controller_validated": false,

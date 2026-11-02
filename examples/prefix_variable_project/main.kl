@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR matrix:ARRAY[2,3]OF INTEGER value:INTEGER done:BOOLEAN
+ROUTINE transfer FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    matrix[1,1]=7 matrix[1,2]=9 matrix[1,3]=11 transfer
+    value=matrix[2,1]+matrix[2,2]+matrix[2,3] done=TRUE
+  ENDIF
+END MAIN

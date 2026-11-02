@@ -1,0 +1,10 @@
+PROGRAM PREFIX_VARIABLE_PATHS
+VAR matrix:ARRAY[2,3]OF INTEGER row:ARRAY[3]OF INTEGER value,entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    matrix[1,1]=7 matrix[1,2]=9 matrix[1,3]=11
+    GET_VAR(entry,'','MATRIX[1]',row,status)
+    SET_VAR(entry,'','MATRIX[2]',row,status)
+    GET_VAR(entry,'','MATRIX[2][3]',value,status) done=TRUE
+  ENDIF
+END PREFIX_VARIABLE_PATHS

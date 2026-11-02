@@ -1,0 +1,12 @@
+PROGRAM PREFIX_VARIABLE_VALUES
+VAR matrix:ARRAY[2,3]OF INTEGER row:ARRAY[3]OF INTEGER value,entry,status,visits:INTEGER done:BOOLEAN
+ROUTINE pick:INTEGER
+BEGIN visits=visits+1 row[1]=99 RETURN 2 END pick
+BEGIN
+  IF UNINIT(done) THEN
+    visits=0 row[1]=7 row[2]=9 row[3]=11
+    GET_VAR(entry,'','ROW',matrix[pick()],status)
+    SET_VAR(entry,'','ROW',matrix[2],status)
+    value=row[1]+row[2]+row[3] done=TRUE
+  ENDIF
+END PREFIX_VARIABLE_VALUES

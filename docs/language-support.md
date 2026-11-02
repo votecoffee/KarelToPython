@@ -6,7 +6,11 @@ views remain unavailable. [Statement prefix targets](array-prefix-targets.md) no
 assign and READ original row/plane cells with actual receiver conversions and
 ordinary scalar input transports.
 
-This is the supported prototype subset as of 26.1102.142849. Acceptance is specific to
+[Selected ARRAY variable transfers](prefix-variable-transfers.md) now extend
+GET_VAR/SET_VAR named paths, source copies and GET data outputs across rows/planes
+without introducing general prefix references.
+
+This is the supported prototype subset as of 26.1102.150334. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

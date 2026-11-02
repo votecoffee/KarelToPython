@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [prefix variable-transfer ledger](prefix_variable_transfer_semantics.json)
+adds selected named ARRAY paths, SET input copies and GET output captures.
+General service/BYNAME aliases remain complete, with separate overlap and
+data/cache/status publication rules for the explicit transfer extension.
+
 The [ARRAY prefix-target ledger](array_prefix_target_semantics.json) adds
 statement-only row/plane assignment and READ into captured original cells.
 It supersedes earlier assignment/input-target exclusions while retaining generic

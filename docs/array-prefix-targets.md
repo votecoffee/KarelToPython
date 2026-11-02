@@ -36,7 +36,9 @@ even when passed to a routine that writes its parameter.
 
 The runtime captures a private statement target rather than exposing a generic
 Reference or ARRAY view. Runtime indexed-reference helpers, quoted BYNAME paths
-and service output parameters keep their complete-reference contracts. No view
+and general service output parameters keep their complete-reference contracts.
+Separate [GET_VAR/SET_VAR prefix transfers](prefix-variable-transfers.md) now
+accept named data selections, SET input copies and GET data-output captures. No view
 or selection is stored in context JSON.
 
 ## Assignment order and publication
@@ -97,7 +99,8 @@ Whole-root active FOR checks still cover prefix writes and READ. POSITION
 orientation protection, CONFIG domains, constants, exact resource exclusions and
 existing cooperative cleanup remain unchanged. POSITION data can be copied by
 assignment; POSITION-containing READ targets remain excluded. Computed/function
-READ roots and service/BYNAME prefix aliases remain unavailable.
+READ roots and general service/BYNAME prefix aliases remain unavailable. GET_VAR
+data-output prefixes follow the separate variable-transfer contract above.
 
 Existing bounds remain three logical dimensions, 32767 source/receiver scalar
 leaves, 64 schema levels and 1024 expanded READ destinations plus CR. Saved JSON

@@ -7,7 +7,7 @@ def transfer(state,target,source,line=None):
     """Return a prepared model-backed transfer or None for the ordinary policy."""
     from . import runtime as rt,extended as ex
     if not rt._pythonic() or state.execution.robot is None:return None
-    if type(target) is not rt.Reference or type(source) is not ex.VariableValue:
+    if type(target) not in (rt.Reference,rt._ArrayPrefixTarget) or type(source) is not ex.VariableValue:
         raise rt.KarelRuntimeError('Model variable transfers require typed data references',line)
     spec,actual=target.spec,source.spec
     def model_pair(first,second):

@@ -1,0 +1,12 @@
+PROGRAM PREFIX_VARIABLE_RECORDS
+TYPE in_t=STRUCTURE count:INTEGER label:STRING[4] ENDSTRUCTURE
+     out_t=STRUCTURE label:STRING[2] count:REAL ENDSTRUCTURE
+VAR matrix:ARRAY[2,2]OF out_t data:ARRAY[2]OF in_t value,entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    data[1].count=7 data[1].label='abcd' data[2].count=9 data[2].label='xy'
+    GET_VAR(entry,'','DATA',matrix[1],status)
+    SET_VAR(entry,'','MATRIX[2]',data,status)
+    value=ROUND(matrix[1,1].count+matrix[2,2].count) done=TRUE
+  ENDIF
+END PREFIX_VARIABLE_RECORDS

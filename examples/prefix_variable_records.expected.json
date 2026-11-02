@@ -1,0 +1,38 @@
+{
+  "MATRIX": [
+    [
+      {
+        "LABEL": "ab",
+        "COUNT": 7.0
+      },
+      {
+        "LABEL": "xy",
+        "COUNT": 9.0
+      }
+    ],
+    [
+      {
+        "LABEL": "ab",
+        "COUNT": 7.0
+      },
+      {
+        "LABEL": "xy",
+        "COUNT": 9.0
+      }
+    ]
+  ],
+  "DATA": [
+    {
+      "COUNT": 7,
+      "LABEL": "abcd"
+    },
+    {
+      "COUNT": 9,
+      "LABEL": "xy"
+    }
+  ],
+  "VALUE": 16,
+  "ENTRY": 2,
+  "STATUS": 0,
+  "DONE": true
+}

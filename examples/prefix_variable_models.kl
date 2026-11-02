@@ -1,0 +1,9 @@
+PROGRAM PREFIX_VARIABLE_MODELS
+VAR joints:ARRAY[2,2]OF JOINTPOS2 poses:ARRAY[2]OF XYZWPR value,entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    joints[2,1][1]=0 joints[2,1][2]=90 joints[2,2][1]=0 joints[2,2][2]=90
+    GET_VAR(entry,'','JOINTS[2]',poses,status)
+    value=ROUND(poses[1].x)+ROUND(poses[2].x) done=TRUE
+  ENDIF
+END PREFIX_VARIABLE_MODELS

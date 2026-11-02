@@ -1,0 +1,37 @@
+{
+  "version": "26.1102.150334",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored selected row/plane data-transfer extension; no native path, layout, cache or controller equivalence",
+  "implemented": {
+    "procedures": [
+      "GET_VAR",
+      "SET_VAR"
+    ],
+    "paths": "Final incomplete flat ARRAY selections within declared/attached/explicit roots; adjacent numeric groups normalize during these transfers only",
+    "source": "SET_VAR source expressions capture independent typed suffix values at their argument position",
+    "output": "GET_VAR data outputs may use captured original suffix cells; general service outputs and BYNAME remain complete",
+    "conversion": "Existing same-rank smaller row-major count, receiver tail preservation, STRING/numeric/record/positional/explicit-model rules",
+    "publication": "Selected address checks before lookup and after model effects, validated data before cache/entry/status; rejected prefix writes allocate no cache ID",
+    "aliases": "Retain original selected cells and nested data aliases through root replacement; no prefix binding or view persistence",
+    "missing": "Scalar markers and BYTE domains retained; shaped prefix receivers reject missing whole/nested containers without metadata publication",
+    "scope": "Current/attached/explicit and dynamic roots, source effects, pause retention and exact context JSON replay"
+  },
+  "remaining": [
+    "General BYNAME/service prefix reference aliases",
+    "Missing destination containers, resources and live view persistence",
+    "Native source/layout/cache/controller equivalence and strict mode"
+  ],
+  "verification": [
+    "tests/test_prefix_variable_transfers.py",
+    "tests/test_array_prefix_targets.py",
+    "tests/test_runtime_portability.py",
+    "examples/prefix_variable_paths.kl",
+    "examples/prefix_variable_values.kl",
+    "examples/prefix_variable_records.kl",
+    "examples/prefix_variable_models.kl",
+    "examples/prefix_variable_project/main.kl",
+    "examples/prefix_variable_dynamic_project/main.kl"
+  ],
+  "guide": "../prefix-variable-transfers.md"
+}

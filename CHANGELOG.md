@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1102.150334 - 2026-11-02
+
+- Add Pythonic GET_VAR/SET_VAR row/plane data transfers through selected named
+  paths, captured SET source expressions and original-cell GET data outputs.
+  Retain declared/attached/explicit/dynamic namespace lookup rules and schemas.
+- Normalize adjacent numeric path index groups for these two transfers, including
+  complete element and joint-axis paths. Keep general resolver/BYNAME references
+  complete and preserve supplied binding precedence and cache-key spellings.
+- Reuse same-rank row-major prefix counts, receiver tails, STRING capacities,
+  numeric/record/positional and explicit-model conversions. Retain scalar missing
+  markers and BYTE domains; shaped prefix receivers reject missing containers.
+- Check selected output addresses and recheck destination overlap after model
+  effects. Publish data before cache/entry/status, so rejected prefix writes
+  allocate no cache ID. Preserve captured cells and prior callback effects.
+- Keep resource data, live/persisted views, general service/BYNAME prefix aliases,
+  implicit discovery, native/controller equivalence and strict mode excluded.
+- Add 66 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and semantic contracts.
+
 ## 26.1102.142849 - 2026-11-02
 
 - Add statement-only Pythonic row/plane assignment and READ destinations inside

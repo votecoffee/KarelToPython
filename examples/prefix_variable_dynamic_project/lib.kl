@@ -1,0 +1,5 @@
+PROGRAM LIB
+ROUTINE total:INTEGER
+VAR values:ARRAY[3]OF INTEGER entry,status:INTEGER
+BEGIN GET_VAR(entry,'CACHE','GRID[2]',values,status) RETURN values[1]+values[2]+values[3] END total
+BEGIN END LIB

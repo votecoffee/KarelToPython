@@ -2611,10 +2611,11 @@ class Emitter:
                 if self.protection_root(value) in self.active_counters: self.error('E_FOR_COUNTER','Service output cannot write an active FOR counter',value.token)
                 if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
                 if self.is_config_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG fields cannot be output aliases',value.token)
-                code,spec=self.reference(value)
+                code,spec=self.reference(value,allow_prefix=self.mode=='pythonic' and expr.value=='GET_VAR' and index==3)
             else:
                 variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
-                reference_input=variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
+                reference_input=(variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
+                                 and not (expr.value=='SET_VAR' and self.is_array_prefix_value(discarded)))
                 if reference_input: code,spec=self.reference(discarded)
                 else: code,spec=self.expression(value)
                 if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
@@ -6083,13 +6084,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/array-prefix-values.md',controller_validated=False)
     report['array_prefix_target_policy']=dict(
         operations=['ASSIGNMENT','READ'],
-        capture='Statement-only original row/plane cells captured once; no generic Reference, live view, routine copyback or BYNAME/service-output alias extension',
+        capture='Original row/plane cells captured once for statement updates and explicit GET_VAR data outputs; no generic Reference, live view, routine copyback or BYNAME alias extension',
         assignment='Capture independent RHS first, then receiver and indexes; convert against captured actual receiver schema after target effects; validate complete selected receiver before one checkpoint-free publication; retain element/record aliases',
         input='Expand captured original scalar references before format calls and later targets; use existing complete-response checks, CR remapping, file/callback transports, waits and cancellation',
         schema='Preserve actual suffix dimensions, named children and STRING capacities; use existing context-free or explicit-model source conversions; validate full source receiver storage at capture',
         limits='Existing 32767-leaf/64-level data schemas and 1024 input destinations/CR; no resources, POSITION input, generic output targets, persistent views, native/controller or strict claim',
         guide='docs/array-prefix-targets.md',controller_validated=False)
-    report['array_policy']['subscripts']='Complete comma/chained references and named boundaries unchanged; source prefix values and statement-only assignment/READ targets have explicit separate policies'
+    report['prefix_variable_transfer_policy']=dict(
+        procedures=['GET_VAR','SET_VAR'],
+        paths='Final incomplete flat row/plane selections in current/attached or explicit variable roots; adjacent numeric bracket groups normalize only for these transfers; exact bindings keep lookup precedence',
+        inputs='SET_VAR source prefixes become independent typed snapshots before later selectors; GET_VAR data outputs may capture original prefix cells; generic BYNAME and service references stay complete',
+        conversions='Existing same-rank prefix data conversions, scalar missing markers, STRING capacities, numeric/record/positional and explicit-model rules; preserve unused receiver tail and actual named child layouts',
+        publication='Validate output overlaps before lookup, recheck selected destination overlap after model effects, then data publication before cache/entry/status; failed prefix publication allocates no cache ID',
+        boundaries='No live view, prefix binding persistence, automatic discovery, resource data, missing destination containers, native/controller or strict claim; normal resolver/BYNAME remains unchanged',
+        guide='docs/prefix-variable-transfers.md',controller_validated=False)
+    report['array_policy']['subscripts']='Complete references and named boundaries unchanged; source values, statement targets and explicit variable-transfer prefixes have separate policies'
     report['aggregate_access_policy']['boundary']='Bare function names directly used as receiver roots remain storage; use explicit calls/groups; complete ARRAY chains normalize to comma access without partial flat views or erasing identity'
     report['kinematic_interface_policy']=dict(
         conversions='Source actual arguments and RETURN values between JOINTPOS and POSITION/XYZWPR/XYZWPREXT use existing explicitly supplied models/adapters; exact same-type bare storage retains references',

@@ -1,0 +1,33 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "VALUES": [
+        7,
+        9,
+        11
+      ],
+      "ENTRY": 2,
+      "STATUS": 0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "MATRIX": [
+        [
+          7,
+          9,
+          11
+        ],
+        [
+          7,
+          9,
+          11
+        ]
+      ],
+      "VALUE": 27,
+      "DONE": true
+    }
+  }
+}

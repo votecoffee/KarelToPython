@@ -1,0 +1,5 @@
+PROGRAM LIB
+VAR values:ARRAY[3]OF INTEGER entry,status:INTEGER
+ROUTINE transfer
+BEGIN GET_VAR(entry,'MAIN','MATRIX[1]',values,status) SET_VAR(entry,'MAIN','MATRIX[2]',values,status) END transfer
+BEGIN END LIB

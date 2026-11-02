@@ -489,6 +489,10 @@ are integers for signed/grouped literals, or objects containing `expression=true
 and physical `line`/`column` for dynamic values. `items[].dynamic_formats` identifies
 dynamic sites; `format_width` retains the integer or expression object, while
 `alignment`, `quoted` and `width_policy` explicitly mark dynamic cases.
+`prefix_variable_transfer_policy` describes selected named ARRAY paths, captured
+SET_VAR source prefixes and GET_VAR data-output prefixes, including address and
+metadata publication guards. See [prefix variable transfers](prefix-variable-transfers.md).
+
 `array_prefix_target_policy` and source-located `array_prefix_targets` describe
 statement-only original-cell capture for assignment and READ. Targets retain
 actual receiver schemas, scalar/record aliases and existing transport guards;
