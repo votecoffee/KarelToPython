@@ -17,7 +17,14 @@ MAX_SEQUENCE = 2147483646
 SETTINGS = {'$SPEED':'REAL', '$ROTSPEED':'REAL', '$MOTYPE':'INTEGER',
             '$UFRAME':'POSE', '$UTOOL':'POSE', '$USE_CONFIG':'BOOLEAN',
             '$TERMTYPE':'INTEGER', '$SEGTERMTYPE':'INTEGER', '$ORIENT_TYPE':'INTEGER',
-            '$DECELTOL':'INTEGER', '$USEMAXACCEL':'BOOLEAN'}
+            '$DECELTOL':'INTEGER', '$USEMAXACCEL':'BOOLEAN',
+            '$ACCEL_OVRD':'INTEGER', '$ACCU_NUM':'INTEGER', '$SEG_TIME':'INTEGER',
+            '$TIME_SHIFT':'INTEGER', '$CONTAXISVEL':'REAL', '$CNSTNT_PATH':'BOOLEAN',
+            '$DYN_I_COMP':'BOOLEAN', '$USE_CARTACC':'BOOLEAN', '$USERELACCEL':'BOOLEAN',
+            '$USETIMESHFT':'BOOLEAN'}
+INTEGER_LIMITS = {'$DECELTOL':(0,99), '$ACCEL_OVRD':(0,500), '$ACCU_NUM':(0,10),
+                  '$SEG_TIME':(0,100000), '$TIME_SHIFT':(0,10000)}
+REAL_LIMITS = {'$SPEED':(0,None), '$ROTSPEED':(0,None), '$CONTAXISVEL':(-100,100)}
 KINDS = {6:'JOINT', 7:'LINEAR', 8:'CIRCULAR'}
 TERMINATIONS = {1:'FINE', 2:'COARSE', 3:'NOSETTLE', 4:'NODECEL', 5:'VARDECEL'}
 ORIENTATIONS = {1:'RSWORLD', 2:'AESWORLD', 3:'WRISTJOINT'}
@@ -174,15 +181,17 @@ def setting(name, value, spec, line=None):
             raise runtime.KarelRuntimeError('Motion '+name+' requires '+
                 '/'.join(values.values())+' ('+'/'.join(map(str,values))+')',line)
         return values[value]
-    if name in ('$SPEED', '$ROTSPEED'):
-        value = runtime.real(value, line)
-        if value < 0:
-            raise runtime.KarelRuntimeError('Motion speed settings require nonnegative finite values', line)
-        return value
-    if name == '$DECELTOL':
+    if name in INTEGER_LIMITS:
         value = runtime.integer(value, line)
-        if not 0 <= value <= 99:
-            raise runtime.KarelRuntimeError('Motion DECELTOL requires INTEGER 0..99', line)
+        low, high = INTEGER_LIMITS[name]
+        if not low <= value <= high:
+            raise runtime.KarelRuntimeError('Motion '+name+' requires INTEGER '+str(low)+'..'+str(high), line)
+        return value
+    if name in REAL_LIMITS:
+        value = runtime.real(value, line)
+        low, high = REAL_LIMITS[name]
+        if value < low or high is not None and value > high:
+            raise runtime.KarelRuntimeError('Motion '+name+' outside its supported numeric range', line)
         return value
     if name in SETTINGS and SETTINGS[name] == 'BOOLEAN':
         return runtime.boolean(value, line)
@@ -358,16 +367,19 @@ class MotionRequests:
                             raise ValueError('VIA conflicts with the explicit motion type')
                 elif name in ('$UFRAME', '$UTOOL'):
                     typed(value, POSES[:-1])
-                elif name == '$DECELTOL':
-                    bounded(value, 0, 99, 'DECELTOL requires INTEGER 0..99')
+                elif name in INTEGER_LIMITS:
+                    low, high = INTEGER_LIMITS[name]
+                    bounded(value, low, high, name+' requires INTEGER '+str(low)+'..'+str(high))
                 elif SETTINGS[name] == 'BOOLEAN':
                     if type(value) is not bool:
                         raise ValueError(name+' requires BOOLEAN')
                 else:
                     runtime = rt()
                     with runtime._numeric_scope('pythonic'):
-                        if runtime.real(value) < 0:
-                            raise ValueError('Motion speed settings must be nonnegative')
+                        number = runtime.real(value)
+                        low, high = REAL_LIMITS[name]
+                        if number < low or high is not None and number > high:
+                            raise ValueError(name+' outside its supported numeric range')
         for key in ('target', 'via', 'offset', 'vector'):
             if key in data:
                 allowed = ('VECTOR',) if key == 'vector' else ('VECTOR', *POSES[:-1]) if key == 'offset' else POSES[:-1] if operation == 'MOVE NEAR' or key == 'via' else POSES

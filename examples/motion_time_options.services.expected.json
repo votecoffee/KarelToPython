@@ -1,0 +1,86 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_TIME_OPTIONS",
+        "source_program": "MOTION_TIME_OPTIONS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_TIME_OPTIONS",
+        "source_program": "MOTION_TIME_OPTIONS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$SEG_TIME",
+              "group": 1,
+              "value": 100000
+            },
+            {
+              "name": "$TIME_SHIFT",
+              "group": 1,
+              "value": 10000
+            },
+            {
+              "name": "$USETIMESHFT",
+              "group": 1,
+              "value": true
+            }
+          ],
+          "execution": {
+            "delay_ms": 7,
+            "elapsed_ms": 7,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_TIME_OPTIONS",
+        "source_program": "MOTION_TIME_OPTIONS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

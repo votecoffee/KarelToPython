@@ -1,0 +1,115 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_OPTION_DOMAINS",
+        "source_program": "MOTION_OPTION_DOMAINS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_OPTION_DOMAINS",
+        "source_program": "MOTION_OPTION_DOMAINS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$ACCEL_OVRD",
+              "group": 1,
+              "value": 125
+            },
+            {
+              "name": "$ACCU_NUM",
+              "group": 1,
+              "value": 3
+            },
+            {
+              "name": "$SEG_TIME",
+              "group": 1,
+              "value": 40
+            },
+            {
+              "name": "$TIME_SHIFT",
+              "group": 1,
+              "value": 10
+            },
+            {
+              "name": "$CONTAXISVEL",
+              "group": 1,
+              "value": -25.5
+            },
+            {
+              "name": "$CNSTNT_PATH",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$DYN_I_COMP",
+              "group": 1,
+              "value": false
+            },
+            {
+              "name": "$USE_CARTACC",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$USERELACCEL",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$USETIMESHFT",
+              "group": 1,
+              "value": true
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_OPTION_DOMAINS",
+        "source_program": "MOTION_OPTION_DOMAINS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

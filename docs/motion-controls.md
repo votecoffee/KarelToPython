@@ -86,11 +86,15 @@ MOVE TO target
 | `$UFRAME`, `$UTOOL` | Complete Cartesian POSITION, XYZWPR or XYZWPREXT value, detached with its explicit representation |
 | `$USE_CONFIG`, `$USEMAXACCEL` | BOOLEAN, without numeric truthiness |
 | `$DECELTOL` | INTEGER 0..99; zero unspecified default intent, 1..99 percentage intent; see [deceleration settings](motion-deceleration-settings.md) |
+| `$ACCEL_OVRD`, `$ACCU_NUM` | INTEGER 0..500 and 0..10 respectively; request intent only |
+| `$SEG_TIME`, `$TIME_SHIFT` | INTEGER milliseconds in 0..100000 and 0..10000 respectively; supplied offline timing remains unchanged |
+| `$CONTAXISVEL` | Finite numeric -100..100, saved as float with sign |
+| `$CNSTNT_PATH`, `$DYN_I_COMP`, `$USE_CARTACC`, `$USERELACCEL`, `$USETIMESHFT` | Exact BOOLEAN; see [motion options](motion-options.md) |
 
 Each setting optionally accepts a group expression, for example
 `WITH $SPEED[group_number]=speed_value MOVE AWAY distance`. It must resolve to
 the same group as the MOVE request. Cross-group motion settings and duplicate
-settings are rejected. At most eleven entries are accepted. The explicit
+settings are rejected. At most 21 entries are accepted. The explicit
 `$GROUP[group].$NAME` spelling and new enum choices follow
 [extended motion settings](extended-motion-settings.md).
 
@@ -134,5 +138,5 @@ See the authored [controls](../examples/motion_controls.kl),
 [linked calls](../examples/motion_control_project/main.kl).
 Local [Boolean WHEN/UNTIL and finite delayed responses](motion-handlers.md) are
 supported through synchronous scopes. [Local node/time predicates](motion-timeline.md)
-use complete supplied schedules. NOWAIT queues, inferred arrivals, remaining WITH
+use complete supplied schedules. NOWAIT queues, inferred arrivals, unresolved REF_POS and other motion
 variables, global system-variable access and native synchronization remain unsupported.

@@ -1,0 +1,19 @@
+{
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "responses": [
+      {
+        "operation": "MOVE AWAY",
+        "completed": true,
+        "delay_ms": 7
+      }
+    ]
+  },
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  }
+}

@@ -31,12 +31,15 @@ they are boundaries rather than promises to accept every such source form later.
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
-  now support HOLD/UNHOLD/CANCEL, global handler actions and eleven per-request WITH
+  now support HOLD/UNHOLD/CANCEL, global handler actions and 21 per-request WITH
   settings, including [termination/orientation choices](extended-motion-settings.md)
   and [deceleration/acceleration intent](motion-deceleration-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
   now use synchronous scopes with pause/resume and cleanup. NOWAIT with local
-  clauses/delayed completion, inferred node arrivals, remaining WITH variables,
+  clauses/delayed completion, inferred node arrivals, unresolved `$REF_POS`,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
+  [Ten additional WITH options](motion-options.md) now retain acceleration, accuracy,
+  signed continuous-axis speed, timing and Boolean policy intent as checked metadata.
+  They do not apply those options to a trajectory or the supplied offline timeline.
   [AT NODE and TIME BEFORE/AFTER](motion-timeline.md) now require a complete supplied
   arrival schedule; global temporal predicates and physical arrival discovery remain unavailable.
   [CANCEL FILE](file-cancellation.md) now interrupts explicit cooperative typed reads

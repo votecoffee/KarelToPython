@@ -1,6 +1,6 @@
 # Deceleration and acceleration intent
 
-Pythonic MOVE accepts eleven request-local WITH settings. `$DECELTOL` and
+Pythonic MOVE accepts 21 request-local WITH settings. `$DECELTOL` and
 `$USEMAXACCEL` add checked deceleration/acceleration intent to the
 [existing settings](extended-motion-settings.md).
 
@@ -29,12 +29,10 @@ MOVE operands and local condition captures. Accept `$NAME`, `$NAME[group]` and
 Duplicate names, wrong categories and invalid values fail before MOVE publication
 or script consumption. Earlier completed source-expression effects remain.
 
-Remaining WITH names from the reviewed table are `$ACCEL_OVRD`, `$ACCU_NUM`,
-`$CNSTNT_PATH`, `$CONTAXISVEL`, `$DYN_I_COMP`, `$REF_POS`, `$SEG_TIME`,
-`$TIME_SHIFT`, `$USE_CARTACC`, `$USERELACCEL` and `$USETIMESHFT`. Their typed
-offline contracts remain unimplemented.
+Ten additional names now follow [motion options](motion-options.md). `$REF_POS`
+remains unavailable until its motion-setting type/contract is established.
 
-All seven MOVE forms accept these settings alongside the other nine. Immediate
+All seven MOVE forms accept these settings alongside the other 19. Immediate
 NOWAIT, local WHEN/UNTIL, supplied finite delays and node/time schedules keep the
 same checked metadata. Pause/resume retains captured values. Cancellation,
 ABORT, errors and budget exhaustion keep the existing scope/ownership cleanup.
@@ -45,7 +43,7 @@ change a supplied completion delay, arrival schedule, robot feedback, frame/tool
 context or acceleration profile. A later MOVE has its own settings. JSON stores
 ordinary INTEGER/BOOLEAN values and validates their exact domains on restore;
 older histories remain valid. Reports add `deceleration` and `acceleration` to
-`motion_setting_policy`, with an eleven-setting maximum.
+`motion_setting_policy`, with a 21-setting maximum.
 
 See the [intent example](../examples/motion_deceleration_intents.kl),
 [eleven-setting example](../examples/motion_eleven_settings.kl),

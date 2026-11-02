@@ -134,7 +134,7 @@ class MotionDecelerationTests(unittest.TestCase):
 
     def test_report_explains_zero_intent_and_native_boundaries(self):
         _,_,_,r=execute('ATTACH WITH '+BOTH+' MOVE AWAY 1');p=r.report['motion_setting_policy']
-        self.assertEqual(p['maximum'],11);self.assertIn('unspecified',p['deceleration']);self.assertIn('BOOLEAN',p['acceleration']);self.assertFalse(p['controller_validated'])
+        self.assertEqual(p['maximum'],21);self.assertIn('unspecified',p['deceleration']);self.assertIn('BOOLEAN',p['acceleration']);self.assertFalse(p['controller_validated'])
 
     def test_legacy_still_rejects_motion_source_forms(self):
         from karel2py import translate

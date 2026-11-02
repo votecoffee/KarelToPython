@@ -1,6 +1,7 @@
 # Termination, orientation and qualified WITH settings
 
-Pythonic MOVE requests accept eleven temporary WITH settings, including the
+Pythonic MOVE requests accept 21 temporary WITH settings, including the
+[additional scalar options](motion-options.md) and the
 [deceleration/acceleration additions](motion-deceleration-settings.md). In addition to the
 six original speed, interpolation, frame/tool and configuration settings, they
 capture termination and orientation choices as checked request metadata.
@@ -41,7 +42,7 @@ selected source group; cross-group settings remain blocked.
 
 Capture each group expression, then its value, once in source order before MOVE
 operands and local condition captures. Frame/tool values detach immediately.
-All eleven settings may occur once in the same request. Duplicate canonical names,
+All 21 settings may occur once in the same request. Duplicate canonical names,
 unknown names, malformed groups, invalid values, ownership, VIA and script checks
 reject before MOVE publication or response consumption. Earlier expression effects
 remain visible; no invented rollback of source routines is performed.

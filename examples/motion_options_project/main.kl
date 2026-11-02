@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR done:BOOLEAN
+ROUTINE work FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    ATTACH
+    work
+    RELEASE
+    done=TRUE
+  ENDIF
+END MAIN

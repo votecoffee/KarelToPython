@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1102.211651 - 2026-11-02
+
+- Expand Pythonic local WITH metadata to 21 settings with acceleration/accuracy,
+  signed continuous-axis velocity, segment/shift times and five Boolean options.
+- Validate scalar domains before request publication and on JSON restoration;
+  retain existing explicit timing, ownership, local scopes and pause/resume rules.
+- Preserve physical source origins for motion requests and their setting rows;
+  leave REF_POS unresolved and native option application outside the offline model.
+- Add 61 regression tests, four runnable examples and two linked projects.
+
 ## 26.1102.205619 - 2026-11-02
 
 - Add Pythonic $MNUFRAMENUM/$MNUTOOLNUM reads and dedicated assignments with

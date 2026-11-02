@@ -1,0 +1,110 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 5,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MOTION_CONTINUOUS_AXIS",
+        "source_program": "MOTION_CONTINUOUS_AXIS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MOTION_CONTINUOUS_AXIS",
+        "source_program": "MOTION_CONTINUOUS_AXIS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$CONTAXISVEL",
+              "group": 1,
+              "value": -100.0
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MOTION_CONTINUOUS_AXIS",
+        "source_program": "MOTION_CONTINUOUS_AXIS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 2.0,
+          "settings": [
+            {
+              "name": "$CONTAXISVEL",
+              "group": 1,
+              "value": 0.0
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MOTION_CONTINUOUS_AXIS",
+        "source_program": "MOTION_CONTINUOUS_AXIS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 3.0,
+          "settings": [
+            {
+              "name": "$CONTAXISVEL",
+              "group": 1,
+              "value": 100.0
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MOTION_CONTINUOUS_AXIS",
+        "source_program": "MOTION_CONTINUOUS_AXIS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

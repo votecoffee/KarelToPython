@@ -10,7 +10,7 @@ Explicit GET_VAR/SET_VAR/BYNAME paths use the same width checks.
 [Deceleration/acceleration settings](motion-deceleration-settings.md) extend
 `motion_setting_policy` with checked INTEGER percentage/default intent and exact
 BOOLEAN acceleration intent. [Extended motion settings](extended-motion-settings.md) add `motion_setting_policy`
-reports for eleven request-local WITH values, canonical enum domains/aliases and
+reports for 21 request-local WITH values, canonical enum domains/aliases and
 explicit group forms. Source captures and validated JSON history use the existing
 MotionRequests service without applying a robot environment.
 

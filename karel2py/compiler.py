@@ -6541,6 +6541,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         choices={name:dict(values) for name,values in rt.MOTION_SETTING_CONSTANTS.items()},
         deceleration='DECELTOL is INTEGER 0..99; zero retains an unspecified configured-default intent without resolving it; 1..99 retain percentage intent',
         acceleration='USEMAXACCEL is exact BOOLEAN; request-local intent only, with no generated acceleration profile',
+        integer_options={'$ACCEL_OVRD':[0,500],'$ACCU_NUM':[0,10],'$SEG_TIME':[0,100000],'$TIME_SHIFT':[0,10000]},
+        continuous_axis_velocity='CONTAXISVEL is finite REAL -100..100, retaining sign; request metadata only',
+        boolean_options=['$CNSTNT_PATH','$DYN_I_COMP','$USE_CARTACC','$USERELACCEL','$USETIMESHFT'],
+        time_options='SEG_TIME and TIME_SHIFT retain integer milliseconds without overriding scripted duration, node arrivals or local condition timing',
+        unresolved_options=['$REF_POS'],
         source='Contextual INTEGER names/expressions for MOTYPE, TERMTYPE, SEGTERMTYPE and ORIENT_TYPE; STRAIGHT canonicalizes to LINEAR; ordinary names outside that setting retain lexical lookup',
         groups='Unqualified NAME, NAME[n] or explicit $GROUP[n].$NAME; exactly one group expression per setting, matching the MOVE selected group; no cross-group settings',
         capture='Each group expression then setting value once in source order, before MOVE operands and local condition captures; detached frame/tool data',
@@ -6548,7 +6553,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         execution='Detached request metadata across immediate, delayed and local/temporal scopes; no interpolation, settling, planning, speed application or RobotContext mutation',
         persistence='Canonical enumeration strings in validated JSON history; source STRAIGHT alias is saved as LINEAR; no callbacks or active scopes',
         boundary='Other motion variables, cross-group execution, arbitrary system-variable access, NOWAIT scopes, native/compiler/controller equivalence and public strict mode remain unavailable',
-        guide='docs/extended-motion-settings.md',controller_validated=False)
+        guide='docs/motion-options.md',controller_validated=False)
+    for request in report['motion_requests']:
+        for row in [request,*request.get('settings',[])]:
+            label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
+            row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['dynamic_collection_policy']=dict(
         source='Pythonic CREATE_VAR root PATH and QUEUE_TYPE, including transparent supplied type aliases; no additional ARRAY dimensions or embedded resources',
         schemas='Default PATH uses portable STD_PTH_NODE and no header; custom NODEDATA/PATHHEADER require resolved named data STRUCTURE layouts, fixed shapes and at most 64 data levels',

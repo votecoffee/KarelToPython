@@ -1,5 +1,6 @@
 {
   "version": "26.1030.200022",
+  "current_motion_options": "21-setting current maximum and ten scalar additions follow motion_option_semantics.json; earlier release details below retain their historical scope",
   "mode": "pythonic",
   "controller_validated": false,
   "guide": "../motion-deceleration-settings.md",

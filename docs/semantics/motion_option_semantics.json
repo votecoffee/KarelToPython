@@ -1,0 +1,37 @@
+{
+  "version": "26.1102.211651",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../motion-options.md",
+  "tests": [
+    "tests/test_motion_options.py"
+  ],
+  "maximum": 21,
+  "added_settings": {
+    "$ACCEL_OVRD": "INTEGER 0..500",
+    "$ACCU_NUM": "INTEGER 0..10",
+    "$SEG_TIME": "INTEGER 0..100000 ms",
+    "$TIME_SHIFT": "INTEGER 0..10000 ms",
+    "$CONTAXISVEL": "finite REAL -100..100",
+    "$CNSTNT_PATH": "exact BOOLEAN",
+    "$DYN_I_COMP": "exact BOOLEAN",
+    "$USE_CARTACC": "exact BOOLEAN",
+    "$USERELACCEL": "exact BOOLEAN",
+    "$USETIMESHFT": "exact BOOLEAN"
+  },
+  "capture": "Group then value once in source order, before operands/local captures; preserve earlier expression effects on later failure",
+  "publication": "Validate canonical unique names, categories/domains, group, ownership, VIA, history and script before response consumption or request publication",
+  "execution": "Detached per-request intent on all seven MOVE forms, immediate NOWAIT and existing synchronous local/temporal scopes; pause retains values and cleanup rules remain",
+  "timing": "SEG_TIME, TIME_SHIFT and USETIMESHFT do not alter supplied delay, arrival schedule or handler timing",
+  "persistence": "Validate exact bounded scalar categories and names on JSON restore; old histories remain valid; active scopes remain unsavable",
+  "provenance": "Motion request and setting rows preserve expanded locations plus physical source file/line/column and include stack",
+  "references": [
+    "FANUC KAREL MARAIKLRF06031E Rev A table 12-2",
+    "FANUC software MARACSSRF03061E Rev G section 2.7.3"
+  ],
+  "unresolved": [
+    "$REF_POS type/contract"
+  ],
+  "boundaries": "No trajectories, option application, accuracy area lookup, RobotContext/feedback mutation, native defaults, delayed NOWAIT, cross-group motion, arbitrary system-variable access, native/compiler equivalence or strict mode",
+  "supersedes": "Current 11-setting maxima and ten remaining-option exclusions in earlier motion guides/ledgers; historical release scope retained"
+}
