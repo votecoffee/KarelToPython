@@ -80,7 +80,7 @@ PROCEDURES = {
        ((f'GET_{family}_CMT',(I,OS,OI)),(f'SET_{family}_CMT',(I,S,OI)))},
     'GET_PORT_VAL': (I,I,arg('PORT_VALUE','o'),OI), 'SET_PORT_VAL': (I,I,arg('PORT_VALUE'),OI),
     'GET_PORT_CMT': (I,I,OS,OI), 'SET_PORT_CMT': (I,I,S,OI),
-    'GET_PORT_SIM': (I,I,OI,OI), 'SET_PORT_SIM': (I,I,arg('PORT_VALUE'),OI),
+    'GET_PORT_SIM': (I,I,arg('PORT_SIM','o'),OI), 'SET_PORT_SIM': (I,I,arg('PORT_VALUE'),OI),
     'CLR_PORT_SIM': (I,I,OI),
     'GET_PORT_ASG': (I,I,OI,OI,OI,OI,OI,OI),
     'SET_PORT_ASG': (I,I,I,I,I,I,I,OI),
@@ -190,8 +190,8 @@ FUNCTIONS = {
     'GET_FILE_POS': ((arg('FILE'),),('INTEGER',)),
     'BYTES_LEFT': ((arg('FILE'),),('INTEGER',)),
     'IO_STATUS': ((arg('FILE'),),('INTEGER',)),
-    'IN_RANGE': ((arg('POSE'),),('BOOLEAN',)),
-    'J_IN_RANGE': ((arg('JOINTPOS'),),('BOOLEAN',)),
+    'IN_RANGE': ((arg('RANGE_POSITION'),),('BOOLEAN',)),
+    'J_IN_RANGE': ((arg('RANGE_POSITION'),),('BOOLEAN',)),
     'MIRROR': ((arg('GEOMETRY_POSE'),arg('GEOMETRY_POSE'),B),('XYZWPREXT',)),
 }
 PROCEDURES.update(VISION_PROCEDURES)
@@ -272,8 +272,9 @@ def matches(spec, kind):
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or spec[0]=='PATH' and len(spec)==3 or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE')
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
-    if kind=='GEOMETRY_POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
+    if kind in ('GEOMETRY_POSE','RANGE_POSITION'): return spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
     if kind=='PORT_VALUE': return spec[0] in ('INTEGER','REAL','BOOLEAN','STRING')
+    if kind=='PORT_SIM':return spec in (('BOOLEAN',),('INTEGER',))
     if kind in ('INT_ARRAY','REAL_ARRAY'):
         return spec[0]=='ARRAY' and len(rt.array_dimensions(spec))==1 and rt.array_leaf_spec(spec)[0]==('INTEGER' if kind=='INT_ARRAY' else 'REAL')
     if kind=='TABLE_ACTION':return spec==('INTEGER',)
@@ -674,7 +675,7 @@ class PortBank:
         if not self.contains(kind,number): args[-1].set(2,line); return
         key=kind,number
         if name=='CLR_PORT_SIM': self.simulated.discard(key); args[-1].set(0,line); return
-        if name=='GET_PORT_SIM': value=int(key in self.simulated)
+        if name=='GET_PORT_SIM': value=(key in self.simulated) if args[2].spec==('BOOLEAN',) else int(key in self.simulated)
         elif name=='GET_PORT_CMT': value=self.comments.get(key,'')
         elif name=='SET_PORT_CMT': self.comments[key]=rt.ascii_string(args[2],line)[:16]; args[-1].set(0,line); return
         elif name=='GET_PORT_VAL':
@@ -1418,6 +1419,21 @@ class RobotContext:
         group=self.active_group if group is None else group
         if type(group) is not int or group not in self.groups: fail('Robot group has no configured model/state',line)
         return self.groups[group]
+    def in_range(self,value,name,line=None):
+        """Portable predicates share explicit representation-based checks."""
+        rt=runtime()
+        if isinstance(value,rt.JointPosition):
+            if self.joint_limits is None:fail(name+' requires explicit limits for every joint',line)
+            values=rt.joint_values(value,len(self.joint_limits),line)
+            return all(lo<=axis<=hi for axis,(lo,hi) in zip(values,self.joint_limits))
+        if self.reachable is None:fail(name+' requires an explicit reachability adapter',line)
+        pose=rt.frame_value(value,line)
+        try:answer=self.reachable(pose)
+        except Exception as exc:raise rt.KarelRuntimeError('Reachability adapter failed: '+str(exc),line) from exc
+        if type(answer) is not bool:
+            if inspect.iscoroutine(answer) or inspect.isgenerator(answer):answer.close()
+            fail('Reachability adapter must return a synchronous BOOLEAN',line)
+        return answer
     def check_pose(self,position,uframe,utool,line=None):
         rt=runtime()
         if self.check_position is None: fail('CHECK_EPOS requires an explicit framed position check adapter or DH model',line)
@@ -2308,16 +2324,8 @@ class ExecutionContext:
             answer=robot.check_pose(*args[:3],line=line)
             args[3].set(0 if answer else 1,line); return
         if name in ('IN_RANGE','J_IN_RANGE'):
-            robot=self.require('robot',line).for_group(rt.task_root(state).robot_group); value=args[0]
-            if name=='IN_RANGE':
-                if robot.reachable is None: fail('IN_RANGE requires an explicit reachability adapter',line)
-                pose=rt.frame_value(value,line)
-                try: answer=robot.reachable(pose)
-                except Exception as exc: raise rt.KarelRuntimeError('Reachability adapter failed: '+str(exc),line) from exc
-                return rt.boolean(answer,line)
-            if robot.joint_limits is None: fail('J_IN_RANGE requires explicit limits for every joint',line)
-            values=rt.joint_values(value,len(robot.joint_limits),line)
-            return all(lo<=axis<=hi for axis,(lo,hi) in zip(values,robot.joint_limits))
+            robot=self.require('robot',line).for_group(rt.task_root(state).robot_group,line)
+            return robot.in_range(args[0],name,line)
         if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=rt.task_root(state).robot_group)
         fail('Unsupported extended operation '+name,line)
     def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False):

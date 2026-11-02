@@ -72,6 +72,7 @@ class Program:
     directive_metadata: list = field(default_factory=list)
     imported_variables: list = field(default_factory=list)
     imported_types: list = field(default_factory=list)
+    storage_declarations: list = field(default_factory=list)
 
 
 @dataclass
@@ -251,6 +252,7 @@ class Parser:
         self.predefined_uses = []
         self.directive_metadata = []
         self.path_clause_uses = []
+        self.storage_declarations = []
         self.tokens = tokenize(source, filename, continuations=self.continuations)
         self.position = 0
         self.filename = filename
@@ -428,6 +430,7 @@ class Parser:
                     while self.accept(','): names.append(self.name())
                     owner=None
                     if self.mode=='pythonic' and self.accept('FROM'): owner=self.name().value
+                    self.storage_clause(names,name,imported=owner is not None)
                     self.expect(':')
                     spec = self.type_spec()
                     declarations.extend((key, spec) for key in names)
@@ -442,9 +445,22 @@ class Parser:
                 self.expect(name)
                 self.skip_lines()
                 self.expect('<EOF>')
-                return Program(name, constants, declarations, routines, body, directives, user_types, self.directive_metadata,imports,imported_types)
+                return Program(name, constants, declarations, routines, body, directives, user_types, self.directive_metadata,imports,imported_types,self.storage_declarations)
             else:
                 self.error('E_DECLARATION', 'Expected CONST, TYPE, VAR, ROUTINE or BEGIN; external declarations and controller types are not implemented')
+
+    def storage_clause(self,names,owner,*,imported=False):
+        """Retain explicit declaration placement without inventing persistence."""
+        if self.current.value!='IN':return
+        token=self.take()
+        if self.mode!='pythonic' or imported:
+            self.error('E_STORAGE','Storage clauses require Pythonic owned VAR declarations',token)
+        self.skip_newlines();pool=self.take()
+        if pool.value not in ('CMOS','DRAM'):
+            self.error('E_STORAGE_POOL','VAR storage requires IN CMOS or IN DRAM',pool)
+        self.skip_newlines()
+        self.storage_declarations.extend(dict(owner=owner,name=key.value,pool=pool.value,
+            line=key.line,column=key.column) for key in names)
 
     def type_spec(self):
         if self.mode == 'pythonic': self.skip_newlines()
@@ -593,6 +609,7 @@ class Parser:
                     continue
                 names = [self.name()]
                 while self.accept(','): names.append(self.name())
+                self.storage_clause(names,name)
                 self.expect(':')
                 spec = self.type_spec()
                 declarations.extend((key, spec) for key in names)
@@ -2339,6 +2356,7 @@ class Emitter:
             allowed = ('BOOLEAN', 'INTEGER') if expr.value == 'NOT' else ('INTEGER', 'REAL')
             if self.mode == 'pythonic' and expr.value in ('+', '-'):
                 allowed += ('VECTOR',)
+                if expr.value=='+':allowed += ('BOOLEAN',)
             if spec[0] not in allowed: self.error('E_TYPE', 'Invalid unary operand type', expr.token)
             self.features.add('unary ' + expr.value)
             return f'_rt.unary({expr.value!r}, {value}, {line})', spec
@@ -4109,6 +4127,8 @@ class Emitter:
         self.line(f'source_program = {self.program.name!r}')
         self.line(f'translation_mode = {self.mode!r}')
         self.line(f'source_directives = {tuple((row["name"], row["argument"]) for row in self.program.directive_metadata)!r}')
+        self.line(f'source_storage_declarations = {tuple((row["owner"],row["name"],row["pool"],row["line"],row["column"]) for row in self.program.storage_declarations)!r}')
+        if self.program.storage_declarations:self.features.add('VAR storage clause')
         self.line(f'source_groups = {tuple(sorted(set(row["group"] for row in self.group_uses)))!r}')
         self.line(f'imported_variables = {tuple(self.program.imported_variables)!r}')
         self.line(f'imported_types = {tuple((row["name"], row["owner"]) for row in self.program.imported_types)!r}')
@@ -4706,6 +4726,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         directives=[dict(text=t.value, line=t.line, disposition=metadata['disposition'])
                     for t, metadata in zip(program.directives, program.directive_metadata)],
         directive_metadata=[dict(row) for row in program.directive_metadata],
+        storage_declarations=[dict(row) for row in program.storage_declarations],
         limitations=['Offline subset; no controller behavior validation',
                      'WRITE accepts one STRING with checked literal formats or one unformatted BOOLEAN/nonnegative INTEGER with exactly one leading blank; BOOLEAN/INTEGER formats, negative INTEGER/REAL output, direct BYTE/SHORT items, quoted truncation/fallback/apostrophes, signed widths, device/stdout mapping, buffering, CR and IO_STATUS remain blocked',
                      'DELAY uses checked host time.sleep or an injected synchronous sleeper; controller timing, motion, pause and abort behavior remain unverified; step budget is not a wall-clock limit',
@@ -4768,6 +4789,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['select_policy'].update(
         selector='Finite numeric, BOOLEAN or bounded ASCII STRING expression evaluated once',
         cases='Compatible compile-time constants and dynamic scalar expressions; BOOLEAN/STRING/numeric categories remain separate; ordinary finite numeric equality without integer-to-float conversion')
+    report['source_form_policy']=dict(
+        storage='Owned global and routine VAR names IN CMOS/DRAM before the colon; per-name owner/pool/location metadata and immutable generated source_storage_declarations',
+        lifetime='Storage intent only: existing uninitialized globals, fresh routine locals, explicit context/archive persistence; no automatic CMOS/DRAM allocation or restart retention',
+        unary='Unary + on BOOLEAN returns the same checked BOOLEAN; arithmetic and implicit numeric conversions remain separate',
+        simulation='GET_PORT_SIM accepts exact writable BOOLEAN or INTEGER output; RGET_PORTSIM retains its documented BOOLEAN output',
+        range='IN_RANGE/J_IN_RANGE accept Cartesian or JOINTPOS values: Cartesian uses the selected explicit reachability adapter; joints use supplied per-axis limits, including checked zero padding',
+        boundary='No packed CONFIG-number encoding, system-variable discovery, storage ABI, certified reachability or native equivalence; strict remains future work',
+        guide='docs/source-forms-and-predicates.md',controller_validated=False)
     report['scalar_select_policy']=dict(
         selectors='INTEGER/BYTE/SHORT/finite REAL numeric values, BOOLEAN or ASCII STRING up to 254 characters; checked once before dispatch',
         matching='First matching compatible clause after all case expressions are evaluated once; numeric equality keeps integers intact, BOOLEAN is distinct from numbers and STRING comparison is exact without case folding or padding',
@@ -5133,7 +5162,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['io_parameter_policy']=dict(
         ports='GET/SET_PORT_VAL, GET/SET_PORT_CMT and GET/SET_PORT_SIM share PortBank values; indirect IDs require caller-supplied type_codes mapping, without inferred native enums',
         simulation='SET_PORT_SIM initializes the value and marks the logical port simulated; SET_PORT_VAL writes outputs or simulated inputs; direct input assignment remains rejected',
-        conversions='Checked INTEGER/REAL/BOOLEAN/ASCII STRING scalar values; Boolean 0/1, exact integral conversion, finite analog values; GET_PORT_SIM returns INTEGER 0/1',
+        conversions='Checked INTEGER/REAL/BOOLEAN/ASCII STRING scalar values; Boolean 0/1, exact integral conversion, finite analog values; GET_PORT_SIM writes BOOLEAN or exact INTEGER 0/1',
         status='Portable port codes: 0 success, 1 missing value, 2 unmapped type/range, 3 invalid representation, 4 input not simulated; failed requests preserve other outputs and bank state',
         comments='Independent numeric/position/string-register comments, empty by default; capacities 16/16/254; port comments 16; setters and output destinations truncate; serialized with their banks',
         parameters='Explicit CallParameters map root program names to argument numbers 1..10; GET_TPE_PRM writes type 1 INTEGER, 2 REAL or 3 STRING and only the selected value output; absent argument writes status 17042 only',
@@ -6408,6 +6437,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:
+        for row in report['storage_declarations']:
+            label,line,stack=expansion.origin(row['line'])
+            row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
         report['expanded_source_sha256']=report['source_sha256']
         report['source_sha256']=hashlib.sha256(source.encode('utf-8')).hexdigest()
         report['features']=sorted(set(report['features'])|{'source %INCLUDE expansion'})

@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [source-form ledger](source_form_semantics.json) adds per-declaration CMOS/DRAM
+intent, Boolean identity, Boolean/integer simulation flags and shared portable
+Cartesian/joint predicates. It supersedes earlier source-form exclusions while
+retaining native storage, numeric-category and explicit robot-context boundaries.
+
 The [dynamic ARRAY creation ledger](dynamic_array_creation_semantics.json) adds
 typed ARRAY OF data aliases and extra named-array dimensions. Bounded schema
 validation now precedes all data creation/restore accounting; resource arrays

@@ -1,0 +1,22 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "JOINTS": {
+          "axes": [
+          2.0,
+          3.0
+        ]
+      },
+      "FLAG": true,
+      "WITHIN": true,
+      "DONE": true,
+      "STATUS": 0,
+      "VALUE": 1
+    }
+  }
+}

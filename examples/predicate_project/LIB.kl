@@ -1,0 +1,4 @@
+PROGRAM LIB
+ROUTINE within_limits(joints:JOINTPOS2):BOOLEAN
+BEGIN RETURN IN_RANGE(joints) AND J_IN_RANGE(joints) END within_limits
+BEGIN END LIB

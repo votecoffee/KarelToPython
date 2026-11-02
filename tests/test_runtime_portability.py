@@ -175,7 +175,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('dynamic_array_named', 'VALUE', 27),
                     ('dynamic_array_records', 'VALUE', 16),
                     ('dynamic_array_archive', 'VALUE', 9),
-                    ('dynamic_array_pose', 'VALUE', 200)]
+                    ('dynamic_array_pose', 'VALUE', 200),
+                    ('source_storage', 'VALUE', 14),
+                    ('predicate_boolean', 'VALUE', 7),
+                    ('predicate_range', 'VALUE', 7),
+                    ('predicate_ports', 'VALUE', 1)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

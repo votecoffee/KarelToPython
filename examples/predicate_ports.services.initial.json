@@ -1,0 +1,15 @@
+{
+  "ports": {
+    "counts": {
+      "DIN": 1
+    },
+    "values": {
+      "DIN": {
+        "1": false
+      }
+    },
+    "type_codes": {
+      "10": "DIN"
+    }
+  }
+}

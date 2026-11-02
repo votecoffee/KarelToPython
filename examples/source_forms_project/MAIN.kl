@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR cached FROM LIB:INTEGER value IN DRAM:INTEGER done:BOOLEAN
+ROUTINE collect(enabled:BOOLEAN):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN value=collect(+TRUE) value=collect(+TRUE) done=TRUE ENDIF
+END MAIN

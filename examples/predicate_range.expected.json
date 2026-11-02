@@ -1,0 +1,13 @@
+{
+  "JOINTS": {
+    "axes": [
+      2.0,
+      20.0
+    ]
+  },
+  "FIRST": true,
+  "SECOND": true,
+  "OUTSIDE": false,
+  "DONE": true,
+  "VALUE": 7
+}

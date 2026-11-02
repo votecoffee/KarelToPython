@@ -1470,6 +1470,7 @@ def unary(op, value, line=None):
         if type(value) is float: return real(-real(value, line), line)
         return integer(-integer(value, line), line)
     if op == '+':
+        if _pythonic() and type(value) is bool:return boolean(value,line)
         if type(value) is float: return real(value, line)
         return integer(value, line)
     raise KarelRuntimeError(f'Unsupported unary operator {op}', line)

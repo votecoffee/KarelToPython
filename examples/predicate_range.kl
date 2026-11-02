@@ -1,0 +1,10 @@
+PROGRAM PREDICATE_RANGE
+VAR joints:JOINTPOS2 first,second,outside,done:BOOLEAN value:INTEGER
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=2 joints[2]=3
+    first=IN_RANGE(joints) second=J_IN_RANGE(joints)
+    IF first AND second THEN value=7 ELSE value=0 ENDIF
+    joints[2]=20 outside=IN_RANGE(joints) done=TRUE
+  ENDIF
+END PREDICATE_RANGE

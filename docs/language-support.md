@@ -1,5 +1,10 @@
 # Language support
 
+[Storage clauses and predicate overloads](source-forms-and-predicates.md) now retain
+CMOS/DRAM declaration intent, Boolean unary + and Boolean/integer simulation
+outputs. Both range functions accept Cartesian or joint data through explicit
+representation-based adapter/limit checks.
+
 Independent [ARRAY prefix values](array-prefix-values.md) now copy flat rows and
 planes for source assignments, arguments/results and WRITE; partial writable
 views remain unavailable. [Statement prefix targets](array-prefix-targets.md) now
@@ -14,7 +19,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.153623. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.160516. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

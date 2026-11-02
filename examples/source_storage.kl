@@ -1,0 +1,11 @@
+PROGRAM SOURCE_STORAGE
+VAR value IN CMOS:INTEGER done IN DRAM:BOOLEAN
+ROUTINE collect
+VAR scratch IN DRAM:INTEGER
+BEGIN
+  IF UNINIT(scratch) THEN scratch=7 ELSE scratch=scratch+1 ENDIF
+  value=value+scratch
+END collect
+BEGIN
+  IF UNINIT(done) THEN value=0 collect collect done=TRUE ENDIF
+END SOURCE_STORAGE

@@ -50,7 +50,8 @@ assert bank.read("DOUT", 1) is True
 
 SET_PORT_SIM sets an initial value and marks that address simulated. It is not
 an enable/disable Boolean: passing zero initializes a simulated port to zero.
-GET_PORT_SIM returns INTEGER 0 or 1. SET_PORT_VAL permits output ports and
+GET_PORT_SIM writes BOOLEAN FALSE/TRUE or exact INTEGER 0/1. Both forms use the
+same simulation state; BYTE/SHORT/REAL/STRING flag outputs remain rejected. SET_PORT_VAL permits output ports and
 simulated input ports. Direct source assignment to an input, such as DIN[1],
 remains rejected; use SET_PORT_VAL for simulated input updates. Host `update`
 can still supply any configured port's value.

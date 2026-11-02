@@ -113,6 +113,8 @@ require an unsigned decimal INTEGER literal after `=`; expressions are rejected.
 existing context/inferred group or 1, unspecified locks, DRAM, false, true,
 TPDISPLAY, 8 ms and 300 long words. NOLOCKGROUP records an empty lock tuple.
 These settings come from the generated source, not saved task checkpoints.
+[Per-declaration IN CMOS/DRAM clauses](source-forms-and-predicates.md) retain
+explicit variable placement intent separately, without changing runtime lifetimes.
 
 DEFGROUP takes precedence over the existing single-group declaration inference
 and the supplied RobotContext's active group. Explicit per-call groups still win.

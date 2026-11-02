@@ -1,0 +1,16 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "CACHED": 14
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "CACHED": 14,
+      "VALUE": 14,
+      "DONE": true
+    }
+  }
+}

@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR cached IN CMOS:INTEGER
+ROUTINE collect(enabled:BOOLEAN):INTEGER
+VAR scratch IN DRAM:INTEGER
+BEGIN
+  IF +enabled THEN scratch=7 ELSE scratch=0 ENDIF
+  IF UNINIT(cached) THEN cached=0 ENDIF
+  cached=cached+scratch RETURN cached
+END collect
+BEGIN END LIB

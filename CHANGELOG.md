@@ -1,5 +1,24 @@
 # Changelog
 
+## 26.1102.160516 - 2026-11-02
+
+- Accept Pythonic global/routine VAR IN CMOS and IN DRAM clauses as placement
+  intent. Retain declaration owner, name, pool and location, physical include
+  provenance and an independent immutable generated metadata tuple.
+- Keep existing missing globals and fresh routine locals; native allocation,
+  automatic reboot retention and placement on borrowed imports remain excluded.
+- Add checked Boolean unary + as an identity, preserving category and once-only
+  evaluation without enabling Boolean arithmetic or numeric assignments.
+- Let GET_PORT_SIM write exact Boolean flags or existing INTEGER 0/1 values.
+  Preserve explicit type mappings, disjoint ordinary outputs, failure behavior,
+  shared simulation state and the remote Boolean signature.
+- Accept Cartesian and joint inputs in both range predicates using a shared
+  portable policy: supplied Cartesian reachability adapters or inclusive joint
+  limits. Retain calling-root groups, zero-padding checks, copied poses and
+  synchronous Boolean callback results; no robot discovery or native equivalence.
+- Add 84 regressions, four examples, two linked projects, compiler-free execution
+  and saved-context replay. Update README, support guides and semantic contracts.
+
 ## 26.1102.153623 - 2026-11-02
 
 - Extend Pythonic CREATE_VAR with ARRAY OF supported data types/aliases and extra

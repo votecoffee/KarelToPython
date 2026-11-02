@@ -1,0 +1,11 @@
+PROGRAM PREDICATE_BOOLEAN
+VAR value,calls:INTEGER flag,done:BOOLEAN
+ROUTINE choose:BOOLEAN
+BEGIN calls=calls+1 RETURN TRUE END choose
+BEGIN
+  IF UNINIT(done) THEN
+    calls=0 flag=+(choose())
+    IF +flag THEN value=7 ELSE value=0 ENDIF
+    done=TRUE
+  ENDIF
+END PREDICATE_BOOLEAN

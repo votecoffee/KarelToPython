@@ -1,0 +1,12 @@
+PROGRAM PREDICATE_PORTS
+VAR flag,cleared,done:BOOLEAN value,status:INTEGER
+BEGIN
+  IF UNINIT(done) THEN
+    SET_PORT_SIM(10,1,TRUE,status)
+    GET_PORT_SIM(10,1,flag,status)
+    GET_PORT_SIM(10,1,value,status)
+    CLR_PORT_SIM(10,1,status)
+    GET_PORT_SIM(10,1,cleared,status)
+    flag=+flag done=TRUE
+  ENDIF
+END PREDICATE_PORTS

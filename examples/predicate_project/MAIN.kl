@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR joints:JOINTPOS2 flag,within,done:BOOLEAN status:INTEGER value IN CMOS:INTEGER
+ROUTINE within_limits(joints:JOINTPOS2):BOOLEAN FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    joints[1]=2 joints[2]=3
+    GET_PORT_SIM(10,1,flag,status) within=within_limits(joints)
+    IF +flag AND within THEN value=1 ELSE value=0 ENDIF
+    done=TRUE
+  ENDIF
+END MAIN

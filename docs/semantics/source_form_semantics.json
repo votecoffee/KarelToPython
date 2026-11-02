@@ -1,0 +1,33 @@
+{
+  "version": "26.1102.160516",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored synthetic source, offline runtime, CLI and context-replay regressions; no native runtime equivalence",
+  "implemented": {
+    "storage": "Global/routine VAR names IN CMOS or IN DRAM before colon; declaration-owner/pool/location metadata and immutable generated tuple; physical include provenance",
+    "lifetime": "Existing missing/unknown globals and fresh routine locals; explicit archive/context persistence only",
+    "unary": "Unary Boolean + is a checked identity, preserving category and evaluation count",
+    "simulation": "GET_PORT_SIM exact Boolean/integer flag outputs; existing disjoint writable references and explicit PortBank mapping; remote Boolean signature unchanged",
+    "range": "Both range functions accept Cartesian or joint values; explicit representation-based reachability/axis-limit checks using caller-root group",
+    "failures": "Missing/nonfinite/invalid-width joint data and nonzero padding fail; Cartesian adapters receive copies and must return synchronous Boolean; ordinary output preservation and source diagnostics"
+  },
+  "remaining": [
+    "Native CMOS/DRAM allocation, ABI and automatic reboot retention",
+    "SHADOW clauses and storage placement on imports, fields, formals or type aliases",
+    "Native distinction between range functions, exhaustive/certified reachability and robot discovery",
+    "Packed CONFIG-number encoding, arbitrary system-variable expressions and strict mode"
+  ],
+  "verification": [
+    "tests/test_storage_clauses.py",
+    "tests/test_predicate_overloads.py",
+    "tests/test_port_simulation_flags.py",
+    "tests/test_runtime_portability.py",
+    "examples/source_storage.kl",
+    "examples/predicate_boolean.kl",
+    "examples/predicate_range.kl",
+    "examples/predicate_ports.kl",
+    "examples/source_forms_project/MAIN.kl",
+    "examples/predicate_project/MAIN.kl"
+  ],
+  "guide": "../source-forms-and-predicates.md"
+}

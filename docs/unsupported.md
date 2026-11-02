@@ -42,8 +42,9 @@ they are boundaries rather than promises to accept every such source form later.
   [CANCEL FILE](file-cancellation.md) now interrupts explicit cooperative typed reads
   and [READ_KB editors](read-kb-cancellation.md);
   omitted/default FILE aliases and native pending writes remain unavailable.
-  `PURGE CONDITION` is supported; bare PURGE remains rejected. `IN GROUP[n]` does not add other native `IN`
-  clauses; `IN DRAM` storage placement is unavailable.
+  `PURGE CONDITION` is supported; bare PURGE remains rejected. `IN GROUP[n]` does not add arbitrary native `IN` clauses.
+  [VAR IN CMOS/DRAM](source-forms-and-predicates.md) now records per-declaration
+  intent; native storage allocation and automatic retention remain unavailable.
 - Handler actions involving native motion execution or native pending WRITE cancellation;
   native path-node arrival discovery. Checkpoint predicates, events, port
   edges, semaphores, errors and lifecycle notifications have offline models.
