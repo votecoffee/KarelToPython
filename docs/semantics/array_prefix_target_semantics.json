@@ -1,0 +1,37 @@
+{
+  "version": "26.1102.142849",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored statement-only original-cell capture; no native ARRAY-prefix source/layout/controller claim",
+  "implemented": {
+    "operations": [
+      "ASSIGNMENT",
+      "READ"
+    ],
+    "capture": "Concrete original suffix cells; private statement token without generic Reference, live view or routine copyback",
+    "assignment": "Independent RHS before target effects; actual receiver conversion after target capture; complete destination preflight before checkpoint-free publication",
+    "conversions": "Existing numeric/STRING/record/positional/explicit-model source rules; retain actual names/layout/capacities and compatible missing leaves",
+    "input": "Original scalar references before own format expressions; flat callbacks, CR remapping, text/binary/rooted/serial/pipe/keyboard transports",
+    "lifetime": "Retain selected cells through pause, root replacement, waits and cancellation; preserve selected scalar/record/ARRAY/joint aliases",
+    "guards": "Complete receiver storage/known leaves, missing-container exclusion, active FOR roots, CONFIG/POSITION guards, allocation/schema/input limits",
+    "effects": "Model service effects propagate through routine call graph before emission; prior source/index/adapter effects remain on later failure"
+  },
+  "remaining": [
+    "Generic service output and BYNAME prefix references",
+    "Persistent/live views, resource data and POSITION input",
+    "Native source/layout/controller acceptance and strict mode"
+  ],
+  "verification": [
+    "tests/test_array_prefix_targets.py",
+    "tests/test_array_prefix_values.py",
+    "tests/test_aggregate_read.py",
+    "tests/test_runtime_portability.py",
+    "examples/array_prefix_target_values.kl",
+    "examples/array_prefix_target_input.kl",
+    "examples/array_prefix_target_binary.kl",
+    "examples/array_prefix_target_serial.kl",
+    "examples/array_prefix_target_project/main.kl",
+    "examples/array_prefix_target_cancel_project/main.kl"
+  ],
+  "guide": "../array-prefix-targets.md"
+}

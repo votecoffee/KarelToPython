@@ -1,0 +1,10 @@
+PROGRAM ARRAY_PREFIX_TARGET_INPUT
+VAR matrix:ARRAY[2,2]OF INTEGER index_value,visits,value:INTEGER done:BOOLEAN
+ROUTINE width:INTEGER
+BEGIN visits=visits+1 index_value=2 RETURN 2 END width
+BEGIN
+  IF UNINIT(done) THEN
+    visits=0 index_value=1 READ(matrix[index_value]::width()::16,CR)
+    value=matrix[1,1]+matrix[1,2] done=TRUE
+  ENDIF
+END ARRAY_PREFIX_TARGET_INPUT

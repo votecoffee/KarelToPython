@@ -1167,6 +1167,7 @@ class Emitter:
         self.subarray_uses = []
         self.array_index_chains = []
         self.array_prefix_uses = []
+        self.array_prefix_target_uses = []
         self.delay_uses = []
         self.wait_uses = []
         self.string_value_uses = []
@@ -1858,6 +1859,15 @@ class Emitter:
             changed = False
             for routine in self.program.routines:
                 self.current_routine=routine
+                if self.mode=='pythonic' and not routine.may_services:
+                    for node in self.walk_nodes(routine.body):
+                        if not isinstance(node,Statement) or node.kind!='assign':continue
+                        target=node.args[0]
+                        while target.kind=='group':target=target.args[0]
+                        if not self.is_array_prefix_value(target):continue
+                        expected=self.access_type(target);actual=self.access_type(node.args[1])
+                        if rt.kinematic_array_kind(expected,actual) or rt.kinematic_record_kind(expected,actual):
+                            routine.may_services=True;changed=True;break
                 if not routine.side_effecting and any(self.routines[name].side_effecting for name in edges[routine.name]):
                     routine.side_effecting = True
                     changed = True
@@ -2138,10 +2148,10 @@ class Emitter:
             while expr.kind == 'group': expr = expr.args[0]
         return expr.kind == 'using_ref' and expr.value[3]
 
-    def reference(self, expr, *, config_read=False):
+    def reference(self, expr, *, config_read=False, allow_prefix=False):
         line = expr.token.line
         if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
-        if expr.kind == 'group': return self.reference(expr.args[0])
+        if expr.kind == 'group': return self.reference(expr.args[0],config_read=config_read,allow_prefix=allow_prefix)
         if expr.kind == 'name':
             return f'self._state.reference({expr.value!r}, {line})', self.symbol_type(expr)
         base, spec = self.expression(expr.args[0], raw=True)
@@ -2154,9 +2164,29 @@ class Emitter:
             index=self.require_type(expr.args[1],'INTEGER')
             return f'_rt.index_reference({base},{index},{line})',rt.PathValue(spec).node_spec
         if spec[0]!='ARRAY' and not (self.mode=='pythonic' and spec[0]=='JOINTPOS'):self.error('E_TYPE','Indexing requires ARRAY or Pythonic JOINTPOS',expr.token)
-        index, selected = self.index_code(expr, spec)
+        prefix=allow_prefix and self.mode=='pythonic' and rt.array_prefix_type(spec,len(expr.args)-1) is not None
+        index, selected = self.index_code(expr, spec, allow_prefix=prefix, prefix_target=prefix)
+        if prefix:return f'_rt.array_prefix_target({base},{index},{spec!r},{line})',selected
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
+
+    def prefix_assignment(self,target,expression,token):
+        reference,expected=self.reference(target,allow_prefix=True)
+        value,actual=self.expression(expression,allow_array_result=True)
+        context=rt.kinematic_array_kind(expected,actual) or rt.kinematic_record_kind(expected,actual)
+        if (actual[0]!='ARRAY' or not (self.compatible(expected,actual) or rt.array_schema_compatible(expected,actual)
+                or rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual)
+                or context or rt.record_schema_kind(expected,actual))):
+            self.error('E_TYPE',f'Cannot assign {actual} to ARRAY prefix {expected}',token)
+        source=self.fresh();captured=self.fresh();line=token.line
+        self.line(f'{source} = _rt.assignment_value({value},{line})',token)
+        self.line(f'{captured} = {reference}',token)
+        schema=f',source_spec={actual!r}' if rt.record_schema_kind(expected,actual) or rt.kinematic_record_kind(expected,actual) else ''
+        self.line(f'{captured}.set(self._state.array_assignment_value({source},{captured}.spec,{line}{schema}),{line})',token)
+        if context:
+            self.features.add('extended services')
+            if self.current_routine:self.current_routine.may_services=True
+        self.features.add('statement ARRAY prefix assignment')
 
     def is_array_prefix_value(self,expr):
         if self.mode!='pythonic' or expr.kind!='index':return False
@@ -2164,7 +2194,7 @@ class Emitter:
         if base.kind=='name' and base.value in ex.PORT_TYPES and base.value not in self.types:return False
         return rt.array_prefix_type(self.access_type(base),len(expr.args)-1) is not None
 
-    def index_code(self, expr, spec, *, allow_prefix=False):
+    def index_code(self, expr, spec, *, allow_prefix=False, prefix_target=False):
         indexes = expr.args[1:]
         if self.mode!='pythonic' and expr.args[0].kind == 'index':
             self.error('E_ARRAY_RANK', 'Chained ARRAY indexes need grammar validation; use comma-separated subscripts', expr.token)
@@ -2184,11 +2214,12 @@ class Emitter:
                 selected_type_spec=('REAL',),subscript_count=len(indexes),evaluated_once=True,declared_schema_checked=True))
         if len(indexes) > 1: self.features.add('multidimensional ARRAY indexing')
         if prefix is not None:
-            self.features.add('independent ARRAY prefix values')
+            self.features.add('captured ARRAY prefix targets' if prefix_target else 'independent ARRAY prefix values')
             row=dict(body=self.current_routine.name if self.current_routine else self.program.name,
                 line=expr.token.line,column=expr.token.column,source_type_spec=spec,selected_type_spec=selected,
-                supplied_subscripts=len(indexes),evaluated_once=True,independent_value=True)
-            if row not in self.array_prefix_uses:self.array_prefix_uses.append(row)
+                supplied_subscripts=len(indexes),evaluated_once=True,independent_value=not prefix_target)
+            uses=self.array_prefix_target_uses if prefix_target else self.array_prefix_uses
+            if row not in uses:uses.append(row)
         elif selected[0] == 'ARRAY':
             self.features.add('named subarray reference')
             self.subarray_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -3530,6 +3561,11 @@ class Emitter:
                 self.error('E_EVALUATION_ORDER', 'Effectful function results assigned to indexed targets need target/value evaluation-order validation', target.token)
             if self.is_position_read_only_access(target):
                 self.error('E_POSITION_READ_ONLY', 'POSITION NORMAL, ORIENT and APPROACH fields and their components are read-only', target.token)
+            selected_target=target
+            while selected_target.kind=='group':selected_target=selected_target.args[0]
+            if self.is_array_prefix_value(selected_target):
+                self.prefix_assignment(target,expr,token)
+                return
             reference, target_type = self.reference(target)
             value, value_type = self.expression(expr, allow_array_result=True)
             generic_receiver=(self.mode=='pythonic' and target_type[0]=='ARRAY' and target.kind=='name'
@@ -3781,7 +3817,7 @@ class Emitter:
                     self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
                 if self.is_config_subfield(target) and self.mode!='pythonic':
                     self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
-                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target))
+                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic')
                 aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
                 if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
                     self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data without POSITION',target.token)
@@ -4581,6 +4617,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         subarray_uses=emitter.subarray_uses,
         array_index_chains=emitter.array_index_chains,
         array_prefix_values=emitter.array_prefix_uses,
+        array_prefix_targets=emitter.array_prefix_target_uses,
         select_policy=dict(selector='INTEGER expression evaluated once', duplicate_values='First matching clause wins',
                            max_case_clauses=1000, no_match_without_else='Source-located KarelRuntimeError',
                            empty_else='Explicit presence preserved; an empty clause permits continuation',
@@ -6044,7 +6081,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         interfaces='Assignment, private ordinary/linked arguments, RETURN, ARRAY_LEN and aggregate WRITE use existing source conversions; exact named-boundary references remain unchanged',
         limits='One through three logical dimensions, 32767 source scalar leaves and 64 data-schema levels; no resources, incomplete-reference outputs or strict claim',
         guide='docs/array-prefix-values.md',controller_validated=False)
-    report['array_policy']['subscripts']='One-based complete comma/chained references or named component boundaries; incomplete flat source selections copy independent values under array_prefix_policy'
+    report['array_prefix_target_policy']=dict(
+        operations=['ASSIGNMENT','READ'],
+        capture='Statement-only original row/plane cells captured once; no generic Reference, live view, routine copyback or BYNAME/service-output alias extension',
+        assignment='Capture independent RHS first, then receiver and indexes; convert against captured actual receiver schema after target effects; validate complete selected receiver before one checkpoint-free publication; retain element/record aliases',
+        input='Expand captured original scalar references before format calls and later targets; use existing complete-response checks, CR remapping, file/callback transports, waits and cancellation',
+        schema='Preserve actual suffix dimensions, named children and STRING capacities; use existing context-free or explicit-model source conversions; validate full source receiver storage at capture',
+        limits='Existing 32767-leaf/64-level data schemas and 1024 input destinations/CR; no resources, POSITION input, generic output targets, persistent views, native/controller or strict claim',
+        guide='docs/array-prefix-targets.md',controller_validated=False)
+    report['array_policy']['subscripts']='Complete comma/chained references and named boundaries unchanged; source prefix values and statement-only assignment/READ targets have explicit separate policies'
     report['aggregate_access_policy']['boundary']='Bare function names directly used as receiver roots remain storage; use explicit calls/groups; complete ARRAY chains normalize to comma access without partial flat views or erasing identity'
     report['kinematic_interface_policy']=dict(
         conversions='Source actual arguments and RETURN values between JOINTPOS and POSITION/XYZWPR/XYZWPREXT use existing explicitly supplied models/adapters; exact same-type bare storage retains references',

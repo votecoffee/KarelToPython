@@ -2,9 +2,11 @@
 
 Independent [ARRAY prefix values](array-prefix-values.md) now copy flat rows and
 planes for source assignments, arguments/results and WRITE; partial writable
-views remain unavailable.
+views remain unavailable. [Statement prefix targets](array-prefix-targets.md) now
+assign and READ original row/plane cells with actual receiver conversions and
+ordinary scalar input transports.
 
-This is the supported prototype subset as of 26.1102.140143. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.142849. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

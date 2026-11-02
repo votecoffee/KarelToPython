@@ -78,6 +78,8 @@ such as `make_rows()[1][2]`, normalize to the existing comma form
 `make_rows()[1,2]`. They preserve named component boundaries and require a complete
 flat outer rank for references. Independent [prefix values](array-prefix-values.md)
 now copy standalone incomplete rows/planes without creating writable views.
+Separate [statement targets](array-prefix-targets.md) assign and READ original
+suffix cells with captured actual receiver schemas.
 
 A bare function name used directly as a receiver root remains a storage name:
 `make[1]` does not call a function. Use an explicit call or a group. Grouping only

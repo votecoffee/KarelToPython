@@ -345,6 +345,35 @@ def array_prefix_value(array,index,expected,line=None):
         if type(current) is not Array:raise KarelRuntimeError('ARRAY prefix requires nested ARRAY storage',line)
 
 
+def array_prefix_target(array,index,expected,line=None):
+    """Capture an existing row/plane for statement-only assignment or input."""
+    if not _pythonic():raise KarelRuntimeError('ARRAY prefix targets require Pythonic mode',line)
+    indexes=index if type(index) is tuple else (index,)
+    if array_prefix_type(expected,len(indexes)) is None:
+        raise KarelRuntimeError('ARRAY prefix target requires an incomplete flat selection',line)
+    if type(array) is not Array:raise KarelRuntimeError('ARRAY prefix target requires exact ARRAY storage',line)
+    _validate_data_schema(array.spec,line)
+    if not parameter_accepts(expected,array.spec):
+        raise KarelRuntimeError('ARRAY prefix target storage does not match its declaration',line)
+    _aggregate_value(array.spec,array,line)
+    current=array
+    while True:
+        width=len(current.shape)
+        if len(indexes)<width:
+            suffix=current.shape[len(indexes):];offset=0
+            for number,(subscript,dimension) in enumerate(zip(indexes,current.shape),1):
+                integer(subscript,line)
+                if not 1<=subscript<=dimension:
+                    raise KarelRuntimeError(f'Array index {subscript} outside 1..{dimension} in dimension {number}',line)
+                offset=offset*dimension+subscript-1
+            size=math.prod(suffix);spec=('ARRAY',suffix[0] if len(suffix)==1 else suffix,current.spec[2])
+            return _ArrayPrefixTarget(spec,current.values,range(offset*size,(offset+1)*size),line)
+        offset=current.offset(indexes[:width],line)
+        current=current.values[offset];indexes=indexes[width:]
+        if type(current) is not Array:raise KarelRuntimeError('ARRAY prefix target requires existing nested ARRAY storage',line)
+        if not indexes:return _ArrayPrefixTarget(current.spec,current.values,range(len(current.values)),line)
+
+
 def joint_axis_access(spec,count):
     """Recognize a single terminal joint axis after complete ARRAY components."""
     if type(count) is not int or not 1<=count<=4:return False
@@ -862,6 +891,39 @@ class Reference:
 
     def clear(self):
         self.storage[self.key] = UNINITIALIZED
+
+
+class _ArrayPrefixTarget:
+    """A statement capture; never a generic Reference or a live ARRAY view."""
+    __slots__=('spec','storage','indices','length')
+    def __init__(self,spec,storage,indices,line=None):
+        self.spec=spec;self.storage=storage;self.indices=tuple(indices);self.length=len(storage)
+        self._current(line)
+
+    def _current(self,line=None):
+        if (not _pythonic() or type(self.storage) is not list or len(self.storage)!=self.length
+                or type(self.indices) is not tuple or not self.indices
+                or any(type(index) is not int or not 0<=index<self.length for index in self.indices)
+                or len(set(self.indices))!=len(self.indices)):
+            raise KarelRuntimeError('Malformed captured ARRAY prefix storage',line)
+        result=Array(self.spec)
+        if len(result.values)!=len(self.indices):raise KarelRuntimeError('Captured ARRAY prefix shape changed',line)
+        result.values[:]=[self.storage[index] for index in self.indices]
+        return result
+
+    def raw(self):
+        return _aggregate_value(self.spec,self._current())
+
+    def references(self,line=None):
+        _aggregate_value(self.spec,self._current(line),line)
+        return [Reference(self.spec[2],self.storage,index) for index in self.indices]
+
+    def set(self,value,line=None):
+        # No callbacks/checkpoints occur between this preflight and publication.
+        updated=_aggregate_value(self.spec,value,line)
+        self.references(line)
+        for index,item in zip(self.indices,updated.values):
+            self.storage[index]=replace_value(self.storage[index],item)
 
 
 def for_bound(spec,value,line=None):
@@ -2411,6 +2473,8 @@ def aggregate_read_type(spec,trail=()):
 
 def capture_aggregate_read_target(target,formats,line=None):
     """Capture shaped data leaves once; keep ordinary scalar input transports."""
+    if _pythonic() and type(target) is _ArrayPrefixTarget:
+        return capture_prefix_read_target(target,formats,line)
     if not _pythonic() or type(target) is not Reference or not aggregate_read_type(target.spec):
         raise KarelRuntimeError('Aggregate READ requires writable resource-free data without POSITION',line)
     if type(formats) not in (list,tuple) or formats:
@@ -2434,6 +2498,21 @@ def capture_aggregate_read_target(target,formats,line=None):
             for name,member in record_fields(spec):
                 descend(config_read_reference(value,name,line) if kind=='CONFIG' else Reference(member,value.values,name))
     descend(target)
+    return result
+
+
+def capture_prefix_read_target(target,formats,line=None):
+    """Expand captured original cells, without reading into a temporary row."""
+    if not _pythonic() or type(target) is not _ArrayPrefixTarget or not aggregate_read_type(target.spec):
+        raise KarelRuntimeError('Prefix READ requires captured writable data without POSITION',line)
+    if type(formats) not in (list,tuple) or formats:
+        raise KarelRuntimeError('Prefix READ capture requires default scalar controls',line)
+    if _validate_data_schema(target.spec,line)>1024:
+        raise KarelRuntimeError('Prefix READ is limited to 1024 scalar destinations including CR',line)
+    result=[]
+    for reference in target.references(line):
+        if reference.spec[0] in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING'):result.append(capture_read_target(reference,[],line))
+        else:result.extend(capture_aggregate_read_target(reference,[],line))
     return result
 
 

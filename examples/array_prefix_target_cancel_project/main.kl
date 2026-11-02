@@ -1,0 +1,8 @@
+PROGRAM MAIN
+VAR matrix:ARRAY[2,2]OF INTEGER status:INTEGER done:BOOLEAN
+ROUTINE transfer(data:ARRAY[*,*]OF INTEGER):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    matrix[1,1]=77 matrix[1,2]=88 status=transfer(matrix) done=TRUE
+  ENDIF
+END MAIN

@@ -1,0 +1,7 @@
+PROGRAM LIB
+ROUTINE fill(data:ARRAY[*,*]OF INTEGER;source:ARRAY OF INTEGER)
+VAR f:FILE
+BEGIN
+  data[1]=source OPEN FILE f('RO','input') READ f(data[2],CR) CLOSE FILE f
+END fill
+BEGIN END LIB

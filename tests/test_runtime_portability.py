@@ -163,7 +163,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('array_prefix_copy', 'VALUE', 18),
                     ('array_prefix_output', 'VALUE', 2),
                     ('array_prefix_binary', 'VALUE', 51),
-                    ('array_prefix_generic', 'VALUE', 4)]
+                    ('array_prefix_generic', 'VALUE', 4),
+                    ('array_prefix_target_values', 'VALUE', 7),
+                    ('array_prefix_target_input', 'VALUE', 25),
+                    ('array_prefix_target_binary', 'VALUE', 16),
+                    ('array_prefix_target_serial', 'VALUE', 25)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

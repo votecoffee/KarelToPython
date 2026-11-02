@@ -44,6 +44,10 @@ last value winning for a repeated cell. Aggregate items use defaults or
 format functions; evaluate each format once and validate it for every member.
 Select individual fields when different controls are needed.
 
+[Statement prefix targets](array-prefix-targets.md) also expand captured original
+row/plane cells, retaining formats, source CR mapping and scalar input transports.
+They do not read into temporary source-row copies.
+
 ## Shapes, bounds and validation
 
 Destination schemas must be exact concrete resource-free data, with at most

@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [ARRAY prefix-target ledger](array_prefix_target_semantics.json) adds
+statement-only row/plane assignment and READ into captured original cells.
+It supersedes earlier assignment/input-target exclusions while retaining generic
+reference, service/BYNAME and live-view boundaries.
+
 The [ARRAY prefix ledger](array_prefix_semantics.json) adds independent row/plane
 source values while keeping full-rank and named-boundary references unchanged.
 It supersedes earlier incomplete source-selection exclusions; writable partial

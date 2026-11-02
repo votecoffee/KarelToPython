@@ -1,0 +1,27 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "MATRIX": [
+        [
+          77,
+          88
+        ],
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      ],
+      "STATUS": 6,
+      "DONE": true
+    }
+  }
+}

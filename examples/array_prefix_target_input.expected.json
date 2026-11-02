@@ -1,0 +1,20 @@
+{
+  "MATRIX": [
+    [
+      10,
+      15
+    ],
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "INDEX_VALUE": 2,
+  "VISITS": 1,
+  "VALUE": 25,
+  "DONE": true
+}

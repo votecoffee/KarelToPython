@@ -158,8 +158,8 @@ class PrefixGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught:build(body,**options)
         self.assertEqual(caught.exception.code,code,str(caught.exception))
 
-    def test_partial_assignment_target_stays_rejected(self):self.reject('m[1]=row')
-    def test_partial_read_destination_stays_rejected(self):self.reject('READ(m[1])')
+    def test_statement_prefix_assignment_has_separate_capture(self):self.assertEqual(execute('row[1]=7 m[1]=row')['M'][0],[7,U])
+    def test_statement_prefix_read_updates_original_cells(self):self.assertEqual(execute('READ(m[1])',read=lambda request:[7,9])['M'][0],[7,9])
     def test_partial_service_output_stays_rejected(self):self.reject("GET_VAR(n,'MAIN','M[1]',m[1],n)")
     def test_position_orientation_does_not_become_writable(self):self.reject('row=m[1] row[1].normal.x=1','E_POSITION_READ_ONLY',decl='m:ARRAY[2,2]OF POSITION row:ARRAY[2]OF POSITION')
     def test_wrong_index_type_stays_rejected(self):self.reject('row=m[TRUE]','E_TYPE')

@@ -489,6 +489,12 @@ are integers for signed/grouped literals, or objects containing `expression=true
 and physical `line`/`column` for dynamic values. `items[].dynamic_formats` identifies
 dynamic sites; `format_width` retains the integer or expression object, while
 `alignment`, `quoted` and `width_policy` explicitly mark dynamic cases.
+`array_prefix_target_policy` and source-located `array_prefix_targets` describe
+statement-only original-cell capture for assignment and READ. Targets retain
+actual receiver schemas, scalar/record aliases and existing transport guards;
+`independent_value=false` distinguishes them from source copies. See
+[prefix targets](array-prefix-targets.md).
+
 `array_prefix_policy` and source-located `array_prefix_values` describe independent
 row/plane source selections, suffix schemas and private ownership. Complete
 reference helpers remain full-rank. See [prefix values](array-prefix-values.md).

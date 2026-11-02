@@ -1,4 +1,5 @@
 {
+  "prefix_target_mode_note": "../array-prefix-targets.md adds statement-only assignment and READ targets with original-cell capture; generic reference and service/BYNAME exclusions remain.",
   "version": "26.1102.140143",
   "mode": "pythonic",
   "controller_validated": false,

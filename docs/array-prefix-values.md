@@ -82,8 +82,9 @@ completion flag so saved output state can be replayed without repeating effects.
 
 Existing limits remain three logical dimensions, 32767 source scalar leaves and
 64 data-schema levels. Resources, ragged dimensions and writable partial views
-remain excluded. Partial selections cannot be READ destinations, assignment
-receivers, service outputs or BYNAME variable-path aliases. Generic runtime
+remain excluded. Separate [statement targets](array-prefix-targets.md) now allow
+assignment and READ into original rows/planes. Service outputs and BYNAME
+variable-path aliases remain complete. Generic runtime
 `indexed_type` and `index_reference` retain their full-rank/reference contracts.
 
 Reports add source-located `array_prefix_values` and `array_prefix_policy`, with

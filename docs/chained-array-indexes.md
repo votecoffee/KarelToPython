@@ -27,7 +27,9 @@ groups separated by parentheses around an intermediate value receiver.
 Mixed forms such as `[i,j][k]` and `[i][j,k]` are supported when the resulting
 access is valid.
 
-A writable flat `ARRAY[2,3] OF INTEGER` selection requires both subscripts. A
+A generic writable reference into flat `ARRAY[2,3] OF INTEGER` requires both
+subscripts. Separate [statement targets](array-prefix-targets.md) now assign and
+READ original row/plane cells without exposing generic references. A
 standalone `values[1]`, including `(values[1])`, now creates an independent row
 value under [prefix-value rules](array-prefix-values.md). Two subscripts into a
 flat cube similarly copy a row. A surrounding chain supplies missing subscripts

@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR matrix:ARRAY[2,2]OF INTEGER row:ARRAY[2]OF INTEGER value:INTEGER done:BOOLEAN
+ROUTINE fill(data:ARRAY[*,*]OF INTEGER;source:ARRAY OF INTEGER) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    row[1]=7 row[2]=9 fill(matrix,row)
+    value=matrix[1,1]+matrix[1,2]+matrix[2,1]+matrix[2,2]
+    row[1]=99 done=TRUE
+  ENDIF
+END MAIN

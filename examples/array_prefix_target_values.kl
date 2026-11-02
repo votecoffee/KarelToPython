@@ -1,0 +1,10 @@
+PROGRAM ARRAY_PREFIX_TARGET_VALUES
+VAR matrix:ARRAY[2,2]OF INTEGER row:ARRAY[2]OF INTEGER value:INTEGER done:BOOLEAN
+ROUTINE update(alias:INTEGER)
+BEGIN matrix[1]=row value=alias alias=42 END update
+BEGIN
+  IF UNINIT(done) THEN
+    row[1]=7 row[2]=9 matrix[1,1]=99
+    update(matrix[1,1]) matrix[2]=matrix[1] done=TRUE
+  ENDIF
+END ARRAY_PREFIX_TARGET_VALUES

@@ -265,7 +265,7 @@ class BoundaryTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): p.run()
 
     def test_partial_subarray_values_do_not_become_references_or_scalars(self):
-        for body,code in (('result = a[1]','E_TYPE'),('a[1] = 7','E_ARRAY_RANK'),('flag = UNINIT(a[1])','E_TYPE')):
+        for body,code in (('result = a[1]','E_TYPE'),('a[1] = 7','E_TYPE'),('flag = UNINIT(a[1])','E_TYPE')):
             with self.subTest(body=body):self.rejected(body,code=code)
         self.assertEqual(execute('a[1,1]=7 put(a[1]) result=a[1,1]', 'ROUTINE put(p:ARRAY OF INTEGER) BEGIN p[1]=99 END put')['RESULT'],7)
 

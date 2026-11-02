@@ -1,5 +1,25 @@
 # Changelog
 
+## 26.1102.142849 - 2026-11-02
+
+- Add statement-only Pythonic row/plane assignment and READ destinations inside
+  flat ARRAYs, named components and concrete generic formals. Capture original
+  suffix cells without exposing generic references, live views or copyback.
+- Copy the RHS before target effects, capture the actual receiver schema, then
+  convert and preflight the selected storage before publication. Reuse numeric,
+  STRING, record, positional and explicit-model conversions; retain element,
+  record, nested ARRAY and joint aliases.
+- Expand original READ cells before own format functions. Reuse scalar callback,
+  text/binary/rooted FILE, serial, pipe and keyboard input contracts, CR mapping,
+  complete-response validation, cooperative waits, pauses and cancellation.
+- Preserve source/index/adapter effects on late failure and captured old-cell
+  lifetimes after root replacement. Propagate model service effects through
+  routine calls before emission; retain FOR, CONFIG, POSITION and resource guards.
+- Keep service/BYNAME prefix aliases, persistent views, POSITION input,
+  native/controller equivalence and strict mode outside the supported contract.
+- Add 65 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and semantic contracts.
+
 ## 26.1102.140143 - 2026-11-02
 
 - Add independent Pythonic row/plane values from incomplete flat ARRAY source

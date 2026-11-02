@@ -1,0 +1,11 @@
+PROGRAM ARRAY_PREFIX_TARGET_BINARY
+VAR matrix:ARRAY[2,2]OF INTEGER row:ARRAY[2]OF INTEGER value:INTEGER done:BOOLEAN
+ROUTINE work
+VAR f:FILE
+BEGIN
+  row[1]=7 row[2]=9 matrix[1]=row
+  OPEN FILE f('WB','output') WRITE f(matrix[1]::2) CLOSE FILE f
+  OPEN FILE f('RB','output') READ f(matrix[2]::2) CLOSE FILE f
+  value=matrix[2,1]+matrix[2,2]
+END work
+BEGIN IF UNINIT(done) THEN work done=TRUE ENDIF END ARRAY_PREFIX_TARGET_BINARY
