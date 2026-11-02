@@ -1,0 +1,16 @@
+PROGRAM AGGREGATE_FORMAT_INPUT
+VAR values:ARRAY[2]OF INTEGER visits,value:INTEGER done:BOOLEAN
+ROUTINE width:INTEGER
+BEGIN
+  visits=visits+1
+  RETURN 2
+END width
+BEGIN
+  IF UNINIT(done) THEN
+    visits=0
+    READ(values::width()::16,CR)
+    WRITE('values=',values::3::16,CR)
+    value=values[1]+values[2]
+    done=TRUE
+  ENDIF
+END AGGREGATE_FORMAT_INPUT

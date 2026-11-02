@@ -155,7 +155,11 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('aggregate_write_values', 'VALUE', 16),
                     ('aggregate_write_text', 'VALUE', 16),
                     ('aggregate_write_binary', 'VALUE', 16),
-                    ('aggregate_write_serial', 'VALUE', 16)]
+                    ('aggregate_write_serial', 'VALUE', 16),
+                    ('aggregate_format_output', 'VALUE', 15),
+                    ('aggregate_format_input', 'VALUE', 25),
+                    ('aggregate_format_binary', 'VALUE', 16),
+                    ('aggregate_format_serial', 'VALUE', 25)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())

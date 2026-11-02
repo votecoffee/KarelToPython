@@ -1,5 +1,25 @@
 # Changelog
 
+## 26.1102.133628 - 2026-11-02
+
+- Add uniform Pythonic aggregate READ/WRITE formats for complete arrays, records,
+  CONFIG, Cartesian data and joint values within existing input/output domains.
+  Evaluate each format once, then apply it using every expanded scalar's rules.
+- Capture all READ leaf references and detach complete WRITE scalar values before
+  format functions run. Preserve captured selections/values through source
+  mutations, cooperative waits, pause/resume and linked routine calls.
+- Check literal formats against every member kind; validate dynamic controls
+  before input or output publication. Keep single-batch output, CR remapping,
+  flat typed callback responses, bounded CONFIG input and existing schema limits.
+- Extend text and binary FILE paths with uniform controls. Binary formats remain
+  width-only; explicit STRING widths override the default declared capacity.
+  Retain padding, cancellation, cursor and backend failure contracts.
+- Preserve unformatted generated entry points. Keep per-field mapping syntax,
+  partial/unknown output, resource I/O, POSITION input, native packed layout and
+  controller acceptance excluded; strict mode remains deferred.
+- Add 64 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and formatting contracts.
+
 ## 26.1102.125701 - 2026-11-02
 
 - Add Pythonic whole-data WRITE for complete ARRAY, user STRUCTURE, VECTOR,

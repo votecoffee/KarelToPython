@@ -36,9 +36,11 @@ original value without changing already rendered fields. Function results,
 computed values, generic ARRAY formals and linked reference formals use the same
 rules. The source and its captured aliases are not modified by rendering.
 
-An aggregate item uses default scalar formats. Select individual scalar fields
-for widths, bases, quoting or precision. Mixed scalar/aggregate/CR statements
-retain scalar format order and existing source effects. After all rendering,
+An aggregate item uses defaults or [uniform scalar formats](aggregate-formats.md).
+Detach complete source values before evaluating format functions once, then apply
+the controls to every scalar kind. Select individual fields for different
+formats. Mixed scalar/aggregate/CR statements retain scalar format order and
+existing source effects. After all rendering,
 one complete recorder/callback request or FILE write is published. A late invalid
 item or combined-limit failure publishes no outer output; earlier source effects
 and nested WRITE requests remain visible. Failed callbacks are recorded once and
@@ -73,7 +75,8 @@ output retains existing EOL mapping and scalar defaults. See the
 
 Binary output consists of existing separate scalar fields in declaration/row-major
 order, with ordinary BYTE/SHORT/INTEGER/REAL/BOOLEAN widths and selected byte order.
-A STRING leaf occupies its declared capacity, padded with NUL bytes when shorter.
+A STRING leaf defaults to its declared capacity, padded with NUL bytes when shorter.
+An explicit width overrides that capacity under ordinary scalar binary rules.
 Ordinary binary READ retains that padding in the returned STRING; it is not
 silently trimmed. Fully occupied STRING fields and numeric data can roundtrip
 through [whole-data READ](aggregate-input.md). See the

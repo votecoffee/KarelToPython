@@ -1,0 +1,19 @@
+PROGRAM AGGREGATE_FORMAT_BINARY
+TYPE packet_t=STRUCTURE values:ARRAY[2]OF INTEGER label:STRING[4] ENDSTRUCTURE
+VAR packet:packet_t value:INTEGER done:BOOLEAN
+ROUTINE work
+VAR f:FILE
+BEGIN
+  packet.values[1]=7 packet.values[2]=9 packet.label='text'
+  OPEN FILE f('WB','output')
+  WRITE f(packet::2)
+  CLOSE FILE f
+  packet.values[1]=99 packet.label='old'
+  OPEN FILE f('RB','output')
+  READ f(packet::2)
+  CLOSE FILE f
+  value=packet.values[1]+packet.values[2]
+END work
+BEGIN
+  IF UNINIT(done) THEN work done=TRUE ENDIF
+END AGGREGATE_FORMAT_BINARY

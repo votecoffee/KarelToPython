@@ -1,4 +1,5 @@
 {
+  "aggregate_format_mode_note":"../aggregate-formats.md supersedes earlier aggregate-format exclusions with uniform scalar controls and capture-before-format stages.",
   "version": "26.1102.125701",
   "mode": "pythonic",
   "controller_validated": false,

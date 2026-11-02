@@ -1,0 +1,15 @@
+PROGRAM LIB
+ROUTINE transfer(data:ARRAY OF INTEGER):INTEGER
+VAR f:FILE status:INTEGER
+BEGIN
+  OPEN FILE f('WO','output')
+  WRITE f(data::3::16,CR)
+  CLOSE FILE f
+  data[1]=99
+  OPEN FILE f('RO','output')
+  READ f(data::3::16,CR)
+  status=IO_STATUS(f)
+  CLOSE FILE f
+  RETURN status
+END transfer
+BEGIN END LIB

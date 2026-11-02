@@ -44,8 +44,9 @@ Numeric and BOOLEAN widths are bounded to 0..254, with 0 selecting natural width
 REAL precision is bounded to -254..254. Decimal formatting uses Python rounding;
 negative nondecimal integers use a minus sign rather than controller bit-pattern
 formatting. These are chosen Pythonic conventions. STRING quoting preserves
-paired quotes and complete escapes when truncating. Whole data uses default scalar
-formats under [aggregate output rules](aggregate-output.md). Explicit offline FILE
+paired quotes and complete escapes when truncating. Whole data uses defaults or
+uniform scalar formats under [aggregate output rules](aggregate-output.md) and
+[aggregate format rules](aggregate-formats.md). Explicit offline FILE
 text/binary output and typed [READ](aggregate-input.md) use separate transport
 contracts; native device/parser/IO_STATUS equivalence remains unverified.
 

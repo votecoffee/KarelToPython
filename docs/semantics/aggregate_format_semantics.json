@@ -1,0 +1,38 @@
+{
+  "version": "26.1102.133628",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored uniform-format extension of existing scalar and aggregate I/O; no native aggregate formatting/layout proof",
+  "implemented": {
+    "operations": [
+      "READ",
+      "WRITE"
+    ],
+    "interpretation": "One format list applied to every scalar using its own scalar domains; static compatibility across all member kinds and dynamic preflight",
+    "capture": "READ selects all leaf references before format calls; WRITE detaches complete immutable scalar fields before format calls",
+    "effects": "Width then second format once, before later source items; pause/resume retains captures; invalid source suppresses later format effects",
+    "input": "Flat decoded callback/JSON batches, scalar TextInput parsing and remapped CR; waiting/cancelled transports retain atomic output contracts",
+    "output": "Default or uniform formatting, one outer publication after rendering; no single scalar alignment metadata for mixed fields",
+    "binary": "Existing width-only domains and explicit STRING/integral width override; no packed layout or NUL-trimming change",
+    "compatibility": "Unformatted generated entry points retained; existing limits/protection/CONFIG/strict-mode boundaries unchanged"
+  },
+  "remaining": [
+    "Per-field aggregate format mapping syntax",
+    "POSITION input and resource I/O",
+    "Missing input containers and partial/unknown output",
+    "Native layout/controller acceptance and strict mode"
+  ],
+  "verification": [
+    "tests/test_aggregate_formats.py",
+    "tests/test_aggregate_read.py",
+    "tests/test_aggregate_write.py",
+    "tests/test_runtime_portability.py",
+    "examples/aggregate_format_output.kl",
+    "examples/aggregate_format_input.kl",
+    "examples/aggregate_format_binary.kl",
+    "examples/aggregate_format_serial.kl",
+    "examples/aggregate_format_project/main.kl",
+    "examples/aggregate_format_cancel_project/main.kl"
+  ],
+  "guide": "../aggregate-formats.md"
+}

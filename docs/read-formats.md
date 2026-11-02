@@ -82,8 +82,8 @@ Formatted callback targets add a `format_specifiers` tuple containing the
 evaluated integers. Unformatted targets retain their previous metadata shape.
 Translation reports record literal formats or source positions for dynamic
 expressions. CR offsets count scalar destinations; [whole-data READ](aggregate-input.md)
-remaps source-item offsets after expansion. Aggregate items use default scalar
-formats; select individual fields for explicit formats.
+remaps source-item offsets after expansion. [Uniform aggregate formats](aggregate-formats.md)
+apply one captured list to every field; select individual fields for differing formats.
 
 `TextInput` validates all target metadata before consuming input, then validates
 each decoded field before reading the next. A failed field keeps consumed input

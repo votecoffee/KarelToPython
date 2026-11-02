@@ -141,9 +141,8 @@ class AggregateWriteGuardTests(unittest.TestCase):
         with self.assertRaises(rt.KarelRuntimeError):p.run()
         self.assertEqual(texts(p),[])
 
-    def test_aggregate_formats_require_scalar_selection(self):
-        with self.assertRaises(TranslationError) as caught:build('WRITE(a::4)')
-        self.assertEqual(caught.exception.code,'E_WRITE_FORMAT')
+    def test_aggregate_formats_apply_to_all_scalar_members(self):
+        p,_=build('a[1]=7 a[2]=9 WRITE(a::3::16)');p.run();self.assertEqual(texts(p),[' 07 09'])
 
     def test_resources_remain_excluded(self):
         for kind in ('FILE','PATH','QUEUE_TYPE'):

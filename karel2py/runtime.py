@@ -2289,27 +2289,64 @@ def aggregate_write_type(spec,trail=()):
     return False
 
 
-def aggregate_write_pieces(spec,value,line=None,*,file=None):
-    """Detach complete data before later expressions; render scalar defaults."""
+def aggregate_format_kinds(spec,trail=()):
+    """Scalar format categories without expanding ARRAY dimensions or storage."""
+    if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:
+        raise KarelRuntimeError('Aggregate format schema is malformed or exceeds 64 levels')
+    kind=spec[0];trail=trail+(id(spec),)
+    if kind=='ARRAY':return aggregate_format_kinds(spec[2],trail)
+    if kind=='JOINTPOS':return {'REAL'}
+    if kind in RECORD_TYPES:
+        kinds=set()
+        for _,member in record_fields(spec):kinds.update(aggregate_format_kinds(member,trail))
+        return kinds
+    if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING'):return {kind}
+    raise KarelRuntimeError('Aggregate formats require data-only scalar leaves')
+
+
+class _AggregateWriteValue:
+    __slots__=('spec','fields')
+    def __init__(self,spec,fields):self.spec=spec;self.fields=tuple(fields)
+
+
+def capture_aggregate_write(spec,value,line=None):
+    """Validate and detach complete immutable scalar leaves before format calls."""
     if not _pythonic():raise KarelRuntimeError('Aggregate WRITE requires Pythonic mode',line)
     actual=getattr(value,'spec',None)
     if spec[0]=='ARRAY' and actual is not None and parameter_accepts(spec,actual):spec=actual
     count=_validate_data_schema(spec,line)
     if count>1024:raise KarelRuntimeError('Aggregate WRITE is limited to 1024 scalar items including CR',line)
-    source=_aggregate_value(spec,value,line);result=[]
-    def render(expected,item):
+    source=_aggregate_value(spec,value,line);fields=[]
+    def capture(expected,item):
         item=require(item,line);kind=expected[0]
         if kind=='ARRAY':
-            for child in item.values:render(expected[2],child)
+            for child in item.values:capture(expected[2],child)
         elif kind=='JOINTPOS':
-            for axis in item.values:render(REAL,axis)
+            for axis in item.values:capture(REAL,axis)
         elif kind in RECORD_TYPES:
-            for name,member in record_fields(expected):render(member,item.values[name])
-        else:
-            controls=[expected[1]] if kind=='STRING' and file is not None and file.binary else []
-            result.append(file_piece(file,kind,item,controls,line) if file is not None else format_write_item(kind,item,controls,line))
-    render(spec,source)
+            for name,member in record_fields(expected):capture(member,item.values[name])
+        else:fields.append((expected,item))
+    capture(spec,source)
+    return _AggregateWriteValue(spec,fields)
+
+
+def format_aggregate_write(captured,formats=(),line=None,*,file=None):
+    """Interpret one captured format list separately for every scalar kind."""
+    if not _pythonic() or type(captured) is not _AggregateWriteValue or type(captured.fields) is not tuple or not 1<=len(captured.fields)<=1024:
+        raise KarelRuntimeError('Aggregate WRITE requires checked captured data',line)
+    if type(formats) not in (list,tuple) or len(formats)>2 or any(type(value) is not int for value in formats):
+        raise KarelRuntimeError('WRITE requires at most two INTEGER format specifiers',line)
+    result=[]
+    for expected,item in captured.fields:
+        kind=expected[0];controls=formats
+        if not controls and kind=='STRING' and file is not None and file.binary:controls=[expected[1]]
+        result.append(file_piece(file,kind,item,controls,line) if file is not None else format_write_item(kind,item,controls,line))
     return result
+
+
+def aggregate_write_pieces(spec,value,line=None,*,file=None):
+    """Preserve the original unformatted generated-code entry point."""
+    return format_aggregate_write(capture_aggregate_write(spec,value,line),(),line,file=file)
 
 
 def aggregate_read_type(spec,trail=()):
@@ -2347,6 +2384,18 @@ def capture_aggregate_read_target(target,formats,line=None):
             for name,member in record_fields(spec):
                 descend(config_read_reference(value,name,line) if kind=='CONFIG' else Reference(member,value.values,name))
     descend(target)
+    return result
+
+
+def format_aggregate_read_group(group,formats,line=None):
+    """Apply formats after complete leaf/reference capture, before input."""
+    if not _pythonic() or type(group) not in (list,tuple) or not 1<=len(group)<=1024:
+        raise KarelRuntimeError('Aggregate READ requires captured scalar fields',line)
+    result=[]
+    for item in group:
+        if type(item) is not tuple or len(item)!=2:raise KarelRuntimeError('Malformed aggregate READ capture',line)
+        target,_=item;_validate_read_target(target,line)
+        result.append((target,read_formats(target.spec,formats,line)))
     return result
 
 

@@ -151,9 +151,8 @@ class AggregateReadGuardTests(unittest.TestCase):
             p,_=build(body,values=[7]*1025,decl='a:ARRAY[1024]OF INTEGER n:INTEGER')
             with self.assertRaisesRegex(rt.KarelRuntimeError,'1024'):p.run()
 
-    def test_aggregate_formats_are_rejected_at_translation(self):
-        with self.assertRaises(TranslationError) as caught:build('READ(a::2)')
-        self.assertEqual(caught.exception.code,'E_READ_FORMAT')
+    def test_aggregate_formats_apply_to_every_expanded_scalar(self):
+        p,_=build('READ(a::2::16)',read=rt.TextInput('0A0B'));self.assertEqual(p.run()['A'],[10,11])
 
     def test_position_and_nested_position_remain_excluded(self):
         for prefix,decl in (('', 'a:POSITION'),('TYPE item_t=STRUCTURE p:POSITION ENDSTRUCTURE','a:item_t'),('', 'a:ARRAY[1]OF POSITION')):

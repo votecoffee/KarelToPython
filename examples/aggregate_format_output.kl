@@ -1,0 +1,15 @@
+PROGRAM AGGREGATE_FORMAT_OUTPUT
+VAR values:ARRAY[2]OF INTEGER visits,value:INTEGER done:BOOLEAN
+ROUTINE width:INTEGER
+BEGIN
+  visits=visits+1 values[1]=99
+  RETURN 3
+END width
+BEGIN
+  IF UNINIT(done) THEN
+    visits=0 values[1]=10 values[2]=15
+    WRITE('old=',values::width()::16,CR)
+    value=values[2]
+    done=TRUE
+  ENDIF
+END AGGREGATE_FORMAT_OUTPUT

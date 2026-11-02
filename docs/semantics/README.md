@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [aggregate format ledger](aggregate_format_semantics.json) supersedes earlier
+blanket aggregate-format exclusions with per-kind uniform READ/WRITE controls,
+explicit capture-before-format stages and existing transport guards. Native
+layout and controller equivalence remain unverified.
+
 The [aggregate WRITE ledger](aggregate_write_semantics.json) adds a Pythonic
 complete-data output extension through existing scalar text/FILE rendering.
 It supersedes earlier whole-data output exclusions; partial/resource and native

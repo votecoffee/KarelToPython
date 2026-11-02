@@ -3653,26 +3653,26 @@ class Emitter:
                     self.error('E_TYPE',f'WRITE requires scalar or resource-free aggregate data, found {data_type}',item.token)
                 aggregate_output=aggregate_output or aggregate
                 format_exprs = item.args[1:]
-                if aggregate and format_exprs:self.error('E_WRITE_FORMAT','Aggregate WRITE formats require selecting scalar fields',item.token)
+                format_kinds=rt.aggregate_format_kinds(spec) if aggregate else {data_type}
                 format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
                 literals = [self.format_literal(expr) for expr in format_exprs]
                 formats = [literal if literal is not None else dict(expression=True, line=expr.token.line,
                             column=expr.token.column) for literal, expr in zip(literals, format_exprs)]
                 width = literals[0] if literals else None
                 second = literals[1] if len(literals) == 2 else None
-                if width is not None and (width < 0 or data_type != 'STRING' and width > 254):
+                if width is not None and (width < 0 or format_kinds!={'STRING'} and width > 254):
                     self.error('E_WRITE_FORMAT', 'WRITE width must be nonnegative; numeric/BOOLEAN widths are limited to 254', format_exprs[0].token)
-                if data_type == 'BOOLEAN' and len(format_exprs) == 2:
+                if 'BOOLEAN' in format_kinds and len(format_exprs) == 2:
                     self.error('E_WRITE_FORMAT', 'BOOLEAN WRITE accepts only a width', format_exprs[1].token)
                 if second is not None:
-                    valid = (data_type == 'STRING' and second in (0, 1, 2, 3)
-                             or data_type == 'REAL' and -254 <= second <= 254
-                             or data_type in INTEGRAL_TYPES and second in (0, *range(2, 17)))
+                    valid = all(kind=='STRING' and second in (0,1,2,3) or kind=='REAL' and -254<=second<=254
+                                or kind in INTEGRAL_TYPES and second in (0,*range(2,17)) for kind in format_kinds)
                     if not valid:
                         self.error('E_WRITE_FORMAT', f'Invalid {data_type} WRITE second format specifier', format_exprs[1].token)
                 if aggregate:
                     options=f',file={file_code}' if file_code else ''
-                    rendered=f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options})'
+                    rendered=(f'_rt.format_aggregate_write(_rt.capture_aggregate_write({spec!r},{value},{item.token.line}),[{", ".join(format_codes)}],{item.token.line}{options})'
+                              if format_exprs else f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options})')
                     write_groups.append(rendered);pieces.append(rendered)
                 else:
                     rendered=f'_rt.file_piece({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})'
@@ -3680,7 +3680,7 @@ class Emitter:
                 items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
                                   format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
                 if aggregate:
-                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='declaration/row-major/joint-axis',formats='scalar defaults')
+                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                     self.features.add('whole data aggregate WRITE')
                 self.features.add(f'WRITE {data_type} output request')
                 if formats: self.features.add(f'WRITE {data_type} formatting')
@@ -3695,7 +3695,7 @@ class Emitter:
                                         data_type=items[0]['data_type'] if len(items) == 1 else 'MIXED',
                                         data_items=len(items), items=items, evaluated='Left to right, once per expression: value, width, second format; validate/render each item before the next; one request after complete rendering',
                                         format_specifiers=items[0]['format_specifiers'] if len(items) == 1 else []))
-            if len(items) == 1 and items[0]['data_type'] != 'CR':
+            if len(items) == 1 and items[0]['data_type'] != 'CR' and not items[0].get('aggregate'):
                 formats = items[0]['format_specifiers']
                 width = formats[0] if formats else None
                 is_string = items[0]['data_type'] == 'STRING'
@@ -3763,7 +3763,7 @@ class Emitter:
                 aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
                 if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
                     self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data without POSITION',target.token)
-                if aggregate and format_exprs:self.error('E_READ_FORMAT','Aggregate READ formats require selecting scalar fields',target.token)
+                format_kinds=rt.aggregate_format_kinds(spec) if aggregate else {spec[0]}
                 aggregate_input=aggregate_input or aggregate
                 format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
                 literals = [self.format_literal(expr) for expr in format_exprs]
@@ -3771,17 +3771,19 @@ class Emitter:
                     self.error('E_READ_FORMAT', 'READ width must be in 0..254', format_exprs[0].token)
                 if len(literals) == 2 and literals[1] is not None:
                     second = literals[1]
-                    valid = (spec[0] in ('BOOLEAN', 'REAL') or spec[0] == 'STRING' and second in (0, 2)
-                             or spec[0] in INTEGRAL_TYPES and second in (0, *range(2, 17)))
+                    valid = all(kind in ('BOOLEAN','REAL') or kind=='STRING' and second in (0,2)
+                                or kind in INTEGRAL_TYPES and second in (0,*range(2,17)) for kind in format_kinds)
                     if not valid: self.error('E_READ_FORMAT', f'Invalid {spec[0]} READ second format specifier', format_exprs[1].token)
-                read_groups.append(f'_rt.capture_aggregate_read_target({reference}, [], {line})' if aggregate
-                                   else f'[_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})]')
+                if aggregate:
+                    captured_group=f'_rt.capture_aggregate_read_target({reference}, [], {line})'
+                    read_groups.append(f'_rt.format_aggregate_read_group({captured_group},[{", ".join(format_codes)}],{line})' if format_exprs else captured_group)
+                else:read_groups.append(f'[_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})]')
                 references.append(f'_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})'
                                   if formatted else reference)
                 destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
                                          line=target.token.line, column=target.token.column))
                 if aggregate:
-                    destinations[-1].update(aggregate=True,scalar_order='declaration/row-major/joint-axis',formats='scalar defaults')
+                    destinations[-1].update(aggregate=True,scalar_order='declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                     self.features.add('whole data aggregate READ')
                 if self.mode=='pythonic' and self.is_config_subfield(target):
                     self.features.add('bounded CONFIG field READ')
@@ -5004,11 +5006,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
         guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
+    report['aggregate_format_policy']=dict(
+        operations=['READ','WRITE'],
+        interpretation='One format list evaluated once and applied using each expanded scalar kind; static domains must fit every member, dynamic values checked before input/output publication',
+        capture='READ captures all selected leaf references before format calls; WRITE detaches complete immutable scalar fields before format calls; later selectors and pause retain captures',
+        transports='Existing typed callback/TextInput/text and binary FILE contracts, including scalar binary width restrictions and explicit STRING width overrides; no native packed layout',
+        limits='Existing 64-level schema, 1024 expanded scalar/CR and output/backend limits unchanged; mixed records reject formats unsupported by any scalar kind',
+        boundaries='No per-field format mapping, resource input/output, POSITION input/orientation writes, missing-container input, partial output, native/controller or strict claim',
+        guide='docs/aggregate-formats.md',controller_validated=False)
     report['aggregate_write_policy']=dict(
         mode='Pythonic whole ARRAY/user STRUCTURE/VECTOR/CONFIG/Cartesian/POSITION/JOINTPOS output; not native aggregate WRITE acceptance',
         capture='Validate exact schemas and complete data, detach and render each item before later expressions; declaration fields, row-major ARRAY components and joint axes; no robot or geometry inference',
         limits='64 data-schema levels and 1024 total expanded scalar items including CR; omitted-file text retains 254 characters; FILE capacity remains backend-defined',
-        rendering='Default scalar formats, no extra separators; explicit aggregate formats require scalar fields. Binary STRING leaves occupy declared capacity with NUL padding retained by ordinary reads; no native packed layout',
+        rendering='Default or uniform scalar formats, no extra separators; format expressions evaluate once after complete data capture. Binary STRING leaves default to declared capacity, with explicit widths overriding it and NUL padding retained by ordinary reads; no native packed layout',
         publication='One recorder/callback request or FILE write after complete rendering; missing/unknown/invalid data publishes no outer output; prior source and nested-output effects remain',
         boundaries='No resources/embedded resources, partial-data placeholders, generic service changes, native binary/layout/status/controller acceptance or strict claim; POSITION is output data only',
         guide='docs/aggregate-output.md',controller_validated=False)
@@ -5016,7 +5026,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         mode='Pythonic extension for whole ARRAY, user STRUCTURE, VECTOR, CONFIG, XYZWPR/XYZWPREXT and JOINTPOS destinations; not native aggregate READ acceptance',
         order='Capture each shaped target once before later selectors; flatten declaration fields, physical row-major ARRAY components and joint axes; remap CR after complete source items',
         validation='Exact concrete storage, at most 64 schema levels and 1024 expanded scalar destinations plus CR; missing scalar leaves allowed, missing containers rejected; preserve root/field identities and validate complete responses before scalar publication',
-        formats='Aggregate items have default scalar formats; select individual fields for explicit formats. Callback/JSON responses are flat scalar batches; FILE binary data uses ordinary separate scalar widths, never packed native records',
+        formats='Aggregate items use defaults or uniform scalar formats evaluated once after leaf capture. Callback/JSON responses are flat scalar batches; FILE binary data uses ordinary separate scalar widths, never packed native records',
         transports='Existing callback, TextInput, ordinary text/binary FILE, serial, pipe and keyboard transports; retained capture through cooperative waits/pause/cancellation',
         boundaries='No POSITION orientation writes, resources/embedded resources, inferred robot data, generic service alias relaxation, native packed layout, controller acceptance or strict mode',
         guide='docs/aggregate-input.md',controller_validated=False)

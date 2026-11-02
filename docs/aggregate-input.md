@@ -39,8 +39,10 @@ Mix whole data with scalar destinations and CR. CR applies after the entire
 preceding source item, and the runtime remaps it to the expanded scalar offset.
 Repeated/overlapping aliases retain ordinary READ ordering: validate every
 response first, then publish scalar values in expanded source order, with the
-last value winning for a repeated cell. Aggregate items use default scalar
-formats. Select individual fields to supply widths, bases or quote formats.
+last value winning for a repeated cell. Aggregate items use defaults or
+[uniform scalar formats](aggregate-formats.md). Capture all selected leaves before
+format functions; evaluate each format once and validate it for every member.
+Select individual fields when different controls are needed.
 
 ## Shapes, bounds and validation
 

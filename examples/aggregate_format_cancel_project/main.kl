@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR values:ARRAY[2]OF INTEGER status:INTEGER done:BOOLEAN
+ROUTINE transfer(data:ARRAY OF INTEGER):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    values[1]=77 values[2]=88
+    status=transfer(values)
+    done=TRUE
+  ENDIF
+END MAIN
