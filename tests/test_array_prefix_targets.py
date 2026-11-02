@@ -281,7 +281,7 @@ class PrefixTargetGuardTests(unittest.TestCase):
     def test_service_output_does_not_gain_prefix_aliases(self):self.reject("CNV_STR_INT('7',m[1])",'E_ARRAY_RANK')
     def test_active_counter_root_rejects_prefix_assignment(self):self.reject('FOR m[1,1]=1 TO 2 DO m[2]=row ENDFOR','E_FOR_COUNTER')
     def test_active_counter_root_rejects_prefix_read(self):self.reject('FOR m[1,1]=1 TO 2 DO READ(m[2]) ENDFOR','E_FOR_COUNTER')
-    def test_position_prefix_input_remains_rejected(self):self.reject('READ(m[1])','E_READ_TYPE',decl='m:ARRAY[2,2]OF POSITION')
+    def test_position_prefix_orientation_input_remains_rejected(self):self.reject('READ(m[1,1].normal)','E_POSITION_READ_ONLY',decl='m:ARRAY[2,2]OF POSITION')
     def test_shape_mismatch_does_not_reshape(self):self.reject('m[1]=row','E_TYPE',decl='m:ARRAY[2,2]OF INTEGER row:ARRAY[1,2]OF INTEGER')
     def test_computed_read_receiver_remains_rejected(self):self.reject('READ(make()[1])','E_READ_ITEM',routines='ROUTINE make:ARRAY[2,2]OF INTEGER BEGIN RETURN m END make')
 

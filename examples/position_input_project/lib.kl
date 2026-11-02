@@ -1,0 +1,11 @@
+PROGRAM LIB
+VAR received:BOOLEAN
+ROUTINE receive(item:POSITION)
+VAR stream:FILE
+BEGIN
+  OPEN FILE stream('RB','pose')
+  READ stream(item)
+  CLOSE FILE stream
+  received=TRUE
+END receive
+BEGIN END LIB

@@ -183,8 +183,8 @@ class PathIOGuardTests(unittest.TestCase):
     def test_unexpected_header_is_rejected(self):
         p,_=build('WRITE(p)',decl='p:PATH',seed=False);p._state.values['P'].data=rt.Structure(('VECTOR',))
         with self.assertRaises(rt.KarelRuntimeError):p.run()
-    def test_position_input_inside_path_remains_excluded(self):
-        with self.assertRaises(TranslationError):build('READ(p)',prefix='TYPE node_t=STRUCTURE point:POSITION ENDSTRUCTURE',decl='p:PATH NODEDATA=node_t',seed=False)
+    def test_position_orientation_input_inside_path_remains_excluded(self):
+        with self.assertRaises(TranslationError):build('READ(p[1].point.normal)',prefix='TYPE node_t=STRUCTURE point:POSITION ENDSTRUCTURE',decl='p:PATH NODEDATA=node_t',seed=False)
     def test_nested_path_schema_does_not_become_data_output(self):
         bad=('STRUCTURE','NESTED',(('VALUE',('PATH',None,None)),));self.assertFalse(rt.aggregate_write_type(bad));self.assertFalse(rt.aggregate_read_type(('ARRAY',2,('PATH',None,None))))
     def test_unknown_byte_cannot_be_written(self):

@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR point:PATH done:BOOLEAN status:INTEGER
+ROUTINE receive(item:PATH) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(point,status)
+    receive(point)
+    done=TRUE
+  ENDIF
+END MAIN

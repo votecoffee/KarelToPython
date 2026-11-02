@@ -1,0 +1,236 @@
+[
+  {
+    "line": 5,
+    "targets": [
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "REAL",
+        "type_spec": [
+          "REAL"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      },
+      {
+        "type": "BOOLEAN",
+        "type_spec": [
+          "BOOLEAN"
+        ]
+      }
+    ],
+    "adapter_outcome": "callback_completed"
+  }
+]

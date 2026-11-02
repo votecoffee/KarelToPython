@@ -1145,8 +1145,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
     if type(handle.owner) is rt.KeyboardInput:fail('Keyboard FILE requires READ_KB',line)
     if type(handle.owner) is rt.PendantDisplay:fail('Window FILE provides output only; keyboard READ is not modeled',line)
     if type(handle.owner) in (rt.Messaging,rt.SerialStreams):handle.owner.before_read(handle,line)
-    for target in targets:
-        rt._validate_read_target(target,line)
+    rt._validate_read_targets(targets,line)
     start=handle.position
     if handle.binary:
         if line_breaks: fail('CR is not a binary READ field',line)
@@ -1159,6 +1158,7 @@ def file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):
                 value=raw.decode('ascii') if code is None else struct.unpack(code,raw)[0]
                 # Validate now; the setter must normalize raw SHORT 32767 once.
                 rt._validate_read_value(target,value,line);values.append(value)
+            values=rt._prepare_read_values(targets,values,line)
         except Exception as exc:
             handle.position=start; handle.status=1
             if isinstance(exc,UnicodeError): raise rt.KarelRuntimeError('Binary STRING requires ASCII data',line) from exc

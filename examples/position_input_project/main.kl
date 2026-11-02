@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR point:POSITION done:BOOLEAN
+ROUTINE receive(item:POSITION) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    receive(point)
+    done=TRUE
+  ENDIF
+END MAIN

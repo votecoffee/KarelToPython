@@ -98,7 +98,8 @@ See the [binary example](../examples/array_prefix_target_binary.kl),
 Whole-root active FOR checks still cover prefix writes and READ. POSITION
 orientation protection, CONFIG domains, constants, exact resource exclusions and
 existing cooperative cleanup remain unchanged. POSITION data can be copied by
-assignment; POSITION-containing READ targets remain excluded. Computed/function
+assignment; [whole POSITION input](position-input.md) now validates complete
+position cohorts inside prefix READ targets. Computed/function
 READ roots and general service/BYNAME prefix aliases remain unavailable. GET_VAR
 data-output prefixes follow the separate variable-transfer contract above.
 

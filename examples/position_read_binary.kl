@@ -1,0 +1,15 @@
+PROGRAM POSITION_READ_BINARY
+VAR point:POSITION done:BOOLEAN
+ROUTINE receive(item:POSITION)
+VAR stream:FILE
+BEGIN
+  OPEN FILE stream('RB','pose')
+  READ stream(item)
+  CLOSE FILE stream
+END receive
+BEGIN
+  IF UNINIT(done) THEN
+    receive(point)
+    done=TRUE
+  ENDIF
+END POSITION_READ_BINARY

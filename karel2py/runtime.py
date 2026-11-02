@@ -2391,14 +2391,17 @@ def _validate_read_target(target,line=None):
         if (type(target.storage) is not dict or set(target.storage)!=set(fields)
                 or type(target.key) is not str or target.key not in fields or target.spec!=fields[target.key]):
             raise KarelRuntimeError('READ requires a declared CONFIG scalar field',line)
+    elif type(target) is _PositionReadField and _pythonic():
+        _validate_position_read_field(target,line)
     elif type(target) is not Reference:
-        raise KarelRuntimeError('READ requires ordinary writable scalar references or bounded CONFIG fields',line)
+        raise KarelRuntimeError('READ requires ordinary scalar references, bounded CONFIG fields or complete POSITION captures',line)
     _read_scalar_spec(target.spec,line)
 
 
 def _validate_read_value(target,value,line=None):
     """Preflight without storing or normalizing raw SHORT sentinel data twice."""
     _validate_read_target(target,line)
+    if type(target) is _PositionReadField:target=target.base
     if type(target) is ConfigFieldReference:target.validate(value,line)
     else:checked(target.spec,value,line)
 
@@ -2533,7 +2536,7 @@ def aggregate_read_type(spec,trail=()):
         return all(aggregate_read_type(item,trail) for item in components if item is not None)
     if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING','JOINTPOS'):return True
     if kind=='ARRAY':return aggregate_read_type(spec[2],trail)
-    if kind in RECORD_TYPES and kind!='POSITION':return all(aggregate_read_type(member,trail) for _,member in record_fields(spec))
+    if kind in RECORD_TYPES:return all(aggregate_read_type(member,trail) for _,member in record_fields(spec))
     return False
 
 
@@ -2542,7 +2545,7 @@ def capture_aggregate_read_target(target,formats,line=None):
     if _pythonic() and type(target) is _ArrayPrefixTarget:
         return capture_prefix_read_target(target,formats,line)
     if not _pythonic() or type(target) is not Reference or not aggregate_read_type(target.spec):
-        raise KarelRuntimeError('Aggregate READ requires writable resource-free data without POSITION',line)
+        raise KarelRuntimeError('Aggregate READ requires writable resource-free data',line)
     if type(formats) not in (list,tuple) or formats:
         raise KarelRuntimeError('Aggregate READ formats require selecting scalar fields',line)
     if target.spec[0]=='PATH':
@@ -2569,6 +2572,7 @@ def capture_aggregate_read_target(target,formats,line=None):
             for index in range(len(value.values)):descend(Reference(spec[2],value.values,index))
         elif kind=='JOINTPOS':
             for index in range(len(value.values)):descend(Reference(REAL,value.values,index))
+        elif kind=='POSITION':result.extend(_capture_position_read(value,line))
         else:
             for name,member in record_fields(spec):
                 descend(config_read_reference(value,name,line) if kind=='CONFIG' else Reference(member,value.values,name))
@@ -2579,7 +2583,7 @@ def capture_aggregate_read_target(target,formats,line=None):
 def capture_prefix_read_target(target,formats,line=None):
     """Expand captured original cells, without reading into a temporary row."""
     if not _pythonic() or type(target) is not _ArrayPrefixTarget or not aggregate_read_type(target.spec):
-        raise KarelRuntimeError('Prefix READ requires captured writable data without POSITION',line)
+        raise KarelRuntimeError('Prefix READ requires captured writable data',line)
     if type(formats) not in (list,tuple) or formats:
         raise KarelRuntimeError('Prefix READ capture requires default scalar controls',line)
     if _validate_data_schema(target.spec,line)>1024:
@@ -3168,7 +3172,7 @@ class State:
         if type(targets) not in (list, tuple):
             raise KarelRuntimeError('READ requires scalar destination references', line)
         line_breaks = _read_line_breaks(len(targets), line_breaks, line)
-        for target in targets:_validate_read_target(target,line)
+        position_cohorts=_validate_read_targets(targets,line)
         if formats is None: formats = [()] * len(targets)
         if type(formats) not in (list, tuple) or len(formats) != len(targets):
             raise KarelRuntimeError('READ requires one format list per scalar destination', line)
@@ -3183,9 +3187,12 @@ class State:
         if self._read is None:
             raise KarelRuntimeError('READ requires an explicit Program(read=...) input callback', line)
         request['adapter_outcome'] = 'callback_started'
+        adapter=self._read
+        text_checkpoint=(adapter._row,adapter._column,adapter._after_field) if position_cohorts and type(adapter) is TextInput else None
         try:
-            response = self._read(deepcopy(metadata))
+            response = adapter(deepcopy(metadata))
         except Exception as exc:
+            if text_checkpoint is not None:adapter._row,adapter._column,adapter._after_field=text_checkpoint
             request['adapter_outcome'] = 'callback_failed'
             raise KarelRuntimeError(f'READ input callback failed: {exc}', line) from exc
         except BaseException:
@@ -3201,7 +3208,9 @@ class State:
                     if len(ascii_string(value, line)) > 254:
                         raise KarelRuntimeError('READ STRING input is limited to 254 characters before truncation', line)
                 _validate_read_value(target,value,line)
+            values=_prepare_read_values(targets,values,line)
         except Exception:
+            if text_checkpoint is not None:adapter._row,adapter._column,adapter._after_field=text_checkpoint
             request['adapter_outcome'] = 'callback_result_rejected'
             raise
         request['adapter_outcome'] = 'response_validated'
@@ -3577,6 +3586,9 @@ from .vision import VisionServices,VISION_CALLS
 from .source_translations import SourceTranslations
 from .record_schemas import record_schema_kind,convert_record_schema,kinematic_record_kind,prepare_kinematic_record
 from .serial_io import SerialStreams
+from .position_input import (PositionReadField as _PositionReadField,capture as _capture_position_read,
+                             validate_field as _validate_position_read_field,
+                             validate_targets as _validate_read_targets,prepare_values as _prepare_read_values)
 from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,selector as motion_selector,
                      SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS,
                      SETTING_CONSTANTS as MOTION_SETTING_CONSTANTS)

@@ -1,5 +1,6 @@
 {
   "aggregate_format_mode_note":"../aggregate-formats.md supersedes earlier aggregate-format exclusions with uniform scalar controls and capture-before-format stages.",
+  "current_position_input": "Whole POSITION input now follows position_input_semantics.json; earlier release exclusions below retain their historical scope",
   "version": "26.1102.122646",
   "mode": "pythonic",
   "controller_validated": false,

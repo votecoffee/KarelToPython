@@ -2,6 +2,10 @@
 
 ## Translation
 
+[Whole POSITION input](position-input.md) adds `position_input_policy` for complete
+19-field captures, batch geometry checks and bounded input-roundoff normalization.
+It uses existing callback/FILE transports while retaining direct orientation guards.
+
 [Joint-axis access](joint-axis-access.md) adds `joint_axis_accesses` and
 `joint_axis_policy` reports. Generated source captures a declared joint/ARRAY
 schema with `runtime.joint_index_reference`, returning an ordinary REAL reference.

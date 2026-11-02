@@ -1,0 +1,19 @@
+{
+  "version": "26.1102.215003",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../position-input.md",
+  "tests": [
+    "tests/test_position_input.py"
+  ],
+  "forms": "Whole POSITION and POSITION data inside concrete ARRAYs, records, prefix targets, exact borrowed formals and root PATH header/node captures",
+  "order": "19 scalar fields: NORMAL XYZ, ORIENT XYZ, APPROACH XYZ, LOCATION XYZ, three CONFIG turns and four Boolean flags; unchanged aggregate WRITE order",
+  "capture": "Original scalar cell identities before later selectors/formats; require each complete, ordered, contiguous cohort before input; no source orientation alias API",
+  "validation": "Finite numbers, CONFIG bounds, complete batch before any publication; unit, orthogonal, right-handed matrix within 1e-6 transport tolerance",
+  "normalization": "Only admitted roundoff: normalize first column, orthogonalize/normalize second, third by cross product; validate with existing strict frame checks",
+  "transports": "Typed callback/CLI JSON, TextInput, ordinary text/binary FILE and cooperative serial/pipe/keyboard; default binary 12 REAL32 + 3 INTEGER32 + 4 BOOLEAN8 = 64 bytes; selected byte order",
+  "failure": "No READ destination publication on any response/pose failure; binary FILE rollback and text/cooperative cursor commit guards; exact TextInput cursor rollback for POSITION batches; retain arbitrary host effects",
+  "lifetime": "Existing pause, cancellation and terminal cleanup; completed values use existing typed JSON; no saved captures or suspended stack",
+  "boundaries": "No direct orientation descendant input/assignment/borrowed references, missing-container allocation, resource embedding, robot inference, native file layout, compiler/controller acceptance or public strict mode",
+  "supersedes": "Earlier whole POSITION input exclusions in aggregate, prefix and PATH I/O guides/ledgers; historical release scope retained"
+}

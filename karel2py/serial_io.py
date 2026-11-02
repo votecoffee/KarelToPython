@@ -178,8 +178,7 @@ class SerialStreams:
         if id(handle) in self._pending:raise runtime.KarelRuntimeError('Serial FILE already has a pending READ',line)
         if type(targets) not in (list,tuple):raise runtime.KarelRuntimeError('Serial READ requires scalar references',line)
         line_breaks=runtime._read_line_breaks(len(targets),line_breaks,line)
-        for target in targets:
-            runtime._validate_read_target(target,line)
+        runtime._validate_read_targets(targets,line)
         formats=[()] * len(targets) if formats is None else formats
         if type(formats) not in (list,tuple) or len(formats)!=len(targets):
             raise runtime.KarelRuntimeError('Serial READ requires one format per scalar target',line)

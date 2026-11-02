@@ -1,5 +1,6 @@
 {
   "version": "26.1102.171841",
+  "current_position_input": "Whole POSITION input now follows position_input_semantics.json; earlier release exclusions below retain their historical scope",
   "mode": "pythonic",
   "controller_validated": false,
   "evidence": "Authored whole-PATH scalar I/O and FILE descriptor query tests; no native PATH file-layout or initialization-bit equivalence",

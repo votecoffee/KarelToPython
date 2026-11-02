@@ -96,7 +96,7 @@ invocation. Backend-specific failures retain existing rules.
 
 The existing 64-level schemas, 1024 expanded scalar/CR items, omitted-file output
 limit of 254 characters and FILE/backend bounds are unchanged. Missing input
-containers, POSITION input/orientation writes, partial/unknown output and resource
+containers, direct POSITION orientation writes, partial/unknown output and resource
 input/output remain excluded. Formatting does not relax CONFIG turn domains,
 exact schemas, protected outputs, active FOR guards or native/controller boundaries.
 

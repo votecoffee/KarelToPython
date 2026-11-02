@@ -3966,7 +3966,7 @@ class Emitter:
                 reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic')
                 aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
                 if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
-                    self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data without POSITION',target.token)
+                    self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data',target.token)
                 format_kinds=rt.aggregate_format_kinds(spec) if aggregate else {spec[0]}
                 aggregate_input=aggregate_input or aggregate
                 format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
@@ -5233,7 +5233,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='READ captures all selected leaf references before format calls; WRITE detaches complete immutable scalar fields before format calls; later selectors and pause retain captures',
         transports='Existing typed callback/TextInput/text and binary FILE contracts, including scalar binary width restrictions and explicit STRING width overrides; no native packed layout',
         limits='Existing 64-level schema, 1024 expanded scalar/CR and output/backend limits unchanged; mixed records reject formats unsupported by any scalar kind',
-        boundaries='Root PATH data follows path_io_policy; no per-field format mapping, other resource input/output, POSITION input/orientation writes, missing-container input, partial output, native/controller or strict claim',
+        boundaries='Root PATH data follows path_io_policy; no per-field format mapping, other resource input/output, direct POSITION orientation writes, missing-container input, partial output, native/controller or strict claim',
         guide='docs/aggregate-formats.md',controller_validated=False)
     report['aggregate_write_policy']=dict(
         mode='Pythonic whole ARRAY/user STRUCTURE/VECTOR/CONFIG/Cartesian/POSITION/JOINTPOS output; not native aggregate WRITE acceptance',
@@ -5241,16 +5241,27 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='64 data-schema levels and 1024 total expanded scalar items including CR; omitted-file text retains 254 characters; FILE capacity remains backend-defined',
         rendering='Default or uniform scalar formats, no extra separators; format expressions evaluate once after complete data capture. Binary STRING leaves default to declared capacity, with explicit widths overriding it and NUL padding retained by ordinary reads; no native packed layout',
         publication='One recorder/callback request or FILE write after complete rendering; missing/unknown/invalid data publishes no outer output; prior source and nested-output effects remain',
-        boundaries='Root PATH output follows path_io_policy; no other resources/embedded resources, partial-data placeholders, generic service changes, native binary/layout/status/controller acceptance or strict claim; POSITION is output data only',
+        boundaries='Root PATH output follows path_io_policy; no other resources/embedded resources, partial-data placeholders, generic service changes, native binary/layout/status/controller acceptance or strict claim; direct POSITION orientation fields remain protected',
         guide='docs/aggregate-output.md',controller_validated=False)
     report['aggregate_read_policy']=dict(
-        mode='Pythonic extension for whole ARRAY, user STRUCTURE, VECTOR, CONFIG, XYZWPR/XYZWPREXT and JOINTPOS destinations; not native aggregate READ acceptance',
+        mode='Pythonic extension for whole ARRAY, user STRUCTURE, VECTOR, CONFIG, POSITION/XYZWPR/XYZWPREXT and JOINTPOS destinations; not native aggregate READ acceptance',
         order='Capture each shaped target once before later selectors; flatten declaration fields, physical row-major ARRAY components and joint axes; remap CR after complete source items',
         validation='Exact concrete storage, at most 64 schema levels and 1024 expanded scalar destinations plus CR; missing scalar leaves allowed, missing containers rejected; preserve root/field identities and validate complete responses before scalar publication',
         formats='Aggregate items use defaults or uniform scalar formats evaluated once after leaf capture. Callback/JSON responses are flat scalar batches; FILE binary data uses ordinary separate scalar widths, never packed native records',
         transports='Existing callback, TextInput, ordinary text/binary FILE, serial, pipe and keyboard transports; retained capture through cooperative waits/pause/cancellation',
         boundaries='Root PATH input follows path_io_policy; no POSITION orientation writes, other resources/embedded resources, inferred robot data, generic service alias relaxation, native packed layout, controller acceptance or strict mode',
         guide='docs/aggregate-input.md',controller_validated=False)
+    report['position_input_policy']=dict(
+        source='Whole POSITION values, including declared ARRAYs, named records, prefix targets, exact borrowed formals and existing PATH node/header data; direct orientation descendants remain protected',
+        order='19 scalar fields in existing WRITE order: NORMAL XYZ, ORIENT XYZ, APPROACH XYZ, LOCATION XYZ, three CONFIG turns and four BOOLEAN flags',
+        capture='Retain original scalar cells; require each captured position cohort complete, contiguous and ordered before input; no live orientation alias interface',
+        validation='Validate complete typed response and every incoming position before any scalar publication; ordinary CONFIG domains and finite numbers; unit/orthogonal/right-handed rotation within 1e-6 transport tolerance',
+        normalization='Normalize first column, orthogonalize/normalize second and derive third by cross product; accept only bounded transport roundoff, then validate with existing strict frame checks',
+        transports='Typed callback/JSON, TextInput, text/binary FILE and existing cooperative serial/pipe/keyboard READ; binary keeps ordinary scalar widths and byte order',
+        failure='Invalid geometry publishes no destinations; binary FILE cursor rolls back, text FILE cursor stays unchanged; exact TextInput adapter restores its parse cursor for POSITION reads; retain arbitrary host callback effects',
+        persistence='Ordinary completed POSITION values only; capture objects and suspended input are not persisted',
+        boundary='No direct orientation-field READ/assignment/reference, missing container allocation, robot inference, native POSITION file layout, controller acceptance or strict mode',
+        guide='docs/position-input.md',controller_validated=False)
     report['path_archive_policy']=dict(
         forms='VR SAVE/LOAD/CLEAR, variable-only and mixed recursive PBR batches, SAVE_DRAM and explicit host restore_dram',
         data='Owned declared or ordinary explicit PATH roots with exact resolved node/header schemas and checked known/partial/unknown data; no native VR binary claim',
@@ -5417,7 +5428,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         formats='Reuse uniform scalar aggregate controls and ordinary text/binary/default-input transports; 1024 scalar fields including CR and existing output/file limits',
         empty='Unformatted empty PATH WRITE produces one empty item; READ requires an existing header or node, and formatted empty output is rejected',
         file_initialization='UNINIT on an ordinary FILE descriptor returns owner-is-absent; opening initializes, closing/cancel semantics follow existing descriptor ownership; no I/O or cursor changes',
-        boundary='No PATH length/type framing, native PATH storage encoding, automatic node allocation, POSITION input, nested resources or generic FILE codecs; strict remains future work',
+        boundary='No PATH length/type framing, native PATH storage encoding, automatic node allocation, direct POSITION orientation writes, nested resources or generic FILE codecs; strict remains future work',
         guide='docs/path-io-and-file-initialization.md',controller_validated=False)
     report['handler_priority_policy']=dict(
         syntax='CONDITION[n]: WITH $PRIORITY=INTEGER, $SCAN_TIME=INTEGER; comma-separated options or repeated WITH, no duplicates',
@@ -6269,7 +6280,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         assignment='Capture independent RHS first, then receiver and indexes; convert against captured actual receiver schema after target effects; validate complete selected receiver before one checkpoint-free publication; retain element/record aliases',
         input='Expand captured original scalar references before format calls and later targets; use existing complete-response checks, CR remapping, file/callback transports, waits and cancellation',
         schema='Preserve actual suffix dimensions, named children and STRING capacities; use existing context-free or explicit-model source conversions; validate full source receiver storage at capture',
-        limits='Existing 32767-leaf/64-level data schemas and 1024 input destinations/CR; no resources, POSITION input, generic output targets, persistent views, native/controller or strict claim',
+        limits='Existing 32767-leaf/64-level data schemas and 1024 input destinations/CR; no resources, direct POSITION orientation writes, generic output targets, persistent views, native/controller or strict claim',
         guide='docs/array-prefix-targets.md',controller_validated=False)
     report['dynamic_array_creation_policy']=dict(
         syntax='Pythonic ARRAY OF followed by an existing supported data type/alias with positive inner dimension; plain named ARRAY types may also take extra outer dimensions',

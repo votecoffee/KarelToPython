@@ -1,7 +1,7 @@
 # Whole data aggregate READ
 
 Pythonic READ accepts whole ARRAYs, user STRUCTUREs, VECTORs, CONFIGs,
-XYZWPR/XYZWPREXT records and JOINTPOS values. This is an authored Pythonic
+POSITION/XYZWPR/XYZWPREXT records and JOINTPOS values. This is an authored Pythonic
 extension using the existing scalar input transports, without native aggregate
 READ acceptance, packed record layouts or controller input claims. Strict mode
 remains a future milestone.
@@ -60,8 +60,9 @@ whole container, including a missing nested ARRAY/record, is rejected before
 input. Malformed schemas/shapes and invalid known existing aggregate values are
 also rejected before the callback or FILE read. No container or robot defaults
 are invented. Existing constants, FOR counters and readonly guards remain.
-POSITION, including nested POSITION, is excluded because its orientation storage
-remains readonly. [Root PATH input](path-io-and-file-initialization.md) now expands
+[Whole POSITION input](position-input.md) uses checked complete 19-field captures,
+with geometry validation and bounded transport-roundoff normalization. Direct
+orientation descendants remain readonly. [Root PATH input](path-io-and-file-initialization.md) now expands
 its supplied header/nodes under an explicit in-place extension. FILE, QUEUE_TYPE
 and embedded resources remain excluded.
 

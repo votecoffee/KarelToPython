@@ -1,0 +1,9 @@
+PROGRAM POSITION_READ_PATH
+VAR route:PATH status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(route,status) APPEND_NODE(route,status)
+    READ(route)
+    done=TRUE
+  ENDIF
+END POSITION_READ_PATH

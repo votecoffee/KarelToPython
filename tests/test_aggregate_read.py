@@ -154,13 +154,12 @@ class AggregateReadGuardTests(unittest.TestCase):
     def test_aggregate_formats_apply_to_every_expanded_scalar(self):
         p,_=build('READ(a::2::16)',read=rt.TextInput('0A0B'));self.assertEqual(p.run()['A'],[10,11])
 
-    def test_position_and_nested_position_remain_excluded(self):
-        for prefix,decl in (('', 'a:POSITION'),('TYPE item_t=STRUCTURE p:POSITION ENDSTRUCTURE','a:item_t'),('', 'a:ARRAY[1]OF POSITION')):
-            with self.assertRaises(TranslationError) as caught:build(prefix=prefix,decl=decl)
-            self.assertEqual(caught.exception.code,'E_READ_TYPE')
+    def test_direct_position_orientation_input_remains_excluded(self):
+        for prefix,decl,target in (('', 'a:POSITION','a.normal'),('TYPE item_t=STRUCTURE p:POSITION ENDSTRUCTURE','a:item_t','a.p.normal'),('', 'a:ARRAY[1]OF POSITION','a[1].normal')):
+            with self.assertRaises(TranslationError):build('READ('+target+')',prefix=prefix,decl=decl)
 
     def test_resource_roots_remain_excluded(self):
-        for kind in ('PATH','QUEUE_TYPE','FILE'):
+        for kind in ('QUEUE_TYPE','FILE'):
             with self.assertRaises(TranslationError):build(decl='a:'+kind)
 
     def test_active_for_counter_root_and_constant_guard_remain(self):

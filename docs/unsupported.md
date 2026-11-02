@@ -99,8 +99,9 @@ native/controller writes remain excluded.
 
 [Root PATH READ/WRITE](path-io-and-file-initialization.md) now expands supplied
 header/node data through scalar transports. Automatic node allocation, native
-PATH framing, empty headerless input, formatted empty output and POSITION input
-remain excluded. FILE UNINIT uses the explicit descriptor open-state convention.
+PATH framing, empty headerless input and formatted empty output remain excluded.
+[Whole POSITION input](position-input.md) now spans data containers and PATH
+components with complete-batch pose validation and bounded rounding normalization. FILE UNINIT uses the explicit descriptor open-state convention.
 
 - `COMMON_ASSOC`, `GROUP_ASSOC` and the obsolete `STD_PTH_NODE.GROUP_DATA` /
   `COMMON_DATA` association layouts. [Predefined structures](path-declarations.md)
@@ -135,8 +136,8 @@ remain excluded. FILE UNINIT uses the explicit descriptor open-state convention.
   to every expanded member of whole-data READ/WRITE, with capture before formats.
   [Whole-data WRITE](aggregate-output.md) now supports complete data, including
   readable POSITION columns, without changing orientation-write restrictions.
-- Resource READ, missing whole/nested data containers, readonly POSITION input
-  destinations and generic CONFIG conversion/status aliases remain blocked.
+- Resource READ, missing whole/nested data containers, direct readonly POSITION
+  orientation destinations and generic CONFIG conversion/status aliases remain blocked.
   [Whole-data READ](aggregate-input.md) now supports shaped ARRAY/record/CONFIG/
   Cartesian/joint data through flat scalar callbacks and existing FILE transports;
   uniform formats follow the scalar domains; native packed layouts remain

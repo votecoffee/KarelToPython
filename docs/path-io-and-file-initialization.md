@@ -26,8 +26,9 @@ Header fields are ordinary user data; changing COUNT does not change PATH length
 Whole-PATH I/O expands the optional header first, followed by existing nodes in
 node order. Components use declaration order, ARRAY row-major order and joint
 axis order. Default STD_PTH_NODE data and explicit NODEDATA/PATHHEADER schemas
-retain their existing concrete types. POSITION is output data only, so a PATH
-containing POSITION cannot be a whole READ destination. Explicit XYZWPR,
+retain their existing concrete types. [Whole POSITION input](position-input.md)
+now validates complete position cohorts, including default NODE_POS fields.
+Explicit XYZWPR,
 XYZWPREXT, CONFIG, VECTOR and joint data can follow their normal scalar input
 rules.
 

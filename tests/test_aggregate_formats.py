@@ -189,7 +189,7 @@ class AggregateFormatGuardTests(unittest.TestCase):
         with rt._numeric_scope('strict'),self.assertRaises(rt.KarelRuntimeError):rt.format_aggregate_write(captured,[2])
 
     def test_position_input_remains_excluded(self):
-        with self.assertRaises(TranslationError):reader('READ(a::4)',decl='a:POSITION')
+        with self.assertRaises(TranslationError):reader('READ(a.normal::4)',decl='a:POSITION')
 
     def test_resource_output_remains_excluded(self):
         with self.assertRaises(TranslationError):writer('WRITE(a::4)',decl='a:FILE')

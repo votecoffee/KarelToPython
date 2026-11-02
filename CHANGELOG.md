@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1102.215003 - 2026-11-02
+
+- Add whole POSITION READ inside arrays, records, prefix targets, borrowed routines
+  and existing PATH headers/nodes, using complete captured 19-field cohorts.
+- Validate all response data and poses before publication; normalize bounded
+  transport roundoff while retaining direct orientation-field protections.
+- Reuse text/binary FILE, callbacks and cooperative serial/pipe/keyboard input,
+  including failure cursor guards, pause retention and cancellation cleanup.
+- Add 83 regression tests, four runnable examples and two linked projects; update
+  portable-runtime test bundles for the new input module.
+
 ## 26.1102.211651 - 2026-11-02
 
 - Expand Pythonic local WITH metadata to 21 settings with acceleration/accuracy,

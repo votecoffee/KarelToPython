@@ -47,8 +47,13 @@ linked routines, handlers and JSON replay use the same offline context.
 continuous-axis speed, segment/shift times and five policy flags. Values survive
 saved-history replay; supplied timing remains explicit. `$REF_POS` is still unresolved.
 
+[Whole POSITION input](docs/position-input.md) now spans ARRAYs, records, prefix
+rows, borrowed routines and PATH data. Complete-batch geometry checks accept
+bounded transport roundoff and preserve source orientation protection across
+callback, text/binary FILE and cooperative input.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1102.211651**. It is a
+tool are named **karel2py**. The current implementation is **26.1102.215003**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -879,9 +884,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 384 authored runnable examples, checks complete
+The example runner translates 388 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 124 complete linked source projects. It also checks that unsupported
+fixtures, plus 126 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

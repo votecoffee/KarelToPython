@@ -1,0 +1,209 @@
+{
+  "POSES": [
+    [
+      {
+        "NORMAL": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "ORIENT": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "APPROACH": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "LOCATION": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": {
+            "uninitialized": true
+          },
+          "CFG_TURN_NO2": {
+            "uninitialized": true
+          },
+          "CFG_TURN_NO3": {
+            "uninitialized": true
+          },
+          "CFG_FLIP": {
+            "uninitialized": true
+          },
+          "CFG_LEFT": {
+            "uninitialized": true
+          },
+          "CFG_UP": {
+            "uninitialized": true
+          },
+          "CFG_FRONT": {
+            "uninitialized": true
+          }
+        }
+      },
+      {
+        "NORMAL": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "ORIENT": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "APPROACH": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "LOCATION": {
+          "X": {
+            "uninitialized": true
+          },
+          "Y": {
+            "uninitialized": true
+          },
+          "Z": {
+            "uninitialized": true
+          }
+        },
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": {
+            "uninitialized": true
+          },
+          "CFG_TURN_NO2": {
+            "uninitialized": true
+          },
+          "CFG_TURN_NO3": {
+            "uninitialized": true
+          },
+          "CFG_FLIP": {
+            "uninitialized": true
+          },
+          "CFG_LEFT": {
+            "uninitialized": true
+          },
+          "CFG_UP": {
+            "uninitialized": true
+          },
+          "CFG_FRONT": {
+            "uninitialized": true
+          }
+        }
+      }
+    ],
+    [
+      {
+        "NORMAL": {
+          "X": 1.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "ORIENT": {
+          "X": 0.0,
+          "Y": 1.0,
+          "Z": 0.0
+        },
+        "APPROACH": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 1.0
+        },
+        "LOCATION": {
+          "X": 10.0,
+          "Y": 20.0,
+          "Z": 30.0
+        },
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": 0,
+          "CFG_TURN_NO2": 0,
+          "CFG_TURN_NO3": 0,
+          "CFG_FLIP": false,
+          "CFG_LEFT": false,
+          "CFG_UP": false,
+          "CFG_FRONT": false
+        }
+      },
+      {
+        "NORMAL": {
+          "X": 1.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "ORIENT": {
+          "X": 0.0,
+          "Y": 1.0,
+          "Z": 0.0
+        },
+        "APPROACH": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 1.0
+        },
+        "LOCATION": {
+          "X": 40.0,
+          "Y": 50.0,
+          "Z": 60.0
+        },
+        "CONFIG_DATA": {
+          "CFG_TURN_NO1": 0,
+          "CFG_TURN_NO2": 0,
+          "CFG_TURN_NO3": 0,
+          "CFG_FLIP": false,
+          "CFG_LEFT": false,
+          "CFG_UP": false,
+          "CFG_FRONT": false
+        }
+      }
+    ]
+  ],
+  "DONE": true
+}

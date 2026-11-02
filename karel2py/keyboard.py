@@ -359,6 +359,7 @@ class KeyboardInput:
             raise runtime.KarelRuntimeError('Keyboard FILE already has an active read',line)
         if type(targets) not in (list,tuple):raise runtime.KarelRuntimeError('READ requires scalar destination references',line)
         breaks=runtime._read_line_breaks(len(targets),line_breaks,line)
+        runtime._validate_read_targets(targets,line)
         if formats is None:formats=[()] * len(targets)
         if type(formats) not in (list,tuple) or len(formats)!=len(targets):
             raise runtime.KarelRuntimeError('READ requires one format list per scalar destination',line)

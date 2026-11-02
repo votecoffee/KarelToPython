@@ -320,8 +320,7 @@ class FilePipes(MemoryFiles):
         runtime=rt();self.before_read(handle,line)
         if type(targets) not in (list,tuple):fail('Pipe READ requires scalar references',line)
         line_breaks=runtime._read_line_breaks(len(targets),line_breaks,line)
-        for target in targets:
-            runtime._validate_read_target(target,line)
+        runtime._validate_read_targets(targets,line)
         formats=[()] * len(targets) if formats is None else formats
         if type(formats) not in (list,tuple) or len(formats)!=len(targets):fail('Pipe READ requires one format per scalar target',line)
         formats=[runtime.read_formats(target.spec,field,line) for target,field in zip(targets,formats)]

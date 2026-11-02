@@ -1,5 +1,9 @@
 # Language support
 
+[Whole POSITION READ](position-input.md) now supports data containers and PATH
+components, with complete-response geometry checks, bounded transport-roundoff
+normalization and existing direct orientation guards.
+
 [Additional motion options](motion-options.md) expand checked local WITH metadata to
 21 settings, with bounded integer options, signed continuous-axis speed, exact
 Boolean flags, validated saved history and physical include provenance.
@@ -49,7 +53,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.211651. Acceptance is specific to
+This is the supported prototype subset as of 26.1102.215003. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -115,7 +119,7 @@ internally and in the historical semantic notes.
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
 | WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or native aggregate layout. [Whole data](aggregate-output.md) now expands complete ARRAY/record/CONFIG/POSITION/joint values with one-batch publication and [default/uniform scalar formats](aggregate-formats.md). |
-| READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim or POSITION orientation writes. [Whole data](aggregate-input.md) expands shaped ARRAY/record/CONFIG/joint targets into default or [uniformly formatted scalar fields](aggregate-formats.md) with the same transport validation. [CONFIG field input](config-field-input.md) validates turn bounds and BOOLEAN flags before any output/cursor publication. |
+| READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim or POSITION orientation writes. [Whole data](aggregate-input.md), including [whole POSITION](position-input.md), expands shaped ARRAY/record/CONFIG/joint targets into default or [uniformly formatted scalar fields](aggregate-formats.md) with the same transport validation. [CONFIG field input](config-field-input.md) validates turn bounds and BOOLEAN flags before any output/cursor publication. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
 
 
