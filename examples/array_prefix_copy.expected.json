@@ -1,0 +1,27 @@
+{
+  "MATRIX": [
+    [
+      99,
+      9,
+      11
+    ],
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "ROW": [
+    7,
+    42,
+    11
+  ],
+  "VALUE": 18,
+  "DONE": true
+}

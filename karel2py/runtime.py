@@ -295,6 +295,56 @@ def indexed_type(spec, count):
     raise KarelRuntimeError('Too many ARRAY subscripts')
 
 
+def array_prefix_type(spec,count):
+    """Describe a value-only prefix ending inside a flat ARRAY component."""
+    if type(count) is not int or count<1 or _array_conversion_layout(spec) is None:return None
+    while spec[0]=='ARRAY':
+        shape=array_shape(spec);width=len(shape)
+        if count<width:
+            remaining=shape[count:]
+            return ('ARRAY',remaining[0] if len(remaining)==1 else remaining,spec[2])
+        count-=width;spec=spec[2]
+        if count==0:return None
+    return None
+
+
+def array_prefix_value(array,index,expected,line=None):
+    """Copy a row/plane value without introducing a writable storage view."""
+    if not _pythonic():raise KarelRuntimeError('ARRAY prefix values require Pythonic mode',line)
+    indexes=index if type(index) is tuple else (index,)
+    if array_prefix_type(expected,len(indexes)) is None:
+        raise KarelRuntimeError('ARRAY prefix requires an incomplete flat data selection',line)
+    if type(array) is not Array:raise KarelRuntimeError('ARRAY prefix requires exact ARRAY storage',line)
+    _validate_data_schema(array.spec,line)
+    if not parameter_accepts(expected,array.spec):
+        raise KarelRuntimeError('ARRAY prefix storage does not match its declared schema',line)
+    # Validate every known source leaf and detach before exposing any selected data.
+    current=_aggregate_value(array.spec,array,line)
+    declared=array_prefix_type(expected,len(indexes))
+    def finish(selected):
+        concrete=_array_conversion_spec(declared,selected.spec)
+        return selected if selected.spec==concrete else convert_array_schema(concrete,selected,line)
+    while True:
+        width=len(current.shape)
+        if len(indexes)<width:
+            supplied=len(indexes);suffix=current.shape[supplied:];offset=0
+            for number,(subscript,dimension) in enumerate(zip(indexes,current.shape),1):
+                integer(subscript,line)
+                if not 1<=subscript<=dimension:
+                    raise KarelRuntimeError(f'Array index {subscript} outside 1..{dimension} in dimension {number}',line)
+                offset=offset*dimension+subscript-1
+            size=math.prod(suffix)
+            result=Array(('ARRAY',suffix[0] if len(suffix)==1 else suffix,current.spec[2]))
+            result.values[:]=current.values[offset*size:(offset+1)*size]
+            return finish(result)
+        offset=current.offset(indexes[:width],line)
+        current=current.values[offset];indexes=indexes[width:]
+        if not indexes:
+            if type(current) is not Array:raise KarelRuntimeError('ARRAY prefix requires remaining ARRAY data',line)
+            return finish(current)
+        if type(current) is not Array:raise KarelRuntimeError('ARRAY prefix requires nested ARRAY storage',line)
+
+
 def joint_axis_access(spec,count):
     """Recognize a single terminal joint axis after complete ARRAY components."""
     if type(count) is not int or not 1<=count<=4:return False

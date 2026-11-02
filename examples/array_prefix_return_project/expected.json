@@ -1,0 +1,31 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "MATRIX": [
+        [
+          "abcd",
+          "xy"
+        ],
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      ],
+      "ROW": [
+        "zz",
+        "xy"
+      ],
+      "VALUE": 6,
+      "DONE": true
+    }
+  }
+}

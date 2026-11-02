@@ -15,8 +15,9 @@ result=make_values()[1][2]
 
 This is a source-level normalization. It uses the existing typed ARRAY storage,
 bounds checks and captured references; it does not create Python list views or
-new partial rows. The preserved legacy translator retains its comma-only
-restrictions.
+intermediate partial rows. Independent standalone [prefix values](array-prefix-values.md)
+are a separate Pythonic extension. The preserved legacy translator retains its
+comma-only restrictions.
 
 ## Complete accesses and named boundaries
 
@@ -26,11 +27,11 @@ groups separated by parentheses around an intermediate value receiver.
 Mixed forms such as `[i,j][k]` and `[i][j,k]` are supported when the resulting
 access is valid.
 
-A flat `ARRAY[2,3] OF INTEGER` requires both subscripts. Standalone `values[1]`,
-including `(values[1])`, remains invalid. Likewise, two subscripts into a flat
-three-dimensional ARRAY remain incomplete. A complete surrounding chain can
-supply those missing subscripts; an intervening STRUCTURE field access cannot
-invent a row that the ARRAY type does not expose.
+A writable flat `ARRAY[2,3] OF INTEGER` selection requires both subscripts. A
+standalone `values[1]`, including `(values[1])`, now creates an independent row
+value under [prefix-value rules](array-prefix-values.md). Two subscripts into a
+flat cube similarly copy a row. A surrounding chain supplies missing subscripts
+without an intermediate copy. An ARRAY row cannot be used as a STRUCTURE field.
 
 Separately named ARRAY components keep their established boundaries:
 
@@ -47,7 +48,7 @@ END
 Here `plane[1]` is an existing named `row_t` component. A chain can cross that
 boundary, and a selection ending at a valid named ARRAY boundary can still be
 passed or copied as that exact type. A partial access inside a flat named
-component remains invalid until its required subscripts are supplied.
+component is value-only until its required subscripts are supplied.
 
 At most three logical dimensions remain supported. Extra subscripts, scalar or
 resource reindexing, invalid index types and ARRAY representation/nominal type
@@ -92,7 +93,7 @@ bounded/output rules, and BYTE unknown contents do not become initialized data.
 
 [Checked joint-axis access](joint-axis-access.md) can now terminate a complete
 ARRAY chain at one additional one-based REAL axis. It preserves ARRAY boundaries
-and does not create partial flat rows.
+and does not create writable partial flat views.
 
 Both structured code and the label dispatcher use the same normalization.
 Existing FOR bounds, RETURN snapshots, GOTO entry restrictions, errors and

@@ -1,0 +1,33 @@
+{
+  "version": "26.1102.140143",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored independent row/plane value extension; no native source-form, alias-layout or controller proof",
+  "implemented": {
+    "source": "Incomplete flat source selections, including named components and concrete generic formals",
+    "schemas": "Anonymous outer suffix; preserve declared child layouts, concrete dimensions and capacities; normalize generic actual layout through existing source schema conversion",
+    "ownership": "Checked independent ARRAY data; permitted missing scalar leaves retained; no alias or copyback",
+    "evaluation": "Receiver then supplied indexes once; copy after index effects, before later argument/format/target effects; pause retains frames",
+    "interfaces": "Assignments, ordinary/linked private arguments, RETURN, ARRAY_LEN and aggregate text/binary WRITE",
+    "validation": "Entire data-only source schema/storage and known leaves before selection publication; 64 levels and 32767 source leaves",
+    "guards": "Complete named-boundary references and full chained element accesses unchanged; private-prefix effects do not alias active FOR roots"
+  },
+  "remaining": [
+    "Writable partial views and incomplete reference/output targets",
+    "Resource data, ragged arrays and rank/reshape inference",
+    "Native source/layout/controller acceptance and strict mode"
+  ],
+  "verification": [
+    "tests/test_array_prefix_values.py",
+    "tests/test_chained_array_indexes.py",
+    "tests/test_subarrays.py",
+    "tests/test_runtime_portability.py",
+    "examples/array_prefix_copy.kl",
+    "examples/array_prefix_output.kl",
+    "examples/array_prefix_binary.kl",
+    "examples/array_prefix_generic.kl",
+    "examples/array_prefix_project/main.kl",
+    "examples/array_prefix_return_project/main.kl"
+  ],
+  "guide": "../array-prefix-values.md"
+}

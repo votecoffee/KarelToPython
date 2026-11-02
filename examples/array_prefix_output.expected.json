@@ -1,0 +1,19 @@
+{
+  "MATRIX": [
+    [
+      99,
+      15
+    ],
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "VALUE": 2,
+  "VISITS": 1,
+  "DONE": true
+}

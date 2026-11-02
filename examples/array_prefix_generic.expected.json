@@ -1,0 +1,22 @@
+{
+  "MATRIX": [
+    [
+      "zzzz",
+      "xy"
+    ],
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "WORDS": [
+    "ab",
+    "xy"
+  ],
+  "VALUE": 4,
+  "DONE": true
+}

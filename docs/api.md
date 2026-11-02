@@ -489,6 +489,10 @@ are integers for signed/grouped literals, or objects containing `expression=true
 and physical `line`/`column` for dynamic values. `items[].dynamic_formats` identifies
 dynamic sites; `format_width` retains the integer or expression object, while
 `alignment`, `quoted` and `width_policy` explicitly mark dynamic cases.
+`array_prefix_policy` and source-located `array_prefix_values` describe independent
+row/plane source selections, suffix schemas and private ownership. Complete
+reference helpers remain full-rank. See [prefix values](array-prefix-values.md).
+
 `aggregate_format_policy` describes uniform READ/WRITE formats, per-kind static
 validation and capture before format functions. Aggregate destinations/items mark
 `capture_before_formats`; mixed WRITE items omit scalar alignment claims. See

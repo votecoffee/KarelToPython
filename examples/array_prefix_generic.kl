@@ -1,0 +1,11 @@
+PROGRAM ARRAY_PREFIX_GENERIC
+VAR matrix:ARRAY[2,2]OF STRING[4] words:ARRAY[2]OF STRING[2] value:INTEGER done:BOOLEAN
+ROUTINE make(p:ARRAY[*,*]OF STRING):ARRAY OF STRING
+BEGIN RETURN p[1] END make
+BEGIN
+  IF UNINIT(done) THEN
+    matrix[1,1]='abcd' matrix[1,2]='xy'
+    words=make(matrix) matrix[1,1]='zzzz'
+    value=STR_LEN(words[1])+STR_LEN(words[2]) done=TRUE
+  ENDIF
+END ARRAY_PREFIX_GENERIC

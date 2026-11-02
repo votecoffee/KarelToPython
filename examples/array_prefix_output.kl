@@ -1,0 +1,11 @@
+PROGRAM ARRAY_PREFIX_OUTPUT
+VAR matrix:ARRAY[2,2]OF INTEGER value,visits:INTEGER done:BOOLEAN
+ROUTINE width:INTEGER
+BEGIN visits=visits+1 matrix[1,1]=99 RETURN 3 END width
+BEGIN
+  IF UNINIT(done) THEN
+    visits=0 matrix[1,1]=10 matrix[1,2]=15
+    WRITE(matrix[1]::width()::16,CR)
+    value=ARRAY_LEN(matrix[1]) done=TRUE
+  ENDIF
+END ARRAY_PREFIX_OUTPUT

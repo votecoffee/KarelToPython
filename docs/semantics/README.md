@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [ARRAY prefix ledger](array_prefix_semantics.json) adds independent row/plane
+source values while keeping full-rank and named-boundary references unchanged.
+It supersedes earlier incomplete source-selection exclusions; writable partial
+views remain unavailable.
+
 The [aggregate format ledger](aggregate_format_semantics.json) supersedes earlier
 blanket aggregate-format exclusions with per-kind uniform READ/WRITE controls,
 explicit capture-before-format stages and existing transport guards. Native

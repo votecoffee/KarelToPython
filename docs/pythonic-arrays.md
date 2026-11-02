@@ -76,7 +76,8 @@ also follow grouped aggregate expressions and record function results, such as
 before its subscripts. [Complete chained subscripts](chained-array-indexes.md),
 such as `make_rows()[1][2]`, normalize to the existing comma form
 `make_rows()[1,2]`. They preserve named component boundaries and require a complete
-flat outer rank; no partial flat row view is created.
+flat outer rank for references. Independent [prefix values](array-prefix-values.md)
+now copy standalone incomplete rows/planes without creating writable views.
 
 A bare function name used directly as a receiver root remains a storage name:
 `make[1]` does not call a function. Use an explicit call or a group. Grouping only

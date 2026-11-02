@@ -184,9 +184,9 @@ class ChainedArrayRejectionTests(unittest.TestCase):
 
     def test_incomplete_flat_chain_is_not_a_row_view(self):
         for expression in ('a[1]','(a[1])','cube[1][2]','((cube[1]))[2]'):
-            self.reject('result='+expression)
+            self.reject('result='+expression,'E_TYPE')
 
-    def test_incomplete_flat_named_inner_is_not_a_row_view(self):self.reject('result=values[1][2]',types='TYPE plane_t=ARRAY[2,2] OF INTEGER',decl='values:ARRAY[2] OF plane_t result:INTEGER')
+    def test_incomplete_flat_named_inner_is_not_a_row_view(self):self.reject('result=values[1][2]','E_TYPE',types='TYPE plane_t=ARRAY[2,2] OF INTEGER',decl='values:ARRAY[2] OF plane_t result:INTEGER')
 
     def test_excess_subscripts_are_rejected_after_flattening(self):
         for expression in ('a[1][2][3]','a[1,2][1]','cube[1][1][1][1]'):

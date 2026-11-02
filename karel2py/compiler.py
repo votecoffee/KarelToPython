@@ -1166,6 +1166,7 @@ class Emitter:
         self.select_scopes = []
         self.subarray_uses = []
         self.array_index_chains = []
+        self.array_prefix_uses = []
         self.delay_uses = []
         self.wait_uses = []
         self.string_value_uses = []
@@ -1973,6 +1974,7 @@ class Emitter:
 
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
+        if self.is_array_prefix_value(argument):return False
         actual=self.access_type(argument)
         if self.mode=='pythonic' and (rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual) or rt.kinematic_array_kind(expected,actual)):return False
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
@@ -2065,6 +2067,8 @@ class Emitter:
             if spec[0]=='PATH': return rt.PathValue(spec).node_spec
             if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return ('REAL',)
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
+            prefix=rt.array_prefix_type(spec,len(expr.args)-1) if self.mode=='pythonic' else None
+            if prefix is not None and rt.aggregate_write_type(prefix):return prefix
             try: return rt.indexed_type(spec, len(expr.args) - 1)
             except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
         self.error('E_TYPE', 'Expected a variable receiver path', expr.token)
@@ -2154,12 +2158,21 @@ class Emitter:
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
 
-    def index_code(self, expr, spec):
+    def is_array_prefix_value(self,expr):
+        if self.mode!='pythonic' or expr.kind!='index':return False
+        base=expr.args[0]
+        if base.kind=='name' and base.value in ex.PORT_TYPES and base.value not in self.types:return False
+        return rt.array_prefix_type(self.access_type(base),len(expr.args)-1) is not None
+
+    def index_code(self, expr, spec, *, allow_prefix=False):
         indexes = expr.args[1:]
         if self.mode!='pythonic' and expr.args[0].kind == 'index':
             self.error('E_ARRAY_RANK', 'Chained ARRAY indexes need grammar validation; use comma-separated subscripts', expr.token)
         axis=self.mode=='pythonic' and rt.joint_axis_access(spec,len(indexes))
-        try: selected = ('REAL',) if axis else rt.indexed_type(spec, len(indexes))
+        prefix=rt.array_prefix_type(spec,len(indexes)) if allow_prefix and self.mode=='pythonic' else None
+        if prefix is not None and not rt.aggregate_write_type(prefix):
+            self.error('E_ARRAY_RANK','ARRAY prefix values require resource-free data',expr.token)
+        try: selected = ('REAL',) if axis else prefix if prefix is not None else rt.indexed_type(spec, len(indexes))
         except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
         if self.mode == 'strict' and len(indexes) > 1 and any(self.has_routine_call(index) for index in indexes):
             self.error('E_EVALUATION_ORDER', 'Multiple ARRAY subscripts containing routine calls need evaluation-order validation', expr.token)
@@ -2170,7 +2183,13 @@ class Emitter:
                 line=expr.token.line,column=expr.token.column,source_type_spec=spec,joint_type_spec=rt.array_leaf_spec(spec),
                 selected_type_spec=('REAL',),subscript_count=len(indexes),evaluated_once=True,declared_schema_checked=True))
         if len(indexes) > 1: self.features.add('multidimensional ARRAY indexing')
-        if selected[0] == 'ARRAY':
+        if prefix is not None:
+            self.features.add('independent ARRAY prefix values')
+            row=dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                line=expr.token.line,column=expr.token.column,source_type_spec=spec,selected_type_spec=selected,
+                supplied_subscripts=len(indexes),evaluated_once=True,independent_value=True)
+            if row not in self.array_prefix_uses:self.array_prefix_uses.append(row)
+        elif selected[0] == 'ARRAY':
             self.features.add('named subarray reference')
             self.subarray_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                            line=expr.token.line, column=expr.token.column, supplied_subscripts=len(indexes),
@@ -2267,7 +2286,9 @@ class Emitter:
                 index=self.require_type(expr.args[1],'INTEGER')
                 return f'{base}.node({index},{line})',rt.PathValue(spec).node_spec
             if spec[0]!='ARRAY' and not (self.mode=='pythonic' and spec[0]=='JOINTPOS'):self.error('E_TYPE','Indexing requires ARRAY or Pythonic JOINTPOS',expr.token)
-            index, selected = self.index_code(expr, spec)
+            index, selected = self.index_code(expr, spec, allow_prefix=True)
+            if self.mode=='pythonic' and rt.array_prefix_type(spec,len(expr.args)-1) is not None:
+                return f'_rt.array_prefix_value({base},{index},{spec!r},{line})',selected
             if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):
                 code=f'_rt.joint_index_reference({base},{index},{spec!r},{line}).raw()'
                 return code if raw else f'_rt.real({code},{line})',selected
@@ -2767,7 +2788,8 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY_ARG', 'Bare POSITION orientation arguments need read-only passing evidence; use an explicit scalar expression for a value', argument.token)
             # Bare variable and indexed-variable arguments retain their storage.
             # Any grouping node, constant or expression is a temporary value.
-            is_reference = argument.kind in ('name', 'index', 'field') and self.root_name(argument) not in self.visible_constants()
+            is_reference = (argument.kind in ('name', 'index', 'field') and self.root_name(argument) not in self.visible_constants()
+                            and not self.is_array_prefix_value(argument))
             if is_reference:
                 code, actual = self.reference(argument)
                 if self.is_config_subfield(argument):
@@ -4558,6 +4580,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
                              runtime_layout='Nested prototype objects; no controller storage-layout claim', controller_validated=False),
         subarray_uses=emitter.subarray_uses,
         array_index_chains=emitter.array_index_chains,
+        array_prefix_values=emitter.array_prefix_uses,
         select_policy=dict(selector='INTEGER expression evaluated once', duplicate_values='First matching clause wins',
                            max_case_clauses=1000, no_match_without_else='Source-located KarelRuntimeError',
                            empty_else='Explicit presence preserved; an empty clause permits continuation',
@@ -6012,9 +6035,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         storage='Preserve one-based indexes, named component boundaries, concrete capacities and logical rank at most three; no partial flat row view, flattening or nominal identity erasure',
         protection='Preserve whole-root FOR/handler/alias proofs, USING capture, READ/BYNAME output checks and protected POSITION/CONFIG descendants',
         reports='array_index_chains records source_selector, normalized_selector, segment_lengths, subscript_count and body/source locations',
-        boundary='Explicit Pythonic access extension; incomplete/overflow chains remain rejected and legacy access remains comma-only',
+        boundary='Explicit Pythonic access extension; incomplete reference and overflow chains remain rejected; incomplete source values follow array_prefix_policy and legacy access remains comma-only',
         guide='docs/chained-array-indexes.md',controller_validated=False)
-    report['array_policy']['subscripts']='One-based comma or complete chained subscripts, normalized before analysis; retain full flat rank or separately named ARRAY boundaries'
+    report['array_prefix_policy']=dict(
+        source='Pythonic incomplete flat ARRAY selections produce independent row/plane values, including selections within named components and concrete generic formals',
+        schema='Suffix dimensions retain order, terminal capacities and named child schemas; an undeclared suffix has anonymous outer identity; no reshape or writable view',
+        evaluation='Receiver then indexes once left to right; copy after index effects, validate complete source data storage and known leaves; preserve missing markers and detach every selected child',
+        interfaces='Assignment, private ordinary/linked arguments, RETURN, ARRAY_LEN and aggregate WRITE use existing source conversions; exact named-boundary references remain unchanged',
+        limits='One through three logical dimensions, 32767 source scalar leaves and 64 data-schema levels; no resources, incomplete-reference outputs or strict claim',
+        guide='docs/array-prefix-values.md',controller_validated=False)
+    report['array_policy']['subscripts']='One-based complete comma/chained references or named component boundaries; incomplete flat source selections copy independent values under array_prefix_policy'
     report['aggregate_access_policy']['boundary']='Bare function names directly used as receiver roots remain storage; use explicit calls/groups; complete ARRAY chains normalize to comma access without partial flat views or erasing identity'
     report['kinematic_interface_policy']=dict(
         conversions='Source actual arguments and RETURN values between JOINTPOS and POSITION/XYZWPR/XYZWPREXT use existing explicitly supplied models/adapters; exact same-type bare storage retains references',

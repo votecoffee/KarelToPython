@@ -194,8 +194,9 @@ class SubarrayRejectionTests(unittest.TestCase):
     def rejected(self, body='', *, code='E_TYPE', **kwargs):
         with self.assertRaises(TranslationError) as caught: compile_program(body, **kwargs)
         self.assertEqual(caught.exception.code, code, str(caught.exception))
-    def test_unnamed_dimension_boundary_remains_blocked(self): self.rejected('row=a[1]', declarations='a: ARRAY[2,2] OF INTEGER\nrow: row_t', code='E_ARRAY_RANK')
-    def test_partial_outer_component_remains_blocked(self): self.rejected('row=a[1]', declarations='a: ARRAY[2,2] OF row_t\nrow: row_t', code='E_ARRAY_RANK')
+    def test_unnamed_dimension_prefix_is_an_independent_value(self):
+        v=execute('a[1,1]=7 row=a[1] row[1]=9',declarations='a:ARRAY[2,2]OF INTEGER row:row_t');self.assertEqual((v['A'][0][0],v['ROW'][0]),(7,9))
+    def test_partial_outer_component_does_not_erase_logical_rank(self): self.rejected('row=a[1]', declarations='a: ARRAY[2,2] OF row_t\nrow: row_t', code='E_TYPE')
     def test_four_logical_dimensions_in_type_blocked(self): self.rejected(types=TYPES+'\nextra_t=ARRAY[2] OF cube_t', code='E_ARRAY_RANK')
     def test_four_logical_dimensions_in_variable_blocked(self): self.rejected(declarations='a: ARRAY[2] OF cube_t', code='E_ARRAY_RANK')
     def test_four_logical_dimensions_in_formal_blocked(self): self.rejected(routines='ROUTINE work(p: ARRAY[*,*] OF plane_t) BEGIN END work', code='E_ARRAY_RANK')
@@ -210,7 +211,8 @@ class SubarrayRejectionTests(unittest.TestCase):
         p,_=compile_program('plane[1,1]=7 copy(plane,alien)',types=TYPES+'\nalien_t=ARRAY[2]OF INTEGER',declarations='plane:plane_t alien:ARRAY[2]OF alien_t',routines='ROUTINE copy(p:ARRAY OF row_t;q:ARRAY OF alien_t) BEGIN p=q END copy')
         self.assertEqual(p.run()['PLANE'],[[U,U],[U,U]]);self.assertEqual(p._state.raw('PLANE').spec[2][3],'ROW_T')
     def test_flat_generic_rank_mismatch(self): self.rejected('work(cube)', routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN END work')
-    def test_flat_generic_does_not_expose_unproven_boundary(self): self.rejected(routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN row=p[1] END work', code='E_ARRAY_RANK')
+    def test_flat_generic_prefix_copies_concrete_suffix(self):
+        v=execute('plane[1,1]=7 work(plane)',routines='ROUTINE work(p:ARRAY[*,*]OF INTEGER) BEGIN row=p[1] row[1]=9 END work');self.assertEqual((v['PLANE'][0][0],v['ROW'][0]),(7,9))
     def test_complete_chained_subscripts_retain_named_array_storage(self):
         self.assertEqual(execute('plane[1][2]=7 x=plane[1,2]')['X'],7)
     def test_parenthesized_subarray_value_remains_blocked(self): self.rejected('work((plane[1]))', routines='ROUTINE work(p: row_t) BEGIN END work', code='E_ARRAY_VALUE', _translator=legacy_translate)

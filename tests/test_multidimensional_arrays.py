@@ -264,9 +264,10 @@ class BoundaryTests(unittest.TestCase):
         p, _ = compile_program('a[row,1] = 7')
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'): p.run()
 
-    def test_partial_subarray_access_rejected_in_every_context(self):
-        for body in ('result = a[1]', 'a[1] = 7', 'flag = UNINIT(a[1])', 'put(a[1])'):
-            with self.subTest(body=body): self.rejected(body, 'ROUTINE put(p: ARRAY OF INTEGER) BEGIN END put')
+    def test_partial_subarray_values_do_not_become_references_or_scalars(self):
+        for body,code in (('result = a[1]','E_TYPE'),('a[1] = 7','E_ARRAY_RANK'),('flag = UNINIT(a[1])','E_TYPE')):
+            with self.subTest(body=body):self.rejected(body,code=code)
+        self.assertEqual(execute('a[1,1]=7 put(a[1]) result=a[1,1]', 'ROUTINE put(p:ARRAY OF INTEGER) BEGIN p[1]=99 END put')['RESULT'],7)
 
     def test_too_many_subscripts_remain_rejected(self):
         for body in ('a[1,1,1] = 7','a[1,2][1] = 7'):

@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR matrix:ARRAY[2,2]OF STRING[4] row:ARRAY[2]OF STRING[4] value:INTEGER done:BOOLEAN
+ROUTINE take(p:ARRAY[*,*]OF STRING):ARRAY OF STRING FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    matrix[1,1]='abcd' matrix[1,2]='xy'
+    row=take(matrix) value=STR_LEN(row[1])+STR_LEN(row[2])
+    row[1]='zz' done=TRUE
+  ENDIF
+END MAIN

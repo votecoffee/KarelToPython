@@ -101,7 +101,8 @@ they are boundaries rather than promises to accept every such source form later.
   Linked projects now route common or [program-qualified shapes](project-array-shapes.md)
   to the declared wildcard storage, including differing module-local dimensions.
   [Complete chained indexes](chained-array-indexes.md) now use the existing comma
-  access contract; incomplete flat row views remain unavailable.
+  access contract. [Prefix values](array-prefix-values.md) now copy incomplete
+  flat rows/planes independently; writable partial views remain unavailable.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
   uninitialized sentinel. [Scalar BYTE/SHORT](scalar-narrow.md) now support
   variables, aliases and typed interfaces; numeric narrowing makes checked private

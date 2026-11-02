@@ -251,8 +251,8 @@ class NamedArrayRejectionTests(unittest.TestCase):
         self.rejected('work(a)', routines='ROUTINE work(p: ARRAY[*,*] OF INTEGER) BEGIN END work')
     def test_named_array_len_rank_guard(self):
         self.rejected('x=ARRAY_LEN(a)', code='E_ARRAY_LEN', types='TYPE row_t=ARRAY[2,3] OF INTEGER', _translator=legacy_translate)
-    def test_partial_named_array_subscript_blocked(self):
-        self.rejected('x=a[1]', code='E_ARRAY_RANK', types='TYPE row_t=ARRAY[2,3] OF INTEGER')
+    def test_partial_named_array_value_is_not_scalar(self):
+        self.rejected('x=a[1]', code='E_TYPE', types='TYPE row_t=ARRAY[2,3] OF INTEGER')
     def test_nested_named_array_definition(self):
         self.assertEqual(execute('a[1,2]=7', types='TYPE row_t=ARRAY[2] OF INTEGER\nouter_t=ARRAY[2] OF row_t', declarations='a: outer_t')['A'][0][1], 7)
     def test_nested_named_array_variable(self):

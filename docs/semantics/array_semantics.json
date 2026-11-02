@@ -1,4 +1,5 @@
 {
+  "array_prefix_mode_note": "../array-prefix-values.md supersedes incomplete source-selection exclusions with independent row/plane data values; reference and output targets remain complete.",
   "translator_version": "0.78.0",
   "type_alias_mode_note": "Public Pythonic transparent aliases and bounded STRING formal capacities follow ../type-aliases.md; older alias rejections below remain internal for the future strict milestone.",
   "using_mode_note": "Public Pythonic nested USING, dotted selectors and namespace choices follow ../pythonic-using.md; older nesting, field-selector and constant/call-name rejections below remain for the future strict milestone.",

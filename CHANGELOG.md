@@ -1,5 +1,25 @@
 # Changelog
 
+## 26.1102.140143 - 2026-11-02
+
+- Add independent Pythonic row/plane values from incomplete flat ARRAY source
+  selections, including named components and concrete generic formals. Retain
+  suffix dimensions, declared child schemas and concrete STRING capacities.
+- Support assignment, private ordinary/linked routine arguments, RETURN,
+  ARRAY_LEN and aggregate text/binary WRITE through existing source conversions.
+  Normalize generic caller layouts into the declared independent suffix schema.
+- Evaluate the receiver and indexes once in source order, then copy selected
+  data after index effects. Preserve snapshots before later argument, format
+  and destination-index effects, including cooperative pause/resume.
+- Validate the entire data source and known leaves before exposing a suffix.
+  Retain missing scalar markers, unknown BYTE contents, POSITION protection,
+  CONFIG bounds and existing source allocation/schema limits.
+- Keep complete element/named-boundary references unchanged. Partial assignment,
+  READ and service outputs, resource data, writable views, native/controller
+  equivalence and public strict mode remain unavailable.
+- Add 44 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and semantic contracts.
+
 ## 26.1102.133628 - 2026-11-02
 
 - Add uniform Pythonic aggregate READ/WRITE formats for complete arrays, records,
