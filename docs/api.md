@@ -489,6 +489,10 @@ are integers for signed/grouped literals, or objects containing `expression=true
 and physical `line`/`column` for dynamic values. `items[].dynamic_formats` identifies
 dynamic sites; `format_width` retains the integer or expression object, while
 `alignment`, `quoted` and `width_policy` explicitly mark dynamic cases.
+`aggregate_write_policy` describes whole-data capture, declaration/row-major
+expansion, complete-source checks and default scalar rendering. Aggregate
+`writes[].items[]` carry type/order metadata. See [aggregate output](aggregate-output.md).
+
 `write_policy.string` describes paired quotes, doubled apostrophes and bounded
 truncation/fallback. See [text formats](text-formats.md).
 

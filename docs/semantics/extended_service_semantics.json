@@ -173,6 +173,7 @@
   "variable_archives": "variable_archive_semantics.json",
   "path_archives": "path_archive_semantics.json",
   "aggregate_read": "aggregate_read_semantics.json",
+  "aggregate_write": "aggregate_write_semantics.json",
   "external_types": "external_type_semantics.json",
   "using_selectors": "using_selector_semantics.json",
   "path_declarations": "path_declaration_semantics.json",

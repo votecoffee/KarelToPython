@@ -108,6 +108,10 @@ they are boundaries rather than promises to accept every such source form later.
   values. [Narrow FOR counters](narrow-for.md) now enforce initialized BYTE/SHORT
   domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
+- Resource output, incomplete/unknown aggregate output, aggregate-wide explicit
+  WRITE formats and native packed layouts remain unavailable.
+  [Whole-data WRITE](aggregate-output.md) now supports complete data, including
+  readable POSITION columns, without changing orientation-write restrictions.
 - Resource READ, missing whole/nested data containers, readonly POSITION input
   destinations and generic CONFIG conversion/status aliases remain blocked.
   [Whole-data READ](aggregate-input.md) now supports shaped ARRAY/record/CONFIG/

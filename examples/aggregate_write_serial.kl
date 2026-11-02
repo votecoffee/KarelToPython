@@ -1,0 +1,16 @@
+PROGRAM AGGREGATE_WRITE_SERIAL
+VAR values:ARRAY[2]OF INTEGER value:INTEGER done:BOOLEAN
+ROUTINE work
+VAR f:FILE
+BEGIN
+  OPEN FILE f('WO','P2:')
+  WRITE f(values,CR)
+  CLOSE FILE f
+END work
+BEGIN
+  IF UNINIT(done) THEN
+    values[1]=7 values[2]=9 work
+    value=values[1]+values[2]
+    done=TRUE
+  ENDIF
+END AGGREGATE_WRITE_SERIAL

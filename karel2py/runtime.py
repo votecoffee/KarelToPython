@@ -2279,6 +2279,39 @@ def capture_read_target(target, formats, line=None):
     return target, read_formats(target.spec, formats, line)
 
 
+def aggregate_write_type(spec,trail=()):
+    """Type-only output eligibility; POSITION is readable data, resources are not."""
+    if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:return False
+    kind=spec[0];trail=trail+(id(spec),)
+    if kind in ('INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING','JOINTPOS'):return True
+    if kind=='ARRAY':return aggregate_write_type(spec[2],trail)
+    if kind in RECORD_TYPES:return all(aggregate_write_type(member,trail) for _,member in record_fields(spec))
+    return False
+
+
+def aggregate_write_pieces(spec,value,line=None,*,file=None):
+    """Detach complete data before later expressions; render scalar defaults."""
+    if not _pythonic():raise KarelRuntimeError('Aggregate WRITE requires Pythonic mode',line)
+    actual=getattr(value,'spec',None)
+    if spec[0]=='ARRAY' and actual is not None and parameter_accepts(spec,actual):spec=actual
+    count=_validate_data_schema(spec,line)
+    if count>1024:raise KarelRuntimeError('Aggregate WRITE is limited to 1024 scalar items including CR',line)
+    source=_aggregate_value(spec,value,line);result=[]
+    def render(expected,item):
+        item=require(item,line);kind=expected[0]
+        if kind=='ARRAY':
+            for child in item.values:render(expected[2],child)
+        elif kind=='JOINTPOS':
+            for axis in item.values:render(REAL,axis)
+        elif kind in RECORD_TYPES:
+            for name,member in record_fields(expected):render(member,item.values[name])
+        else:
+            controls=[expected[1]] if kind=='STRING' and file is not None and file.binary else []
+            result.append(file_piece(file,kind,item,controls,line) if file is not None else format_write_item(kind,item,controls,line))
+    render(spec,source)
+    return result
+
+
 def aggregate_read_type(spec,trail=()):
     """Type-only eligibility, including generic source ARRAY/STRING formals."""
     if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:return False
@@ -2923,6 +2956,16 @@ class State:
             if total > 254:
                 raise KarelRuntimeError('WRITE combined output is limited to 254 characters', line)
         self.write_string(''.join(pieces), line)
+
+    def write_groups(self,groups,line=None,*,file=None):
+        """Publish one rendered scalar batch with aggregate items expanded."""
+        if not _pythonic() or type(groups) not in (list,tuple):raise KarelRuntimeError('WRITE requires captured item groups',line)
+        pieces=[]
+        for group in groups:
+            if type(group) not in (list,tuple) or not group:raise KarelRuntimeError('WRITE groups require rendered scalar items',line)
+            if len(pieces)+len(group)>1024:raise KarelRuntimeError('WRITE requires 1..1024 expanded scalar items including CR',line)
+            pieces.extend(group)
+        return self.write_items(pieces,line,file=file)
 
     def write_boolean(self, value, line=None):
         """Default BOOLEAN text; same offline request/callback contract as STRING."""

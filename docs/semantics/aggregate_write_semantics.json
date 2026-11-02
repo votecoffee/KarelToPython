@@ -1,0 +1,39 @@
+{
+  "version": "26.1102.125701",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored whole-data WRITE extension through existing scalar rendering and FILE outputs; no native aggregate/source-layout proof",
+  "implemented": {
+    "types": "Complete ARRAY/user STRUCTURE/VECTOR/CONFIG/XYZWPR/XYZWPREXT/POSITION/JOINTPOS data; no resources",
+    "capture": "Evaluate once, validate/detach/render before later expressions; declaration fields, row-major components and axes",
+    "limits": "64 schema levels and 1024 expanded scalar items including empty strings/CR; 254 characters for omitted-file output, backend limits for FILE",
+    "rendering": "Scalar defaults without extra separators; explicit aggregate formats require scalar selection",
+    "binary": "Separate scalar field widths/byte order; STRING capacity with NUL padding retained on ordinary READ; no ABI alignment",
+    "publication": "One complete text request or FILE write after rendering; prior expression/nested-output effects retained on failure",
+    "integration": "Computed/function values, generic formals, BYNAME, linked routines, pause/resume, serial/pipe/headless window sinks and JSON replay"
+  },
+  "portable_choices": [
+    "POSITION orientation is readable output data without becoming writable or geometrically certified",
+    "All leaves must be initialized/known; no uninitialized or unknown BYTE placeholders",
+    "Binary STRING capacity differs from scalar natural-length default and retains NUL padding on read",
+    "No native format inference, controller I/O, pending write interruption or strict mode"
+  ],
+  "remaining": [
+    "Aggregate-wide explicit formatting",
+    "Partial/unknown placeholder output",
+    "Resource output and native packed layouts",
+    "Controller acceptance and strict mode"
+  ],
+  "verification": [
+    "tests/test_aggregate_write.py",
+    "tests/test_pythonic_writes.py",
+    "tests/test_runtime_portability.py",
+    "examples/aggregate_write_values.kl",
+    "examples/aggregate_write_text.kl",
+    "examples/aggregate_write_binary.kl",
+    "examples/aggregate_write_serial.kl",
+    "examples/aggregate_write_project/main.kl",
+    "examples/aggregate_write_serial_project/main.kl"
+  ],
+  "guide": "../aggregate-output.md"
+}

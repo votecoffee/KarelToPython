@@ -226,7 +226,9 @@ class DataRecordGuardTests(unittest.TestCase):
         self.assertEqual(compile_program('v.x=0.1')[0].run()['V']['X'], .1)
     def test_copy_bound_prevents_large_record_array(self): self.reject(declarations='items: ARRAY[3000] OF XYZWPR',code='E_ARRAY_CAPACITY')
     def test_cross_type_formal_conversion_blocked(self): self.reject('change(v)',routines='ROUTINE change(x: XYZWPR) BEGIN END change')
-    def test_record_write_blocked(self): self.reject('WRITE(p)')
+    def test_complete_record_write_uses_scalar_field_order(self):
+        program,_=compile_program(init_pose()+' WRITE(p)');program.run()
+        self.assertEqual([row['text'] for row in program.write_requests],[' 1.00000E+00 2.00000E+00 3.00000E+00 0.00000E+00 9.00000E+01 1.80000E+02 0 0 0 FALSE FALSE FALSE FALSE'])
     def test_config_effects_remain_conservative(self): self.reject('result=f()+1',code='E_EVALUATION_ORDER',routines='ROUTINE f: REAL BEGIN c.cfg_flip=ON RETURN 1 END f', _translator=legacy_translate)
 
 

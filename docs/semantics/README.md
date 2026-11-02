@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [aggregate WRITE ledger](aggregate_write_semantics.json) adds a Pythonic
+complete-data output extension through existing scalar text/FILE rendering.
+It supersedes earlier whole-data output exclusions; partial/resource and native
+layout/controller boundaries remain. POSITION is readable output data only.
+
 The [aggregate READ ledger](aggregate_read_semantics.json) adds an authored
 Pythonic whole-data extension through existing scalar transports. It supersedes
 earlier blanket aggregate READ exclusions while retaining POSITION/resource,

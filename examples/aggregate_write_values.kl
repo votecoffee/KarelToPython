@@ -1,0 +1,12 @@
+PROGRAM AGGREGATE_WRITE_VALUES
+TYPE packet_t=STRUCTURE values:ARRAY[2]OF INTEGER label:STRING[4] cfg:CONFIG ENDSTRUCTURE
+VAR packet:packet_t status,value:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    packet.values[1]=7 packet.values[2]=9 packet.label='text'
+    CNV_STR_CONF('N',packet.cfg,status)
+    WRITE('packet=',packet,CR)
+    value=packet.values[1]+packet.values[2]
+    done=TRUE
+  ENDIF
+END AGGREGATE_WRITE_VALUES

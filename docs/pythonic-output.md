@@ -1,5 +1,10 @@
 # Pythonic text output
 
+[Whole-data WRITE](aggregate-output.md) now extends this contract to complete
+ARRAYs, records, CONFIGs, Cartesian/POSITION and joint values in defined scalar
+order, using the same text and offline FILE outputs. Native aggregate acceptance
+and packed layouts remain unverified.
+
 Pythonic mode supports comma-separated STRING, BOOLEAN, INTEGER, BYTE, SHORT and
 REAL expressions in omitted-file `WRITE` statements. `CR` emits an LF newline.
 No newline or separator is added automatically between data items.
@@ -39,8 +44,10 @@ Numeric and BOOLEAN widths are bounded to 0..254, with 0 selecting natural width
 REAL precision is bounded to -254..254. Decimal formatting uses Python rounding;
 negative nondecimal integers use a minus sign rather than controller bit-pattern
 formatting. These are chosen Pythonic conventions. STRING quoting preserves
-paired quotes and complete escapes when truncating. Aggregate output,
-explicit devices/files, binary transfer, READ and IO_STATUS remain unsupported.
+paired quotes and complete escapes when truncating. Whole data uses default scalar
+formats under [aggregate output rules](aggregate-output.md). Explicit offline FILE
+text/binary output and typed [READ](aggregate-input.md) use separate transport
+contracts; native device/parser/IO_STATUS equivalence remains unverified.
 
 ## Evaluation and output callbacks
 

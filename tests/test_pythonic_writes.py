@@ -237,9 +237,9 @@ class PythonicWriteValidationTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, code)
         return caught.exception
 
-    def test_unsupported_output_types_remain_explicit(self):
-        for spec in ('ARRAY[1] OF INTEGER', 'VECTOR', 'JOINTPOS3'):
-            self.reject('WRITE(value)', 'E_TYPE', declarations=f'value: {spec}')
+    def test_resource_output_types_remain_explicit(self):
+        for spec in ('FILE','PATH','QUEUE_TYPE'):
+            self.reject('WRITE(value)','E_TYPE',declarations=f'value: {spec}')
 
     def test_empty_and_trailing_items(self):
         for body in ('WRITE()', 'WRITE(1,)', 'WRITE(,1)'):

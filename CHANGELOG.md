@@ -1,5 +1,25 @@
 # Changelog
 
+## 26.1102.125701 - 2026-11-02
+
+- Add Pythonic whole-data WRITE for complete ARRAY, user STRUCTURE, VECTOR,
+  CONFIG, Cartesian/POSITION and JOINTPOS values through existing text/FILE sinks.
+  Capture, validate, detach and render each item before later source effects.
+- Expand declaration fields, row-major ARRAY components and joint axes into
+  default scalar formats without extra separators. Publish one complete output
+  batch; retain nested/source effects and existing callback failure behavior.
+- Bound schemas to 64 levels and statements to 1024 expanded scalar items/CR.
+  Retain the omitted-file 254-character limit and existing FILE capacity rules.
+  Binary STRING fields occupy declared capacity with retained NUL padding.
+- Support computed/function values, generic/BYNAME/linked formals, pause/resume,
+  binary WRITE/READ roundtrips and explicit memory/rooted/serial/pipe/window sinks.
+  POSITION is readable data without relaxing orientation-write guards.
+- Keep partial/unknown and resource output excluded, aggregate formats requiring
+  scalar selection, native packed layout/controller acceptance unverified and
+  strict mode deferred.
+- Add 64 regressions, four CLI examples, two linked projects and compiler-free
+  runtime coverage. Update README, support inventory and output contracts.
+
 ## 26.1102.122646 - 2026-11-02
 
 - Add whole-data READ as a Pythonic extension for ARRAY, user STRUCTURE, VECTOR,

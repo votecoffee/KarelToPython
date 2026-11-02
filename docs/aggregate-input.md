@@ -85,6 +85,10 @@ No keyboard/device connection or GUI is opened. See the
 
 ## Metadata and compatibility
 
+[Whole-data WRITE](aggregate-output.md) supplies the output counterpart through
+default scalar fields. Binary STRING leaves occupy declared capacity; existing
+binary READ retains their NUL padding. Native record layouts are not inferred.
+
 The compiler's `aggregate_read_policy` describes ordering, limits and native
 boundaries. Each aggregate destination in `reads` is marked with its scalar order.
 Runtime READ observations and callback metadata remain ordinary flat type/format/CR

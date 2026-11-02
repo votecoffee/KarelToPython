@@ -1,0 +1,21 @@
+{
+  "PACKET": {
+    "VALUES": [
+      7,
+      9
+    ],
+    "LABEL": "text",
+    "CFG": {
+      "CFG_TURN_NO1": 0,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 0,
+      "CFG_FLIP": false,
+      "CFG_LEFT": false,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  "STATUS": 0,
+  "VALUE": 16,
+  "DONE": true
+}

@@ -1,0 +1,11 @@
+PROGRAM LIB
+ROUTINE publish(data:ARRAY OF INTEGER):INTEGER
+VAR f:FILE status:INTEGER
+BEGIN
+  OPEN FILE f('WO','P2:')
+  WRITE f(data,CR)
+  status=IO_STATUS(f)
+  CLOSE FILE f
+  RETURN status
+END publish
+BEGIN END LIB

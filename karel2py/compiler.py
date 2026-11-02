@@ -3639,17 +3639,21 @@ class Emitter:
                                       yield_seconds=0.0, step_budgeted=True))
         elif kind == 'write_items':
             pieces, items = [], []
+            write_groups=[];aggregate_output=False
             for item in stmt.args:
                 if item.kind == 'write_cr':
-                    pieces.append(repr('\n'))
+                    pieces.append(repr('\n'));write_groups.append('['+repr('\n')+']')
                     items.append(dict(data_type='CR', line=item.token.line, column=item.token.column,
                                       format_specifiers=[]))
                     continue
                 value, spec = self.expression(item.args[0])
                 data_type = spec[0]
-                if data_type not in ('STRING', 'BOOLEAN', 'INTEGER', 'REAL', *NARROW_TYPES):
-                    self.error('E_TYPE', f'WRITE requires scalar data, found {data_type}', item.token)
+                aggregate=data_type not in ('STRING','BOOLEAN','INTEGER','REAL',*NARROW_TYPES)
+                if aggregate and (self.mode!='pythonic' or not rt.aggregate_write_type(spec)):
+                    self.error('E_TYPE',f'WRITE requires scalar or resource-free aggregate data, found {data_type}',item.token)
+                aggregate_output=aggregate_output or aggregate
                 format_exprs = item.args[1:]
+                if aggregate and format_exprs:self.error('E_WRITE_FORMAT','Aggregate WRITE formats require selecting scalar fields',item.token)
                 format_codes = [self.require_type(expr, 'INTEGER') for expr in format_exprs]
                 literals = [self.format_literal(expr) for expr in format_exprs]
                 formats = [literal if literal is not None else dict(expression=True, line=expr.token.line,
@@ -3666,13 +3670,23 @@ class Emitter:
                              or data_type in INTEGRAL_TYPES and second in (0, *range(2, 17)))
                     if not valid:
                         self.error('E_WRITE_FORMAT', f'Invalid {data_type} WRITE second format specifier', format_exprs[1].token)
-                pieces.append(f'_rt.file_piece({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})')
+                if aggregate:
+                    options=f',file={file_code}' if file_code else ''
+                    rendered=f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options})'
+                    write_groups.append(rendered);pieces.append(rendered)
+                else:
+                    rendered=f'_rt.file_piece({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})'
+                    pieces.append(rendered);write_groups.append('['+rendered+']')
                 items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
                                   format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
+                if aggregate:
+                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='declaration/row-major/joint-axis',formats='scalar defaults')
+                    self.features.add('whole data aggregate WRITE')
                 self.features.add(f'WRITE {data_type} output request')
                 if formats: self.features.add(f'WRITE {data_type} formatting')
             file_option=f',file={file_code}' if file_code else ''
-            self.line(f'self._state.write_items([{", ".join(pieces)}], {line}{file_option})', token)
+            if aggregate_output:self.line(f'self._state.write_groups([{", ".join(write_groups)}], {line}{file_option})',token)
+            else:self.line(f'self._state.write_items([{", ".join(pieces)}], {line}{file_option})', token)
             self.features.add('WRITE output request')
             if any(item['data_type'] == 'CR' for item in items): self.features.add('WRITE CR newline')
             if len(items) > 1: self.features.add('WRITE multiple data items')
@@ -4990,6 +5004,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No controller variable-table IDs, native allocation/layout, CMOS lifetime, dynamic routine discovery or controller execution; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('CREATE_VAR','RENAME_VAR','RENAME_VARS','BYNAME')],
         guide='docs/dynamic-variables.md',narrow_guide='docs/dynamic-narrow.md',controller_validated=False)
+    report['aggregate_write_policy']=dict(
+        mode='Pythonic whole ARRAY/user STRUCTURE/VECTOR/CONFIG/Cartesian/POSITION/JOINTPOS output; not native aggregate WRITE acceptance',
+        capture='Validate exact schemas and complete data, detach and render each item before later expressions; declaration fields, row-major ARRAY components and joint axes; no robot or geometry inference',
+        limits='64 data-schema levels and 1024 total expanded scalar items including CR; omitted-file text retains 254 characters; FILE capacity remains backend-defined',
+        rendering='Default scalar formats, no extra separators; explicit aggregate formats require scalar fields. Binary STRING leaves occupy declared capacity with NUL padding retained by ordinary reads; no native packed layout',
+        publication='One recorder/callback request or FILE write after complete rendering; missing/unknown/invalid data publishes no outer output; prior source and nested-output effects remain',
+        boundaries='No resources/embedded resources, partial-data placeholders, generic service changes, native binary/layout/status/controller acceptance or strict claim; POSITION is output data only',
+        guide='docs/aggregate-output.md',controller_validated=False)
     report['aggregate_read_policy']=dict(
         mode='Pythonic extension for whole ARRAY, user STRUCTURE, VECTOR, CONFIG, XYZWPR/XYZWPREXT and JOINTPOS destinations; not native aggregate READ acceptance',
         order='Capture each shaped target once before later selectors; flatten declaration fields, physical row-major ARRAY components and joint axes; remap CR after complete source items',
@@ -5424,7 +5446,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         other_formats='Input follows Python int/float grammar; output fixed/scientific or integer bases')
     report['literal_policy']['boundary'] = 'ASCII only, one physical token; no backslash escapes or multiline token splicing; Pythonic quoted WRITE doubles embedded apostrophes'
     report['write_policy'] = dict(
-        source='Omitted-file WRITE with 1..1024 scalar expressions or CR items',
+        source='Pythonic WRITE with 1..1024 expanded scalar items including CR; whole-data groups follow aggregate_write_policy',
         input='Initialized ASCII STRING, BOOLEAN, signed INTEGER/BYTE/SHORT or finite REAL; combined rendered output at most 254 characters',
         evaluation='Items left to right; each value then width then second format evaluated once; validate/render item before the next; combined length checked after all items; one outer request after successful rendering',
         formatting='INTEGER format expressions; STRING width/alignment; numeric/BOOLEAN widths 0..254; zero selects natural width; static literal ranges checked during translation, others at runtime',
@@ -5435,7 +5457,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         newline='CR renders one LF character; no automatic newline appended',
         adapter='Default per-run request recorder; Program(write=...) receives one complete statement as a synchronous text callback returning None',
         trace='Copied text/line/adapter_outcome records; failures retain prior expression/output effects and unwind routine frames',
-        boundary='No explicit file/device access, binary transfer, aggregate output or controller IO_STATUS; existing type, initialization, ASCII and bounded output checks remain',
+        boundary='Explicit FILE output uses existing offline backends and separate scalar binary fields; whole data follows aggregate_write_policy; no implicit device/native layout/controller IO_STATUS claim; type, initialization, ASCII and output bounds remain',
         controller_validated=False)
     report['string_result_policy'] = dict(
         source='Internal STRING or STRING[capacity] function results; explicit calls and bare zero-argument function names',
