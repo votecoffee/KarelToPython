@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [collection ARRAY transfer ledger](collection_array_transfer_semantics.json)
+supersedes earlier whole-bank GET_VAR/SET_VAR exclusions for PATH/QUEUE_TYPE.
+Ordinary source resource values and FILE transfers retain their guards.
+
 The [collection ARRAY archive ledger](collection_array_archive_semantics.json)
 supersedes earlier VR exclusions for owned PATH/QUEUE_TYPE ARRAY roots. FILE
 storage and borrowed live windows retain their separate exclusions.

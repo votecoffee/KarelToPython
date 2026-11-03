@@ -303,6 +303,10 @@ def _variable_cells(reference,line=None):
         cells=set()
         for item in reference.references(line):cells.update(rt._reference_cells(item))
         return cells
+    if rt._pythonic() and rt.collection_array_type(reference.spec):
+        from .variable_archives import cells
+        try:return cells(reference)
+        except (ValueError,TypeError,AttributeError,rt.KarelRuntimeError) as error:fail('Collection ARRAY output storage: '+str(error),line)
     return rt._reference_cells(reference)
 
 
@@ -321,7 +325,7 @@ def outputs_checked(signature, arguments, line=None, *, prefix_outputs=()):
         if mode not in ('o','r','m'): continue
         prefix=(rt._pythonic() and position in prefix_outputs and kind=='VARIABLE' and type(value) is rt._ArrayPrefixTarget)
         if (not prefix and type(value) is not rt.Reference) or not matches(value.spec,kind): fail('Service output requires an ordinary exact-type writable reference',line)
-        cells=_variable_cells(value,line) if prefix else rt._reference_cells(value)
+        cells=_variable_cells(value,line) if prefix or kind=='VARIABLE' and rt.collection_array_type(value.spec) else rt._reference_cells(value)
         if occupied & cells: fail('Service output/resource references must not overlap',line)
         occupied.update(cells)
 
@@ -862,6 +866,7 @@ def _variable_data_spec(spec,line=None,*,queue=False,paths=False):
     rt=runtime();kind=spec[0]
     if queue and spec==('QUEUE_TYPE',): return
     if paths and kind=='PATH' and len(spec)==3: return
+    if paths and rt._pythonic() and rt.collection_array_type(spec):return
     if kind=='ARRAY': _variable_data_spec(spec[2],line)
     elif kind in rt.RECORD_TYPES:
         for _,field in rt.record_fields(spec): _variable_data_spec(field,line)
@@ -930,11 +935,33 @@ def path_variable_value(spec,value,line=None):
     except (ValueError,rt.KarelRuntimeError) as error: fail('PATH variable transfer: '+str(error),line)
 
 
+def collection_array_variable_value(spec,value,line=None):
+    """Detach exact logical collection data, including explicitly captured row windows."""
+    from .storage import collection_array_cost,collection_array_payload,restore_collection_array
+    from .variable_archives import collection_root
+    rt=runtime()
+    if not rt._pythonic():fail('Collection ARRAY transfers require Pythonic mode',line)
+    try:
+        if collection_array_cost(spec) is None:raise ValueError('Collection ARRAY schema required')
+        def mirror(expected,item):
+            if (type(item) is not rt.Array or item.spec!=expected or item.shape!=rt.array_shape(expected)
+                    or not rt._array_storage(item.values,line) or len(item.values)!=math.prod(item.shape)):
+                raise ValueError('Collection ARRAY transfer storage does not match its concrete schema')
+            captured=object.__new__(rt.Array);captured.spec=expected;captured.shape=item.shape
+            captured.values=([mirror(expected[2],child) for child in item.values]
+                             if expected[2][0]=='ARRAY' else list(item.values))
+            return captured
+        captured=mirror(spec,value);collection_root(spec,captured)
+        return restore_collection_array(spec,collection_array_payload(spec,captured))
+    except (ValueError,rt.KarelRuntimeError) as error:fail('Collection ARRAY variable transfer: '+str(error),line)
+
+
 def variable_value(spec,value,line=None):
     """Capture source data once before later output-selector effects."""
     rt=runtime()
     if spec[0]=='ARRAY' and isinstance(value,rt.Array) and rt.parameter_accepts(spec,value.spec): spec=value.spec
     _variable_data_spec(spec,line,queue=True,paths=True)
+    if rt.collection_array_type(spec):return VariableValue(spec,collection_array_variable_value(spec,value,line))
     if spec[0]=='PATH': return VariableValue(spec,path_variable_value(spec,value,line))
     if spec==('QUEUE_TYPE',): return VariableValue(spec,queue_variable_value(value,line))
     _variable_shape(spec,value,line)
@@ -1007,6 +1034,7 @@ def _variable_missing(value):
     if isinstance(value,(rt.Array,rt.JointPosition)): return any(_variable_missing(item) for item in value.values)
     if isinstance(value,rt.Structure): return any(_variable_missing(item) for item in value.values.values())
     if isinstance(value,PathValue): return _variable_missing(value.data) or any(_variable_missing(node) for node in value.nodes)
+    if isinstance(value,rt.QueueValue):return not value.initialized
     return False
 
 
@@ -1036,6 +1064,11 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
     rt=runtime();spec=target.spec;arrays=spec[0]==source.spec[0]=='ARRAY'
     paths=paths and rt._pythonic()
     _variable_data_spec(source.spec,line,queue=True,paths=paths);_variable_data_spec(spec,line,queue=True,paths=paths)
+    if rt.collection_array_type(spec) or rt.collection_array_type(source.spec):
+        if not paths or spec!=source.spec:return None
+        copied=collection_array_variable_value(spec,source.value,line)
+        collection_array_variable_value(spec,target.raw(),line)
+        return copied,_variable_missing(copied)
     if 'PATH' in (spec[0],source.spec[0]):
         if spec!=source.spec: return None
         copied=path_variable_value(spec,source.value,line);path_variable_value(spec,target.raw(),line)
@@ -2397,7 +2430,7 @@ class ExecutionContext:
                         reference=rt.collection_path_reference(value,selected,reference.spec,line)
                     elif prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
                         reference=(rt.resource_array_prefix_reference(value,selected,reference.spec,line)
-                                   if resources and rt.resource_array_type(reference.spec)
+                                   if resources and rt.resource_array_type(reference.spec) and (resources!='collections' or rt.collection_array_type(reference.spec))
                                    else rt.array_prefix_target(value,selected,reference.spec,line))
                     elif rt._pythonic() and any(rt.joint_axis_access(reference.spec,n) for n in range(1,5)):
                         if type(value) not in (rt.Array,rt.JointPosition) or not rt.parameter_accepts(reference.spec,value.spec):fail('Joint variable path storage does not match its declared schema',line)
@@ -2409,7 +2442,7 @@ class ExecutionContext:
         return reference
     def variable(self,state,name,args,line):
         rt=runtime(); entry,program,path,value,status=args
-        try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,prefixes=rt._pythonic())
+        try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,prefixes=rt._pythonic(),resources='collections' if rt._pythonic() else False)
         except rt.KarelRuntimeError: status.set(1,line); return
         if rt._pythonic() and type(target) is rt.AssociationFieldReference:
             # An explicit named data transfer; never expose a borrowed field alias.
@@ -2436,6 +2469,9 @@ class ExecutionContext:
             fail('Prefix variable target overlaps entry/status',line)
         current=destination.raw()
         if prefix:destination.set(copied,line)
+        elif rt._pythonic() and rt.collection_array_type(destination.spec):
+            from .variable_archives import replace_collections
+            destination.storage[destination.key]=replace_collections(current,copied)
         elif type(current) is rt.QueueValue and type(copied) is rt.QueueValue:
             current.initialized=copied.initialized;current.sequence=copied.sequence
             current.entries=copied.entries;current.buffer=None

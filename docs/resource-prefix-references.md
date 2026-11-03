@@ -30,7 +30,9 @@ Lookup retains explicit binding precedence, attached-program roots, dynamic
 variables and calling-root defaults for a blank program name. Routine-local
 and system discovery remain excluded. Ordinary bare resource-prefix values,
 grouped copies, whole resource ARRAY assignments, results, READ/WRITE/UNINIT and
-generic data transfers remain unavailable. Complete named-component borrowing
+generic data transfers remain unavailable. Explicit [logical collection ARRAY
+transfers](collection-array-transfers.md) now copy PATH/queue banks and selected
+rows/planes under a separate value contract. Complete named-component borrowing
 keeps its existing separate identity rules.
 
 Before publishing the BYNAME entry/cache output, validate the entire containing

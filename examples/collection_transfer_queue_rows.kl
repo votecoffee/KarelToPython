@@ -1,0 +1,9 @@
+PROGRAM COLLECTION_TRANSFER_QUEUE_ROWS
+
+VAR source,target:ARRAY[2,2]OF QUEUE_TYPE buffer,outbuffer:ARRAY[3]OF INTEGER entry,seq,status,value:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    INIT_QUEUE(source[2,1]) INIT_QUEUE(source[2,2]) APPEND_QUEUE(17,source[2,2],buffer,seq,status) GET_VAR(entry,'','SOURCE[2]',target[2],status) MODIFY_QUEUE(99,1,source[2,2],buffer,status) GET_QUEUE(target[2,2],outbuffer,value,seq,status)
+    done=TRUE
+  ENDIF
+END COLLECTION_TRANSFER_QUEUE_ROWS

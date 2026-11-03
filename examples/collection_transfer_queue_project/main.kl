@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR source,target:ARRAY[2,2]OF QUEUE_TYPE buffer:ARRAY[3]OF INTEGER value,seq,status:INTEGER done:BOOLEAN
+ROUTINE work(first:ARRAY[*,*]OF QUEUE_TYPE;second:ARRAY[*,*]OF QUEUE_TYPE):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    INIT_QUEUE(source[2,1]) INIT_QUEUE(source[2,2])
+    APPEND_QUEUE(23,source[2,2],buffer,seq,status)
+    value=work(source,target) done=TRUE
+  ENDIF
+END MAIN

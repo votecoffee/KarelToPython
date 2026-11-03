@@ -2248,7 +2248,7 @@ class Emitter:
         while expr.kind in ('field','index','group'):expr=expr.args[0]
         return expr.kind=='system_pose'
 
-    def reference(self, expr, *, config_read=False, allow_prefix=False):
+    def reference(self, expr, *, config_read=False, allow_prefix=False, collection_prefix=False):
         line = expr.token.line
         selection_root=expr
         while selection_root.kind in ('field','index','group'):selection_root=selection_root.args[0]
@@ -2257,7 +2257,7 @@ class Emitter:
         if self.is_system_pose_path(expr):
             self.error('E_SYSTEM_POSE_READ_ONLY','Robot system poses cannot supply writable references',expr.token)
         if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
-        if expr.kind == 'group': return self.reference(expr.args[0],config_read=config_read,allow_prefix=allow_prefix)
+        if expr.kind == 'group': return self.reference(expr.args[0],config_read=config_read,allow_prefix=allow_prefix,collection_prefix=collection_prefix)
         if expr.kind == 'name':
             return f'self._state.reference({expr.value!r}, {line})', self.symbol_type(expr)
         base, spec = self.expression(expr.args[0], raw=True)
@@ -2271,8 +2271,10 @@ class Emitter:
             return f'_rt.index_reference({base},{index},{line})',rt.PathValue(spec).node_spec
         if spec[0]!='ARRAY' and not (self.mode=='pythonic' and spec[0]=='JOINTPOS'):self.error('E_TYPE','Indexing requires ARRAY or Pythonic JOINTPOS',expr.token)
         prefix=allow_prefix and self.mode=='pythonic' and rt.array_prefix_type(spec,len(expr.args)-1) is not None
-        index, selected = self.index_code(expr, spec, allow_prefix=prefix, prefix_target=prefix)
-        if prefix:return f'_rt.array_prefix_target({base},{index},{spec!r},{line})',selected
+        index, selected = self.index_code(expr, spec, allow_prefix=prefix, prefix_target=prefix, collection_prefix=collection_prefix)
+        if prefix:
+            helper='resource_array_prefix_reference' if collection_prefix and rt.collection_array_type(spec) else 'array_prefix_target'
+            return f'_rt.{helper}({base},{index},{spec!r},{line})',selected
         if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:return f'_rt.collection_path_reference({base},{index},{spec!r},{line})',selected
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
@@ -2301,13 +2303,13 @@ class Emitter:
         if base.kind=='name' and base.value in ex.PORT_TYPES and base.value not in self.types:return False
         return rt.array_prefix_type(self.access_type(base),len(expr.args)-1) is not None
 
-    def index_code(self, expr, spec, *, allow_prefix=False, prefix_target=False):
+    def index_code(self, expr, spec, *, allow_prefix=False, prefix_target=False, collection_prefix=False):
         indexes = expr.args[1:]
         if self.mode!='pythonic' and expr.args[0].kind == 'index':
             self.error('E_ARRAY_RANK', 'Chained ARRAY indexes need grammar validation; use comma-separated subscripts', expr.token)
         axis=self.mode=='pythonic' and rt.joint_axis_access(spec,len(indexes))
         prefix=rt.array_prefix_type(spec,len(indexes)) if allow_prefix and self.mode=='pythonic' else None
-        if prefix is not None and not rt.aggregate_write_type(prefix):
+        if prefix is not None and not (rt.aggregate_write_type(prefix) or collection_prefix and rt.collection_array_type(prefix)):
             self.error('E_ARRAY_RANK','ARRAY prefix values require resource-free data',expr.token)
         path_node=rt.collection_array_node_type(spec,len(indexes)) if self.mode=='pythonic' else None
         try: selected = ('REAL',) if axis else path_node if path_node is not None else prefix if prefix is not None else rt.indexed_type(spec, len(indexes))
@@ -2750,14 +2752,14 @@ class Emitter:
                 if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
                 if self.is_value_only_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG/association fields cannot be output aliases',value.token)
                 prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(value)
-                code,spec=self.reference(value,allow_prefix=prefix or self.mode=='pythonic' and expr.value=='GET_VAR' and index==3)
+                code,spec=self.reference(value,allow_prefix=prefix or self.mode=='pythonic' and expr.value=='GET_VAR' and index==3,collection_prefix=expr.value=='GET_VAR' and index==3)
                 if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
             else:
                 variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
                 reference_input=(variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
                                  and not self.is_system_pose_path(discarded)
-                                 and not self.is_array_prefix_value(discarded))
-                if reference_input: code,spec=self.reference(discarded)
+                                 and (not self.is_array_prefix_value(discarded) or expr.value=='SET_VAR' and index==3 and rt.collection_array_type(self.access_type(discarded.args[0]))))
+                if reference_input: code,spec=self.reference(discarded,allow_prefix=expr.value=='SET_VAR' and index==3,collection_prefix=expr.value=='SET_VAR' and index==3)
                 else: code,spec=self.expression(value)
                 if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
                 if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
@@ -5354,7 +5356,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         receiver='Preserve existing PathValue identity; retain compatible header containers through ordinary stable data replacement; install a fresh detached nodes list so captured old node references are not retargeted; applies to self-copy',
         missing='Preserve partial scalar/node/header markers and known BYTE values; status 12311 for copied uninitialized data, with BYTE unknown contents retaining their existing no-initialization-tracking policy; empty headerless PATH succeeds',
         guards='Missing names return 1, incompatible schemas/resources return 3 with status only; malformed/over-limit state raises without data/cache/status publication; exact disjoint outputs and SET target overlap checks remain',
-        boundaries='Whole missing PATH roots, resource fields/ARRAYs, generic ANY/strict helper relaxation, node/header conversion, inferred robot context, native GET_VAR/SET_VAR PATH acceptance/ABI or controller equivalence remain unavailable',
+        boundaries='Whole missing PATH roots, resource fields or FILE ARRAYs, generic ANY/strict helper relaxation, node/header conversion, inferred robot context, native GET_VAR/SET_VAR PATH acceptance/ABI or controller equivalence remain unavailable',
         guide='docs/path-transfers.md',controller_validated=False)
     report['queue_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
@@ -6384,7 +6386,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='Evaluate receiver and indexes once left to right, validate complete containing data and retain original cells before later argument effects; no reference cast, reshape or capacity change',
         integration='Queue buffers, listings/metadata, dictionaries, XML attributes, PC buffers, forms/tables, display labels, geometry and supplied vision results use existing service contracts',
         snapshots='Readonly nullable/value prefix inputs detach typed data before later argument effects; ordinary user-routine prefix arguments remain private values',
-        protection='Preserve original-cell overlap, FOR, POSITION orientation, CONFIG/association and exact linked-interface guards; resource prefixes remain explicit BYNAME only',
+        protection='Preserve original-cell overlap, FOR, POSITION orientation, CONFIG/association and exact linked-interface guards; resource user-routine prefix arguments remain explicit BYNAME only; logical data transfers follow collection_array_transfer_policy',
         publication='Retain each service status, pagination, consumption and partial-publication rules; no blanket all-or-nothing claim',
         persistence='Save ordinary roots and data only; restore independent storage without live windows, bindings, queue backing links or suspended frames',
         limits='One through three logical dimensions, 32767 containing data leaves and 64 schema levels; existing fixed-size kind checks remain exact; generic ANY/scalar outputs do not gain prefix references',
@@ -6699,6 +6701,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         for row in [request,*request.get('settings',[])]:
             label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
             row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
+    report['collection_array_transfer_policy']=dict(
+        procedures=['GET_VAR','SET_VAR'],
+        source='Explicit whole PATH/QUEUE_TYPE ARRAY values and final selected rows/planes, including static, created, borrowed formal, linked and named-path storage; ordinary resource values remain reference-only',
+        schema='Exact concrete selected ARRAY schemas, dimensions, nominal components and PATH node/header types; no rank/length/name/capacity/representation conversion or partial-tail copy',
+        capture='SET snapshots independent logical data once before later status selectors; GET resolves named source after output selectors; prefix captures retain original cells and validate the containing bank',
+        identity='Retain receiver ARRAY containers, collection cells and compatible PATH headers; detach old nodes and drop receiver queue buffer links; unselected rows retain objects, nodes and buffer links',
+        status='0 copied known data; 12311 copied tracked missing PATH data or uninitialized queues; 1 failed named lookup; 3 incompatible schemas without data/cache/entry publication',
+        bounds='Each source/receiver snapshot fits 32767 descriptor/header/node/queue-entry scalar units and 64 data-schema levels; logical rank at most three; existing prefix-containing and persistence limits remain separate',
+        protection='Reject shared owned cells/headers/nodes, malformed storage and output/entry/status overlap before publication; preserve FOR, FILE, resource-field and ordinary resource-copy guards',
+        persistence='Ordinary logical JSON/VR values and creation metadata; no aliases, live windows, queue buffers, callbacks, suspended frames or native ABI/controller/strict claim',
+        guide='docs/collection-array-transfers.md',controller_validated=False)
     report['collection_array_archive_policy']=dict(
         operations=['SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM','restore_dram'],
         source='Owned static or created PATH/QUEUE_TYPE ARRAY roots, named/nested components and supplied wildcard shapes; imports and FILE storage remain excluded',
@@ -6716,7 +6729,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='One through three ARRAY dimensions and 32767 reserved descriptors/header leaves per allocation; nodes allocate later; source aliases and shapes remain exact',
         creation='CREATE_VAR uses existing ARRAY OF/type-owner/dimension, collision, metadata and checkpoint rechecks; collection groups remain metadata only',
         persistence='Canonical nested ARRAY payloads with ordinary PATH data and queue initialized/sequence/entries; preflight hierarchy and combined 32767 descriptor/header/node/entry-scalar units before root ARRAY allocation; restored cells independent and queue buffers cleared',
-        guards='No whole ARRAY copies, grouped value arguments, results, prefix values, resource STRUCTURE fields, generic data READ/WRITE/GET_VAR/SET_VAR; owned logical VR roots follow collection_array_archive_policy; individual cells retain existing scalar collection contracts',
+        guards='No whole ARRAY copies, grouped value arguments, results, prefix values, resource STRUCTURE fields, generic data READ/WRITE; explicit logical GET_VAR/SET_VAR follows collection_array_transfer_policy and owned VR roots follow collection_array_archive_policy; individual cells retain existing scalar collection contracts',
         lifetime='Ordinary references across calls, pause and rename; captures/stacks and queue buffer links are not persisted',
         guide='docs/collection-arrays.md',controller_validated=False)
     report['dynamic_collection_policy']=dict(
@@ -6724,7 +6737,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         schemas='Default PATH uses portable STD_PTH_NODE and no header; custom NODEDATA/PATHHEADER require resolved named data STRUCTURE layouts, fixed shapes and at most 64 data levels',
         allocation='32767 combined reserved units across created variables: ordinary scalar leaves, one queue descriptor, or one path descriptor plus allocated header leaves; validate node prototype separately; later nodes/entries use existing collection limits',
         publication='Existing collision/name/group/pool/status rules; budget checkpoint before allocation, then recheck terminal abort/stop, bank identity, roots and reserved capacity before publishing; retain earlier callback effects',
-        interfaces='Exact BYNAME resource references, linked routines and existing collection procedures; GET_VAR/SET_VAR retain logical queue transfers and data-only PATH field transfers; native queue inspection type code remains unavailable',
+        interfaces='Exact BYNAME resource references, linked routines and existing collection procedures; GET_VAR/SET_VAR retain logical PATH/queue copies and explicit collection ARRAY transfers; native queue inspection type code remains unavailable',
         lifetime='Rename retains live identities and lookup cache hints; pause retains ordinary references; JSON preserves schema, logical state and creation metadata, without queue buffer aliases, callbacks or suspended stacks',
         boundary='Root FILE descriptors follow dynamic_file_policy and FILE ARRAYs follow dynamic_file_array_policy; collection ARRAYs follow collection_array_policy; no resource fields or inferred geometry/group context, native allocation/ABI or strict mode',
         guide='docs/dynamic-collections.md',controller_validated=False)

@@ -1,0 +1,68 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "TARGET": [
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": 0
+          }
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 42
+            }
+          ],
+          "data": {
+            "COUNT": 1
+          }
+        }
+      ],
+      "VALUE": 42,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SOURCE": [
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": 0
+          }
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 99
+            }
+          ],
+          "data": {
+            "COUNT": 1
+          }
+        }
+      ],
+      "SINK": [
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": 0
+          }
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 42
+            }
+          ],
+          "data": {
+            "COUNT": 1
+          }
+        }
+      ]
+    }
+  }
+}

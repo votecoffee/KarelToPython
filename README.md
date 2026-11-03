@@ -99,8 +99,13 @@ restore owned PATH/QUEUE_TYPE banks through VR files, recursive/mixed batches an
 explicit DRAM snapshots. Existing array/cell/header identities survive restore;
 node lists detach and queue buffer links reset after bounded batch validation.
 
+[Collection ARRAY transfers](docs/collection-array-transfers.md) now copy logical
+PATH/QUEUE_TYPE banks through GET_VAR/SET_VAR, including rows/planes, created
+storage and linked routines. Independent snapshots retain destination cells and
+headers, detach old nodes, and reset copied queue buffer links.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1103.222911**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.225840**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

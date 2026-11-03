@@ -45,8 +45,9 @@ access and queue backing buffers. Entry-output overlap checks include selected
 PATH descendants and borrowed queue backing cells.
 
 Whole resource ARRAY assignment, grouped value arguments, function results,
-incomplete flat-prefix values, whole ARRAY READ/WRITE/UNINIT and generic whole
-ARRAY GET_VAR/SET_VAR transfers remain unavailable. Source resource fields in
+incomplete flat-prefix values and whole ARRAY READ/WRITE/UNINIT remain unavailable.
+[Explicit logical GET_VAR/SET_VAR copies](collection-array-transfers.md) now support
+whole banks and selected rows/planes with exact schemas. Source resource fields in
 STRUCTUREs remain blocked. Individual PATH copies retain their existing logical
 copy rules; QUEUE_TYPE source assignment remains reference-only. Direct POSITION
 orientation writes and resource-root FOR counters stay protected.

@@ -1,0 +1,9 @@
+PROGRAM COLLECTION_TRANSFER_DYNAMIC
+
+VAR source,target:ARRAY[2]OF QUEUE_TYPE buffer:ARRAY[3]OF INTEGER entry,seq,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    INIT_QUEUE(source[1]) INIT_QUEUE(source[2]) APPEND_QUEUE(23,source[2],buffer,seq,status) CREATE_VAR('CACHE','ITEM','','ARRAY OF QUEUE_TYPE',0,2,2,0,status) SET_VAR(entry,'CACHE','ITEM[2]',source,status) GET_VAR(entry,'CACHE','ITEM[2]',target,status)
+    done=TRUE
+  ENDIF
+END COLLECTION_TRANSFER_DYNAMIC

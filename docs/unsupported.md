@@ -133,6 +133,9 @@ components with complete-batch pose validation and bounded rounding normalizatio
   ordinary resource-prefix values and routine-local/system discovery remain excluded.
   [GET_VAR/SET_VAR prefix data transfers](prefix-variable-transfers.md) now support
   selected named paths, SET source values and captured GET data outputs.
+  [Logical collection ARRAY transfers](collection-array-transfers.md) now extend
+  GET_VAR/SET_VAR to exact whole PATH/queue banks and selected rows/planes; FILE
+  storage and ordinary resource value syntax remain excluded.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
   uninitialized sentinel. [Scalar BYTE/SHORT](scalar-narrow.md) now support
   variables, aliases and typed interfaces; numeric narrowing makes checked private

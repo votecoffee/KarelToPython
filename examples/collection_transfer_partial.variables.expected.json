@@ -1,0 +1,140 @@
+[
+  {
+    "program": "COLLECTION_TRANSFER_PARTIAL",
+    "path": "SOURCE",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": {
+              "uninitialized": true
+            }
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ]
+  },
+  {
+    "program": "COLLECTION_TRANSFER_PARTIAL",
+    "path": "TARGET",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": {
+              "uninitialized": true
+            }
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ]
+  },
+  {
+    "program": "COLLECTION_TRANSFER_PARTIAL",
+    "path": "ENTRY",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "COLLECTION_TRANSFER_PARTIAL",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 12311
+  },
+  {
+    "program": "COLLECTION_TRANSFER_PARTIAL",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -1,0 +1,177 @@
+[
+  {
+    "program": "MAIN",
+    "path": "TARGET",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": 0
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 42
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 42
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "LIB",
+    "path": "SOURCE",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": 0
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 99
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ]
+  },
+  {
+    "program": "LIB",
+    "path": "SINK",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": 0
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 42
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ]
+  }
+]

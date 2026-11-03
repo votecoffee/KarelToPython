@@ -1,0 +1,28 @@
+{
+  "version": "26.1103.225840",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../collection-array-transfers.md",
+  "tests": [
+    "tests/test_collection_array_transfers.py",
+    "tests/test_path_transfers.py",
+    "tests/test_prefix_variable_transfers.py"
+  ],
+  "procedures": [
+    "GET_VAR",
+    "SET_VAR"
+  ],
+  "source": "Whole or selected row/plane PATH/QUEUE_TYPE banks; exact resolved schemas and dimensions; static/dynamic/borrowed/linked storage and named paths",
+  "capture": "SET source snapshots before later selectors; GET named source lookup after output selectors; prefix captures validate containing bank and retain original cells",
+  "identity": "Keep receiver arrays, collection cells and compatible headers; detach old PATH nodes, drop copied queue buffer links; unselected rows remain untouched",
+  "status": {
+    "0": "Copied known logical data",
+    "1": "Named lookup failed",
+    "3": "Incompatible exact schemas",
+    "12311": "Copied initialization-tracked missing PATH data or uninitialized queues"
+  },
+  "limits": "Each selected source/receiver snapshot fits 32767 descriptor/header/node/entry-scalar units, rank1..3 and64-level data schemas; prefix-containing and persistence bounds stay separate",
+  "protection": "Preflight data, owned-cell/header/node aliases and entry/status overlap before publication; retain FOR, FILE, source-value and resource-field guards",
+  "persistence": "Ordinary independent JSON/VR values and creation metadata; no views, aliases, buffer links or suspended frames",
+  "boundary": "Authored offline Pythonic extension, no native compiler/controller/ABI or strict-mode equivalence"
+}

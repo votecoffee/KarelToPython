@@ -1,0 +1,155 @@
+[
+  {
+    "program": "COLLECTION_TRANSFER_DYNAMIC",
+    "path": "SOURCE",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      {
+        "initialized": true,
+        "entries": [],
+        "sequence": 0
+      },
+      {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            23
+          ]
+        ],
+        "sequence": 1
+      }
+    ]
+  },
+  {
+    "program": "COLLECTION_TRANSFER_DYNAMIC",
+    "path": "TARGET",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      {
+        "initialized": true,
+        "entries": [],
+        "sequence": 0
+      },
+      {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            23
+          ]
+        ],
+        "sequence": 1
+      }
+    ]
+  },
+  {
+    "program": "COLLECTION_TRANSFER_DYNAMIC",
+    "path": "BUFFER",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      23,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "COLLECTION_TRANSFER_DYNAMIC",
+    "path": "ENTRY",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "COLLECTION_TRANSFER_DYNAMIC",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "COLLECTION_TRANSFER_DYNAMIC",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "COLLECTION_TRANSFER_DYNAMIC",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "CACHE",
+    "path": "ITEM",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        }
+      ],
+      [
+        {
+          "initialized": true,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": true,
+          "entries": [
+            [
+              1,
+              23
+            ]
+          ],
+          "sequence": 1
+        }
+      ]
+    ],
+    "creation": {
+      "group": 0,
+      "memory_pool": 0
+    }
+  }
+]

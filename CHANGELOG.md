@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1103.225840 - 2026-11-03
+
+- Add explicit logical GET_VAR/SET_VAR copies for whole PATH/QUEUE_TYPE ARRAYs
+  and selected rows/planes across static, created, borrowed and linked storage.
+- Capture independent inputs in source order, preserve receiver cells/headers,
+  detach old nodes and reset copied queue buffer links under exact schemas.
+- Retain partial-data statuses, bounded snapshot/ownership checks, output/cache
+  publication rules and ordinary resource-value, FILE and FOR guards.
+- Add 84 regressions, four runnable examples and two linked projects with
+  independent snapshots and complete selected typed saved-variable expectations.
+
 ## 26.1103.222911 - 2026-11-03
 
 - Include owned PATH/QUEUE_TYPE ARRAY roots in logical VR save/load/clear,

@@ -1,0 +1,14 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source,sink:ARRAY[2]OF route_t
+ROUTINE work:INTEGER
+VAR entry,status:INTEGER
+BEGIN
+  source[1].count=0 source[2].count=1 APPEND_NODE(source[2],status)
+  source[2][1].value=42
+  SET_VAR(entry,'MAIN','TARGET',source,status)
+  source[2][1].value=99
+  GET_VAR(entry,'MAIN','TARGET',sink,status)
+  RETURN(sink[2][1].value)
+END work
+BEGIN END LIB

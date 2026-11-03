@@ -1,0 +1,42 @@
+{
+  "SOURCE": [
+    {
+      "nodes": [],
+      "data": {
+        "COUNT": 0
+      }
+    },
+    {
+      "nodes": [
+        {
+          "VALUE": 99
+        }
+      ],
+      "data": {
+        "COUNT": 1
+      }
+    }
+  ],
+  "TARGET": [
+    {
+      "nodes": [],
+      "data": {
+        "COUNT": 0
+      }
+    },
+    {
+      "nodes": [
+        {
+          "VALUE": 17
+        }
+      ],
+      "data": {
+        "COUNT": 1
+      }
+    }
+  ],
+  "ENTRY": 1,
+  "STATUS": 0,
+  "VALUE": 17,
+  "DONE": true
+}

@@ -35,7 +35,9 @@ Node and header schemas must match exactly, including nominal STRUCTURE/ARRAY
 names, dimensions, STRING capacities and positional widths. Default NODEDATA
 canonicalizes to STD_PTH_NODE using existing declaration rules. There is no field
 mapping, numeric promotion, pose conversion or robot-model lookup inside a PATH.
-Resource fields and ARRAYs containing PATH, QUEUE_TYPE or FILE remain excluded.
+Resource fields and FILE ARRAYs remain excluded. [Collection ARRAY transfers](collection-array-transfers.md)
+now provide explicit whole-bank and row/plane GET_VAR/SET_VAR copies with their
+own exact-schema and ownership rules.
 Whole FILE transfer and ordinary generic ANY acceptance remain excluded.
 
 ## Identity and aliases

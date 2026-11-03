@@ -1,0 +1,135 @@
+[
+  {
+    "program": "MAIN",
+    "path": "SOURCE",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        }
+      ],
+      [
+        {
+          "initialized": true,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": true,
+          "entries": [
+            [
+              1,
+              23
+            ]
+          ],
+          "sequence": 1
+        }
+      ]
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "TARGET",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        }
+      ],
+      [
+        {
+          "initialized": true,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": true,
+          "entries": [],
+          "sequence": 1
+        }
+      ]
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "BUFFER",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      23,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 23
+  },
+  {
+    "program": "MAIN",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "MAIN",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

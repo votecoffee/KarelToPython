@@ -1,0 +1,9 @@
+PROGRAM LIB
+ROUTINE work(first:ARRAY[*,*]OF QUEUE_TYPE;second:ARRAY[*,*]OF QUEUE_TYPE):INTEGER
+VAR buffer:ARRAY[3]OF INTEGER entry,status,value,seq:INTEGER
+BEGIN
+  GET_VAR(entry,'MAIN','SOURCE[2]',second[2],status)
+  GET_QUEUE(second[2,2],buffer,value,seq,status)
+  RETURN(value)
+END work
+BEGIN END LIB

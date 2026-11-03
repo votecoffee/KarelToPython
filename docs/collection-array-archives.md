@@ -21,8 +21,9 @@ Owned static or dynamically created collection arrays retain exact resolved
 schemas, named components, concrete dimensions and creation metadata. Logical
 rank remains at most three. Imported globals remain excluded from the importing
 module; archive their defining owner. Whole FILE storage and borrowed live row
-carriers remain excluded. Ordinary collection-array value copying, results and
-generic GET_VAR/SET_VAR interfaces retain their existing restrictions.
+carriers remain excluded. Ordinary collection-array value copying and results
+retain their restrictions; [explicit logical GET_VAR/SET_VAR](collection-array-transfers.md)
+now copies whole banks and selected rows/planes under a separate value contract.
 
 PATH cells retain complete or partial node/header data, missing markers and
 unknown BYTE values under their exact declared schemas. Queue cells retain

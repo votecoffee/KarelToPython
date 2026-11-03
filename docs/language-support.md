@@ -1,5 +1,10 @@
 # Language support
 
+[Collection ARRAY transfers](collection-array-transfers.md) now copy logical
+PATH/QUEUE_TYPE banks through GET_VAR/SET_VAR, including rows/planes, created
+storage and linked routines. Independent snapshots retain destination cells and
+headers, detach old nodes, and reset copied queue buffer links.
+
 [Collection ARRAY archives](collection-array-archives.md) now save and
 restore owned PATH/QUEUE_TYPE banks through VR files, recursive/mixed batches and
 explicit DRAM snapshots. Existing array/cell/header identities survive restore;
@@ -95,7 +100,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1103.222911. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.225840. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
