@@ -217,7 +217,9 @@ components with complete-batch pose validation and bounded rounding normalizatio
   allocation/layout behavior. GET_VAR/SET_VAR support declared/explicit roots,
   checked static paths, [checked numeric scalar/ARRAY transfers](numeric-variable-transfers.md)
   and [compatible context-free record schemas/record ARRAY prefixes](record-variable-transfers.md)
-  with atomic data/cache/status publication. [Explicit model-backed transfers](kinematic-variable-transfers.md)
+  with atomic data/cache/status publication. [Built-in record bridges](record-bridges.md)
+  also map matching user structures and builtin fields, preserving CONFIG bounds
+  and requiring complete proper POSITION geometry on construction. [Explicit model-backed transfers](kinematic-variable-transfers.md)
   now cover joint/Cartesian scalar, prefix and record data. Schema discovery and
   field renaming remain unavailable. Logical queue transfers, CREATE_VAR and
   variable renaming operate on explicit logical storage. Whole PATH now has an

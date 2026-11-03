@@ -12,6 +12,20 @@ def _model_pair(target,source):
     return runtime().kinematic_array_kind(('ARRAY',1,target),('ARRAY',1,source))
 
 
+def _record_pair(first,second):
+    rt=runtime()
+    return first[0] in rt.RECORD_TYPES and second[0] in rt.RECORD_TYPES and 'STRUCTURE' in (first[0],second[0])
+
+
+def _bridge_record(expected,actual,result,line=None):
+    """Validate constructed builtin data without exposing writable source aliases."""
+    rt=runtime()
+    if expected[0] in rt.DATA_RECORD_TYPES and actual[0]=='STRUCTURE':
+        result=rt._partial_aggregate_value(expected,result,line)
+        if expected==('POSITION',):result=rt.frame_value(result,line,expected=expected)
+    return result
+
+
 def _compatible(target,source,*,models=False):
     rt=runtime();cache={}
     def match(first,second):
@@ -19,7 +33,7 @@ def _compatible(target,source,*,models=False):
         identity=(id(first),id(second))
         if identity in cache:return cache[identity]
         cache[identity]=False
-        if first[0]==second[0]=='STRUCTURE':
+        if _record_pair(first,second):
             expected=dict(rt.record_fields(first));actual=dict(rt.record_fields(second))
             result=expected.keys()==actual.keys() and all(match(spec,actual[name]) for name,spec in expected.items())
         elif first[0]==second[0]=='ARRAY':
@@ -36,11 +50,11 @@ def _record_schema_kind(target,source,*,models=False):
     """Classify supported source-only conversions without examining values."""
     rt=runtime()
     if type(target) is not tuple or not target or type(source) is not tuple or not source or target==source:return None
-    if target[0]==source[0]=='STRUCTURE':
+    if _record_pair(target,source):
         expected,actual=target,source;kind='structure'
     elif target[0]==source[0]=='ARRAY' and rt._source_array_pair(target,source):
         expected,actual=rt.array_leaf_spec(target),rt.array_leaf_spec(source);kind='record_array'
-        if expected==actual or expected[0]!='STRUCTURE' or actual[0]!='STRUCTURE':return None
+        if expected==actual or not _record_pair(expected,actual):return None
     else:return None
     try:
         rt._validate_data_schema(expected);rt._validate_data_schema(actual)
@@ -74,9 +88,9 @@ def _prepare_record_schema(target,value,line=None,*,source_spec=None,models=Fals
         if type(value) is not rt.Array or not rt._source_array_pair(target,value.spec):
             raise rt.KarelRuntimeError('Record ARRAY conversion requires matching logical dimensions',line)
         concrete=rt._array_conversion_spec(target,value.spec)
-        roots=rt.array_leaf_spec(concrete)[0]==rt.array_leaf_spec(value.spec)[0]=='STRUCTURE'
+        roots=_record_pair(rt.array_leaf_spec(concrete),rt.array_leaf_spec(value.spec))
     else:
-        concrete=target;roots=target[0]==value.spec[0]=='STRUCTURE'
+        concrete=target;roots=_record_pair(target,value.spec)
     rt._validate_data_schema(concrete,line)
     if not roots or not _compatible(concrete,value.spec,models=models):
         raise rt.KarelRuntimeError('STRUCTURE conversion requires matching field names and compatible '+('model-backed' if models else 'context-free')+' data',line)
@@ -88,11 +102,11 @@ def _prepare_record_schema(target,value,line=None,*,source_spec=None,models=Fals
         else:storage[key]=convert(expected,actual,item)
     def convert(expected,actual,item):
         if expected==actual:return item
-        if expected[0]==actual[0]=='STRUCTURE':
+        if _record_pair(expected,actual):
             result=rt.Structure(expected);fields=dict(rt.record_fields(actual))
             for name,spec in rt.record_fields(expected):
                 store(spec,fields[name],item.values[name],result.values,name)
-            return result
+            return _bridge_record(expected,actual,result,line)
         if expected[0]==actual[0]=='ARRAY':
             result=rt._array_conversion_storage(expected,item,line)
             first,second=rt.array_leaf_spec(result.spec),rt.array_leaf_spec(actual)

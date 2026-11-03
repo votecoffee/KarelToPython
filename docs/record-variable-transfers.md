@@ -1,5 +1,10 @@
 # Record GET_VAR and SET_VAR transfers
 
+[Builtin/user record bridges](record-bridges.md) now extend compatible matching
+field trees, including mixed explicit-model plans. All selected domains and
+constructed POSITION geometry are checked before model callbacks. Exact aliases,
+linked signatures, cache/status publication and ordinary receiver ownership remain.
+
 CONFIG/integral fields now use the separate [portable word codec](config-words.md),
 including shaped missing CONFIG data and staged publication. Other type and
 reference contracts retain the rules below.

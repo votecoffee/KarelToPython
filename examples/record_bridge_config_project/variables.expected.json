@@ -1,0 +1,132 @@
+[
+  {
+    "program": "MAIN",
+    "path": "SOURCE",
+    "type": [
+      "STRUCTURE",
+      "ITEM",
+      [
+        [
+          "CFG_FRONT",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_UP",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_LEFT",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_FLIP",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_TURN_NO3",
+          [
+            "INTEGER"
+          ]
+        ],
+        [
+          "CFG_TURN_NO2",
+          [
+            "INTEGER"
+          ]
+        ],
+        [
+          "CFG_TURN_NO1",
+          [
+            "INTEGER"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "CFG_TURN_NO1": -1,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 1,
+      "CFG_FLIP": false,
+      "CFG_LEFT": true,
+      "CFG_UP": false,
+      "CFG_FRONT": true
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "RESULT",
+    "type": [
+      "STRUCTURE",
+      "ITEM",
+      [
+        [
+          "CFG_FRONT",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_UP",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_LEFT",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_FLIP",
+          [
+            "BOOLEAN"
+          ]
+        ],
+        [
+          "CFG_TURN_NO3",
+          [
+            "INTEGER"
+          ]
+        ],
+        [
+          "CFG_TURN_NO2",
+          [
+            "INTEGER"
+          ]
+        ],
+        [
+          "CFG_TURN_NO1",
+          [
+            "INTEGER"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "CFG_TURN_NO1": 7,
+      "CFG_TURN_NO2": 0,
+      "CFG_TURN_NO3": 1,
+      "CFG_FLIP": false,
+      "CFG_LEFT": true,
+      "CFG_UP": false,
+      "CFG_FRONT": false
+    }
+  },
+  {
+    "program": "LIB",
+    "path": "CALLS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  }
+]

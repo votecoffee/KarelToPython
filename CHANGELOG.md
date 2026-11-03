@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1103.202454 - 2026-11-03
+
+- Add private Pythonic bridges between matching user structures and seven builtin
+  data-record types across assignments, routines, arrays and variable transfers.
+- Preserve receiver schemas/descendants, exact same-type references, BYNAME and
+  linkage/callback boundaries, CONFIG domains and POSITION orientation protection.
+- Require complete proper POSITION construction and preflight mixed model plans
+  before adapters run; retain explicit robot context and logical JSON/VR formats.
+- Add 90 regressions, four runnable examples and two linked projects with
+  independent snapshots and saved-variable rows; strict mode remains deferred.
+
 ## 26.1103.161505 - 2026-11-03
 
 - Add exact and bounded wildcard RENAME_FILE between explicit plain pipes and

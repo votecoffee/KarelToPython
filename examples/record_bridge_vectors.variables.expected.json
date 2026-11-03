@@ -1,0 +1,47 @@
+[
+  {
+    "program": "RECORD_BRIDGE_VECTORS",
+    "path": "VALUE",
+    "type": [
+      "VECTOR"
+    ],
+    "value": {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": 3.0
+    }
+  },
+  {
+    "program": "RECORD_BRIDGE_VECTORS",
+    "path": "RESULT",
+    "type": [
+      "STRUCTURE",
+      "ITEM",
+      [
+        [
+          "Z",
+          [
+            "REAL"
+          ]
+        ],
+        [
+          "Y",
+          [
+            "REAL"
+          ]
+        ],
+        [
+          "X",
+          [
+            "REAL"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": 3.0
+    }
+  }
+]

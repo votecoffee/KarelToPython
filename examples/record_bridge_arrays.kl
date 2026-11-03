@@ -1,0 +1,12 @@
+PROGRAM RECORD_BRIDGE_ARRAYS
+TYPE item=STRUCTURE z:REAL y:REAL x:REAL ENDSTRUCTURE
+VAR source,restored:ARRAY[2]OF item output:ARRAY[2]OF VECTOR done:BOOLEAN
+ROUTINE copy(v:ARRAY OF item;out:ARRAY OF VECTOR) BEGIN out=v END copy
+BEGIN
+  IF UNINIT(done) THEN
+    source[1].x=1.0 source[1].y=2.0 source[1].z=3.0
+    source[2].x=4.0 source[2].y=5.0 source[2].z=6.0
+    copy(source,output) restored=output
+    done=TRUE
+  ENDIF
+END RECORD_BRIDGE_ARRAYS

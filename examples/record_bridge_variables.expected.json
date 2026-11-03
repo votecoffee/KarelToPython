@@ -1,0 +1,21 @@
+{
+  "SOURCE": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": 3.0
+  },
+  "RESTORED": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": 3.0
+  },
+  "VALUE": {
+    "X": 1.0,
+    "Y": 2.0,
+    "Z": 3.0
+  },
+  "CACHE": 0,
+  "IN_STATUS": 0,
+  "OUT_STATUS": 0,
+  "DONE": true
+}

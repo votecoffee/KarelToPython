@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [record bridge ledger](record_bridge_semantics.json) supersedes historical
+builtin/user interchange exclusions. Matching fields use private typed values,
+CONFIG domains and complete POSITION construction checks, including mixed model
+plans. Generic aliases, raw callback results and native ABI claims stay separate.
+
 The [cross-bank rename ledger](cross_bank_rename_semantics.json) supersedes older
 PIP/ordinary rename exclusions, including the data-copy expansion ledger. Empty
 configured PIP targets and whole-batch preflight are required; host publication

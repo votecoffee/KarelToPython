@@ -286,8 +286,11 @@ class RecordSchemaBoundaryTests(unittest.TestCase):
         for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN'),('REAL','INTEGER')):
             with self.assertRaises(TranslationError):simple(first=first,second=second)
 
-    def test_builtin_and_user_records_are_not_interchangeable(self):
-        with self.assertRaises(TranslationError):compile_program('v=a',prefix='TYPE in_t=STRUCTURE x:REAL y:REAL z:REAL ENDSTRUCTURE',decl='a:in_t v:VECTOR')
+    def test_builtin_and_user_records_require_matching_fields(self):
+        for fields in ('x:REAL y:REAL','x:REAL y:REAL z:REAL extra:INTEGER'):
+            with self.assertRaises(TranslationError):compile_program('v=a',prefix='TYPE in_t=STRUCTURE '+fields+' ENDSTRUCTURE',decl='a:in_t v:VECTOR')
+        p,_=compile_program('a.x=1 a.y=2 a.z=3 v=a',prefix='TYPE in_t=STRUCTURE x:REAL y:REAL z:REAL ENDSTRUCTURE',decl='a:in_t v:VECTOR')
+        self.assertEqual(p.run()['V'],{'X':1.,'Y':2.,'Z':3.})
 
     def test_model_fields_require_explicit_context_at_runtime(self):
         prefix='TYPE in_t=STRUCTURE value:JOINTPOS2 ENDSTRUCTURE out_t=STRUCTURE value:POSITION ENDSTRUCTURE'

@@ -1,0 +1,11 @@
+PROGRAM RECORD_BRIDGE_CONFIG
+TYPE item=STRUCTURE cfg_front:BOOLEAN cfg_up:BOOLEAN cfg_left:BOOLEAN cfg_flip:BOOLEAN cfg_turn_no3:INTEGER cfg_turn_no2:INTEGER cfg_turn_no1:INTEGER ENDSTRUCTURE
+VAR source,result:item value:CONFIG word:INTEGER done:BOOLEAN
+
+BEGIN
+  IF UNINIT(done) THEN
+    source.cfg_turn_no1=-1 source.cfg_turn_no2=0 source.cfg_turn_no3=1 source.cfg_flip=FALSE source.cfg_left=TRUE source.cfg_up=FALSE source.cfg_front=TRUE
+    value=source result=value word=value
+    done=TRUE
+  ENDIF
+END RECORD_BRIDGE_CONFIG

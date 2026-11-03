@@ -1,5 +1,10 @@
 # Model-backed geometry inside STRUCTURE values
 
+[Builtin/user record bridges](record-bridges.md) now extend compatible matching
+field trees, including mixed explicit-model plans. All selected domains and
+constructed POSITION geometry are checked before model callbacks. Exact aliases,
+linked signatures, cache/status publication and ordinary receiver ownership remain.
+
 Pythonic assignments, ordinary routine arguments and RETURN can convert compatible
 user STRUCTURE trees containing JOINTPOS and POSITION/XYZWPR/XYZWPREXT field
 changes. This includes nested records, ARRAY fields and whole record ARRAYs.
@@ -20,7 +25,7 @@ Both records have the same field-name set. result retains its declared field
 order, bounded STRING capacity and POSITION representation. Supported ordinary
 fields follow [context-free record conversion](record-schema-conversions.md).
 Model-backed changes add no field renaming, additions, removal, resource fields,
-builtin-record/user-record interchange, BOOLEAN coercion or REAL-to-integral
+BOOLEAN coercion or REAL-to-integral
 conversion. ARRAY logical dimensions must still match; receiver names and
 flat/nested component layout may differ.
 

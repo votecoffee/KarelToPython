@@ -6,6 +6,7 @@ import math
 def transfer(state,target,source,line=None):
     """Return a prepared model-backed transfer or None for the ordinary policy."""
     from . import runtime as rt,extended as ex
+    from .record_schemas import _record_pair,_bridge_record
     if not rt._pythonic() or state.execution.robot is None:return None
     if type(target) not in (rt.Reference,rt._ArrayPrefixTarget) or type(source) is not ex.VariableValue:
         raise rt.KarelRuntimeError('Model variable transfers require typed data references',line)
@@ -31,9 +32,11 @@ def transfer(state,target,source,line=None):
             return
         if item is rt.UNINITIALIZED:storage[key]=item;return
         if expected==declared:storage[key]=ex._variable_copy(declared,item,line);return
-        if expected[0]==declared[0]=='STRUCTURE':
+        if _record_pair(expected,declared):
+            if declared[0] in rt.DATA_RECORD_TYPES:item=ex._variable_copy(declared,item,line)
             result=rt.Structure(expected);fields=dict(rt.record_fields(declared))
             for name,field in rt.record_fields(expected):store(field,fields[name],item.values[name],result.values,name)
+            result=_bridge_record(expected,declared,result,line)
         elif expected[0]==declared[0]=='ARRAY':
             result=rt._array_conversion_storage(expected,item,line)
             leaf,source_leaf=rt.array_leaf_spec(expected),rt.array_leaf_spec(declared)

@@ -969,6 +969,7 @@ def _variable_copy(spec,value,line=None):
 
 def _variable_record_copy(spec,source_spec,value,line=None):
     """Convert selected context-free record data, retaining explicit missing containers."""
+    from .record_schemas import _record_pair,_bridge_record
     rt=runtime()
     if not rt._pythonic() or rt.record_schema_kind(spec,source_spec)!='structure':
         fail('Record variable conversion requires compatible Pythonic record schemas',line)
@@ -982,10 +983,10 @@ def _variable_record_copy(spec,source_spec,value,line=None):
         if rt.config_word_kind(expected,actual):return rt._config_word_data(expected,actual,item,line)
         if item is rt.UNINITIALIZED:return item
         if expected==actual:return _variable_copy(actual,item,line)
-        if expected[0]==actual[0]=='STRUCTURE':
+        if _record_pair(expected,actual):
             result=rt.Structure(expected);fields=dict(rt.record_fields(actual))
             for name,field in rt.record_fields(expected):result.values[name]=convert(field,fields[name],item.values[name])
-            return result
+            return _bridge_record(expected,actual,result,line)
         if expected[0]==actual[0]=='ARRAY':
             result=rt._array_conversion_storage(expected,item,line)
             first,second=rt.array_leaf_spec(expected),rt.array_leaf_spec(actual)
@@ -993,7 +994,7 @@ def _variable_record_copy(spec,source_spec,value,line=None):
                 storage[key]=convert(first,second,member)
             return result
         return _variable_copy(expected,_variable_copy(actual,item,line),line)
-    return convert(spec,source_spec,value)
+    return convert(spec,source_spec,_variable_copy(source_spec,value,line))
 
 
 def _variable_missing(value):

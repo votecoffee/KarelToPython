@@ -1,0 +1,31 @@
+{
+  "SOURCE": {
+    "CFG_TURN_NO1": -1,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 1,
+    "CFG_FLIP": false,
+    "CFG_LEFT": true,
+    "CFG_UP": false,
+    "CFG_FRONT": true
+  },
+  "RESULT": {
+    "CFG_TURN_NO1": -1,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 1,
+    "CFG_FLIP": false,
+    "CFG_LEFT": true,
+    "CFG_UP": false,
+    "CFG_FRONT": true
+  },
+  "VALUE": {
+    "CFG_TURN_NO1": -1,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 1,
+    "CFG_FLIP": false,
+    "CFG_LEFT": true,
+    "CFG_UP": false,
+    "CFG_FRONT": true
+  },
+  "WORD": 41231,
+  "DONE": true
+}

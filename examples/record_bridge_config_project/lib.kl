@@ -1,0 +1,6 @@
+PROGRAM LIB
+TYPE item=STRUCTURE cfg_front:BOOLEAN cfg_up:BOOLEAN cfg_left:BOOLEAN cfg_flip:BOOLEAN cfg_turn_no3:INTEGER cfg_turn_no2:INTEGER cfg_turn_no1:INTEGER ENDSTRUCTURE
+VAR calls:INTEGER
+ROUTINE change(v:CONFIG):item
+BEGIN IF UNINIT(calls) THEN calls=0 ENDIF calls=calls+1 v.cfg_turn_no1=7 v.cfg_front=FALSE RETURN(v) END change
+BEGIN END LIB

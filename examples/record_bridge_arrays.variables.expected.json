@@ -1,0 +1,69 @@
+[
+  {
+    "program": "RECORD_BRIDGE_ARRAYS",
+    "path": "OUTPUT",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "VECTOR"
+      ]
+    ],
+    "value": [
+      {
+        "X": 1.0,
+        "Y": 2.0,
+        "Z": 3.0
+      },
+      {
+        "X": 4.0,
+        "Y": 5.0,
+        "Z": 6.0
+      }
+    ]
+  },
+  {
+    "program": "RECORD_BRIDGE_ARRAYS",
+    "path": "RESTORED",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "STRUCTURE",
+        "ITEM",
+        [
+          [
+            "Z",
+            [
+              "REAL"
+            ]
+          ],
+          [
+            "Y",
+            [
+              "REAL"
+            ]
+          ],
+          [
+            "X",
+            [
+              "REAL"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "X": 1.0,
+        "Y": 2.0,
+        "Z": 3.0
+      },
+      {
+        "X": 4.0,
+        "Y": 5.0,
+        "Z": 6.0
+      }
+    ]
+  }
+]

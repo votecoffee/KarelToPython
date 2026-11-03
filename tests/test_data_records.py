@@ -199,7 +199,13 @@ class DataRecordGuardTests(unittest.TestCase):
     def test_wrong_config_flag_type(self): self.reject('c.cfg_flip=1')
     def test_wrong_config_turn_type(self): self.reject('c.cfg_turn_no1=1.5')
     def test_distinct_record_types_not_interchangeable(self): self.reject('v=p')
-    def test_structural_lookalike_not_interchangeable(self): self.reject('v=other',prefix='TYPE look=STRUCTURE x: REAL y: REAL z: REAL ENDSTRUCTURE',declarations='v: VECTOR\nother: look')
+    def test_structural_bridge_retains_strict_and_incompatible_guards(self):
+        prefix='TYPE look=STRUCTURE x:REAL y:REAL z:REAL ENDSTRUCTURE';declarations='v:VECTOR other:look'
+        self.reject('v=other',prefix=prefix,declarations=declarations,_translator=legacy_translate)
+        for fields in ('x:REAL y:REAL','x:BOOLEAN y:REAL z:REAL'):
+            self.reject('v=other',prefix='TYPE look=STRUCTURE '+fields+' ENDSTRUCTURE',declarations=declarations)
+        program,_=compile_program('other.x=1 other.y=2 other.z=3 v=other v.x=99',prefix=prefix,declarations=declarations)
+        values=program.run();self.assertEqual(values['OTHER'],dict(X=1.,Y=2.,Z=3.));self.assertEqual(values['V'],dict(X=99.,Y=2.,Z=3.))
     def test_strict_positional_value_parameters_require_initialized_contents(self):
         for kind in ('XYZWPR','CONFIG'):
             with self.subTest(kind=kind):

@@ -1,0 +1,12 @@
+PROGRAM RECORD_BRIDGE_VARIABLES
+TYPE item=STRUCTURE z:REAL y:REAL x:REAL ENDSTRUCTURE
+VAR source,restored:item value:VECTOR cache,in_status,out_status:INTEGER done:BOOLEAN
+
+BEGIN
+  IF UNINIT(done) THEN
+    source.x=1.0 source.y=2.0 source.z=3.0
+    cache=0 GET_VAR(cache,'','SOURCE',value,in_status)
+    SET_VAR(cache,'','RESTORED',value,out_status) cache=0
+    done=TRUE
+  ENDIF
+END RECORD_BRIDGE_VARIABLES

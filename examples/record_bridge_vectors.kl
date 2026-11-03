@@ -1,0 +1,11 @@
+PROGRAM RECORD_BRIDGE_VECTORS
+TYPE item=STRUCTURE z:REAL y:REAL x:REAL ENDSTRUCTURE
+VAR source,result:item value:VECTOR done:BOOLEAN
+ROUTINE change(v:VECTOR) BEGIN v.x=99 END change
+BEGIN
+  IF UNINIT(done) THEN
+    source.x=1.0 source.y=2.0 source.z=3.0
+    value=source result=value change(source)
+    done=TRUE
+  ENDIF
+END RECORD_BRIDGE_VECTORS

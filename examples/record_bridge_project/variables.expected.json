@@ -1,0 +1,76 @@
+[
+  {
+    "program": "MAIN",
+    "path": "SOURCE",
+    "type": [
+      "STRUCTURE",
+      "ITEM",
+      [
+        [
+          "Z",
+          [
+            "REAL"
+          ]
+        ],
+        [
+          "Y",
+          [
+            "REAL"
+          ]
+        ],
+        [
+          "X",
+          [
+            "REAL"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "X": 1.0,
+      "Y": 2.0,
+      "Z": 3.0
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "RESULT",
+    "type": [
+      "STRUCTURE",
+      "ITEM",
+      [
+        [
+          "Z",
+          [
+            "REAL"
+          ]
+        ],
+        [
+          "Y",
+          [
+            "REAL"
+          ]
+        ],
+        [
+          "X",
+          [
+            "REAL"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "X": 99.0,
+      "Y": 2.0,
+      "Z": 3.0
+    }
+  },
+  {
+    "program": "LIB",
+    "path": "SEEN",
+    "type": [
+      "REAL"
+    ],
+    "value": 1.0
+  }
+]

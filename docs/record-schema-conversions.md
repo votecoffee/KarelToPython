@@ -4,6 +4,11 @@ CONFIG/integral fields now use the separate [portable word codec](config-words.m
 including shaped missing CONFIG data and staged publication. Other type and
 reference contracts retain the rules below.
 
+[Builtin/user record bridges](record-bridges.md) now extend the matching-field
+rules below to VECTOR, CONFIG, Cartesian, POSITION and association data. POSITION
+construction requires complete valid geometry; private ownership and exact
+reference/signature boundaries remain active.
+
 Pythonic source assignments, ordinary routine arguments and RETURN values can
 convert user STRUCTURE schemas that contain compatible context-free data.
 [Model-backed record conversion](kinematic-records.md) separately extends these
@@ -91,7 +96,7 @@ ARRAY prefixes. They retain their own missing-container, cache and status rules.
 
 ## Remaining exclusions
 
-Field additions, removal and renaming, builtin-record/user-STRUCTURE interchange,
+Field additions, removal and renaming,
 resource fields, BOOLEAN/numeric changes and implicit REAL-to-integral conversion
 remain excluded. Model-backed JOINT/Cartesian changes inside records and nested
 arrays now use the separate [explicit-model source policy](kinematic-records.md).

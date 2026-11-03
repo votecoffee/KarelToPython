@@ -1,0 +1,7 @@
+PROGRAM MAIN
+TYPE item=STRUCTURE z:REAL y:REAL x:REAL ENDSTRUCTURE
+VAR source,result:item done:BOOLEAN
+ROUTINE change(v:VECTOR):item FROM LIB
+BEGIN
+  IF UNINIT(done) THEN source.x=1.0 source.y=2.0 source.z=3.0 result=change(source) done=TRUE ENDIF
+END MAIN

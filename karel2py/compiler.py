@@ -6603,7 +6603,22 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/kinematic-records.md',controller_validated=False)
     report['record_schema_policy']['models']='Compatible model-backed JOINT/Cartesian fields follow kinematic_record_policy and explicit scalar context'
     report['record_schema_policy']['limits']='No field additions/removal/rename, resource fields, builtin-record/user-STRUCTURE interchange, BOOLEAN/numeric, REAL-to-integral or logical reshape; model-backed fields require kinematic_record_policy'
-    report['data_record_policy']['boundary']='Private source scalar/ARRAY and compatible user STRUCTURE conversions; model-backed fields follow kinematic_record_policy; no inferred robot context or motion'
+    report['data_record_policy']['boundary']='Private source scalar/ARRAY and compatible record conversions, including builtin/user bridges; model-backed fields follow kinematic_record_policy; no inferred robot context or motion'
+    report['record_schema_policy']['boundaries']='Pythonic source assignment, ordinary private arguments and RETURN for matching user STRUCTURE trees and builtin/user data records, including record ARRAY terminals'
+    report['record_schema_policy']['limits']='No field additions/removal/rename, resource fields, BOOLEAN/numeric, REAL-to-integral or logical reshape; POSITION construction from user data requires complete valid geometry; model-backed fields require kinematic_record_policy'
+    report['record_bridge_policy']=dict(
+        types=list(rt.DATA_RECORD_TYPES),forms='Explicit Pythonic user STRUCTURE/builtin data record bridges with identical field-name sets; recurse through compatible records and matching logical ARRAY dimensions',
+        boundaries='Source assignment, ordinary private arguments and RETURN; GET_VAR/SET_VAR scalar/ARRAY-prefix transfers retain their separate missing-container, cache and status contracts',
+        conversions='Existing integral-family checks and REAL promotion, bounded STRING changes, CONFIG word data and compatible Cartesian/joint/model leaves; no field renaming, truthiness or implicit REAL narrowing',
+        ownership='Schema-changing values are independent; capture RHS before target selectors or later arguments, stage every receiver before publication, preserve existing receiver descendants and exact same-type aliases',
+        validation='Validate all selected source domains and receiver fields; CONFIG turn bounds remain -8..7; constructing POSITION from a user record requires complete proper unit/orthogonal/right-handed geometry before any model callback',
+        models='Mixed model-backed fields retain explicit context and complete data/geometry preflight before adapter calls; no robot context discovery',
+        persistence='Ordinary concrete receiver schemas/data in JSON and VR; no native packed layout, live aliases, callbacks or suspended frames',
+        exact='BYNAME, linked declared signatures, raw callback results and generic checked/value helpers remain exact; POSITION orientation descendants remain read-only',
+        limits='Existing 32767 scalar leaves, 64 schema levels and one through three logical ARRAY dimensions',
+        observations='Existing record_schema_conversions, kinematic_record_conversions and variable-service records retain source/receiver types and source locations',
+        boundary='Offline Pythonic data conversion, not native source/compiler/controller equivalence; no resources, native ABI, motion execution or strict-mode expansion',
+        guide='docs/record-bridges.md',controller_validated=False)
     report['record_variable_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         records='Compatible user STRUCTURE field-name sets in receiver order; nested record names, fixed logical ARRAY layout, bounded STRING, checked integral family/integral-to-REAL and context-free Cartesian/joint-width fields',

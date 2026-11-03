@@ -79,8 +79,13 @@ wildcard batches between explicit plain pipes and ordinary file backends. Empty
 configured destination pipes retain their settings; exported source pipes release
 their configuration. Complete quota and busy checks precede publication.
 
+[Built-in record bridges](docs/record-bridges.md) now convert matching user
+structures and VECTOR, CONFIG, Cartesian, POSITION and association records.
+Assignments, private routine interfaces, arrays and variable transfers preserve
+typed receiver storage; constructing POSITION requires complete valid geometry.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1103.161505**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.202454**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -911,9 +916,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 408 authored runnable examples, checks complete
+The example runner translates 412 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 136 complete linked source projects. It also checks that unsupported
+fixtures, plus 138 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

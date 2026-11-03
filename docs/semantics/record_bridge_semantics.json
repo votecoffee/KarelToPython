@@ -1,0 +1,34 @@
+{
+  "version": "26.1103.202454",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../record-bridges.md",
+  "types": [
+    "VECTOR",
+    "CONFIG",
+    "XYZWPR",
+    "XYZWPREXT",
+    "POSITION",
+    "COMMON_ASSOC",
+    "GROUP_ASSOC"
+  ],
+  "tests": [
+    "tests/test_record_bridges.py",
+    "tests/test_record_schema_conversions.py",
+    "tests/test_record_variable_transfers.py",
+    "tests/test_kinematic_records.py",
+    "tests/test_kinematic_variable_transfers.py"
+  ],
+  "forms": "Matching complete field-name sets between user STRUCTURE and builtin data records; recurse through compatible records and matching logical ARRAY dimensions",
+  "source_boundaries": "Assignments, private ordinary arguments and RETURN, including linked actuals with exact declared signatures",
+  "variable_boundaries": "GET_VAR/SET_VAR scalar records and selected same-rank ARRAY prefixes; existing missing-container/cache/status/overlap and unselected-tail rules",
+  "ownership": "Schema changes produce private values, capture before target selectors/later arguments, stage before publication and preserve receiver descendants; exact same-type bare references unchanged",
+  "domains": "Validate all selected source contents and receiver data; retain CONFIG -8..7 turn bounds even on outgoing bridges, BOOLEAN categories and numeric/string domains",
+  "geometry": "A present user record constructing POSITION requires complete proper orientation/location/configuration; partial POSITION reads into private user data remain allowed",
+  "models": "Mixed record plans preflight every selected domain and constructed POSITION before explicit model callbacks; preserve current seed/model/context checks",
+  "exact_boundaries": "No structural BYNAME, linked signature coercion, raw callback result conversion or generic checked/value helper relaxation; POSITION orientation aliases remain protected",
+  "persistence": "Existing typed JSON and portable VR values/schemas only; no live references, callbacks, suspended frames or native packed layouts",
+  "limits": "32767 scalar leaves, 64 schema levels, 1..3 logical ARRAY dimensions; resource-free matching fields only",
+  "boundary": "Explicit offline Pythonic extension; no native source/compiler/controller equivalence, implicit geometry discovery, motion effects or strict expansion",
+  "evidence": "90 authored regressions, four runnable examples and two linked projects with independent snapshots and complete saved-variable rows"
+}
