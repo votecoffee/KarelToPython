@@ -1,0 +1,10 @@
+[
+  {
+    "program": "CROSS_BANK_RENAME_FAILURES",
+    "path": "COLLISION",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 2
+  }
+]

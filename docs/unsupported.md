@@ -268,8 +268,11 @@ restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operati
   now moves same-bank closed files or plain PIP configurations without
   overwrite. [Cross-volume virtual renames](cross-volume-rename.md) now preflight
   complete destination capacity and retained source bytes within one DeviceFiles
-  bank. Recursive/glob directories, cross-bank wildcard renames, socket/DAQ batches
-  and cross-file atomic host transactions remain unsupported.
+  bank. [Cross-bank renames](cross-bank-rename.md) now move exact files and bounded
+  batches between explicit plain PIP and ordinary file banks, using empty reserved
+  pipe targets and no ordinary overwrite. Recursive/glob directories, separate
+  ordinary-bank discovery, socket/DAQ batches and cross-file atomic host
+  transactions remain unsupported.
   [Plain PIP batches](pipe-wildcard-files.md) now copy/delete finite snapshots with
   explicit configured destinations; automatic pipe creation and ring truncation
   during copying remain unavailable.

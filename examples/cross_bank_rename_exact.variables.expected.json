@@ -1,0 +1,10 @@
+[
+  {
+    "program": "CROSS_BANK_RENAME_EXACT",
+    "path": "INCOMING",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  }
+]

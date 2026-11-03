@@ -1,0 +1,16 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "INCOMING": 0,
+      "OUTGOING": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": 0
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "device_files": {
+    "limit": 32768,
+    "volumes": {
+      "FR:": {
+        "capacity": 9,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 2,
+        "info": {}
+      }
+    },
+    "files": {
+      "FR:keep.dat": {
+        "hex": "6b"
+      }
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {
+      "PIP:A.DAT": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {
+          "hex": "616263"
+        }
+      },
+      "PIP:B.DAT": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {
+          "hex": "6465"
+        }
+      }
+    }
+  }
+}

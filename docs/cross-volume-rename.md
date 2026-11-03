@@ -17,8 +17,10 @@ logical DeviceFiles paths and need no host directory creation.
 
 This is an offline extension to the portable wildcard algorithm. It opens,
 mounts, discovers or copies no host drive or controller device and establishes no
-DirectoryFiles host cross-volume behavior. PIP-to-ordinary, ordinary-to-PIP and
-renames between separate backend banks remain unsupported.
+DirectoryFiles host cross-volume behavior. The separate
+[cross-bank extension](cross-bank-rename.md) supports PIP-to-ordinary and
+ordinary-to-PIP moves with explicit banks and empty configured pipe targets.
+Renames between separate ordinary backend banks remain unsupported.
 
 ## Quota and retention planning
 
@@ -69,7 +71,7 @@ failures leave the helper's complete plan unapplied. No host-thread transaction
 or controller atomicity guarantee is implied.
 
 Existing portable statuses remain: 0 means success, 1 means no selected source,
-2 means collision/overlap/unsupported template or cross-bank rename, and 3 means
+2 means collision/overlap/unsupported template, and 3 means
 a selected source or destination is busy. Unknown/unmounted/read-only volumes,
 invalid paths, changed source data, quota failures and budget exhaustion raise
 KarelRuntimeError; these errors preserve the status output until a result can be

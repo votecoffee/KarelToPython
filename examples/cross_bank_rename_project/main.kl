@@ -1,0 +1,8 @@
+PROGRAM MAIN
+VAR incoming,outgoing:INTEGER done:BOOLEAN
+ROUTINE stage(status:INTEGER) FROM LIB
+ROUTINE finish(status:INTEGER) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN stage(incoming) finish(outgoing) done=TRUE ENDIF
+END MAIN

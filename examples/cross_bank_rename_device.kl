@@ -1,0 +1,10 @@
+PROGRAM CROSS_BANK_RENAME_DEVICE
+VAR status,total,free:INTEGER label:STRING[12] done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    RENAME_FILE('PIP:*.DAT','FR:dst/*.kl',FALSE,status)
+    VOL_SPACE('FR:',total,free,label)
+    done=TRUE
+  ENDIF
+END CROSS_BANK_RENAME_DEVICE

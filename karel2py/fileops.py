@@ -61,7 +61,10 @@ def wildcard_file_operation(state,operation,args,line=None):
     positions={'COPY_FILE':(0,1),'DELETE_FILE':(0,),'RENAME_FILE':(0,1)}
     if operation not in positions:return False
     operands=[args[index] for index in positions[operation]]
-    if not any(type(value) is str and any(c in value for c in '*?') for value in operands):return False
+    wildcard=any(type(value) is str and any(c in value for c in '*?') for value in operands)
+    crossing=(operation=='RENAME_FILE' and all(type(value) is str for value in operands)
+              and operands[0].upper().startswith('PIP:')!=operands[1].upper().startswith('PIP:'))
+    if not wildcard and not crossing:return False
     runtime=rt();context=state.execution
     from .communications import message_address,pipe_name
     from .storage import DirectoryFiles,atomic_bytes
@@ -165,6 +168,131 @@ def wildcard_file_operation(state,operation,args,line=None):
         def unchanged(self,name,data,signature):
             if self.signature(name)!=signature:return False
             return self.directory or name in self.bank.files and bytes(self.bank.files[name])==data
+    def rename_cross_bank(source,target,source_folder,pattern,target_prefix,target_folder,template,selected):
+        """Prepared moves between plain PIP and one explicitly supplied file bank."""
+        pipe=source if source.pipe else target;ordinary=target if source.pipe else source
+        if type(pipe.bank) is not runtime.FilePipes:raise runtime.KarelRuntimeError('Cross-bank rename requires an exact plain FilePipes bank',line)
+        mappings=(source.bank.files,target.bank.files,pipe.bank.pipes)
+        if any(type(mapping) is not dict for mapping in mappings):raise runtime.KarelRuntimeError('Cross-bank rename requires ordinary backing dictionaries',line)
+        def configuration(name):
+            row=pipe.bank.pipes.get(name)
+            if (type(row) is not dict or set(row)!={'cmos','sectors','record_size','form_dict','form_ele'}
+                    or type(row['cmos']) is not bool or type(row['sectors']) is not int or not 1<=row['sectors']<=65536
+                    or type(row['record_size']) is not int or not 0<=row['record_size']<=row['sectors']*1024
+                    or type(row['form_ele']) is not int or not 0<=row['form_ele']<=32767
+                    or len(runtime.ascii_string(row['form_dict'],line))>64):
+                raise runtime.KarelRuntimeError('Malformed configured pipe in cross-bank rename',line)
+            return row,tuple(sorted(row.items()))
+        def quota():
+            if len(pipe.bank.pipes)>32:raise runtime.KarelRuntimeError('Pipe record limit exceeded',line)
+            reserved=sum(configuration(name)[0]['sectors']*1024 for name in pipe.bank.pipes)
+            if reserved>pipe.bank.limit:raise runtime.KarelRuntimeError('Pipe reservation limit exceeded',line)
+        def fingerprint(value,*,charge=False):
+            if type(value) not in (bytes,bytearray):raise runtime.KarelRuntimeError('Cross-bank rename requires retained byte data',line)
+            digest=hashlib.sha256()
+            for offset in range(0,len(value),4096):
+                if charge:check()
+                digest.update(value[offset:offset+4096])
+            return id(value),len(value),digest.digest()
+        quota();existing=target.entries(target_folder,destination=True);aliases={}
+        for name in existing:aliases.setdefault(name.casefold(),[]).append(name)
+        plan=[];targets=set();total=0
+        for name in selected:
+            check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
+            try:destination=target.key(target_prefix+(template if not wildcard else _wildcard_template(template,base)))
+            except ValueError:return 2
+            matches=aliases.get(destination.casefold(),[])
+            if len(matches)>1:return 2
+            if matches:destination=matches[0]
+            if destination.casefold() in targets:return 2
+            targets.add(destination.casefold())
+            if source.busy([name]) or target.busy([destination]):return 3
+            if target.pipe and not matches:return 1
+            if not target.pipe and matches:return 2
+            if target.directory and target.bank._path(destination).exists():return 2
+            pipe_name=name if source.pipe else destination;record,signature=configuration(pipe_name)
+            empty=target.bank.files[destination] if target.pipe else None
+            if target.pipe and len(empty):return 2
+            if ordinary.device:ordinary.bank.require_volume((destination if source.pipe else name).split(':',1)[0],write=True,line=line)
+            before=source.signature(name)
+            if source.directory:
+                code,payload=source.bank.read_named(name)
+                if code:return code
+                token=fingerprint(payload,charge=True)
+            else:
+                payload=source.bank.files[name];source.bank._check(name,payload);token=fingerprint(payload,charge=True)
+            if source.signature(name)!=before:raise runtime.KarelRuntimeError('Cross-bank rename source changed during preflight',line)
+            total+=len(payload)
+            if total>WILDCARD_COPY_BYTES:raise runtime.KarelRuntimeError('Cross-bank rename exceeds 64 MiB retained payloads',line)
+            if len(payload)>record['sectors']*1024:
+                if target.pipe:return 4
+                raise runtime.KarelRuntimeError('Pipe source exceeds its configured capacity',line)
+            if target.directory:
+                if len(payload)>target.bank.limit:raise runtime.KarelRuntimeError('Cross-bank destination file size limit exceeded',line)
+            else:target.bank._check(destination,payload)
+            prepared=payload if type(payload) is bytearray else bytearray(payload)
+            plan.append((name,destination,payload,prepared,before,token,pipe_name,record,signature,empty))
+        if (source.bank.files is not mappings[0] or target.bank.files is not mappings[1] or pipe.bank.pipes is not mappings[2]
+                or selected!=source.source_names(source_folder,pattern,charge=False)
+                or target.entries(target_folder,destination=True,charge=False)!=existing):
+            raise runtime.KarelRuntimeError('Cross-bank rename names or backing storage changed during preflight',line)
+        if source.busy(selected) or target.busy([row[1] for row in plan]):return 3
+        quota()
+        for name,destination,payload,prepared,before,token,pipe_name,record,signature,empty in plan:
+            source.plain(name);target.plain(destination)
+            current,current_signature=configuration(pipe_name)
+            if current is not record or current_signature!=signature:raise runtime.KarelRuntimeError('Cross-bank pipe configuration changed during preflight',line)
+            if source.directory:
+                if source.signature(name)!=before:raise runtime.KarelRuntimeError('Cross-bank source metadata changed during preflight',line)
+                code,data=source.bank.read_named(name)
+                if code:return code
+                if data!=payload:raise runtime.KarelRuntimeError('Cross-bank source bytes changed during preflight',line)
+            elif source.signature(name)!=before or fingerprint(source.bank.files[name])!=token:
+                raise runtime.KarelRuntimeError('Cross-bank source bytes or metadata changed during preflight',line)
+            if target.pipe and (target.bank.files[destination] is not empty or len(empty)):
+                raise runtime.KarelRuntimeError('Cross-bank destination pipe changed during preflight',line)
+            if ordinary.device:ordinary.bank.require_volume((destination if source.pipe else name).split(':',1)[0],write=True,line=line)
+        # No budget checks, callbacks or yields after complete preflight.
+        if ordinary.directory:
+            if target.directory and len(existing)+len(plan)>WILDCARD_FILE_LIMIT:
+                raise runtime.KarelRuntimeError('Directory entry count exceeded by complete cross-bank rename batch',line)
+            # Host operations retain per-file publication; a late OS failure can
+            # leave earlier moves complete, just like existing directory batches.
+            for name,destination,_,prepared,_,_,pipe_name,_,_,_ in plan:
+                if source.directory:
+                    code=ordinary.bank.delete(name)
+                    if code:return code
+                    for cached in list(ordinary.bank.files):
+                        if cached.casefold()==name.casefold():ordinary.bank.files.pop(cached)
+                    pipe.bank.files[destination]=prepared
+                else:
+                    atomic_bytes(ordinary.bank._path(destination),prepared)
+                    for cached in list(ordinary.bank.files):
+                        if cached.casefold()==destination.casefold():ordinary.bank.files.pop(cached)
+                    ordinary.bank.files[destination]=prepared
+                    pipe.bank.files.pop(name);pipe.bank.pipes.pop(name)
+            return 0
+        first=dict(source.bank.files);second=dict(target.bank.files);records=dict(pipe.bank.pipes)
+        garbage={volume:row['garbage'] for volume,row in ordinary.bank._volumes.items()} if ordinary.device else None
+        for name,destination,_,prepared,_,_,_,_,_,_ in plan:
+            first.pop(name);second[destination]=prepared
+            if source.pipe:records.pop(name)
+            elif ordinary.device:
+                volume=name.split(':',1)[0]
+                if ordinary.bank._volumes[volume]['retain_deleted']:garbage[volume]+=len(prepared)
+        files=second if source.pipe else first
+        if len(files)>WILDCARD_FILE_LIMIT:raise runtime.KarelRuntimeError('File count exceeded by complete cross-bank rename batch',line)
+        if ordinary.device:
+            for volume,row in ordinary.bank._volumes.items():
+                used=garbage[volume]+sum(len(data) for name,data in files.items() if name.split(':',1)[0]==volume)
+                if used>row['capacity']:raise runtime.KarelRuntimeError('Virtual device capacity exceeded by complete cross-bank rename batch',line)
+        source.bank.files.clear();source.bank.files.update(first)
+        target.bank.files.clear();target.bank.files.update(second)
+        pipe.bank.pipes.clear();pipe.bank.pipes.update(records)
+        if ordinary.device:
+            for volume,amount in garbage.items():ordinary.bank._volumes[volume]['garbage']=amount
+        return 0
+
     def rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical,preserve_plain):
         # Rename retains byte/configuration objects; fingerprints avoid taking
         # another complete in-memory copy of every retained file in the batch.
@@ -249,21 +377,19 @@ def wildcard_file_operation(state,operation,args,line=None):
     def execute():
         if operation=='RENAME_FILE':
             runtime.boolean(args[2],line)
-            if runtime.ascii_string(operands[0],line).upper().startswith('PIP:')!=runtime.ascii_string(operands[1],line).upper().startswith('PIP:'):return 2
         source=View(operands[0]);source_prefix,pattern=source.spec(operands[0]);source_folder=source.parent(source_prefix)
         if source.device:source.bank.require_volume(source.key(source_prefix+'__wildcard_probe__').split(':',1)[0])
         if operation in ('COPY_FILE','RENAME_FILE'):
             target=View(operands[1]);target_prefix,template=target.spec(operands[1]);target_folder=target.parent(target_prefix)
             source_stem,source_dot,source_ext=pattern.rpartition('.')
             # Plain pipe snapshots can preserve extensionless names through *.
-            preserve_plain=(operation=='RENAME_FILE' or source.pipe or target.pipe) and template=='*'
+            preserve_plain=(operation=='RENAME_FILE' and not wildcard) or (operation=='RENAME_FILE' or source.pipe or target.pipe) and template=='*'
             if not preserve_plain and (not source_dot or not source_stem or not source_ext):return 2
             try:_wildcard_template(template,'probe.ext')
             except ValueError:return 2
             if operation=='COPY_FILE':overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
             else:
                 runtime.boolean(args[2],line)
-                if source.bank is not target.bank:return 2
         else:runtime.boolean(args[1],line)
         selected=source.source_names(source_folder,pattern)
         if not selected:return 1
@@ -272,6 +398,8 @@ def wildcard_file_operation(state,operation,args,line=None):
         if len(set(physical)-{None})!=sum(value is not None for value in physical):return 2
         if source.busy(selected):return 3
         if operation=='RENAME_FILE':
+            if source.bank is not target.bank:
+                return rename_cross_bank(source,target,source_folder,pattern,target_prefix,target_folder,template,selected)
             return rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical,preserve_plain)
         if operation=='DELETE_FILE':
             bank=source.bank

@@ -1,0 +1,34 @@
+{
+  "files": {
+    "src/A.kl": "abc",
+    "src/B.kl": {
+      "hex": "0062"
+    },
+    "keep.dat": "keep"
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {
+      "PIP:A.NEW": {
+        "cmos": true,
+        "sectors": 1,
+        "record_size": 3,
+        "form_dict": "FMT",
+        "form_ele": 1,
+        "data": {
+          "hex": ""
+        }
+      },
+      "PIP:B.NEW": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 2,
+        "form_dict": "",
+        "form_ele": 2,
+        "data": {
+          "hex": ""
+        }
+      }
+    }
+  }
+}

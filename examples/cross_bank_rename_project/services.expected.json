@@ -1,0 +1,17 @@
+{
+  "files": {
+    "dst/A.dat": {
+      "hex": "616263"
+    },
+    "dst/B.dat": {
+      "hex": "0062"
+    },
+    "keep": {
+      "hex": "6b"
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {}
+  }
+}

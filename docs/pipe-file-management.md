@@ -61,8 +61,12 @@ retains the previous destination. No source bytes or configuration are removed.
 `RENAME_FILE` supports a closed source and a new destination name within PIP.
 Both names must carry an explicit PIP prefix. The complete configuration and
 retained data move together; no additional pipe slot or reserved sectors are
-required. An already configured destination rejects the rename. Cross-backend
-renaming returns portable invalid status 2; copy explicitly to transfer bytes.
+required. An already configured destination rejects this same-bank rename.
+[Cross-bank rename](cross-bank-rename.md) is a separate Pythonic extension for
+exact names and bounded wildcard batches. Ordinary-to-PIP moves require an empty,
+closed, configured destination and preserve its settings. PIP-to-ordinary moves
+require an unused destination and remove the exported source configuration.
+Both banks must be supplied explicitly; nonempty pipe replacement is rejected.
 
 `DELETE_FILE` removes both the closed pipe's bytes and configuration. Its reserved
 capacity becomes available for later PIPE_CONFIG calls. Open pipes, including a

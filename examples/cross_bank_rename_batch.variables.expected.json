@@ -1,0 +1,10 @@
+[
+  {
+    "program": "CROSS_BANK_RENAME_BATCH",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  }
+]

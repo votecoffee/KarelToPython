@@ -1,0 +1,31 @@
+{
+  "device_files": {
+    "limit": 32768,
+    "volumes": {
+      "FR:": {
+        "capacity": 9,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 2,
+        "info": {}
+      }
+    },
+    "files": {
+      "FR:keep.dat": {
+        "hex": "6b"
+      },
+      "FR:dst/A.kl": {
+        "hex": "616263"
+      },
+      "FR:dst/B.kl": {
+        "hex": "6465"
+      }
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {}
+  }
+}

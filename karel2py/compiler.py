@@ -5269,13 +5269,25 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         selection='Case-insensitive star/question patterns in final basename only; question matches exactly one character, star zero or more; nonrecursive sorted explicit-file/configured-plain-PIP batches; no socket/DAQ routing',
         substitution='Destination standalone star retains full basename; one star per stem/extension substitutes the full source stem/extension, not matched captures',
         pipes='Explicit plain FilePipes only; COPY requires preconfigured targets and overwrite permission without ring truncation; DELETE removes selected configurations/bytes; RENAME moves original configuration/bytes to unused names in the same bank',
-        rename='Explicit Pythonic extension, no overwrite, full sorted path/busy/alias/overlap/budget preflight; one ordinary bank including configured DeviceFiles volumes or one plain PIP bank; preserve byte/configuration identities and same-volume quota/garbage',
+        rename='Explicit Pythonic extension, no overwrite, full sorted path/busy/alias/overlap/budget preflight; same-bank forms preserve byte/configuration identities and same-volume quota/garbage; cross_bank_rename_policy covers explicit PIP/ordinary moves',
         cross_volume='One DeviceFiles bank, both volumes mounted/writable; stage final file keys and retained source garbage, validate complete live-plus-garbage quotas and final file count, then publish without callbacks/checkpoints',
         publication='All source snapshots and predictable target/busy/alias/quota checks precede mutation; memory/device batches commit prepared state; rooted directory operations publish per file and host failure can leave a partial batch',
         limits='32767 scanned/matched entries, 64 MiB total COPY snapshots, ordinary backend byte and step budgets; both nowait values execute synchronously',
         status='Portable 0 success, 1 no matches/missing configured pipe target, 2 invalid template/collision/existing, 3 busy, 4 excess pipe replacement size; backend/path/quota/budget failures raise',
         calls=[row for row in report['service_operations'] if row['operation'] in ('COPY_FILE','DELETE_FILE','RENAME_FILE')],
-        guide='docs/wildcard-file-operations.md',rename_guide='docs/wildcard-rename.md',cross_volume_guide='docs/cross-volume-rename.md',controller_validated=False)
+        guide='docs/wildcard-file-operations.md',rename_guide='docs/wildcard-rename.md',cross_volume_guide='docs/cross-volume-rename.md',cross_bank_guide='docs/cross-bank-rename.md',controller_validated=False)
+    report['cross_bank_rename_policy']=dict(
+        procedure='RENAME_FILE',forms='Exact names and bounded final-basename star/question batches between explicit plain FilePipes and one explicit MemoryFiles, DeviceFiles or rooted DirectoryFiles bank',
+        destination='PIP targets must already be configured, empty and closed; retain destination configuration and replace its empty buffer; ordinary destinations must be unused and closed',
+        source='Move retained bytes; preserve mutable bytearray identities in memory; exporting a PIP removes its bytes and configuration, releasing its reservation',
+        preflight='Whole sorted batch checks names, busy handles, DAQ/socket exclusion, configuration identities, source fingerprints, execution budget and complete final quotas before publication',
+        publication='Memory/device dictionaries and retained device garbage publish prepared state without callbacks or checkpoints; DirectoryFiles publishes in sorted per-file order and late host errors may leave earlier moves complete',
+        persistence='Existing closed-bank context JSON retains final bytes, configurations and device accounting; no live handle or task checkpoint',
+        limits='32767 scanned/matched/final ordinary entries, 64 MiB selected retained payloads, 32 configured pipes and existing per-file/reservation/device limits; both nowait values execute synchronously',
+        status='Portable 0 success, 1 missing source/configured destination, 2 existing nonempty target/collision/template, 3 busy, 4 pipe capacity; path/quota/configuration/budget failures raise',
+        boundary='No implicit pipe configuration, nonempty replacement, DAQ/socket routing, recursive patterns, separate ordinary-bank discovery, cross-file host transaction, concurrent-host isolation, native/controller equivalence or strict mode',
+        calls=[row for row in report['service_operations'] if row['operation']=='RENAME_FILE'],
+        guide='docs/cross-bank-rename.md',controller_validated=False)
     report['dynamic_variable_policy']=dict(
         procedures=['CREATE_VAR','RENAME_VAR','RENAME_VARS'],functions=['BYNAME'],
         creation='Explicit context roots, portable scalars/records including direct BYTE/SHORT and supplied transparent aliases, fixed STRING capacities, JOINTPOS1..9, narrow arrays and attached user types; contiguous inner/middle/outer dimensions; ordinary data uses scalar leaves within 32767 aggregate reserved creation units, with root collections following dynamic_collection_policy',
@@ -6255,8 +6267,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         calls=['COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST'],
         routing='Explicit PIP operands select configured plain FilePipes; ordinary paths retain existing dispatch; cross-backend copies require an explicit MemoryFiles/DirectoryFiles/DeviceFiles backend',
         publication='Finite retained-byte snapshots, closed-file guards, complete target preflight and no ring truncation; overwrites require TRUE and destination PIP must already exist',
-        lifetime='Rename preserves configuration and bytes within PIP; delete removes both; pending READ/open handles are busy; nowait remains synchronous',
-        boundaries='No DAQ/socket routing, implicit pipe creation, cross-backend rename, native device semantics or generic PIP MOVE_FILE',
+        lifetime='Same-bank rename preserves configuration and bytes; cross-bank rename requires empty reserved PIP targets or removes exported source configuration; delete removes both; pending READ/open handles are busy; nowait remains synchronous',
+        boundaries='No DAQ/socket routing, implicit pipe creation, nonempty cross-bank rename replacement, native device semantics or generic PIP MOVE_FILE',
         guide='docs/pipe-file-management.md',controller_validated=False)
     report['file_cancel_policy']=dict(
         source='CANCEL FILE explicit writable FILE selector, captured once; allowed in handlers and linked routines',

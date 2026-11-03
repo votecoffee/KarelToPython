@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [cross-bank rename ledger](cross_bank_rename_semantics.json) supersedes older
+PIP/ordinary rename exclusions, including the data-copy expansion ledger. Empty
+configured PIP targets and whole-batch preflight are required; host publication
+remains per file without a cross-file transaction claim.
+
 The [association record ledger](association_record_semantics.json) adds checked
 COMMON_ASSOC/GROUP_ASSOC data, private scalar-field arguments and existing
 container/I/O/variable/persistence integration. Default STD_PTH_NODE stays

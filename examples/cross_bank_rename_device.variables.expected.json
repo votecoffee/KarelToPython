@@ -1,0 +1,10 @@
+[
+  {
+    "program": "CROSS_BANK_RENAME_DEVICE",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  }
+]

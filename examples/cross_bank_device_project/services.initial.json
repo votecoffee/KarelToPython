@@ -1,0 +1,61 @@
+{
+  "device_files": {
+    "limit": 32768,
+    "volumes": {
+      "FR:": {
+        "capacity": 7,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 1,
+        "info": {}
+      },
+      "RD:": {
+        "capacity": 7,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": false,
+        "garbage": 2,
+        "info": {}
+      }
+    },
+    "files": {
+      "FR:src/A.kl": {
+        "hex": "616263"
+      },
+      "FR:src/B.kl": {
+        "hex": "6465"
+      },
+      "FR:keep": {
+        "hex": "6b"
+      }
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {
+      "PIP:A.NEW": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {
+          "hex": ""
+        }
+      },
+      "PIP:B.NEW": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {
+          "hex": ""
+        }
+      }
+    }
+  }
+}

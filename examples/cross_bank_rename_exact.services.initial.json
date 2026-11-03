@@ -1,0 +1,21 @@
+{
+  "files": {
+    "source": "7",
+    "keep.dat": "keep"
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {
+      "PIP:BRIDGE.DAT": {
+        "cmos": true,
+        "sectors": 1,
+        "record_size": 2,
+        "form_dict": "FMT",
+        "form_ele": 3,
+        "data": {
+          "hex": ""
+        }
+      }
+    }
+  }
+}

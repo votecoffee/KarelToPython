@@ -123,10 +123,10 @@ class PipeFileManagementTests(unittest.TestCase):
             ctx=context();before=ctx.file_pipes.to_config()
             self.assertEqual(execute(operation,ctx)['S'],code);self.assertEqual(ctx.file_pipes.to_config(),before)
 
-    def test_cross_bank_rename_is_rejected_without_creating_a_file(self):
-        for operation in ("RENAME_FILE('PIP:A.DAT','ordinary',FALSE,s)","RENAME_FILE('ordinary','PIP:NEW',FALSE,s)"):
+    def test_cross_bank_rename_rejects_collision_or_missing_reservation(self):
+        for operation,code in (("RENAME_FILE('PIP:A.DAT','ordinary',FALSE,s)",2),("RENAME_FILE('ordinary','PIP:NEW',FALSE,s)",1)):
             ctx=context(files=rt.MemoryFiles({'ordinary':b'old'}));before=ctx.to_config()
-            self.assertEqual(execute(operation,ctx)['S'],2)
+            self.assertEqual(execute(operation,ctx)['S'],code)
             self.assertEqual(ctx.file_pipes.to_config(),before['file_pipes']);self.assertEqual(ctx.files.files['ordinary'],b'old')
 
     def test_direct_pipe_backend_methods_preserve_canonical_configuration(self):

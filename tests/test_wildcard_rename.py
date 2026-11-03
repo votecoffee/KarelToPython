@@ -220,14 +220,14 @@ class WildcardRenamePipeTests(unittest.TestCase):
                 bank.open_for(None,handle,'R',name);before=(deepcopy(bank.pipes),bank.snapshot())
                 self.assertEqual(pipe_rename(bank),3);self.assertEqual((bank.pipes,bank.snapshot()),before);bank.close(handle)
 
-    def test_cross_bank_rename_is_status_two_without_ordinary_bank_discovery(self):
-        bank=pipes();before=deepcopy(bank.to_config())
-        for source,target in [('PIP:*.DAT','ordinary/*.new'),('ordinary/*.DAT','PIP:*.NEW')]:
-            with self.subTest(source=source,target=target):
-                context=rt.ExecutionContext(files=rt.MemoryFiles({'ordinary/a.DAT':b'a'}),file_pipes=bank)
-                self.assertEqual(rename(context.files,source,target,ctx=context),2);self.assertEqual(bank.to_config(),before)
-        self.assertEqual(pipe_rename(bank,target='ordinary/*.new'),2)
-        self.assertEqual(rename(None,'ordinary/*.DAT','PIP:*.NEW',ctx=rt.ExecutionContext(file_pipes=bank)),2)
+    def test_cross_bank_rename_requires_explicit_ordinary_bank_and_reserved_pipe(self):
+        bank=pipes();ctx=rt.ExecutionContext(files=rt.MemoryFiles({'ordinary/a.DAT':b'a'}),file_pipes=bank)
+        self.assertEqual(rename(ctx.files,'PIP:*.DAT','ordinary/*.new',ctx=ctx),0)
+        self.assertEqual(ctx.files.files['ordinary/A.new'],b'a');self.assertFalse(bank.pipes)
+        bank=pipes();before=deepcopy(bank.to_config());ctx=rt.ExecutionContext(files=rt.MemoryFiles({'ordinary/a.DAT':b'a'}),file_pipes=bank)
+        self.assertEqual(rename(ctx.files,'ordinary/*.DAT','PIP:*.NEW',ctx=ctx),1);self.assertEqual(bank.to_config(),before)
+        with self.assertRaises(rt.KarelRuntimeError):pipe_rename(bank,target='ordinary/*.new')
+        with self.assertRaises(rt.KarelRuntimeError):rename(None,'ordinary/*.DAT','PIP:*.NEW',ctx=rt.ExecutionContext(file_pipes=bank))
 
     def test_configuration_identity_change_during_preflight_is_detected(self):
         bank=pipes();original=bank._check

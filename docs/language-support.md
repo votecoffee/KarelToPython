@@ -70,7 +70,12 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1103.153429. Acceptance is specific to
+[Cross-bank RENAME_FILE](cross-bank-rename.md) now moves exact names and bounded
+wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
+reserved pipe targets retain their metadata; ordinary exports remove source pipe
+configuration. Whole-batch quota checks and per-file host failure boundaries apply.
+
+This is the supported prototype subset as of 26.1103.161505. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

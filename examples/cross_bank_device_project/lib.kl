@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR seen:INTEGER
+ROUTINE stage(status:INTEGER)
+BEGIN RENAME_FILE('FR:src/*.kl','PIP:*.NEW',FALSE,status) seen=status END stage
+ROUTINE finish(status:INTEGER)
+BEGIN RENAME_FILE('PIP:*.NEW','RD:dst/*.dat',TRUE,status) seen=status END finish
+BEGIN END LIB

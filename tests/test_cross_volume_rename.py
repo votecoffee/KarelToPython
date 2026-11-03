@@ -206,12 +206,16 @@ class CrossVolumeRenameGuardTests(unittest.TestCase):
         self.assertEqual(files.files['FR:src/a.kl'],b'aaafresh');self.assertEqual(files._volumes['FR']['garbage'],3)
         self.assertNotIn('RD:dst/a.py',files.files)
 
-    def test_pipe_to_device_and_device_to_pipe_remain_cross_bank_rejections(self):
+    def test_pipe_device_rename_moves_bytes_and_keeps_explicit_reservations(self):
         files=bank();pipes=rt.FilePipes();pipes.configure('A.KL',False,1,0,'',0);pipes.feed('A.KL',b'a')
-        context=rt.ExecutionContext(files=files,file_pipes=pipes);before=deepcopy(files.to_config());pipe_before=deepcopy(pipes.to_config())
-        for source,target in [('PIP:*.KL','RD:dst/*.py'),('FR:src/*.kl','PIP:*.PY')]:
-            with self.subTest(source=source,target=target):self.assertEqual(move(files,source,target,ctx=context),2)
-        self.assertEqual(files.to_config(),before);self.assertEqual(pipes.to_config(),pipe_before)
+        ctx=rt.ExecutionContext(files=files,file_pipes=pipes)
+        self.assertEqual(move(files,'PIP:*.KL','RD:dst/*.py',ctx=ctx),0)
+        self.assertEqual(files.files['RD:dst/A.py'],b'a');self.assertNotIn('PIP:A.KL',pipes.pipes)
+        before=deepcopy(files.to_config());self.assertEqual(move(files,'FR:src/*.kl','PIP:*.PY',ctx=ctx),1);self.assertEqual(files.to_config(),before)
+        for name in ('A.PY','B.PY'):pipes.configure(name,False,1,0,'',0)
+        first=files.files['FR:src/a.kl'];self.assertEqual(move(files,'FR:src/*.kl','PIP:*.PY',ctx=ctx),0)
+        self.assertIs(pipes.files['PIP:A.PY'],first);self.assertEqual(pipes.files['PIP:B.PY'],b'\0b')
+        self.assertEqual((files._volumes['FR']['garbage'],files.used('FR')),(8,12))
 
     def test_closed_bank_json_roundtrip_preserves_names_bytes_and_accounting(self):
         files=bank();context=rt.ExecutionContext(files=files);self.assertEqual(move(files,ctx=context),0)

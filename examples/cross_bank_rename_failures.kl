@@ -1,0 +1,12 @@
+PROGRAM CROSS_BANK_RENAME_FAILURES
+VAR collision,missing,capacity,absent:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN done=FALSE ENDIF
+  IF NOT done THEN
+    RENAME_FILE('src/a.kl','PIP:A.NEW',FALSE,collision)
+    RENAME_FILE('src/a.kl','PIP:MISSING',FALSE,missing)
+    RENAME_FILE('large.dat','PIP:SMALL',FALSE,capacity)
+    RENAME_FILE('PIP:ABSENT','unused',FALSE,absent)
+    done=TRUE
+  ENDIF
+END CROSS_BANK_RENAME_FAILURES

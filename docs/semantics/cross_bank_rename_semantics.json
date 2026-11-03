@@ -1,0 +1,30 @@
+{
+  "version": "26.1103.161505",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../cross-bank-rename.md",
+  "tests": [
+    "tests/test_cross_bank_rename.py",
+    "tests/test_wildcard_rename.py",
+    "tests/test_cross_volume_rename.py",
+    "tests/test_pipe_file_management.py"
+  ],
+  "forms": "Exact or bounded final-basename star/question RENAME_FILE between plain FilePipes and one explicit ordinary MemoryFiles, DeviceFiles or rooted DirectoryFiles bank",
+  "import_policy": "Configured empty closed PIP destinations retain all configuration objects/fields; no implicit allocation, nonempty replacement or ring truncation",
+  "export_policy": "Unused closed ordinary destinations receive retained source bytes; remove exported PIP bytes/configuration and release its reservation",
+  "identity": "Move mutable bytearray objects across in-memory banks; immutable bytes become mutable; preserve bank dictionaries and unrelated handles",
+  "preflight": "Complete names, paths, aliases, busy/DAQ/socket guards, byte/configuration fingerprints, final quotas and execution checks before mutation",
+  "device_accounting": "Final live bytes plus existing garbage fit every selected volume; retaining source exports add garbage, nonretaining sources release bytes",
+  "publication": "Memory/device prepared-state publication without callbacks/checkpoints; DirectoryFiles sorted per-file delete/write publication with possible earlier completed moves on late host failure",
+  "limits": "32767 scanned/matched/final ordinary entries, 64 MiB selected payloads, 32 pipes and ordinary byte/reservation/device/budget bounds",
+  "status": {
+    "0": "success",
+    "1": "no source or missing target configuration",
+    "2": "collision/nonempty/existing/template",
+    "3": "busy",
+    "4": "target pipe too small"
+  },
+  "persistence": "Existing closed-bank JSON values/configuration/device accounting only; no live handle, task checkpoint or native CMOS lifetime",
+  "boundary": "No backend discovery, DAQ/socket routing, recursive patterns, host multi-file transaction, concurrent-host isolation, native/controller equivalence or strict mode",
+  "evidence": "96 authored regressions, four runnable examples and two linked projects with independently specified file/pipe/variable state expectations"
+}

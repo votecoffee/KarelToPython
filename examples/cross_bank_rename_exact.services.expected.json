@@ -1,0 +1,14 @@
+{
+  "files": {
+    "result": {
+      "hex": "37"
+    },
+    "keep.dat": {
+      "hex": "6b656570"
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {}
+  }
+}

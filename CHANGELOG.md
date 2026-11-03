@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1103.161505 - 2026-11-03
+
+- Add exact and bounded wildcard RENAME_FILE between explicit plain pipes and
+  memory, virtual-device or rooted directory file backends.
+- Require empty configured pipe destinations and preserve their settings; remove
+  exported source pipe configuration and release its reservation.
+- Preflight whole batches, retain mutable byte identities, account for final
+  device quotas/garbage and preserve existing busy, path and budget guards.
+- Keep host publication per file with explicit late-failure boundaries; no
+  cross-file host transaction, native/controller or strict-mode claim.
+- Add 96 regressions, four runnable examples and two linked projects with
+  independent file, pipe and saved-variable fixtures.
+
 ## 26.1103.153429 - 2026-11-03
 
 - Add COMMON_ASSOC and GROUP_ASSOC checked data records across declarations,

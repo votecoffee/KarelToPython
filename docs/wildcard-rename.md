@@ -2,7 +2,8 @@
 
 Pythonic RENAME_FILE supports bounded, nonrecursive star/question source batches over explicit
 MemoryFiles, DirectoryFiles, DeviceFiles and plain FilePipes. Calls without a star/question matcher
-retain their existing exact-name behavior.
+retain their existing exact-name behavior, except for the explicit PIP/ordinary
+extension described in [cross-bank rename](cross-bank-rename.md).
 
 ```karel
 RENAME_FILE('src/part*.KL','dst/backup_*.PY',FALSE,status)
@@ -59,8 +60,10 @@ rechecks selected names, destination entries, source identity and metadata befor
 publication. In-memory retained bytes are fingerprinted in bounded chunks and
 checked again without publishing intermediate state.
 
-PIP-to-ordinary and ordinary-to-PIP renames are rejected. DeviceFiles wildcard
-renames may cross explicitly configured volumes within the same bank, under the
+PIP-to-ordinary and ordinary-to-PIP renames now follow the separate
+[cross-bank rename contract](cross-bank-rename.md): destination pipes must already
+be configured, empty and closed; exporting removes the source pipe configuration.
+DeviceFiles wildcard renames may cross explicitly configured volumes within the same bank, under the
 [complete capacity/garbage contract](cross-volume-rename.md). Both volumes must be
 mounted and writable. Exact cross-volume calls retain their previous behavior. This
 operation does not discover another backend, route socket names or treat DAQ
@@ -69,9 +72,10 @@ PIP names as ordinary pipe data.
 | Portable status | Meaning |
 | --- | --- |
 | 0 | Complete batch renamed |
-| 1 | No selected source |
-| 2 | Existing target, collision, overlap, unsupported template or cross-bank rename |
+| 1 | No selected source or missing cross-bank destination pipe configuration |
+| 2 | Existing/nonempty target, collision, overlap or unsupported template |
 | 3 | Selected source or target is open/busy |
+| 4 | Cross-bank destination pipe cannot hold complete bytes |
 
 Invalid paths, missing required services, device state, inconsistent backend
 registrations, source changes and budget failures raise KarelRuntimeError with

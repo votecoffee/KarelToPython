@@ -1,0 +1,32 @@
+{
+  "files": {
+    "keep.dat": {
+      "hex": "6b656570"
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {
+      "PIP:A.NEW": {
+        "cmos": true,
+        "sectors": 1,
+        "record_size": 3,
+        "form_dict": "FMT",
+        "form_ele": 1,
+        "data": {
+          "hex": "616263"
+        }
+      },
+      "PIP:B.NEW": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 2,
+        "form_dict": "",
+        "form_ele": 2,
+        "data": {
+          "hex": "0062"
+        }
+      }
+    }
+  }
+}
