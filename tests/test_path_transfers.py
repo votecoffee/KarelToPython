@@ -300,9 +300,9 @@ class PathCopyBoundsAndContextTests(unittest.TestCase):
     def test_whole_path_uninit_query_remains_rejected(self):
         with self.assertRaises(TranslationError):prepared('flag=UNINIT(source)',decl=DECL+' flag:BOOLEAN')
 
-    def test_path_resource_array_creation_and_file_transfers_remain_excluded(self):
+    def test_path_array_creation_keeps_file_transfers_excluded(self):
         with self.assertRaises(TranslationError):prepared('GET_VAR(entry,\'\',\'SOURCE\',f,status)',decl=DECL+' f:FILE')
-        p,_=prepared(create('PATH',dims=(1,0,0)));self.assertEqual(p.run()['STATUS'],5)
+        p,_=prepared(create('PATH',dims=(1,0,0)));self.assertEqual(p.run()['STATUS'],0)
 
     def test_supplied_robot_context_does_not_invoke_models_for_path_copy(self):
         from tests.test_joint_interoperability import model_context

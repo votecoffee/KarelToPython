@@ -1,0 +1,13 @@
+PROGRAM COLLECTION_PATH_ARRAYS
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR routes:ARRAY[2]OF route_t status,total:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(routes[1],status) routes[1].count=1 routes[1][1].amount=7
+    APPEND_NODE(routes[2],status) routes[2].count=1 routes[2][1].amount=9
+    total=routes[1][1].amount+routes[2][1].amount
+    done=TRUE
+  ENDIF
+END COLLECTION_PATH_ARRAYS

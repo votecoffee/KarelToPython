@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR buffer_a,buffer_b:ARRAY[3]OF INTEGER status,sequence:INTEGER filled:BOOLEAN
+ROUTINE fill(items:ARRAY OF QUEUE_TYPE)
+BEGIN
+  INIT_QUEUE(items[1]) INIT_QUEUE(items[2])
+  APPEND_QUEUE(11,items[1],buffer_a,sequence,status)
+  APPEND_QUEUE(17,items[2],buffer_b,sequence,status)
+  filled=TRUE
+END fill
+BEGIN END LIB

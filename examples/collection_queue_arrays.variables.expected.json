@@ -1,0 +1,30 @@
+[
+  {
+    "program": "COLLECTION_QUEUE_ARRAYS",
+    "path": "JOBS",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      {
+        "initialized": true,
+        "sequence": 1,
+        "entries": [
+          [
+            1,
+            7
+          ]
+        ]
+      },
+      {
+        "initialized": true,
+        "sequence": 1,
+        "entries": []
+      }
+    ]
+  }
+]

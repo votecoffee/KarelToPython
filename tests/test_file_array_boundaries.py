@@ -33,8 +33,10 @@ class FileArrayBoundaryTests(unittest.TestCase):
     def test_anonymous_file_array_return_is_rejected(self):self.reject('',routines='ROUTINE result:ARRAY[2] OF FILE BEGIN RETURN streams END result')
     def test_wrong_formal_rank_is_rejected(self):self.reject('use(streams)',decl='streams:ARRAY[2,2] OF FILE',routines=USE)
     def test_wrong_named_formal_identity_is_rejected(self):self.reject('use(streams)',prefix='TYPE first_t=ARRAY[2] OF FILE second_t=ARRAY[2] OF FILE',decl='streams:first_t',routines=USE.replace('ARRAY OF FILE','second_t'))
-    def test_path_arrays_remain_rejected(self):self.reject('',decl='p:ARRAY[2] OF PATH')
-    def test_queue_arrays_remain_rejected(self):self.reject('',decl='q:ARRAY[2] OF QUEUE_TYPE')
+    def test_path_arrays_have_independent_logical_cells(self):
+        p,_=build('',decl='p:ARRAY[2] OF PATH');self.assertTrue(rt.collection_array_type(p._state.types['P']));self.assertIsNot(p._state.raw('P').values[0],p._state.raw('P').values[1])
+    def test_queue_arrays_have_independent_logical_cells(self):
+        p,_=build('',decl='q:ARRAY[2] OF QUEUE_TYPE');self.assertTrue(rt.collection_array_type(p._state.types['Q']));self.assertIsNot(p._state.raw('Q').values[0],p._state.raw('Q').values[1])
     def test_strict_declaration_is_rejected(self):
         with self.assertRaises(TranslationError):translate('PROGRAM T VAR f:ARRAY[2] OF FILE BEGIN END T',mode='strict')
     def test_runtime_strict_allocation_is_rejected(self):

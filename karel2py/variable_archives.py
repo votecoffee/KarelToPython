@@ -75,7 +75,7 @@ def roots(context,state,program):
     imported={row[0] for row in getattr(getattr(owner,'program',None),'imported_variables',())}
     if owner is not None:
         for key,spec in owner.types.items():
-            if key in imported or runtime.file_storage_type(spec):excluded.append(key);continue
+            if key in imported or runtime.file_storage_type(spec) or runtime.collection_array_type(spec):excluded.append(key);continue
             value=owner.values[key]
             result[key]=value if type(value) is runtime.Reference else runtime.Reference(spec,owner.values,key)
     for (scope,path),reference in store.bindings.items():
@@ -90,7 +90,7 @@ def roots(context,state,program):
                 raise Failure(4,'Sparse variable binding is independent of its root')
             continue
         if owner is not None and path in owner.types:continue
-        if runtime.file_storage_type(reference.spec):excluded.append(path);continue
+        if runtime.file_storage_type(reference.spec) or runtime.collection_array_type(reference.spec):excluded.append(path);continue
         result[path]=reference
     if owner is None and not result and not excluded:raise Failure(1,'Variable namespace is absent')
     occupied=set()

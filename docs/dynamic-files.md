@@ -25,7 +25,8 @@ read_value(BYNAME('CACHE','INPUT',entry))
 Supply the selected memory, rooted directory, virtual volume, serial stream,
 keyboard, pipe or other supported offline backend explicitly. Group 0..32 and
 DRAM/CMOS intent remain metadata and do not route files or connect a device.
-PATH/QUEUE ARRAYs and resource fields remain excluded; [FILE arrays](file-arrays.md)
+[PATH/QUEUE arrays](collection-arrays.md) now have separate reference-only and
+logical-snapshot contracts. Resource fields remain excluded; [FILE arrays](file-arrays.md)
 use separate borrowed-storage rules and [created-array markers](dynamic-file-arrays.md). The existing name, schema,
 collision, quota, callback and terminal ABORT/stop creation guards still apply.
 

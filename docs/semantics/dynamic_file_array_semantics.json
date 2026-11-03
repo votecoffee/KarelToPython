@@ -1,5 +1,6 @@
 {
   "version": "26.1102.201426",
+  "current_collection_arrays": "Reference-only PATH/QUEUE_TYPE ARRAY source/creation/JSON now follow collection_array_semantics.json; earlier release exclusions below retain historical scope",
   "mode": "pythonic",
   "controller_validated": false,
   "evidence": "Authored dynamic FILE ARRAY allocation, borrowed I/O, lifecycle, closed-marker persistence and schema/quota rejection; no native compiler/controller execution",

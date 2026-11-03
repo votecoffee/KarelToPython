@@ -26,6 +26,9 @@ def typed_value(value, spec=None):
         if spec is None:
             spec=('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254) if type(value) is str else None
     if spec is None or runtime.file_storage_type(spec): raise ValueError('A serializable value requires an explicit data type without FILE storage')
+    if runtime.collection_array_type(spec):
+        with runtime._numeric_scope('pythonic'):payload=collection_array_payload(spec,value)
+        return {'type':json.loads(json.dumps(spec)),'value':payload}
     if spec[0] in ('PATH','QUEUE_TYPE'):
         with runtime._numeric_scope('pythonic'): payload=collection_payload(spec,value)
         return {'type':json.loads(json.dumps(spec)),'value':payload}
@@ -42,6 +45,7 @@ def array_state_values(shape,payload):
 def restore_value(spec, payload):
     runtime=rt(); spec=tuple_spec(spec)
     if runtime.file_storage_type(spec): raise ValueError('FILE handles and FILE ARRAYs are not persistent values')
+    if runtime.collection_array_type(spec):return restore_collection_array(spec,payload)
     if spec[0] in ('PATH','QUEUE_TYPE'): return restore_collection(spec,payload)
     if payload=={'uninitialized':True}: return runtime.UNINITIALIZED
     if payload=={'unknown_byte':True}:
@@ -87,6 +91,107 @@ def decode_typed(row):
     spec=tuple_spec(spec)
     with rt()._numeric_scope('pythonic'): value=restore_value(spec,row['value'])
     return spec,value
+
+
+def collection_array_cost(spec):
+    """Validate concrete containers and count descriptors plus immediate headers."""
+    runtime=rt()
+    if type(spec) is not tuple or not spec:raise ValueError('Collection ARRAY requires a concrete type')
+    if spec[0]!='ARRAY':return None
+    cells=1;rank=0;depth=0;current=spec
+    while current[0]=='ARRAY':
+        if type(current) is not tuple or len(current) not in (3,4):raise ValueError('Malformed collection ARRAY schema')
+        try:identity=runtime.array_identity(current)
+        except runtime.KarelRuntimeError as exc:raise ValueError('Malformed collection ARRAY identity') from exc
+        if depth and identity is None:raise ValueError('Nested collection ARRAY components require names')
+        if identity is not None and not re.fullmatch(r'[A-Z_][A-Z_0-9]*',identity):raise ValueError('Invalid collection ARRAY identity')
+        shape=runtime.array_shape(current);rank+=len(shape);depth+=1
+        if not shape or rank>3:raise ValueError('Collection ARRAY requires one through three logical dimensions')
+        for size in shape:
+            if type(size) is not int or not 1<=size<=32767:raise ValueError('Collection ARRAY requires fixed dimensions in 1..32767')
+            cells*=size
+            if cells>32767:raise ValueError('Collection ARRAY exceeds 32767 reserved units')
+        current=current[2]
+        if type(current) is not tuple or not current:raise ValueError('Malformed collection ARRAY terminal type')
+    width=1
+    if current[0]=='QUEUE_TYPE':
+        if current!=('QUEUE_TYPE',):raise ValueError('Malformed collection ARRAY queue type')
+    elif current[0]=='PATH' and len(current)==3:
+        for index,component in enumerate(current[1:],1):
+            if component is None:continue
+            if type(component) is not tuple or not component or component[0]!='STRUCTURE':raise ValueError('Collection PATH components require named STRUCTURE layouts')
+            try:runtime._validate_data_schema(component)
+            except runtime.KarelRuntimeError as exc:raise ValueError('Invalid collection ARRAY component schema: '+str(exc)) from exc
+            collection_data_spec(component)
+            if index==2:width+=runtime.scalar_leaf_count(component)
+    elif current[0]=='PATH':raise ValueError('Malformed collection ARRAY PATH type')
+    else:return None
+    cost=cells*width
+    if cost>32767:raise ValueError('Collection ARRAY exceeds 32767 reserved units including headers')
+    return cost
+
+
+def _collection_array_units(spec,value,encoded):
+    runtime=rt()
+    if encoded:
+        keys={'initialized','sequence','entries'} if spec[0]=='QUEUE_TYPE' else {'nodes','data'}
+        if type(value) is not dict or set(value)!=keys:raise ValueError('Malformed collection ARRAY cell payload')
+        items=value['entries' if spec[0]=='QUEUE_TYPE' else 'nodes']
+        if spec[0]=='PATH' and spec[2] is None and value['data'] is not None:raise ValueError('Headerless PATH cannot contain data')
+    else:
+        kind=runtime.QueueValue if spec[0]=='QUEUE_TYPE' else runtime.PathValue
+        if type(value) is not kind or value.spec!=spec:raise ValueError('Collection ARRAY cell does not match its schema')
+        items=value.entries if spec[0]=='QUEUE_TYPE' else value.nodes
+    if type(items) is not list or len(items)>32767:raise ValueError('Collection ARRAY cell exceeds its entry/node limit')
+    if spec[0]=='QUEUE_TYPE':return 1+2*len(items)
+    node=spec[1] or runtime.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+    return 1+(runtime.scalar_leaf_count(spec[2]) if spec[2] else 0)+len(items)*runtime.scalar_leaf_count(node)
+
+
+def _collection_array_rows(spec,value,encoded):
+    """Check hierarchy and combined contents before encoding or allocating arrays."""
+    runtime=rt();rows=[];units=0
+    if collection_array_cost(spec) is None:raise ValueError('Collection ARRAY codec requires PATH or QUEUE_TYPE cells')
+    def visit(schema,item):
+        nonlocal units
+        if schema[0]!='ARRAY':
+            units+=_collection_array_units(schema,item,encoded)
+            if units>32767:raise ValueError('Collection ARRAY snapshot exceeds 32767 units including contents')
+            rows.append((schema,item));return
+        shape=runtime.array_shape(schema)
+        if encoded:values=array_state_values(shape,item)
+        else:
+            if (type(item) is not runtime.Array or item.spec!=schema or item.shape!=shape
+                    or type(item.values) is not list or len(item.values)!=math.prod(shape)):
+                raise ValueError('Collection ARRAY storage does not match its concrete schema')
+            values=item.values
+        for child in values:visit(schema[2],child)
+    visit(spec,value)
+    return rows
+
+
+def collection_array_payload(spec,value):
+    runtime=rt();rows=_collection_array_rows(spec,value,False)
+    payloads=iter(collection_payload(schema,item) for schema,item in rows)
+    def encode(schema,item):
+        if schema[0]!='ARRAY':return next(payloads)
+        values=[encode(schema[2],child) for child in item.values]
+        for dimension in reversed(runtime.array_shape(schema)[1:]):
+            values=[values[start:start+dimension] for start in range(0,len(values),dimension)]
+        return values
+    return encode(spec,value)
+
+
+def restore_collection_array(spec,payload):
+    """Validate counts first; restore independent cells with no queue buffer links."""
+    runtime=rt();rows=_collection_array_rows(spec,payload,True)
+    restored=iter([restore_collection(schema,item) for schema,item in rows])
+    def allocate(schema):
+        if schema[0]!='ARRAY':return next(restored)
+        result=runtime.Array(schema)
+        result.values[:]=[allocate(schema[2]) for _ in result.values]
+        return result
+    return allocate(spec)
 
 
 def collection_data_spec(spec):

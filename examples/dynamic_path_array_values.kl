@@ -1,0 +1,17 @@
+PROGRAM DYNAMIC_PATH_ARRAY_VALUES
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE
+     header_t=STRUCTURE count:INTEGER ENDSTRUCTURE
+     route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR status,entry,value:INTEGER done:BOOLEAN
+ROUTINE grow(items:ARRAY OF route_t)
+BEGIN
+  APPEND_NODE(items[2],status) items[2].count=1 items[2][1].amount=17
+END grow
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ROUTES','','ARRAY OF route_t',0,2,0,0,status)
+    grow(BYNAME('CACHE','ROUTES',entry))
+    GET_VAR(entry,'CACHE','ROUTES[2][1].AMOUNT',value,status)
+    done=TRUE
+  ENDIF
+END DYNAMIC_PATH_ARRAY_VALUES

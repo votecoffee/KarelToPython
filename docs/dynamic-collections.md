@@ -27,9 +27,10 @@ prepare(BYNAME('CACHE','JOBS',entry))
 
 Custom PATH components must be named data STRUCTURE layouts with concrete shapes,
 bounded STRING capacities and at most 64 data-schema levels. Each node/header
-prototype retains the 32767-leaf bound. Embedded resources and additional
-ARRAY dimensions around collection roots are rejected with existing
-unsupported-type status 5. Type declarations are supplied explicitly; a custom
+prototype retains the 32767-leaf bound. Embedded resources remain rejected with existing unsupported-type status 5.
+[Collection arrays](collection-arrays.md) now provide reference-only ARRAY storage,
+including dynamic dimensions and named components, under their separate budget
+and logical-snapshot contracts. Type declarations are supplied explicitly; a custom
 source declaration string or binary environment is not parsed from `type_name`.
 [Root FILE descriptors](dynamic-files.md) use a separate closed-descriptor contract.
 

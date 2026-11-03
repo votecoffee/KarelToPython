@@ -87,7 +87,8 @@ Generic typed FILE/FILE ARRAY codecs still reject descriptors. Rows without
 creation metadata cannot use the marker. Static FILE ARRAY globals retain their
 omission policy; explicit bindings cannot copy resource storage into those globals.
 VR SAVE/CLEAR/LOAD excludes created FILE ARRAY roots and leaves their descriptors
-alone. PATH/QUEUE ARRAY creation and resource STRUCTURE fields remain excluded.
+alone. [PATH/QUEUE ARRAY creation](collection-arrays.md) now uses a separate
+logical-snapshot contract; resource STRUCTURE fields remain excluded.
 
 The [semantic ledger](semantics/dynamic_file_array_semantics.json) and authored
 regressions cover creation, checkpoint changes, quota/schema preflight, text/binary

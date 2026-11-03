@@ -1,0 +1,9 @@
+PROGRAM LIB
+TYPE row_t=ARRAY[2]OF QUEUE_TYPE
+VAR buffer:ARRAY[3]OF INTEGER status,sequence:INTEGER filled:BOOLEAN
+ROUTINE fill(items:row_t)
+BEGIN
+  INIT_QUEUE(items[2]) APPEND_QUEUE(23,items[2],buffer,sequence,status)
+  filled=TRUE
+END fill
+BEGIN END LIB

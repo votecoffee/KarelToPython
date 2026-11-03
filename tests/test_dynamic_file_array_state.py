@@ -107,9 +107,9 @@ class DynamicFileArraySchemaTests(unittest.TestCase):
         with self.assertRaises(ValueError):creation_cost(spec)
     def test_resource_fields_still_cannot_be_created(self):
         with self.assertRaises(ValueError):creation_cost(('STRUCTURE','BAD',(('F',SPEC),)))
-    def test_path_and_queue_arrays_remain_excluded(self):
+    def test_path_and_queue_arrays_have_separate_creation_contracts(self):
         for spec in (('ARRAY',2,('PATH',None,None)),('ARRAY',2,('QUEUE_TYPE',))):
-            with self.subTest(spec=spec),self.assertRaises(ValueError):creation_cost(spec)
+            with self.subTest(spec=spec):self.assertEqual(creation_cost(spec),2)
     def test_unknown_or_data_schema_cannot_use_descriptor_marker(self):
         for spec in (('INTEGER',),('ARRAY',2,('INTEGER',)),('FILE','bad')):
             with self.subTest(spec=spec),self.assertRaises(ValueError):restore_file_storage(spec,{'closed':True})

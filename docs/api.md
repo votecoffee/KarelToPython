@@ -2,6 +2,10 @@
 
 ## Translation
 
+[Collection arrays](collection-arrays.md) add `collection_array_policy` for borrowed
+PATH/QUEUE_TYPE ARRAYs, CREATE_VAR quotas, PATH node coordinates and logical JSON.
+Data copies and VR archives keep their separate resource guards.
+
 [Whole POSITION input](position-input.md) adds `position_input_policy` for complete
 19-field captures, batch geometry checks and bounded input-roundoff normalization.
 It uses existing callback/FILE transports while retaining direct orientation guards.

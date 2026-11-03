@@ -677,8 +677,14 @@ class Array:
         array_identity(spec)
         if file_storage_type(spec) and not _pythonic():
             raise KarelRuntimeError('FILE ARRAY storage requires Pythonic mode')
+        if collection_array_type(spec) and not _pythonic():
+            raise KarelRuntimeError('Collection ARRAY storage requires Pythonic mode')
         if spec[2][0] == 'ARRAY' and array_identity(spec[2]) is None:
             raise KarelRuntimeError('Nested ARRAY elements require a separately named type')
+        if collection_array_type(spec):
+            from .storage import collection_array_cost
+            try:collection_array_cost(spec)
+            except (ValueError,KarelRuntimeError) as exc:raise KarelRuntimeError(str(exc)) from exc
         self.spec = spec
         self.shape = array_shape(spec)
         size = 1
@@ -726,6 +732,8 @@ class Array:
     def clone(self):
         if file_storage_type(self.spec):
             raise KarelRuntimeError('FILE ARRAY storage cannot be copied; pass its reference')
+        if collection_array_type(self.spec):
+            raise KarelRuntimeError('Collection ARRAY storage cannot be copied; pass its reference')
         result = Array(self.spec)
         result.values = [value.clone() if isinstance(value, (Array, Structure, JointPosition)) else value
                          for value in self.values]
@@ -735,6 +743,42 @@ class Array:
 def file_storage_type(spec):
     """FILE descriptors, including reference-only ARRAY roots; never data values."""
     return spec[0] == 'FILE' or spec[0] == 'ARRAY' and array_leaf_spec(spec)[0] == 'FILE'
+
+
+def collection_array_type(spec):
+    """Reference-only ARRAY roots whose terminal cells are logical collections."""
+    return spec[0]=='ARRAY' and array_leaf_spec(spec)[0] in ('PATH','QUEUE_TYPE')
+
+
+def collection_array_node_type(spec,count):
+    if collection_array_type(spec) and array_leaf_spec(spec)[0]=='PATH' and count==len(array_dimensions(spec))+1:
+        return array_leaf_spec(spec)[1] or PREDEFINED_STRUCTURES['STD_PTH_NODE']
+    return None
+
+
+def collection_path_reference(array,index,expected,line=None):
+    """Capture full ARRAY coordinates and a following PATH node once."""
+    indexes=index if type(index) is tuple else (index,)
+    if (not _pythonic() or collection_array_node_type(expected,len(indexes)) is None
+            or type(array) is not Array or not parameter_accepts(expected,array.spec)):
+        raise KarelRuntimeError('Collection ARRAY node access requires matching declared PATH storage',line)
+    current=array;schema=array.spec;remaining=indexes[:-1]
+    while schema[0]=='ARRAY':
+        shape=array_shape(schema)
+        if (type(current) is not Array or current.spec!=schema or current.shape!=shape
+                or type(current.values) is not list or len(current.values)!=math.prod(shape)):
+            raise KarelRuntimeError('Malformed collection ARRAY container',line)
+        width=len(shape);offset=current.offset(remaining[:width],line)
+        current=current.values[offset];schema=schema[2];remaining=remaining[width:]
+    if type(current) is not PathValue or current.spec!=schema or type(current.nodes) is not list:
+        raise KarelRuntimeError('Collection ARRAY cell requires matching PATH storage',line)
+    node=integer(indexes[-1],line);value=current.node(node,line)
+    _aggregate_value(current.node_spec,value,line,allow_partial=True)
+    return Reference(current.node_spec,current.nodes,node-1)
+
+
+def resource_array_type(spec):
+    return spec[0]=='ARRAY' and array_leaf_spec(spec)[0] in ('FILE','PATH','QUEUE_TYPE')
 
 
 def initial_value(spec):

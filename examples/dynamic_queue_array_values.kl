@@ -1,0 +1,16 @@
+PROGRAM DYNAMIC_QUEUE_ARRAY_VALUES
+VAR status,entry,sequence,value:INTEGER buffer,other:ARRAY[3]OF INTEGER
+    saved:QUEUE_TYPE done:BOOLEAN
+ROUTINE fill(items:ARRAY OF QUEUE_TYPE)
+BEGIN
+  INIT_QUEUE(items[2]) APPEND_QUEUE(17,items[2],buffer,sequence,status)
+END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','JOBS','','ARRAY OF QUEUE_TYPE',0,2,0,0,status)
+    fill(BYNAME('CACHE','JOBS',entry))
+    GET_VAR(entry,'CACHE','JOBS[2]',saved,status)
+    GET_QUEUE(saved,other,value,sequence,status)
+    done=TRUE
+  ENDIF
+END DYNAMIC_QUEUE_ARRAY_VALUES

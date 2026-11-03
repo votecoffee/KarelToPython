@@ -1,0 +1,59 @@
+[
+  {
+    "program": "COLLECTION_PATH_ARRAYS",
+    "path": "ROUTES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "AMOUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [
+          {
+            "AMOUNT": 7
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      },
+      {
+        "nodes": [
+          {
+            "AMOUNT": 9
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+PROGRAM COLLECTION_QUEUE_ARRAYS
+VAR jobs:ARRAY[2]OF QUEUE_TYPE buffer_a,buffer_b:ARRAY[3]OF INTEGER
+    status,sequence,value:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    INIT_QUEUE(jobs[1]) INIT_QUEUE(jobs[2])
+    APPEND_QUEUE(7,jobs[1],buffer_a,sequence,status)
+    APPEND_QUEUE(9,jobs[2],buffer_b,sequence,status)
+    GET_QUEUE(jobs[2],buffer_b,value,sequence,status)
+    done=TRUE
+  ENDIF
+END COLLECTION_QUEUE_ARRAYS

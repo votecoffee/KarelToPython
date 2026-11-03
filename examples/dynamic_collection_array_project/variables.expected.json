@@ -1,0 +1,35 @@
+[
+  {
+    "program": "CACHE",
+    "path": "JOBS",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "QUEUE_TYPE"
+      ],
+      "ROW_T"
+    ],
+    "value": [
+      {
+        "initialized": false,
+        "sequence": 0,
+        "entries": []
+      },
+      {
+        "initialized": true,
+        "sequence": 1,
+        "entries": [
+          [
+            1,
+            23
+          ]
+        ]
+      }
+    ],
+    "creation": {
+      "group": 0,
+      "memory_pool": 0
+    }
+  }
+]

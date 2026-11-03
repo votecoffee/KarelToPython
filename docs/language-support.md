@@ -1,5 +1,9 @@
 # Language support
 
+[Collection arrays](collection-arrays.md) now add reference-only PATH/QUEUE_TYPE
+cells, borrowed interfaces, dynamic creation and bounded logical JSON snapshots.
+Whole ARRAY data copies and resource STRUCTURE fields remain excluded.
+
 [Whole POSITION READ](position-input.md) now supports data containers and PATH
 components, with complete-response geometry checks, bounded transport-roundoff
 normalization and existing direct orientation guards.
@@ -53,7 +57,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1102.215003. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.140418. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -372,7 +376,7 @@ documents available for your controller release when evaluating source semantics
 Dynamic creation, renaming and typed BYNAME routine aliases follow the
 [dynamic variable contract](dynamic-variables.md), including saved creation policy
 and explicit namespace guards. [Dynamic collections](dynamic-collections.md) add
-root PATH/QUEUE_TYPE and supplied aliases, checked header/descriptor reservations,
+root PATH/QUEUE_TYPE and supplied aliases, [collection arrays](collection-arrays.md), checked header/descriptor reservations,
 renaming and existing collection persistence. [Dynamic FILE descriptors](dynamic-files.md)
 add root FILE/aliases, typed operations and closed-descriptor JSON with fresh
 handle state on restore. Embedded resources and restored open handles remain excluded. Compiled names and native memory pools stay fixed.

@@ -52,8 +52,13 @@ rows, borrowed routines and PATH data. Complete-batch geometry checks accept
 bounded transport roundoff and preserve source orientation protection across
 callback, text/binary FILE and cooperative input.
 
+[PATH and queue arrays](docs/collection-arrays.md) now provide independent
+collection cells, borrowed routine/BYNAME access and dynamic creation. Logical
+JSON retains PATH contents and queue sequence state, with bounded allocation and
+restore checks. Saved-variable fixtures verify the new examples independently.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1102.215003**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.140418**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -432,7 +437,7 @@ formats, with whole-page validation before outputs change. See
 CREATE_VAR, RENAME_VAR and RENAME_VARS manage explicit variable namespaces;
 BYNAME passes checked named aliases into typed routines, including linked calls
 and cooperative pause/resume. [Dynamic collections](docs/dynamic-collections.md)
-now add root PATH/QUEUE_TYPE creation, checked header/descriptor reservations,
+now add root PATH/QUEUE_TYPE creation and [collection arrays](docs/collection-arrays.md), checked header/descriptor reservations,
 renaming and saved-state replay. [Dynamic FILE descriptors](docs/dynamic-files.md)
 now add typed file I/O/cancellation aliases and explicit closed-descriptor JSON;
 loading creates a fresh closed handle while backend data uses existing snapshots.
@@ -884,9 +889,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 388 authored runnable examples, checks complete
+The example runner translates 392 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 126 complete linked source projects. It also checks that unsupported
+fixtures, plus 128 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

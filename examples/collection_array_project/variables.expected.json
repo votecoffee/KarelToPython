@@ -1,0 +1,35 @@
+[
+  {
+    "program": "MAIN",
+    "path": "JOBS",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      {
+        "initialized": true,
+        "sequence": 1,
+        "entries": [
+          [
+            1,
+            11
+          ]
+        ]
+      },
+      {
+        "initialized": true,
+        "sequence": 1,
+        "entries": [
+          [
+            1,
+            17
+          ]
+        ]
+      }
+    ]
+  }
+]

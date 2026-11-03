@@ -2379,7 +2379,9 @@ class ExecutionContext:
                     reference=rt.Reference(value.node_spec,value.nodes,numbers[0]-1)
                 else:
                     selected=numbers[0] if len(numbers)==1 else numbers
-                    if prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
+                    if rt._pythonic() and rt.collection_array_node_type(reference.spec,len(numbers)) is not None:
+                        reference=rt.collection_path_reference(value,selected,reference.spec,line)
+                    elif prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
                         reference=rt.array_prefix_target(value,selected,reference.spec,line)
                     elif rt._pythonic() and any(rt.joint_axis_access(reference.spec,n) for n in range(1,5)):
                         if type(value) not in (rt.Array,rt.JointPosition) or not rt.parameter_accepts(reference.spec,value.spec):fail('Joint variable path storage does not match its declared schema',line)

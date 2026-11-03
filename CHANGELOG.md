@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1103.140418 - 2026-11-03
+
+- Add reference-only PATH/QUEUE_TYPE arrays with independent cells, named/nested
+  and wildcard shapes, borrowed routines/BYNAME and following PATH-node selectors.
+- Extend CREATE_VAR with collection-array shapes/aliases and checked descriptor
+  and header reservations, preserving checkpoint, rename and lifetime guards.
+- Save bounded logical array contents and queue sequence state through context
+  JSON; restore independent cells without backing buffers; exclude VR array copies.
+- Add 124 regression tests, four runnable examples and two linked projects, with
+  optional independent saved-variable row fixtures in the example runner.
+
 ## 26.1102.215003 - 2026-11-02
 
 - Add whole POSITION READ inside arrays, records, prefix targets, borrowed routines

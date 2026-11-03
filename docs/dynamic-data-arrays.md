@@ -40,7 +40,8 @@ aliases. STRING defaults to capacity 12; explicit capacities stay within 1..254.
 Case and surrounding/repeated separating spaces are normalized. Inline recursive
 syntax such as `ARRAY OF ARRAY OF INTEGER` is not parsed: supply a named inner
 type. [FILE arrays](dynamic-file-arrays.md) use separate descriptor-allocation
-rules; PATH/QUEUE arrays and resource fields remain excluded.
+rules. [PATH/QUEUE arrays](collection-arrays.md) now use separate reference-only
+contracts; resource fields remain excluded.
 
 The type program still selects explicitly attached source layouts. A blank type
 program uses the executing source module; no controller or caller-local layout

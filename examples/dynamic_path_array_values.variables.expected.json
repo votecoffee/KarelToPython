@@ -1,0 +1,61 @@
+[
+  {
+    "program": "CACHE",
+    "path": "ROUTES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "AMOUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      },
+      {
+        "nodes": [
+          {
+            "AMOUNT": 17
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ],
+    "creation": {
+      "group": 0,
+      "memory_pool": 0
+    }
+  }
+]

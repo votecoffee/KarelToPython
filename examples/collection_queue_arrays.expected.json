@@ -1,0 +1,31 @@
+{
+  "JOBS": [
+    {
+      "initialized": true,
+      "entries": [
+        [
+          1,
+          7
+        ]
+      ]
+    },
+    {
+      "initialized": true,
+      "entries": []
+    }
+  ],
+  "BUFFER_A": [
+    7,
+    0,
+    0
+  ],
+  "BUFFER_B": [
+    0,
+    0,
+    0
+  ],
+  "STATUS": 0,
+  "SEQUENCE": 1,
+  "VALUE": 9,
+  "DONE": true
+}

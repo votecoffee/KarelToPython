@@ -65,10 +65,11 @@ class DynamicCollectionCreationTests(unittest.TestCase):
             for group,pool in ((0,0),(32,-1),(2,0)):
                 v,ctx,_,_=execute(create(kind,group=group,pool=pool));self.assertEqual(v['STATUS'],0);self.assertEqual(ctx.variables.metadata['CACHE','ITEM'],dict(group=group,memory_pool=pool))
 
-    def test_resource_array_dimensions_are_rejected_without_allocation(self):
+    def test_collection_array_dimensions_allocate_independent_cells(self):
         for kind in ('PATH','QUEUE_TYPE','route_t','queue_alias'):
             for dims in ((1,0,0),(2,3,0),(1,1,1)):
-                v,ctx,_,_=execute(create(kind,dims=dims),prefix=PREFIX);self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
+                v,ctx,_,_=execute(create(kind,dims=dims),prefix=PREFIX)
+                self.assertEqual(v['STATUS'],0);self.assertEqual(rt.array_dimensions(ref(ctx).spec),tuple(size for size in reversed(dims) if size))
 
     def test_invalid_names_group_pool_and_dimensions_preserve_store(self):
         for call,code in [(create('PATH',name='BAD.NAME'),2),(create('QUEUE_TYPE',group=33),5),(create('PATH',pool=1),2),(create('PATH',dims=(0,1,0)),5)]:
@@ -89,7 +90,7 @@ class DynamicCollectionCreationTests(unittest.TestCase):
         v,ctx,_,_=execute(create('PATH')+create('PATH',name='OTHER')+invoke('grow'),routines=GROW)
         self.assertIsNot(ref(ctx).raw(),ref(ctx,'OTHER').raw());self.assertEqual((len(ref(ctx).raw().nodes),ref(ctx,'OTHER').raw().nodes),(1,[]))
 
-    def test_embedded_resource_creation_remains_rejected(self):
+    def test_array_of_resource_creation_requires_dimensions(self):
         for kind in ('ARRAY OF FILE','ARRAY OF PATH','ARRAY OF QUEUE_TYPE'):
             v,ctx,_,_=execute(create(kind));self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
 
@@ -281,7 +282,7 @@ class DynamicCollectionAllocationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'64'):creation_cost(('PATH',node,None))
 
     def test_embedded_resource_components_and_array_roots_fail_closed(self):
-        cases=[('PATH',('STRUCTURE','N',(('F',('FILE',)),)),None),('ARRAY',2,QUEUE),('ARRAY',1,PATH)]
+        cases=[('PATH',('STRUCTURE','N',(('F',('FILE',)),)),None),('STRUCTURE','R',(('Q',('ARRAY',2,QUEUE)),)),('ARRAY',(1,1,1,1),PATH)]
         for spec in cases:
             with self.subTest(spec=spec),self.assertRaises(ValueError):creation_cost(spec)
 

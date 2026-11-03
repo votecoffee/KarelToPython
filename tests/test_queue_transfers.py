@@ -158,7 +158,7 @@ class QueueTransferGuardTests(unittest.TestCase):
         self.assertTrue(matches(('QUEUE_TYPE',),'VARIABLE'));self.assertFalse(matches(('QUEUE_TYPE',),'ANY'))
 
     def test_embedded_queue_is_not_a_transferable_array(self):
-        value=rt.Array(('ARRAY',1,('QUEUE_TYPE',)))
+        with rt._numeric_scope('pythonic'):value=rt.Array(('ARRAY',1,('QUEUE_TYPE',)))
         with self.assertRaisesRegex(rt.KarelRuntimeError,'without resources'): rt.variable_value(value.spec,value)
 
     def test_file_target_remains_excluded_and_path_mismatch_is_status_only(self):

@@ -176,10 +176,11 @@ class DynamicArrayBoundsTests(unittest.TestCase):
         p,_=program(kind='BAD');p.variable_types['BAD']=('ARRAY',3,rt.INTEGER);self.assertEqual(p.run()['STATUS'],5)
     def test_inline_nested_array_grammar_is_not_parsed(self):
         v,ctx,_,_=run(kind='ARRAY OF ARRAY OF INTEGER');self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
-    def test_resource_array_forms_remain_rejected(self):
+    def test_collection_array_forms_have_reference_only_storage(self):
         for kind in ('PATH','QUEUE_TYPE'):
             with self.subTest(kind=kind):
-                v,ctx,_,_=run(kind='ARRAY OF '+kind);self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
+                v,ctx,_,_=run(kind='ARRAY OF '+kind);self.assertEqual(v['STATUS'],0)
+                self.assertTrue(rt.collection_array_type(ctx.variables.bindings['CACHE','ITEM'].spec))
     def test_positional_element_requires_explicit_group(self):
         v,ctx,_,_=run(kind='ARRAY OF JOINTPOS2');self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
     def test_per_root_leaf_limit_counts_named_components(self):

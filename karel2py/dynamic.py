@@ -58,10 +58,12 @@ def restore_file_storage(spec,payload):
 def creation_cost(spec):
     """Validate a creation schema and count its immediately reserved storage."""
     rt=runtime()
-    from .storage import collection_data_spec
+    from .storage import collection_data_spec,collection_array_cost
     if type(spec) is not tuple or not spec: raise ValueError('Creation requires a concrete type')
     descriptors=file_storage_cost(spec)
     if descriptors is not None:return descriptors
+    collections=collection_array_cost(spec)
+    if collections is not None:return collections
     if spec==('QUEUE_TYPE',): return 1
     if spec[0]=='PATH':
         if len(spec)!=3: raise ValueError('Created PATH requires node and header schemas')
@@ -189,7 +191,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     if any(type(size) is not int or not 0<=size<=32767 for size in dimensions): return None
     if (dimensions[1] and not dimensions[0]) or (dimensions[2] and not dimensions[1]): return None
     shape=tuple(size for size in reversed(dimensions) if size)
-    if spec[0] in ('FILE','PATH','QUEUE_TYPE') and (not rt._pythonic() or shape and spec[0]!='FILE'): return None
+    if spec[0] in ('FILE','PATH','QUEUE_TYPE') and not rt._pythonic(): return None
     if shape:
         if spec[0]=='ARRAY' and (not rt._pythonic() or rt.array_identity(spec) is None):return None
         spec=('ARRAY',shape[0] if len(shape)==1 else shape,spec)

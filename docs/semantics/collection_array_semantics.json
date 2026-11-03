@@ -1,0 +1,21 @@
+{
+  "version": "26.1103.140418",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../collection-arrays.md",
+  "tests": [
+    "tests/test_collection_arrays.py",
+    "tests/test_dynamic_collection_arrays.py"
+  ],
+  "source": "Reference-only PATH/QUEUE_TYPE ARRAYs; global/local/wildcard, aliases and named/nested components; exact or generic borrowed routine/BYNAME interfaces",
+  "selectors": "Complete ARRAY coordinates plus one PATH node selector; evaluate all selectors once before container/bounds/node validation; capture original storage",
+  "creation": "CREATE_VAR ARRAY OF/supplied aliases/named arrays with existing dimensions, type owners, metadata, collisions and checkpoint rechecks",
+  "allocation": "32767 combined reserved units across created roots; one descriptor per cell plus PATH header leaves; static allocation has the same per-array bound",
+  "snapshot": "Canonical nested payloads, independent restored cells, partial PATH data and complete queue sequence state; queue buffer links dropped; combined 32767 descriptor/header/node/entry-scalar units checked before restored root ARRAY allocation",
+  "guards": "No whole ARRAY copies, grouped value arguments, results, flat-prefix values, generic whole ARRAY READ/WRITE/UNINIT/GET_VAR/SET_VAR or source STRUCTURE resource fields; individual scalar collection contracts retained",
+  "archives": "Static and created collection ARRAY roots excluded from VR SAVE/CLEAR/LOAD; other supported data roots retained",
+  "lifetime": "Ordinary references across calls, rename and pause; no saved aliases, callbacks, backing buffers or suspended stacks",
+  "fixtures": "Optional selected complete saved-variable row expectations compare type/value/creation metadata for runnable examples and linked projects",
+  "boundary": "No implicit robot/group context, native resource allocation, ABI, controller/source equivalence or public strict mode",
+  "supersedes": "Earlier collection ARRAY declaration/creation exclusions in dynamic collection/data/FILE guides; historical release details retained"
+}

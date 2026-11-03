@@ -662,6 +662,9 @@ class Parser:
             shape = None if rank == 1 else (None,) * rank
             self.expect('OF')
             element = self.take()
+            if self.mode=='pythonic' and element.value in ('PATH','QUEUE_TYPE'):
+                self.position-=1
+                return ('ARRAY',shape,self.type_spec())
             if element.value in rt.JOINT_TYPE_NAMES:
                 return ('ARRAY', shape, self.group_spec(rt.joint_spec(element.value),element))
             if element.value not in (*ARRAY_SCALARS, *DATA_RECORD_TYPES) and not (self.mode=='pythonic' and element.value=='FILE'):
@@ -1384,6 +1387,7 @@ class Emitter:
                 self.error('E_VARIABLE_ARRAY_SCOPE', 'Variable-sized ARRAYs are supported only as direct global VAR declarations with explicit translation context; TYPE/fields/routine locals remain blocked', wildcard.token)
             element = self.resolve_spec(spec[2])
             if self.mode=='pythonic' and element==('FILE',):self.features.add('reference-only FILE ARRAY')
+            if self.mode=='pythonic' and (element[0] in ('PATH','QUEUE_TYPE') or rt.collection_array_type(element)):self.features.add('reference-only collection ARRAY')
             if element[0] == 'ARRAY':
                 if rt.array_identity(element) is None:
                     self.error('E_NESTED_NAMED_ARRAY', 'Nested ARRAY elements require a separately named type', spec[2][1])
@@ -1406,22 +1410,32 @@ class Emitter:
             for size in sizes: total *= size
             if total > 32767:
                 self.error('E_ARRAY_CAPACITY', 'Prototype arrays are limited to 32767 scalar elements in total', spec[1][0].token)
-            if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY') and not (self.mode=='pythonic' and element==('FILE',)):
+            if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY') and not (self.mode=='pythonic' and element[0] in ('FILE','PATH','QUEUE_TYPE')):
                 self.error('E_TYPE', 'ARRAY elements require supported scalars or named STRUCTURE types', spec[1][0].token)
             if rt.scalar_leaf_count(('ARRAY', tuple(sizes), element)) > 32767:
                 self.error('E_ARRAY_CAPACITY', 'Prototype arrays are limited to 32767 scalar leaves including STRUCTURE fields', spec[1][0].token)
             self.features.add('multidimensional STRUCTURE ARRAY' if element[0] == 'STRUCTURE' else 'multidimensional scalar ARRAY')
-            return ('ARRAY', tuple(sizes), element)
+            result=('ARRAY',tuple(sizes),element)
+            self.check_collection_array(result,spec[1][0].token)
+            return result
         size = self.constant(spec[1])
         limit = 254 if spec[0] == 'STRING' else 32767
         if type(size) is not int or not 1 <= size <= limit:
             self.error('E_SIZE', f'{spec[0]} size must be INTEGER in 1..{limit}', spec[1].token)
         if spec[0] == 'STRING': return (spec[0], size)
-        if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY') and not (self.mode=='pythonic' and element==('FILE',)):
+        if element[0] not in (*ARRAY_ELEMENTS, 'ARRAY') and not (self.mode=='pythonic' and element[0] in ('FILE','PATH','QUEUE_TYPE')):
             self.error('E_TYPE', 'ARRAY elements require supported scalars or named STRUCTURE types; nested arrays are blocked', spec[1].token)
         if rt.scalar_leaf_count(('ARRAY', size, element)) > 32767:
             self.error('E_ARRAY_CAPACITY', 'Prototype arrays are limited to 32767 scalar leaves including STRUCTURE fields', spec[1].token)
-        return ('ARRAY', size, element)
+        result=('ARRAY',size,element)
+        self.check_collection_array(result,spec[1].token)
+        return result
+
+    def check_collection_array(self,spec,token):
+        if self.mode=='pythonic' and rt.collection_array_type(spec):
+            from .storage import collection_array_cost
+            try:collection_array_cost(spec)
+            except (ValueError,rt.KarelRuntimeError) as exc:self.error('E_ARRAY_CAPACITY',str(exc),token)
 
     def resolve_array_result_spec(self, spec, token):
         """Resolve Pythonic result dimensions in the global interface scope."""
@@ -1511,7 +1525,7 @@ class Emitter:
             for member, spec in definition:
                 if member.value in resolved: self.error('E_DUPLICATE', 'Duplicate STRUCTURE field', member)
                 resolved[member.value] = self.resolve_spec(spec)
-                if resolved[member.value][0] in ('FILE','PATH','QUEUE_TYPE') or rt.file_storage_type(resolved[member.value]):
+                if resolved[member.value][0] in ('FILE','PATH','QUEUE_TYPE') or rt.resource_array_type(resolved[member.value]):
                     self.error('E_TYPE','Resource fields in STRUCTURE are not supported',member)
             self.user_types[token.value] = ('STRUCTURE', token.value, tuple(resolved.items()))
             self.features.add('named STRUCTURE definition')
@@ -1553,6 +1567,8 @@ class Emitter:
                 self.features.add('named ' + routine.return_type[0] + ' function result')
                 if routine.return_type[0] == 'STRING': self.features.add('STRING function result')
             if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
+            if routine.return_type and rt.collection_array_type(routine.return_type):
+                self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY function results are not supported',routine.token)
             if routine.return_type and routine.return_type[0] == 'ARRAY':
                 element = routine.return_type[2]
                 if element[0] == 'NAMED':
@@ -2143,6 +2159,7 @@ class Emitter:
             spec = self.access_type(expr.args[0])
             if spec[0]=='PATH': return rt.PathValue(spec).node_spec
             if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return ('REAL',)
+            if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:return rt.collection_array_node_type(spec,len(expr.args)-1)
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'Indexing requires ARRAY', expr.token)
             prefix=rt.array_prefix_type(spec,len(expr.args)-1) if self.mode=='pythonic' else None
             if prefix is not None and rt.aggregate_write_type(prefix):return prefix
@@ -2245,6 +2262,7 @@ class Emitter:
         prefix=allow_prefix and self.mode=='pythonic' and rt.array_prefix_type(spec,len(expr.args)-1) is not None
         index, selected = self.index_code(expr, spec, allow_prefix=prefix, prefix_target=prefix)
         if prefix:return f'_rt.array_prefix_target({base},{index},{spec!r},{line})',selected
+        if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:return f'_rt.collection_path_reference({base},{index},{spec!r},{line})',selected
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
 
@@ -2280,7 +2298,8 @@ class Emitter:
         prefix=rt.array_prefix_type(spec,len(indexes)) if allow_prefix and self.mode=='pythonic' else None
         if prefix is not None and not rt.aggregate_write_type(prefix):
             self.error('E_ARRAY_RANK','ARRAY prefix values require resource-free data',expr.token)
-        try: selected = ('REAL',) if axis else prefix if prefix is not None else rt.indexed_type(spec, len(indexes))
+        path_node=rt.collection_array_node_type(spec,len(indexes)) if self.mode=='pythonic' else None
+        try: selected = ('REAL',) if axis else path_node if path_node is not None else prefix if prefix is not None else rt.indexed_type(spec, len(indexes))
         except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
         if self.mode == 'strict' and len(indexes) > 1 and any(self.has_routine_call(index) for index in indexes):
             self.error('E_EVALUATION_ORDER', 'Multiple ARRAY subscripts containing routine calls need evaluation-order validation', expr.token)
@@ -2411,6 +2430,9 @@ class Emitter:
                 return f'{base}.node({index},{line})',rt.PathValue(spec).node_spec
             if spec[0]!='ARRAY' and not (self.mode=='pythonic' and spec[0]=='JOINTPOS'):self.error('E_TYPE','Indexing requires ARRAY or Pythonic JOINTPOS',expr.token)
             index, selected = self.index_code(expr, spec, allow_prefix=True)
+            if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:
+                reference=f'_rt.collection_path_reference({base},{index},{spec!r},{line})'
+                return reference+'.raw()' if raw else f'_rt.require({reference}.raw(),{line})',selected
             if self.mode=='pythonic' and rt.array_prefix_type(spec,len(expr.args)-1) is not None:
                 return f'_rt.array_prefix_value({base},{index},{spec!r},{line})',selected
             if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):
@@ -2933,6 +2955,8 @@ class Emitter:
                 value, actual = self.expression(argument)
                 if actual[0]=='ARRAY' and rt.file_storage_type(actual):
                     self.error('E_FILE_ARRAY_VALUE','FILE ARRAY arguments require borrowed storage without grouping',argument.token)
+                if rt.collection_array_type(actual):
+                    self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY arguments require borrowed storage without grouping',argument.token)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
             if self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):
@@ -3380,7 +3404,7 @@ class Emitter:
             self.error('E_FOR_COUNTER','Nested loops cannot reuse an active FOR counter root',token)
         reference=None
         if self.mode=='pythonic':
-            if counter_types[root][0] in ('PATH','FILE','QUEUE_TYPE') or self.is_config_subfield(counter):
+            if counter_types[root][0] in ('PATH','FILE','QUEUE_TYPE') or rt.resource_array_type(counter_types[root]) or self.is_config_subfield(counter):
                 self.error('E_FOR_COUNTER','FOR counters require ordinary integral leaves outside resource roots and CONFIG domains',token)
             if self.is_position_read_only_access(counter):self.error('E_POSITION_READ_ONLY','FOR counter storage is read-only',token)
             reference,spec=self.reference(counter)
@@ -3713,6 +3737,8 @@ class Emitter:
             reference, target_type = self.reference(target)
             if target_type[0]=='ARRAY' and rt.file_storage_type(target_type):
                 self.error('E_FILE_ARRAY_VALUE','FILE ARRAY storage cannot be assigned; pass its reference',target.token)
+            if rt.collection_array_type(target_type):
+                self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY storage cannot be assigned; pass its reference',target.token)
             value, value_type = self.expression(expr, allow_array_result=True)
             generic_receiver=(self.mode=='pythonic' and target_type[0]=='ARRAY' and target.kind=='name'
                 and self.current_routine is not None and target.value in {name.value for name,_ in self.current_routine.parameters}
@@ -6569,14 +6595,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         for row in [request,*request.get('settings',[])]:
             label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
             row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
+    report['collection_array_policy']=dict(
+        mode='Authored Pythonic reference-only PATH/QUEUE_TYPE ARRAY extension; no native source/layout/controller claim',
+        source='Global/local fixed or supplied wildcard arrays, transparent collection aliases, named/nested ARRAY components and exact or generic borrowed routine/BYNAME interfaces',
+        cells='Independent PATH roots/headers and queue descriptors; existing scalar collection operations and static variable paths; complete ARRAY coordinates may be followed by one PATH node selector',
+        limits='One through three ARRAY dimensions and 32767 reserved descriptors/header leaves per allocation; nodes allocate later; source aliases and shapes remain exact',
+        creation='CREATE_VAR uses existing ARRAY OF/type-owner/dimension, collision, metadata and checkpoint rechecks; collection groups remain metadata only',
+        persistence='Canonical nested ARRAY payloads with ordinary PATH data and queue initialized/sequence/entries; preflight hierarchy and combined 32767 descriptor/header/node/entry-scalar units before root ARRAY allocation; restored cells independent and queue buffers cleared',
+        guards='No whole ARRAY copies, grouped value arguments, results, prefix values, resource STRUCTURE fields, generic data READ/WRITE/GET_VAR/SET_VAR or VR archives; individual cells retain existing scalar collection contracts',
+        lifetime='Ordinary references across calls, pause and rename; captures/stacks and queue buffer links are not persisted',
+        guide='docs/collection-arrays.md',controller_validated=False)
     report['dynamic_collection_policy']=dict(
-        source='Pythonic CREATE_VAR root PATH and QUEUE_TYPE, including transparent supplied type aliases; no additional ARRAY dimensions or embedded resources',
+        source='Pythonic CREATE_VAR root PATH/QUEUE_TYPE and supplied aliases; ARRAY storage follows collection_array_policy; no embedded resources',
         schemas='Default PATH uses portable STD_PTH_NODE and no header; custom NODEDATA/PATHHEADER require resolved named data STRUCTURE layouts, fixed shapes and at most 64 data levels',
         allocation='32767 combined reserved units across created variables: ordinary scalar leaves, one queue descriptor, or one path descriptor plus allocated header leaves; validate node prototype separately; later nodes/entries use existing collection limits',
         publication='Existing collision/name/group/pool/status rules; budget checkpoint before allocation, then recheck terminal abort/stop, bank identity, roots and reserved capacity before publishing; retain earlier callback effects',
         interfaces='Exact BYNAME resource references, linked routines and existing collection procedures; GET_VAR/SET_VAR retain logical queue transfers and data-only PATH field transfers; native queue inspection type code remains unavailable',
         lifetime='Rename retains live identities and lookup cache hints; pause retains ordinary references; JSON preserves schema, logical state and creation metadata, without queue buffer aliases, callbacks or suspended stacks',
-        boundary='Root FILE descriptors follow dynamic_file_policy and FILE ARRAYs follow dynamic_file_array_policy; no PATH/QUEUE ARRAYs, resource fields, inferred geometry/group context, native allocation/ABI or strict mode',
+        boundary='Root FILE descriptors follow dynamic_file_policy and FILE ARRAYs follow dynamic_file_array_policy; collection ARRAYs follow collection_array_policy; no resource fields or inferred geometry/group context, native allocation/ABI or strict mode',
         guide='docs/dynamic-collections.md',controller_validated=False)
     report['dynamic_variable_policy']['collections']='Root PATH/QUEUE_TYPE creation follows dynamic_collection_policy; root FILE descriptors follow dynamic_file_policy; FILE ARRAYs follow dynamic_file_array_policy; resource fields remain unavailable'
     report['dynamic_file_policy']=dict(
@@ -6585,7 +6621,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         publication='Reuse schema/name/collision/quota checks, terminal abort/stop and bank/root/capacity rechecks after the creation checkpoint; no implicit OPEN or device discovery',
         persistence='Creation-tagged context variables rows alone accept type FILE with value exactly {closed: true}; require exact closed FILE and no pending I/O before encoding; validate metadata/quota before fresh allocation on restore',
         reset='Restore a fresh closed FileHandle; filename, cursor, mode, status, attributes, aliases, XML scanners, operation tokens and backend registrations are not retained; backend bytes use existing service snapshots',
-        guards='Generic typed FILE codecs, resource fields and non-FILE resource ARRAYs, whole-FILE GET_VAR/SET_VAR, created-handle saves while open/pending and FILE VR archives remain excluded; FILE ARRAY creation follows dynamic_file_array_policy',
+        guards='Generic typed FILE codecs, resource fields and whole-FILE GET_VAR/SET_VAR, created-handle saves while open/pending and FILE VR archives remain excluded; FILE ARRAY creation follows dynamic_file_array_policy',
         evidence='Authored offline descriptor extension; no native allocation/ABI/controller or strict-mode equivalence claim',
         guide='docs/dynamic-files.md',controller_validated=False)
     report['vision_bmp_sample_policy']=dict(
@@ -6618,7 +6654,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         allocation='One reserved unit per descriptor cell, shared 32767 creation budget; complete bounded schema validation before allocation; ordinary checkpoint/collision/bank/terminal guards',
         interfaces='Borrowed generic/named ARRAY or selected FILE BYNAME formals, linked routines, indexed I/O and cancellation; rename retains storage and lookup hints',
         persistence='Creation-tagged FILE ARRAY rows use exact {closed: true} allocation intent; preflight every exact container and closed/pending-free descriptor; retain schema/group/pool, reset every descriptor on restore',
-        guards='Validate schema, metadata and aggregate reserved budget before fresh allocation; generic FILE ARRAY codecs, value copies, STRUCTURE fields, PATH/QUEUE arrays and FILE VR archives remain excluded',
+        guards='Validate schema, metadata and aggregate reserved budget before fresh allocation; generic FILE ARRAY codecs, value copies, STRUCTURE fields and FILE VR archives remain excluded; PATH/QUEUE arrays follow collection_array_policy',
         guide='docs/dynamic-file-arrays.md',controller_validated=False)
     report['system_pose_write_policy']=dict(
         targets='Whole numbered frame/tool poses or active selected rows; LOCATION vectors/scalars and CONFIG_DATA whole/scalar fields only',

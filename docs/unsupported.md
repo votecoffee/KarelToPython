@@ -231,8 +231,8 @@ components with complete-batch pose validation and bounded rounding normalizatio
 
 [FILE arrays](file-arrays.md) now support indexed streams and borrowed
 routine/source-linked storage. [Dynamic creation](dynamic-file-arrays.md) adds
-checked allocations and closed creation-tagged JSON markers. Whole ARRAY
-copies/results, resource STRUCTURE fields, generic codecs and live descriptor
+checked allocations and closed creation-tagged JSON markers. Whole FILE ARRAY
+copies/results, resource STRUCTURE fields, generic FILE codecs and live descriptor
 restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operation.
 
 - Physical device mounting/formatting/purging, sockets, serial devices, pipes,
@@ -309,7 +309,9 @@ restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operati
   FILE/aliases for explicit typed I/O and cancellation; JSON retains closed
   allocation intent and resets handle state on restore. [Dynamic logical collections](dynamic-collections.md) now create root
   PATH/QUEUE_TYPE and supplied aliases with checked header/descriptor reservations;
-  QUEUE_TYPE native inspection codes and collection ARRAY creation remain unavailable.
+  QUEUE_TYPE native inspection codes remain unavailable. [Collection arrays](collection-arrays.md)
+  now support static/dynamic reference-only PATH/QUEUE_TYPE storage and logical JSON.
+  Whole ARRAY copies, results, incomplete prefix values and VR archives remain excluded.
   Program catalogs and load status describe attached programs or supplied metadata.
   [TRANSLATE](source-translations.md) now generates sibling Python and optional
   listings from explicit stored source; native PC output, implicit include discovery,

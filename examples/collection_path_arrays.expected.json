@@ -1,0 +1,27 @@
+{
+  "ROUTES": [
+    {
+      "nodes": [
+        {
+          "AMOUNT": 7
+        }
+      ],
+      "data": {
+        "COUNT": 1
+      }
+    },
+    {
+      "nodes": [
+        {
+          "AMOUNT": 9
+        }
+      ],
+      "data": {
+        "COUNT": 1
+      }
+    }
+  ],
+  "STATUS": 0,
+  "TOTAL": 16,
+  "DONE": true
+}

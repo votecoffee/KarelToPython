@@ -16,6 +16,17 @@ def read_json(path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def check_variable_expectations(context,path,label):
+    """Compare selected complete saved-variable rows with authored expectations."""
+    if not path.exists():return
+    expected=read_json(path)
+    assert type(expected) is list and expected,label+': variable expectations require rows'
+    keys=[(row['program'],row['path']) for row in expected]
+    assert len(keys)==len(set(keys)),label+': duplicate variable expectation'
+    actual={(row['program'],row['path']):row for row in context.to_config().get('variables',[])}
+    for key,row in zip(keys,expected):assert actual.get(key)==row,label+': saved variable '+str(key)
+
+
 def service_snapshot(services):
     observed = {}
     if services.serial_streams is not None: observed['serial_streams']=services.serial_streams.to_config()
@@ -97,6 +108,7 @@ def run_example(source, *, inject_write=False):
         assert not termination_file.exists(), name + ': expected ABORT'
         assert program.abort_info is None, name + ': unexpected termination state'
     assert snapshot == read_json(fixture / f'{name}.expected.json'), name + ': snapshot'
+    check_variable_expectations(program._state.execution,fixture/f'{name}.variables.expected.json',name)
     registers_expected = fixture / f'{name}.registers.expected.json'
     if registers is not None:
         assert {str(key):value for key,value in registers.snapshot().items()} == read_json(registers_expected), name + ': register state'
@@ -147,9 +159,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 388, 'Update the expected example count when adding examples'
+    assert count == 392, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==126, 'Update the expected project count when adding projects'
+    assert len(projects)==128, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
@@ -157,6 +169,7 @@ def main(argv=None):
         options=read_json(translation_context) if translation_context.exists() else {}
         instance=load_project(folder,**options).instantiate(context=services)
         assert instance.run('MAIN')==read_json(folder/'expected.json'), folder.name+': linked project snapshot'
+        check_variable_expectations(instance.context,folder/'variables.expected.json',folder.name)
         expected_services=folder/'services.expected.json'
         if services is not None:
             assert service_snapshot(services)==read_json(expected_services), folder.name+': service state'
