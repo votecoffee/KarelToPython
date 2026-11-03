@@ -1,0 +1,25 @@
+{
+  "NAMES": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      "a.kl",
+      "b.kl",
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "COUNT": 2,
+  "STATUS": 0,
+  "DONE": true
+}

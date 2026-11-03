@@ -1,0 +1,43 @@
+{
+  "BUFFERS": [
+    [
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      },
+      {
+        "unknown_byte": true
+      }
+    ],
+    [
+      0,
+      16,
+      0,
+      0,
+      0,
+      17,
+      0,
+      0
+    ]
+  ],
+  "CURSOR": 7,
+  "STATUS": 0,
+  "DONE": true
+}

@@ -1,0 +1,121 @@
+[
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "VALUE",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        3
+      ],
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    ]
+  },
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "DIMS",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        3
+      ],
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        2,
+        3,
+        0
+      ]
+    ]
+  },
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "MISSING",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "LABEL",
+    "type": [
+      "STRING",
+      32
+    ],
+    "value": "INTEGER"
+  },
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "CODE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 16
+  },
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "LENGTH",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "SERVICE_METADATA_ROW",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

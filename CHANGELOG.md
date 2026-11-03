@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1103.215506 - 2026-11-03
+
+- Accept writable Pythonic data ARRAY rows/planes in explicit typed service
+  interfaces, reusing original-cell captures and existing service validation.
+- Cover queue buffers, file/program/variable listings, dictionaries, XML, PC
+  packets, forms/tables, display labels, geometry and supplied vision arrays.
+- Preserve capture order, overlap/type guards, static labels, private nullable
+  snapshots, ordinary routine values and logical saved-state boundaries.
+- Add 82 regressions, four runnable examples and two linked projects with
+  independent snapshots, typed saved-variable rows and optional service fixtures.
+
 ## 26.1103.211222 - 2026-11-03
 
 - Add explicit BYNAME FILE/PATH/QUEUE_TYPE row and plane borrowing with exact

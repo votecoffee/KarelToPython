@@ -128,8 +128,9 @@ components with complete-batch pose validation and bounded rounding normalizatio
   [live BYNAME prefixes](array-prefix-references.md) now borrow data rows/planes
   across routines, linked calls, rename and pause. [Resource prefixes](resource-prefix-references.md)
   now borrow FILE/PATH/QUEUE_TYPE rows and planes explicitly through BYNAME.
-  General bare-prefix service outputs, ordinary resource-prefix values and
-  routine-local/system discovery remain excluded.
+  [Typed data service prefixes](service-array-prefixes.md) now capture writable
+  rows/planes for explicit ARRAY interfaces. Generic ANY/scalar output prefixes,
+  ordinary resource-prefix values and routine-local/system discovery remain excluded.
   [GET_VAR/SET_VAR prefix data transfers](prefix-variable-transfers.md) now support
   selected named paths, SET source values and captured GET data outputs.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the

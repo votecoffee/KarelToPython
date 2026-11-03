@@ -1,0 +1,43 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "BUFFERS": [
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ],
+        [
+          23,
+          0,
+          0
+        ]
+      ],
+      "VALUE": 23,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "Q": {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            23
+          ]
+        ]
+      },
+      "SEQ": 1,
+      "STATUS": 0
+    }
+  }
+}

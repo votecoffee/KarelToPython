@@ -1,0 +1,35 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "NAMES": [
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ],
+        [
+          "a.kl",
+          "b.kl",
+          {
+            "uninitialized": true
+          }
+        ]
+      ],
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "COUNT": 2,
+      "STATUS": 0
+    }
+  }
+}

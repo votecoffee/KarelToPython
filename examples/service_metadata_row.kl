@@ -1,0 +1,8 @@
+PROGRAM SERVICE_METADATA_ROW
+VAR value:ARRAY[2,3]OF INTEGER dims:ARRAY[2,3]OF INTEGER missing:BOOLEAN label:STRING[32] code,length,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    VAR_INFO('','VALUE',missing,label,code,dims[2],length,status)
+    done=TRUE
+  ENDIF
+END SERVICE_METADATA_ROW

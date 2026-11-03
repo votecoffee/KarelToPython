@@ -1,0 +1,78 @@
+[
+  {
+    "program": "SERVICE_PC_ROW",
+    "path": "BUFFERS",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        8
+      ],
+      [
+        "BYTE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "unknown_byte": true
+        },
+        {
+          "unknown_byte": true
+        },
+        {
+          "unknown_byte": true
+        },
+        {
+          "unknown_byte": true
+        },
+        {
+          "unknown_byte": true
+        },
+        {
+          "unknown_byte": true
+        },
+        {
+          "unknown_byte": true
+        },
+        {
+          "unknown_byte": true
+        }
+      ],
+      [
+        0,
+        16,
+        0,
+        0,
+        0,
+        17,
+        0,
+        0
+      ]
+    ]
+  },
+  {
+    "program": "SERVICE_PC_ROW",
+    "path": "CURSOR",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "SERVICE_PC_ROW",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "SERVICE_PC_ROW",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -89,8 +89,13 @@ borrow FILE, PATH and QUEUE_TYPE rows/planes across routines, linked calls,
 dynamic rename and pause. Original descriptors, collection cells and queue
 buffer links stay live; ordinary resource-array copies remain guarded.
 
+[Typed service ARRAY rows and planes](docs/service-array-prefixes.md) now accept
+selected data storage for queue buffers, listings, XML, PC packets, forms/tables,
+geometry and supplied vision results. Captures retain original cells; static
+labels and typed input snapshots keep their existing ownership rules.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1103.211222**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.215506**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

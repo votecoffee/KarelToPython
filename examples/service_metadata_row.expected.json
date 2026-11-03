@@ -1,0 +1,50 @@
+{
+  "VALUE": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "DIMS": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      2,
+      3,
+      0
+    ]
+  ],
+  "MISSING": true,
+  "LABEL": "INTEGER",
+  "CODE": 16,
+  "LENGTH": 0,
+  "STATUS": 0,
+  "DONE": true
+}

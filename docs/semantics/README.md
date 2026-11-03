@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [typed service ARRAY prefix ledger](service_array_prefix_semantics.json) now
+supersedes earlier exclusions for explicit typed data service ARRAY references.
+Generic ANY/scalar outputs and ordinary resource prefix values remain guarded.
+
 The [resource prefix ledger](resource_prefix_reference_semantics.json) supersedes
 older FILE/PATH/QUEUE_TYPE prefix-reference exclusions. Explicit BYNAME captures
 original resource cells without allocating descriptors, retains live operations
@@ -69,8 +73,9 @@ separate FILE/collection contracts; native allocation remains unverified.
 The [prefix variable-transfer ledger](prefix_variable_transfer_semantics.json)
 adds selected named ARRAY paths, SET input copies and GET output captures.
 Transfers retain separate overlap and data/cache/status publication rules.
-Explicit BYNAME data prefixes now use the live-reference ledger below; general
-bare-prefix service outputs remain excluded.
+Explicit BYNAME data prefixes use the live-reference ledger below; typed service
+outputs now follow the service ARRAY prefix ledger above. Generic ANY/scalar
+output prefixes remain excluded.
 
 The [ARRAY prefix-target ledger](array_prefix_target_semantics.json) adds
 statement-only row/plane assignment and READ into captured original cells.

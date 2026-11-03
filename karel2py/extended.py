@@ -28,6 +28,10 @@ def fail(message, line=None): raise runtime().KarelRuntimeError(message,line)
 # v=read-only typed snapshot retaining explicitly supported uninitialized inputs.
 def arg(kind, mode='i'): return mode,kind
 I=arg('INTEGER'); S=arg('STRING'); R=arg('REAL'); B=arg('BOOLEAN')
+# Explicit typed data ARRAY service interfaces; resources keep their own routes.
+ARRAY_REFERENCE_KINDS=frozenset(('BYTE_ARRAY','PC_BUFFER','VT_INT32','INT_ARRAY','REAL_ARRAY',
+    'STRING_ARRAY','BOOL_ARRAY','COL_ARRAY','BOOL_GRID','INT_GRID','TRACKING_POSITIONS',
+    'TRACKING_MEASURES','XYZWPR_ARRAY'))
 OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
 COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN','ACT_TBL','DISCTRL_TBL','DISCTRL_FORM'))

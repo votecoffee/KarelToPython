@@ -1,0 +1,61 @@
+[
+  {
+    "program": "SERVICE_FILE_ROW",
+    "path": "NAMES",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        3
+      ],
+      [
+        "STRING",
+        20
+      ]
+    ],
+    "value": [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        "a.kl",
+        "b.kl",
+        {
+          "uninitialized": true
+        }
+      ]
+    ]
+  },
+  {
+    "program": "SERVICE_FILE_ROW",
+    "path": "COUNT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 2
+  },
+  {
+    "program": "SERVICE_FILE_ROW",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "SERVICE_FILE_ROW",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

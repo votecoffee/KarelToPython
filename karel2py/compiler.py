@@ -2741,18 +2741,22 @@ class Emitter:
                 root=self.root_name(discarded)
                 if discarded.kind not in ('name','field','index','using_ref') or root not in self.types or root in self.visible_constants() or self.current_routine and root in self.current_routine.local_types:
                     self.error('E_STATIC_ARGUMENT','Dynamic display requires static global storage',value.token)
-                code,spec=self.reference(discarded)
+                prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(discarded)
+                code,spec=self.reference(discarded,allow_prefix=prefix)
+                if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
             elif mode in ('o','r','m'):
                 if value.kind not in ('name','field','index') or self.root_name(value) in self.visible_constants(): self.error('E_OUTPUT_ARGUMENT','Service output requires writable storage',value.token)
                 if self.protection_root(value) in self.active_counters: self.error('E_FOR_COUNTER','Service output cannot write an active FOR counter',value.token)
                 if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
                 if self.is_value_only_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG/association fields cannot be output aliases',value.token)
-                code,spec=self.reference(value,allow_prefix=self.mode=='pythonic' and expr.value=='GET_VAR' and index==3)
+                prefix=self.mode=='pythonic' and kind in ex.ARRAY_REFERENCE_KINDS and self.is_array_prefix_value(value)
+                code,spec=self.reference(value,allow_prefix=prefix or self.mode=='pythonic' and expr.value=='GET_VAR' and index==3)
+                if prefix:code=f'_rt.array_prefix_reference({code},{value.token.line})'
             else:
                 variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
                 reference_input=(variable_input and discarded.kind in ('name','field','index') and self.root_name(discarded) not in self.visible_constants()
                                  and not self.is_system_pose_path(discarded)
-                                 and not (expr.value=='SET_VAR' and self.is_array_prefix_value(discarded)))
+                                 and not self.is_array_prefix_value(discarded))
                 if reference_input: code,spec=self.reference(discarded)
                 else: code,spec=self.expression(value)
                 if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
@@ -6344,7 +6348,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         schema='Suffix dimensions retain order, terminal capacities and named child schemas; an undeclared suffix has anonymous outer identity; no reshape or writable view',
         evaluation='Receiver then indexes once left to right; copy after index effects, validate complete source data storage and known leaves; preserve missing markers and detach every selected child',
         interfaces='Assignment, private ordinary/linked arguments, RETURN, ARRAY_LEN and aggregate WRITE use existing source conversions; exact named-boundary references remain unchanged',
-        limits='One through three logical dimensions, 32767 source scalar leaves and 64 data-schema levels; no resources, incomplete-reference outputs or strict claim',
+        limits='One through three logical dimensions, 32767 source scalar leaves and 64 data-schema levels; no resources or generic incomplete-reference outputs; typed service references follow typed_service_array_prefix_policy; no strict claim',
         guide='docs/array-prefix-values.md',controller_validated=False)
     report['association_record_policy']=dict(
         types={name:rt.DATA_RECORD_FIELDS[name] for name in rt.ASSOCIATION_TYPES},
@@ -6374,13 +6378,24 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Save ordinary values and creation metadata; restore fresh storage without live windows, aliases, queue backing links or suspended stacks',
         limits='One through three logical dimensions, 32767 data leaves, 64 schema levels; resource prefixes follow resource_prefix_reference_policy; no local/system discovery, native/controller or strict claim',
         guide='docs/array-prefix-references.md',controller_validated=False)
+    report['typed_service_array_prefix_policy']=dict(
+        kinds=sorted(ex.ARRAY_REFERENCE_KINDS),modes=['o','r','m','s'],
+        source='Direct typed data ARRAY service arguments may select a concrete row/plane; mutable outputs require ungrouped writable syntax and static readonly labels still require global storage',
+        capture='Evaluate receiver and indexes once left to right, validate complete containing data and retain original cells before later argument effects; no reference cast, reshape or capacity change',
+        integration='Queue buffers, listings/metadata, dictionaries, XML attributes, PC buffers, forms/tables, display labels, geometry and supplied vision results use existing service contracts',
+        snapshots='Readonly nullable/value prefix inputs detach typed data before later argument effects; ordinary user-routine prefix arguments remain private values',
+        protection='Preserve original-cell overlap, FOR, POSITION orientation, CONFIG/association and exact linked-interface guards; resource prefixes remain explicit BYNAME only',
+        publication='Retain each service status, pagination, consumption and partial-publication rules; no blanket all-or-nothing claim',
+        persistence='Save ordinary roots and data only; restore independent storage without live windows, bindings, queue backing links or suspended frames',
+        limits='One through three logical dimensions, 32767 containing data leaves and 64 schema levels; existing fixed-size kind checks remain exact; generic ANY/scalar outputs do not gain prefix references',
+        guide='docs/service-array-prefixes.md',controller_validated=False)
     report['array_prefix_target_policy']=dict(
         operations=['ASSIGNMENT','READ'],
         capture='Original row/plane cells captured once for statement updates and explicit GET_VAR data outputs; explicit live BYNAME arguments follow array_prefix_reference_policy, without routine copyback',
         assignment='Capture independent RHS first, then receiver and indexes; convert against captured actual receiver schema after target effects; validate complete selected receiver before one checkpoint-free publication; retain element/record aliases',
         input='Expand captured original scalar references before format calls and later targets; use existing complete-response checks, CR remapping, file/callback transports, waits and cancellation',
         schema='Preserve actual suffix dimensions, named children and STRING capacities; use existing context-free or explicit-model source conversions; validate full source receiver storage at capture',
-        limits='Existing 32767-leaf/64-level data schemas and 1024 input destinations/CR; no resources, direct POSITION orientation writes, generic output targets, persistent views, native/controller or strict claim',
+        limits='Existing 32767-leaf/64-level data schemas and 1024 input destinations/CR; no resources, direct POSITION orientation writes or generic output targets; typed service references follow typed_service_array_prefix_policy; no persistent views, native/controller or strict claim',
         guide='docs/array-prefix-targets.md',controller_validated=False)
     report['dynamic_array_creation_policy']=dict(
         syntax='Pythonic ARRAY OF followed by an existing supported data type/alias with positive inner dimension; plain named ARRAY types may also take extra outer dimensions',

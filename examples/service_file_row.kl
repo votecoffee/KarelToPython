@@ -1,0 +1,8 @@
+PROGRAM SERVICE_FILE_ROW
+VAR names:ARRAY[2,3]OF STRING[20] count,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    FILE_LIST('*',0,0,names[2],count,status)
+    done=TRUE
+  ENDIF
+END SERVICE_FILE_ROW

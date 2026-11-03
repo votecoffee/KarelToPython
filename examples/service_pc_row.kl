@@ -1,0 +1,10 @@
+PROGRAM SERVICE_PC_ROW
+VAR buffers:ARRAY[2,8]OF BYTE cursor,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    cursor=1
+    ADD_INTPC(buffers[2],cursor,17,status)
+    SEND_DATAPC(12,buffers[2],status)
+    done=TRUE
+  ENDIF
+END SERVICE_PC_ROW

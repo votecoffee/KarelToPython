@@ -1,0 +1,12 @@
+PROGRAM SERVICE_QUEUE_ROW
+VAR q:QUEUE_TYPE buffers:ARRAY[2,3]OF INTEGER out:ARRAY[2,2]OF INTEGER value,seq,count,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    INIT_QUEUE(q)
+    APPEND_QUEUE(7,q,buffers[2],seq,status)
+    APPEND_QUEUE(9,q,buffers[2],seq,status)
+    COPY_QUEUE(q,buffers[2],0,0,out[2],count,status)
+    GET_QUEUE(q,buffers[2],value,seq,status)
+    done=TRUE
+  ENDIF
+END SERVICE_QUEUE_ROW

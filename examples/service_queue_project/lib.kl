@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR q:QUEUE_TYPE seq,status:INTEGER
+ROUTINE fill(matrix:ARRAY[*,*]OF INTEGER):INTEGER
+BEGIN
+  INIT_QUEUE(q)
+  APPEND_QUEUE(23,q,matrix[2],seq,status)
+  RETURN(matrix[2,1])
+END fill
+BEGIN
+END LIB

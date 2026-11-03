@@ -1,5 +1,10 @@
 # Language support
 
+[Typed service ARRAY rows and planes](service-array-prefixes.md) now accept
+selected data storage for queue buffers, listings, XML, PC packets, forms/tables,
+geometry and supplied vision results. Captures retain original cells; static
+labels and typed input snapshots keep their existing ownership rules.
+
 [Resource ARRAY row/plane references](resource-prefix-references.md) now extend
 explicit BYNAME borrowing to FILE, PATH and QUEUE_TYPE storage, including live
 FILE reads/cancellation, collection nodes/buffers, linked calls and dynamic
@@ -85,7 +90,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1103.211222. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.215506. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR buffers:ARRAY[2,3]OF INTEGER value:INTEGER done:BOOLEAN
+ROUTINE fill(matrix:ARRAY[*,*]OF INTEGER):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    value=fill(buffers)
+    done=TRUE
+  ENDIF
+END MAIN
