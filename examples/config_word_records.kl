@@ -1,0 +1,9 @@
+PROGRAM CONFIG_WORD_RECORDS
+TYPE packed_t=STRUCTURE value:INTEGER note:STRING[4] ENDSTRUCTURE
+     expanded_t=STRUCTURE value:CONFIG note:STRING[4] ENDSTRUCTURE
+VAR source:packed_t expanded:expanded_t done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    source.value=4096 source.note='test' expanded=source done=TRUE
+  ENDIF
+END CONFIG_WORD_RECORDS

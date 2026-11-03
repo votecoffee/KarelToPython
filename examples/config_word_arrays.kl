@@ -1,0 +1,5 @@
+PROGRAM CONFIG_WORD_ARRAYS
+VAR words,copied:ARRAY[2]OF INTEGER configs:ARRAY[2]OF CONFIG done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN words[1]=4096 configs=words copied=configs done=TRUE ENDIF
+END CONFIG_WORD_ARRAYS

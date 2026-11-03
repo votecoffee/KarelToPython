@@ -1,0 +1,37 @@
+[
+  {
+    "program": "CONFIG_WORD_RECORDS",
+    "path": "EXPANDED",
+    "type": [
+      "STRUCTURE",
+      "EXPANDED_T",
+      [
+        [
+          "VALUE",
+          [
+            "CONFIG"
+          ]
+        ],
+        [
+          "NOTE",
+          [
+            "STRING",
+            4
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "VALUE": {
+        "CFG_TURN_NO1": 0,
+        "CFG_TURN_NO2": 0,
+        "CFG_TURN_NO3": 0,
+        "CFG_FLIP": true,
+        "CFG_LEFT": false,
+        "CFG_UP": false,
+        "CFG_FRONT": false
+      },
+      "NOTE": "test"
+    }
+  }
+]

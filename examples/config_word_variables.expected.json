@@ -1,0 +1,15 @@
+{
+  "CFG": {
+    "CFG_TURN_NO1": -1,
+    "CFG_TURN_NO2": -1,
+    "CFG_TURN_NO3": -1,
+    "CFG_FLIP": true,
+    "CFG_LEFT": true,
+    "CFG_UP": true,
+    "CFG_FRONT": true
+  },
+  "WORD": 65535,
+  "ENTRY": 1,
+  "STATUS": 0,
+  "DONE": true
+}

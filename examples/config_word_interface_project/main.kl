@@ -1,0 +1,8 @@
+PROGRAM MAIN
+VAR cfg:CONFIG word,result:INTEGER done:BOOLEAN
+ROUTINE inspect(value:CONFIG):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    word=22415 cfg=word result=inspect(word) done=TRUE
+  ENDIF
+END MAIN

@@ -1,0 +1,37 @@
+{
+  "version": "26.1103.150203",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../config-words.md",
+  "tests": [
+    "tests/test_config_words.py"
+  ],
+  "representation": "Authored unsigned 16-bit value; not a native CONFIG memory/ABI claim",
+  "bits": {
+    "CFG_TURN_NO1": [
+      0,
+      3
+    ],
+    "CFG_TURN_NO2": [
+      4,
+      7
+    ],
+    "CFG_TURN_NO3": [
+      8,
+      11
+    ],
+    "CFG_FLIP": 12,
+    "CFG_LEFT": 13,
+    "CFG_UP": 14,
+    "CFG_FRONT": 15
+  },
+  "domains": "Word 0..65535; signed four-bit turns -8..7; exact BOOLEAN flags; INTEGER/BYTE/SHORT inputs and checked output domains; SHORT missing sentinel retained",
+  "source": "Ordinary scalar assignment/private argument/RETURN, named/anonymous data ARRAYs, prefix assignment and compatible user-record trees",
+  "variables": "Explicit GET_VAR/SET_VAR scalar/ARRAY-prefix/record values; receiver tails, cache and metadata rules retained; dynamic CONFIG values use ordinary JSON/creation metadata",
+  "partial": "Missing integral data becomes shaped seven-field missing CONFIG; partial CONFIG becomes missing integral data; validate known fields and never invent unknown BYTE contents",
+  "publication": "Independent checked conversions, source/argument order once, complete staged data before receiver writes, retained aggregate aliases and CONFIG subfield value-only arguments",
+  "boundaries": "Same-type references, BYNAME, linked declarations, raw callback results, builtin typed inputs and dedicated system pose writers remain exact; no arithmetic/comparison coercion, negative/high-bit words or public strict mode",
+  "files": "Existing scalar text/binary formats and seven-field aggregate CONFIG I/O; no packed two-byte CONFIG file codec",
+  "persistence": "Ordinary typed values only; no codec sessions, executable state, live alias or inferred robot context",
+  "evidence": "106 authored tests, exhaustive 65536-word round trip, independent bit anchors, containers, private/linked interfaces, input, missing values and atomic failures"
+}

@@ -979,6 +979,7 @@ def _variable_record_copy(spec,source_spec,value,line=None):
         if kind:
             captured=_variable_copy(actual,item,line)
             return (rt.convert_joint_width if kind=='joint_width' else rt.convert_position)(expected,captured,line)
+        if rt.config_word_kind(expected,actual):return rt._config_word_data(expected,actual,item,line)
         if item is rt.UNINITIALIZED:return item
         if expected==actual:return _variable_copy(actual,item,line)
         if expected[0]==actual[0]=='STRUCTURE':
@@ -1046,14 +1047,21 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
         captured=_variable_copy(source.spec,source.value,line)
         converted=rt.convert_joint_width(spec,captured,line) if spec[0]=='JOINTPOS' else rt.convert_position(spec,captured,line)
         return converted,False
+    word=representations and rt._pythonic() and rt.config_word_kind(spec,source.spec)
+    if word:
+        _variable_shape(spec,target.raw(),line)
+        copied=rt._config_word_data(spec,source.spec,_variable_copy(source.spec,source.value,line),line)
+        return copied,_variable_missing(copied)
+    array_word=None
     array_positional=None;record_schema=records and rt._pythonic() and rt.record_schema_kind(spec,source.spec)
     array_record=None
     if arrays:
         leaf=rt.array_leaf_spec(spec);source_leaf=rt.array_leaf_spec(source.spec)
+        array_word=rt.config_word_kind(leaf,source_leaf) if representations and rt._pythonic() else None
         array_positional=rt.positional_conversion_kind(leaf,source_leaf) if representations else None
         array_record=records and rt._pythonic() and rt.record_schema_kind(leaf,source_leaf)
         if (len(rt.array_dimensions(spec))!=len(rt.array_dimensions(source.spec))
-                or not (array_positional or array_record or _variable_compatible(leaf,source_leaf,numeric=numeric))): return None
+                or not (array_word or array_positional or array_record or _variable_compatible(leaf,source_leaf,numeric=numeric))): return None
     elif not (record_schema or _variable_compatible(spec,source.spec,numeric=numeric)): return None
     if record_schema or array_record:
         rt._validate_data_schema(spec,line);rt._validate_data_schema(source.spec,line)
@@ -1070,7 +1078,8 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
     missing=False
     for reference,item in zip(_variable_array_targets(spec,copied,count),_variable_array_values(source.spec,source.value)):
         captured=_variable_copy(source_leaf,item,line)
-        if array_positional:
+        if array_word:prepared=rt._config_word_data(reference.spec,source_leaf,captured,line)
+        elif array_positional:
             convert=rt.convert_joint_width if reference.spec[0]=='JOINTPOS' else rt.convert_position
             prepared=convert(reference.spec,captured,line)
         elif array_record:prepared=_variable_record_copy(reference.spec,source_leaf,captured,line)

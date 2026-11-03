@@ -1,5 +1,9 @@
 # Source STRUCTURE and record ARRAY conversions
 
+CONFIG/integral fields now use the separate [portable word codec](config-words.md),
+including shaped missing CONFIG data and staged publication. Other type and
+reference contracts retain the rules below.
+
 Pythonic source assignments, ordinary routine arguments and RETURN values can
 convert user STRUCTURE schemas that contain compatible context-free data.
 [Model-backed record conversion](kinematic-records.md) separately extends these

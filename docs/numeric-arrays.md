@@ -12,7 +12,9 @@ preserve receiver schemas across named types and matching nested components.
 | INTEGER, BYTE, SHORT | REAL | Promote checked values to finite Python floats |
 | Same numeric type | Same numeric type | Existing checked copy or bare-reference contract |
 | REAL | INTEGER, BYTE, SHORT | Rejected; use explicit ROUND/TRUNC per element |
-| BOOLEAN, STRING, resource or record | Numeric | Rejected |
+| CONFIG | INTEGER, BYTE, SHORT | [Portable word encoding](config-words.md), with checked destination domains |
+| INTEGER, BYTE, SHORT | CONFIG | Portable word decoding in 0..65535 |
+| BOOLEAN, STRING, resource or other record | Numeric | Rejected |
 
 ```karel
 VAR original:ARRAY[2]OF INTEGER result:ARRAY[2]OF REAL

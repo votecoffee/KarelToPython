@@ -63,8 +63,13 @@ Writes, input, timers and queue buffers share the captured original cells;
 ordinary prefix arguments still use independent values. JSON retains data
 without persisting aliases or suspended calls.
 
+[Portable CONFIG words](docs/config-words.md) now convert between CONFIG and
+integral values across source assignments, private routine interfaces, ARRAYs,
+records and GET_VAR/SET_VAR. The documented 16-bit Pythonic encoding preserves
+missing data and staged publication without claiming native packed memory.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1103.143351**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.150203**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -895,9 +900,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 396 authored runnable examples, checks complete
+The example runner translates 400 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 130 complete linked source projects. It also checks that unsupported
+fixtures, plus 132 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

@@ -140,6 +140,9 @@ components with complete-batch pose validation and bounded rounding normalizatio
   readable POSITION columns, without changing orientation-write restrictions.
 - Resource READ, missing whole/nested data containers, direct readonly POSITION
   orientation destinations and generic CONFIG conversion/status aliases remain blocked.
+  [Portable CONFIG words](config-words.md) now support source and explicit
+  variable-transfer value conversions, with a documented 16-bit Pythonic layout;
+  native packed memory, generic reference casts and negative/high-bit words remain excluded.
   [Whole-data READ](aggregate-input.md) now supports shaped ARRAY/record/CONFIG/
   Cartesian/joint data through flat scalar callbacks and existing FILE transports;
   uniform formats follow the scalar domains; native packed layouts remain

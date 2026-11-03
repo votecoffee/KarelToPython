@@ -1,5 +1,9 @@
 # Record GET_VAR and SET_VAR transfers
 
+CONFIG/integral fields now use the separate [portable word codec](config-words.md),
+including shaped missing CONFIG data and staged publication. Other type and
+reference contracts retain the rules below.
+
 Pythonic GET_VAR and SET_VAR can transfer compatible user STRUCTURE values and
 same-rank record ARRAY prefixes across different record names. Records must have
 exactly the same field-name set, matched in receiver declaration order. This is

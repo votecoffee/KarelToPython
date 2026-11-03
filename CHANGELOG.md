@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1103.150203 - 2026-11-03
+
+- Add a documented portable 16-bit CONFIG/integral value codec across source
+  assignment, private routine arguments/results, data ARRAYs and user records.
+- Extend explicit GET_VAR/SET_VAR conversions, preserving shaped missing CONFIG,
+  receiver tails, status/cache rules, atomic failures and ordinary saved values.
+- Retain exact reference/link/callback/builtin contracts, CONFIG field domains,
+  BYTE unknown contents, SHORT missing sentinels and existing FILE layouts.
+- Add 106 regression tests, including exhaustive word round trips, plus four
+  runnable examples and two linked projects with independent saved-state fixtures.
+
+
 ## 26.1103.143351 - 2026-11-03
 
 - Add explicit live ARRAY row/plane BYNAME arguments, retaining independent

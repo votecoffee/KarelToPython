@@ -1265,6 +1265,7 @@ class Emitter:
         self.joint_width_uses=[]
         self.positional_array_uses=[]
         self.numeric_array_uses=[]
+        self.config_word_uses=[]
         self.joint_axis_uses=[]
         self.array_schema_uses=[]
         self.record_schema_uses=[]
@@ -2067,7 +2068,7 @@ class Emitter:
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
         if self.is_array_prefix_value(argument):return False
         actual=self.access_type(argument)
-        if self.mode=='pythonic' and (rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual) or rt.kinematic_array_kind(expected,actual)):return False
+        if self.mode=='pythonic' and (rt.config_word_kind(expected,actual) or rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual) or rt.kinematic_array_kind(expected,actual)):return False
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
@@ -2324,6 +2325,13 @@ class Emitter:
                                            logical_rank=len(rt.array_dimensions(spec)), selected_type=rt.array_identity(selected)))
         code = codes[0] if len(indexes) == 1 else '(' + ', '.join(codes) + ')'
         return code, selected
+
+    def config_word_conversion(self,target,source,value,token,operation):
+        self.features.add('portable CONFIG word conversion')
+        self.config_word_uses.append(dict(operation=operation,body=self.current_routine.name if self.current_routine else self.program.name,
+            line=token.line,column=token.column,source_type_spec=source,target_type_spec=target,
+            conversion_kind=rt.config_word_kind(target,source),evaluated_once=True,independent_value=True))
+        return f'_rt.config_word_value({target!r},{value},{token.line})'
 
     @staticmethod
     def compatible(target, source):
@@ -2959,7 +2967,12 @@ class Emitter:
                     self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY arguments require borrowed storage without grouping',argument.token)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
-            if self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):
+            if self.mode=='pythonic' and rt.config_word_kind(expected,actual):
+                value,_=self.expression(argument)
+                value=self.config_word_conversion(expected,actual,value,argument.token,'ARGUMENT')
+                code=f'_rt.value_argument({expected!r},{value},{line})'
+                is_reference,actual=False,expected;conversion_kind='config_word'
+            elif self.mode=='pythonic' and rt.numeric_array_kind(expected,actual):
                 value,_=self.expression(argument)
                 code=f'_rt.value_argument({expected!r},_rt.convert_numeric_array({expected!r},{value},{line}),{line})'
                 is_reference,actual=False,expected
@@ -3764,6 +3777,8 @@ class Emitter:
                     self.record_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
                         source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
                         evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+            elif self.mode=='pythonic' and rt.config_word_kind(target_type,value_type):
+                value=self.config_word_conversion(target_type,value_type,value,token,'ASSIGNMENT')
             elif self.mode=='pythonic' and rt.numeric_array_kind(target_type,value_type):
                 value=f'_rt.convert_numeric_array({target_type!r},{value},{line})'
                 self.features.add('numeric ARRAY conversion')
@@ -4162,7 +4177,10 @@ class Emitter:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
-                if self.mode=='pythonic' and rt.numeric_array_kind(spec,value_type):
+                if self.mode=='pythonic' and rt.config_word_kind(spec,value_type):
+                    value=self.config_word_conversion(spec,value_type,value,token,'RETURN')
+                    value_type=spec;conversion_kind='config_word'
+                elif self.mode=='pythonic' and rt.numeric_array_kind(spec,value_type):
                     value=f'_rt.convert_numeric_array({spec!r},{value},{line})'
                     value_type=spec;conversion_kind='numeric_array'
                     self.features.add('numeric ARRAY conversion')
@@ -4754,6 +4772,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
         positional_array_conversions=emitter.positional_array_uses, kinematic_array_conversions=emitter.kinematic_array_uses,
+        config_word_conversions=emitter.config_word_uses,
         numeric_array_conversions=emitter.numeric_array_uses,array_schema_conversions=emitter.array_schema_uses,
         record_schema_conversions=emitter.record_schema_uses,kinematic_record_conversions=emitter.kinematic_record_uses,
         joint_geometry=emitter.joint_geometry_uses,joint_axis_accesses=emitter.joint_axis_uses,
@@ -6300,6 +6319,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         interfaces='Assignment, private ordinary/linked arguments, RETURN, ARRAY_LEN and aggregate WRITE use existing source conversions; exact named-boundary references remain unchanged',
         limits='One through three logical dimensions, 32767 source scalar leaves and 64 data-schema levels; no resources, incomplete-reference outputs or strict claim',
         guide='docs/array-prefix-values.md',controller_validated=False)
+    report['config_word_policy']=dict(
+        source='Pythonic CONFIG and integral scalar assignment/private argument/RETURN; data ARRAY and user-record conversions plus GET_VAR/SET_VAR use the same codec',
+        encoding='Portable unsigned 16-bit word: signed turn nibbles in bits 0..3, 4..7, 8..11; FLIP, LEFT, UP, FRONT flags in bits 12,13,14,15',
+        domains='Input words in 0..65535; CONFIG turns in -8..7 and exact BOOLEAN flags; BYTE/SHORT outputs retain checked bounds and the SHORT missing sentinel',
+        ownership='Convert once at each source boundary into independent data; same-type references, exact BYNAME/link declarations and raw callback result contracts unchanged',
+        partial='Data conversions retain missing integral leaves as shaped missing CONFIG; partial CONFIG becomes missing integral data; validate all known leaves before publication; unknown BYTE cannot invent bits',
+        persistence='Ordinary typed CONFIG/integral values only; no new native packed FILE layout or serialized codec state',
+        boundary='Authored Pythonic value representation, not documented native CONFIG memory, controller/compiler equivalence or robot branch selection; strict remains future',
+        calls=list(report['config_word_conversions']),guide='docs/config-words.md',controller_validated=False)
     report['array_prefix_reference_policy']=dict(
         syntax='Direct typed user-routine BYNAME argument with a final incomplete flat data ARRAY path; adjacent numeric brackets normalize before selection',
         schema='Concrete anonymous suffix, exact named children and terminal types/capacities; generic formal sizes inherit storage; no casts or reshaping',

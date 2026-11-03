@@ -1,5 +1,11 @@
 # Semantic notes
 
+The [CONFIG word ledger](config_word_semantics.json) adds authored unsigned
+16-bit CONFIG/integral values through source and explicit variable-transfer
+boundaries. Partial containers stay shaped; conversions stage before writes.
+BYNAME, linked declared signatures, raw callbacks and native FILE layouts retain
+their existing contracts.
+
 The [frame/tool selection ledger](frame_selection_semantics.json) adds source
 active-ID reads/assignments and shared model integration. It supersedes earlier
 selection-assignment exclusions while retaining ordinary value ownership,

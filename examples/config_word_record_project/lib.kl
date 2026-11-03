@@ -1,0 +1,6 @@
+PROGRAM LIB
+TYPE expanded_t=STRUCTURE value:CONFIG note:STRING[4] ENDSTRUCTURE
+VAR seen:CONFIG word:INTEGER filled:BOOLEAN
+ROUTINE inspect(value:expanded_t)
+BEGIN seen=value.value word=seen value.value=0 filled=TRUE END inspect
+BEGIN END LIB

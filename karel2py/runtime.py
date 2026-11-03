@@ -499,6 +499,7 @@ def numeric_array_kind(target,source):
         if any(type(spec) is not tuple or len(spec)!=1 or type(spec[0]) is not str for spec in (first,second)):return None
         integral=(('INTEGER',),('BYTE',),('SHORT',))
         if first==second:return None
+        if config_word_kind(first,second):return 'config_word'
         if first==('REAL',) and second in integral:return 'promote_real'
         if first in integral and second in integral:return 'checked_integral'
     except (KarelRuntimeError,TypeError,IndexError):return None
@@ -512,8 +513,11 @@ def convert_numeric_array(target,value,line=None):
         raise KarelRuntimeError('Numeric ARRAY conversion requires matching component shapes and convertible numeric terminals',line)
     source=_aggregate_value(value.spec,value,line)
     result=_array_conversion_storage(target,source,line);leaf=array_leaf_spec(result.spec)
+    source_leaf=array_leaf_spec(source.spec);word=config_word_kind(leaf,source_leaf)
     for (output,index),(storage,key) in zip(_array_conversion_cells(result),_array_conversion_cells(source)):
-        item=storage[key];output[index]=UNINITIALIZED if item is UNINITIALIZED else checked(leaf,require(item,line),line)
+        item=storage[key]
+        output[index]=(_config_word_data(leaf,source_leaf,item,line) if word
+                       else UNINITIALIZED if item is UNINITIALIZED else checked(leaf,require(item,line),line))
     return result
 
 
@@ -1380,6 +1384,52 @@ def _parse_config_text(source, line=None):
     values.update(zip(('CFG_TURN_NO1','CFG_TURN_NO2','CFG_TURN_NO3'), turns))
     result = Structure(('CONFIG',)); result.values.update(values)
     return positional_value(('CONFIG',), result, line)
+
+
+def config_word_kind(target,source):
+    """Source-only portable CONFIG words, separate from reference/ABI contracts."""
+    integral=(('INTEGER',),('BYTE',),('SHORT',))
+    if target==('CONFIG',) and source in integral:return 'decode'
+    if source==('CONFIG',) and target in integral:return 'encode'
+    return None
+
+
+def config_word_value(target,value,line=None):
+    """An explicit Pythonic 16-bit value codec; never native CONFIG memory."""
+    if not _pythonic():raise KarelRuntimeError('CONFIG word conversion requires Pythonic mode',line)
+    fields=record_fields(('CONFIG',));turns=fields[:3];flags=fields[3:]
+    if target==('CONFIG',):
+        word=integer(value,line)
+        if not 0<=word<=65535:raise KarelRuntimeError('CONFIG word requires INTEGER in 0..65535',line)
+        result=Structure(('CONFIG',))
+        for index,(name,_) in enumerate(turns):
+            nibble=(word>>(4*index))&15;result.values[name]=nibble-16 if nibble>=8 else nibble
+        for index,(name,_) in enumerate(flags):result.values[name]=bool(word&(1<<(12+index)))
+        return result
+    if target not in (('INTEGER',),('BYTE',),('SHORT',)):
+        raise KarelRuntimeError('CONFIG word output requires INTEGER, BYTE or SHORT',line)
+    captured=positional_value(('CONFIG',),value,line)
+    if not fully_initialized(captured):raise KarelRuntimeError('CONFIG word encoding requires complete initialized CONFIG data',line)
+    word=sum((captured.values[name]&15)<<(4*index) for index,(name,_) in enumerate(turns))
+    word|=sum(int(captured.values[name])<<(12+index) for index,(name,_) in enumerate(flags))
+    checked(target,word,line)
+    # Keep the expression value until receiving SHORT storage applies its sentinel.
+    return word
+
+
+def _config_word_data(target,source,value,line=None):
+    """Partial data copies preserve missing leaves without inventing CONFIG bits."""
+    if not _pythonic() or config_word_kind(target,source) is None:
+        raise KarelRuntimeError('CONFIG word data requires compatible Pythonic types',line)
+    if value is UNINITIALIZED:return Structure(target) if target==('CONFIG',) else UNINITIALIZED
+    if source==('CONFIG',):
+        value=_partial_aggregate_value(source,value,line)
+        if not fully_initialized(value):return UNINITIALIZED
+    else:
+        value=checked(source,value,line)
+        if value is UNINITIALIZED:return Structure(target)
+    converted=config_word_value(target,value,line)
+    return converted if target==('CONFIG',) else checked(target,converted,line)
 
 
 def config_text_conversion(name, source, target, status=None, *, line=None):

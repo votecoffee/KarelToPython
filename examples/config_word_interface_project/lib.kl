@@ -1,0 +1,5 @@
+PROGRAM LIB
+VAR observed:INTEGER
+ROUTINE inspect(value:CONFIG):INTEGER
+BEGIN observed=value value=0 RETURN observed END inspect
+BEGIN END LIB

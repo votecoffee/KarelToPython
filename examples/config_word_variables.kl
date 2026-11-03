@@ -1,0 +1,10 @@
+PROGRAM CONFIG_WORD_VARIABLES
+VAR cfg:CONFIG word,entry,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','STATE','','CONFIG',0,0,0,0,status)
+    SET_VAR(entry,'CACHE','STATE',65535,status)
+    GET_VAR(entry,'CACHE','STATE',word,status)
+    cfg=word done=TRUE
+  ENDIF
+END CONFIG_WORD_VARIABLES

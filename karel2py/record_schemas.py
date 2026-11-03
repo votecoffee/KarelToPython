@@ -27,7 +27,7 @@ def _compatible(target,source,*,models=False):
         elif first[0]==second[0]=='STRING':result=True
         elif first[0] in ('INTEGER','BYTE','SHORT','REAL') and second[0] in ('INTEGER','BYTE','SHORT'):
             result=True
-        else:result=rt.positional_conversion_kind(first,second) is not None or (models and _model_pair(first,second) is not None)
+        else:result=rt.config_word_kind(first,second) is not None or rt.positional_conversion_kind(first,second) is not None or (models and _model_pair(first,second) is not None)
         cache[identity]=result;return result
     return match(target,source)
 
@@ -99,6 +99,7 @@ def _prepare_record_schema(target,value,line=None,*,source_spec=None,models=Fals
             for (output,index),(storage,key) in zip(rt._array_conversion_cells(result),rt._array_conversion_cells(item)):
                 store(first,second,storage[key],output,index)
             return result
+        if rt.config_word_kind(expected,actual):return rt._config_word_data(expected,actual,item,line)
         if item is rt.UNINITIALIZED:return item
         kind=rt.positional_conversion_kind(expected,actual)
         if kind=='joint_width':return rt.convert_joint_width(expected,item,line)

@@ -1,5 +1,9 @@
 # Language support
 
+[CONFIG words](config-words.md) now add a documented portable 16-bit value
+encoding for integral/CONFIG source and variable-transfer conversions, with
+partial-data, container, private-interface and exact-reference guards.
+
 [Live ARRAY prefixes](array-prefix-references.md) now provide explicit BYNAME
 row/plane borrowing across linked calls, rename and pause, with original-cell
 overlap/timer/queue identity. Ordinary prefix arguments remain independent values.
@@ -61,7 +65,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1103.143351. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.150203. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

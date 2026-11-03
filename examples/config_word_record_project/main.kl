@@ -1,0 +1,10 @@
+PROGRAM MAIN
+TYPE packed_t=STRUCTURE value:INTEGER note:STRING[4] ENDSTRUCTURE
+     expanded_t=STRUCTURE value:CONFIG note:STRING[4] ENDSTRUCTURE
+VAR source:packed_t done:BOOLEAN
+ROUTINE inspect(value:expanded_t) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    source.value=65535 source.note='test' inspect(source) done=TRUE
+  ENDIF
+END MAIN
