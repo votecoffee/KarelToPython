@@ -1,0 +1,19 @@
+{
+  "version": "26.1103.143351",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../array-prefix-references.md",
+  "tests": [
+    "tests/test_array_prefix_references.py",
+    "tests/test_prefix_variable_transfers.py"
+  ],
+  "source": "Explicit typed BYNAME row/plane data arguments; ordinary bare/grouped prefixes remain independent values",
+  "schema": "Anonymous concrete suffix; preserve named child layouts and terminal capacities; exact generic formal compatibility; no numeric/nominal/positional cast or reshape",
+  "capture": "Evaluate normal argument order once, validate complete containing data, capture original backing cells; linked calls, rename and pause retain ownership",
+  "storage": "Fixed-size checked windows; direct leaf references normalize to original lists; assignments retain nested aliases; source partial values/RETURN and grouped formals copy independently",
+  "integration": "ARRAY_LEN, scalar initialization queries, READ/WRITE, text/binary FILEs, GET_VAR/SET_VAR, connected timer identity and repeated same-cell queue buffers",
+  "protection": "Original-cell and descendant overlap guards before entry/cache writes; FOR/handler proofs, POSITION orientation and CONFIG domains preserved",
+  "persistence": "Only ordinary typed values/creation metadata; restore independent plain storage without live aliases, queue buffers, callbacks or suspended frames",
+  "limits": "Three logical dimensions, 32767 scalar leaves, 64 schema levels, existing 1024 input destinations; no resource prefixes, routine-local/system discovery or generic bare-prefix service outputs",
+  "boundary": "Authored offline behavior; strict remains future; no native ABI, compiler source-form, physical robot or controller equivalence claim"
+}

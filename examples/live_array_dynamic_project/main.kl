@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR row:ARRAY[2]OF INTEGER entry,status:INTEGER done:BOOLEAN
+ROUTINE fill(items:ARRAY OF INTEGER) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','GRID','','ARRAY OF INTEGER',0,2,2,0,status)
+    fill(BYNAME('CACHE','GRID[2]',entry))
+    GET_VAR(entry,'CACHE','RENAMED[2]',row,status)
+    done=TRUE
+  ENDIF
+END MAIN

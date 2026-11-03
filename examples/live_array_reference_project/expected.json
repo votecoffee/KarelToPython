@@ -1,0 +1,30 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "MATRIX": [
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ],
+        [
+          7,
+          9
+        ]
+      ],
+      "ENTRY": 1,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": 2,
+      "FILLED": true
+    }
+  }
+}

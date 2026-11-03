@@ -1,0 +1,38 @@
+{
+  "CUBE": [
+    [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ]
+    ],
+    [
+      [
+        7,
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        {
+          "uninitialized": true
+        },
+        9
+      ]
+    ]
+  ],
+  "ENTRY": 1,
+  "DONE": true
+}

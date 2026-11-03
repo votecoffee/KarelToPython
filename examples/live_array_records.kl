@@ -1,0 +1,8 @@
+PROGRAM LIVE_ARRAY_RECORDS
+TYPE item_t=STRUCTURE amount:INTEGER label:STRING[4] ENDSTRUCTURE
+VAR items:ARRAY[2,2]OF item_t entry:INTEGER done:BOOLEAN
+ROUTINE fill(row:ARRAY OF item_t)
+BEGIN row[1].amount=7 row[2].label='wideword' END fill
+BEGIN
+  IF UNINIT(done) THEN fill(BYNAME('','ITEMS[1]',entry)) done=TRUE ENDIF
+END LIVE_ARRAY_RECORDS

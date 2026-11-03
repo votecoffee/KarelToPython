@@ -933,6 +933,7 @@ def store_index(array, index, value, line=None):
 class Reference:
     """A captured storage location; not a copy-in/copy-out parameter."""
     def __init__(self, spec, storage, key):
+        if type(storage) is _ArrayWindow:storage,key=storage.location(key)
         self.spec, self.storage, self.key = spec, storage, key
 
     def raw(self):
@@ -946,11 +947,91 @@ class Reference:
         self.storage[self.key] = UNINITIALIZED
 
 
+class _ArrayWindow:
+    """Fixed-size live data cells captured from an exact ARRAY storage list."""
+    __slots__=('storage','start','size','length')
+
+    def __init__(self,target):
+        self.storage=target.storage;self.start=target.indices[0];self.size=len(target.indices);self.length=target.length
+        if target.indices!=tuple(range(self.start,self.start+self.size)):
+            raise KarelRuntimeError('Live ARRAY prefix requires contiguous captured cells')
+        self.validate()
+
+    @property
+    def indices(self):
+        self.validate();return range(self.start,self.start+self.size)
+
+    def validate(self,line=None):
+        if (not _pythonic() or type(self.storage) is not list
+                or any(type(value) is not int for value in (self.start,self.size,self.length))
+                or not 1<=self.length<=32767 or len(self.storage)!=self.length
+                or self.start<0 or self.size<1 or self.start+self.size>self.length):
+            raise KarelRuntimeError('Malformed live ARRAY prefix storage',line)
+        return True
+
+    def __len__(self):
+        self.validate();return len(self.indices)
+
+    def location(self,index):
+        self.validate()
+        return self.storage,self.indices[index]
+
+    def __getitem__(self,index):
+        self.validate()
+        if type(index) is slice:return [self.storage[key] for key in self.indices[index]]
+        storage,key=self.location(index);return storage[key]
+
+    def __setitem__(self,index,value):
+        self.validate()
+        if type(index) is slice:
+            keys=self.indices[index];values=list(value)
+            if len(keys)!=len(values):raise KarelRuntimeError('Live ARRAY prefix cannot change its shape')
+            for key,item in zip(keys,values):self.storage[key]=item
+        else:
+            storage,key=self.location(index);storage[key]=value
+
+    def __iter__(self):
+        self.validate()
+        for index in range(len(self.indices)):yield self[index]
+
+
+def _array_storage(values,line=None):
+    """Accept exact lists and only our checked Pythonic live data windows."""
+    return type(values) is list or type(values) is _ArrayWindow and values.validate(line)
+
+
+def same_array_storage(first,second):
+    """Backing identity for repeated captures of the same live ARRAY cells."""
+    if first is second:return True
+    if (type(first) is not Array or type(second) is not Array
+            or first.spec!=second.spec or first.shape!=second.shape):return False
+    def capture(values):
+        if type(values) is _ArrayWindow:
+            values.validate();return values.storage,values.indices
+        if type(values) is list:return values,range(len(values))
+        raise KarelRuntimeError('Malformed ARRAY backing storage')
+    left,li=capture(first.values);right,ri=capture(second.values)
+    return left is right and li==ri
+
+
+def array_prefix_reference(target,line=None):
+    """Borrow captured row/plane cells without changing ordinary prefix values."""
+    if not _pythonic() or type(target) is not _ArrayPrefixTarget:
+        raise KarelRuntimeError('Live ARRAY prefixes require a Pythonic data capture',line)
+    current=target._current(line)
+    _aggregate_value(target.spec,current,line)
+    current.values=_ArrayWindow(target)
+    return Reference(target.spec,{'value':current},'value')
+
+
 class _ArrayPrefixTarget:
     """A statement capture; never a generic Reference or a live ARRAY view."""
     __slots__=('spec','storage','indices','length')
     def __init__(self,spec,storage,indices,line=None):
-        self.spec=spec;self.storage=storage;self.indices=tuple(indices);self.length=len(storage)
+        indices=tuple(indices)
+        if type(storage) is _ArrayWindow:
+            storage.validate(line);indices=tuple(storage.indices[index] for index in indices);storage=storage.storage
+        self.spec=spec;self.storage=storage;self.indices=indices;self.length=len(storage)
         self._current(line)
 
     def _current(self,line=None):
@@ -1075,7 +1156,8 @@ def _reference_cells(reference):
         seen.add(id(value))
         entries = value.values.items() if isinstance(value, Structure) else enumerate(value.values)
         for key, child in entries:
-            cells.add((id(value.values), key))
+            storage,member=(value.values.location(key) if type(value.values) is _ArrayWindow else (value.values,key))
+            cells.add((id(storage), member))
             visit(child)
     visit(reference.raw())
     return cells
@@ -1145,7 +1227,7 @@ def joint_index_reference(value,index,expected,line=None):
         while declared[0]=='ARRAY':
             shape=array_shape(declared)
             if (type(current) is not Array or current.spec!=declared or current.shape!=shape
-                    or type(current.values) is not list or len(current.values)!=math.prod(shape)):
+                    or not _array_storage(current.values,line) or len(current.values)!=math.prod(shape)):
                 raise KarelRuntimeError('Malformed ARRAY storage before joint axis',line)
             width=len(shape);offset=current.offset(indexes[:width],line)
             current=current.values[offset];indexes=indexes[width:];declared=declared[2]
@@ -1698,7 +1780,7 @@ def _partial_aggregate_value(spec, value, line=None):
         if kind=='ARRAY':
             shape=array_shape(expected)
             if (type(item) is not Array or item.spec!=expected or item.shape!=shape
-                    or type(item.values) is not list or len(item.values)!=math.prod(shape)):
+                    or not _array_storage(item.values,line) or len(item.values)!=math.prod(shape)):
                 raise KarelRuntimeError('Aggregate value ARRAY requires identical concrete type, shape and storage',line)
             result=Array(expected)
             result.values[:]=[copy_value(expected[2],child,trail) for child in item.values]

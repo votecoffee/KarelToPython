@@ -1,5 +1,9 @@
 # Statement-only ARRAY row and plane targets
 
+Explicit live BYNAME row/plane arguments follow the separate
+[live-reference policy](array-prefix-references.md). Ordinary values and
+statement captures retain the ownership described here.
+
 Pythonic assignment and READ can now select an existing row or plane inside a
 flat multidimensional ARRAY. This is an authored extension with explicit capture
 and publication rules. It does not establish native source-form, storage-layout
@@ -35,8 +39,9 @@ behavior. Ordinary prefix arguments remain independent [source values](array-pre
 even when passed to a routine that writes its parameter.
 
 The runtime captures a private statement target rather than exposing a generic
-Reference or ARRAY view. Runtime indexed-reference helpers, quoted BYNAME paths
-and general service output parameters keep their complete-reference contracts.
+Reference or ARRAY view. Runtime indexed-reference helpers and general service
+output parameters keep their complete-reference contracts. Explicit BYNAME data
+prefixes use the separate live-reference interface.
 Separate [GET_VAR/SET_VAR prefix transfers](prefix-variable-transfers.md) now
 accept named data selections, SET input copies and GET data-output captures. No view
 or selection is stored in context JSON.
@@ -100,7 +105,8 @@ orientation protection, CONFIG domains, constants, exact resource exclusions and
 existing cooperative cleanup remain unchanged. POSITION data can be copied by
 assignment; [whole POSITION input](position-input.md) now validates complete
 position cohorts inside prefix READ targets. Computed/function
-READ roots and general service/BYNAME prefix aliases remain unavailable. GET_VAR
+READ roots and general service prefix outputs remain unavailable. Explicit BYNAME
+borrowing uses the live-reference policy. GET_VAR
 data-output prefixes follow the separate variable-transfer contract above.
 
 Existing bounds remain three logical dimensions, 32767 source/receiver scalar

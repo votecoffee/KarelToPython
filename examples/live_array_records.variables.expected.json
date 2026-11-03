@@ -1,0 +1,66 @@
+[
+  {
+    "program": "LIVE_ARRAY_RECORDS",
+    "path": "ITEMS",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "STRUCTURE",
+        "ITEM_T",
+        [
+          [
+            "AMOUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "LABEL",
+            [
+              "STRING",
+              4
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      [
+        {
+          "AMOUNT": 7,
+          "LABEL": {
+            "uninitialized": true
+          }
+        },
+        {
+          "AMOUNT": {
+            "uninitialized": true
+          },
+          "LABEL": "wide"
+        }
+      ],
+      [
+        {
+          "AMOUNT": {
+            "uninitialized": true
+          },
+          "LABEL": {
+            "uninitialized": true
+          }
+        },
+        {
+          "AMOUNT": {
+            "uninitialized": true
+          },
+          "LABEL": {
+            "uninitialized": true
+          }
+        }
+      ]
+    ]
+  }
+]

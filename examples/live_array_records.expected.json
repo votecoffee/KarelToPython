@@ -1,0 +1,38 @@
+{
+  "ITEMS": [
+    [
+      {
+        "AMOUNT": 7,
+        "LABEL": {
+          "uninitialized": true
+        }
+      },
+      {
+        "AMOUNT": {
+          "uninitialized": true
+        },
+        "LABEL": "wide"
+      }
+    ],
+    [
+      {
+        "AMOUNT": {
+          "uninitialized": true
+        },
+        "LABEL": {
+          "uninitialized": true
+        }
+      },
+      {
+        "AMOUNT": {
+          "uninitialized": true
+        },
+        "LABEL": {
+          "uninitialized": true
+        }
+      }
+    ]
+  ],
+  "ENTRY": 1,
+  "DONE": true
+}

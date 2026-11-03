@@ -1,0 +1,21 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ROW": [
+        7,
+        9
+      ],
+      "ENTRY": 1,
+      "STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0,
+      "FILLED": true
+    }
+  }
+}

@@ -1,5 +1,9 @@
 # Selected ARRAY variable transfers
 
+Explicit live BYNAME row/plane arguments follow the separate
+[live-reference policy](array-prefix-references.md). Ordinary values and
+statement captures retain the ownership described here.
+
 Pythonic GET_VAR and SET_VAR can transfer rows and planes selected inside flat
 multidimensional ARRAYs. Named variable paths, SET_VAR source expressions and
 GET_VAR data outputs use explicit data-transfer rules. This is an authored
@@ -42,9 +46,9 @@ a partial row followed by `.FIELD` is invalid.
 
 Indexes in quoted paths are checked one-based decimal integers. Expressions,
 variables, calls and arbitrary Python access are not evaluated. Source indexes
-retain ordinary one-time expression evaluation. General resolver and BYNAME
-calls keep their complete-reference grammar; this extension exposes data
-transfers without introducing a live view or general prefix reference.
+retain ordinary one-time expression evaluation. The default resolver keeps its
+complete-reference grammar. Transfers use statement captures; explicit BYNAME
+prefixes use the separate live-reference policy.
 
 The [linked project](../examples/prefix_variable_project/main.kl) transfers across
 attached owners. The [dynamic-bank project](../examples/prefix_variable_dynamic_project/main.kl)
@@ -102,8 +106,9 @@ cache identities. Cache IDs and private captures are omitted from saved JSON.
 Data-only schemas remain bounded to three logical ARRAY dimensions, 32767
 containing ARRAY scalar leaves and 64 data-schema levels. Active FOR roots,
 constants, CONFIG/POSITION field protection, resource exclusions and explicit
-model/owner checks remain in force. Other service output parameters, general
-BYNAME aliases and VariableStore bindings do not accept prefix capture objects.
+model/owner checks remain in force. Other service output parameters and
+VariableStore bindings do not accept statement capture objects. Explicit BYNAME
+borrowing produces its own checked live reference.
 No live references, callbacks or suspended stacks are persisted.
 
 `prefix_variable_transfer_policy` describes this extension. Source-located

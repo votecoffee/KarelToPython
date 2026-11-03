@@ -1,0 +1,12 @@
+PROGRAM LIVE_ARRAY_DYNAMIC
+VAR row:ARRAY[2]OF INTEGER entry,status:INTEGER done:BOOLEAN
+ROUTINE fill(items:ARRAY OF INTEGER)
+BEGIN items[1]=7 items[2]=9 END fill
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','GRID','','ARRAY OF INTEGER',0,2,2,0,status)
+    fill(BYNAME('CACHE','GRID[2]',entry))
+    GET_VAR(entry,'CACHE','GRID[2]',row,status)
+    done=TRUE
+  ENDIF
+END LIVE_ARRAY_DYNAMIC

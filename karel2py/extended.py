@@ -1339,7 +1339,7 @@ class QueueValue:
     def __init__(self): self.spec=('QUEUE_TYPE',); self.initialized=False; self.entries=[]; self.sequence=0; self.buffer=None
     def bind(self,buffer,line=None):
         if not self.initialized: fail('QUEUE_TYPE requires INIT_QUEUE before use',line)
-        if self.buffer is not None and self.buffer is not buffer: fail('Queue must keep its original backing ARRAY',line)
+        if self.buffer is not None and not runtime().same_array_storage(self.buffer,buffer): fail('Queue must keep its original backing ARRAY',line)
         if len(self.entries)>len(buffer.values): fail('Queue backing ARRAY is too small for restored entries',line)
         self.buffer=buffer
     def sync(self,line=None):

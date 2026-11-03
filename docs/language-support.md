@@ -1,5 +1,9 @@
 # Language support
 
+[Live ARRAY prefixes](array-prefix-references.md) now provide explicit BYNAME
+row/plane borrowing across linked calls, rename and pause, with original-cell
+overlap/timer/queue identity. Ordinary prefix arguments remain independent values.
+
 [Collection arrays](collection-arrays.md) now add reference-only PATH/QUEUE_TYPE
 cells, borrowed interfaces, dynamic creation and bounded logical JSON snapshots.
 Whole ARRAY data copies and resource STRUCTURE fields remain excluded.
@@ -57,7 +61,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1103.140418. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.143351. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

@@ -1,0 +1,5 @@
+PROGRAM LIB
+VAR seen:INTEGER filled:BOOLEAN
+ROUTINE fill(items:ARRAY OF INTEGER)
+BEGIN items[1]=7 items[2]=9 seen=ARRAY_LEN(items) filled=TRUE END fill
+BEGIN END LIB

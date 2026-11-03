@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1103.143351 - 2026-11-03
+
+- Add explicit live ARRAY row/plane BYNAME arguments, retaining independent
+  ordinary prefix values, exact schemas and captured original-cell ownership.
+- Integrate linked calls, dynamic renames, pause/resume, whole-data assignments
+  and I/O, timer identity, overlap guards and repeated same-cell queue buffers.
+- Save ordinary values without live aliases or suspended frames; retain resource,
+  FOR, POSITION orientation, CONFIG domain and bounded data-schema restrictions.
+- Add 89 regression tests, four runnable examples and two linked projects with
+  independent complete saved-variable fixtures.
+
+
 ## 26.1103.140418 - 2026-11-03
 
 - Add reference-only PATH/QUEUE_TYPE arrays with independent cells, named/nested

@@ -6300,9 +6300,18 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         interfaces='Assignment, private ordinary/linked arguments, RETURN, ARRAY_LEN and aggregate WRITE use existing source conversions; exact named-boundary references remain unchanged',
         limits='One through three logical dimensions, 32767 source scalar leaves and 64 data-schema levels; no resources, incomplete-reference outputs or strict claim',
         guide='docs/array-prefix-values.md',controller_validated=False)
+    report['array_prefix_reference_policy']=dict(
+        syntax='Direct typed user-routine BYNAME argument with a final incomplete flat data ARRAY path; adjacent numeric brackets normalize before selection',
+        schema='Concrete anonymous suffix, exact named children and terminal types/capacities; generic formal sizes inherit storage; no casts or reshaping',
+        capture='Validate complete containing data, capture original cells once, borrow through ordinary or linked calls and pause; ordinary prefix arguments and grouped formals stay private values',
+        integration='Whole assignment, prefix targets, READ/WRITE, variable transfers, connected timers and queue buffers use original cells; repeated same-cell queue captures retain backing identity',
+        protection='Original-cell and descendant overlap checks before BYNAME entry/cache publication; preserve FOR, POSITION orientation, CONFIG domains and resource ownership',
+        persistence='Save ordinary values and creation metadata; restore fresh storage without live windows, aliases, queue backing links or suspended stacks',
+        limits='One through three logical dimensions, 32767 data leaves, 64 schema levels; no FILE/PATH/QUEUE prefixes, local/system discovery, native/controller or strict claim',
+        guide='docs/array-prefix-references.md',controller_validated=False)
     report['array_prefix_target_policy']=dict(
         operations=['ASSIGNMENT','READ'],
-        capture='Original row/plane cells captured once for statement updates and explicit GET_VAR data outputs; no generic Reference, live view, routine copyback or BYNAME alias extension',
+        capture='Original row/plane cells captured once for statement updates and explicit GET_VAR data outputs; explicit live BYNAME arguments follow array_prefix_reference_policy, without routine copyback',
         assignment='Capture independent RHS first, then receiver and indexes; convert against captured actual receiver schema after target effects; validate complete selected receiver before one checkpoint-free publication; retain element/record aliases',
         input='Expand captured original scalar references before format calls and later targets; use existing complete-response checks, CR remapping, file/callback transports, waits and cancellation',
         schema='Preserve actual suffix dimensions, named children and STRING capacities; use existing context-free or explicit-model source conversions; validate full source receiver storage at capture',
@@ -6318,11 +6327,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/dynamic-data-arrays.md',controller_validated=False)
     report['prefix_variable_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
-        paths='Final incomplete flat row/plane selections in current/attached or explicit variable roots; adjacent numeric bracket groups normalize only for these transfers; exact bindings keep lookup precedence',
-        inputs='SET_VAR source prefixes become independent typed snapshots before later selectors; GET_VAR data outputs may capture original prefix cells; generic BYNAME and service references stay complete',
+        paths='Final incomplete flat row/plane selections in current/attached or explicit variable roots; adjacent numeric brackets normalize for transfers and explicit BYNAME; exact bindings keep lookup precedence',
+        inputs='SET_VAR source prefixes become independent typed snapshots before later selectors; GET_VAR data outputs may capture original prefix cells; explicit BYNAME prefixes follow array_prefix_reference_policy',
         conversions='Existing same-rank prefix data conversions, scalar missing markers, STRING capacities, numeric/record/positional and explicit-model rules; preserve unused receiver tail and actual named child layouts',
         publication='Validate output overlaps before lookup, recheck selected destination overlap after model effects, then data publication before cache/entry/status; failed prefix publication allocates no cache ID',
-        boundaries='No live view, prefix binding persistence, automatic discovery, resource data, missing destination containers, native/controller or strict claim; normal resolver/BYNAME remains unchanged',
+        boundaries='Transfer captures remain statement-only; explicit BYNAME has a separate live-reference policy; no persistent aliases, automatic discovery, resource data, missing destination containers, native/controller or strict claim; default resolver stays complete',
         guide='docs/prefix-variable-transfers.md',controller_validated=False)
     report['array_policy']['subscripts']='Complete references and named boundaries unchanged; source values, statement targets and explicit variable-transfer prefixes have separate policies'
     report['aggregate_access_policy']['boundary']='Bare function names directly used as receiver roots remain storage; use explicit calls/groups; complete ARRAY chains normalize to comma access without partial flat views or erasing identity'

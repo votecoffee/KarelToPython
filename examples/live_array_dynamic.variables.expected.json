@@ -1,0 +1,34 @@
+[
+  {
+    "program": "CACHE",
+    "path": "GRID",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        7,
+        9
+      ]
+    ],
+    "creation": {
+      "group": 0,
+      "memory_pool": 0
+    }
+  }
+]

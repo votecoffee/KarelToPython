@@ -1,0 +1,30 @@
+[
+  {
+    "program": "MAIN",
+    "path": "MATRIX",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        7,
+        9
+      ]
+    ]
+  }
+]

@@ -1,0 +1,51 @@
+[
+  {
+    "program": "LIVE_ARRAY_PLANE",
+    "path": "CUBE",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2,
+        2
+      ],
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      [
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ],
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ]
+      ],
+      [
+        [
+          7,
+          {
+            "uninitialized": true
+          }
+        ],
+        [
+          {
+            "uninitialized": true
+          },
+          9
+        ]
+      ]
+    ]
+  }
+]

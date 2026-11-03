@@ -120,8 +120,10 @@ components with complete-batch pose validation and bounded rounding normalizatio
   [Complete chained indexes](chained-array-indexes.md) now use the existing comma
   access contract. [Prefix values](array-prefix-values.md) now copy incomplete
   flat rows/planes independently. [Statement prefix targets](array-prefix-targets.md)
-  now assign and READ original cells with retained aliases; live partial views
-  and general service/BYNAME prefix references remain unavailable.
+  now assign and READ original cells with retained aliases. Explicit
+  [live BYNAME prefixes](array-prefix-references.md) now borrow data rows/planes
+  across routines, linked calls, rename and pause. General bare-prefix service
+  outputs, resource prefixes and routine-local/system discovery remain excluded.
   [GET_VAR/SET_VAR prefix data transfers](prefix-variable-transfers.md) now support
   selected named paths, SET source values and captured GET data outputs.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the

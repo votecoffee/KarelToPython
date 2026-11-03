@@ -57,8 +57,14 @@ collection cells, borrowed routine/BYNAME access and dynamic creation. Logical
 JSON retains PATH contents and queue sequence state, with bounded allocation and
 restore checks. Saved-variable fixtures verify the new examples independently.
 
+[Explicit live ARRAY references](docs/array-prefix-references.md) now borrow rows
+and planes through BYNAME, including linked routines and dynamic variables.
+Writes, input, timers and queue buffers share the captured original cells;
+ordinary prefix arguments still use independent values. JSON retains data
+without persisting aliases or suspended calls.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1103.140418**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.143351**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -889,9 +895,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 392 authored runnable examples, checks complete
+The example runner translates 396 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 128 complete linked source projects. It also checks that unsupported
+fixtures, plus 130 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

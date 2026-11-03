@@ -37,18 +37,26 @@ retaining native storage, numeric-category and explicit robot-context boundaries
 
 The [dynamic ARRAY creation ledger](dynamic_array_creation_semantics.json) adds
 typed ARRAY OF data aliases and extra named-array dimensions. Bounded schema
-validation now precedes all data creation/restore accounting; resource arrays
-and native allocation remain excluded.
+validation now precedes all data creation/restore accounting. Resource arrays use
+separate FILE/collection contracts; native allocation remains unverified.
 
 The [prefix variable-transfer ledger](prefix_variable_transfer_semantics.json)
 adds selected named ARRAY paths, SET input copies and GET output captures.
-General service/BYNAME aliases remain complete, with separate overlap and
-data/cache/status publication rules for the explicit transfer extension.
+Transfers retain separate overlap and data/cache/status publication rules.
+Explicit BYNAME data prefixes now use the live-reference ledger below; general
+bare-prefix service outputs remain excluded.
 
 The [ARRAY prefix-target ledger](array_prefix_target_semantics.json) adds
 statement-only row/plane assignment and READ into captured original cells.
-It supersedes earlier assignment/input-target exclusions while retaining generic
-reference, service/BYNAME and live-view boundaries.
+It supersedes earlier assignment/input-target exclusions. Those captures remain
+statement-only; explicit BYNAME borrowing has a separate live-reference contract.
+
+The [live ARRAY prefix ledger](array_prefix_reference_semantics.json) adds typed
+BYNAME row/plane borrowing through ordinary/linked routines, dynamic renames and
+pause. Original-cell identity governs overlap checks, connected timers and queue
+buffers. Ordinary prefix values, grouped formals and results stay independent;
+JSON restores data without aliases. Resource prefixes and native equivalence
+remain excluded.
 
 The [ARRAY prefix ledger](array_prefix_semantics.json) adds independent row/plane
 source values while keeping full-rank and named-boundary references unchanged.

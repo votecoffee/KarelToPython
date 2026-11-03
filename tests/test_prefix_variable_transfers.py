@@ -195,10 +195,9 @@ class PrefixVariableScopeTests(unittest.TestCase):
     def test_saved_context_has_data_without_prefix_bindings(self):
         p,_=program("row[1]=7 SET_VAR(e,'','M[1]',row,s)");p.run();saved=json.loads(json.dumps(p._state.execution.to_config()));restored=rt.ExecutionContext.from_config(saved)
         self.assertFalse(any('[' in row['path'] for row in saved.get('variables',[])));self.assertEqual(restored.to_config(),saved)
-    def test_default_resolver_and_byname_remain_complete(self):
-        p,_=program("e=77 work(BYNAME('','M[1]',e))",routines='ROUTINE work(p:ARRAY OF INTEGER) BEGIN END work')
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
-        self.assertEqual(p.snapshot()['E'],77)
+    def test_default_resolver_remains_complete_with_explicit_byname_prefix(self):
+        p,_=program("e=77 work(BYNAME('','M[1]',e))",routines='ROUTINE work(p:ARRAY OF INTEGER) BEGIN p[1]=7 END work')
+        self.assertEqual((p.run()['M'][0],p.snapshot()['E']),([7,U,U],1))
         with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):p._state.execution.resolve(p._state,'','M[1]')
     def test_cache_key_retains_original_bracket_spelling(self):
         p,_=program("m[1,1]=7 GET_VAR(e,'','M[1][1]',n,s) GET_VAR(e,'','M[1,1]',n,s)");p.run();self.assertEqual(len(p._state.execution.entries),2)

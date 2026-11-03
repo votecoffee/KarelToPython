@@ -286,7 +286,8 @@ def byname(state,expected,program,path,entry,line=None):
         path=rt.ascii_string(path,line).upper()
         if not re.fullmatch(IDENTIFIER+r'(?:\.[A-Z_][A-Z_0-9]*|\[[0-9]+(?:,[0-9]+)*\])*',path):
             fail('BYNAME requires an ordinary static variable path; system variables are excluded',line)
-        context=state.execution;target=context.resolve(state,program,path,line)
+        context=state.execution;target=context.resolve(state,program,path,line,prefixes=True)
+        if type(target) is rt._ArrayPrefixTarget:target=rt.array_prefix_reference(target,line)
         if type(target) is not rt.Reference: fail('BYNAME requires ordinary writable storage',line)
         if not rt.parameter_accepts(expected,target.spec): fail('BYNAME variable type does not match the routine parameter',line)
         if rt._reference_cells(target)&rt._reference_cells(entry): fail('BYNAME variable overlaps entry output',line)

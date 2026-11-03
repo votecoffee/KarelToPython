@@ -1,5 +1,9 @@
 # ARRAY row and plane values
 
+Explicit live BYNAME row/plane arguments follow the separate
+[live-reference policy](array-prefix-references.md). Ordinary values and
+statement captures retain the ownership described here.
+
 Pythonic mode accepts incomplete flat ARRAY selections as independent row or
 plane values. This is an authored extension, without native source-form or
 controller acceptance claims. Strict mode remains a future milestone.
@@ -81,10 +85,10 @@ callback or suspended stack to restore. The authored examples use an explicit
 completion flag so saved output state can be replayed without repeating effects.
 
 Existing limits remain three logical dimensions, 32767 source scalar leaves and
-64 data-schema levels. Resources, ragged dimensions and writable partial views
-remain excluded. Separate [statement targets](array-prefix-targets.md) now allow
-assignment and READ into original rows/planes. General service outputs and
-BYNAME variable-path aliases remain complete. Explicit
+64 data-schema levels. Resources and ragged dimensions remain excluded.
+Separate [statement targets](array-prefix-targets.md) allow assignment and READ
+into original rows/planes. General service outputs retain complete references;
+explicit BYNAME borrowing follows the live-reference policy. Explicit
 [GET_VAR/SET_VAR data transfers](prefix-variable-transfers.md) have their own
 prefix capture contract. Generic runtime
 `indexed_type` and `index_reference` retain their full-rank/reference contracts.

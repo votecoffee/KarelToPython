@@ -1,0 +1,8 @@
+PROGRAM LIB
+VAR status:INTEGER filled:BOOLEAN
+ROUTINE fill(items:ARRAY OF INTEGER)
+BEGIN
+  RENAME_VAR('CACHE','GRID','RENAMED',status)
+  items[1]=7 items[2]=9 filled=TRUE
+END fill
+BEGIN END LIB
