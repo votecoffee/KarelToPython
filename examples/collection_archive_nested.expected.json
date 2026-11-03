@@ -1,0 +1,44 @@
+{
+  "BANKS": [
+    [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      },
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      }
+    ],
+    [
+      {
+        "nodes": [
+          {
+            "VALUE": 31
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      },
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      }
+    ]
+  ],
+  "VALUE": 31,
+  "DONE": true
+}

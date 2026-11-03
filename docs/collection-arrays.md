@@ -83,10 +83,11 @@ payloads or allocating restored root arrays. Existing creation metadata/quota ch
 also apply before decoding creation-tagged rows. There is no inferred legacy flat
 multidimensional collection representation.
 
-VR archives exclude static and created collection ARRAY roots, retaining their
-live contents on SAVE/CLEAR/LOAD. Other supported data roots remain archivable.
-Use context JSON for the complete logical collection arrays. JSON is value replay;
-it does not persist callbacks, queue buffer links, captured aliases or task stacks.
+[Logical VR archives](collection-array-archives.md) now include owned static and
+created collection ARRAY roots in save/load/clear, recursive/mixed batches and
+explicit DRAM snapshots. Exact existing array/cell/header identities survive;
+node lists detach and queue links reset. JSON/VR are value replay and do not
+persist callbacks, queue buffer links, captured aliases or task stacks.
 
 Reports add `collection_array_policy`. See the [PATH](../examples/collection_path_arrays.kl),
 [queue](../examples/collection_queue_arrays.kl),

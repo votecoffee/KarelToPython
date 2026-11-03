@@ -1,0 +1,98 @@
+[
+  {
+    "program": "COLLECTION_ARCHIVE_NESTED",
+    "path": "BANKS",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "ARRAY",
+        2,
+        [
+          "PATH",
+          [
+            "STRUCTURE",
+            "NODE_T",
+            [
+              [
+                "VALUE",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ],
+          [
+            "STRUCTURE",
+            "HEADER_T",
+            [
+              [
+                "COUNT",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ]
+        ],
+        "ROW_T"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        },
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        }
+      ],
+      [
+        {
+          "nodes": [
+            {
+              "VALUE": 31
+            }
+          ],
+          "data": {
+            "COUNT": 1
+          }
+        },
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "program": "COLLECTION_ARCHIVE_NESTED",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 31
+  },
+  {
+    "program": "COLLECTION_ARCHIVE_NESTED",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

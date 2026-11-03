@@ -1,0 +1,73 @@
+[
+  {
+    "program": "COLLECTION_ARCHIVE_PATHS",
+    "path": "ROUTES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          }
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 17
+          }
+        ],
+        "data": {
+          "COUNT": 1
+        }
+      }
+    ]
+  },
+  {
+    "program": "COLLECTION_ARCHIVE_PATHS",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  },
+  {
+    "program": "COLLECTION_ARCHIVE_PATHS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

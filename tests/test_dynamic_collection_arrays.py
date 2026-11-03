@@ -76,10 +76,10 @@ class DynamicCollectionArrayTests(unittest.TestCase):
     def test_namespace_rename_keeps_live_array_alias(self):
         routine=FILL.replace('INIT_QUEUE(q[2])',"RENAME_VARS('CACHE','MOVED',status) INIT_QUEUE(q[2])")
         _,ctx,_,_=execute(allocation()+invoke(),routines=routine);self.assertEqual(ref(ctx,owner='MOVED').raw().values[1].entries,[(1,9)]);self.assertIn(('MOVED','ITEM'),ctx.variables.metadata)
-    def test_vr_clear_excludes_created_collection_array(self):
+    def test_vr_clear_resets_created_collection_array_and_retains_metadata(self):
         ctx=rt.ExecutionContext(files=rt.MemoryFiles(),variable_archives=rt.VariableArchives())
         body=allocation()+invoke()+"SAVE('CACHE','CACHE.VR',status) CLEAR('CACHE.VR',status)"
-        v,ctx,_,_=execute(body,routines=FILL,context=ctx);self.assertEqual(v['STATUS'],0);self.assertEqual(ref(ctx).raw().values[1].entries,[(1,9)])
+        v,ctx,_,_=execute(body,routines=FILL,context=ctx);self.assertEqual(v['STATUS'],0);self.assertEqual(ref(ctx).raw().values[1].entries,[]);self.assertFalse(ref(ctx).raw().values[1].initialized)
         self.assertIn(('CACHE','ITEM'),ctx.variables.metadata)
 
     def test_pause_retains_once_created_cells(self):

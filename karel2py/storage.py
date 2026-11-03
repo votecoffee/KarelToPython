@@ -188,8 +188,8 @@ def restore_collection_array(spec,payload):
     restored=iter([restore_collection(schema,item) for schema,item in rows])
     def allocate(schema):
         if schema[0]!='ARRAY':return next(restored)
-        result=runtime.Array(schema)
-        result.values[:]=[allocate(schema[2]) for _ in result.values]
+        result=object.__new__(runtime.Array);result.spec=schema;result.shape=runtime.array_shape(schema)
+        result.values=[allocate(schema[2]) for _ in range(math.prod(result.shape))]
         return result
     return allocate(spec)
 

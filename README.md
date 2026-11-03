@@ -94,8 +94,13 @@ selected data storage for queue buffers, listings, XML, PC packets, forms/tables
 geometry and supplied vision results. Captures retain original cells; static
 labels and typed input snapshots keep their existing ownership rules.
 
+[Collection ARRAY archives](docs/collection-array-archives.md) now save and
+restore owned PATH/QUEUE_TYPE banks through VR files, recursive/mixed batches and
+explicit DRAM snapshots. Existing array/cell/header identities survive restore;
+node lists detach and queue buffer links reset after bounded batch validation.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1103.215506**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.222911**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

@@ -1,0 +1,9 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR routes:ARRAY[2]OF route_t
+ROUTINE work:INTEGER
+VAR status,seq:INTEGER
+BEGIN
+  APPEND_NODE(routes[2],status) routes[2][1].value=42 routes[2].count=1 SAVE('LIB','LIB.VR',status) routes[2][1].value=99 LOAD('LIB.VR',0,status) RETURN(routes[2][1].value)
+END work
+BEGIN END LIB

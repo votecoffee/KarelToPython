@@ -1,0 +1,29 @@
+{
+  "version": "26.1103.222911",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../collection-array-archives.md",
+  "tests": [
+    "tests/test_collection_array_archives.py",
+    "tests/test_collection_arrays.py",
+    "tests/test_dynamic_collection_arrays.py"
+  ],
+  "operations": [
+    "SAVE",
+    "LOAD",
+    "CLEAR",
+    "PROG_BACKUP",
+    "PROG_RESTORE",
+    "PROG_CLEAR",
+    "SAVE_DRAM",
+    "restore_dram"
+  ],
+  "format": "Existing karel2py-variables-v1 typed JSON; older excluded roots retain current values",
+  "ownership": "Owned static/created ARRAYs only; exact schemas and independent resource cells; imports, FILE storage and live row carriers remain excluded",
+  "identity": "Retain existing ARRAY containers, PATH/queue cells and compatible headers; detach nodes and remove queue buffer links; new roots own decoded independent cells",
+  "limits": "32767 combined descriptor/header/node/entry-scalar units, rank at most3, 64-level data schemas, existing32-level JSON and byte/namespace limits",
+  "validation": "Preflight all record schemas/creation quotas before typed decode and entire selected batch before publication; preserve overlap/status/timer/foreign-active/protection/backend guards",
+  "allocation": "ARRAY carriers allocate restored cells only; no constructor throwaways or new-root placeholder resource arrays",
+  "persistence": "Logical values and metadata only; no native VR layout, live aliases, buffers, open FILEs, automatic power-up restore or suspended task checkpoints",
+  "boundary": "Authored offline Pythonic behavior; no native compiler/controller or strict-mode equivalence claim"
+}

@@ -1,0 +1,24 @@
+{
+  "ROUTES": [
+    {
+      "nodes": [],
+      "data": {
+        "COUNT": {
+          "uninitialized": true
+        }
+      }
+    },
+    {
+      "nodes": [
+        {
+          "VALUE": 17
+        }
+      ],
+      "data": {
+        "COUNT": 1
+      }
+    }
+  ],
+  "VALUE": 17,
+  "DONE": true
+}

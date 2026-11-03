@@ -1,0 +1,90 @@
+{
+  "variable_archives": {
+    "limit": 16777216,
+    "program_limit": 256,
+    "calls": {},
+    "flash": {
+      "COLLECTION_ARCHIVE_DRAM": {
+        "format": "karel2py-variables-v1",
+        "program": "COLLECTION_ARCHIVE_DRAM",
+        "variables": {
+          "JOBS": {
+            "type": [
+              "ARRAY",
+              2,
+              [
+                "QUEUE_TYPE"
+              ]
+            ],
+            "value": [
+              {
+                "initialized": false,
+                "entries": [],
+                "sequence": 0
+              },
+              {
+                "initialized": true,
+                "entries": [
+                  [
+                    1,
+                    42
+                  ]
+                ],
+                "sequence": 1
+              }
+            ]
+          },
+          "BUFFERS": {
+            "type": [
+              "ARRAY",
+              [
+                2,
+                3
+              ],
+              [
+                "INTEGER"
+              ]
+            ],
+            "value": [
+              [
+                {
+                  "uninitialized": true
+                },
+                {
+                  "uninitialized": true
+                },
+                {
+                  "uninitialized": true
+                }
+              ],
+              [
+                42,
+                0,
+                0
+              ]
+            ]
+          },
+          "VALUE": {
+            "type": [
+              "INTEGER"
+            ],
+            "value": {
+              "uninitialized": true
+            }
+          },
+          "DONE": {
+            "type": [
+              "BOOLEAN"
+            ],
+            "value": {
+              "uninitialized": true
+            }
+          }
+        },
+        "excluded": [],
+        "calls": []
+      }
+    }
+  },
+  "files": {}
+}

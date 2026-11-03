@@ -1,0 +1,37 @@
+{
+  "JOBS": [
+    {
+      "initialized": false,
+      "entries": []
+    },
+    {
+      "initialized": true,
+      "entries": [
+        [
+          1,
+          42
+        ]
+      ]
+    }
+  ],
+  "BUFFERS": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      42,
+      0,
+      0
+    ]
+  ],
+  "VALUE": 42,
+  "DONE": true
+}

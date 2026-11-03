@@ -6699,6 +6699,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         for row in [request,*request.get('settings',[])]:
             label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
             row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
+    report['collection_array_archive_policy']=dict(
+        operations=['SAVE','LOAD','CLEAR','PROG_BACKUP','PROG_RESTORE','PROG_CLEAR','SAVE_DRAM','restore_dram'],
+        source='Owned static or created PATH/QUEUE_TYPE ARRAY roots, named/nested components and supplied wildcard shapes; imports and FILE storage remain excluded',
+        format='Existing karel2py-variables-v1 canonical typed JSON; exact collection schemas, partial PATH data and queue initialized/sequence/entries; older excluded roots retain current values',
+        identity='Retain existing ARRAY containers, owned collection cells and compatible PATH headers; detach old node lists; remove queue backing links; new namespaces own independent decoded cells',
+        preflight='Bound complete hierarchy and combined snapshot contents to 32767 descriptor/header/node/queue-entry scalar units; validate all record schemas and creation policies before typed decode; preserve 64-level data and 32-level JSON bounds',
+        guards='Whole-batch status/descendant overlap, shared cell/container/header/node ownership, active foreign aliases, connected timers, protection, metadata/quota and backend checks before publication',
+        allocation='Decoded ARRAY carriers allocate only restored cells; no constructor-created throwaway collections or new-root placeholder ARRAY allocation',
+        persistence='Logical values and creation metadata only; no open FILEs, live views, queue buffers, callbacks, aliases or suspended frames; explicit DRAM restore only',
+        guide='docs/collection-array-archives.md',controller_validated=False)
     report['collection_array_policy']=dict(
         mode='Authored Pythonic reference-only PATH/QUEUE_TYPE ARRAY extension; no native source/layout/controller claim',
         source='Global/local fixed or supplied wildcard arrays, transparent collection aliases, named/nested ARRAY components and exact or generic borrowed routine/BYNAME interfaces',
@@ -6706,7 +6716,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         limits='One through three ARRAY dimensions and 32767 reserved descriptors/header leaves per allocation; nodes allocate later; source aliases and shapes remain exact',
         creation='CREATE_VAR uses existing ARRAY OF/type-owner/dimension, collision, metadata and checkpoint rechecks; collection groups remain metadata only',
         persistence='Canonical nested ARRAY payloads with ordinary PATH data and queue initialized/sequence/entries; preflight hierarchy and combined 32767 descriptor/header/node/entry-scalar units before root ARRAY allocation; restored cells independent and queue buffers cleared',
-        guards='No whole ARRAY copies, grouped value arguments, results, prefix values, resource STRUCTURE fields, generic data READ/WRITE/GET_VAR/SET_VAR or VR archives; individual cells retain existing scalar collection contracts',
+        guards='No whole ARRAY copies, grouped value arguments, results, prefix values, resource STRUCTURE fields, generic data READ/WRITE/GET_VAR/SET_VAR; owned logical VR roots follow collection_array_archive_policy; individual cells retain existing scalar collection contracts',
         lifetime='Ordinary references across calls, pause and rename; captures/stacks and queue buffer links are not persisted',
         guide='docs/collection-arrays.md',controller_validated=False)
     report['dynamic_collection_policy']=dict(

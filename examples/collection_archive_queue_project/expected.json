@@ -1,0 +1,47 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "RESULT": 23,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "JOBS": [
+        {
+          "initialized": false,
+          "entries": []
+        },
+        {
+          "initialized": true,
+          "entries": [
+            [
+              1,
+              23
+            ]
+          ]
+        }
+      ],
+      "BUFFERS": [
+        [
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          },
+          {
+            "uninitialized": true
+          }
+        ],
+        [
+          23,
+          0,
+          0
+        ]
+      ]
+    }
+  }
+}

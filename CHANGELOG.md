@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1103.222911 - 2026-11-03
+
+- Include owned PATH/QUEUE_TYPE ARRAY roots in logical VR save/load/clear,
+  variable/mixed recursive batches and explicit DRAM snapshot/restore.
+- Preserve existing ARRAY/cell/header identities, detach old PATH nodes and reset
+  queue buffer links after complete schema, quota, overlap and ownership preflight.
+- Allocate restored collection arrays without discarded constructor-created cells;
+  retain FILE/import/live-window exclusions and earlier excluded-row compatibility.
+- Add 73 regressions, four runnable examples and two linked projects with
+  independent state, typed-variable and archive/file service expectations.
+
 ## 26.1103.215506 - 2026-11-03
 
 - Accept writable Pythonic data ARRAY rows/planes in explicit typed service

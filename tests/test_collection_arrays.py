@@ -235,8 +235,8 @@ class CollectionArrayGuardTests(unittest.TestCase):
         with self.assertRaises((ValueError,rt.KarelRuntimeError)):collection_array_cost(('ARRAY',2,('PATH',('FILE',),None)))
     def test_resource_arrays_require_pythonic_runtime(self):
         with rt._numeric_scope('strict'),self.assertRaises(rt.KarelRuntimeError):rt.Array(QARRAY)
-    def test_archives_exclude_resource_arrays_and_retain_data_roots(self):
-        _,p,_=execute(SEED);owned,excluded=roots(p._state.execution,p._state,'T');self.assertIn('PATHS',excluded);self.assertIn('QUEUES',excluded);self.assertIn('STATUS',owned)
+    def test_archives_include_collection_arrays_and_data_roots(self):
+        _,p,_=execute(SEED);owned,excluded=roots(p._state.execution,p._state,'T');self.assertIn('PATHS',owned);self.assertIn('QUEUES',owned);self.assertIn('STATUS',owned);self.assertEqual(excluded,[])
     def test_report_marks_authored_offline_extension(self):
         _,_,r=execute();policy=r.report['collection_array_policy'];self.assertFalse(policy['controller_validated']);self.assertIn('32767',policy['limits']);self.assertEqual(policy['guide'],'docs/collection-arrays.md')
 

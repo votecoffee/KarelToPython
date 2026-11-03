@@ -328,7 +328,10 @@ restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operati
   PATH/QUEUE_TYPE and supplied aliases with checked header/descriptor reservations;
   QUEUE_TYPE native inspection codes remain unavailable. [Collection arrays](collection-arrays.md)
   now support static/dynamic reference-only PATH/QUEUE_TYPE storage and logical JSON.
-  Whole ARRAY copies, results, incomplete prefix values and VR archives remain excluded.
+  Whole ARRAY copies, results and ordinary incomplete prefix values remain excluded.
+  [Owned collection ARRAY VR archives](collection-array-archives.md) now support
+  save/load/clear, recursive/mixed batches and explicit DRAM snapshots with
+  exact identities, bounded validation and ordinary lifetime guards.
   Program catalogs and load status describe attached programs or supplied metadata.
   [TRANSLATE](source-translations.md) now generates sibling Python and optional
   listings from explicit stored source; native PC output, implicit include discovery,

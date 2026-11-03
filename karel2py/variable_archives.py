@@ -67,6 +67,25 @@ def cells(reference):
     return result
 
 
+def collection_root(spec,value):
+    """Validate owned collection cells before retaining their identities on restore."""
+    from .storage import _collection_array_rows,collection_payload
+    runtime=rt();rows=_collection_array_rows(spec,value,False)
+    for schema,item in rows:collection_payload(schema,item)
+    pending=[value];containers=set();occupied=set()
+    while pending:
+        array=pending.pop()
+        for identity in (id(array),id(array.values)):
+            if identity in containers:raise Failure(4,'Collection ARRAY containers overlap')
+            containers.add(identity)
+        if array.spec[2][0]=='ARRAY':pending.extend(array.values)
+        else:
+            for index in range(len(array.values)):
+                selected=cells(runtime.Reference(array.spec[2],array.values,index))
+                if occupied&selected:raise Failure(4,'Collection ARRAY cells overlap')
+                occupied.update(selected)
+
+
 def owner_of(context,state,program):return state if program==state.program_name else context.variables.programs.get(program)
 
 
@@ -75,7 +94,7 @@ def roots(context,state,program):
     imported={row[0] for row in getattr(getattr(owner,'program',None),'imported_variables',())}
     if owner is not None:
         for key,spec in owner.types.items():
-            if key in imported or runtime.file_storage_type(spec) or runtime.collection_array_type(spec):excluded.append(key);continue
+            if key in imported or runtime.file_storage_type(spec):excluded.append(key);continue
             value=owner.values[key]
             result[key]=value if type(value) is runtime.Reference else runtime.Reference(spec,owner.values,key)
     for (scope,path),reference in store.bindings.items():
@@ -90,12 +109,13 @@ def roots(context,state,program):
                 raise Failure(4,'Sparse variable binding is independent of its root')
             continue
         if owner is not None and path in owner.types:continue
-        if runtime.file_storage_type(reference.spec) or runtime.collection_array_type(reference.spec):excluded.append(path);continue
+        if runtime.file_storage_type(reference.spec):excluded.append(path);continue
         result[path]=reference
     if owner is None and not result and not excluded:raise Failure(1,'Variable namespace is absent')
     occupied=set()
     for reference in result.values():
         if not ordinary(reference):raise Failure(4,'Archive requires ordinary root storage')
+        if runtime.collection_array_type(reference.spec):collection_root(reference.spec,reference.raw())
         selected=cells(reference)
         if occupied&selected:raise Failure(4,'Variable roots overlap')
         occupied.update(selected)
@@ -104,7 +124,15 @@ def roots(context,state,program):
 
 def schema(spec,value=None):
     from .storage import collection_data_spec
-    if spec==('QUEUE_TYPE',):return 1
+    if rt().collection_array_type(spec):
+        from .storage import _collection_array_rows,_collection_array_units
+        encoded=type(value) is not rt().Array
+        return sum(_collection_array_units(schema,item,encoded) for schema,item in _collection_array_rows(spec,value,encoded))
+    if spec==('QUEUE_TYPE',):
+        from .storage import _collection_array_units
+        leaves=_collection_array_units(spec,value,type(value) is not rt().QueueValue)
+        if not 1<=leaves<=MAX_LEAVES:raise ValueError('Queue archive exceeds 32767 descriptor/entry units')
+        return leaves
     if type(spec) is tuple and spec and spec[0]=='PATH':
         from .dynamic import creation_cost
         leaves=creation_cost(spec)
@@ -130,7 +158,8 @@ def capture(context,state,program,*,calls=(),limit=16*1024*1024):
     for key,reference in sorted(variables.items()):
         leaves+=schema(reference.spec,reference.raw())
         if leaves>MAX_LEAVES:raise Failure(5,'Variable snapshot exceeds 32767 leaves')
-        copied=variable_reference(reference).value;records[key]=typed_value(copied,reference.spec)
+        copied=reference.raw() if rt().collection_array_type(reference.spec) else variable_reference(reference).value
+        records[key]=typed_value(copied,reference.spec)
         metadata=context.variables.metadata.get((program,key))
         if metadata is not None:records[key]['creation']=metadata.copy()
         try:remaining-=len(encode_json(records[key],remaining))
@@ -222,10 +251,12 @@ def prepare(context,state,bank,snapshots,status=None,*,clear=False):
             if new_root:
                 if owner is not None and key in owner.types:raise Failure(4,'Archive cannot replace imported or resource globals')
                 if clear:raise Failure(4,'Clear requires existing variable roots')
-                reference=runtime.Reference(spec,{'value':runtime.UNINITIALIZED if spec[0]=='PATH' else runtime.initial_value(spec)},'value');new.append((program,key,reference))
+                reference=runtime.Reference(spec,{'value':runtime.UNINITIALIZED if spec[0]=='PATH' or runtime.collection_array_type(spec) else runtime.initial_value(spec)},'value');new.append((program,key,reference))
                 temporary.bind(program,key,reference)
             if reference.spec!=spec:raise Failure(6,'Variable archive type differs from destination')
-            if spec[0]=='PATH':
+            if runtime.collection_array_type(spec):
+                if not new_root:collection_root(spec,reference.raw())
+            elif spec[0]=='PATH':
                 if not new_root:schema(spec,reference.raw());path_variable_value(spec,reference.raw())
             elif spec!=('QUEUE_TYPE',):_variable_shape(spec,reference.raw())
             selected=cells(reference)
@@ -250,15 +281,25 @@ def prepare(context,state,bank,snapshots,status=None,*,clear=False):
     return updates,new,temporary.metadata,graph,initializations
 
 
+def replace_collections(current,value):
+    """Publish prevalidated logical data while retaining owned ARRAY/collection cells."""
+    runtime=rt()
+    if type(current) is runtime.Array and type(value) is runtime.Array:
+        current.values[:]=[replace_collections(old,new) for old,new in zip(current.values,value.values)]
+        return current
+    if type(current) is runtime.QueueValue and type(value) is runtime.QueueValue:
+        current.initialized=value.initialized;current.sequence=value.sequence;current.entries=list(value.entries);current.buffer=None
+        return current
+    if type(current) is runtime.PathValue and type(value) is runtime.PathValue:
+        current.data=runtime.replace_value(current.data,value.data);current.nodes=value.nodes
+        return current
+    return runtime.replace_value(current,value)
+
+
 def commit(context,bank,prepared):
     runtime=rt();updates,new,metadata,graph,initializations=prepared
     for reference,value in updates:
-        current=reference.raw()
-        if type(current) is runtime.QueueValue and type(value) is runtime.QueueValue:
-            current.initialized=value.initialized;current.sequence=value.sequence;current.entries=list(value.entries);current.buffer=None
-        elif type(current) is runtime.PathValue and type(value) is runtime.PathValue:
-            current.data=runtime.replace_value(current.data,value.data);current.nodes=value.nodes
-        else:reference.storage[reference.key]=runtime.replace_value(current,value)
+        reference.storage[reference.key]=replace_collections(reference.raw(),value)
     for program,key,reference in new:context.variables.bind(program,key,reference)
     context.variables.metadata=metadata;bank.calls=graph
     for program,initialized in initializations.items():

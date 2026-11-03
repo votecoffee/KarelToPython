@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [collection ARRAY archive ledger](collection_array_archive_semantics.json)
+supersedes earlier VR exclusions for owned PATH/QUEUE_TYPE ARRAY roots. FILE
+storage and borrowed live windows retain their separate exclusions.
+
 The [typed service ARRAY prefix ledger](service_array_prefix_semantics.json) now
 supersedes earlier exclusions for explicit typed data service ARRAY references.
 Generic ANY/scalar outputs and ordinary resource prefix values remain guarded.
