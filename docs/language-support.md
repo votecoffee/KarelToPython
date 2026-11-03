@@ -1,5 +1,10 @@
 # Language support
 
+[Resource ARRAY row/plane references](resource-prefix-references.md) now extend
+explicit BYNAME borrowing to FILE, PATH and QUEUE_TYPE storage, including live
+FILE reads/cancellation, collection nodes/buffers, linked calls and dynamic
+rename. Generic value/copy/codec and exact-schema restrictions remain active.
+
 [Built-in record bridges](record-bridges.md) now map identical field-name sets
 between user structures and seven built-in data records across source values,
 private interfaces, arrays and GET_VAR/SET_VAR. CONFIG domains and POSITION
@@ -80,7 +85,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1103.202454. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.211222. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

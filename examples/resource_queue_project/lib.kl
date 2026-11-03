@@ -1,0 +1,1 @@
+PROGRAM LIB VAR sequence,status:INTEGER ROUTINE work(row:ARRAY OF QUEUE_TYPE;buffer:ARRAY OF INTEGER):INTEGER BEGIN INIT_QUEUE(row[1]) APPEND_QUEUE(23,row[1],buffer,sequence,status) RETURN(buffer[1]) END work BEGIN END LIB

@@ -72,8 +72,10 @@ or independently allocated array remains a different buffer. A queue can retain
 its captured buffer after a routine returns. Logical saved queues still restore
 without a live backing link.
 
-FILE/PATH/QUEUE_TYPE prefix arrays are excluded: this extension borrows ordinary
-data, without changing resource-array ownership. Existing one-to-three logical
+FILE/PATH/QUEUE_TYPE prefixes now follow the separate
+[resource reference contract](resource-prefix-references.md): explicit BYNAME
+borrowing only, preserving original resource cells and their existing lifetimes.
+Ordinary data values retain the rules above. Existing one-to-three logical
 dimensions, 32767 scalar-leaf and 64 schema-level bounds remain. Generic service
 output syntax does not gain bare prefix targets.
 

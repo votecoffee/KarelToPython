@@ -39,6 +39,11 @@ BYNAME paths and scalar GET_VAR/SET_VAR transfers. Borrowed references survive
 ordinary calls, rename and pause/resume. Linked source declarations still require
 matching types and identities.
 
+[Explicit BYNAME resource prefixes](resource-prefix-references.md) now borrow flat
+rows/planes with original collection identities, including PATH node/header
+access and queue backing buffers. Entry-output overlap checks include selected
+PATH descendants and borrowed queue backing cells.
+
 Whole resource ARRAY assignment, grouped value arguments, function results,
 incomplete flat-prefix values, whole ARRAY READ/WRITE/UNINIT and generic whole
 ARRAY GET_VAR/SET_VAR transfers remain unavailable. Source resource fields in

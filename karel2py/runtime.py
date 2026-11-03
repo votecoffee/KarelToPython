@@ -773,7 +773,7 @@ def collection_path_reference(array,index,expected,line=None):
     while schema[0]=='ARRAY':
         shape=array_shape(schema)
         if (type(current) is not Array or current.spec!=schema or current.shape!=shape
-                or type(current.values) is not list or len(current.values)!=math.prod(shape)):
+                or not _array_storage(current.values,line) or len(current.values)!=math.prod(shape)):
             raise KarelRuntimeError('Malformed collection ARRAY container',line)
         width=len(shape);offset=current.offset(remaining[:width],line)
         current=current.values[offset];schema=schema[2];remaining=remaining[width:]
@@ -1022,6 +1022,65 @@ def same_array_storage(first,second):
     return left is right and li==ri
 
 
+def resource_array_prefix_reference(array,index,expected,line=None):
+    """Borrow original resource cells; no descriptor/collection allocation or copy."""
+    if not _pythonic():raise KarelRuntimeError('Resource ARRAY prefixes require Pythonic mode',line)
+    indexes=index if type(index) is tuple else (index,)
+    if (type(array) is not Array or array_prefix_type(expected,len(indexes)) is None
+            or not resource_array_type(expected)):
+        raise KarelRuntimeError('Resource ARRAY prefix requires matching incomplete ARRAY storage',line)
+    from .dynamic import creation_cost
+    from .storage import _collection_array_units,collection_payload
+    try:
+        creation_cost(array.spec)
+        if not resource_array_type(array.spec) or not parameter_accepts(expected,array.spec):
+            raise ValueError('Resource ARRAY prefix storage does not match its declared schema')
+    except (ValueError,KarelRuntimeError) as exc:raise KarelRuntimeError('Resource ARRAY prefix schema: '+str(exc),line) from exc
+    units=0;seen=set();pending=[(array.spec,array)]
+    while pending:
+        schema,current=pending.pop()
+        if schema[0]=='ARRAY':
+            shape=array_shape(schema);identity=array_identity(schema)
+            if identity is not None and re.fullmatch(r'[A-Z_][A-Z_0-9]*',identity) is None:
+                raise KarelRuntimeError('Resource ARRAY prefix requires canonical named components',line)
+            if (type(current) is not Array or current.spec!=schema or current.shape!=shape
+                    or not _array_storage(current.values,line) or len(current.values)!=math.prod(shape)):
+                raise KarelRuntimeError('Resource ARRAY prefix found malformed container storage',line)
+            pending.extend((schema[2],item) for item in current.values)
+            continue
+        if id(current) in seen:raise KarelRuntimeError('Resource ARRAY cells must own distinct resources',line)
+        seen.add(id(current))
+        if schema==('FILE',):
+            if type(current) is not FileHandle:raise KarelRuntimeError('Resource ARRAY prefix requires exact FILE descriptors',line)
+            units+=1
+        else:
+            try:
+                units+=_collection_array_units(schema,current,False)
+                if units>32767:raise ValueError('Resource ARRAY prefix exceeds 32767 content units')
+                collection_payload(schema,current)
+            except (ValueError,KarelRuntimeError) as exc:raise KarelRuntimeError('Resource ARRAY prefix contents: '+str(exc),line) from exc
+        if units>32767:raise KarelRuntimeError('Resource ARRAY prefix exceeds 32767 content units',line)
+    current=array
+    while True:
+        width=len(current.shape)
+        if len(indexes)<width:
+            suffix=current.shape[len(indexes):];offset=0
+            for number,(subscript,dimension) in enumerate(zip(indexes,current.shape),1):
+                integer(subscript,line)
+                if not 1<=subscript<=dimension:raise KarelRuntimeError(f'Array index {subscript} outside 1..{dimension} in dimension {number}',line)
+                offset=offset*dimension+subscript-1
+            size=math.prod(suffix);start=offset*size;storage=current.values
+            spec=('ARRAY',suffix[0] if len(suffix)==1 else suffix,current.spec[2])
+            if type(storage) is _ArrayWindow:
+                storage.validate(line);start+=storage.start;storage=storage.storage
+            window=object.__new__(_ArrayWindow)
+            window.storage=storage;window.start=start;window.size=size;window.length=len(storage);window.validate(line)
+            view=object.__new__(Array);view.spec=spec;view.shape=suffix;view.values=window
+            return Reference(spec,{'value':view},'value')
+        offset=current.offset(indexes[:width],line)
+        current=current.values[offset];indexes=indexes[width:]
+
+
 def array_prefix_reference(target,line=None):
     """Borrow captured row/plane cells without changing ordinary prefix values."""
     if not _pythonic() or type(target) is not _ArrayPrefixTarget:
@@ -1166,11 +1225,14 @@ def string_value_argument(value, line=None):
     return StringValueReference(value, line)
 
 
-def _reference_cells(reference):
+def _reference_cells(reference,*,queue_buffers=False):
     """Storage identity, including aggregate descendants; values are not aliases."""
     cells, seen = {(id(reference.storage), reference.key)}, set()
 
     def visit(value):
+        if queue_buffers and isinstance(value,QueueValue):
+            if id(value) in seen:return
+            seen.add(id(value));visit(value.buffer);return
         if isinstance(value, PathValue):
             if id(value) in seen: return
             seen.add(id(value))

@@ -1,0 +1,18 @@
+[
+  {
+    "program": "MAIN",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  },
+  {
+    "program": "LIB",
+    "path": "SEEN",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  }
+]

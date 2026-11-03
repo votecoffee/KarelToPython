@@ -2346,7 +2346,7 @@ class ExecutionContext:
             return robot.in_range(args[0],name,line)
         if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=rt.task_root(state).robot_group)
         fail('Unsupported extended operation '+name,line)
-    def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False):
+    def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False,resources=False):
         rt=runtime(); program=program.upper(); path=path.upper()
         # Explicit system roots and full-path bindings have precedence over discovery.
         selected=program if program not in ('',state.program_name) else state.program_name
@@ -2358,10 +2358,10 @@ class ExecutionContext:
             candidates=[(key,reference) for (owner,key),reference in self.variables.bindings.items() if owner in (program,selected,'SYSTEM','*SYSTEM*','') and (path==key or path.startswith(key+'.') or path.startswith(key+'['))]
             if candidates:
                 key,reference=max(candidates,key=lambda item:len(item[0])); rest=path[len(key):]
-                return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes)
+                return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
         if root is not None and (owner is None or root[0] not in owner.types):
             reference=self.variables.bindings.get((selected,root[0])) or self.variables.bindings.get((program,root[0]))
-            if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes,prefixes=prefixes)
+            if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
         if program not in ('',state.program_name):
             state=self.variables.programs.get(program)
             if state is None: fail('Variable program is not attached to the explicit context',line)
@@ -2369,8 +2369,8 @@ class ExecutionContext:
         if not tokens or tokens[1] not in state.types: fail('Variable path requires a static declared global',line)
         value=state.values[tokens[1]]
         reference=value if isinstance(value,rt.Reference) else rt.Reference(state.types[tokens[1]],state.values,tokens[1]); rest=tokens[2]
-        return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes)
-    def descend(self,reference,rest,line=None,*,path_nodes=False,prefixes=False):
+        return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
+    def descend(self,reference,rest,line=None,*,path_nodes=False,prefixes=False,resources=False):
         rt=runtime()
         while rest:
             field=re.match(r'\.([A-Z_][A-Z_0-9]*)',rest)
@@ -2392,7 +2392,9 @@ class ExecutionContext:
                     if rt._pythonic() and rt.collection_array_node_type(reference.spec,len(numbers)) is not None:
                         reference=rt.collection_path_reference(value,selected,reference.spec,line)
                     elif prefixes and rt._pythonic() and consumed==len(rest) and rt.array_prefix_type(reference.spec,len(numbers)) is not None:
-                        reference=rt.array_prefix_target(value,selected,reference.spec,line)
+                        reference=(rt.resource_array_prefix_reference(value,selected,reference.spec,line)
+                                   if resources and rt.resource_array_type(reference.spec)
+                                   else rt.array_prefix_target(value,selected,reference.spec,line))
                     elif rt._pythonic() and any(rt.joint_axis_access(reference.spec,n) for n in range(1,5)):
                         if type(value) not in (rt.Array,rt.JointPosition) or not rt.parameter_accepts(reference.spec,value.spec):fail('Joint variable path storage does not match its declared schema',line)
                         reference=(rt.joint_index_reference(value,selected,reference.spec,line) if rt.joint_axis_access(reference.spec,len(numbers))

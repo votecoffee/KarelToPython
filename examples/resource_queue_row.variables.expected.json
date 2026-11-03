@@ -1,0 +1,63 @@
+[
+  {
+    "program": "RESOURCE_QUEUE_ROW",
+    "path": "JOBS",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        }
+      ],
+      [
+        {
+          "initialized": true,
+          "entries": [
+            [
+              1,
+              17
+            ]
+          ],
+          "sequence": 1
+        },
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        }
+      ]
+    ]
+  },
+  {
+    "program": "RESOURCE_QUEUE_ROW",
+    "path": "BUFFER",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      17,
+      0,
+      0
+    ]
+  }
+]

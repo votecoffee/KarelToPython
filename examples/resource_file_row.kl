@@ -1,0 +1,7 @@
+PROGRAM RESOURCE_FILE_ROW
+
+VAR items:ARRAY[2,2]OF FILE entry,value,status:INTEGER
+ROUTINE work(row:ARRAY OF FILE) BEGIN OPEN FILE row[1]('WB','out') WRITE row[1](17) CLOSE FILE row[1] OPEN FILE row[2]('RB','out') READ row[2](value) status=IO_STATUS(row[2]) CLOSE FILE row[2] END work
+BEGIN
+  work(BYNAME('','ITEMS[2]',entry))
+END RESOURCE_FILE_ROW

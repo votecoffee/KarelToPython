@@ -1,0 +1,86 @@
+{
+  "ITEMS": [
+    [
+      [
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        },
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        }
+      ],
+      [
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        },
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        }
+      ]
+    ],
+    [
+      [
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        },
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        }
+      ],
+      [
+        {
+          "nodes": [
+            {
+              "AMOUNT": 17
+            }
+          ],
+          "data": {
+            "COUNT": 1
+          }
+        },
+        {
+          "nodes": [],
+          "data": {
+            "COUNT": {
+              "uninitialized": true
+            }
+          }
+        }
+      ]
+    ]
+  ],
+  "ENTRY": 1,
+  "VALUE": 17,
+  "STATUS": 0,
+  "DONE": true
+}

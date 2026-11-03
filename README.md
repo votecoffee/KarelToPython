@@ -84,8 +84,13 @@ structures and VECTOR, CONFIG, Cartesian, POSITION and association records.
 Assignments, private routine interfaces, arrays and variable transfers preserve
 typed receiver storage; constructing POSITION requires complete valid geometry.
 
+[Resource ARRAY references](docs/resource-prefix-references.md) now let BYNAME
+borrow FILE, PATH and QUEUE_TYPE rows/planes across routines, linked calls,
+dynamic rename and pause. Original descriptors, collection cells and queue
+buffer links stay live; ordinary resource-array copies remain guarded.
+
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1103.202454**. It is a
+tool are named **karel2py**. The current implementation is **26.1103.211222**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -916,9 +921,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 412 authored runnable examples, checks complete
+The example runner translates 416 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 138 complete linked source projects. It also checks that unsupported
+fixtures, plus 140 complete linked source projects. It also checks that unsupported
 NOWAIT/local-handler combinations are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

@@ -1,0 +1,71 @@
+[
+  {
+    "program": "MAIN",
+    "path": "JOBS",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        }
+      ],
+      [
+        {
+          "initialized": true,
+          "entries": [
+            [
+              1,
+              23
+            ]
+          ],
+          "sequence": 1
+        },
+        {
+          "initialized": false,
+          "entries": [],
+          "sequence": 0
+        }
+      ]
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "BUFFER",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      23,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "LIB",
+    "path": "SEQUENCE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  }
+]

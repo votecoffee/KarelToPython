@@ -1,0 +1,18 @@
+[
+  {
+    "program": "RESOURCE_FILE_ROW",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  },
+  {
+    "program": "RESOURCE_FILE_ROW",
+    "path": "ENTRY",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  }
+]

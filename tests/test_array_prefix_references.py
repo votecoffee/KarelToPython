@@ -120,7 +120,10 @@ class LivePrefixGuardTests(unittest.TestCase):
     def test_excess_rank(self):self.fails('M[1,1,1]')
     def test_dynamic_path_expression_rejected(self):self.fails('M[n]')
     def test_system_path_rejected(self):self.fails('$MNUFRAME[1,1]')
-    def test_resource_prefix_rejected(self):self.fails(decl=DECL.replace('m:ARRAY[2,2]OF INTEGER','m:ARRAY[2,2]OF FILE'),routines=PUT.replace('OF INTEGER','OF FILE').replace('x[1]=7 x[2]=9',''))
+    def test_resource_prefix_requires_exact_resource_leaf(self):
+        self.fails(decl=DECL.replace('m:ARRAY[2,2]OF INTEGER','m:ARRAY[2,2]OF FILE'),routines='ROUTINE put(x:ARRAY OF PATH) BEGIN END put')
+        values=execute(decl=DECL.replace('m:ARRAY[2,2]OF INTEGER','m:ARRAY[2,2]OF FILE'),routines='ROUTINE put(x:ARRAY OF FILE) BEGIN n=ARRAY_LEN(x) END put')
+        self.assertEqual(values['N'],2)
     def test_active_counter_alias_still_rejected(self):
         with self.assertRaises(TranslationError) as caught:program('FOR n=1 TO 2 DO '+CALL+' ENDFOR')
         self.assertEqual(caught.exception.code,'E_FOR_COUNTER')

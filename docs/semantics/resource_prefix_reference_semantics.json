@@ -1,0 +1,28 @@
+{
+  "version": "26.1103.211222",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../resource-prefix-references.md",
+  "resources": [
+    "FILE",
+    "PATH",
+    "QUEUE_TYPE"
+  ],
+  "tests": [
+    "tests/test_resource_prefix_references.py",
+    "tests/test_array_prefix_references.py",
+    "tests/test_file_arrays.py",
+    "tests/test_collection_arrays.py",
+    "tests/test_dynamic_file_arrays.py",
+    "tests/test_dynamic_collection_arrays.py"
+  ],
+  "forms": "Direct typed user-routine BYNAME with final incomplete flat resource ARRAY row/plane selection; no ordinary resource-prefix values or copying",
+  "schema": "Anonymous concrete suffix, exact named children and terminal resource schemas; inherited generic formal sizes; canonical bounded containing schema",
+  "capture": "Validate containing storage and logical contents before entry/cache publication; retain original contiguous cells without allocating resource descriptors; renamed/replaced-root lookup never retargets captures",
+  "ownership": "Preserve FILE descriptors/backend state/pending reads, PATH cells/nodes/headers, queues and original backing buffers across forwarding/linked calls/pause; retain explicit close/cancel and individual-PATH copy rules",
+  "protection": "Entry overlap includes original cells, PATH descendants and borrowed queue backing ARRAY cells; generic queue signatures retain their separate resource/buffer interface; retain FOR and exact linkage guards",
+  "limits": "1..3 logical ARRAY dimensions, 32767 descriptor/header reservation units, 32767 current descriptor/header/node/queue-entry content units and 64-level data schemas",
+  "persistence": "Original roots only: static FILE omitted, created FILE closed markers, logical collection values; no views, open state, queue links or suspended frames",
+  "boundaries": "No value copies, whole ARRAY assignment/READ/WRITE/UNINIT/results, generic data transfers/codecs, inferred services, native ABI/controller behavior or strict expansion",
+  "evidence": "94 authored regressions, four runnable examples and two linked projects with independent data/service fixtures"
+}

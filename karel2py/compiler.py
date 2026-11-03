@@ -6372,7 +6372,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         integration='Whole assignment, prefix targets, READ/WRITE, variable transfers, connected timers and queue buffers use original cells; repeated same-cell queue captures retain backing identity',
         protection='Original-cell and descendant overlap checks before BYNAME entry/cache publication; preserve FOR, POSITION orientation, CONFIG domains and resource ownership',
         persistence='Save ordinary values and creation metadata; restore fresh storage without live windows, aliases, queue backing links or suspended stacks',
-        limits='One through three logical dimensions, 32767 data leaves, 64 schema levels; no FILE/PATH/QUEUE prefixes, local/system discovery, native/controller or strict claim',
+        limits='One through three logical dimensions, 32767 data leaves, 64 schema levels; resource prefixes follow resource_prefix_reference_policy; no local/system discovery, native/controller or strict claim',
         guide='docs/array-prefix-references.md',controller_validated=False)
     report['array_prefix_target_policy']=dict(
         operations=['ASSIGNMENT','READ'],
@@ -6738,6 +6738,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Static FILE ARRAY globals omitted from context variables and VR archives; backend bytes retain ordinary service persistence; new Program allocates fresh closed descriptors',
         boundary='No whole ARRAY assignment/READ/WRITE/UNINIT, prefix values, return values, STRUCTURE fields or generic typed codecs; created FILE ARRAYs follow dynamic_file_array_policy; no native storage/ABI/controller or strict equivalence claim',
         guide='docs/file-arrays.md',controller_validated=False)
+    report['resource_prefix_reference_policy']=dict(
+        syntax='Direct typed user-routine BYNAME arguments ending in incomplete flat FILE/PATH/QUEUE_TYPE ARRAY coordinates; adjacent numeric bracket groups normalize before selection',
+        schema='Concrete anonymous suffix with exact named children and resource schemas; generic formals inherit actual sizes; no value copies, casts, resizing or inferred resources',
+        capture='Validate the entire containing resource ARRAY and bounded logical contents; capture original contiguous cells once without allocating FILE/PATH/QUEUE descriptors; replacing a host root list does not retarget an existing view',
+        ownership='Open descriptors, pending reads, PATH objects and queue backing buffers retain existing lifetimes; explicit FILE close/cancel and collection-copy rules remain active',
+        integration='Indexed FILE operations, cancellation, PATH nodes/headers, queue operations, forwarding, linked calls, dynamic allocation/rename and cooperative pause/resume',
+        protection='Before BYNAME entry/cache publication reject type/schema/storage/content failures and overlaps, including selected PATH descendants and borrowed queue backing ARRAY cells; retain resource-root FOR and exact-interface guards',
+        persistence='Save original roots using existing closed created-FILE markers or logical collection values; resource views, suspended frames, open FILE state and queue buffer links are not serialized',
+        limits='One through three logical dimensions; 32767 descriptor/header reservation units and 32767 combined descriptor/header/node/queue-entry content units; existing 64-level data schemas',
+        boundary='Explicit offline Pythonic references only; no ordinary bare resource-prefix values, grouped copies, whole ARRAY assignment/READ/WRITE/UNINIT/results, generic data transfers/codecs, native ABI/controller or strict-mode claim',
+        guide='docs/resource-prefix-references.md',controller_validated=False)
     report['dynamic_file_array_policy']=dict(
         source='Pythonic CREATE_VAR FILE/ARRAY OF FILE and supplied FILE or named ARRAY aliases, with bounded inner-to-outer dimensions and at most three logical dimensions',
         allocation='One reserved unit per descriptor cell, shared 32767 creation budget; complete bounded schema validation before allocation; ordinary checkpoint/collision/bank/terminal guards',

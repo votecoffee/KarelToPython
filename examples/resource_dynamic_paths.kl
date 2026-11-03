@@ -1,0 +1,11 @@
+PROGRAM RESOURCE_DYNAMIC_PATHS
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR entry,value,status:INTEGER done:BOOLEAN
+ROUTINE work(row:ARRAY OF route_t) BEGIN APPEND_NODE(row[1],status) row[1].count=1 row[1][1].amount=17 RENAME_VAR('CACHE','ROUTES','KEPT',status) value=row[1][1].amount END work
+BEGIN
+  IF UNINIT(done) THEN
+    CREATE_VAR('CACHE','ROUTES','','ARRAY OF route_t',0,2,2,0,status)
+    work(BYNAME('CACHE','ROUTES[2]',entry))
+    done=TRUE
+  ENDIF
+END RESOURCE_DYNAMIC_PATHS

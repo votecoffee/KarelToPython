@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [resource prefix ledger](resource_prefix_reference_semantics.json) supersedes
+older FILE/PATH/QUEUE_TYPE prefix-reference exclusions. Explicit BYNAME captures
+original resource cells without allocating descriptors, retains live operations
+and guards queue-buffer entry overlap. Resource value copies/codecs stay separate.
+
 The [record bridge ledger](record_bridge_semantics.json) supersedes historical
 builtin/user interchange exclusions. Matching fields use private typed values,
 CONFIG domains and complete POSITION construction checks, including mixed model

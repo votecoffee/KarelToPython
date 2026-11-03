@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1103.211222 - 2026-11-03
+
+- Add explicit BYNAME FILE/PATH/QUEUE_TYPE row and plane borrowing with exact
+  schemas, original resource cells and no replacement descriptor allocation.
+- Support existing FILE reads/cancellation, PATH nodes/headers, queues, forwarding,
+  linked calls, dynamic allocation/rename and cooperative pause/resume.
+- Guard containing storage/content limits and entry overlap, including queue
+  backing cells; preserve resource value/copy/codec and lifetime restrictions.
+- Add 94 regressions, four runnable examples and two linked projects with
+  independent snapshots, saved-variable rows and FILE service-state fixtures.
+
 ## 26.1103.202454 - 2026-11-03
 
 - Add private Pythonic bridges between matching user structures and seven builtin

@@ -1,0 +1,10 @@
+PROGRAM RESOURCE_PATH_PLANE
+TYPE node_t=STRUCTURE amount:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR items:ARRAY[2,2,2]OF route_t entry,value,status:INTEGER done:BOOLEAN
+ROUTINE work(plane:ARRAY[*,*]OF route_t) BEGIN APPEND_NODE(plane[2,1],status) plane[2,1].count=1 plane[2,1][1].amount=17 value=plane[2,1][1].amount END work
+BEGIN
+  IF UNINIT(done) THEN
+    work(BYNAME('','ITEMS[2]',entry))
+    done=TRUE
+  ENDIF
+END RESOURCE_PATH_PLANE

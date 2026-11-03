@@ -1,0 +1,10 @@
+PROGRAM RESOURCE_QUEUE_ROW
+
+VAR jobs:ARRAY[2,2]OF QUEUE_TYPE buffer:ARRAY[3]OF INTEGER entry,sequence,status:INTEGER done:BOOLEAN
+ROUTINE work(row:ARRAY OF QUEUE_TYPE) BEGIN INIT_QUEUE(row[1]) APPEND_QUEUE(17,row[1],buffer,sequence,status) END work
+BEGIN
+  IF UNINIT(done) THEN
+    work(BYNAME('','JOBS[2]',entry))
+    done=TRUE
+  ENDIF
+END RESOURCE_QUEUE_ROW

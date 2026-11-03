@@ -1,0 +1,38 @@
+{
+  "JOBS": [
+    [
+      {
+        "initialized": false,
+        "entries": []
+      },
+      {
+        "initialized": false,
+        "entries": []
+      }
+    ],
+    [
+      {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            17
+          ]
+        ]
+      },
+      {
+        "initialized": false,
+        "entries": []
+      }
+    ]
+  ],
+  "BUFFER": [
+    17,
+    0,
+    0
+  ],
+  "ENTRY": 1,
+  "SEQUENCE": 1,
+  "STATUS": 0,
+  "DONE": true
+}

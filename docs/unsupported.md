@@ -126,8 +126,10 @@ components with complete-batch pose validation and bounded rounding normalizatio
   flat rows/planes independently. [Statement prefix targets](array-prefix-targets.md)
   now assign and READ original cells with retained aliases. Explicit
   [live BYNAME prefixes](array-prefix-references.md) now borrow data rows/planes
-  across routines, linked calls, rename and pause. General bare-prefix service
-  outputs, resource prefixes and routine-local/system discovery remain excluded.
+  across routines, linked calls, rename and pause. [Resource prefixes](resource-prefix-references.md)
+  now borrow FILE/PATH/QUEUE_TYPE rows and planes explicitly through BYNAME.
+  General bare-prefix service outputs, ordinary resource-prefix values and
+  routine-local/system discovery remain excluded.
   [GET_VAR/SET_VAR prefix data transfers](prefix-variable-transfers.md) now support
   selected named paths, SET source values and captured GET data outputs.
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
