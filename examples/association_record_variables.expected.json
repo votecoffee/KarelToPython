@@ -1,0 +1,20 @@
+{
+  "AXES": {
+    "SEGRELSPEED": 50,
+    "SEGMOTYPE": 9,
+    "SEGORIENTYPE": 1,
+    "SEGBREAK": false
+  },
+  "ENTRY": 1,
+  "STATUS": 0,
+  "TYPE_CODE": 30,
+  "TEXT_LENGTH": 0,
+  "LABEL": "GROUP_ASSOC",
+  "DIMS": [
+    0,
+    0,
+    0
+  ],
+  "MISSING": false,
+  "DONE": true
+}

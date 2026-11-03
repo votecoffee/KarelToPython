@@ -1,0 +1,35 @@
+{
+  "version": "26.1103.153429",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../association-records.md",
+  "tests": [
+    "tests/test_association_records.py",
+    "tests/test_path_declarations.py"
+  ],
+  "fields": {
+    "COMMON_ASSOC": {
+      "SEGTERMTYPE": "INTEGER",
+      "SEGDECELTOL": "INTEGER",
+      "SEGRELACCEL": "INTEGER",
+      "SEGTIMESHFT": "INTEGER"
+    },
+    "GROUP_ASSOC": {
+      "SEGRELSPEED": "INTEGER",
+      "SEGMOTYPE": "INTEGER",
+      "SEGORIENTYPE": "INTEGER",
+      "SEGBREAK": "BOOLEAN"
+    }
+  },
+  "source": "Builtin data records in declarations, aliases, ARRAYs, local storage, exact ordinary/linked arguments/results and custom PATH node/header structures",
+  "qualifiers": "GROUP_ASSOC accepts existing constant IN GROUP 1..32 metadata; COMMON_ASSOC does not; no automatic ownership, model or robot discovery",
+  "ownership": "Whole same-type bare references borrow; grouped records/results copy partial checked data; every scalar-field routine argument is a private value, including USING/indexed/linked calls",
+  "protection": "No field BYNAME or generic output/entry/status aliases, association FOR counters or timers; direct assignment and declared scalar/aggregate READ remain writable",
+  "input": "Whole-response checks before data publication; existing text/binary scalar formats, expanded WRITE and checked XML input roots; no native packed word format",
+  "variables": "Exact GET_VAR/SET_VAR whole data and explicit named scalar copies, CREATE_VAR/ARRAY OF allocation and rename, VAR_INFO type codes 20/30, existing cache/missing/status rules",
+  "persistence": "Ordinary typed JSON/VR values and creation metadata, including custom PATH and collection ARRAY data; no live aliases, callbacks, suspended frames or robot bindings",
+  "limits": "Four scalar leaves per record; existing 32767-leaf and 64-schema-level data bounds plus ordinary transfer/input budgets; native bitfield/option domains are not guessed",
+  "compatibility": "Default/explicit STD_PTH_NODE remain NODE_POS only; COMMON_DATA/GROUP_DATA standard-node fields and automatic environment recording remain unavailable",
+  "boundary": "Offline data and group intent only; no motion-option application, native ABI, source-form/compiler/controller equivalence or public strict mode",
+  "evidence": "120 authored regressions, four runnable examples and two linked projects, with independent full saved-variable rows and typed input expectations"
+}

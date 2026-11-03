@@ -1,0 +1,11 @@
+PROGRAM ASSOCIATION_RECORD_VALUES
+VAR common:COMMON_ASSOC axes,copy:GROUP_ASSOC done:BOOLEAN
+ROUTINE change(value:INTEGER)
+BEGIN value=99 END change
+BEGIN
+  IF UNINIT(done) THEN
+    common.segtermtype=1     common.segdeceltol=25     common.segrelaccel=7     common.segtimeshft=9
+    axes.segrelspeed=50     axes.segmotype=7     axes.segorientype=1     axes.segbreak=FALSE
+    copy=axes change(axes.segmotype) done=TRUE
+  ENDIF
+END ASSOCIATION_RECORD_VALUES

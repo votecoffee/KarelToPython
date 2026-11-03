@@ -2404,6 +2404,9 @@ class ExecutionContext:
         rt=runtime(); entry,program,path,value,status=args
         try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,prefixes=rt._pythonic())
         except rt.KarelRuntimeError: status.set(1,line); return
+        if rt._pythonic() and type(target) is rt.AssociationFieldReference:
+            # An explicit named data transfer; never expose a borrowed field alias.
+            target.validate_storage(line);target=rt.Reference(target.spec,target.storage,target.key)
         if type(target) is not rt.Reference and not (rt._pythonic() and type(target) is rt._ArrayPrefixTarget): fail('Protected variable storage cannot be a GET_VAR/SET_VAR alias',line)
         if name=='GET_VAR':
             source=variable_value(target.spec,target.raw(),line);destination=value

@@ -1,5 +1,10 @@
 # Language support
 
+[COMMON_ASSOC/GROUP_ASSOC](association-records.md) now provide checked four-field
+data records with private scalar-field arguments, group metadata, ordinary
+containers, I/O, inspection and logical persistence. Native association packing
+and automatic motion-environment recording remain excluded.
+
 [CONFIG words](config-words.md) now add a documented portable 16-bit value
 encoding for integral/CONFIG source and variable-transfer conversions, with
 partial-data, container, private-interface and exact-reference guards.
@@ -65,7 +70,7 @@ without introducing general prefix references.
 and named-array outer dimensions, preserving typed children and bounded creation
 metadata through aliases, saved contexts and portable archives.
 
-This is the supported prototype subset as of 26.1103.150203. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.153429. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

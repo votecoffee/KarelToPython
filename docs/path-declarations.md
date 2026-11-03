@@ -1,5 +1,9 @@
 # PATH declarations and predefined records
 
+[Association data records](association-records.md) now support COMMON_ASSOC and
+GROUP_ASSOC inside custom node/header structures. Existing default and explicit
+STD_PTH_NODE remain NODE_POS only; native association fields are still omitted.
+
 Pythonic declarations accept `PATHHEADER` and its compatibility spelling
 `PATHDATA`, with `NODEDATA` in either order. Clauses can be separated by a comma
 or whitespace and can continue on physical newlines. A comma must introduce

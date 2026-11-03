@@ -1,0 +1,26 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "COMMON": {
+        "SEGTERMTYPE": 1,
+        "SEGDECELTOL": 25,
+        "SEGRELACCEL": 7,
+        "SEGTIMESHFT": 9
+      },
+      "AXES": {
+        "SEGRELSPEED": 50,
+        "SEGMOTYPE": 7,
+        "SEGORIENTYPE": 1,
+        "SEGBREAK": false
+      },
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "SEEN": 7
+    }
+  }
+}

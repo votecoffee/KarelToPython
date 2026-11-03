@@ -99,12 +99,15 @@ def joint_width(spec):
 def joint_spec(name):
     if name not in JOINT_TYPE_NAMES: raise KarelRuntimeError('Unsupported JOINTPOS type name')
     return ('JOINTPOS', 9 if name == 'JOINTPOS' else int(name[-1]))
-DATA_RECORD_TYPES = ('XYZWPR', 'CONFIG', 'VECTOR', 'POSITION', 'XYZWPREXT')
+ASSOCIATION_TYPES = ('COMMON_ASSOC','GROUP_ASSOC')
+DATA_RECORD_TYPES = ('XYZWPR', 'CONFIG', 'VECTOR', 'POSITION', 'XYZWPREXT', *ASSOCIATION_TYPES)
 POSITIONAL_VALUE_TYPES = tuple(name for name in DATA_RECORD_TYPES if name != 'VECTOR') + ('JOINTPOS',)
 POSITION_READ_ONLY_FIELDS = ('NORMAL', 'ORIENT', 'APPROACH')
 POSITION_AXIS_FUNCTIONS = {'APPROACH': 2, 'ORIENT': 1}
 RECORD_TYPES = ('STRUCTURE', *DATA_RECORD_TYPES)
 DATA_RECORD_FIELDS = {
+    'COMMON_ASSOC': tuple((name,INTEGER) for name in ('SEGTERMTYPE','SEGDECELTOL','SEGRELACCEL','SEGTIMESHFT')),
+    'GROUP_ASSOC': tuple((name,INTEGER) for name in ('SEGRELSPEED','SEGMOTYPE','SEGORIENTYPE')) + (('SEGBREAK',BOOLEAN),),
     'VECTOR': tuple((name, REAL) for name in ('X', 'Y', 'Z')),
     'CONFIG': tuple((name, INTEGER) for name in ('CFG_TURN_NO1', 'CFG_TURN_NO2', 'CFG_TURN_NO3'))
               + tuple((name, BOOLEAN) for name in ('CFG_FLIP', 'CFG_LEFT', 'CFG_UP', 'CFG_FRONT')),
@@ -901,6 +904,7 @@ def field_reference(value, name, line=None):
         raise KarelRuntimeError(f'Unknown STRUCTURE field {name}', line)
     if value.read_only or value.spec[0] == 'POSITION' and name in POSITION_READ_ONLY_FIELDS:
         return ReadOnlyFieldReference(value.types[name], value.values, name, line)
+    if value.spec[0] in ASSOCIATION_TYPES:return AssociationFieldReference(value.types[name],value.values,name,value.spec)
     reference_type = ConfigFieldReference if value.spec[0] == 'CONFIG' else Reference
     return reference_type(value.types[name], value.values, name)
 
@@ -1107,6 +1111,23 @@ class ReadOnlyFieldReference(Reference):
 
     def clear(self):
         raise KarelRuntimeError('POSITION orientation fields are read-only', self.line)
+
+
+class AssociationFieldReference(Reference):
+    """Writable data field; user-routine passing is value-only, never an alias."""
+    def __init__(self,spec,storage,key,record_spec):
+        super().__init__(spec,storage,key);self.record_spec=record_spec
+
+    def validate_storage(self,line=None):
+        if self.record_spec not in tuple((name,) for name in ASSOCIATION_TYPES):
+            raise KarelRuntimeError('Association field requires a declared record type',line)
+        fields=dict(record_fields(self.record_spec))
+        if (type(self.storage) is not dict or set(self.storage)!=set(fields)
+                or type(self.key) is not str or self.key not in fields or self.spec!=fields[self.key]):
+            raise KarelRuntimeError('Malformed association scalar field storage',line)
+
+    def set(self,value,line=None):
+        self.validate_storage(line);super().set(value,line)
 
 
 class ConfigFieldReference(Reference):
@@ -2567,6 +2588,8 @@ def _validate_read_target(target,line=None):
         if (type(target.storage) is not dict or set(target.storage)!=set(fields)
                 or type(target.key) is not str or target.key not in fields or target.spec!=fields[target.key]):
             raise KarelRuntimeError('READ requires a declared CONFIG scalar field',line)
+    elif type(target) is AssociationFieldReference and _pythonic():
+        target.validate_storage(line)
     elif type(target) is _PositionReadField and _pythonic():
         _validate_position_read_field(target,line)
     elif type(target) is not Reference:
@@ -2749,6 +2772,8 @@ def capture_aggregate_read_target(target,formats,line=None):
         elif kind=='JOINTPOS':
             for index in range(len(value.values)):descend(Reference(REAL,value.values,index))
         elif kind=='POSITION':result.extend(_capture_position_read(value,line))
+        elif kind in ASSOCIATION_TYPES:
+            for name,_ in record_fields(spec):descend(field_reference(value,name,line))
         else:
             for name,member in record_fields(spec):
                 descend(config_read_reference(value,name,line) if kind=='CONFIG' else Reference(member,value.values,name))
@@ -3101,7 +3126,7 @@ class State:
         if self.joint_axes is None:
             raise KarelRuntimeError('Joint conversion requires explicit Program(joint_axes=1..9) context', line)
         if (not isinstance(status, Reference) or status.spec != INTEGER
-                or isinstance(status, (ReadOnlyFieldReference, ConfigFieldReference))):
+                or isinstance(status, (ReadOnlyFieldReference, ConfigFieldReference, AssociationFieldReference))):
             raise KarelRuntimeError('Joint conversion status requires ordinary writable INTEGER storage', line)
         count = self.joint_axes
         if name == 'CNV_REL_JPOS':

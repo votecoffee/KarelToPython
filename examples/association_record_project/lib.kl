@@ -1,0 +1,10 @@
+PROGRAM LIB
+VAR seen:INTEGER
+ROUTINE fill(common:COMMON_ASSOC;axes:GROUP_ASSOC)
+BEGIN
+  common.segtermtype=1   common.segdeceltol=25   common.segrelaccel=7   common.segtimeshft=9
+  axes.segrelspeed=50   axes.segmotype=7   axes.segorientype=1   axes.segbreak=FALSE
+END fill
+ROUTINE change(value:INTEGER)
+BEGIN seen=value value=99 END change
+BEGIN END LIB

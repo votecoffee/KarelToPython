@@ -1,0 +1,61 @@
+[
+  {
+    "program": "MAIN",
+    "path": "TRACK",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "COMMON",
+            [
+              "COMMON_ASSOC"
+            ]
+          ],
+          [
+            "AXES",
+            [
+              "GROUP_ASSOC"
+            ]
+          ]
+        ]
+      ],
+      null
+    ],
+    "value": {
+      "nodes": [
+        {
+          "COMMON": {
+            "SEGTERMTYPE": {
+              "uninitialized": true
+            },
+            "SEGDECELTOL": {
+              "uninitialized": true
+            },
+            "SEGRELACCEL": {
+              "uninitialized": true
+            },
+            "SEGTIMESHFT": {
+              "uninitialized": true
+            }
+          },
+          "AXES": {
+            "SEGRELSPEED": {
+              "uninitialized": true
+            },
+            "SEGMOTYPE": 7,
+            "SEGORIENTYPE": {
+              "uninitialized": true
+            },
+            "SEGBREAK": {
+              "uninitialized": true
+            }
+          }
+        }
+      ],
+      "data": null
+    }
+  }
+]

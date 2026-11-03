@@ -1,0 +1,76 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "TRACK": {
+        "nodes": [
+          {
+            "COMMON": {
+              "SEGTERMTYPE": {
+                "uninitialized": true
+              },
+              "SEGDECELTOL": {
+                "uninitialized": true
+              },
+              "SEGRELACCEL": {
+                "uninitialized": true
+              },
+              "SEGTIMESHFT": {
+                "uninitialized": true
+              }
+            },
+            "AXES": {
+              "SEGRELSPEED": {
+                "uninitialized": true
+              },
+              "SEGMOTYPE": 7,
+              "SEGORIENTYPE": {
+                "uninitialized": true
+              },
+              "SEGBREAK": {
+                "uninitialized": true
+              }
+            }
+          }
+        ],
+        "data": null
+      },
+      "AXES": [
+        {
+          "SEGRELSPEED": {
+            "uninitialized": true
+          },
+          "SEGMOTYPE": {
+            "uninitialized": true
+          },
+          "SEGORIENTYPE": {
+            "uninitialized": true
+          },
+          "SEGBREAK": {
+            "uninitialized": true
+          }
+        },
+        {
+          "SEGRELSPEED": 50,
+          "SEGMOTYPE": {
+            "uninitialized": true
+          },
+          "SEGORIENTYPE": {
+            "uninitialized": true
+          },
+          "SEGBREAK": {
+            "uninitialized": true
+          }
+        }
+      ],
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0,
+      "NODE_BYTES": 29
+    }
+  }
+}

@@ -166,7 +166,7 @@ def concrete_type(context,state,program,text,group,dimensions,line):
             if not dimensions[0]:return None
             text=array[1]
             if text.startswith('ARRAY '):return None
-    if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT'):
+    if text in ('INTEGER','REAL','BOOLEAN','CONFIG','VECTOR','POSITION','XYZWPR','XYZWPREXT',*rt.ASSOCIATION_TYPES):
         spec=(text,)
     elif text in ('FILE','PATH','QUEUE_TYPE') and rt._pythonic():
         spec=('PATH',None,None) if text=='PATH' else (text,)

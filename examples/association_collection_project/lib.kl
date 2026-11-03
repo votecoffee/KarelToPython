@@ -1,0 +1,9 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE common:COMMON_ASSOC axes:GROUP_ASSOC ENDSTRUCTURE
+VAR status,node_bytes:INTEGER
+ROUTINE fill(track_data:PATH NODEDATA=node_t;values:ARRAY OF GROUP_ASSOC)
+BEGIN
+  APPEND_NODE(track_data,status) track_data[1].axes.segmotype=7
+  values[2].segrelspeed=50 node_bytes=NODE_SIZE(track_data)
+END fill
+BEGIN END LIB

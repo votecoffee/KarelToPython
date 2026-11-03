@@ -1,0 +1,19 @@
+[
+  {
+    "program": "CACHE",
+    "path": "STATE",
+    "type": [
+      "GROUP_ASSOC"
+    ],
+    "value": {
+      "SEGRELSPEED": 50,
+      "SEGMOTYPE": 9,
+      "SEGORIENTYPE": 1,
+      "SEGBREAK": false
+    },
+    "creation": {
+      "group": 2,
+      "memory_pool": 0
+    }
+  }
+]

@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [association record ledger](association_record_semantics.json) adds checked
+COMMON_ASSOC/GROUP_ASSOC data, private scalar-field arguments and existing
+container/I/O/variable/persistence integration. Default STD_PTH_NODE stays
+compatible; native packed data and automatic motion recording remain excluded.
+
 The [CONFIG word ledger](config_word_semantics.json) adds authored unsigned
 16-bit CONFIG/integral values through source and explicit variable-transfer
 boundaries. Partial containers stay shaped; conversions stage before writes.

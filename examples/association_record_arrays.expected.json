@@ -1,0 +1,62 @@
+{
+  "AXES": [
+    [
+      {
+        "SEGRELSPEED": {
+          "uninitialized": true
+        },
+        "SEGMOTYPE": {
+          "uninitialized": true
+        },
+        "SEGORIENTYPE": {
+          "uninitialized": true
+        },
+        "SEGBREAK": {
+          "uninitialized": true
+        }
+      },
+      {
+        "SEGRELSPEED": {
+          "uninitialized": true
+        },
+        "SEGMOTYPE": {
+          "uninitialized": true
+        },
+        "SEGORIENTYPE": {
+          "uninitialized": true
+        },
+        "SEGBREAK": {
+          "uninitialized": true
+        }
+      }
+    ],
+    [
+      {
+        "SEGRELSPEED": {
+          "uninitialized": true
+        },
+        "SEGMOTYPE": 7,
+        "SEGORIENTYPE": {
+          "uninitialized": true
+        },
+        "SEGBREAK": {
+          "uninitialized": true
+        }
+      },
+      {
+        "SEGRELSPEED": 50,
+        "SEGMOTYPE": {
+          "uninitialized": true
+        },
+        "SEGORIENTYPE": {
+          "uninitialized": true
+        },
+        "SEGBREAK": {
+          "uninitialized": true
+        }
+      }
+    ]
+  ],
+  "ENTRY": 1,
+  "DONE": true
+}

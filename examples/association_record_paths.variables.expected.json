@@ -1,0 +1,65 @@
+[
+  {
+    "program": "ASSOCIATION_RECORD_PATHS",
+    "path": "TRACK",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "COMMON",
+            [
+              "COMMON_ASSOC"
+            ]
+          ],
+          [
+            "AXES",
+            [
+              "GROUP_ASSOC"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "HEADER_T",
+        [
+          [
+            "COMMON",
+            [
+              "COMMON_ASSOC"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [
+        {
+          "COMMON": {
+            "SEGTERMTYPE": 1,
+            "SEGDECELTOL": 25,
+            "SEGRELACCEL": 7,
+            "SEGTIMESHFT": 9
+          },
+          "AXES": {
+            "SEGRELSPEED": 50,
+            "SEGMOTYPE": 7,
+            "SEGORIENTYPE": 1,
+            "SEGBREAK": false
+          }
+        }
+      ],
+      "data": {
+        "COMMON": {
+          "SEGTERMTYPE": 1,
+          "SEGDECELTOL": 25,
+          "SEGRELACCEL": 7,
+          "SEGTIMESHFT": 9
+        }
+      }
+    }
+  }
+]

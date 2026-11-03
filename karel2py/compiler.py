@@ -296,7 +296,7 @@ class Parser:
     def name(self):
         if self.current.value in PREDEFINED_CONSTANTS:
             self.error('E_PREDEFINED_NAME', 'Redefining predefined constants is blocked pending namespace evidence')
-        predefined_types = set(rt.PREDEFINED_STRUCTURES) if self.mode == 'pythonic' else set()
+        predefined_types = set(rt.PREDEFINED_STRUCTURES)|set(rt.ASSOCIATION_TYPES) if self.mode == 'pythonic' else set()
         if self.current.kind != 'NAME' or self.current.value in RESERVED | BUILTINS | predefined_types or self.current.value.startswith('$'):
             self.error('E_NAME', 'Expected a non-reserved identifier')
         return self.take()
@@ -1266,6 +1266,7 @@ class Emitter:
         self.positional_array_uses=[]
         self.numeric_array_uses=[]
         self.config_word_uses=[]
+        self.association_value_uses=[]
         self.joint_axis_uses=[]
         self.array_schema_uses=[]
         self.record_schema_uses=[]
@@ -1346,10 +1347,13 @@ class Emitter:
         return child.kind == 'literal' and type(child.value) is int and child.value == 2147483648
 
     def resolve_spec(self, spec):
+        if spec[0] in rt.ASSOCIATION_TYPES and self.mode!='pythonic':
+            self.error('E_TYPE','Association records require Pythonic mode',Token('NAME',spec[0],1,1))
         if spec[0]=='GROUPED':
             group=self.constant(spec[2])
             if type(group) is not int or not 1<=group<=32: self.error('E_POSITION_GROUP','Group must be an INTEGER in 1..32',spec[3])
             resolved=self.resolve_spec(spec[1])
+            if resolved[0]=='COMMON_ASSOC':self.error('E_POSITION_GROUP','COMMON_ASSOC does not have a group qualifier',spec[3])
             self.group_uses.append(dict(group=group,type=resolved[0],line=spec[3].line,column=spec[3].column))
             self.features.add('explicit group metadata'); return resolved
         if spec[0] in ('FILE','QUEUE_TYPE'): return spec
@@ -2074,7 +2078,7 @@ class Emitter:
         if self.mode=='pythonic' and expected!=actual and expected[0] in ('POSITION','XYZWPR','XYZWPREXT') and actual[0] in ('POSITION','XYZWPR','XYZWPREXT'):return False
         if self.mode=='pythonic' and rt.array_schema_compatible(expected,actual) and not rt.parameter_accepts(expected,actual):return False
         if self.mode=='pythonic' and (rt.record_schema_kind(expected,actual) or rt.kinematic_record_kind(expected,actual)):return False
-        if self.is_config_subfield(argument):return False
+        if self.is_value_only_subfield(argument):return False
         if expected[0] in ('INTEGER','REAL') and actual[0] in NARROW_TYPES:return False
         if expected==('REAL',) and actual==('INTEGER',):return False
         if self.mode=='pythonic' and expected[0] in NARROW_TYPES and actual[0] in INTEGRAL_TYPES and actual!=expected:return False
@@ -2131,6 +2135,12 @@ class Emitter:
     def is_config_subfield(self, expr):
         if expr.kind != 'field': return False
         return self.access_type(expr.args[0])[0] == 'CONFIG'
+
+    def is_association_subfield(self,expr):
+        return expr.kind=='field' and self.access_type(expr.args[0])[0] in rt.ASSOCIATION_TYPES
+
+    def is_value_only_subfield(self,expr):
+        return self.is_config_subfield(expr) or self.is_association_subfield(expr)
 
     def access_type(self, expr):
         """Inspect receiver types without emitting calls or duplicate call-site reports."""
@@ -2665,8 +2675,8 @@ class Emitter:
         if self.is_position_read_only_access(destination):
             self.error('E_POSITION_READ_ONLY', 'POSITION orientation fields cannot be conversion outputs', destination.token)
         reference, actual = self.reference(destination)
-        if self.is_config_subfield(destination):
-            self.error('E_CONFIG_OUTPUT', 'CONFIG subfields have value-only routine passing; conversion output aliases remain blocked', destination.token)
+        if self.is_value_only_subfield(destination):
+            self.error('E_CONFIG_OUTPUT', 'CONFIG/association subfields have value-only routine passing; conversion output aliases remain blocked', destination.token)
         required = CONVERSION_OUTPUT_TYPES[expr.value]
         if actual[0] != required:
             self.error('E_TYPE', f'{expr.value} output requires {required} storage; narrow numeric outputs are not promoted', destination.token)
@@ -2690,7 +2700,7 @@ class Emitter:
                 self.error('E_OUTPUT_ARGUMENT', 'CONFIG conversion outputs require storage rooted in a variable', argument.token)
             if self.protection_root(base) in self.active_counters: self.error('E_FOR_COUNTER', 'CONFIG conversion cannot write an active FOR counter', argument.token)
             if self.is_position_read_only_access(argument): self.error('E_POSITION_READ_ONLY', 'CONFIG conversion output is read-only', argument.token)
-            if self.is_config_subfield(argument): self.error('E_CONFIG_OUTPUT', 'CONFIG subfields cannot be conversion output aliases', argument.token)
+            if self.is_value_only_subfield(argument): self.error('E_CONFIG_OUTPUT', 'CONFIG/association subfields cannot be conversion output aliases', argument.token)
             code, spec = self.reference(argument)
             if spec[0] != expected: self.error('E_TYPE', f'{expr.value} output requires {expected}', argument.token)
             outputs.append(code)
@@ -2736,7 +2746,7 @@ class Emitter:
                 if value.kind not in ('name','field','index') or self.root_name(value) in self.visible_constants(): self.error('E_OUTPUT_ARGUMENT','Service output requires writable storage',value.token)
                 if self.protection_root(value) in self.active_counters: self.error('E_FOR_COUNTER','Service output cannot write an active FOR counter',value.token)
                 if self.is_position_read_only_access(value): self.error('E_POSITION_READ_ONLY','Service output is protected POSITION storage',value.token)
-                if self.is_config_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG fields cannot be output aliases',value.token)
+                if self.is_value_only_subfield(value): self.error('E_CONFIG_OUTPUT','CONFIG/association fields cannot be output aliases',value.token)
                 code,spec=self.reference(value,allow_prefix=self.mode=='pythonic' and expr.value=='GET_VAR' and index==3)
             else:
                 variable_input=mode=='v' or (expr.value=='SET_VAR' and index==3) or (expr.value=='SEND_DATAPC' and index==1)
@@ -2775,7 +2785,7 @@ class Emitter:
                 self.error('E_OUTPUT_ARGUMENT','Numeric register outputs require storage rooted in a variable',target.token)
             if self.protection_root(base) in self.active_counters: self.error('E_FOR_COUNTER','Numeric register output cannot write an active FOR counter',target.token)
             if self.is_position_read_only_access(target): self.error('E_POSITION_READ_ONLY','Numeric register output is read-only',target.token)
-            if self.is_config_subfield(target): self.error('E_CONFIG_OUTPUT','CONFIG subfields cannot be numeric register output aliases',target.token)
+            if self.is_value_only_subfield(target): self.error('E_CONFIG_OUTPUT','CONFIG/association subfields cannot be numeric register output aliases',target.token)
             code, spec = self.reference(target)
             if spec != (required,): self.error('E_TYPE',f'{expr.value} output requires exact {required} storage',target.token)
             codes.append(code)
@@ -2811,7 +2821,7 @@ class Emitter:
             self.error('E_OUTPUT_ARGUMENT','Time conversion output requires storage rooted in a variable',destination.token)
         if self.protection_root(base) in self.active_counters: self.error('E_FOR_COUNTER','Time conversion cannot write an active FOR counter',destination.token)
         if self.is_position_read_only_access(destination): self.error('E_POSITION_READ_ONLY','POSITION orientation cannot be a time conversion output',destination.token)
-        if self.is_config_subfield(destination): self.error('E_CONFIG_OUTPUT','CONFIG subfields cannot be time conversion output aliases',destination.token)
+        if self.is_value_only_subfield(destination): self.error('E_CONFIG_OUTPUT','CONFIG/association subfields cannot be time conversion output aliases',destination.token)
         target, spec = self.reference(destination)
         expected = 'INTEGER' if parsing else 'STRING'
         if spec[0] != expected: self.error('E_TYPE',f'{expr.value} output requires {expected}',destination.token)
@@ -2835,8 +2845,8 @@ class Emitter:
                 self.error('E_FOR_COUNTER', 'Joint conversion cannot write an active FOR counter', output.token)
             if self.is_position_read_only_access(output):
                 self.error('E_POSITION_READ_ONLY', 'Joint conversion output is read-only', output.token)
-            if self.is_config_subfield(output):
-                self.error('E_CONFIG_OUTPUT', 'CONFIG subfields cannot be joint-conversion output aliases', output.token)
+            if self.is_value_only_subfield(output):
+                self.error('E_CONFIG_OUTPUT', 'CONFIG/association subfields cannot be joint-conversion output aliases', output.token)
         source, source_type = self.expression(expr.args[0])
         if expr.value == 'CNV_REL_JPOS':
             target, target_type = self.reference(expr.args[1])
@@ -2877,8 +2887,8 @@ class Emitter:
                     self.error('E_FOR_COUNTER', 'UNPOS cannot write an active FOR counter', argument.token)
                 if self.is_position_read_only_access(argument):
                     self.error('E_POSITION_READ_ONLY', 'UNPOS output cannot be a read-only POSITION orientation field', argument.token)
-                if self.is_config_subfield(argument):
-                    self.error('E_CONFIG_OUTPUT', 'CONFIG scalar subfields cannot be UNPOS outputs', argument.token)
+                if self.is_value_only_subfield(argument):
+                    self.error('E_CONFIG_OUTPUT', 'CONFIG/association scalar subfields cannot be UNPOS outputs', argument.token)
             reference, actual = self.reference(argument)
             if actual != required:
                 self.error('E_TYPE', f'UNPOS argument {index+1} requires exact {required[0]} storage', argument.token)
@@ -2906,8 +2916,8 @@ class Emitter:
                 self.error('E_FOR_COUNTER','UNPOS cannot write an active FOR counter',argument.token)
             if self.is_position_read_only_access(argument):
                 self.error('E_POSITION_READ_ONLY','UNPOS output cannot be a read-only POSITION orientation field',argument.token)
-            if self.is_config_subfield(argument):
-                self.error('E_CONFIG_OUTPUT','CONFIG scalar subfields cannot be UNPOS outputs',argument.token)
+            if self.is_value_only_subfield(argument):
+                self.error('E_CONFIG_OUTPUT','CONFIG/association scalar subfields cannot be UNPOS outputs',argument.token)
             reference,actual=self.reference(argument)
             if actual!=required: self.error('E_TYPE',f'UNPOS output requires exact {required[0]} storage',argument.token)
             outputs.append(reference)
@@ -2935,7 +2945,7 @@ class Emitter:
                 entry=argument.args[2]
                 if entry.kind not in ('name','field','index') or self.root_name(entry) in self.visible_constants():
                     self.error('E_OUTPUT_ARGUMENT','BYNAME entry requires writable INTEGER storage',entry.token)
-                if self.is_position_read_only_access(entry) or self.is_config_subfield(entry):
+                if self.is_position_read_only_access(entry) or self.is_value_only_subfield(entry):
                     self.error('E_OUTPUT_ARGUMENT','BYNAME entry requires ordinary writable INTEGER storage',entry.token)
                 code,spec=self.reference(entry)
                 if spec!=('INTEGER',): self.error('E_TYPE','BYNAME entry requires exact INTEGER storage',entry.token)
@@ -2951,14 +2961,18 @@ class Emitter:
                             and not self.is_array_prefix_value(argument) and not self.is_system_pose_path(argument))
             if is_reference:
                 code, actual = self.reference(argument)
-                if self.is_config_subfield(argument):
+                if self.is_value_only_subfield(argument):
                     value, actual = self.expression(argument)
                     code = f'_rt.value_argument({expected!r}, {value}, {line})'
                     is_reference = False
-                    self.features.add('CONFIG subfield value argument')
-                    self.config_value_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-                                                       routine=routine.name, parameter=formal.value, field=argument.value,
-                                                       line=line, column=argument.token.column, evaluated_once=True))
+                    row=dict(body=self.current_routine.name if self.current_routine else self.program.name,
+                        routine=routine.name,parameter=formal.value,field=argument.value,
+                        line=line,column=argument.token.column,evaluated_once=True)
+                    if self.is_association_subfield(argument):
+                        self.features.add('association subfield value argument')
+                        self.association_value_uses.append(dict(row,record_type=self.access_type(argument.args[0])[0]))
+                    else:
+                        self.features.add('CONFIG subfield value argument');self.config_value_uses.append(row)
             else:
                 value, actual = self.expression(argument)
                 if actual[0]=='ARRAY' and rt.file_storage_type(actual):
@@ -3417,7 +3431,7 @@ class Emitter:
             self.error('E_FOR_COUNTER','Nested loops cannot reuse an active FOR counter root',token)
         reference=None
         if self.mode=='pythonic':
-            if counter_types[root][0] in ('PATH','FILE','QUEUE_TYPE') or rt.resource_array_type(counter_types[root]) or self.is_config_subfield(counter):
+            if counter_types[root][0] in ('PATH','FILE','QUEUE_TYPE') or rt.resource_array_type(counter_types[root]) or self.is_value_only_subfield(counter):
                 self.error('E_FOR_COUNTER','FOR counters require ordinary integral leaves outside resource roots and CONFIG domains',token)
             if self.is_position_read_only_access(counter):self.error('E_POSITION_READ_ONLY','FOR counter storage is read-only',token)
             reference,spec=self.reference(counter)
@@ -3645,7 +3659,7 @@ class Emitter:
                 self.error('E_TIMER_SCOPE','Connected timer storage requires a declared global/local/formal root or captured private USING record',target.token)
             if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER','Timer cannot modify active FOR counter',target.token)
             reference,spec=self.reference(target)
-            if spec!=('INTEGER',) or self.is_config_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
+            if spec!=('INTEGER',) or self.is_value_only_subfield(target): self.error('E_TYPE','Timer requires ordinary INTEGER storage',target.token)
             method='connect_timer' if kind=='timer_connect' else 'disconnect_timer'
             self.connected_timer_uses.append(dict(operation='CONNECT' if kind=='timer_connect' else 'DISCONNECT',
                 body=self.current_routine.name if self.current_routine else self.program.name,
@@ -4002,7 +4016,7 @@ class Emitter:
                 if self.protection_root(target) in self.active_counters: self.error('E_FOR_COUNTER', 'READ cannot write an active FOR counter', target.token)
                 if self.is_position_read_only_access(target):
                     self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
-                if self.is_config_subfield(target) and self.mode!='pythonic':
+                if self.is_value_only_subfield(target) and self.mode!='pythonic':
                     self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
                 reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic')
                 aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
@@ -4772,6 +4786,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         position_conversions=emitter.position_conversion_uses,
         kinematic_assignments=emitter.kinematic_assignment_uses, kinematic_interfaces=emitter.kinematic_interface_uses, joint_width_conversions=emitter.joint_width_uses,
         positional_array_conversions=emitter.positional_array_uses, kinematic_array_conversions=emitter.kinematic_array_uses,
+        association_value_arguments=emitter.association_value_uses,
         config_word_conversions=emitter.config_word_uses,
         numeric_array_conversions=emitter.numeric_array_uses,array_schema_conversions=emitter.array_schema_uses,
         record_schema_conversions=emitter.record_schema_uses,kinematic_record_conversions=emitter.kinematic_record_uses,
@@ -6319,6 +6334,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         interfaces='Assignment, private ordinary/linked arguments, RETURN, ARRAY_LEN and aggregate WRITE use existing source conversions; exact named-boundary references remain unchanged',
         limits='One through three logical dimensions, 32767 source scalar leaves and 64 data-schema levels; no resources, incomplete-reference outputs or strict claim',
         guide='docs/array-prefix-values.md',controller_validated=False)
+    report['association_record_policy']=dict(
+        types={name:rt.DATA_RECORD_FIELDS[name] for name in rt.ASSOCIATION_TYPES},
+        source='Pythonic builtin records; aliases, fields, ARRAYs, ordinary/linked arguments/results, custom PATH node/header structures and GROUP_ASSOC IN GROUP metadata',
+        ownership='Bare same-type whole records borrow storage; grouping/results copy checked partial data; every association scalar-field user argument is a private value',
+        input='Direct scalar fields and aggregate READ use exact schema captures, complete-response checks and existing text/binary transports; WRITE expands four scalar fields',
+        integration='UNINIT, CREATE_VAR, BYNAME whole records, VAR_INFO/LIST, exact GET_VAR/SET_VAR and ordinary bounded JSON/VR data retain existing contracts',
+        protection='Field BYNAME/output aliases, timer connections and FOR counters follow value-only record-field guards; direct assignment and READ remain writable',
+        domains='Ordinary checked INTEGER fields and exact BOOLEAN SEGBREAK; preserve missing fields without guessing native packed bit widths or control-option domains',
+        boundary='Data and declared group metadata only; no implicit motion option application, group discovery, native packed ABI or strict mode; STD_PTH_NODE retains its existing NODE_POS-only schema',
+        field_arguments=list(report['association_value_arguments']),guide='docs/association-records.md',controller_validated=False)
     report['config_word_policy']=dict(
         source='Pythonic CONFIG and integral scalar assignment/private argument/RETURN; data ARRAY and user-record conversions plus GET_VAR/SET_VAR use the same codec',
         encoding='Portable unsigned 16-bit word: signed turn nibbles in bits 0..3, 4..7, 8..11; FLIP, LEFT, UP, FRONT flags in bits 12,13,14,15',

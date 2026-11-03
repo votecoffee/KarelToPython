@@ -1,0 +1,15 @@
+[
+  {
+    "program": "ASSOCIATION_RECORD_VALUES",
+    "path": "AXES",
+    "type": [
+      "GROUP_ASSOC"
+    ],
+    "value": {
+      "SEGRELSPEED": 50,
+      "SEGMOTYPE": 7,
+      "SEGORIENTYPE": 1,
+      "SEGBREAK": false
+    }
+  }
+]

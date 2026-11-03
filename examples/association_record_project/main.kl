@@ -1,0 +1,7 @@
+PROGRAM MAIN
+VAR common:COMMON_ASSOC axes:GROUP_ASSOC done:BOOLEAN
+ROUTINE fill(common:COMMON_ASSOC;axes:GROUP_ASSOC) FROM LIB
+ROUTINE change(value:INTEGER) FROM LIB
+BEGIN
+  IF UNINIT(done) THEN fill(common,axes) change(axes.segmotype) done=TRUE ENDIF
+END MAIN

@@ -1,0 +1,14 @@
+PROGRAM ASSOCIATION_RECORD_VARIABLES
+VAR axes:GROUP_ASSOC entry,status,type_code,text_length:INTEGER label:STRING[32]
+    dims:ARRAY[3]OF INTEGER missing,done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    axes.segrelspeed=50     axes.segmotype=7     axes.segorientype=1     axes.segbreak=FALSE
+    CREATE_VAR('CACHE','STATE','','GROUP_ASSOC',2,0,0,0,status)
+    SET_VAR(entry,'CACHE','STATE',axes,status)
+    SET_VAR(entry,'CACHE','STATE.SEGMOTYPE',9,status)
+    GET_VAR(entry,'CACHE','STATE',axes,status)
+    VAR_INFO('CACHE','STATE',missing,label,type_code,dims,text_length,status)
+    done=TRUE
+  ENDIF
+END ASSOCIATION_RECORD_VARIABLES

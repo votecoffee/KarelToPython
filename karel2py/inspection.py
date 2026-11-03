@@ -7,7 +7,7 @@ from .extended import (PROGRAM_TYPES, PROGRAM_ATTRIBUTES, PROGRAM_KINDS,
 
 
 TYPE_CODES={'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'INTEGER':16,'REAL':17,
-            'BOOLEAN':18,'VECTOR':19,'SHORT':23,'BYTE':24,'CONFIG':28,
+            'BOOLEAN':18,'VECTOR':19,'COMMON_ASSOC':20,'SHORT':23,'BYTE':24,'CONFIG':28,'GROUP_ASSOC':30,
             'FILE':29,'PATH':31,'STRING':209,'STRUCTURE':210,
             **{f'JOINTPOS{width}':25+16*(width-1) for width in range(1,10)}}
 

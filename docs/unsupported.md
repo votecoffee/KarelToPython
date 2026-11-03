@@ -103,11 +103,15 @@ PATH framing, empty headerless input and formatted empty output remain excluded.
 [Whole POSITION input](position-input.md) now spans data containers and PATH
 components with complete-batch pose validation and bounded rounding normalization. FILE UNINIT uses the explicit descriptor open-state convention.
 
-- `COMMON_ASSOC`, `GROUP_ASSOC` and the obsolete `STD_PTH_NODE.GROUP_DATA` /
-  `COMMON_DATA` association layouts. [Predefined structures](path-declarations.md)
-  now expose DISP_DAT_T data and the portable STD_PTH_NODE NODE_POS field; PATH
-  accepts authored NODEDATA and PATHHEADER/PATHDATA structures. Native group
-  associations and native display/recording behavior remain outside those records.
+- Native compact association layouts, automatic motion-environment recording,
+  and the obsolete `STD_PTH_NODE.GROUP_DATA` / `COMMON_DATA` fields.
+  [COMMON_ASSOC/GROUP_ASSOC data](association-records.md) now support checked
+  fields, ordinary containers/interfaces, I/O, inspection and logical persistence.
+  Custom NODEDATA/PATHHEADER structures can embed those records; default and
+  explicit STD_PTH_NODE retain the compatible NODE_POS-only schema.
+  [Predefined structures](path-declarations.md) also expose DISP_DAT_T data.
+  Native motion-option application and display/recording behavior remain outside
+  those data records.
   The separate [headless display model](pendant-display.md) supports character
   windows and screen composition. [List/table controls](table-controls.md) now use
   DISP_DAT_T resident-list metadata and portable COL_DESC_T/XWORK_T records; native

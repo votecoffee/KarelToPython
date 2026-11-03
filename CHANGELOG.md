@@ -1,5 +1,19 @@
 # Changelog
 
+## 26.1103.153429 - 2026-11-03
+
+- Add COMMON_ASSOC and GROUP_ASSOC checked data records across declarations,
+  aliases, arrays, routines and custom PATH node/header structures.
+- Preserve private scalar-field routine arguments and explicit writable READ or
+  named variable transfers; reject live field aliases and retain existing guards.
+- Integrate dynamic creation, type inspection, XML input, logical JSON/VR archives
+  and collection arrays, with group annotations retained as metadata only.
+- Keep default STD_PTH_NODE schemas compatible and native packed association data,
+  automatic environment recording and motion-option application out of scope.
+- Add 120 regression tests, four runnable examples and two linked projects with
+  independent saved-variable and input fixtures.
+
+
 ## 26.1103.150203 - 2026-11-03
 
 - Add a documented portable 16-bit CONFIG/integral value codec across source

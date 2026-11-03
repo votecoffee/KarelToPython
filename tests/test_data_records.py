@@ -84,7 +84,9 @@ class DataRecordTypeTests(unittest.TestCase):
     def test_data_record_policy_report(self):
         _,result=compile_program()
         policy=result.report['data_record_policy']
-        self.assertEqual(set(policy['types']),{'XYZWPR','CONFIG','VECTOR','POSITION','XYZWPREXT'})
+        self.assertEqual(set(policy['types']),{'XYZWPR','CONFIG','VECTOR','POSITION','XYZWPREXT','COMMON_ASSOC','GROUP_ASSOC'})
+        self.assertEqual(set(policy['fields']['COMMON_ASSOC']),{'SEGTERMTYPE','SEGDECELTOL','SEGRELACCEL','SEGTIMESHFT'})
+        self.assertEqual(policy['fields']['GROUP_ASSOC']['SEGBREAK'],('BOOLEAN',))
         self.assertEqual(policy['fields']['XYZWPR']['CONFIG_DATA'],('CONFIG',))
         self.assertEqual(policy['config_turn_range'],[-8,7])
         self.assertFalse(policy['controller_validated'])

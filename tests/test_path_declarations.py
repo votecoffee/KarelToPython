@@ -174,10 +174,12 @@ class PredefinedRecordTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 with self.assertRaises(TranslationError):compile_program(types='',decl='item:'+kind,translator=legacy_translate)
 
-    def test_native_association_types_remain_unsupported(self):
+    def test_association_data_records_are_supported_without_native_layout_claim(self):
         for kind in ('COMMON_ASSOC','GROUP_ASSOC'):
             with self.subTest(kind=kind):
-                with self.assertRaises(TranslationError):compile_program(types='',decl='item:'+kind)
+                p,result=compile_program(types='',decl='item:'+kind)
+                self.assertEqual(p._state.types['ITEM'],(kind,))
+                self.assertFalse(result.report['association_record_policy']['controller_validated'])
 
 
 class PathRecordInterfaceTests(unittest.TestCase):
