@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [direct-FILE-prefix ledger](direct_file_prefix_semantics.json) supersedes
+earlier bare FILE prefix argument exclusions. Original-cell borrowing, exact
+interfaces and lifetimes remain; data and collection prefix values retain copies.
+
 The [predefined-FILE ledger](predefined_file_semantics.json) supersedes earlier
 blanket predefined/default FILE exclusions for explicit offline bindings. Owned
 registrations, cooperative input, pending-write and native boundaries remain.

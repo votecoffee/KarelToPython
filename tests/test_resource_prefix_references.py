@@ -152,9 +152,9 @@ class ResourcePrefixGuardTests(unittest.TestCase):
         p,_=build(prefix='TYPE row_t=ARRAY[2]OF FILE',routines=WRITE.replace('ARRAY OF FILE','row_t'),body="entry=77 "+CALL)
         with self.assertRaises(rt.KarelRuntimeError):p.run()
         self.assertEqual(p.snapshot()['ENTRY'],77);self.assertEqual(p._state.execution.entries,{})
-    def test_ordinary_file_prefix_argument_remains_rejected(self):
-        for kind,routines in (('FILE',WRITE),):
-            with self.subTest(kind=kind),self.assertRaises(TranslationError):build(kind,body='work(items[2])',routines=routines)
+    def test_ordinary_file_prefix_argument_borrows_original_storage(self):
+        p,_=build('FILE',body='work(items[2])',routines=WRITE);original=cells(p)[2]
+        p.run();self.assertIs(cells(p)[2],original);self.assertEqual(original.name,'out')
     def test_grouped_resource_view_remains_rejected(self):
         with self.assertRaises(TranslationError):build(routines=WRITE.replace('work','child')+' ROUTINE work(row:ARRAY OF FILE) BEGIN child((row)) END work')
     def test_whole_resource_array_assignment_remains_rejected(self):

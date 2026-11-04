@@ -1,0 +1,6 @@
+PROGRAM DIRECT_FILE_LOCALS
+VAR value,visits:INTEGER
+ROUTINE pick:INTEGER BEGIN visits=visits+1 RETURN 2 END pick
+ROUTINE work(row:ARRAY OF FILE) BEGIN OPEN FILE row[1]('WB','out') WRITE row[1](17) CLOSE FILE row[1] OPEN FILE row[2]('RB','out') READ row[2](value) CLOSE FILE row[2] END work
+ROUTINE launch VAR hidden:ARRAY[2,2]OF FILE BEGIN work(hidden[pick()]) END launch
+BEGIN visits=0 launch END DIRECT_FILE_LOCALS

@@ -1,0 +1,4 @@
+PROGRAM LIB
+ROUTINE work(row:ARRAY OF FILE;output:INTEGER) BEGIN OPEN FILE row[1]('WB','out') WRITE row[1](17) CLOSE FILE row[1] OPEN FILE row[2]('RB','out') READ row[2](output) CLOSE FILE row[2] END work
+ROUTINE launch(plane:ARRAY[*,*]OF FILE;output:INTEGER) BEGIN work(plane[2],output) END launch
+BEGIN END LIB

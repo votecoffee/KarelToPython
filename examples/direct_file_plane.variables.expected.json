@@ -1,0 +1,10 @@
+[
+  {
+    "program": "DIRECT_FILE_PLANE",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 3
+  }
+]

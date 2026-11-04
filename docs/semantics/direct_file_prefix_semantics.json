@@ -1,0 +1,25 @@
+{
+  "version": "26.1104.085319",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_direct_file_prefixes.py",
+    "tests/test_file_array_boundaries.py",
+    "tests/test_resource_prefix_references.py",
+    "tests/test_collection_source_values.py",
+    "examples/direct_file_row.kl",
+    "examples/direct_file_plane.kl",
+    "examples/direct_file_components.kl",
+    "examples/direct_file_locals.kl",
+    "examples/direct_file_prefix_linked/main.kl",
+    "examples/direct_file_prefix_forwarded/main.kl"
+  ],
+  "source": "Ungrouped incomplete FILE ARRAY source selectors in typed user routine arguments",
+  "capture": "Existing original-cell resource view validates complete banks and captures coordinates once without allocating descriptors; retain anonymous suffix and exact named children",
+  "scope": "Globals, locals, generic/named formals, linked supplied sources and explicit typed callbacks; no namespace lookup or implicit linkage",
+  "lifetimes": "Original descriptor identity, attributes, cursors and pending input retained through forwarding/pause/cancel/stop; replacement lists do not retarget and resizing captured lists fails",
+  "values": "Data/PATH/QUEUE prefixes retain independent values; BYNAME resource lookup unchanged; no grouped FILE copies/results or bank data I/O",
+  "persistence": "Original static/created FILE policies only; no view, live handle, frame, pending operation or alias serialization",
+  "boundary": "Authored offline Pythonic extension without native source/compiler, layout/ABI, hardware/controller or strict equivalence"
+}

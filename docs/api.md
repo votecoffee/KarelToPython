@@ -1,5 +1,9 @@
 # API and command-line guide
 
+[Direct FILE prefix arguments](direct-file-prefixes.md) add typed source borrowing
+for FILE rows/planes. Reports expose file_prefix_call_policy and physical-origin
+file_prefix_arguments; runtime context and constructor APIs are unchanged.
+
 [Predefined FILE bindings](predefined-files.md) add the optional
 ExecutionContext(predefined_files=...) argument and matching context JSON field.
 Bindings describe checked alias endpoints; source CLOSE or

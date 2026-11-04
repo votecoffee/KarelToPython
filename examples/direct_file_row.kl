@@ -1,0 +1,4 @@
+PROGRAM DIRECT_FILE_ROW
+VAR items:ARRAY[2,2]OF FILE value:INTEGER
+ROUTINE work(row:ARRAY OF FILE) BEGIN OPEN FILE row[1]('WB','out') WRITE row[1](17) CLOSE FILE row[1] OPEN FILE row[2]('RB','out') READ row[2](value) CLOSE FILE row[2] END work
+BEGIN work(items[2]) END DIRECT_FILE_ROW

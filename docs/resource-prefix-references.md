@@ -1,5 +1,10 @@
 # Live resource ARRAY rows and planes
 
+[Direct FILE prefix arguments](direct-file-prefixes.md) now borrow rows/planes
+through source selectors such as work(streams[2]), including routine locals.
+The BYNAME contract below still covers FILE/PATH/QUEUE_TYPE; ordinary data and
+collection prefix arguments retain their separate private-value rules.
+
 Pythonic BYNAME can borrow an existing FILE, PATH or QUEUE_TYPE ARRAY row/plane
 for a typed user routine. This is an authored offline reference extension.
 The capture retains original resource cells and creates no replacement resource

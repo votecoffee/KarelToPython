@@ -1,0 +1,46 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ITEMS": [
+        [
+          {
+            "file": null,
+            "open": false,
+            "position": 0,
+            "binary": false,
+            "status": 0
+          },
+          {
+            "file": null,
+            "open": false,
+            "position": 0,
+            "binary": false,
+            "status": 0
+          }
+        ],
+        [
+          {
+            "file": "out",
+            "open": false,
+            "position": 4,
+            "binary": true,
+            "status": 0
+          },
+          {
+            "file": "out",
+            "open": false,
+            "position": 4,
+            "binary": true,
+            "status": 0
+          }
+        ]
+      ],
+      "VALUE": 17
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

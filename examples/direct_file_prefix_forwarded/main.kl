@@ -1,0 +1,4 @@
+PROGRAM MAIN
+VAR items:ARRAY[2,2,2]OF FILE value:INTEGER
+ROUTINE launch(plane:ARRAY[*,*]OF FILE;output:INTEGER) FROM LIB
+BEGIN launch(items[2],value) END MAIN

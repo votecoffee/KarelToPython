@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1104.085319 - 2026-11-04
+
+- Borrow incomplete FILE ARRAY rows/planes directly in typed user routines using
+  existing validated original-cell resource views, without descriptor allocation.
+- Cover globals, locals, wildcard formals, named components, nested forwarding,
+  supplied linked sources and explicit callbacks with one-time source selection.
+- Retain text/binary I/O, cursor/attributes, pending-read cancellation and pause/stop
+  lifetimes. Reject malformed banks, resource copies and interface mismatches.
+- Preserve ordinary data/PATH/QUEUE prefix private values and BYNAME borrowing.
+- Add source capture/origin reports, 76 regressions, four CLI examples and two
+  linked projects with independent descriptor, variable and service snapshots.
+
 ## 26.1104.081722 - 2026-11-04
 
 - Add eleven unshadowed predefined FILE names through explicit context/JSON

@@ -74,7 +74,9 @@ without a live backing link.
 
 FILE/PATH/QUEUE_TYPE prefixes now follow the separate
 [resource reference contract](resource-prefix-references.md): explicit BYNAME
-borrowing only, preserving original resource cells and their existing lifetimes.
+borrowing preserves original resource cells and lifetimes. [Direct FILE
+prefix arguments](direct-file-prefixes.md) now add typed source borrowing; ordinary
+PATH/QUEUE prefix values keep their independent-copy rules.
 Ordinary data values retain the rules above. Existing one-to-three logical
 dimensions, 32767 scalar-leaf and 64 schema-level bounds remain. Generic service
 output syntax does not gain bare prefix targets.

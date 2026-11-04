@@ -1,0 +1,18 @@
+[
+  {
+    "program": "DIRECT_FILE_LOCALS",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  },
+  {
+    "program": "DIRECT_FILE_LOCALS",
+    "path": "VISITS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  }
+]

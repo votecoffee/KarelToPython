@@ -38,9 +38,9 @@ python converted.py --context examples/file_array_binary.services.initial.json -
 - Bare ARRAY arguments borrow original storage. Generic `ARRAY OF FILE` and
   rank-specific `ARRAY[*,*] OF FILE` interfaces inherit compatible caller shapes;
   named interfaces retain exact type identity. A fully selected named component
-  row can be borrowed. Incomplete flat rows/planes can now be borrowed explicitly
-  through [BYNAME](resource-prefix-references.md). Ordinary resource-prefix values
-  remain unavailable.
+  row can be borrowed. Incomplete flat rows/planes now borrow through
+  [direct typed routine arguments](direct-file-prefixes.md) or explicit
+  [BYNAME](resource-prefix-references.md). FILE prefix values remain unavailable.
 - Individual cells can be passed to FILE formals. Source-linked routines, imported
   globals and exact BYNAME references retain descriptor identity. Grouped ARRAY
   arguments, ARRAY results, whole ARRAY assignment and resource-bearing STRUCTURE

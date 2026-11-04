@@ -26,7 +26,9 @@ class FileArrayBoundaryTests(unittest.TestCase):
     def test_whole_write_is_rejected(self):self.reject('WRITE(streams)')
     def test_whole_read_is_rejected(self):self.reject('READ(streams)')
     def test_whole_uninit_is_rejected(self):self.reject('before=UNINIT(streams)')
-    def test_partial_flat_row_argument_is_rejected(self):self.reject('use(streams[1])',decl='streams:ARRAY[2,2] OF FILE',routines=USE)
+    def test_partial_flat_row_argument_borrows_original_files(self):
+        p,_=build('use(streams[1])',decl='streams:ARRAY[2,2]OF FILE',routines=USE)
+        original=handles(p)[1];p.run();self.assertIs(handles(p)[1],original);self.assertEqual(original.position,3)
     def test_structure_file_array_field_is_rejected(self):self.reject('',prefix='TYPE record_t=STRUCTURE streams:ARRAY[2] OF FILE ENDSTRUCTURE',decl='r:record_t')
     def test_structure_named_file_array_field_is_rejected(self):self.reject('',prefix='TYPE streams_t=ARRAY[2] OF FILE record_t=STRUCTURE streams:streams_t ENDSTRUCTURE',decl='r:record_t')
     def test_named_file_array_return_is_rejected(self):self.reject('',prefix='TYPE streams_t=ARRAY[2] OF FILE',routines='ROUTINE result:streams_t BEGIN RETURN streams END result')

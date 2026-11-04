@@ -1,0 +1,5 @@
+PROGRAM DIRECT_FILE_PLANE
+VAR items:ARRAY[2,2,2]OF FILE value:INTEGER
+ROUTINE work(plane:ARRAY[*,*]OF FILE)
+BEGIN OPEN FILE plane[2,1]('WO','out') WRITE plane[2,1](17) value=GET_FILE_POS(plane[2,1]) CLOSE FILE plane[2,1] END work
+BEGIN work(items[2]) END DIRECT_FILE_PLANE

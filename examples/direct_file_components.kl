@@ -1,0 +1,6 @@
+PROGRAM DIRECT_FILE_COMPONENTS
+TYPE row_t=ARRAY[2]OF FILE
+VAR items:ARRAY[2,2]OF row_t value:INTEGER
+ROUTINE work(rows:ARRAY OF row_t)
+BEGIN OPEN FILE rows[1,2]('WB','out') WRITE rows[1,2](17) CLOSE FILE rows[1,2] OPEN FILE rows[2,1]('RB','out') READ rows[2,1](value) CLOSE FILE rows[2,1] END work
+BEGIN work(items[2]) END DIRECT_FILE_COMPONENTS

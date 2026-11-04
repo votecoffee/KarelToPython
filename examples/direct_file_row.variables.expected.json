@@ -1,0 +1,10 @@
+[
+  {
+    "program": "DIRECT_FILE_ROW",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  }
+]

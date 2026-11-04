@@ -1210,6 +1210,7 @@ class Emitter:
         self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
         self.type_aliases = []
+        self.file_prefix_argument_uses=[]
         self.constant_dependency_uses=[];self.constant_resolution_order=[]
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
         self.predefined_structure_uses = []
@@ -2244,10 +2245,28 @@ class Emitter:
     def named_active_counters(self):
         return self.active_counters-self.private_using_roots.keys()
 
+    def file_prefix_spec(self,argument):
+        if not self.is_array_prefix_value(argument):return None
+        container=self.access_type(argument.args[0])
+        return rt.array_prefix_type(container,len(argument.args)-1) if rt.file_storage_type(container) else None
+
+    def file_prefix_argument(self,argument,routine,formal):
+        base,container=self.expression(argument.args[0],raw=True)
+        codes=[self.require_type(index,'INTEGER') for index in argument.args[1:]]
+        selected=self.file_prefix_spec(argument);line=argument.token.line
+        self.file_prefix_argument_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
+            routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
+            source_selector=counter_text(argument),source_type_spec=container,selected_type_spec=selected,
+            supplied_subscripts=len(codes),evaluated_once=True,original_cells=True))
+        self.features.add('direct FILE prefix reference argument')
+        return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{line})',selected
+
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
-        if self.is_array_prefix_value(argument):return False
-        actual=self.access_type(argument)
+        if self.is_array_prefix_value(argument):
+            actual=self.file_prefix_spec(argument)
+            if actual is None:return False
+        else:actual=self.access_type(argument)
         if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):return False
         if self.mode=='pythonic' and (rt.config_word_kind(expected,actual) or rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual) or rt.kinematic_array_kind(expected,actual)):return False
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
@@ -3170,10 +3189,11 @@ class Emitter:
                 self.error('E_POSITION_READ_ONLY_ARG', 'Bare POSITION orientation arguments need read-only passing evidence; use an explicit scalar expression for a value', argument.token)
             # Bare variable and indexed-variable arguments retain their storage.
             # Any grouping node, constant or expression is a temporary value.
+            file_prefix=self.file_prefix_spec(argument)
             is_reference = (argument.kind in ('name', 'index', 'field') and self.root_name(argument) not in self.visible_constants()
-                            and not self.is_array_prefix_value(argument) and not self.is_system_pose_path(argument))
+                            and (not self.is_array_prefix_value(argument) or file_prefix is not None) and not self.is_system_pose_path(argument))
             if is_reference:
-                code, actual = self.reference(argument)
+                code,actual=(self.file_prefix_argument(argument,routine,formal) if file_prefix is not None else self.reference(argument))
                 if self.is_value_only_subfield(argument):
                     value, actual = self.expression(argument)
                     code = f'_rt.value_argument({expected!r}, {value}, {line})'
@@ -5100,7 +5120,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,
         type_dependencies=emitter.type_dependency_uses,type_resolution_order=emitter.type_resolution_order,
-        type_aliases=emitter.type_aliases,
+        type_aliases=emitter.type_aliases,file_prefix_arguments=emitter.file_prefix_argument_uses,
         imported_types=program.imported_types,
         path_clause_uses=parser.path_clause_uses,
         predefined_structure_uses=emitter.predefined_structure_uses,
@@ -7129,6 +7149,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Static FILE ARRAY globals omitted from context variables and VR archives; backend bytes retain ordinary service persistence; new Program allocates fresh closed descriptors',
         boundary='No whole ARRAY assignment/READ/WRITE/UNINIT, prefix values, return values, STRUCTURE fields or generic typed codecs; created FILE ARRAYs follow dynamic_file_array_policy; no native storage/ABI/controller or strict equivalence claim',
         guide='docs/file-arrays.md',controller_validated=False)
+    report['file_prefix_call_policy']=dict(
+        source='Ungrouped incomplete FILE ARRAY selectors passed directly to typed user routines; data and PATH/QUEUE prefixes retain ordinary private-value rules',
+        capture='Existing resource_array_prefix_reference validates the complete containing bank and borrows original row/plane cells once, without allocating descriptors; names on inner components stay exact',
+        interfaces='Generic rank-matched FILE ARRAY or exact selected schemas; globals, routine locals, borrowed formals, supplied linked sources and explicit callbacks; no filename/device discovery',
+        lifetime='Retain descriptor, cursor, attributes, pending input and original list across later arguments, pause and forwarding; storage resize and malformed banks fail',
+        persistence='Save original FILE roots under existing static/dynamic policies; views, live handles, borrowed frames and pending reads are not serialized',
+        boundary='No grouped FILE values, copies/results, FILE bank data I/O, resource fields, reshape, weakened FOR/linked checks, native ABI/controller or strict claim',
+        guide='docs/direct-file-prefixes.md',controller_validated=False)
+    for row in report['file_prefix_arguments']:
+        label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
+        row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['resource_prefix_reference_policy']=dict(
         syntax='Direct typed user-routine BYNAME arguments ending in incomplete flat FILE/PATH/QUEUE_TYPE ARRAY coordinates; adjacent numeric bracket groups normalize before selection',
         schema='Concrete anonymous suffix with exact named children and resource schemas; generic formals inherit actual sizes; no value copies, casts, resizing or inferred resources',
@@ -7195,7 +7226,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['collection_array_policy']['guards']='Source copies/arguments/results and prefix values follow collection_array_source_policy; FILE storage, resource STRUCTURE fields and generic UNINIT remain excluded; PATH/queue READ/WRITE follow path_array_io_policy and queue_io_policy'
     report['collection_array_transfer_policy']['source']='Explicit logical whole banks and rows/planes across static, created, borrowed, linked and named-path storage; source-language values follow collection_array_source_policy'
     report['collection_array_transfer_policy']['protection']='Reject shared owned cells/headers/nodes, malformed storage and output overlaps; preserve FOR, FILE, resource-field and ordinary resource-copy guards under collection_array_source_policy'
-    report['typed_service_array_prefix_policy']['protection']='Preserve original-cell overlap, FOR, POSITION, CONFIG/association and exact linked-interface guards; live resource-prefix borrowing uses BYNAME only while private collection values follow collection_array_source_policy'
+    report['typed_service_array_prefix_policy']['protection']='Preserve original-cell overlap, FOR, POSITION, CONFIG/association and exact linked-interface guards; live PATH/QUEUE reference prefixes use BYNAME only; FILE prefixes also borrow directly in typed user routines under file_prefix_call_policy; private collection values retain their contracts'
     report['queue_io_policy']=dict(
         source='Pythonic scalar QUEUE_TYPE and queue ARRAY READ/WRITE, selected rows/planes, declared/created/borrowed/compiled linked storage and computed output values',
         order='ARRAY row-major queues and existing FIFO entry order; INTEGER values only, without sequence IDs, counters, lengths or initialization flags in the payload',

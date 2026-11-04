@@ -1,0 +1,4 @@
+PROGRAM MAIN
+VAR items:ARRAY[2,2]OF FILE value:INTEGER
+ROUTINE work(row:ARRAY OF FILE;output:INTEGER) FROM LIB
+BEGIN work(items[2],value) END MAIN

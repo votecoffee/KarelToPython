@@ -1,0 +1,3 @@
+PROGRAM LIB
+ROUTINE work(row:ARRAY OF FILE;output:INTEGER) BEGIN OPEN FILE row[1]('WB','out') WRITE row[1](17) CLOSE FILE row[1] OPEN FILE row[2]('RB','out') READ row[2](output) CLOSE FILE row[2] END work
+BEGIN END LIB

@@ -283,7 +283,9 @@ components with complete-batch pose validation and bounded rounding normalizatio
 ## Files and collections
 
 [FILE arrays](file-arrays.md) now support indexed streams and borrowed
-routine/source-linked storage. [Dynamic creation](dynamic-file-arrays.md) adds
+routine/source-linked storage. [Direct FILE prefix arguments](direct-file-prefixes.md)
+now borrow rows/planes from globals, locals and formal banks without BYNAME lookup.
+Grouped FILE values, copies and generic FILE bank data I/O remain excluded. [Dynamic creation](dynamic-file-arrays.md) adds
 checked allocations and closed creation-tagged JSON markers. Whole FILE ARRAY
 copies/results, resource STRUCTURE fields, generic FILE codecs and live descriptor
 restoration remain excluded. Whole ARRAY READ/WRITE follows the separate data, PATH-bank and initialized
