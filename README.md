@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Forward type references](docs/forward-types.md) now resolve acyclic aliases,
+ARRAY/STRUCTURE components, PATH layouts and routine interfaces before allocation.
+Original nominal identities and source-order metadata remain; cycles, unknown
+names and excessive schema expansion produce source-located diagnostics.
+
 [Directory-preserving destinations](docs/directory-destinations.md) now let COPY_FILE
 and RENAME_FILE insert source-relative directories with one whole `**` placeholder.
 Existing collision, busy-file, overwrite and capacity checks cover the complete
@@ -170,7 +175,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.064339**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.072519**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1001,9 +1006,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 484 authored runnable examples, checks complete
+The example runner translates 488 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 174 complete linked source projects. It also checks that nested
+fixtures, plus 176 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

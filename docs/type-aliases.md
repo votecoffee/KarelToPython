@@ -1,7 +1,7 @@
 # Pythonic TYPE aliases
 
 Since 0.61.0, Pythonic mode supports transparent aliases for supported scalar
-types, bounded STRINGs, data records, joints and previously defined named types.
+types, bounded STRINGs, data records, joints and declared named types.
 An alias gives an existing checked type another name. It introduces no wrapper
 value or conversion and gives ARRAYs and STRUCTUREs no new nominal identity.
 
@@ -33,8 +33,9 @@ for aliases used in STRUCTURE fields, ARRAY results and bounded STRING parameter
 
 ## Resolution and identity
 
-Names are case-insensitive. Alias chains resolve eagerly in TYPE declaration
-order, so each target must already exist. Forward references, self references,
+Names are case-insensitive. [Acyclic forward references](forward-types.md) now
+resolve with an iterative dependency walk across module TYPE sections. Resolved
+schemas and alias metadata retain source declaration order. Self references,
 cycles and unknown targets produce source-located diagnostics. Duplicate names
 and ordinary declaration collisions retain their existing checks.
 
@@ -52,7 +53,7 @@ Scalar aliases use the underlying arithmetic and comparison rules, including
 INTEGER-to-REAL promotion and Pythonic numeric approximations. Bounded STRING
 aliases retain their declared capacity for variables, fields, ARRAY elements,
 locals and function results. ARRAY dimensions, record kinds and joint widths
-also remain unchanged. Named function-result aliases must precede the routine.
+also remain unchanged. Named function-result aliases may be declared later in the module under the forward-type policy.
 
 ## Arguments and copies
 

@@ -318,8 +318,8 @@ class StructureArrayBoundaryTests(unittest.TestCase):
     def test_structure_array_return_remains_blocked(self):
         self.rejected(routines='ROUTINE make: ARRAY[2] OF item_t BEGIN RETURN items END make', code='E_RETURN_TYPE', _translator=legacy_translate)
 
-    def test_forward_or_recursive_named_element_remains_blocked(self):
-        self.rejected(types='TYPE outer_t = STRUCTURE children: ARRAY[2] OF item_t ENDSTRUCTURE item_t = STRUCTURE n: INTEGER ENDSTRUCTURE', declarations='outer: outer_t')
+    def test_recursive_named_element_remains_blocked(self):
+        self.rejected(types='TYPE outer_t = STRUCTURE children: ARRAY[2] OF item_t ENDSTRUCTURE item_t = STRUCTURE parent: outer_t ENDSTRUCTURE', declarations='outer: outer_t')
 
     def test_unknown_named_element_formal_remains_blocked(self):
         self.rejected(routines='ROUTINE put(p: ARRAY OF missing_type) BEGIN END put')

@@ -1,0 +1,6 @@
+PROGRAM LIB
+ROUTINE make:bundle_t
+ VAR result:bundle_t
+ BEGIN result.child.n=7 RETURN result END make
+TYPE bundle_t=STRUCTURE child:leaf_t ENDSTRUCTURE leaf_t=STRUCTURE n:INTEGER ENDSTRUCTURE
+BEGIN END LIB

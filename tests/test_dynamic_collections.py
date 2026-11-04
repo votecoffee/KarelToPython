@@ -6,6 +6,7 @@ from unittest.mock import patch
 from karel2py import runtime as rt,translate_project
 from karel2py.dynamic import creation_cost,restore_metadata,concrete_type
 from karel2py.storage import typed_value
+from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program
 from tests.test_dynamic_narrow import create
 
@@ -374,7 +375,10 @@ class DynamicCollectionBoundaryTests(unittest.TestCase):
 
     def test_overwide_header_schema_is_unsupported_before_allocation(self):
         prefix='TYPE header_t=STRUCTURE a:ARRAY[32767]OF INTEGER b:INTEGER ENDSTRUCTURE route_t=PATH PATHHEADER=header_t'
-        v,ctx,_,_=execute(create('route_t'),prefix=prefix);self.assertEqual((v['STATUS'],ctx.variables.bindings),(5,{}))
+        with self.assertRaises(TranslationError) as caught:program(create('route_t'),prefix=prefix)
+        self.assertEqual(caught.exception.code,'E_TYPE_CAPACITY')
+        header=('STRUCTURE','HEADER_T',(('A',('ARRAY',32767,('INTEGER',))),('B',('INTEGER',))))
+        with self.assertRaisesRegex(ValueError,'32767'):creation_cost(('PATH',None,header))
 
     def test_checkpoint_guard_also_preserves_existing_scalar_creation_contract(self):
         p,_=program(create('INTEGER'));ctx=p._state.execution;original=p._state.tick;fired=[]

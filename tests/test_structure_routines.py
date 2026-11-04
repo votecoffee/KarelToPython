@@ -146,10 +146,11 @@ class StructureRoutineGuardTests(unittest.TestCase):
     def test_wrong_scalar_return(self): self.reject('E_RETURN',routines='ROUTINE get: packet_t BEGIN RETURN 1 END get')
     def test_missing_return_expression(self): self.reject('E_RETURN',routines='ROUTINE get: packet_t BEGIN RETURN END get')
     def test_unknown_return_type(self): self.reject('E_TYPE',routines='ROUTINE get: missing_t BEGIN END get')
-    def test_result_type_declared_after_routine_is_blocked(self):
-        with self.assertRaises(TranslationError) as caught:
-            translate('PROGRAM T ROUTINE get: later_t BEGIN END get TYPE later_t=STRUCTURE n: INTEGER ENDSTRUCTURE BEGIN END T')
-        self.assertEqual(caught.exception.code,'E_TYPE')
+    def test_result_type_declared_after_routine_executes(self):
+        result=translate('PROGRAM T VAR output:later_t ROUTINE get:later_t VAR local:later_t BEGIN local.n=7 RETURN local END get TYPE later_t=STRUCTURE n:INTEGER ENDSTRUCTURE BEGIN output=get END T')
+        namespace={};exec(result.python_source,namespace);program=namespace['Program']()
+        self.assertEqual(program.run()['OUTPUT'],{'N':7})
+        self.assertEqual(program._state.raw('OUTPUT').spec[1],'LATER_T')
     def test_named_array_return_remains_blocked(self): self.reject('E_RETURN_TYPE',routines='ROUTINE get: row_t BEGIN END get', _translator=legacy_translate)
     def test_sized_array_result_remains_blocked(self):
         self.reject('E_RETURN_TYPE',routines='ROUTINE get: ARRAY[2] OF INTEGER BEGIN END get', _translator=legacy_translate)
@@ -184,7 +185,9 @@ class StructureRoutineGuardTests(unittest.TestCase):
         self.assertEqual(program.snapshot()['N'],7); self.assertEqual((program._state.local_frames,program._state.call_depth),([],0))
     def test_oversize_record_value_guard(self):
         types='TYPE large_t=STRUCTURE first: ARRAY[16384] OF INTEGER second: ARRAY[16384] OF INTEGER ENDSTRUCTURE'
-        program,_=compile_program('accept((a))',types=types,declarations='a: large_t',routines='ROUTINE accept(p: large_t) BEGIN END accept')
+        options=dict(types=types,declarations='a: large_t',routines='ROUTINE accept(p: large_t) BEGIN END accept')
+        self.reject('E_TYPE_CAPACITY','accept((a))',**options)
+        program,_=compile_program('accept((a))',_translator=legacy_translate,**options)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'32767 scalar leaves'): program.run()
 
 

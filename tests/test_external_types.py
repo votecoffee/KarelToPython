@@ -99,7 +99,7 @@ class ExternalTypeDeclarationTests(unittest.TestCase):
         cases=(('item_t FROM LIB', 'E_SYNTAX'),
                ("item_t FROM 'LIB'=INTEGER",'E_NAME'),
                ('item_t FROM LIB=item_t','E_TYPE'),
-               ('item_t FROM LIB=later_t later_t=INTEGER','E_TYPE'),
+               ('item_t FROM LIB=missing_t later_t=INTEGER','E_TYPE'),
                ('item_t FROM LIB=ARRAY[*] OF INTEGER','E_VARIABLE_ARRAY_SCOPE'),
                ('item_t FROM LIB=STRUCTURE f:FILE ENDSTRUCTURE','E_TYPE'),
                ('item_t FROM LIB=INTEGER item_t FROM LIB=REAL','E_DUPLICATE'))

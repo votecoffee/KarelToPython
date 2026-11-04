@@ -1,0 +1,6 @@
+PROGRAM FORWARD_ALIAS_CHAIN
+TYPE count_t=next_t next_t=last_t last_t=INTEGER
+VAR value:count_t done:BOOLEAN
+BEGIN
+ IF UNINIT(done) THEN value=7 done=TRUE ENDIF
+END FORWARD_ALIAS_CHAIN

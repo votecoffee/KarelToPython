@@ -242,10 +242,11 @@ class ResultFailureTests(unittest.TestCase):
     def test_inline_anonymous_nested_component_remains_blocked(self):
         self.reject('E_RETURN_TYPE',result='ARRAY[2] OF ARRAY[2] OF INTEGER')
 
-    def test_named_type_must_precede_routine(self):
-        source='PROGRAM T ROUTINE build: row_t BEGIN END build TYPE row_t=ARRAY[2] OF INTEGER BEGIN END T'
-        with self.assertRaises(TranslationError) as caught: translate(source)
-        self.assertEqual(caught.exception.code,'E_TYPE')
+    def test_named_type_declared_after_routine_executes(self):
+        source='PROGRAM T VAR output:row_t ROUTINE build:row_t VAR local:row_t BEGIN local[1]=7 local[2]=8 RETURN local END build TYPE row_t=ARRAY[2]OF INTEGER BEGIN output=build END T'
+        result=translate(source);namespace={};exec(result.python_source,namespace);program=namespace['Program']()
+        self.assertEqual(program.run()['OUTPUT'],[7,8])
+        self.assertEqual(program._state.raw('OUTPUT').spec[3],'ROW_T')
 
     def test_distinct_named_result_owns_declared_identity(self):
         p,_=compile_program(result='row_t',storage='other_t',types='TYPE row_t=ARRAY[2]OF INTEGER other_t=ARRAY[2]OF INTEGER',declarations='target:row_t')

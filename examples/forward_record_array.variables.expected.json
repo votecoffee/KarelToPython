@@ -1,0 +1,39 @@
+[
+  {
+    "program": "FORWARD_RECORD_ARRAY",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "STRUCTURE",
+        "ITEM_T",
+        [
+          [
+            "N",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      "ROW_T"
+    ],
+    "value": [
+      {
+        "N": 7
+      },
+      {
+        "N": 8
+      }
+    ]
+  },
+  {
+    "program": "FORWARD_RECORD_ARRAY",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

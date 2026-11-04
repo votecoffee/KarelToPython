@@ -534,7 +534,7 @@ use the ordinary checked call path; they do not represent first-class functions
 or native external ABI. Explicit Python callback linkage is supported.
 
 ARRAY return reports include the exact resolved `element_spec` and `logical_rank`
-(one through three). Anonymous outer results may contain prior named
+(one through three). Anonymous outer results may contain declared named
 fixed ARRAY components. Bounded STRING elements carry their exact physical
 capacity in `element_spec`; generic source-formal capacities are checked at
 runtime, and result copying never truncates to match a different capacity.

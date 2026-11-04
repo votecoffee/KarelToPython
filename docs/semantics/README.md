@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [forward-type ledger](forward_type_semantics.json) supersedes earlier acyclic
+forward-reference exclusions for module types and routine interfaces. It retains
+nominal identities, exact external linking, bounded resolved schemas and source
+metadata order; cycles, missing definitions and native evidence remain separate.
+
 The [directory-destination ledger](directory_destination_semantics.json) supersedes
 earlier blanket destination-directory matcher exclusions for one whole **
 placeholder in COPY_FILE/RENAME_FILE. Literal flattening, complete-plan guards,

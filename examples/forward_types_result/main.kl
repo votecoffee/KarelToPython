@@ -1,0 +1,5 @@
+PROGRAM MAIN
+TYPE bundle_t=STRUCTURE child:leaf_t ENDSTRUCTURE leaf_t=STRUCTURE n:INTEGER ENDSTRUCTURE
+VAR value:bundle_t done:BOOLEAN
+ROUTINE make:bundle_t FROM LIB
+BEGIN IF UNINIT(done) THEN value=make() done=TRUE ENDIF END MAIN

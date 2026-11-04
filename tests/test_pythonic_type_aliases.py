@@ -256,7 +256,7 @@ class AliasBoundaryTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, code)
         self.assertEqual(caught.exception.filename, 'type_aliases.kl')
 
-    def test_forward_alias(self): self.reject('E_TYPE', types='TYPE count_t=later_t later_t=INTEGER')
+    def test_forward_alias(self): self.assertEqual(execute('value=7',types='TYPE count_t=later_t later_t=INTEGER')['VALUE'],7)
     def test_self_alias(self): self.reject('E_TYPE', types='TYPE count_t=count_t')
     def test_cyclic_alias(self): self.reject('E_TYPE', types='TYPE count_t=other_t other_t=count_t')
     def test_unknown_alias(self): self.reject('E_TYPE', types='TYPE count_t=missing_t')
@@ -267,7 +267,7 @@ class AliasBoundaryTests(unittest.TestCase):
     def test_alias_formal_collision(self): self.reject('E_DUPLICATE', routines='ROUTINE work(count_t: INTEGER) BEGIN END work')
     def test_invalid_string_capacity(self): self.reject('E_SIZE', types='TYPE count_t=STRING[255]')
     def test_alias_wildcard_definition(self): self.reject('E_VARIABLE_ARRAY_SCOPE', types='TYPE count_t=ARRAY[*] OF INTEGER')
-    def test_forward_result_alias(self): self.reject('E_TYPE', types='', routines='ROUTINE work: count_t BEGIN RETURN 7 END work TYPE count_t=INTEGER')
+    def test_forward_result_alias(self): self.assertEqual(execute('value=work()',types='',routines='ROUTINE work: count_t BEGIN RETURN 7 END work TYPE count_t=INTEGER')['VALUE'],7)
     def test_narrow_global_alias(self):
         self.assertEqual(execute('value=255', types='TYPE count_t=BYTE')['VALUE'], 255)
         self.reject('E_TYPE_ALIAS', types='TYPE count_t=BYTE', translator=legacy_translate)

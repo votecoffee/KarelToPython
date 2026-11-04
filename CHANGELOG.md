@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1104.072519 - 2026-11-04
+
+- Resolve acyclic forward TYPE references across aliases, ARRAY elements,
+  STRUCTURE fields, PATH layouts and routine interfaces before allocation.
+- Use an iterative dependency walk for long chains, preserve nominal identities
+  and source-order metadata, and report actual dependency order and reference origins.
+- Reject unknown names and explicit cycle paths. Memoize resolved schema costs
+  within 32767 scalar leaves and 64 levels before Python literal generation.
+- Retain exact external ownership/schema checks, resource/interface boundaries,
+  data-copy behavior and internal legacy declaration ordering.
+- Add 79 regressions, four standalone examples and two linked projects with
+  independent typed data expectations and generated CLI/context replay.
+
 ## 26.1104.064339 - 2026-11-04
 
 - Add one whole-directory ** destination placeholder to COPY_FILE and RENAME_FILE,

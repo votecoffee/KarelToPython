@@ -1,0 +1,8 @@
+PROGRAM FORWARD_ROUTINE_TYPES
+ROUTINE answer:count_t
+BEGIN RETURN 7 END answer
+TYPE count_t=later_t later_t=INTEGER
+VAR value:count_t done:BOOLEAN
+BEGIN
+ IF UNINIT(done) THEN value=answer() done=TRUE ENDIF
+END FORWARD_ROUTINE_TYPES

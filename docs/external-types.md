@@ -28,8 +28,8 @@ a binary environment or infer a missing definition.
 
 Use the existing supported TYPE definitions: transparent scalar, bounded STRING,
 record and joint aliases; fixed named ARRAY and STRUCTURE definitions; and
-supported FILE, PATH and QUEUE_TYPE aliases. Referenced component types must
-already be defined. Existing resource-field, array-capacity, initialization,
+supported FILE, PATH and QUEUE_TYPE aliases. [Acyclic component references](forward-types.md)
+may point to later complete local definitions. Existing resource-field, array-capacity, initialization,
 BYTE/SHORT and routine-interface restrictions continue to apply.
 
 A standalone translation can run using its complete local layout. It records
@@ -101,8 +101,8 @@ type identity, and do not make otherwise equal schemas different. Existing
 persisted variable/archive schemas do not change.
 
 No automatic library discovery, native binary environments, incomplete imports,
-renamed imported type names, forward/self/cyclic type aliases or routine-local
-TYPE sections are added. The KAREL language prohibits routine-local TYPE;
+renamed imported type names, self/cyclic type aliases or routine-local
+TYPE sections are added. Acyclic local forward references resolve before ownership checks. The KAREL language prohibits routine-local TYPE;
 a self-owned FROM clause on a complete definition is a different construct.
 Strict mode remains a future milestone. Tests establish source acceptance and
 offline behavior; no native compiler or controller equivalence is claimed.

@@ -1,0 +1,40 @@
+[
+  {
+    "program": "MAIN",
+    "path": "VALUE",
+    "type": [
+      "STRUCTURE",
+      "BUNDLE_T",
+      [
+        [
+          "CHILD",
+          [
+            "STRUCTURE",
+            "LEAF_T",
+            [
+              [
+                "N",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "CHILD": {
+        "N": 7
+      }
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

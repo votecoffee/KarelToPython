@@ -224,10 +224,11 @@ class NamedComponentArrayRejectionTests(unittest.TestCase):
         types = TYPES + '\ncube_t=ARRAY[2] OF plane_t'
         self.reject('E_ARRAY_RANK', types=types, body='', routines='ROUTINE make: ARRAY OF cube_t BEGIN END make')
 
-    def test_forward_named_component_rejected(self):
-        with self.assertRaises(TranslationError) as caught:
-            translate('PROGRAM T ROUTINE make: ARRAY OF row_t BEGIN END make TYPE row_t=ARRAY[2] OF INTEGER BEGIN END T')
-        self.assertEqual(caught.exception.code, 'E_TYPE')
+    def test_forward_named_component_executes(self):
+        result=translate('PROGRAM T VAR output:ARRAY[1]OF row_t ROUTINE make:ARRAY OF row_t VAR local:ARRAY[1]OF row_t BEGIN local[1,1]=7 local[1,2]=8 RETURN local END make TYPE row_t=ARRAY[2]OF INTEGER BEGIN output=make END T')
+        namespace={};exec(result.python_source,namespace);program=namespace['Program']()
+        self.assertEqual(program.run()['OUTPUT'],[[7,8]])
+        self.assertEqual(program._state.raw('OUTPUT').spec[2][3],'ROW_T')
 
     def test_only_complete_direct_assignment_accepts_result(self):
         for body in ('a=(make())', 'a=make()+1', 'n=ARRAY_LEN(make())', 'IF make() THEN n=1 ENDIF'):

@@ -171,10 +171,11 @@ class AggregateArrayRejectionTests(unittest.TestCase):
     def test_unknown_element_type_rejected(self):
         self.reject('E_TYPE',routines='ROUTINE make: ARRAY OF missing_t BEGIN END make')
 
-    def test_structure_element_must_precede_routine(self):
-        with self.assertRaises(TranslationError) as caught:
-            translate('PROGRAM T ROUTINE make: ARRAY OF later_t BEGIN END make TYPE later_t=STRUCTURE n: INTEGER ENDSTRUCTURE BEGIN END T')
-        self.assertEqual(caught.exception.code,'E_TYPE')
+    def test_structure_element_declared_after_routine_executes(self):
+        result=translate('PROGRAM T VAR output:ARRAY[1]OF later_t ROUTINE make:ARRAY OF later_t VAR local:ARRAY[1]OF later_t BEGIN local[1].n=7 RETURN local END make TYPE later_t=STRUCTURE n:INTEGER ENDSTRUCTURE BEGIN output=make END T')
+        namespace={};exec(result.python_source,namespace);program=namespace['Program']()
+        self.assertEqual(program.run()['OUTPUT'],[{'N':7}])
+        self.assertEqual(program._state.raw('OUTPUT').spec[2][1],'LATER_T')
 
     def test_named_array_result_type_remains_blocked(self):
         self.reject('E_RETURN_TYPE',routines='ROUTINE make: row_t BEGIN END make', _translator=legacy_translate)

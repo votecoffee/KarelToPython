@@ -1209,6 +1209,7 @@ class Emitter:
         self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
         self.type_aliases = []
+        self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
@@ -1503,6 +1504,101 @@ class Emitter:
         self.features.add('externally sized static ARRAY')
         return resolved
 
+    @staticmethod
+    def declared_type_references(definition):
+        pending=[definition] if isinstance(definition,tuple) else [spec for _,spec in reversed(definition)]
+        references=[]
+        while pending:
+            spec=pending.pop()
+            if spec[0]=='NAMED':references.append(spec[1])
+            elif spec[0]=='ARRAY':pending.append(spec[2])
+            elif spec[0]=='GROUPED':pending.append(spec[1])
+            elif spec[0]=='PATH':pending.extend(item for item in reversed(spec[1:3]) if item is not None)
+        return references
+
+    def resolve_type_definition(self,token,definition):
+        if isinstance(definition, tuple):
+            resolved = self.resolve_spec(definition)
+            if definition[0] == 'ARRAY':
+                self.user_types[token.value] = (*resolved, token.value)
+                self.features.add('named ARRAY definition')
+            else:
+                self.user_types[token.value] = resolved
+                self.type_aliases.append(dict(name=token.value, line=token.line, column=token.column,
+                                              target=definition[1].value if definition[0] == 'NAMED' else definition[0],
+                                              resolved_spec=resolved))
+                self.features.add('transparent TYPE alias')
+            return
+        resolved = {}
+        for member, spec in definition:
+            if member.value in resolved: self.error('E_DUPLICATE', 'Duplicate STRUCTURE field', member)
+            resolved[member.value] = self.resolve_spec(spec)
+            if resolved[member.value][0] in ('FILE','PATH','QUEUE_TYPE') or rt.resource_array_type(resolved[member.value]):
+                self.error('E_TYPE','Resource fields in STRUCTURE are not supported',member)
+        self.user_types[token.value] = ('STRUCTURE', token.value, tuple(resolved.items()))
+        self.features.add('named STRUCTURE definition')
+
+    def check_type_schema(self,spec,token):
+        """Memoize shared schemas before code generation can expand their repr."""
+        costs=self._type_schema_costs;pending=[(spec,False)]
+        while pending:
+            current,ready=pending.pop();identity=id(current)
+            if identity in costs:continue
+            children=([field for _,field in current[2]] if current[0]=='STRUCTURE'
+                      else [current[2]] if current[0]=='ARRAY' else [])
+            if children and not ready:
+                pending.append((current,True));pending.extend((child,False) for child in reversed(children));continue
+            if current[0]=='STRUCTURE':count=sum(costs[id(child)][0] for child in children)
+            elif current[0]=='ARRAY':
+                count=costs[id(current[2])][0]
+                for dimension in rt.array_shape(current):count*=dimension
+            else:count=rt.scalar_leaf_count(current)
+            depth=1+max((costs[id(child)][1] for child in children),default=0)
+            if count>32767:self.error('E_TYPE_CAPACITY','Resolved TYPE data exceeds 32767 scalar leaves',token)
+            if depth>64:self.error('E_TYPE_DEPTH','Resolved TYPE data exceeds 64 schema levels',token)
+            costs[identity]=(count,depth)
+
+    def resolve_type_definitions(self,names):
+        """Iterative dependency walk; resolved data schemas retain existing checks."""
+        definitions={}
+        for token,definition in self.program.user_types:
+            if token.value in names:self.error('E_DUPLICATE','Duplicate declaration',token)
+            names.add(token.value);definitions[token.value]=(token,definition)
+            if self.mode!='pythonic':self.resolve_type_definition(token,definition)
+        if self.mode!='pythonic':return
+        references={name:self.declared_type_references(definition) for name,(_,definition) in definitions.items()}
+        marks={};active=[];positions={}
+        for start in definitions:
+            if marks.get(start)==2:continue
+            marks[start]=1;positions[start]=len(active);active.append(start)
+            pending=[(start,iter(references[start]))]
+            while pending:
+                name,children=pending[-1]
+                reference=next(children,None)
+                if reference is None:
+                    self.resolve_type_definition(*definitions[name])
+                    self.check_type_schema(self.user_types[name],definitions[name][0])
+                    marks[name]=2;self.type_resolution_order.append(name)
+                    pending.pop();positions.pop(name);active.pop();continue
+                dependency=reference.value
+                if dependency in rt.PREDEFINED_STRUCTURES:continue
+                if dependency not in definitions:
+                    self.error('E_TYPE',dependency+' is not a declared supported type',reference)
+                target=definitions[dependency][0]
+                self.type_dependency_uses.append(dict(name=name,dependency=dependency,line=reference.line,column=reference.column,
+                    forward=(target.line,target.column)>(reference.line,reference.column)))
+                if marks.get(dependency)==1:
+                    cycle=active[positions[dependency]:]+[dependency]
+                    shown=cycle if len(cycle)<=32 else cycle[:31]+['...',dependency]
+                    self.error('E_TYPE','Cyclic TYPE dependency: '+' -> '.join(shown),reference)
+                if marks.get(dependency)==2:continue
+                marks[dependency]=1;positions[dependency]=len(active);active.append(dependency)
+                pending.append((dependency,iter(references[dependency])))
+        self.user_types={name:self.user_types[name] for name in definitions}
+        self.type_aliases.sort(key=lambda row:(row['line'],row['column']))
+        self.type_dependency_uses.sort(key=lambda row:(row['line'],row['column']))
+        if any(row['forward'] for row in self.type_dependency_uses):self.features.add('forward TYPE dependency resolution')
+
     def validate_symbols(self):
         names = set()
         for token, expr in self.program.constants:
@@ -1514,29 +1610,7 @@ class Emitter:
                 try: rt.integer(value)
                 except rt.KarelRuntimeError as exc: self.error('E_CONSTANT', str(exc), token)
             self.constants[token.value] = value
-        for token, definition in self.program.user_types:
-            if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
-            names.add(token.value)
-            if isinstance(definition, tuple):
-                resolved = self.resolve_spec(definition)
-                if definition[0] == 'ARRAY':
-                    self.user_types[token.value] = (*resolved, token.value)
-                    self.features.add('named ARRAY definition')
-                else:
-                    self.user_types[token.value] = resolved
-                    self.type_aliases.append(dict(name=token.value, line=token.line, column=token.column,
-                                                  target=definition[1].value if definition[0] == 'NAMED' else definition[0],
-                                                  resolved_spec=resolved))
-                    self.features.add('transparent TYPE alias')
-                continue
-            resolved = {}
-            for member, spec in definition:
-                if member.value in resolved: self.error('E_DUPLICATE', 'Duplicate STRUCTURE field', member)
-                resolved[member.value] = self.resolve_spec(spec)
-                if resolved[member.value][0] in ('FILE','PATH','QUEUE_TYPE') or rt.resource_array_type(resolved[member.value]):
-                    self.error('E_TYPE','Resource fields in STRUCTURE are not supported',member)
-            self.user_types[token.value] = ('STRUCTURE', token.value, tuple(resolved.items()))
-            self.features.add('named STRUCTURE definition')
+        self.resolve_type_definitions(names)
         for token, spec in self.program.declarations:
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
             if token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys():
@@ -1562,7 +1636,7 @@ class Emitter:
             if routine.return_type and routine.return_type[0] == 'NAMED':
                 result_token = routine.return_type[1]
                 definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
-                if definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
+                if self.mode!='pythonic' and definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
                     self.error('E_TYPE', 'Named result types must be declared before the routine', result_token)
                 routine.return_type = self.resolve_spec(routine.return_type)
                 allowed_named_results = ('STRUCTURE',)
@@ -1583,7 +1657,7 @@ class Emitter:
                 if element[0] == 'NAMED':
                     result_token = element[1]
                     definition_token = next((token for token, _ in self.program.user_types if token.value == result_token.value), None)
-                    if definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
+                    if self.mode!='pythonic' and definition_token and (definition_token.line, definition_token.column) > (routine.token.line, routine.token.column):
                         self.error('E_TYPE', 'Named result element types must be declared before the routine', result_token)
                 routine.return_type = (self.resolve_array_result_spec(routine.return_type, routine.token)
                                        if self.mode == 'pythonic' else self.resolve_spec(routine.return_type))
@@ -4789,7 +4863,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
                           boundary='No general ATAN2 range/rounding, signed-zero quadrant inference, frame/pose construction, robot context or controller numeric/alarm equivalence',
                           controller_validated=False),
         atan2_uses=emitter.atan2_uses,
-        array_routine_policy=dict(results='Internal unsized anonymous outer ARRAY with INTEGER/BOOLEAN/REAL/BYTE/SHORT, explicitly bounded STRING, prior named STRUCTURE, data record, exact-width JOINTPOS or prior named ARRAY elements; one outer dimension and at most three logical dimensions',
+        array_routine_policy=dict(results='Internal unsized anonymous outer ARRAY with INTEGER/BOOLEAN/REAL/BYTE/SHORT, explicitly bounded STRING, declared named STRUCTURE, data record, exact-width JOINTPOS or declared named ARRAY elements; one outer dimension and at most three logical dimensions',
                                    returns='Every scalar leaf initialized/checked; independent recursive copy before frame cleanup; 32767 prototype scalar-leaf limit',
                                    narrow_elements='BYTE 0..255 must be known; SHORT -32768..32766 must be initialized; 32767 remains the SHORT uninitialized marker; no whole-array element coercion',
                                    aggregate_elements='Exact named STRUCTURE identity, concrete nested shapes/STRING capacities, CONFIG checks and joint widths retained; POSITION orientation protection retained; no acquired/default robot state',
@@ -4940,12 +5014,13 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
             controller_validated=False),
         initialization_queries=emitter.initialization_query_uses,
         user_types=emitter.user_types,
+        type_dependencies=emitter.type_dependency_uses,type_resolution_order=emitter.type_resolution_order,
         type_aliases=emitter.type_aliases,
         imported_types=program.imported_types,
         path_clause_uses=parser.path_clause_uses,
         predefined_structure_uses=emitter.predefined_structure_uses,
         predefined_structures={row['name']:rt.PREDEFINED_STRUCTURES[row['name']] for row in emitter.predefined_structure_uses},
-        named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, prior STRUCTURE or prior named ARRAY elements; total logical rank at most three',
+        named_array_policy=dict(definitions='Fixed ARRAY with supported scalar, declared STRUCTURE or declared named ARRAY elements; total logical rank at most three; Pythonic forward dependencies follow forward_type_policy',
                                 identity='The declared type name is retained in storage, references and whole-copy checks',
                                 parameters='Same named type by reference; anonymous rank-matched ARRAY formals retain concrete caller identity',
                                 assignment='Same named type; unknown generic formal identities are checked before copying at runtime',
@@ -6027,11 +6102,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guards='FOR counters remain exact INTEGER; INTEGER output references do not widen to narrow storage; REAL-to-narrow conversion remains rejected',
         boundary='Deliberate Pythonic extension; internal legacy declaration/interface restrictions remain aggregate-only, without native/controller equivalence',
         guide='docs/scalar-narrow.md',controller_validated=False)
+    report['forward_type_policy']=dict(
+        source='Acyclic named dependencies across module TYPE sections, aliases, ARRAY elements, STRUCTURE fields, PATH NODEDATA/PATHHEADER and routine interfaces declared before their types',
+        resolution='Iterative dependency-first walk without recursive alias chasing; validate all definitions including unused ones, reject unknown names and explicit cycle paths; memoize shared data schemas within 32767 leaves and 64 levels before emitting literals',
+        identity='Transparent aliases keep original ARRAY/STRUCTURE identity, widths and capacities; new definitions keep their own nominal names and source field order',
+        metadata='Resolved user_types and alias rows retain source declaration order; type_dependencies records reference positions and forward edges, while type_resolution_order records actual dependency order',
+        boundaries='Existing ranks, leaf/collection/schema bounds, resource-field exclusions, parameter and result domains remain; no allocation, callback or controller environment inference during resolution',
+        linkage='Resolve complete supplied local layouts before ordinary exact external ownership/schema verification; no missing owner/type discovery or implicit binary ABI',
+        persistence='Existing resolved schemas and data only; no unresolved placeholders, dependency walkers or suspended resolution restored',
+        boundary='Authored Pythonic extension; no self/cyclic storage, local TYPE sections, wildcard TYPE dimensions, native source/compiler/controller equivalence or strict claim; internal legacy ordering remains',
+        guide='docs/forward-types.md',controller_validated=False)
     report['type_alias_policy'] = dict(
-        resolution='Transparent aliases to supported scalar, bounded STRING, data record, joint and previously defined named types; alias chains resolve eagerly in declaration order',
+        resolution='Transparent aliases to supported scalar, bounded STRING, data record, joint and declared named types; Pythonic acyclic forward dependencies follow forward_type_policy, preserving source-order metadata',
         identity='Aliases retain the original ARRAY/STRUCTURE identity; a fresh ARRAY or STRUCTURE definition still creates a distinct nominal type',
         capacity='Keep declared STRING capacities, ARRAY shapes and joint widths; bounded STRING alias formals require matching reference capacity and use private truncating value temporaries of that capacity',
-        boundary='No forward/self/cyclic aliases, local TYPE sections or wildcard TYPE dimensions; Pythonic standalone BYTE/SHORT follows scalar_narrow_policy',
+        boundary='No self/cyclic aliases, local TYPE sections or wildcard TYPE dimensions; forward dependencies follow forward_type_policy; Pythonic standalone BYTE/SHORT follows scalar_narrow_policy',
         controller_validated=False)
     report['named_array_policy'].update(
         parameters='Same named type by reference or checked value copy; generic rank-matched ARRAY formals preserve the concrete actual identity',
@@ -6175,7 +6260,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         standalone='Retain declared layout and owner without loading or executing another program; external ownership is unverified',
         project='Validate same-named types against supplied owner sources before instantiation; exact resolved layouts, capacities and nominal names; resolve reexports and reject cycles',
         identity='Existing nominal ARRAY/STRUCTURE names and layouts remain; ownership metadata does not create a native owner-qualified ABI',
-        boundary='No binary environments, missing-definition imports, automatic source discovery, forward type aliases or routine-local TYPE',
+        boundary='No binary environments, missing-definition imports, automatic source discovery or routine-local TYPE; acyclic forward references follow forward_type_policy',
         guide='docs/external-types.md',controller_validated=False)
     for row in report['imported_types']:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
@@ -6189,7 +6274,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing STRUCTURE/PATH tuple schemas and codecs; no new JSON format or native binary layout',
         boundary='No obsolete COMMON_ASSOC/GROUP_ASSOC layouts, native screen execution, automatic UFRAME/UTOOL recording or controller storage/ABI claim',
         guide='docs/path-declarations.md',controller_validated=False)
-    for row in [*report['path_clause_uses'],*report['predefined_structure_uses']]:
+    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies']]:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['diagnostic_policy']=dict(

@@ -37,7 +37,7 @@ and [expected output](../examples/pythonic_array_shapes.write.expected.json).
 | `ARRAY[2,3] OF INTEGER` | Anonymous matrix with exactly two rows and three columns. |
 | `ARRAY[*,3] OF INTEGER` | Anonymous matrix with a returned row count and exactly three columns. |
 | `ARRAY[*,*,*] OF INTEGER` | Anonymous cube with three returned dimensions. |
-| `row_t` | Exact previously declared named ARRAY type, including its concrete shape and identity. |
+| `row_t` | Exact declared named ARRAY type, including its concrete shape and identity; acyclic forward references follow [forward type resolution](forward-types.md). |
 
 Fixed dimensions are INTEGER constant expressions in 1..32767, resolved from the
 global interface scope. Routine-local constants and runtime expressions cannot

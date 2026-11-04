@@ -1,0 +1,59 @@
+[
+  {
+    "program": "FORWARD_PATH_LAYOUT",
+    "path": "ROUTE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "N",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "HEADER_T",
+        [
+          [
+            "TOTAL",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [
+        {
+          "N": 7
+        }
+      ],
+      "data": {
+        "TOTAL": 1
+      }
+    }
+  },
+  {
+    "program": "FORWARD_PATH_LAYOUT",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "FORWARD_PATH_LAYOUT",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

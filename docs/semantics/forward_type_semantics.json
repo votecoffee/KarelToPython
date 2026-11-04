@@ -1,0 +1,32 @@
+{
+  "version": "26.1104.072519",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_forward_types.py",
+    "tests/test_pythonic_type_aliases.py",
+    "tests/test_named_arrays.py",
+    "tests/test_structure_arrays.py",
+    "tests/test_external_types.py",
+    "tests/test_structure_routines.py",
+    "tests/test_aggregate_array_results.py",
+    "tests/test_named_component_array_results.py",
+    "tests/test_pythonic_array_results.py",
+    "tests/test_dynamic_collections.py",
+    "examples/forward_alias_chain.kl",
+    "examples/forward_record_array.kl",
+    "examples/forward_path_layout.kl",
+    "examples/forward_routine_types.kl",
+    "examples/forward_types_linked/main.kl",
+    "examples/forward_types_result/main.kl"
+  ],
+  "source": "Complete module TYPE definitions and routine interfaces may reference later acyclic type declarations",
+  "resolution": "Iterative dependency walk validates every definition, rejects unknown names and explicit cycle paths, and preserves existing primitive/schema checks",
+  "identity": "Transparent aliases retain original nominal identities, widths, capacities and field order; new definitions retain their own names",
+  "bounds": "Memoized data-schema costs within 32767 scalar leaves and 64 levels before literal generation; transparent chains add no schema depth",
+  "metadata": "Resolved schemas and alias rows stay in source order; actual dependency order and forward reference origins are reported separately",
+  "linkage": "Complete supplied local layouts resolve before exact external source ownership/schema checks; no environment or owner discovery",
+  "persistence": "Resolved schemas and existing data only, with no unresolved placeholders or suspended resolution",
+  "boundary": "No cyclic/self-referential storage, local TYPE sections, wildcard TYPE dimensions, inferred model/native source/compiler/controller ABI or public strict equivalence; legacy ordering retained"
+}

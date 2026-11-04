@@ -1,0 +1,4 @@
+PROGRAM LIB
+TYPE item_t=base_t base_t=INTEGER
+ROUTINE work(value:item_t) BEGIN value=value+1 END work
+BEGIN END LIB

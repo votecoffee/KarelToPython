@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Forward type references](forward-types.md) now resolve acyclic aliases,
+ARRAY/STRUCTURE components, PATH layouts and routine interfaces before allocation.
+Original nominal identities and source-order metadata remain; cycles, unknown
+names and excessive schema expansion produce source-located diagnostics.
+
 [Directory-preserving destinations](directory-destinations.md) now let COPY_FILE
 and RENAME_FILE insert source-relative directories with one whole `**` placeholder.
 Existing collision, busy-file, overwrite and capacity checks cover the complete
@@ -157,7 +162,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.064339. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.072519. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -185,9 +190,9 @@ internally and in the historical semantic notes.
 | FILE arrays | Independent indexed global/local FILE descriptors, named types/components, borrowed ARRAY/FILE formals, BYNAME and linked imports | Rank up to three and 32767 descriptor cells; ordinary explicit FILE I/O and cancellation. Static descriptors omitted from context/VR data; no whole copies, grouped values, results, fields or live-handle restoration. [Dynamic creation](dynamic-file-arrays.md) adds bounded allocations and closed allocation markers. See [FILE arrays](file-arrays.md). |
 | Variable arrays | Explicit translation-time shapes for direct global wildcard declarations | No inference, controller/VR access, resize or persistence. |
 | ARRAY results | Named types or anonymous fixed/wildcard/mixed dimensions; scalar, bounded or inherited-capacity STRING, record, joint or named ARRAY elements; grouping, argument/RETURN composition and aggregate access | Missing markers preserved and known leaves validated; declared output names/layout and bounded/inherited STRING capacities; logical rank up to three. Source RETURN prepares its independent output schema. Omitted STRING result capacity inherits concrete returned storage; no resize or flattening. |
-| Structures | Prior named structures, nested fields/arrays, checked copies and internal results/value temporaries; [source schema conversions](record-schema-conversions.md) | Matching field-name sets convert recursively into receiver schemas, including record ARRAY terminals; checked numeric/STRING and context-free pose/joint changes; [explicit-model geometry fields](kinematic-records.md). Private converted arguments, partial-data preservation and exact generic/BYNAME/link/callback contracts; no ABI claim. |
+| Structures | Declared named structures with acyclic forward dependencies, nested fields/arrays, checked copies and internal results/value temporaries; [source schema conversions](record-schema-conversions.md) | Matching field-name sets convert recursively into receiver schemas, including record ARRAY terminals; checked numeric/STRING and context-free pose/joint changes; [explicit-model geometry fields](kinematic-records.md). Private converted arguments, partial-data preservation and exact generic/BYNAME/link/callback contracts; no ABI claim. |
 | Predefined structures | DISP_DAT_T SHORT fields/fixed arrays, portable COL_DESC_T/XWORK_T and STD_PTH_NODE NODE_POS; aliases, arrays, fields, routine interfaces and CREATE_VAR | Existing nominal STRUCTURE schemas and initialization/copy/output guards; no obsolete association fields, native UI execution or ABI claim. |
-| TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases or local TYPE; aliases preserve scalar/aggregate storage domains. |
+| TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and declared named type aliases; acyclic forward dependencies and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No self/cyclic aliases or local TYPE; resolved schemas keep 32767-leaf/64-level bounds and aliases preserve scalar/aggregate storage domains. |
 | External types | Full TYPE name FROM owner definitions; supported aliases, structures, arrays and resource schemas | Standalone layout and owner metadata; source projects validate exact resolved schemas, self owners and acyclic reexports before allocation. No binary environments or native owner-qualified ABI. |
 | USING | Nested scopes; named/grouped record storage references and independent computed record captures | One-time left-to-right capture, inner/right-most field priority and handler lifetime. No copy-back for computed values; isolated private integral counters use whole-root/retained-alias proofs. [Private timers](private-using-timers.md) accept ordinary INTEGER leaves with terminal cleanup; whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS and headerless PATH selectors remain blocked. [Explicit PATH headers](path-header-using.md) now use checked storage/private capture. See [computed USING](computed-using.md). |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
@@ -341,9 +346,9 @@ See the [ARRAY values guide](pythonic-arrays.md), the authored
 ## ARRAY function results
 
 Internal functions may return arrays of INTEGER/BOOLEAN/REAL/BYTE/SHORT,
-bounded or [inherited-capacity STRING elements](inherited-string-array-results.md), prior
+bounded or [inherited-capacity STRING elements](inherited-string-array-results.md), declared
 named STRUCTURE types, CONFIG/VECTOR/XYZWPR/XYZWPREXT/POSITION, or JOINTPOS1..9.
-Unsuffixed JOINTPOS means nine axes. Elements may also be prior named fixed ARRAY
+Unsuffixed JOINTPOS means nine axes. Elements may also be declared named fixed ARRAY
 types, with at most three logical dimensions across the result. Named outer results
 and anonymous fixed, wildcard or mixed outer dimensions are supported. Fixed sizes
 are global constant expressions; wildcard sizes come from returned concrete storage.
@@ -367,7 +372,7 @@ END ARRAY_RECORDS
 
 For a matrix built from named rows, declare `TYPE row_t=ARRAY[2] OF INTEGER`, then use
 `ROUTINE make: ARRAY OF row_t` and return local storage declared
-`values: ARRAY[2] OF row_t`. A prior named plane type can supply the inner two
+`values: ARRAY[2] OF row_t`. A declared named plane type can supply the inner two
 dimensions of a three-dimensional result. Each ARRAY component retains its exact
 declared type and fixed shape. See the complete authored
 [named-component example](../examples/named_component_array_functions.kl).
@@ -385,7 +390,7 @@ copy rules.
 For STRING elements, `ROUTINE make: ARRAY OF STRING[4]` prepares capacity4
 after validating the actual source capacity and ASCII contents. Explicit source
 conversion may widen or right-truncate values into bounded capacities in 1..254.
-Prior named rows/planes remain supported. An `ARRAY OF STRING` reference formal
+Declared named rows/planes, including acyclic forward dependencies, remain supported. An `ARRAY OF STRING` reference formal
 retains caller capacity; assignment through that generic receiver uses its
 actual schema. An omitted anonymous result capacity inherits concrete source
 capacity before any separate downstream conversion.

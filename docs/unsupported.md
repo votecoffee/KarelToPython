@@ -72,7 +72,9 @@ file. They supply no executable libraries, inferred function logic or native ABI
   nested active-loop transfers and exits with counter cleanup under an explicit
   Pythonic extension. [Nested/sibling label transfers](nested-jumps.md)
   now support IF/WHILE/REPEAT/SELECT targets with normal loop continuations.
-  Forward/self/cyclic type aliases remain blocked. Full [external FROM type declarations](external-types.md)
+  [Acyclic forward types](forward-types.md) now resolve across aliases, aggregate
+  components, PATH layouts and routine interfaces; self/cyclic layouts and unknown
+  dependencies remain blocked. Full [external FROM type declarations](external-types.md)
   now use supplied source layouts and checked project ownership chains; missing
   definitions, cyclic ownership and native binary type environments remain blocked.
   Routine-local TYPE declarations

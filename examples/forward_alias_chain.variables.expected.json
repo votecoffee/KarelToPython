@@ -1,0 +1,18 @@
+[
+  {
+    "program": "FORWARD_ALIAS_CHAIN",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "FORWARD_ALIAS_CHAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -93,7 +93,7 @@ CONFIG field passing rules and conversion argument restrictions remain.
 
 ## Remaining boundaries and reports
 
-ARRAY function declarations support prior named types and anonymous fixed,
+ARRAY function declarations support declared named types and anonymous fixed,
 wildcard or mixed dimensions up to logical rank three. Source RETURN now prepares
 the declared output names/layout through [schema conversion](array-schema-conversions.md);
 generic parameters and named subarrays may supply independent anonymous results.
