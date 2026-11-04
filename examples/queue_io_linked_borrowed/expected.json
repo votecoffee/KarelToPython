@@ -1,0 +1,39 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "Q": {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            42
+          ],
+          [
+            2,
+            43
+          ]
+        ]
+      },
+      "B": [
+        17,
+        9,
+        0
+      ],
+      "SEQ": 2,
+      "STATUS": 0
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "F": {
+        "file": "input",
+        "open": false,
+        "position": 8,
+        "binary": true,
+        "status": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+[
+  {
+    "program": "QUEUE_IO_BINARY",
+    "path": "Q",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "entries": [
+        [
+          1,
+          17
+        ],
+        [
+          2,
+          9
+        ]
+      ],
+      "sequence": 2
+    }
+  },
+  {
+    "program": "QUEUE_IO_BINARY",
+    "path": "R",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "entries": [
+        [
+          2,
+          9
+        ]
+      ],
+      "sequence": 2
+    }
+  },
+  {
+    "program": "QUEUE_IO_BINARY",
+    "path": "B",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      17,
+      9,
+      0
+    ]
+  },
+  {
+    "program": "QUEUE_IO_BINARY",
+    "path": "C",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      9,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "QUEUE_IO_BINARY",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "QUEUE_IO_BINARY",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "QUEUE_IO_BINARY",
+    "path": "FIRST",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  }
+]

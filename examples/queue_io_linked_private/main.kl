@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR q,result:QUEUE_TYPE b:ARRAY[3]OF INTEGER seq,status:INTEGER
+ROUTINE fill(v:QUEUE_TYPE):QUEUE_TYPE FROM LIB
+BEGIN
+ INIT_QUEUE(q) APPEND_QUEUE(17,q,b,seq,status) APPEND_QUEUE(9,q,b,seq,status) result=fill((q))
+END MAIN

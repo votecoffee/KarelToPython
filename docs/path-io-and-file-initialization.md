@@ -2,7 +2,8 @@
 
 [PATH-bank I/O](path-array-io.md) extends these scalar transports to whole PATH
 arrays and selected rows/planes, retaining existing supplied headers/nodes and
-normal capture, format and operation bounds. FILE/queue banks remain excluded.
+normal capture, format and operation bounds. [Queue I/O](queue-io.md) now adds
+initialized entry-value streams; FILE banks remain excluded.
 
 Pythonic mode supports whole-PATH WRITE, in-place whole-PATH READ and UNINIT on
 ordinary FILE descriptors. PATH I/O is an authored portable extension built on

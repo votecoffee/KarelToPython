@@ -1,0 +1,14 @@
+[
+  {
+    "line": 4,
+    "targets": [
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      }
+    ],
+    "adapter_outcome": "callback_completed"
+  }
+]

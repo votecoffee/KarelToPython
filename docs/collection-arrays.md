@@ -6,7 +6,8 @@ retain the selected node object across later deletion or replacement.
 
 [PATH-bank I/O](path-array-io.md) extends these scalar transports to whole PATH
 arrays and selected rows/planes, retaining existing supplied headers/nodes and
-normal capture, format and operation bounds. FILE/queue banks remain excluded.
+normal capture, format and operation bounds. [Queue I/O](queue-io.md) now adds
+initialized entry-value streams; FILE banks remain excluded.
 
 Pythonic mode supports owned logical ARRAYs of PATH and QUEUE_TYPE. Each cell
 owns an independent logical collection. Use existing PATH/queue operations on a
@@ -54,12 +55,15 @@ PATH descendants and borrowed queue backing cells.
 
 [Logical source values](collection-source-values.md) now support whole ARRAY
 assignment, private grouped/computed arguments, function results and independent
-row/plane values. Whole collection ARRAY READ/WRITE/UNINIT remain unavailable.
+row/plane values. [PATH-bank I/O](path-array-io.md) and [queue I/O](queue-io.md)
+provide whole-bank and selected row/plane scalar transports. Whole collection
+ARRAY UNINIT remains unavailable.
 [Explicit logical GET_VAR/SET_VAR copies](collection-array-transfers.md) now support
 whole banks and selected rows/planes with exact schemas. Source resource fields in
 STRUCTUREs remain blocked. Individual PATH copies retain their existing logical
-copy rules; QUEUE_TYPE source assignment remains reference-only. Direct POSITION
-orientation writes and resource-root FOR counters stay protected.
+copy rules; [scalar queue source values](scalar-collection-values.md) now copy
+logical entries and detach buffer links. Direct POSITION orientation and
+resource-root FOR protection retain their documented rules.
 
 ## Dynamic creation and allocation
 

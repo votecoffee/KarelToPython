@@ -1,0 +1,44 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "Q": {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            17
+          ],
+          [
+            2,
+            9
+          ]
+        ]
+      },
+      "B": [
+        17,
+        9,
+        0
+      ],
+      "SEQ": 2,
+      "STATUS": 0,
+      "RESULT": {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            42
+          ],
+          [
+            2,
+            43
+          ]
+        ]
+      }
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

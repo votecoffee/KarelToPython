@@ -1,0 +1,5 @@
+PROGRAM QUEUE_IO_BANK
+VAR bank:ARRAY[2,2]OF QUEUE_TYPE b,c:ARRAY[3]OF INTEGER seq,status:INTEGER
+BEGIN
+  INIT_QUEUE(bank[1,1]) INIT_QUEUE(bank[1,2]) INIT_QUEUE(bank[2,1]) INIT_QUEUE(bank[2,2]) APPEND_QUEUE(17,bank[1,2],b,seq,status) APPEND_QUEUE(9,bank[2,1],c,seq,status) READ(bank[2]) WRITE(bank,CR)
+END QUEUE_IO_BANK

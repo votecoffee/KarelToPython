@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Queue entry I/O](docs/queue-io.md) now expands initialized scalar queues and
+queue banks through READ/WRITE, including selected rows/planes and linked routines.
+Input retains existing entry IDs/order, detaches the old buffer link and leaves
+its ARRAY cells unchanged until an explicit queue operation rebinds a buffer.
+
 [Source storage clauses and predicates](docs/source-forms-and-predicates.md) retain
 `IN CMOS`/`IN DRAM` declaration intent, accept Boolean unary `+`, and support
 Boolean/integer port-simulation flags. Both range predicates accept Cartesian or
@@ -141,7 +146,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.030946**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.035458**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

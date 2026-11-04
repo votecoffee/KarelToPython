@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1104.035458 - 2026-11-04
+
+- Add scalar QUEUE_TYPE and whole-bank/row/plane READ/WRITE as initialized
+  INTEGER entry streams, including created storage and compiled linked routines.
+- Stage complete input cohorts, validate IDs/order and buffer mappings, reject
+  overlaps/stale captures, and retain entry-list identity across publication.
+- Detach prior buffer links on input without changing ARRAY cells; subsequent
+  queue operations rebind explicitly. Retain atomic POSITION/input validation,
+  text/binary byte order, cancellation, pause/resume and stop behavior.
+- Add 87 regressions, four examples and two linked projects with independent
+  expected values, file bytes, typed variables and exact saved-context replay.
+
 ## 26.1104.030946 - 2026-11-04
 
 - Add INTEGER/BYTE/SHORT FOR counters in owned PATH headers/nodes and PATH banks,

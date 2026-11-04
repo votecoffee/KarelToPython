@@ -211,9 +211,10 @@ class PathBankGuardTests(unittest.TestCase):
         p,_=build('APPEND_NODE(paths[2],status) READ(paths)',seed=False,prefix='TYPE node_t=STRUCTURE pose:POSITION ENDSTRUCTURE route_t=PATH NODEDATA=node_t',decl='paths:ARRAY[2]OF route_t status:INTEGER',values=values)
         with self.assertRaises(rt.KarelRuntimeError):p.run()
         self.assertEqual(p.snapshot()['PATHS'][1]['nodes'][0]['POSE']['LOCATION']['X'],{'uninitialized':True})
-    def test_queue_banks_remain_excluded(self):
+    def test_uninitialized_queue_banks_reject_before_transport(self):
         for operation in ('READ','WRITE'):
-            with self.subTest(operation=operation),self.assertRaises(TranslationError):build(operation+'(paths)',seed=False,prefix='',decl='paths:ARRAY[2]OF QUEUE_TYPE')
+            p,_=build(operation+'(paths)',seed=False,prefix='',decl='paths:ARRAY[2]OF QUEUE_TYPE')
+            with self.subTest(operation=operation),self.assertRaisesRegex(rt.KarelRuntimeError,'INIT_QUEUE'):p.run()
     def test_file_banks_remain_excluded(self):
         for operation in ('READ','WRITE'):
             with self.subTest(operation=operation),self.assertRaises(TranslationError):build(operation+'(paths)',seed=False,prefix='',decl='paths:ARRAY[2]OF FILE')

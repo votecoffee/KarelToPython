@@ -17,6 +17,8 @@ they are boundaries rather than promises to accept every such source form later.
 
 Scalar PATH/QUEUE_TYPE assignment, private arguments and internal/compiled linked
 results now follow the [scalar collection policy](scalar-collection-values.md).
+[Queue entry I/O](queue-io.md) now adds initialized scalar/bank READ/WRITE with
+existing counts and IDs, detached input buffers and ordinary scalar transports.
 Exact schemas and logical bounds remain required; FILE copying, generic queue
 value helpers, resource fields and native collection layouts remain unavailable.
 
@@ -153,13 +155,14 @@ components with complete-batch pose validation and bounded rounding normalizatio
   values. [Narrow FOR counters](narrow-for.md) now enforce initialized BYTE/SHORT
   domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
-- FILE/queue resource output, incomplete/unknown aggregate output, per-field aggregate-format
+- FILE resource output, incomplete/unknown aggregate output, per-field aggregate-format
   mapping syntax and native packed layouts remain unavailable.
   [Uniform aggregate formats](aggregate-formats.md) now apply scalar format lists
   to every expanded member of whole-data READ/WRITE, with capture before formats.
   [Whole-data WRITE](aggregate-output.md) now supports complete data, including
   readable POSITION columns, without changing orientation-write restrictions.
-- FILE/queue resource READ, missing whole/nested data containers, direct readonly POSITION
+- FILE resource READ, uninitialized or all-empty queue input, missing whole/nested
+  data containers, direct readonly POSITION
   orientation destinations and generic CONFIG conversion/status aliases remain blocked.
   [Portable CONFIG words](config-words.md) now support source and explicit
   variable-transfer value conversions, with a documented 16-bit Pythonic layout;
@@ -263,7 +266,8 @@ components with complete-batch pose validation and bounded rounding normalizatio
 routine/source-linked storage. [Dynamic creation](dynamic-file-arrays.md) adds
 checked allocations and closed creation-tagged JSON markers. Whole FILE ARRAY
 copies/results, resource STRUCTURE fields, generic FILE codecs and live descriptor
-restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operation.
+restoration remain excluded. Whole ARRAY READ/WRITE follows the separate data, PATH-bank and initialized
+queue-entry policies; FILE banks remain excluded.
 
 - Physical device mounting/formatting/purging, sockets, serial devices, pipes,
   device discovery and unrestricted absolute-path file access. Six device/storage
@@ -348,12 +352,14 @@ restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operati
   allocation intent and resets handle state on restore. [Dynamic logical collections](dynamic-collections.md) now create root
   PATH/QUEUE_TYPE and supplied aliases with checked header/descriptor reservations;
   QUEUE_TYPE native inspection codes remain unavailable. [Collection arrays](collection-arrays.md)
-  now support static/dynamic reference-only PATH/QUEUE_TYPE storage and logical JSON.
+  now support static/dynamic owned logical PATH/QUEUE_TYPE storage and typed JSON.
   [Logical collection source values](collection-source-values.md) now add owned
   ARRAY assignments, private interfaces/results and independent selected prefixes;
-  FILE/queue bank READ/WRITE, generic codecs and whole collection UNINIT retain
-  guards. [PATH-bank I/O](path-array-io.md) now adds whole-bank and selected
-  row/plane READ/WRITE; scalar queue source copies follow the scalar policy.
+  FILE-bank READ/WRITE, generic codecs and whole collection UNINIT retain
+  guards. [PATH-bank I/O](path-array-io.md) and [queue entry I/O](queue-io.md)
+  add whole-bank and selected row/plane scalar streams. Queue input replaces
+  existing values and detaches buffer links without writing the old ARRAY cells;
+  initialized empty output is allowed, but input does not infer or append entries.
   [Owned collection ARRAY VR archives](collection-array-archives.md) now support
   save/load/clear, recursive/mixed batches and explicit DRAM snapshots with
   exact identities, bounded validation and ordinary lifetime guards.

@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Queue entry I/O](queue-io.md) now expands initialized scalar queues and
+queue banks through READ/WRITE, including selected rows/planes and linked routines.
+Input retains existing entry IDs/order, detaches the old buffer link and leaves
+its ARRAY cells unchanged until an explicit queue operation rebinds a buffer.
+
 [PATH-bank I/O](path-array-io.md) now expands whole PATH arrays and selected rows/planes through existing scalar READ/WRITE transports, with checked capture and uniform formats.
 
 [Scalar collection values](scalar-collection-values.md) add bounded PATH/QUEUE_TYPE source copies, private arguments and internal/compiled linked results. Exact schemas, borrowed bare arguments and detached queue buffers remain explicit.
@@ -128,7 +133,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.030946. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.035458. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -193,8 +198,8 @@ internally and in the historical semantic notes.
 | Position comparison | Approximate >=< on POSITION/XYZWPR/XYZWPREXT, including mixed operands, returns BOOLEAN | Explicit per-instance distance/angle/external-axis tolerances and CONFIG choice; complete proper poses; Euclidean distance and shortest rotation angle; no native defaults, exact/ordered relations or other operand types. |
 | DELAY | Checked 0..86400000 ms through a host callback | Host timing is not controller timing; step budget is not a time budget. |
 | WAIT FOR | Repeated checks of supported BOOLEAN expressions, including internal functions | Ordinary step budget, short-circuit rules and sleep(0.0) after false checks; cooperative handlers are separate; no hardware acquisition or native event/timing equivalence. |
-| WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or native aggregate layout. [Whole data](aggregate-output.md) now expands complete ARRAY/record/CONFIG/POSITION/joint values with one-batch publication and [default/uniform scalar formats](aggregate-formats.md). |
-| READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim or POSITION orientation writes. [Whole data](aggregate-input.md), including [whole POSITION](position-input.md), expands shaped ARRAY/record/CONFIG/joint targets into default or [uniformly formatted scalar fields](aggregate-formats.md) with the same transport validation. [CONFIG field input](config-field-input.md) validates turn bounds and BOOLEAN flags before any output/cursor publication. |
+| WRITE | Mixed scalar lists, signed integers, finite REALs, dynamic INTEGER formats, quoted STRING escaping/truncation, narrow integers and CR newlines | One complete recorder/callback request per statement, <=254 characters. Bounded formats; explicit FILE output uses MemoryFiles, a caller-rooted DirectoryFiles or configured WD windows; no live devices or native aggregate layout. [Queue entry output](queue-io.md) adds initialized scalar queues and banks. [Whole data](aggregate-output.md) now expands complete ARRAY/record/CONFIG/POSITION/joint values with one-batch publication and [default/uniform scalar formats](aggregate-formats.md). |
+| READ | Scalar variables, fields/elements and narrow scalar storage through typed callbacks, JSON batches or TextInput; CR, widths, bases and quoted STRINGs | Capture each target then its formats once; complete-response validation. Chosen text rules; MemoryFiles/DirectoryFiles add explicit text/binary FILE transfers; injected keyboard text and opted-in waiting pipe reads use cooperative generators; no live devices, native parser claim or POSITION orientation writes. [Queue entry input](queue-io.md) updates existing initialized entries and detaches buffer links. [Whole data](aggregate-input.md), including [whole POSITION](position-input.md), expands shaped ARRAY/record/CONFIG/joint targets into default or [uniformly formatted scalar fields](aggregate-formats.md) with the same transport validation. [CONFIG field input](config-field-input.md) validates turn bounds and BOOLEAN flags before any output/cursor publication. |
 | ABORT | Bare statement with sticky termination and frame cleanup | Also available in cooperative actions and explicitly registered ABORT_TASK; no motion cancellation or controller restart behavior. |
 
 

@@ -68,7 +68,8 @@ PATH callback contract is unchanged.
 
 FILE descriptors/arrays, resource fields, generic QUEUE_TYPE checked/value helpers,
 whole collection UNINIT and ordinary resource-root FOR protections remain guarded.
-Existing whole-PATH scalar READ/WRITE expansion remains a separate I/O feature.
+Whole-PATH I/O and [queue entry I/O](queue-io.md) remain separate scalar transport
+features; queue input retains IDs/order and detaches the old buffer link.
 Source copying does not publish GET_VAR/SET_VAR cache entries or status outputs.
 
 Existing typed JSON and logical VR/DRAM persistence store the copied logical data

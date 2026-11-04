@@ -1,0 +1,5 @@
+PROGRAM QUEUE_IO_REBIND
+VAR q:QUEUE_TYPE b,c:ARRAY[3]OF INTEGER seq,status,first:INTEGER
+BEGIN
+  INIT_QUEUE(q) APPEND_QUEUE(17,q,b,seq,status) APPEND_QUEUE(9,q,b,seq,status) READ(q) GET_QUEUE(q,c,first,seq,status) APPEND_QUEUE(100,q,c,seq,status) WRITE(q,CR)
+END QUEUE_IO_REBIND

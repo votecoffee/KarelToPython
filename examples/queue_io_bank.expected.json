@@ -1,0 +1,46 @@
+{
+  "BANK": [
+    [
+      {
+        "initialized": true,
+        "entries": []
+      },
+      {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            17
+          ]
+        ]
+      }
+    ],
+    [
+      {
+        "initialized": true,
+        "entries": [
+          [
+            1,
+            42
+          ]
+        ]
+      },
+      {
+        "initialized": true,
+        "entries": []
+      }
+    ]
+  ],
+  "B": [
+    17,
+    0,
+    0
+  ],
+  "C": [
+    9,
+    0,
+    0
+  ],
+  "SEQ": 1,
+  "STATUS": 0
+}

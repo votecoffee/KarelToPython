@@ -1,0 +1,76 @@
+[
+  {
+    "program": "MAIN",
+    "path": "Q",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "entries": [
+        [
+          1,
+          17
+        ],
+        [
+          2,
+          9
+        ]
+      ],
+      "sequence": 2
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "B",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      17,
+      9,
+      0
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 2
+  },
+  {
+    "program": "MAIN",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "MAIN",
+    "path": "RESULT",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "entries": [
+        [
+          1,
+          42
+        ],
+        [
+          2,
+          43
+        ]
+      ],
+      "sequence": 2
+    }
+  }
+]

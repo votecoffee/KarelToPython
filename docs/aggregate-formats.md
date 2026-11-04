@@ -2,7 +2,8 @@
 
 [PATH-bank I/O](path-array-io.md) extends these scalar transports to whole PATH
 arrays and selected rows/planes, retaining existing supplied headers/nodes and
-normal capture, format and operation bounds. FILE/queue banks remain excluded.
+normal capture, format and operation bounds. [Queue I/O](queue-io.md) now adds
+initialized entry-value streams; FILE banks remain excluded.
 
 [Root PATH I/O](path-io-and-file-initialization.md) also uses these uniform scalar
 controls after header/node capture. Formatted empty PATH output and empty

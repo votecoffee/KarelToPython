@@ -159,7 +159,7 @@ class AggregateReadGuardTests(unittest.TestCase):
             with self.assertRaises(TranslationError):build('READ('+target+')',prefix=prefix,decl=decl)
 
     def test_resource_roots_remain_excluded(self):
-        for kind in ('QUEUE_TYPE','FILE'):
+        for kind in ('FILE','ARRAY[1]OF FILE'):
             with self.assertRaises(TranslationError):build(decl='a:'+kind)
 
     def test_active_for_counter_root_and_constant_guard_remain(self):

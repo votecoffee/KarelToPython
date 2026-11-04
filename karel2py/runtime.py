@@ -2832,6 +2832,8 @@ def _validate_read_target(target,line=None):
             raise KarelRuntimeError('READ requires a declared CONFIG scalar field',line)
     elif type(target) is AssociationFieldReference and _pythonic():
         target.validate_storage(line)
+    elif type(target) is _QueueReadField and _pythonic():
+        _validate_queue_field(target,line)
     elif type(target) is _PositionReadField and _pythonic():
         _validate_position_read_field(target,line)
     elif type(target) is not Reference:
@@ -2911,10 +2913,168 @@ def path_array_io_values(spec,value,line=None):
     return result
 
 
+def queue_io_type(spec):
+    """Only scalar queues or ARRAY chains ending in queues, never record fields."""
+    for _ in range(64):
+        if type(spec) is not tuple or not spec:return False
+        if spec[0]!='ARRAY':return spec==('QUEUE_TYPE',)
+        if len(spec) not in (3,4):return False
+        spec=spec[2]
+    return False
+
+
+def _queue_io_payload(value,line=None):
+    from .storage import collection_payload
+    try:payload=collection_payload(('QUEUE_TYPE',),value)
+    except (ValueError,KarelRuntimeError,TypeError,IndexError,AttributeError,RecursionError) as error:raise KarelRuntimeError('Queue I/O: '+str(error),line) from error
+    if not payload['initialized']:raise KarelRuntimeError('Queue I/O requires INIT_QUEUE before use',line)
+    return payload
+
+
+def queue_io_values(spec,value,line=None):
+    from .extended import collection_array_storage
+    if not _pythonic() or not queue_io_type(spec):raise KarelRuntimeError('Queue I/O requires a Pythonic queue schema',line)
+    if spec==('QUEUE_TYPE',):values=[value]
+    else:
+        matches=False
+        if type(value) is Array:
+            try:matches=parameter_accepts(spec,value.spec)
+            except (KarelRuntimeError,TypeError,IndexError,RecursionError):pass
+        if not matches:raise KarelRuntimeError('Queue ARRAY I/O requires matching concrete storage',line)
+        try:captured=collection_array_storage(value.spec,value,line)
+        except (ValueError,KarelRuntimeError,TypeError,IndexError,AttributeError,RecursionError) as error:
+            raise KarelRuntimeError('Queue ARRAY I/O: '+str(error),line) from error
+        values=[]
+        def visit(item):
+            if type(item) is Array:
+                for child in item.values:visit(child)
+            else:values.append(item)
+        visit(captured)
+    count=0
+    for item in values:
+        count+=len(_queue_io_payload(item,line)['entries'])
+        if count>1024:raise KarelRuntimeError('Queue I/O is limited to 1024 entry values including CR',line)
+    return values
+
+
+def _queue_buffer_witness(buffer,line=None):
+    try:
+        if buffer is None:return None
+        if (type(buffer) is not Array or len(array_dimensions(buffer.spec))!=1 or buffer.spec[2]!=INTEGER
+                or buffer.shape!=array_shape(buffer.spec) or not _array_storage(buffer.values,line)
+                or len(buffer.values)!=math.prod(buffer.shape)):
+            raise KarelRuntimeError('Queue READ requires a matching INTEGER backing ARRAY',line)
+        _validate_data_schema(buffer.spec,line)
+        values=buffer.values
+        if type(values) is _ArrayWindow:
+            return buffer.spec,buffer.shape,id(values.storage),values.start,values.size,values.length
+        return buffer.spec,buffer.shape,id(values),0,len(values),len(values)
+    except (KarelRuntimeError,TypeError,IndexError,AttributeError,RecursionError) as error:
+        raise KarelRuntimeError('Queue READ buffer: '+str(error),line) from error
+
+
+class _QueueReadField:
+    __slots__=('cohort','index')
+    spec=INTEGER
+    def __init__(self,cohort,index):self.cohort,self.index=cohort,index
+    def raw(self):return self.cohort.queue.entries[self.index][1]
+    def set(self,value,line=None):
+        _validate_queue_field(self,line);cohort=self.cohort
+        if (cohort.plan is None or self.index!=cohort.cursor or type(value) is not int
+                or value!=cohort.plan[self.index]):raise KarelRuntimeError('Queue READ requires a complete prepared input cohort',line)
+        if self.index==0:
+            cohort.queue.entries[:]=[(pair[0],item) for pair,item in zip(cohort.snapshot['entries'],cohort.plan)]
+            cohort.queue.buffer=None;cohort.buffer=None;cohort.witness=None
+            cohort.snapshot=_queue_io_payload(cohort.queue,line)
+        cohort.cursor+=1
+
+
+class _QueueReadCohort:
+    __slots__=('queue','source','entries','snapshot','buffer','witness','members','plan','cursor')
+    def __init__(self,source,line=None):
+        self.source=source;self.queue=source.raw();self.entries=self.queue.entries
+        self.snapshot=_queue_io_payload(self.queue,line);self.buffer=self.queue.buffer
+        self.witness=_queue_buffer_witness(self.buffer,line)
+        self.members=tuple(_QueueReadField(self,index) for index in range(len(self.entries)))
+        self.plan=None;self.cursor=0
+    def validate(self,line=None):
+        from .variable_archives import ordinary
+        if (not _pythonic() or not ordinary(self.source) or self.source.spec!=('QUEUE_TYPE',)
+                or self.source.raw() is not self.queue or type(self.queue) is not QueueValue
+                or self.queue.entries is not self.entries or type(self.entries) is not list
+                or self.queue.initialized is not True or self.queue.sequence!=self.snapshot['sequence']
+                or type(self.members) is not tuple or len(self.entries)!=len(self.members)
+                or _queue_buffer_witness(self.queue.buffer,line)!=self.witness
+                or _queue_buffer_witness(self.buffer,line)!=self.witness):
+            raise KarelRuntimeError('Queue READ capture changed before input publication',line)
+
+
+def _validate_queue_field(field,line=None):
+    cohort=field.cohort;index=field.index
+    if (type(cohort) is not _QueueReadCohort or type(cohort.members) is not tuple or type(index) is not int or not 0<=index<len(cohort.members)
+            or cohort.members[index] is not field):raise KarelRuntimeError('Malformed queue READ capture',line)
+    cohort.validate(line)
+    pair=cohort.entries[index]
+    if type(pair) not in (tuple,list) or list(pair)!=cohort.snapshot['entries'][index]:
+        raise KarelRuntimeError('Queue READ entry changed before input publication',line)
+
+
+def _capture_queue_read(target,line=None):
+    from .variable_archives import ordinary
+    if not ordinary(target):raise KarelRuntimeError('Queue READ requires ordinary writable queue storage',line)
+    value=target.raw();queue_io_values(target.spec,value,line);references=[]
+    def visit(item,reference):
+        if type(item) is Array:
+            for index,child in enumerate(item.values):visit(child,Reference(item.spec[2],item.values,index))
+        elif item.entries:references.append(reference)
+    visit(value,target)
+    fields=[(field,()) for reference in references for field in _QueueReadCohort(reference,line).members]
+    if not fields:raise KarelRuntimeError('Queue READ requires existing initialized entry values',line)
+    return fields
+
+
+def _queue_read_cohorts(targets,line=None):
+    cohorts={}
+    for offset,target in enumerate(targets):
+        if type(target) is _QueueReadField:cohorts.setdefault(target.cohort,[]).append((offset,target.index))
+    occupied=set()
+    for cohort,entries in cohorts.items():
+        cohort.validate(line)
+        if (len(entries)!=len(cohort.members) or [index for _,index in entries]!=list(range(len(entries)))
+                or entries[-1][0]-entries[0][0]!=len(entries)-1 or _queue_io_payload(cohort.queue,line)!=cohort.snapshot):
+            raise KarelRuntimeError('Queue READ requires every unchanged entry field in order',line)
+        cells={(id(cohort.queue),'queue'),(id(cohort.entries),'entries'),(id(cohort.source.storage),cohort.source.key)}
+        cells.update((id(cohort.entries),index) for index in range(len(cohort.entries)))
+        for pair in cohort.entries:
+            if type(pair) is list:cells.update(((id(pair),0),(id(pair),1)))
+        if occupied&cells:raise KarelRuntimeError('Queue READ entry storage must be disjoint',line)
+        occupied.update(cells)
+    for target in targets:
+        if type(target) is _QueueReadField:continue
+        base=target.base if type(target) is _PositionReadField else target
+        if _reference_cells(base)&occupied:raise KarelRuntimeError('Queue READ entry storage overlaps another destination',line)
+    return cohorts
+
+
+def _validate_read_targets(targets,line=None):
+    cohorts=_validate_position_read_targets(targets,line)
+    cohorts.update(_queue_read_cohorts(targets,line))
+    return cohorts
+
+
+def _prepare_read_values(targets,values,line=None):
+    _validate_read_targets(targets,line)
+    result=_prepare_position_read_values(targets,values,line)
+    for cohort,entries in _queue_read_cohorts(targets,line).items():
+        cohort.plan=tuple(checked(INTEGER,result[offset],line) for offset,_ in entries);cohort.cursor=0
+    return result
+
+
 def aggregate_write_type(spec,trail=()):
     """Type-only output eligibility; POSITION is readable data, resources are not."""
     if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:return False
     kind=spec[0];trail=trail+(id(spec),)
+    if len(trail)==1 and queue_io_type(spec):return True
     if len(trail)==1 and path_array_io_type(spec):return aggregate_write_type(array_leaf_spec(spec))
     if kind=='PATH' and len(trail)==1:
         try:components=path_io_components(spec)
@@ -2931,6 +3091,7 @@ def aggregate_format_kinds(spec,trail=()):
     if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:
         raise KarelRuntimeError('Aggregate format schema is malformed or exceeds 64 levels')
     kind=spec[0];trail=trail+(id(spec),)
+    if len(trail)==1 and queue_io_type(spec):return {'INTEGER'}
     if len(trail)==1 and path_array_io_type(spec):return aggregate_format_kinds(array_leaf_spec(spec))
     if kind=='PATH' and len(trail)==1:
         kinds=set()
@@ -2955,6 +3116,9 @@ class _AggregateWriteValue:
 def capture_aggregate_write(spec,value,line=None):
     """Validate and detach complete immutable scalar leaves before format calls."""
     if not _pythonic():raise KarelRuntimeError('Aggregate WRITE requires Pythonic mode',line)
+    if queue_io_type(spec):
+        fields=[(INTEGER,pair[1]) for item in queue_io_values(spec,value,line) for pair in item.entries]
+        return _AggregateWriteValue(spec,fields)
     if path_array_io_type(spec):
         fields=[]
         for item in path_array_io_values(spec,value,line):
@@ -2990,9 +3154,9 @@ def format_aggregate_write(captured,formats=(),line=None,*,file=None):
     if type(formats) not in (list,tuple) or len(formats)>2 or any(type(value) is not int for value in formats):
         raise KarelRuntimeError('WRITE requires at most two INTEGER format specifiers',line)
     if not captured.fields:
-        if not aggregate_write_type(captured.spec) or not (captured.spec[0]=='PATH' or path_array_io_type(captured.spec)):
+        if not aggregate_write_type(captured.spec) or not (captured.spec[0]=='PATH' or path_array_io_type(captured.spec) or queue_io_type(captured.spec)):
             raise KarelRuntimeError('Only an empty PATH may omit captured output fields',line)
-        if formats:raise KarelRuntimeError('Empty PATH output requires unformatted WRITE',line)
+        if formats:raise KarelRuntimeError('Empty PATH/queue output requires unformatted WRITE',line)
         return [b''] if file is not None and file.binary else ['']
     result=[]
     for expected,item in captured.fields:
@@ -3011,6 +3175,7 @@ def aggregate_read_type(spec,trail=()):
     """Type-only eligibility, including generic source ARRAY/STRING formals."""
     if type(spec) is not tuple or not spec or id(spec) in trail or len(trail)>=64:return False
     kind=spec[0];trail=trail+(id(spec),)
+    if len(trail)==1 and queue_io_type(spec):return True
     if len(trail)==1 and path_array_io_type(spec):return aggregate_read_type(array_leaf_spec(spec))
     if kind=='PATH' and len(trail)==1:
         try:components=path_io_components(spec)
@@ -3030,6 +3195,7 @@ def capture_aggregate_read_target(target,formats,line=None):
         raise KarelRuntimeError('Aggregate READ requires writable resource-free data',line)
     if type(formats) not in (list,tuple) or formats:
         raise KarelRuntimeError('Aggregate READ formats require selecting scalar fields',line)
+    if queue_io_type(target.spec):return _capture_queue_read(target,line)
     if path_array_io_type(target.spec):
         result=[]
         for item in path_array_io_values(target.spec,target.raw(),line):
@@ -3663,7 +3829,7 @@ class State:
         if type(targets) not in (list, tuple):
             raise KarelRuntimeError('READ requires scalar destination references', line)
         line_breaks = _read_line_breaks(len(targets), line_breaks, line)
-        position_cohorts=_validate_read_targets(targets,line)
+        input_cohorts=_validate_read_targets(targets,line)
         if formats is None: formats = [()] * len(targets)
         if type(formats) not in (list, tuple) or len(formats) != len(targets):
             raise KarelRuntimeError('READ requires one format list per scalar destination', line)
@@ -3679,7 +3845,7 @@ class State:
             raise KarelRuntimeError('READ requires an explicit Program(read=...) input callback', line)
         request['adapter_outcome'] = 'callback_started'
         adapter=self._read
-        text_checkpoint=(adapter._row,adapter._column,adapter._after_field) if position_cohorts and type(adapter) is TextInput else None
+        text_checkpoint=(adapter._row,adapter._column,adapter._after_field) if input_cohorts and type(adapter) is TextInput else None
         try:
             response = adapter(deepcopy(metadata))
         except Exception as exc:
@@ -4083,7 +4249,7 @@ from .record_schemas import record_schema_kind,convert_record_schema,kinematic_r
 from .serial_io import SerialStreams
 from .position_input import (PositionReadField as _PositionReadField,capture as _capture_position_read,
                              validate_field as _validate_position_read_field,
-                             validate_targets as _validate_read_targets,prepare_values as _prepare_read_values)
+                             validate_targets as _validate_position_read_targets,prepare_values as _prepare_position_read_values)
 from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,selector as motion_selector,
                      SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS,
                      SETTING_CONSTANTS as MOTION_SETTING_CONSTANTS)

@@ -1,0 +1,5 @@
+PROGRAM QUEUE_IO_BINARY
+VAR q,r:QUEUE_TYPE b,c:ARRAY[3]OF INTEGER seq,status,first:INTEGER f:FILE
+BEGIN
+  INIT_QUEUE(q) APPEND_QUEUE(17,q,b,seq,status) APPEND_QUEUE(9,q,b,seq,status) INIT_QUEUE(r) APPEND_QUEUE(0,r,c,seq,status) APPEND_QUEUE(0,r,c,seq,status) SET_FILE_ATR(f,ATR_REVERSE,1) OPEN FILE f('WB','output') WRITE f(q) CLOSE FILE f OPEN FILE f('RB','output') READ f(r) CLOSE FILE f GET_QUEUE(r,c,first,seq,status)
+END QUEUE_IO_BINARY

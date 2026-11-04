@@ -1,0 +1,100 @@
+[
+  {
+    "program": "QUEUE_IO_BANK",
+    "path": "BANK",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "initialized": true,
+          "entries": [],
+          "sequence": 0
+        },
+        {
+          "initialized": true,
+          "entries": [
+            [
+              1,
+              17
+            ]
+          ],
+          "sequence": 1
+        }
+      ],
+      [
+        {
+          "initialized": true,
+          "entries": [
+            [
+              1,
+              42
+            ]
+          ],
+          "sequence": 1
+        },
+        {
+          "initialized": true,
+          "entries": [],
+          "sequence": 0
+        }
+      ]
+    ]
+  },
+  {
+    "program": "QUEUE_IO_BANK",
+    "path": "B",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      17,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "QUEUE_IO_BANK",
+    "path": "C",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      9,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "QUEUE_IO_BANK",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "QUEUE_IO_BANK",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  }
+]

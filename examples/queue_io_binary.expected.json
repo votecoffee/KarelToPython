@@ -1,0 +1,44 @@
+{
+  "Q": {
+    "initialized": true,
+    "entries": [
+      [
+        1,
+        17
+      ],
+      [
+        2,
+        9
+      ]
+    ]
+  },
+  "R": {
+    "initialized": true,
+    "entries": [
+      [
+        2,
+        9
+      ]
+    ]
+  },
+  "B": [
+    17,
+    9,
+    0
+  ],
+  "C": [
+    9,
+    0,
+    0
+  ],
+  "SEQ": 1,
+  "STATUS": 0,
+  "FIRST": 17,
+  "F": {
+    "file": "output",
+    "open": false,
+    "position": 8,
+    "binary": true,
+    "status": 0
+  }
+}

@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [queue entry I/O ledger](queue_io_semantics.json) supersedes earlier scalar
+and bank queue READ/WRITE exclusions. Input changes existing values, preserves
+IDs/order/counters and detaches buffers without writing their ARRAY cells.
+FILE I/O values, resource fields and generic queue codecs remain guarded.
+
 The [collection source-value ledger](collection_source_value_semantics.json)
 supersedes earlier PATH/queue ARRAY assignment, private argument, result and
 ordinary prefix-value exclusions. FILE and generic codec guards remain active.

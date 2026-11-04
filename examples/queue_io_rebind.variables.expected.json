@@ -1,0 +1,79 @@
+[
+  {
+    "program": "QUEUE_IO_REBIND",
+    "path": "Q",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "entries": [
+        [
+          2,
+          43
+        ],
+        [
+          3,
+          100
+        ]
+      ],
+      "sequence": 3
+    }
+  },
+  {
+    "program": "QUEUE_IO_REBIND",
+    "path": "B",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      17,
+      9,
+      0
+    ]
+  },
+  {
+    "program": "QUEUE_IO_REBIND",
+    "path": "C",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      43,
+      100,
+      0
+    ]
+  },
+  {
+    "program": "QUEUE_IO_REBIND",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 3
+  },
+  {
+    "program": "QUEUE_IO_REBIND",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "QUEUE_IO_REBIND",
+    "path": "FIRST",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 42
+  }
+]
