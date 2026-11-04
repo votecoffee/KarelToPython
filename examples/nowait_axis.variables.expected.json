@@ -1,0 +1,18 @@
+[
+  {
+    "program": "NOWAIT_AXIS",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "NOWAIT_AXIS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -4,6 +4,10 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Delayed NOWAIT motion](nowait-motion.md) now keeps one pending move per
+owned group while source code continues. Task clocks drive supplied completion,
+with hold/pause freezing, cancellation, linked launches and scheduler observation.
+
 [External collection results](external-collection-results.md) now accept
 checked callback PATH/QUEUE_TYPE values, banks and typed JSON. Generated programs
 and the project CLI can bind fixed logical results with `--external-collections`;
@@ -138,7 +142,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.043724. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.050939. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

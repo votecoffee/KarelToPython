@@ -44,8 +44,9 @@ file. They supply no executable libraries, inferred function logic or native ABI
   now support HOLD/UNHOLD/CANCEL, global handler actions and 21 per-request WITH
   settings, including [termination/orientation choices](extended-motion-settings.md)
   and [deceleration/acceleration intent](motion-deceleration-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
-  now use synchronous scopes with pause/resume and cleanup. NOWAIT with local
-  clauses/delayed completion, inferred node arrivals, unresolved `$REF_POS`,
+  now use synchronous scopes with pause/resume and cleanup. [Pending NOWAIT jobs](nowait-motion.md)
+  now use supplied delays/schedules and task clocks, including scheduler progress
+  while the owner waits. NOWAIT local clauses, queued move batches, inferred node arrivals, unresolved `$REF_POS`,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
   [Ten additional WITH options](motion-options.md) now retain acceleration, accuracy,
   signed continuous-axis speed, timing and Boolean policy intent as checked metadata.

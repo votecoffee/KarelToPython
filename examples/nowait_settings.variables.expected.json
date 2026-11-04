@@ -1,0 +1,18 @@
+[
+  {
+    "program": "NOWAIT_SETTINGS",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "NOWAIT_SETTINGS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

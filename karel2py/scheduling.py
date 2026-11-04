@@ -306,11 +306,28 @@ class TaskScheduler:
         return {program._state.execution.ports for program in self.tasks.values() if program._state.execution.ports is not None}
     def _pulse_deadlines(self):
         return [pulse.deadline for bank in self._pulse_banks() for pulse in bank._pulses.values() if pulse.scheduler is self]
+    def _poll_motion(self):
+        runtime=rt()
+        for name,program in list(self.tasks.items()):
+            state=program._state;bank=state.execution.motion
+            if bank is None or state._scheduler is not self or runtime.task_root(state) is not state:continue
+            try:bank.poll(state)
+            except BaseException as error:
+                name=next((key for key,item in self.tasks.items() if item is program),name)
+                if getattr(program,'_execution',None) is not None:program._execution.close();program._execution=None
+                state.task_state='stopped' if isinstance(error,runtime.KarelStop) else 'aborted' if isinstance(error,runtime.KarelAbort) else 'failed'
+                state._scheduler=None;state.finish_teach_programs();self.waiting.pop(name,None)
+                if state._scheduler_clock:state._clock_us=None;state._scheduler_clock=False
+                self.errors[name]=error;raise
+    def _motion_deadlines(self):
+        banks={program._state.execution.motion for program in self.tasks.values() if program._state.execution.motion is not None}
+        return [deadline for bank in banks for deadline in bank.deadlines(self)]
     def stop(self,name):
         name=name.upper(); self.tasks[name].stop(); self.waiting.pop(name,None)
     def step(self):
         runtime=rt(); progressed=False
         if self._step_names is not None: raise runtime.KarelRuntimeError('Scheduler cannot be stepped recursively')
+        self._poll_motion()
         for bank in self._pulse_banks(): bank.poll_pulses()
         names=sorted(self.tasks,key=lambda name:rt().task_root(self.tasks[name]._state)._task_settings.get('TSK_PRIORITY',50))
         self._step_names=names
@@ -349,9 +366,10 @@ class TaskScheduler:
                     if state.task_state!='running' or program._execution is None: break
         finally: self._step_names=None
         self.now_us+=self.quantum_us
-        deadlines=[*self.waiting.values(),*self._pulse_deadlines()]
+        deadlines=[*self.waiting.values(),*self._pulse_deadlines(),*self._motion_deadlines()]
         if not progressed and deadlines: self.now_us=max(self.now_us,min(deadlines))
         for bank in self._pulse_banks(): bank.poll_pulses()
+        self._poll_motion()
         return progressed
     def run(self,*,max_cycles=100000):
         if self._running: raise rt().KarelRuntimeError('Scheduler cannot be driven recursively')

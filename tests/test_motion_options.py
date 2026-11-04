@@ -238,10 +238,10 @@ class MotionOptionScopeTests(unittest.TestCase):
         with self.assertRaises(rt.KarelAbort):p.run()
         self.assertEqual((ctx.motion._active,ctx.group_locks.owners),({},{}));self.assertEqual(values(ctx),EXPECTED)
 
-    def test_delayed_nowait_remains_rejected_without_consuming_response(self):
-        p,ctx,_,_=scoped('ATTACH WITH '+NEW+' MOVE AWAY 1 NOWAIT',ctx=scripted(7))
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
-        self.assertEqual((len(ctx.motion.responses),len(ctx.motion.history)),(1,1))
+    def test_delayed_nowait_retains_options_until_terminal_cleanup(self):
+        p,ctx,_,_=scoped('ATTACH WITH '+NEW+' MOVE AWAY 1 NOWAIT',ctx=scripted(7),clock_us=lambda:0)
+        p.run();self.assertEqual((len(ctx.motion.responses),len(ctx.motion.history)),(0,2))
+        self.assertEqual(ctx.motion.history[-1]['outcome'],'cancelled');self.assertEqual(values(ctx),EXPECTED)
 
     def test_linked_routine_shares_new_motion_option_contract(self):
         main='PROGRAM MAIN ROUTINE work FROM LIB BEGIN ATTACH work RELEASE END MAIN'

@@ -99,7 +99,17 @@ def run_example(source, *, inject_write=False):
         from karel2py.runtime import load_external_collections
         if provider is None:provider=ExecutionContext()
         provider.externals.update(load_external_collections(external_file))
-    program = namespace['Program'](sleep=delays.append,
+    sleeper=delays.append
+    clock_file=fixture/f'{name}.clock.initial.json'
+    if clock_file.exists():
+        supplied=read_json(clock_file)
+        assert type(supplied) is dict and set(supplied)=={'microseconds'},name+': clock fixture requires microseconds'
+        assert type(supplied['microseconds']) is int and supplied['microseconds']>=0,name+': clock fixture requires nonnegative INTEGER'
+        assert 'clock_us' not in context,name+': ambiguous clock adapters'
+        elapsed=[supplied['microseconds']]
+        context=dict(context,clock_us=lambda:elapsed[0])
+        def sleeper(seconds):delays.append(seconds);elapsed[0]+=round(seconds*1000000)
+    program = namespace['Program'](sleep=sleeper,
                                   read=reader if input_file.exists() or text_input is not None else None,
                                   write=texts.append if inject_write else None, registers=registers, context=provider, **context)
     termination_file = fixture / f'{name}.termination.expected.json'
@@ -165,9 +175,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 468, 'Update the expected example count when adding examples'
+    assert count == 472, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==166, 'Update the expected project count when adding projects'
+    assert len(projects)==168, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None

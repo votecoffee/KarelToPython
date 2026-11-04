@@ -100,8 +100,9 @@ validation precede response consumption and history publication.
 
 Responses have zero modeled duration by default. An explicit finite `delay_ms`
 adds [cooperative progress and optional local clauses](motion-handlers.md).
-NOWAIT remains limited to immediate requests; there is no background motion
-queue or interpolation model. Scripted results are supplied offline data.
+[Pending NOWAIT jobs](nowait-motion.md) now accept supplied delays and complete
+schedules, with one active request per owned group. Local clauses, queued move
+batches and interpolation remain unavailable. Scripted results are offline data.
 
 ## Persistence, reports and bounds
 

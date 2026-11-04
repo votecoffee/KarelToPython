@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Delayed NOWAIT motion](docs/nowait-motion.md) now keeps one pending move per
+owned group while source code continues. Task clocks drive supplied completion,
+with hold/pause freezing, cancellation, linked launches and scheduler observation.
+
 [External collection results](docs/external-collection-results.md) now accept
 checked callback PATH/QUEUE_TYPE values, banks and typed JSON. Generated programs
 and the project CLI can bind fixed logical results with `--external-collections`;
@@ -151,7 +155,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.043724**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.050939**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -926,8 +930,8 @@ explicit; controls do not create trajectories or change robot feedback.
 [Motion-local clauses and scripted progress](docs/motion-handlers.md) now support
 one-shot WHEN actions, UNTIL/THEN cancellation and finite supplied response delays.
 They retain caller-owned local frames across pause/resume, validate completion
-history and clean up on cancellation or failure. NOWAIT queues and inferred
-arrival timing remain unsupported.
+history and clean up on cancellation or failure. [Pending NOWAIT jobs](docs/nowait-motion.md)
+now progress from task clocks; queued move batches and inferred arrivals remain unavailable.
 
 [Explicit motion timelines](docs/motion-timeline.md) now support local AT NODE and
 TIME BEFORE/AFTER predicates, including wildcard destinations, using complete

@@ -228,11 +228,10 @@ ENDMOVE''',ctx=ctx,sleep=sleep)
         self.assertEqual(move(ctx)['data']['execution']['triggered'],[])
         self.assertEqual(ctx.motion._active,{})
 
-    def test_delayed_nowait_fails_without_consuming_response(self):
-        p,ctx,_,pauses=program('ATTACH MOVE AWAY 1 NOWAIT',ctx=scripted(20))
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'NOWAIT'):p.run()
-        self.assertEqual(len(ctx.motion.responses),1)
-        self.assertEqual([row['operation'] for row in ctx.motion.history],['ATTACH'])
+    def test_delayed_nowait_starts_then_terminal_cleanup_cancels(self):
+        p,ctx,_,pauses=program('ATTACH MOVE AWAY 1 NOWAIT n=7',ctx=scripted(20),clock_us=lambda:0)
+        self.assertEqual(p.run()['N'],7);self.assertEqual(ctx.motion.responses,[])
+        self.assertEqual(move(ctx)['outcome'],'cancelled');self.assertEqual(ctx.motion._active,{})
         self.assertEqual(pauses,[])
 
     def test_uninitialized_target_precedes_scope_and_reply_consumption(self):

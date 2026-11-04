@@ -101,10 +101,10 @@ class MotionDecelerationTests(unittest.TestCase):
         with self.assertRaises(rt.KarelAbort):p.run()
         self.assertEqual((ctx.motion._active,ctx.group_locks.owners),({},{}));self.assertEqual(values(ctx)['$DECELTOL'],50)
 
-    def test_nowait_delay_stays_rejected(self):
-        p,ctx,_,_=scoped('ATTACH WITH '+BOTH+' MOVE AWAY 1 NOWAIT',ctx=scripted(7))
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
-        self.assertEqual((len(ctx.motion.responses),len(ctx.motion.history)),(1,1))
+    def test_nowait_delay_retains_deceleration_intent(self):
+        p,ctx,_,_=scoped('ATTACH WITH '+BOTH+' MOVE AWAY 1 NOWAIT',ctx=scripted(7),clock_us=lambda:0)
+        p.run();self.assertEqual((len(ctx.motion.responses),len(ctx.motion.history)),(0,2))
+        self.assertEqual(ctx.motion.history[-1]['outcome'],'cancelled');self.assertEqual(values(ctx),{'$DECELTOL':50,'$USEMAXACCEL':True})
 
     def test_intents_do_not_mutate_robot_context(self):
         from tests.test_joint_interoperability import model_context

@@ -1,0 +1,26 @@
+{
+  "version": "26.1104.050939",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_nowait_motion.py",
+    "tests/test_motion_handlers.py",
+    "tests/test_motion_timeline.py",
+    "tests/test_project_scheduler.py",
+    "examples/nowait_completion.kl",
+    "examples/nowait_axis.kl",
+    "examples/nowait_schedule.kl",
+    "examples/nowait_settings.kl",
+    "examples/nowait_linked_launch/main.kl",
+    "examples/nowait_linked_groups/main.kl"
+  ],
+  "source": "Seven MOVE forms/VIA with NOWAIT and supplied finite delay or complete node_times; no local clauses or selectors",
+  "admission": "Exact detached operands/settings, idle ownership, response validation and stable root clock before pending publication; one job per group",
+  "progress": "Root clock microseconds at checkpoints, successful standalone DELAY and scheduler boundaries; fractional remainder retained and elapsed milliseconds capped",
+  "controls": "Independent groups; hold and pending/active pause freeze/reanchor, cancellation immediate, completion boundary first, stopped/foreign grant protections retained",
+  "scheduler": "Owner-wait observation, scheduler-clock virtual deadlines only, owner cleanup/errors on poll failure and stable identities across task rename",
+  "lifetime": "Linked launches belong to caller root after callee return; task terminal completion/stop/abort/failure cancel unfinished jobs at last observed progress",
+  "persistence": "Terminal nowait/execution history only; active saves, pending reload and local handler/condition NOWAIT histories reject; no clocks/scopes/frames persisted",
+  "boundary": "No trajectory, robot feedback, physical arrivals, native queue/group synchronization, callback handlers, compiler/controller or strict equivalence"
+}

@@ -206,10 +206,10 @@ class TemporalValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rt.MotionRequests({1:2},responses=[dict(operation='MOVE AWAY',completed=True,node_times={'0':0,'1':0})])
 
-    def test_nowait_cannot_ignore_even_a_zero_duration_plan(self):
-        ctx=planned(delay=0);p,_,_,_=program('ATTACH MOVE AWAY 1 NOWAIT',ctx=ctx)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'NOWAIT'):p.run()
-        self.assertEqual(len(ctx.motion.responses),1)
+    def test_nowait_validates_and_completes_zero_duration_plan(self):
+        ctx=planned(delay=0);p,_,_,_=program('ATTACH MOVE AWAY 1 NOWAIT',ctx=ctx,clock_us=lambda:0)
+        p.run();self.assertEqual(ctx.motion.responses,[]);self.assertEqual(move(ctx)['outcome'],'completed')
+        self.assertEqual(move(ctx)['data']['execution']['node_times'],{'0':0,'1':0})
 
     def test_false_response_validates_plan_but_runs_no_temporal_actions(self):
         ctx=planned(delay=7,completed=False);p,_,_,pauses=program('n=0 ATTACH MOVE AWAY 1, WHEN AT NODE[0] DO n=1 ENDMOVE',ctx=ctx)

@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [NOWAIT motion ledger](nowait_motion_semantics.json) supersedes earlier
+delayed/scheduled NOWAIT exclusions for callback-free jobs. One pending request
+per owned group observes task clocks; local clauses, queued batches and native
+trajectory/controller behavior remain outside that model.
+
 The [external collection result ledger](external_collection_result_semantics.json)
 supersedes earlier raw callback queue/bank result exclusions and extends partial
 PATH results through a checked runtime-value/typed-JSON boundary. Fixed CLI

@@ -166,10 +166,10 @@ class MotionSettingLifetimeTests(unittest.TestCase):
         with self.assertRaises(rt.KarelAbort):p.run()
         self.assertEqual((ctx.motion._active,ctx.group_locks.owners),({},{}));self.assertEqual(values(ctx)['$TERMTYPE'],'FINE')
 
-    def test_positive_delay_nowait_stays_rejected_without_consumption(self):
-        p,ctx,_,_=scoped_program('ATTACH WITH $TERMTYPE=FINE MOVE AWAY 1 NOWAIT',ctx=scripted(7))
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
-        self.assertEqual((len(ctx.motion.responses),len(ctx.motion.history)),(1,1))
+    def test_positive_delay_nowait_retains_choice_until_terminal_cleanup(self):
+        p,ctx,_,_=scoped_program('ATTACH WITH $TERMTYPE=FINE MOVE AWAY 1 NOWAIT',ctx=scripted(7),clock_us=lambda:0)
+        p.run();self.assertEqual((len(ctx.motion.responses),len(ctx.motion.history)),(0,2))
+        self.assertEqual(move(ctx)['outcome'],'cancelled');self.assertEqual(values(ctx)['$TERMTYPE'],'FINE')
 
 
 class MotionSettingHistoryTests(unittest.TestCase):

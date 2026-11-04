@@ -3731,6 +3731,7 @@ class State:
         if self._aborted: raise KarelAbort(self._abort_line)
         if self.task_state=='stopped': raise KarelStop('Task is stopped')
         update_timers(self,line)
+        if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.poll(self,line)
         if self.execution.ports is not None: self.execution.ports.poll_pulses(line)
         self.steps += 1
         if self.steps > self.max_steps:
@@ -4030,6 +4031,7 @@ class State:
             raise KarelRuntimeError(f'Host DELAY sleeper failed: {exc}', line) from exc
         if result is not None:
             raise KarelRuntimeError('Host DELAY sleeper must return None', line)
+        if self.execution.motion is not None:self.execution.motion.poll(self,line)
 
     def microsecond_time(self, line=None):
         """Sample host monotonic microseconds or an explicit synchronous test clock."""

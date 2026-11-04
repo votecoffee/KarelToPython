@@ -62,8 +62,8 @@ invalid operand or failed ownership check consumes no response and starts no sco
 Completed source-expression effects remain; normal task failure cleanup still
 applies.
 
-A positive accepted delay, or any local clauses, creates a synchronous request
-scope. It temporarily marks the owned group executing. Global handlers scan
+Without NOWAIT, a positive accepted delay or any local clauses creates a synchronous
+request scope. It temporarily marks the owned group executing. Global handlers scan
 first, then local clauses at entry and after supplied progress steps of at most
 10 ms. A zero-duration capture with local clauses scans at its request boundary.
 Every progress/poll cycle uses the existing execution budget and task scheduler.
@@ -122,9 +122,10 @@ include origins. Old immediate generated output remains usable. Retranslate to
 use delayed responses: older direct-invoke output rejects them instead of
 silently skipping the delay.
 
-NOWAIT with local clauses is rejected at translation. NOWAIT with a positive
-scripted delay is rejected before response consumption. Immediate NOWAIT requests
-retain their original capture behavior. Queued motion, native scan timing,
+NOWAIT with local clauses is rejected at translation. [Pending NOWAIT jobs](nowait-motion.md)
+now accept positive supplied delays and schedules, retaining clock/ownership
+identity without local callbacks. Immediate requests keep their behavior. Queued
+move batches, native scan timing,
 inferred arrivals, trajectory interpolation and native multi-group synchronization
 remain unsupported. [Local AT NODE/TIME predicates](motion-timeline.md) now use
 complete supplied schedules and exact progress breakpoints.

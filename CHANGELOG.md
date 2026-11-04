@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.050939 - 2026-11-04
+
+- Add delayed/scheduled NOWAIT jobs for all seven MOVE forms, retaining one
+  pending request per owned group while source and linked routines continue.
+- Poll captured task clocks at checkpoints, standalone DELAY return and scheduler
+  boundaries; preserve fractional time, pause/hold freezing and explicit deadlines.
+- Integrate cancellation, terminal cleanup, task renaming, ownership-grant checks,
+  scheduler failure routing and checked terminal history without local callbacks.
+- Add 73 regressions, four authored examples and two linked projects with typed
+  saved variables, explicit motion histories and exact CLI context replay.
+
 ## 26.1104.043724 - 2026-11-04
 
 - Add checked scalar PATH/QUEUE_TYPE and collection-bank results from explicit

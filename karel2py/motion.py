@@ -287,8 +287,8 @@ class MotionRequests:
                 raise ValueError(str(error)) from error
             execution = row['data'].get('execution')
             if execution is not None:
-                if row['nowait']:
-                    raise ValueError('Scoped motion history cannot use NOWAIT')
+                if row['nowait'] and (execution['handlers'] or 'conditions' in execution):
+                    raise ValueError('NOWAIT motion history cannot contain local handlers or conditions')
                 if row['outcome'] in ('captured', 'completed') and execution['elapsed_ms'] != execution['delay_ms']:
                     raise ValueError('Completed motion history requires its full supplied progress')
                 if row['outcome'] == 'captured' and execution['delay_ms']:
@@ -430,8 +430,9 @@ class MotionRequests:
             raise ValueError('Motion request exceeds 64 KiB')
         return events, breakpoints
 
-    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None):
+    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False):
         runtime = rt()
+        self.poll(state,line)
         group = state.robot_group or 1
         root = runtime.task_root(state)
         locks = state.execution.require('group_locks', line)
@@ -443,8 +444,12 @@ class MotionRequests:
                 raise ValueError('WITH settings require a MOVE request')
             if operation in MOVES and group in self._active:
                 raise ValueError('Motion group already has an active request scope')
-            if _execution is not None and (operation not in MOVES or nowait or state._in_handler):
-                raise ValueError('Scoped motion cannot use NOWAIT or start from a handler action')
+            if type(_background) is not bool or _background and (not nowait or _execution is None):
+                raise ValueError('Background motion requires a generated NOWAIT execution scope')
+            if _execution is not None and (operation not in MOVES or nowait and not _background or state._in_handler or root._in_handler):
+                raise ValueError('Scoped motion requires supported generated output outside handler actions')
+            if _background and (type(_execution) is not dict or _execution.get('handlers') or 'conditions' in _execution):
+                raise ValueError('NOWAIT motion does not support local handlers or conditions')
             if operation == 'MOVE ALONG':
                 path, start, end = data.pop('path'), data['start'], data['end']
                 start = 1 if start is None else start
@@ -509,7 +514,7 @@ class MotionRequests:
                     if not self.responses or self.responses[0]['operation'] != operation:
                         raise ValueError('Motion requires the next explicit matching completion response')
                     if (self.responses[0].get('delay_ms', 0) or 'node_times' in self.responses[0]) and _execution is None:
-                        raise ValueError('Delayed motion requires newly generated cooperative output without NOWAIT')
+                        raise ValueError('Delayed motion requires newly generated cooperative output')
                     outcome = 'completed' if self.responses[0]['completed'] else 'rejected'
         except (ValueError, runtime.KarelRuntimeError) as error:
             raise runtime.KarelRuntimeError(str(error), line) from error
@@ -543,6 +548,9 @@ class MotionRequests:
                     locks.held.add(selected_group)
                 else:
                     locks.held.discard(selected_group)
+                if scope is not None and scope.get('background'):
+                    if scope['cancelled']:self.finish_scope(scope,'cancelled')
+                    else:scope['blocked']=self.background_blocked(scope)
         elif operation.endswith(' HAND'):
             self.hands[data['hand']] = {'OPEN HAND': 'open', 'CLOSE HAND': 'closed', 'RELAX HAND': 'relaxed'}[operation]
         if outcome == 'rejected':
@@ -555,6 +563,51 @@ class MotionRequests:
             self._active[group] = scope
             locks.set_motion(group, 'executing')
             return scope
+
+    @staticmethod
+    def background_blocked(scope):
+        root=scope['root']
+        return (scope['group'] in scope['locks'].held or root._pause_requested or root._abort_requested
+                or root.task_state not in ('running','waiting'))
+
+    def poll(self,state=None,line=None,*,scheduler=None):
+        """Observe task clocks without source handlers or robot-data updates."""
+        runtime=rt();root=runtime.task_root(state) if state is not None else None
+        selected=[scope for scope in self._active.values() if scope.get('background')
+                  and (root is None or scope['root'] is root)
+                  and (scheduler is None or scope['root']._scheduler is scheduler)]
+        roots=[]
+        for scope in selected:
+            if not any(scope['root'] is item for item in roots):roots.append(scope['root'])
+        for owner in roots:
+            scopes=[scope for scope in selected if scope['root'] is owner]
+            for scope in scopes:
+                try:
+                    self.verify_scope(scope,line)
+                    if owner._clock_us is not scope['clock']:raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed',line)
+                except BaseException:
+                    self.finish_scope(scope,'failed');raise
+            try:
+                now=runtime.timer_clock(owner,line)
+                if any(owner._clock_us is not scope['clock'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during poll',line)
+                if any(now<scope['last_us'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock moved backwards',line)
+            except BaseException:
+                for scope in scopes:self.finish_scope(scope,'failed')
+                raise
+            for scope in scopes:
+                blocked=self.background_blocked(scope)
+                progress=scope['request']['data']['execution']
+                if not scope['blocked'] and not blocked:scope['active_us']+=now-scope['last_us']
+                scope['last_us']=now;scope['blocked']=blocked
+                progress['elapsed_ms']=min(progress['delay_ms'],scope['active_us']//1000)
+                if scope['cancelled']:self.finish_scope(scope,'cancelled')
+                elif progress['elapsed_ms']==progress['delay_ms']:self.finish_scope(scope,scope['outcome'])
+
+    def deadlines(self,scheduler):
+        """Virtual deadlines apply only to the scheduler's own clock adapters."""
+        return [scope['last_us']+max(0,scope['request']['data']['execution']['delay_ms']*1000-scope['active_us'])
+                for scope in self._active.values() if scope.get('background') and scope['root']._scheduler is scheduler
+                and scope['root']._scheduler_clock and not scope['blocked'] and not self.background_blocked(scope)]
 
     def owns_scope(self, scope):
         locks, group = scope['locks'], scope['group']
@@ -625,7 +678,7 @@ class MotionRequests:
                     current._in_handler = previous
 
     def execute(self, state, operation, data, nowait=False, line=None, *, settings=None, clauses=(), conditions=()):
-        """Scoped synchronous request with explicit progress, never queued motion."""
+        """Explicit progress; NOWAIT retains one callback-free pending move per group."""
         runtime = rt()
         delay, plan = 0, None
         if not self.capture_only and self.responses and self.responses[0]['operation'] == operation:
@@ -641,6 +694,14 @@ class MotionRequests:
             execution['node_times'] = {str(key): value for key, value in sorted(node_times(plan, delay).items())}
         if conditions:
             execution['conditions'] = list(conditions)
+        if nowait:
+            if clauses or conditions:raise runtime.KarelRuntimeError('NOWAIT motion does not support local handlers or conditions',line)
+            root=runtime.task_root(state);clock=root._clock_us;now=runtime.timer_clock(root,line)
+            if root._clock_us is not clock:raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during capture',line)
+            scope=self.invoke(state,operation,data,True,line,settings=settings,_execution=execution,_background=True)
+            scope.update(background=True,clock=clock,last_us=now,active_us=0,blocked=self.background_blocked(scope))
+            if delay==0:self.finish_scope(scope,scope['outcome'])
+            return
         scope = self.invoke(state, operation, data, nowait, line, settings=settings, _execution=execution)
         outcome = 'failed'
         try:

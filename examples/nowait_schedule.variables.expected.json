@@ -1,0 +1,18 @@
+[
+  {
+    "program": "NOWAIT_SCHEDULE",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "NOWAIT_SCHEDULE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

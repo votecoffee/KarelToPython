@@ -1,0 +1,73 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "NOWAIT_SCHEDULE",
+        "source_program": "NOWAIT_SCHEDULE",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "NOWAIT_SCHEDULE",
+        "source_program": "NOWAIT_SCHEDULE",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 25,
+            "elapsed_ms": 25,
+            "handlers": [],
+            "triggered": [],
+            "node_times": {
+              "0": 0,
+              "1": 25
+            }
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "NOWAIT_SCHEDULE",
+        "source_program": "NOWAIT_SCHEDULE",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}
