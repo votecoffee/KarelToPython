@@ -120,9 +120,10 @@ class QueueAdmissionTests(unittest.TestCase):
         p,ctx,_,_=run('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT DELAY 5 MOVE AWAY 3 NOWAIT DELAY 10',ctx=ctx)
         p.run();self.assertEqual([r['outcome'] for r in moves(ctx)],['completed']*3)
 
-    def test_synchronous_move_cannot_join_queue(self):
-        ctx=self.reject(bank(10,10),'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2','callback-free generated NOWAIT')
-        self.assertEqual(len(ctx.motion.responses),1)
+    def test_synchronous_move_waits_for_its_queued_completion(self):
+        p,ctx,now,_=run('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2',10,10)
+        p.run();self.assertEqual(elapsed(ctx),[10,10]);self.assertEqual(now[0],20000)
+        self.assertEqual([r['outcome'] for r in moves(ctx)],['completed']*2)
 
     def test_local_callback_move_cannot_join_queue(self):
         ctx=self.reject(bank(10,10),'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT, WHEN TRUE DO n=7 ENDMOVE','callback-free generated NOWAIT')

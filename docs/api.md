@@ -778,7 +778,8 @@ retains private callbacks and routine frames for synchronous scopes; save guards
 reject active scopes and loaded history validates progress, triggers and outcomes.
 Reports add local clause locations and scope rules. Older direct-invoke output
 must be retranslated for delayed responses. Explicit [queue_limit](queued-motion.md)
-adds bounded callback-free NOWAIT FIFOs; zero remains the default and omitted JSON
+adds bounded callback-free FIFOs, including [blocking MOVE waiters](synchronous-motion-queues.md)
+when the selected group is busy. Reports also add motion_queue_wait_policy. Zero remains the default and omitted JSON
 value. Reports add motion_queue_policy. Native motion is not inferred.
 
 [Explicit temporal predicates](motion-timeline.md) use optional response

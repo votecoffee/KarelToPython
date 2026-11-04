@@ -1,0 +1,89 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 4,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "SYNC_MOTION_BARRIER",
+        "source_program": "SYNC_MOTION_BARRIER",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "SYNC_MOTION_BARRIER",
+        "source_program": "SYNC_MOTION_BARRIER",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 25,
+            "elapsed_ms": 25,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "SYNC_MOTION_BARRIER",
+        "source_program": "SYNC_MOTION_BARRIER",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "distance": 2.0,
+          "execution": {
+            "delay_ms": 0,
+            "elapsed_ms": 0,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "SYNC_MOTION_BARRIER",
+        "source_program": "SYNC_MOTION_BARRIER",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ],
+    "queue_limit": 8
+  }
+}

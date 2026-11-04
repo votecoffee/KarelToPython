@@ -7362,15 +7362,26 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Only checked terminal metadata and data; active scopes, callbacks, frames and suspended actions cannot be saved or restored',
         boundary='Authored offline observation; no callbacks after defining-frame return, queued batches, implicit physical node arrivals, native timing/controller ABI or strict equivalence',
         guide='docs/nowait-local-clauses.md',controller_validated=False)
+    report['motion_queue_wait_policy']=dict(
+        configuration='Existing exact INTEGER queue_limit 0..127; positive limits opt into blocking admission to an owned busy callback-free FIFO; disabled and idle synchronous defaults remain unchanged',
+        source='All seven newly generated callback-free blocking MOVE forms and VIA; preserve nowait=False in ordinary terminal history; no local WHEN/UNTIL or temporal callback waiters',
+        admission='Evaluate/detach operands and WITH settings before waiting; validate response, schedule, shared capacity, unheld group, stable clock and exact calling-root grant before publication or consumption; false responses reject immediately',
+        blocking='Cooperate until this exact admitted request completes or is cancelled; waiting earns zero progress, head completion frees capacity, and an idle label or lost/failed scope cannot return success',
+        progress='Reuse captured root-clock FIFO progress and scheduler deadlines; wait sleeps at most ten milliseconds or the remaining head interval, rounded up for fractional milliseconds; global handler time follows background progress',
+        controls='Global handlers remain observable during the wait; HOLD and task pause freeze the batch, CANCEL permits source continuation, stop/abort/budget/host failures retain owned cleanup and completed predecessor outcomes',
+        lifetime='Retain the defining call while blocked, including linked calling-root ownership, live routine locals/parameters and connected timers; independent groups do not become a global completion barrier',
+        persistence='Only checked terminal history, unused replies and queue_limit persist; no queue scopes, wait generators, clocks, live frames or resumable source execution save or reload',
+        boundary='Explicit authored offline extension; no automatic waits for full/held/foreign queues, queued local callbacks, old direct-invoke waits, inferred arrivals, trajectories, feedback or native/strict equivalence',
+        guide='docs/synchronous-motion-queues.md',controller_validated=False)
     report['motion_queue_policy']=dict(
         configuration='MotionRequests queue_limit is an exact INTEGER 0..127; zero disables queueing and is omitted from saved configuration; positive limits bound waiting jobs across all groups',
-        source='Newly generated callback-free NOWAIT for all seven MOVE forms and VIA; active head and waiters share the same calling root and exact group ownership grant',
+        source='Newly generated callback-free NOWAIT for all seven MOVE forms and VIA, plus blocking waiters under motion_queue_wait_policy; active head and waiters share the same calling root and exact group ownership grant',
         admission='Detach operands/settings and validate scope, finite capacity, group, reply, complete supplied schedule and clock before history publication or response consumption; false replies reject immediately',
         progress='One active head per group; waiting jobs retain zero progress until FIFO promotion; observed active microseconds carry through supplied completion boundaries, including zero durations and fractional remainders',
         controls='HOLD and task pause freeze the active head; no new work while held; CANCEL cancels every unfinished job in each selected group; normal completion, stop, abort or failure cancel the owning task batch',
         scheduler='Independent groups retain separate FIFOs and scheduler-owned clock deadlines; linked callback-free launches retain calling-root lifetime after routine return',
         persistence='Only queue_limit, unused replies and checked terminal history persist; saving active/waiting jobs rejects, and no queue scopes, clocks, frames or suspended execution reload',
-        boundary='Authored offline model; no queued local callbacks, synchronous admission to busy groups, inferred arrivals, native trajectories, robot feedback or strict/controller equivalence',
+        boundary='Authored offline model; no queued local callbacks, old direct-invoke queue admission, inferred arrivals, native trajectories, robot feedback or strict/controller equivalence',
         guide='docs/queued-motion.md',controller_validated=False)
     report['motion_nowait_policy']=dict(
         source='Seven MOVE forms and VIA with NOWAIT plus explicit finite scripted delays or complete node_times; local clauses/temporal observation follow motion_nowait_clause_policy',

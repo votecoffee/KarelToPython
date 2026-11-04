@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Blocking moves after queued work](docs/synchronous-motion-queues.md) now join an
+enabled callback-free FIFO and wait for their own supplied result. All seven
+MOVE forms retain captured operands/settings, holds, pause/resume, cancellation
+and linked-task lifetime rules. Queueing remains an explicit offline opt-in.
+
 [Queued NOWAIT moves](docs/queued-motion.md) now provide an opt-in, bounded FIFO
 for callback-free motion requests. Supplied delays progress in group order with
 hold/pause handling, task cleanup, complete-batch cancellation and terminal replay.
@@ -231,7 +236,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.152749**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.160616**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

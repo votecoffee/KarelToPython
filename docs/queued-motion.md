@@ -1,7 +1,8 @@
-# Bounded NOWAIT motion queues
+# Bounded motion queues
 
 Pythonic motion can retain a finite FIFO of callback-free NOWAIT requests for
-each owned group. Enable this explicitly with MotionRequests queue_limit; zero
+each owned group. [Blocking MOVE waiters](synchronous-motion-queues.md) may join
+an active callback-free FIFO. Enable this explicitly with MotionRequests queue_limit; zero
 is the default. This authored offline model consumes supplied completion replies
 and durations. It does not compute trajectories, infer node arrivals, update
 robot feedback or reproduce controller queue timing. Strict mode remains future.
@@ -49,9 +50,9 @@ waiting slot when the next request starts. The existing history ring may evict
 a live request's row without dropping its scope or waiting slot.
 
 Both the active head and the new waiter must be newly generated, callback-free
-NOWAIT scopes, owned by the same calling root task and exact logical ownership
-grant. Synchronous moves, old direct-invoke output and local WHEN/UNTIL callbacks
-cannot join a busy group. Local callback heads remain usable on their own under
+scopes, owned by the same calling root task and exact logical ownership grant.
+A blocking MOVE may join under the [synchronous wait policy](synchronous-motion-queues.md).
+Old direct-invoke output and local WHEN/UNTIL callbacks cannot join a busy group. Local callback heads remain usable on their own under
 the existing defining-frame rules. Retranslate old generated code for queueing.
 
 Capture operands and WITH settings once at admission, detaching mutable poses

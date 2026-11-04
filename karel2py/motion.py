@@ -439,7 +439,7 @@ class MotionRequests:
             raise rt().KarelRuntimeError('Motion local clauses require bounded callable WHEN/UNTIL descriptors',line)
         return [dict(kind=kind,line=location) for kind,_,_,location in clauses]
 
-    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False, _clauses=(), _callback_context=None, _clock_sample=None):
+    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False, _clauses=(), _callback_context=None, _clock_sample=None, _queue_wait=False):
         runtime = rt()
         if _clock_sample is not None and not _background:
             raise runtime.KarelRuntimeError('Admission clock samples require generated NOWAIT scopes', line)
@@ -458,12 +458,15 @@ class MotionRequests:
                 head = self._active[group]
                 if (not self.queue_limit or not _background or not head.get('background')
                         or _clauses or head.get('clauses') or head.get('scanning') or head['cancelled']):
-                    raise ValueError('Motion group already has an active request scope; queueing requires callback-free generated NOWAIT moves')
+                    raise ValueError('Motion group already has an active request scope; queueing requires callback-free generated NOWAIT moves or checked blocking scopes')
                 if head['root'] is not root or not self.owns_scope(head):
                     raise ValueError('Queued motion requires the same task and logical ownership grant')
                 if sum(map(len, self._queued.values())) >= self.queue_limit:
                     raise ValueError('Motion waiting queue capacity exceeded')
-            if type(_background) is not bool or _background and (not nowait or _execution is None):
+            if (type(_queue_wait) is not bool or _queue_wait and (not self.queue_limit or nowait
+                    or not _background or _execution is None or _clauses)):
+                raise ValueError('Queued synchronous motion requires a generated callback-free scope and enabled queue')
+            if type(_background) is not bool or _background and (not (nowait or _queue_wait) or _execution is None):
                 raise ValueError('Background motion requires a generated NOWAIT execution scope')
             if _execution is not None and (operation not in MOVES or nowait and not _background or state._in_handler or root._in_handler):
                 raise ValueError('Scoped motion requires supported generated output outside handler actions')
@@ -803,7 +806,9 @@ class MotionRequests:
         if not self.capture_only and self.responses and self.responses[0]['operation'] == operation:
             delay = self.responses[0].get('delay_ms', 0)
             plan = self.responses[0].get('node_times')
-        scoped = bool(clauses) or bool(delay) or plan is not None or bool(conditions) or bool(nowait and self.queue_limit)
+        queue_wait = bool(self.queue_limit and not nowait and not clauses and not conditions
+                          and (state.robot_group or 1) in self._active)
+        scoped = bool(clauses) or bool(delay) or plan is not None or bool(conditions) or bool(nowait and self.queue_limit) or queue_wait
         if not scoped:
             self.invoke(state, operation, data, nowait, line, settings=settings)
             return
@@ -813,7 +818,7 @@ class MotionRequests:
             execution['node_times'] = {str(key): value for key, value in sorted(node_times(plan, delay).items())}
         if conditions:
             execution['conditions'] = list(conditions)
-        if nowait:
+        if nowait or queue_wait:
             frames=list(state.local_frames)
             if clauses and any(not any(frame is live for live in state._timer_frames) for frame in frames):
                 raise runtime.KarelRuntimeError('NOWAIT local callback requires live defining frames',line)
@@ -823,12 +828,13 @@ class MotionRequests:
                     or any(not any(frame is live for live in state._timer_frames) for frame in frames))):
                 raise runtime.KarelRuntimeError('NOWAIT local callback defining frames or task changed during capture',line)
             if root._clock_us is not clock:raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during capture',line)
-            scope=self.invoke(state,operation,data,True,line,settings=settings,_execution=execution,_background=True,_clauses=clauses,_callback_context=(root,tuple(frames)),_clock_sample=(clock,now) if self.queue_limit else None)
+            scope=self.invoke(state,operation,data,nowait,line,settings=settings,_execution=execution,_background=True,_clauses=clauses,_callback_context=(root,tuple(frames)),_clock_sample=(clock,now) if self.queue_limit else None,_queue_wait=queue_wait)
             scope.update(background=True,clock=clock,last_us=now,active_us=0,blocked=self.background_blocked(scope),
                 clauses=tuple(clauses),frames=frames,frame=frames[-1] if frames else None,
                 scanning=False,last_scan=-1)
             if clauses:yield from self.scan_background(state,line)
             elif delay==0 and self._active.get(scope['group']) is scope:self.finish_scope(scope,scope['outcome'])
+            if queue_wait:yield from self._wait_for_scope(scope,line)
             return
         scope = self.invoke(state, operation, data, nowait, line, settings=settings, _execution=execution)
         outcome = 'failed'
@@ -871,6 +877,32 @@ class MotionRequests:
                     if type(identity) is tuple and len(identity) == 2 and identity[0] is consumer:
                         cache.pop(key)
             self.finish_scope(scope, outcome)
+
+    def _wait_for_scope(self, scope, line=None):
+        """Block one source MOVE on its own admitted FIFO result."""
+        runtime = rt()
+        state = scope['state']
+        outcome = 'failed'
+        try:
+            while scope['request']['outcome'] == 'pending':
+                yield from runtime.checkpoint(state, line)
+                if scope['request']['outcome'] != 'pending':break
+                head = self._active.get(scope['group'])
+                if (not self.owns_scope(scope) or head is None or head['root'] is not scope['root']
+                        or head is not scope and not any(scope is item for item in self._queued.get(scope['group'], ()))):
+                    raise runtime.KarelRuntimeError('Queued synchronous motion lost its admitted scope or ownership grant', line)
+                self.verify_scope(head, line)
+                progress = head['request']['data']['execution']
+                remaining_us = progress['delay_ms'] * 1000 - head['active_us']
+                step = 10 if self.background_blocked(head) else min(10, max(1, (remaining_us + 999) // 1000))
+                yield from runtime.delay_execution(state, step, line)
+            if scope['request']['outcome'] not in ('completed', 'cancelled'):
+                raise runtime.KarelRuntimeError('Queued synchronous motion did not complete successfully', line)
+        except (GeneratorExit, runtime.KarelStop, runtime.KarelAbort):
+            outcome = 'cancelled'
+            raise
+        finally:
+            if scope['request']['outcome'] == 'pending':self.finish_scope(scope, outcome)
 
     def finish(self, state):
         root = rt().task_root(state)

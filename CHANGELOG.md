@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.160616 - 2026-11-04
+
+- Let newly generated callback-free blocking MOVE statements join enabled
+  motion FIFOs and wait for their own supplied terminal result across all seven forms.
+- Keep response/operand/settings admission checks, shared capacity, ownership
+  grants, fractional head deadlines and independent groups; preserve idle defaults.
+- Honor handler cancellation, hold/pause, stop/abort and linked routine/timer
+  lifetimes during waits; fail on lost scopes, failed results and clock/grant errors.
+- Add regression coverage, four single-file examples and two linked projects
+  with complete expected motion history, globals and saved-state replay guards.
+
 ## 26.1104.152749 - 2026-11-04
 
 - Add explicit MotionRequests queue_limit for bounded callback-free NOWAIT FIFOs

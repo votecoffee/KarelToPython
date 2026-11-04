@@ -1,0 +1,18 @@
+[
+  {
+    "program": "SYNC_MOTION_FIFO",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "SYNC_MOTION_FIFO",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

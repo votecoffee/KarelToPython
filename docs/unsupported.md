@@ -63,8 +63,9 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   while the owner waits. [NOWAIT local clauses](nowait-local-clauses.md) now scan
   at owner checkpoints with exact live defining-frame captures and supplied
   temporal observation windows. [Bounded callback-free NOWAIT FIFOs](queued-motion.md)
-  now use explicit queue_limit and supplied response durations. Callbacks after
-  defining-frame return, queued local callbacks, synchronous queueing, inferred
+  now use explicit queue_limit and supplied response durations; [blocking MOVE
+  waiters](synchronous-motion-queues.md) now wait on their own admitted FIFO result. Callbacks after
+  defining-frame return, queued local callbacks, old direct-invoke queueing, inferred
   node arrivals, unresolved `$REF_POS`,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
   [Ten additional WITH options](motion-options.md) now retain acceleration, accuracy,

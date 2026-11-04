@@ -1,0 +1,17 @@
+{
+  "feature": "callback_free_blocking_fifo_wait",
+  "mode": "pythonic",
+  "configuration": "Existing exact INTEGER queue_limit 0..127; positive enables busy-group blocking admission; idle/default synchronous semantics unchanged",
+  "source": "Seven newly generated callback-free blocking MOVE forms and VIA with same calling root and exact group grant",
+  "admission": "Capture/detach operands/settings, validate response/schedule/clock/shared waiting capacity/ownership/hold before publication and consumption; false replies reject immediately",
+  "blocking": "Cooperative source wait on exact admitted request; zero waiting progress until promotion; own failed/missing scope cannot become success from an idle label",
+  "controls": "Global handlers scan; holds and pauses freeze; CANCEL permits source continuation; stop/abort/budget/host failures clean owned scope and preserve completed predecessors",
+  "lifetime": "Retain calling routine/program frames, parameters and connected timers until wait finishes; linked root ownership and independent groups persist",
+  "persistence": "Checked terminal data only; no active/waiting saves, pending reload, wait generators, clocks or frames",
+  "boundary": "No full/held/foreign admission wait, queued local callbacks, old direct-invoke queueing, inferred arrivals, native motion or strict equivalence",
+  "guide": "docs/synchronous-motion-queues.md",
+  "tests": [
+    "tests/test_synchronous_motion_queue.py",
+    "tests/test_queued_motion.py"
+  ]
+}

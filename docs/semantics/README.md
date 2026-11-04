@@ -32,10 +32,16 @@ caller/ancestor-frame DISCONNECT exclusions for exact references within one live
 task. Connection lifetimes do not migrate; foreign tasks, dead frames and
 uncertain claims retain their protection.
 
+The [blocking FIFO wait ledger](synchronous_motion_queue_semantics.json)
+supersedes prior synchronous busy-group admission exclusions for newly generated,
+callback-free moves with enabled queues. Idle/default progress, finite capacity,
+ownership and queued-callback boundaries remain explicit.
+
 The [queued motion ledger](queued_motion_semantics.json) supersedes earlier
 blanket queued-batch exclusions for explicitly enabled callback-free NOWAIT FIFOs.
-The default remains one pending request per group. Queued callbacks, synchronous
-queue admission and native trajectory/controller behavior remain outside it.
+The default remains one pending request per group. Queued callbacks and native
+trajectory/controller behavior remain outside it; blocking waiters follow the
+separate synchronous FIFO wait ledger above.
 
 The [NOWAIT motion ledger](nowait_motion_semantics.json) supersedes earlier
 delayed/scheduled NOWAIT exclusions for callback-free jobs. One pending request

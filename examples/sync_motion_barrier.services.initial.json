@@ -1,0 +1,30 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [
+      {
+        "operation": "MOVE AWAY",
+        "completed": true,
+        "delay_ms": 25
+      },
+      {
+        "operation": "MOVE AWAY",
+        "completed": true
+      }
+    ],
+    "limit": 128,
+    "sequence": 0,
+    "history": [],
+    "queue_limit": 8
+  }
+}

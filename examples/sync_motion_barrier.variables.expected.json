@@ -1,0 +1,18 @@
+[
+  {
+    "program": "SYNC_MOTION_BARRIER",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "SYNC_MOTION_BARRIER",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "program": "SYNC_MOTION_SCHEDULE",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "SYNC_MOTION_SCHEDULE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]
