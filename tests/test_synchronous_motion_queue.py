@@ -163,9 +163,9 @@ class SynchronousQueueAdmissionTests(unittest.TestCase):
         ctx=self.reject(bank(10,20),'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2, WHEN FALSE DO n=7 ENDMOVE','active request')
         self.assertEqual(len(ctx.motion.responses),1)
 
-    def test_callback_head_does_not_accept_synchronous_waiter(self):
-        ctx=self.reject(bank(10,20),'ATTACH MOVE AWAY 1 NOWAIT, WHEN FALSE DO n=7 ENDMOVE MOVE AWAY 2','active request')
-        self.assertEqual(len(ctx.motion.responses),1)
+    def test_callback_head_accepts_synchronous_waiter(self):
+        p,ctx,now,_=run('ATTACH MOVE AWAY 1 NOWAIT, WHEN FALSE DO n=7 ENDMOVE MOVE AWAY 2',10,20)
+        p.run();self.assertEqual(elapsed(ctx),[10,20]);self.assertEqual(now[0],30000)
 
     def test_sequence_exhaustion_leaves_reply(self):
         ctx=self.reject(bank(10,20,sequence=2147483644),'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2','sequence exhausted')

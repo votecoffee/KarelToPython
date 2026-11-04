@@ -8,13 +8,18 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Queued NOWAIT handlers](docs/queued-motion-clauses.md) now retain WHEN/UNTIL,
+supplied temporal selectors and live defining-frame captures until promotion.
+Blocking moves can wait behind these jobs. Frame expiry, batch cancellation,
+clock/grant checks and existing counter-write proofs retain explicit boundaries.
+
 [Blocking moves after queued work](docs/synchronous-motion-queues.md) now join an
-enabled callback-free FIFO and wait for their own supplied result. All seven
+enabled FIFO and wait for their own supplied result. All seven
 MOVE forms retain captured operands/settings, holds, pause/resume, cancellation
 and linked-task lifetime rules. Queueing remains an explicit offline opt-in.
 
 [Queued NOWAIT moves](docs/queued-motion.md) now provide an opt-in, bounded FIFO
-for callback-free motion requests. Supplied delays progress in group order with
+for motion requests, including checked NOWAIT handlers. Supplied delays progress in group order with
 hold/pause handling, task cleanup, complete-batch cancellation and terminal replay.
 The default remains one pending move per group; physical trajectories are outside
 the offline runtime.
@@ -236,7 +241,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.160616**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.163903**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1012,8 +1017,9 @@ explicit; controls do not create trajectories or change robot feedback.
 one-shot WHEN actions, UNTIL/THEN cancellation and finite supplied response delays.
 They retain caller-owned local frames across pause/resume, validate completion
 history and clean up on cancellation or failure. [Pending NOWAIT jobs](docs/nowait-motion.md)
-now progress from task clocks; opt-in [callback-free FIFO batches](docs/queued-motion.md)
-retain supplied durations. Queued callbacks and inferred arrivals remain unavailable.
+now progress from task clocks; opt-in [FIFO batches](docs/queued-motion.md) retain
+supplied durations and [queued NOWAIT handlers](docs/queued-motion-clauses.md).
+Blocking local clauses and inferred arrivals remain unavailable.
 
 [Explicit motion timelines](docs/motion-timeline.md) now support local AT NODE and
 TIME BEFORE/AFTER predicates, including wildcard destinations, using complete

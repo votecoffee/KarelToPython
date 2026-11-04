@@ -1,0 +1,18 @@
+[
+  {
+    "program": "QUEUED_CLAUSES_BOOLEAN",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "QUEUED_CLAUSES_BOOLEAN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

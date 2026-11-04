@@ -457,8 +457,8 @@ class MotionRequests:
             if queued:
                 head = self._active[group]
                 if (not self.queue_limit or not _background or not head.get('background')
-                        or _clauses or head.get('clauses') or head.get('scanning') or head['cancelled']):
-                    raise ValueError('Motion group already has an active request scope; queueing requires callback-free generated NOWAIT moves or checked blocking scopes')
+                        or head.get('scanning') or head['cancelled']):
+                    raise ValueError('Motion group already has an active request scope; queueing requires generated NOWAIT moves or checked blocking scopes')
                 if head['root'] is not root or not self.owns_scope(head):
                     raise ValueError('Queued motion requires the same task and logical ownership grant')
                 if sum(map(len, self._queued.values())) >= self.queue_limit:
@@ -618,7 +618,7 @@ class MotionRequests:
             scopes=[scope for scope in selected if scope['root'] is owner]
             for scope in scopes:
                 try:
-                    self.verify_scope(scope,line)
+                    self._verify_batch(scope,line)
                     if owner._clock_us is not scope['clock']:raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed',line)
                 except BaseException:
                     self.finish_scope(scope,'failed');raise
@@ -626,7 +626,7 @@ class MotionRequests:
                 now=runtime.timer_clock(owner,line) if _sample is None else _sample[1]
                 if any(owner._clock_us is not scope['clock'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during poll',line)
                 if any(now<scope['last_us'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock moved backwards',line)
-                for scope in scopes:self.verify_scope(scope,line)
+                for scope in scopes:self._verify_batch(scope,line)
             except BaseException:
                 for scope in scopes:self.finish_scope(scope,'failed')
                 raise
@@ -689,21 +689,38 @@ class MotionRequests:
     def verify_scope(self, scope, line):
         if not self.owns_scope(scope) or self._active.get(scope['group']) is not scope:
             raise rt().KarelRuntimeError('Active motion lost its logical ownership grant', line)
+        self._verify_callback_frames(scope,line)
+        if not scope['cancelled'] and scope['locks'].motion.get(scope['group'], 'idle') != 'executing':
+            raise rt().KarelRuntimeError('Active motion work label was changed externally', line)
+
+    @staticmethod
+    def _verify_callback_frames(scope,line):
         if scope.get('clauses') and rt().task_root(scope['state']) is not scope['root']:
             raise rt().KarelRuntimeError('NOWAIT local callback defining task changed',line)
         if scope.get('clauses') and any(not any(frame is live for live in scope['state']._timer_frames) for frame in scope['frames']):
             raise rt().KarelRuntimeError('NOWAIT local callback defining frame is inactive',line)
-        if not scope['cancelled'] and scope['locks'].motion.get(scope['group'], 'idle') != 'executing':
-            raise rt().KarelRuntimeError('Active motion work label was changed externally', line)
+
+    def _verify_batch(self,head,line):
+        self.verify_scope(head,line)
+        for scope in self._queued.get(head['group'], ()):
+            if (scope['root'] is not head['root'] or scope['grant'] is not head['grant']
+                    or not self.owns_scope(scope) or scope['request']['outcome'] != 'pending'):
+                raise rt().KarelRuntimeError('Queued motion lost its task, pending scope or ownership grant',line)
+            self._verify_callback_frames(scope,line)
+            if scope['clock'] is not head['clock']:
+                raise rt().KarelRuntimeError('Queued motion clock adapter changed',line)
+
+    def _scopes(self):
+        return [*self._active.values(), *(scope for queue in self._queued.values() for scope in queue)]
 
     def release_frame(self,state,frame):
         """Local NOWAIT callbacks cannot outlive their actual defining frame."""
-        for scope in list(self._active.values()):
+        for scope in self._scopes():
             if scope.get('clauses') and scope['state'] is state and scope['frame'] is frame:
                 self.finish_scope(scope,'cancelled')
 
     def finish_callbacks(self,state):
-        for scope in list(self._active.values()):
+        for scope in self._scopes():
             if scope.get('clauses') and scope['state'] is state:self.finish_scope(scope,'cancelled')
 
     def scan_background(self,state,line=None):
@@ -893,6 +910,12 @@ class MotionRequests:
                     raise runtime.KarelRuntimeError('Queued synchronous motion lost its admitted scope or ownership grant', line)
                 self.verify_scope(head, line)
                 progress = head['request']['data']['execution']
+                # A promoted callback job needs its entry scan before sleeping;
+                # a fully elapsed callback head needs an owner observation.
+                if (not self.background_blocked(head)
+                        and (head.get('clauses') and head['last_scan'] < 0
+                             or progress['elapsed_ms'] == progress['delay_ms'])):
+                    continue
                 remaining_us = progress['delay_ms'] * 1000 - head['active_us']
                 step = 10 if self.background_blocked(head) else min(10, max(1, (remaining_us + 999) // 1000))
                 yield from runtime.delay_execution(state, step, line)

@@ -125,13 +125,13 @@ class QueueAdmissionTests(unittest.TestCase):
         p.run();self.assertEqual(elapsed(ctx),[10,10]);self.assertEqual(now[0],20000)
         self.assertEqual([r['outcome'] for r in moves(ctx)],['completed']*2)
 
-    def test_local_callback_move_cannot_join_queue(self):
-        ctx=self.reject(bank(10,10),'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT, WHEN TRUE DO n=7 ENDMOVE','callback-free generated NOWAIT')
-        self.assertEqual(len(ctx.motion.responses),1)
+    def test_local_callback_move_joins_queue_and_runs_after_promotion(self):
+        p,ctx,_,_=run('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT, WHEN TRUE DO n=7 ENDMOVE DELAY 20 s=7',10,10)
+        p.run();self.assertEqual(p.snapshot()['N'],7);self.assertEqual([r['outcome'] for r in moves(ctx)],['completed']*2)
 
-    def test_callback_head_cannot_acquire_waiters(self):
-        ctx=self.reject(bank(10,10),'ATTACH MOVE AWAY 1 NOWAIT, WHEN FALSE DO n=7 ENDMOVE MOVE AWAY 2 NOWAIT','callback-free generated NOWAIT')
-        self.assertEqual(len(ctx.motion.responses),1)
+    def test_callback_head_acquires_waiter(self):
+        p,ctx,_,_=run('ATTACH MOVE AWAY 1 NOWAIT, WHEN FALSE DO n=7 ENDMOVE MOVE AWAY 2 NOWAIT DELAY 10 s=7 DELAY 10',10,10)
+        p.run();self.assertEqual([r['outcome'] for r in moves(ctx)],['completed']*2)
 
     def test_held_queue_does_not_accept_more_work(self):
         ctx=self.reject(bank(10,10,10),'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT HOLD MOVE AWAY 3 NOWAIT','without a hold')
@@ -448,7 +448,7 @@ class QueueBoundaryTests(unittest.TestCase):
         _,_,_,result=run('ATTACH MOVE AWAY 1 NOWAIT',1)
         policy=result.report['motion_queue_policy'];self.assertEqual(policy['guide'],'docs/queued-motion.md')
         self.assertIn('0..127',policy['configuration']);self.assertIn('before',policy['admission'])
-        self.assertIn('no queued local callbacks',policy['boundary']);self.assertFalse(policy['controller_validated'])
+        self.assertIn('no blocking local callbacks',policy['boundary']);self.assertFalse(policy['controller_validated'])
 
     def test_task_rename_retains_queue_ownership(self):
         project,p,ctx=QueueSchedulerTests().project('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT DELAY 100')

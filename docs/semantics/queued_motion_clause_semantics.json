@@ -1,0 +1,17 @@
+{
+  "feature": "queued_nowait_local_clauses",
+  "mode": "pythonic",
+  "configuration": "Existing exact INTEGER queue_limit 0..127; positive enables NOWAIT handler queueing; default single active scope unchanged",
+  "source": "Seven NOWAIT MOVE forms and VIA, local WHEN/UNTIL/THEN and supplied temporal selectors; callback-free blocking barriers may follow",
+  "capture": "Original checked live task/frame/USING/borrowed/private captures; operands/settings/EVAL/selectors once at admission; whole batch revalidated before/after clock observations",
+  "observation": "Waiting handlers never scan; promoted local heads scan at owner checkpoints after global handlers, at most one selected local head per group per scan; entry includes zero and clock-only/foreign observations never execute callbacks",
+  "progress": "Zero waiting progress; callback-free overshoot carries; handler completion anchors at observed boundary after excluded action time; no artificial zero-successor sleeps",
+  "lifetime": "Expired queued frame cancels only its unstarted job and frees slot; active callback frame exit cancels remaining group batch; root terminal cleanup retains existing ownership protections",
+  "controls": "One-shot order, scoped UNTIL/CANCEL, hold/pause and batch failure/cancellation; whole-root counter write proofs remain unchanged",
+  "persistence": "Checked terminal metadata/data only; no active/waiting save, pending reload, callbacks, scopes, frames, clocks or generators",
+  "boundary": "No blocking local clauses joining queues, callbacks after defining-frame return, recursive motion actions, inferred arrivals, trajectories or native/strict equivalence",
+  "guide": "docs/queued-motion-clauses.md",
+  "tests": [
+    "tests/test_queued_motion_clauses.py"
+  ]
+}

@@ -32,6 +32,10 @@ caller/ancestor-frame DISCONNECT exclusions for exact references within one live
 task. Connection lifetimes do not migrate; foreign tasks, dead frames and
 uncertain claims retain their protection.
 
+The [queued NOWAIT clause ledger](queued_motion_clause_semantics.json)
+supersedes earlier queued-handler exclusions for enabled queues with live defining
+frames. Blocking local clauses and callbacks after frame return remain outside it.
+
 The [blocking FIFO wait ledger](synchronous_motion_queue_semantics.json)
 supersedes prior synchronous busy-group admission exclusions for newly generated,
 callback-free moves with enabled queues. Idle/default progress, finite capacity,

@@ -21,6 +21,9 @@ configuration. This extension supplies no trajectories, physical hand movement,
 robot feedback, native interrupts or compiler/controller equivalence. Strict
 mode remains future work.
 
+[Explicitly enabled queues](queued-motion-clauses.md) now retain NOWAIT local
+clauses while waiting for promotion. Default single-scope admission is unchanged.
+
 ## Observation and temporal windows
 
 Each clause is one-shot and source ordered. Actions of an earlier satisfied

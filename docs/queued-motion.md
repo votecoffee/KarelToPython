@@ -1,8 +1,8 @@
 # Bounded motion queues
 
-Pythonic motion can retain a finite FIFO of callback-free NOWAIT requests for
+Pythonic motion can retain a finite FIFO of NOWAIT requests, including [local handlers](queued-motion-clauses.md), for
 each owned group. [Blocking MOVE waiters](synchronous-motion-queues.md) may join
-an active callback-free FIFO. Enable this explicitly with MotionRequests queue_limit; zero
+an active FIFO, including checked NOWAIT handler heads. Enable this explicitly with MotionRequests queue_limit; zero
 is the default. This authored offline model consumes supplied completion replies
 and durations. It does not compute trajectories, infer node arrivals, update
 robot feedback or reproduce controller queue timing. Strict mode remains future.
@@ -20,7 +20,7 @@ context = ExecutionContext(
 ```
 
 The corresponding service JSON uses "queue_limit": 8 inside "motion". All
-seven MOVE forms and Cartesian VIA can join callback-free queues:
+seven MOVE forms and Cartesian VIA can join explicitly enabled queues:
 
 ```karel
 ATTACH
@@ -49,10 +49,11 @@ independently, without synchronized interpolation. Completing a head frees one
 waiting slot when the next request starts. The existing history ring may evict
 a live request's row without dropping its scope or waiting slot.
 
-Both the active head and the new waiter must be newly generated, callback-free
-scopes, owned by the same calling root task and exact logical ownership grant.
-A blocking MOVE may join under the [synchronous wait policy](synchronous-motion-queues.md).
-Old direct-invoke output and local WHEN/UNTIL callbacks cannot join a busy group. Local callback heads remain usable on their own under
+Both the active head and the new waiter must be newly generated scopes, owned
+by the same calling root task and exact logical ownership grant. [NOWAIT local
+clauses](queued-motion-clauses.md) retain live defining frames until promotion.
+A callback-free blocking MOVE may join under the [synchronous wait policy](synchronous-motion-queues.md).
+Old direct-invoke output and blocking local clauses cannot join a busy group. Local callback heads remain usable on their own under
 the existing defining-frame rules. Retranslate old generated code for queueing.
 
 Capture operands and WITH settings once at admission, detaching mutable poses

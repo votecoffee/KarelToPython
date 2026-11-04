@@ -41,9 +41,10 @@ capacity and ownership before publication or consumption. Reserve the reply at
 admission. A false reply rejects immediately, and an invalid admission leaves its
 reply untouched. Already completed argument effects remain visible.
 
-Both the head and waiter must be callback-free generated scopes belonging to
-the same calling root and exact logical group grant. NOWAIT callbacks, blocking
-WHEN/UNTIL clauses and temporal callback clauses cannot join these batches.
+The blocking waiter must be callback-free and generated, belonging to the same
+calling root and exact logical group grant as the head. [Queued NOWAIT handlers](queued-motion-clauses.md)
+may precede it and scan at owner checkpoints during the wait. Blocking WHEN/UNTIL
+and temporal callback clauses still cannot join these batches.
 Old direct-invoke generated output must be retranslated for blocking waits.
 
 ## Waiting, controls and lifetime

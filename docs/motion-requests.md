@@ -102,9 +102,10 @@ Responses have zero modeled duration by default. An explicit finite `delay_ms`
 adds [cooperative progress and optional local clauses](motion-handlers.md).
 [Pending NOWAIT jobs](nowait-motion.md) now accept supplied delays and complete
 schedules, with one active request per owned group. [NOWAIT local clauses](nowait-local-clauses.md)
-observe live owner frames; opt-in [callback-free queues](queued-motion.md) retain
+observe live owner frames; opt-in [queues](queued-motion.md) retain
 finite FIFO batches, including [blocking MOVE waiters](synchronous-motion-queues.md).
-Queued callbacks and interpolation remain unavailable. Scripted results are offline data.
+[Queued NOWAIT handlers](queued-motion-clauses.md) now retain live captures;
+blocking local clauses in queues and interpolation remain unavailable. Scripted results are offline data.
 
 ## Persistence, reports and bounds
 

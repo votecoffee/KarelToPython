@@ -1,0 +1,26 @@
+[
+  {
+    "program": "QUEUED_CLAUSES_FORMAL",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "QUEUED_CLAUSES_FORMAL",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "QUEUED_CLAUSES_FORMAL",
+    "path": "S",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  }
+]

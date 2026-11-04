@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.163903 - 2026-11-04
+
+- Enable queued NOWAIT WHEN/UNTIL and supplied temporal handlers on all seven MOVE
+  forms and VIA, observed only after promotion at owning task checkpoints.
+- Let callback-free blocking barriers wait behind handler jobs; preserve entry
+  scans and drain zero-duration successors without artificial host sleeps.
+- Validate active and queued task/frame/grant/clock identities before and after
+  clock samples; expire queued frame captures without discarding a live predecessor.
+- Retain one-shot/source order, callback-time exclusion, batch cancellation,
+  whole-root counter proofs and terminal-only persistence; add authored CLI fixtures.
+
 ## 26.1104.160616 - 2026-11-04
 
 - Let newly generated callback-free blocking MOVE statements join enabled
