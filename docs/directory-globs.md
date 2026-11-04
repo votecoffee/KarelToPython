@@ -31,10 +31,12 @@ is case-insensitive; literal root resolution keeps the backend's rules. A source
 without directory matchers keeps its existing nonrecursive parent selection.
 Unqualified logical roots do not discover other device namespaces.
 
-Destination parents remain literal and must already exist for DirectoryFiles.
-No directory is created implicitly. Existing full-source basename/stem/extension
-templates flatten matched filenames into that parent. Two nested sources mapping
-to one destination are a collision: the complete batch rejects before mutation.
+Literal destination parents retain the existing flattening behavior. One optional
+whole-directory ** [destination placeholder](directory-destinations.md) now inserts
+source directories relative to the captured literal scan root. Every expanded
+parent must already exist for DirectoryFiles; no directory is created implicitly.
+Existing full-source basename/stem/extension templates keep their rules. Two
+sources mapping to one destination still reject the complete batch before mutation.
 RENAME never overwrites; COPY retains its explicit overwrite flag.
 
 ## Validation and bounds

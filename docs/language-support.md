@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Directory-preserving destinations](directory-destinations.md) now let COPY_FILE
+and RENAME_FILE insert source-relative directories with one whole `**` placeholder.
+Existing collision, busy-file, overwrite and capacity checks cover the complete
+expanded batch; rooted destination directories must already exist.
+
 [NOWAIT local clauses](nowait-local-clauses.md) now support one-shot WHEN/UNTIL
 and supplied temporal events at owner checkpoints across all MOVE forms. Captured
 values stay live within their defining routine/invocation; pause, hold, cancellation
@@ -152,7 +157,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.062349. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.064339. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

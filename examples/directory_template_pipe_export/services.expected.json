@@ -1,0 +1,17 @@
+{
+  "files": {
+    "keep.DAT": {
+      "hex": "4b"
+    },
+    "dst/A.DAT": {
+      "hex": "4141"
+    },
+    "dst/B.DAT": {
+      "hex": "424242"
+    }
+  },
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {}
+  }
+}

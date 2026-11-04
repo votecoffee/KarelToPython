@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/root.KL": "R",
+    "src/cell/same.KL": "AA",
+    "src/cell/deep/same.KL": "BBB",
+    "keep.DAT": "K"
+  }
+}

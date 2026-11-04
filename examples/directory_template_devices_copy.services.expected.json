@@ -1,0 +1,51 @@
+{
+  "device_files": {
+    "limit": 16777216,
+    "volumes": {
+      "RD:": {
+        "capacity": 64,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 0,
+        "info": {}
+      },
+      "FR:": {
+        "capacity": 64,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 0,
+        "info": {}
+      }
+    },
+    "files": {
+      "RD:src/root.KL": {
+        "hex": "52"
+      },
+      "RD:src/cell/same.KL": {
+        "hex": "4141"
+      },
+      "RD:src/cell/deep/same.KL": {
+        "hex": "424242"
+      },
+      "RD:keep.DAT": {
+        "hex": "4b"
+      },
+      "FR:keep.DAT": {
+        "hex": "4f"
+      },
+      "FR:dst/root.PY": {
+        "hex": "52"
+      },
+      "FR:dst/cell/same.PY": {
+        "hex": "4141"
+      },
+      "FR:dst/cell/deep/same.PY": {
+        "hex": "424242"
+      }
+    }
+  }
+}

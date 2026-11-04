@@ -1,0 +1,18 @@
+[
+  {
+    "program": "DIRECTORY_TEMPLATE_COPY",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "DIRECTORY_TEMPLATE_COPY",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

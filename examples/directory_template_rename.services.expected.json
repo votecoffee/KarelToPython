@@ -1,0 +1,16 @@
+{
+  "files": {
+    "keep.DAT": {
+      "hex": "4b"
+    },
+    "done/saved_root.DAT": {
+      "hex": "52"
+    },
+    "done/cell/saved_same.DAT": {
+      "hex": "4141"
+    },
+    "done/cell/deep/saved_same.DAT": {
+      "hex": "424242"
+    }
+  }
+}

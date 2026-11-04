@@ -1,0 +1,25 @@
+{
+  "files": {
+    "src/root.KL": {
+      "hex": "52"
+    },
+    "src/cell/same.KL": {
+      "hex": "4141"
+    },
+    "src/cell/deep/same.KL": {
+      "hex": "424242"
+    },
+    "keep.DAT": {
+      "hex": "4b"
+    },
+    "dst/root.PY": {
+      "hex": "52"
+    },
+    "dst/cell/same.PY": {
+      "hex": "4141"
+    },
+    "dst/cell/deep/same.PY": {
+      "hex": "424242"
+    }
+  }
+}

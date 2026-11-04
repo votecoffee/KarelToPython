@@ -1,0 +1,17 @@
+{
+  "files": {
+    "keep.DAT": "K"
+  },
+  "file_pipes": {
+    "pipes": {
+      "A.KL": {
+        "sectors": 1,
+        "data": "AA"
+      },
+      "B.KL": {
+        "sectors": 1,
+        "data": "BBB"
+      }
+    }
+  }
+}

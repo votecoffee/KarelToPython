@@ -1,0 +1,29 @@
+{
+  "version": "26.1104.064339",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_directory_templates.py",
+    "tests/test_directory_globs.py",
+    "tests/test_wildcard_file_operations.py",
+    "tests/test_wildcard_rename.py",
+    "tests/test_cross_bank_rename.py",
+    "tests/test_cross_volume_rename.py",
+    "examples/directory_template_copy.kl",
+    "examples/directory_template_rename.kl",
+    "examples/directory_template_devices_copy.kl",
+    "examples/directory_template_devices_rename.kl",
+    "examples/directory_template_linked/main.kl",
+    "examples/directory_template_pipe_export/main.kl"
+  ],
+  "source": "Existing exact/final-name/component/globstar source selections; one whole ** directory placeholder in ordinary COPY_FILE/RENAME_FILE destinations",
+  "substitution": "Insert all actual directory components relative to the captured literal source root, including an empty sequence; preserve existing filename templates and literal flattening",
+  "scope": "Literal destination prefix fixes recursive preflight; expanded rooted parents must exist, with no implicit mkdir, directory relocation or backend discovery",
+  "guards": "Bounded ASCII paths, encountered links/junctions, whole-plan aliases/overlap/collisions/busy handles, source/target rescans and byte/configuration checks",
+  "limits": "Existing 32767 scanned/matched entry and 64 MiB COPY bounds, execution budgets, per-file limits and complete device live-plus-garbage quotas",
+  "publication": "Prepared memory/device state with retained rename byte identities; rooted files publish per file and late host failures may leave earlier changes",
+  "pipes": "Plain flat PIP sources insert zero directories on ordinary export; no PIP directory patterns or implicit configuration",
+  "persistence": "Existing resulting bytes/configuration/accounting only; no template objects, active plans, handles or task execution restored",
+  "boundary": "No partial/question/multiple destination directory matchers, physical controller/native wildcard equivalence or strict mode; MOVE_FILE/FILE_LIST retain existing contracts"
+}

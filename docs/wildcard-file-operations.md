@@ -24,7 +24,9 @@ Star/question source matchers apply to final filenames and ordinary directory
 components. Whole directory `**` components can recurse under the separate
 [directory-pattern contract](directory-globs.md); the literal prefix fixes its
 root/device. Plain PIP sources remain flat. Bracket patterns, absolute host paths
-and traversal remain excluded; destination parents stay literal.
+and traversal remain excluded. Destination parents stay literal unless an explicit
+whole-directory ** [placeholder](directory-destinations.md) preserves source-relative
+directories; it does not search for a destination or create directories.
 Paths use forward slashes and stay relative to their explicit backend/root.
 Unmapped devices, symlinks, control characters, trailing-dot/space components and
 reserved device basenames fail closed.

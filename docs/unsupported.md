@@ -312,8 +312,10 @@ queue-entry policies; FILE banks remain excluded.
   [Directory-pattern moves/listings](directory-file-queries.md) also extend MOVE_FILE
   with preserved RD/FR subdirectories and FILE_LIST with bounded component matching;
   their legacy flat selection and publication contracts remain separate.
-  Glob destination directories, PIP directory sources, separate ordinary-bank
-  discovery, socket/DAQ batches and cross-file atomic host
+  [Directory-preserving destinations](directory-destinations.md) now insert
+  source-relative components with one whole-directory ** placeholder in COPY/RENAME.
+  Arbitrary/partial destination directory matchers, PIP directory sources, separate
+  ordinary-bank discovery, socket/DAQ batches and cross-file atomic host
   transactions remain unsupported.
   [Plain PIP batches](pipe-wildcard-files.md) now copy/delete finite snapshots with
   explicit configured destinations; automatic pipe creation and ring truncation

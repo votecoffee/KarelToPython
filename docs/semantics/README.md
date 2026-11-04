@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [directory-destination ledger](directory_destination_semantics.json) supersedes
+earlier blanket destination-directory matcher exclusions for one whole **
+placeholder in COPY_FILE/RENAME_FILE. Literal flattening, complete-plan guards,
+existing rooted parents and per-file host publication remain distinct.
+
 The [NOWAIT local-clause ledger](nowait_clauses_semantics.json) supersedes earlier
 NOWAIT/local/temporal-clause exclusions. It defines owner-checkpoint observation
 and exact live defining-frame captures; callback-free root lifetimes, native

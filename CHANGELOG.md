@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1104.064339 - 2026-11-04
+
+- Add one whole-directory ** destination placeholder to COPY_FILE and RENAME_FILE,
+  preserving actual paths relative to the selected source's literal scan root.
+- Keep literal destination flattening and basename templates; exact extensionless
+  renames retain their literal target behavior, including plain PIP exports.
+- Preflight the complete expanded destination tree for rooted parents, bounded
+  names, collisions, busy handles, source overlap, source/target changes and quotas.
+- Preserve byte identities on rename and virtual-device garbage accounting;
+  retain per-file host publication and explicit late-failure boundaries.
+- Add 104 regressions, four standalone examples and two linked projects with
+  independent typed-data/file/accounting snapshots and CLI saved-state replay.
+
 ## 26.1104.062349 - 2026-11-04
 
 - Add NOWAIT local WHEN/UNTIL/THEN clauses to all seven MOVE forms and VIA.
