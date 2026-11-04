@@ -1,0 +1,100 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2,
+      "2": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "CROSS_GROUP_TEMPORAL",
+        "source_program": "CROSS_GROUP_TEMPORAL",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "CROSS_GROUP_TEMPORAL",
+        "source_program": "CROSS_GROUP_TEMPORAL",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$TERMTYPE",
+              "group": 2,
+              "value": "FINE"
+            }
+          ],
+          "execution": {
+            "delay_ms": 20,
+            "elapsed_ms": 20,
+            "handlers": [
+              {
+                "kind": "WHEN",
+                "line": 7
+              }
+            ],
+            "triggered": [
+              1
+            ],
+            "node_times": {
+              "0": 0,
+              "1": 20
+            },
+            "conditions": [
+              {
+                "kind": "BEFORE",
+                "node": 1,
+                "offset_ms": 5
+              }
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "CROSS_GROUP_TEMPORAL",
+        "source_program": "CROSS_GROUP_TEMPORAL",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 8,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      }
+    ],
+    "queue_limit": 8,
+    "cross_group_settings": true
+  }
+}

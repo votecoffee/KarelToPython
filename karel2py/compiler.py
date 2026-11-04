@@ -732,7 +732,7 @@ class Parser:
                 try:value=self.expression()
                 finally:self.motion_setting_constants=previous
                 settings.append((key,group,value))
-                if len(settings)>len(rt.MOTION_SETTINGS):self.error('E_MOTION_SETTING','Motion WITH supports at most '+str(len(rt.MOTION_SETTINGS))+' settings',key)
+                if len(settings)>31*len(rt.MOTION_SETTINGS):self.error('E_MOTION_SETTING','Motion WITH supports at most '+str(31*len(rt.MOTION_SETTINGS))+' group-qualified settings',key)
                 self.skip_lines()
                 if not self.accept(','):break
                 self.skip_lines()
@@ -7089,7 +7089,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['kinematic_array_policy']['boundary']='Source ARRAY policy unchanged; explicit GET_VAR/SET_VAR prefixes follow kinematic_variable_transfer_policy; no inferred context, motion, native ABI/controller equivalence or strict claim'
     report['named_array_policy']['variables']='Explicit model-backed variable prefixes follow kinematic_variable_transfer_policy; source ARRAY dimension rules unchanged'
     report['motion_setting_policy']=dict(
-        settings=dict(rt.MOTION_SETTINGS),maximum=len(rt.MOTION_SETTINGS),
+        settings=dict(rt.MOTION_SETTINGS),maximum=len(rt.MOTION_SETTINGS),maximum_total=31*len(rt.MOTION_SETTINGS),
         choices={name:dict(values) for name,values in rt.MOTION_SETTING_CONSTANTS.items()},
         deceleration='DECELTOL is INTEGER 0..99; zero retains an unspecified configured-default intent without resolving it; 1..99 retain percentage intent',
         acceleration='USEMAXACCEL is exact BOOLEAN; request-local intent only, with no generated acceleration profile',
@@ -7099,13 +7099,22 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         time_options='SEG_TIME and TIME_SHIFT retain integer milliseconds without overriding scripted duration, node arrivals or local condition timing',
         unresolved_options=['$REF_POS'],
         source='Contextual INTEGER names/expressions for MOTYPE, TERMTYPE, SEGTERMTYPE and ORIENT_TYPE; STRAIGHT canonicalizes to LINEAR; ordinary names outside that setting retain lexical lookup',
-        groups='Unqualified NAME, NAME[n] or explicit $GROUP[n].$NAME; exactly one group expression per setting, matching the MOVE selected group; no cross-group settings',
+        groups='Unqualified NAME, NAME[n] or explicit $GROUP[n].$NAME; exactly one group expression per setting; matching the MOVE group by default, opt-in owned references follow motion_cross_group_setting_policy',
         capture='Each group expression then setting value once in source order, before MOVE operands and local condition captures; detached frame/tool data',
-        admission='Exact enumeration domains, duplicate canonical names, ownership, group, VIA and history/script checks before response consumption or MOVE publication',
+        admission='Exact enumeration domains, duplicate canonical name/group pairs, ownership, group, VIA and history/script checks before response consumption or MOVE publication',
         execution='Detached request metadata across immediate, delayed and local/temporal scopes; no interpolation, settling, planning, speed application or RobotContext mutation',
         persistence='Canonical enumeration strings in validated JSON history; source STRAIGHT alias is saved as LINEAR; no callbacks or active scopes',
         boundary='Other motion variables, cross-group execution, arbitrary system-variable access, native/compiler/controller equivalence and public strict mode remain unavailable',
         guide='docs/motion-options.md',controller_validated=False)
+    report['motion_cross_group_setting_policy']=dict(
+        configuration='MotionRequests cross_group_settings requires exact BOOLEAN; false by default and omitted from saved configuration',
+        source='All 21 settings on configured groups 1..31; up to 651 rows overall and 21 per group; a canonical name may repeat on distinct groups',
+        capture='Group then value once in source order before MOVE operands and local conditions; unqualified settings resolve to the selected MOVE group',
+        admission='Validate complete values, distinct group/name pairs, configured groups and attached calling-root ownership before MOVE publication or reply consumption',
+        scope='Only the selected MOVE group executes or queues; other groups supply detached metadata even when held or logically busy; later changes to those groups do not invalidate admitted jobs',
+        persistence='True opt-in and checked terminal history round trip; active scopes remain unsavable; loading cross-group rows without the opt-in rejects',
+        boundary='Existing VIA/MOTYPE and 64 KiB limits apply; no cross-group synchronization, trajectory, feedback, frame/tool mutation, native/controller or strict equivalence',
+        guide='docs/cross-group-settings.md',controller_validated=False)
     for request in report['motion_requests']:
         for row in [request,*request.get('settings',[])]:
             label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())

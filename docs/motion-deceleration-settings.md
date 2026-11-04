@@ -36,7 +36,8 @@ All seven MOVE forms accept these settings alongside the other 19. Immediate
 NOWAIT, local WHEN/UNTIL, supplied finite delays and node/time schedules keep the
 same checked metadata. Pause/resume retains captured values. Cancellation,
 ABORT, errors and budget exhaustion keep the existing scope/ownership cleanup.
-Delayed NOWAIT and cross-group settings remain outside the model.
+[Delayed NOWAIT](nowait-motion.md) and opt-in [cross-group metadata](cross-group-settings.md)
+retain these values without applying them to other groups or supplied timing.
 
 The values affect request history only. They neither calculate a trajectory nor
 change a supplied completion delay, arrival schedule, robot feedback, frame/tool

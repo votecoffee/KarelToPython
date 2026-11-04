@@ -1,0 +1,16 @@
+{
+  "feature": "owned_cross_group_with_metadata",
+  "mode": "pythonic",
+  "configuration": "Exact BOOLEAN MotionRequests cross_group_settings; false by default and omitted when false",
+  "source": "All 21 settings, unqualified or either explicit group spelling; once per group, up to 651 rows on 31 groups",
+  "capture": "Group then value once in source order before MOVE operands and local selectors; detached Cartesian data",
+  "admission": "Configured groups, distinct canonical group/name pairs, value domains, root ownership and existing response/bounds checks before publication or reply consumption",
+  "scope": "Only selected MOVE group executes/queues; other references may be held/busy and later ownership changes do not affect admitted jobs",
+  "lifetime": "Immediate/delayed/NOWAIT/FIFO/local/temporal and linked calling-root scopes; preserve pause/resume, cancellation, frame expiry and owned cleanup",
+  "persistence": "Enabled flag and checked terminal data only; no active/waiting save or pending/callback/frame/clock reload",
+  "boundary": "Existing VIA/MOTYPE and 64 KiB checks; no group synchronization, trajectory, feedback, robot table mutation or native/controller/strict equivalence",
+  "guide": "docs/cross-group-settings.md",
+  "tests": [
+    "tests/test_cross_group_settings.py"
+  ]
+}

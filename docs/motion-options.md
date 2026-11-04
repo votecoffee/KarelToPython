@@ -49,8 +49,10 @@ outside this local WITH interface.
 All seven MOVE forms accept the new options. Each setting permits `$NAME`,
 `$NAME[group]` or `$GROUP[group].$NAME`. Capture the group expression, then the
 value, once in source order before the MOVE operands and local condition captures.
-Every explicit group must match the selected MOVE group. All 21 distinct settings
-may appear together. Duplicate names, bad domains, ownership, VIA constraints and
+Every explicit group matches the selected MOVE group by default. An explicit
+[cross-group opt-in](cross-group-settings.md) allows checked owned metadata on
+other groups. All 21 distinct settings may appear per group. Duplicate name/group
+pairs, bad domains, ownership, VIA constraints and
 script/history limits are checked before publishing a request or consuming a
 completion response. Earlier source-expression effects remain visible if a later
 check fails.

@@ -55,7 +55,7 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
-  now support HOLD/UNHOLD/CANCEL, global handler actions and 21 per-request WITH
+  now support HOLD/UNHOLD/CANCEL, global handler actions and 21 per-group WITH
   settings, including [termination/orientation choices](extended-motion-settings.md)
   and [deceleration/acceleration intent](motion-deceleration-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
   now use synchronous scopes with pause/resume and cleanup. [Pending NOWAIT jobs](nowait-motion.md)
@@ -70,7 +70,9 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   now retain the calling continuation and target supplied temporal breakpoints. Callbacks after
   defining-frame return, old direct-invoke queueing, inferred
   node arrivals, unresolved `$REF_POS`,
-  cross-group settings, interpolation execution and native synchronization remain unsupported.
+  cross-group execution, interpolation execution and native synchronization remain unsupported.
+  [Cross-group WITH metadata](cross-group-settings.md) now has an explicit opt-in
+  for configured groups owned by the calling root, without changing other groups.
   [Ten additional WITH options](motion-options.md) now retain acceleration, accuracy,
   signed continuous-axis speed, timing and Boolean policy intent as checked metadata.
   They do not apply those options to a trajectory or the supplied offline timeline.

@@ -38,11 +38,12 @@ controller settling/interpolation/orientation behavior remains unverified.
 Accepted spellings are $NAME, $NAME[group] and $GROUP[group].$NAME. The explicit
 $GROUP prefix is a Pythonic input extension using the documented group notation.
 A setting may specify its group once. Every explicit group must match the MOVE's
-selected source group; cross-group settings remain blocked.
+selected source group by default. [Cross-group metadata](cross-group-settings.md)
+now has an explicit offline opt-in with admission-time calling-root ownership.
 
 Capture each group expression, then its value, once in source order before MOVE
 operands and local condition captures. Frame/tool values detach immediately.
-All 21 settings may occur once in the same request. Duplicate canonical names,
+All 21 settings may occur once per group. Duplicate canonical name/group pairs,
 unknown names, malformed groups, invalid values, ownership, VIA and script checks
 reject before MOVE publication or response consumption. Earlier expression effects
 remain visible; no invented rollback of source routines is performed.
@@ -52,7 +53,8 @@ not add trajectory execution, settling, speed application, timing changes, feedb
 updates or RobotContext mutation. They remain request-local metadata through
 immediate NOWAIT, supplied finite delays, local WHEN/UNTIL and explicit node/time
 scopes. Pause/resume retains captured values; stop/abort/budget cleanup retains its
-existing rules. NOWAIT with delayed/local scopes remains unavailable.
+existing rules. [Delayed NOWAIT scopes](nowait-motion.md) and
+[local clauses](nowait-local-clauses.md) retain this checked metadata.
 
 ## History and examples
 

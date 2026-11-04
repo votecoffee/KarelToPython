@@ -93,8 +93,9 @@ MOVE TO target
 
 Each setting optionally accepts a group expression, for example
 `WITH $SPEED[group_number]=speed_value MOVE AWAY distance`. It must resolve to
-the same group as the MOVE request. Cross-group motion settings and duplicate
-settings are rejected. At most 21 entries are accepted. The explicit
+the same group as the MOVE request by default. An explicit
+[cross-group opt-in](cross-group-settings.md) allows other owned groups as metadata.
+Duplicate name/group pairs reject, with at most 21 settings per group. The explicit
 `$GROUP[group].$NAME` spelling and new enum choices follow
 [extended motion settings](extended-motion-settings.md).
 

@@ -1,0 +1,386 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2,
+      "2": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "CROSS_GROUP_ALL",
+        "source_program": "CROSS_GROUP_ALL",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "CROSS_GROUP_ALL",
+        "source_program": "CROSS_GROUP_ALL",
+        "operation": "MOVE TO",
+        "group": 1,
+        "line": 10,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "target": {
+            "type": [
+              "XYZWPR"
+            ],
+            "value": {
+              "X": 10.0,
+              "Y": 20.0,
+              "Z": 30.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              }
+            }
+          },
+          "settings": [
+            {
+              "name": "$SPEED",
+              "group": 1,
+              "value": 25.0
+            },
+            {
+              "name": "$ROTSPEED",
+              "group": 1,
+              "value": 10.0
+            },
+            {
+              "name": "$MOTYPE",
+              "group": 1,
+              "value": "LINEAR"
+            },
+            {
+              "name": "$UFRAME",
+              "group": 1,
+              "value": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 10.0,
+                  "Y": 20.0,
+                  "Z": 30.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              }
+            },
+            {
+              "name": "$UTOOL",
+              "group": 1,
+              "value": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 40.0,
+                  "Y": 50.0,
+                  "Z": 60.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              }
+            },
+            {
+              "name": "$USE_CONFIG",
+              "group": 1,
+              "value": false
+            },
+            {
+              "name": "$TERMTYPE",
+              "group": 1,
+              "value": "FINE"
+            },
+            {
+              "name": "$SEGTERMTYPE",
+              "group": 1,
+              "value": "NODECEL"
+            },
+            {
+              "name": "$ORIENT_TYPE",
+              "group": 1,
+              "value": "RSWORLD"
+            },
+            {
+              "name": "$DECELTOL",
+              "group": 1,
+              "value": 50
+            },
+            {
+              "name": "$USEMAXACCEL",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$ACCEL_OVRD",
+              "group": 1,
+              "value": 125
+            },
+            {
+              "name": "$ACCU_NUM",
+              "group": 1,
+              "value": 3
+            },
+            {
+              "name": "$SEG_TIME",
+              "group": 1,
+              "value": 40
+            },
+            {
+              "name": "$TIME_SHIFT",
+              "group": 1,
+              "value": 10
+            },
+            {
+              "name": "$CONTAXISVEL",
+              "group": 1,
+              "value": -25.5
+            },
+            {
+              "name": "$CNSTNT_PATH",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$DYN_I_COMP",
+              "group": 1,
+              "value": false
+            },
+            {
+              "name": "$USE_CARTACC",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$USERELACCEL",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$USETIMESHFT",
+              "group": 1,
+              "value": true
+            },
+            {
+              "name": "$SPEED",
+              "group": 2,
+              "value": 25.0
+            },
+            {
+              "name": "$ROTSPEED",
+              "group": 2,
+              "value": 10.0
+            },
+            {
+              "name": "$MOTYPE",
+              "group": 2,
+              "value": "LINEAR"
+            },
+            {
+              "name": "$UFRAME",
+              "group": 2,
+              "value": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 10.0,
+                  "Y": 20.0,
+                  "Z": 30.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              }
+            },
+            {
+              "name": "$UTOOL",
+              "group": 2,
+              "value": {
+                "type": [
+                  "XYZWPR"
+                ],
+                "value": {
+                  "X": 40.0,
+                  "Y": 50.0,
+                  "Z": 60.0,
+                  "W": 0.0,
+                  "P": 0.0,
+                  "R": 0.0,
+                  "CONFIG_DATA": {
+                    "CFG_TURN_NO1": 0,
+                    "CFG_TURN_NO2": 0,
+                    "CFG_TURN_NO3": 0,
+                    "CFG_FLIP": false,
+                    "CFG_LEFT": false,
+                    "CFG_UP": false,
+                    "CFG_FRONT": false
+                  }
+                }
+              }
+            },
+            {
+              "name": "$USE_CONFIG",
+              "group": 2,
+              "value": false
+            },
+            {
+              "name": "$TERMTYPE",
+              "group": 2,
+              "value": "FINE"
+            },
+            {
+              "name": "$SEGTERMTYPE",
+              "group": 2,
+              "value": "NODECEL"
+            },
+            {
+              "name": "$ORIENT_TYPE",
+              "group": 2,
+              "value": "RSWORLD"
+            },
+            {
+              "name": "$DECELTOL",
+              "group": 2,
+              "value": 50
+            },
+            {
+              "name": "$USEMAXACCEL",
+              "group": 2,
+              "value": true
+            },
+            {
+              "name": "$ACCEL_OVRD",
+              "group": 2,
+              "value": 125
+            },
+            {
+              "name": "$ACCU_NUM",
+              "group": 2,
+              "value": 3
+            },
+            {
+              "name": "$SEG_TIME",
+              "group": 2,
+              "value": 40
+            },
+            {
+              "name": "$TIME_SHIFT",
+              "group": 2,
+              "value": 10
+            },
+            {
+              "name": "$CONTAXISVEL",
+              "group": 2,
+              "value": -25.5
+            },
+            {
+              "name": "$CNSTNT_PATH",
+              "group": 2,
+              "value": true
+            },
+            {
+              "name": "$DYN_I_COMP",
+              "group": 2,
+              "value": false
+            },
+            {
+              "name": "$USE_CARTACC",
+              "group": 2,
+              "value": true
+            },
+            {
+              "name": "$USERELACCEL",
+              "group": 2,
+              "value": true
+            },
+            {
+              "name": "$USETIMESHFT",
+              "group": 2,
+              "value": true
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "CROSS_GROUP_ALL",
+        "source_program": "CROSS_GROUP_ALL",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 12,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      }
+    ],
+    "queue_limit": 8,
+    "cross_group_settings": true
+  }
+}

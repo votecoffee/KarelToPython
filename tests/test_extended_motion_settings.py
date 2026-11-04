@@ -219,7 +219,7 @@ class MotionSettingHistoryTests(unittest.TestCase):
         _,ctx,_,_=execute('ATTACH WITH '+','.join(ALL.split(',')[:6])+' MOVE TO p');saved=ctx.motion.to_config();self.assertEqual(rt.MotionRequests.from_config(saved).to_config(),saved)
 
     def test_setting_count_limit_is_enforced_at_translation(self):
-        with self.assertRaises(TranslationError):program('ATTACH WITH '+','.join(['$SPEED=1']*22)+' MOVE TO p')
+        with self.assertRaises(TranslationError):program('ATTACH WITH '+','.join(['$SPEED=1']*652)+' MOVE TO p')
 
 
 class MotionSettingScopeTests(unittest.TestCase):

@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Cross-group WITH settings](docs/cross-group-settings.md) now capture separate
+values for owned configured groups through an explicit offline opt-in. All 21
+settings may appear once per group, up to 651 rows, across ordinary, queued and
+local-handler MOVE requests. Only the selected MOVE group executes.
+
 [Blocking local clauses in queues](docs/blocking-motion-clauses.md) now support
 WHEN/UNTIL and supplied temporal selectors on all seven MOVE forms and VIA.
 Queued blocking scopes retain live callers, pause/resume, cancellation and checked
@@ -246,7 +251,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.171454**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.174903**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1013,7 +1018,7 @@ completion responses, immediate by default or with an explicit finite delay. It 
 
 [Motion controls and local settings](docs/motion-controls.md) now add independent
 HOLD/UNHOLD flags, cancellation that preserves stopped work, global handler
-actions and 21 request-local WITH values, including checked termination/orientation
+actions and 21 request-local WITH values per group, including checked termination/orientation
 choices, [deceleration/acceleration intent](docs/motion-deceleration-settings.md)
 [additional scalar options](docs/motion-options.md) and explicit group-qualified inputs; see [extended settings](docs/extended-motion-settings.md). Ownership and JSON history remain
 explicit; controls do not create trajectories or change robot feedback.

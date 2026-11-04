@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.174903 - 2026-11-04
+
+- Add an exact-BOOLEAN cross_group_settings opt-in for detached WITH values on
+  other configured groups owned by the calling task, across all seven MOVE forms.
+- Allow each of 21 settings once per group, up to 651 rows; preserve ordered
+  capture, duplicate-pair checks, value domains and validation before publication.
+- Keep only the MOVE group active or queued; other groups remain metadata and do
+  not acquire execution, holds or synchronized timing from these settings.
+- Persist the enabled flag and checked terminal history, with default behavior
+  unchanged; add authored regressions, four CLI examples and two linked projects.
+
 ## 26.1104.171454 - 2026-11-04
 
 - Let blocking MOVE statements with local WHEN/UNTIL and supplied temporal clauses

@@ -215,7 +215,7 @@ def transition(operation, before):
 class MotionRequests:
     """Finite capture/scripted endpoint. No hardware adapter or implicit replies."""
     def __init__(self, groups, *, hands=None, capture_only=False, responses=None,
-                 limit=128, sequence=0, history=None, queue_limit=0):
+                 limit=128, sequence=0, history=None, queue_limit=0, cross_group_settings=False):
         if type(groups) is not dict or not groups or len(groups) > 31:
             raise ValueError('Motion groups require an explicit group:axis-count map')
         self.groups = {}
@@ -225,6 +225,9 @@ class MotionRequests:
         if type(capture_only) is not bool:
             raise ValueError('capture_only requires BOOLEAN')
         self.queue_limit = bounded(queue_limit, 0, 127, "Motion queue limit must be in 0..127")
+        if type(cross_group_settings) is not bool:
+            raise ValueError("cross_group_settings requires BOOLEAN")
+        self.cross_group_settings = cross_group_settings
         self.capture_only = capture_only
         self.limit = bounded(limit, 1, 128, 'Motion history limit must be in 1..128')
         self.sequence = bounded(sequence, 0, MAX_SEQUENCE, 'Invalid motion sequence')
@@ -344,18 +347,22 @@ class MotionRequests:
                 raise ValueError('Motion execution supports 1..64 temporal selectors')
         if 'settings' in data:
             rows = data['settings']
-            if type(rows) is not list or not 1 <= len(rows) <= len(SETTINGS):
-                raise ValueError('Motion WITH requires 1..'+str(len(SETTINGS))+' supported settings')
+            maximum = len(SETTINGS) * (len(self.groups) if self.cross_group_settings else 1)
+            if type(rows) is not list or not 1 <= len(rows) <= maximum:
+                raise ValueError('Motion WITH requires 1..'+str(maximum)+' supported settings')
             names = set()
             for row in rows:
                 if type(row) is not dict or set(row) != {'name', 'group', 'value'}:
                     raise ValueError('Malformed motion WITH setting')
                 name = row['name']
-                if type(name) is not str or name not in SETTINGS or name in names:
-                    raise ValueError('Unknown or duplicate motion WITH setting')
-                names.add(name)
-                if type(row['group']) is not int or row['group'] != group:
+                selected_group = row['group']
+                if type(selected_group) is not int or selected_group not in self.groups:
+                    raise ValueError('Motion WITH group must be configured')
+                if not self.cross_group_settings and selected_group != group:
                     raise ValueError('Motion WITH group must match the selected request group')
+                if type(name) is not str or name not in SETTINGS or (selected_group, name) in names:
+                    raise ValueError('Unknown or duplicate motion WITH setting for its group')
+                names.add((selected_group, name))
                 value = row['value']
                 if name in ENUM_SETTINGS:
                     if type(value) is not str or value not in ENUM_SETTINGS[name].values():
@@ -533,6 +540,13 @@ class MotionRequests:
                     raise ValueError('Motion requires attached logical group ownership')
                 if operation in (*MOVES, 'ATTACH', 'RELEASE') and (locks.motion.get(selected_group, 'idle') != ('executing' if queued else 'idle') or selected_group in locks.held):
                     raise ValueError('Motion request requires an idle logical group without a hold')
+            # Other WITH groups are owned metadata references, not execution scopes.
+            for row in data.get('settings', ()):
+                owner = locks.owners.get(row['group'])
+                if owner is not None and owner is not root:
+                    raise ValueError('Motion WITH group is owned by another task')
+                if owner is not root or root in self._released:
+                    raise ValueError('Motion WITH requires attached logical group ownership')
             if self.sequence >= MAX_SEQUENCE:
                 raise ValueError('Motion request sequence exhausted')
             outcome = 'completed'
@@ -950,13 +964,14 @@ class MotionRequests:
             responses=deepcopy(self.responses), limit=self.limit, sequence=self.sequence,
             history=deepcopy(self.history))
         if self.queue_limit:config['queue_limit'] = self.queue_limit
+        if self.cross_group_settings:config['cross_group_settings'] = True
         return config
 
     snapshot = to_config
 
     @classmethod
     def from_config(cls, config):
-        if type(config) is not dict or set(config) - {'groups', 'hands', 'capture_only', 'responses', 'limit', 'sequence', 'history', 'queue_limit'}:
+        if type(config) is not dict or set(config) - {'groups', 'hands', 'capture_only', 'responses', 'limit', 'sequence', 'history', 'queue_limit', 'cross_group_settings'}:
             raise ValueError('Unknown motion request configuration fields')
         config = dict(config)
         if 'groups' not in config:

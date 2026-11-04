@@ -1,0 +1,33 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2,
+      "2": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [
+      {
+        "operation": "MOVE AWAY",
+        "completed": true,
+        "delay_ms": 20,
+        "node_times": {
+          "0": 0,
+          "1": 20
+        }
+      }
+    ],
+    "limit": 128,
+    "sequence": 0,
+    "history": [],
+    "queue_limit": 8,
+    "cross_group_settings": true
+  }
+}

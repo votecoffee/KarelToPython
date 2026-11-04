@@ -1,0 +1,91 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2,
+      "2": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "CROSS_GROUP_CHOICES",
+        "source_program": "CROSS_GROUP_CHOICES",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "CROSS_GROUP_CHOICES",
+        "source_program": "CROSS_GROUP_CHOICES",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": false,
+        "outcome": "captured",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$SPEED",
+              "group": 1,
+              "value": 25.0
+            },
+            {
+              "name": "$SPEED",
+              "group": 2,
+              "value": 50.0
+            },
+            {
+              "name": "$TERMTYPE",
+              "group": 1,
+              "value": "FINE"
+            },
+            {
+              "name": "$TERMTYPE",
+              "group": 2,
+              "value": "NODECEL"
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "CROSS_GROUP_CHOICES",
+        "source_program": "CROSS_GROUP_CHOICES",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      }
+    ],
+    "queue_limit": 8,
+    "cross_group_settings": true
+  }
+}
