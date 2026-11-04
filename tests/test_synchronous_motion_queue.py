@@ -159,9 +159,9 @@ class SynchronousQueueAdmissionTests(unittest.TestCase):
         self.reject(ctx,'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2','selected move range')
         self.assertEqual(len(ctx.motion.responses),1)
 
-    def test_callback_waiter_does_not_join(self):
-        ctx=self.reject(bank(10,20),'ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2, WHEN FALSE DO n=7 ENDMOVE','active request')
-        self.assertEqual(len(ctx.motion.responses),1)
+    def test_callback_waiter_joins_and_blocks(self):
+        p,ctx,now,_=run('n=0 ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2, WHEN TRUE DO n=7 ENDMOVE',10,20)
+        self.assertEqual(p.run()['N'],7);self.assertEqual(elapsed(ctx),[10,20]);self.assertEqual(now[0],30000)
 
     def test_callback_head_accepts_synchronous_waiter(self):
         p,ctx,now,_=run('ATTACH MOVE AWAY 1 NOWAIT, WHEN FALSE DO n=7 ENDMOVE MOVE AWAY 2',10,20)

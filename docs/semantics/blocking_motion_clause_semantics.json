@@ -1,0 +1,17 @@
+{
+  "feature": "blocking_local_clause_queue_scope",
+  "mode": "pythonic",
+  "configuration": "Existing exact INTEGER queue_limit 0..127; positive enables blocking clause queue admission while a selected group is active; idle/default behavior unchanged",
+  "source": "Seven generated blocking MOVE forms and VIA with local WHEN/UNTIL/THEN, EVAL and supplied temporal selectors",
+  "admission": "Detach/capture once and validate descriptors, replies, schedule, live frames, exact root/grant and shared capacity before publication/consumption",
+  "waiting": "Keep source continuation and defining frames live; no waiting progress or scans before promotion; preserve nowait false in terminal history",
+  "timing": "Owner checkpoints target the next supplied breakpoint for blocking handler heads with ceil-ms waits capped at ten ms; NOWAIT checkpoint observation and late crossed-event windows remain",
+  "controls": "One-shot order; scoped UNTIL/CANCEL permits source continuation; hold/pause and owned stop/abort/budget/host cleanup protect completed predecessors and foreign grants",
+  "effects": "Active counter and transitive write guards retained; completed blocking clauses are not pending writers against later counters",
+  "persistence": "Checked terminal data only; no active/waiting save, pending reload, callbacks, frames, clocks or generators",
+  "boundary": "No callbacks after defining-frame return, recursive motion actions, implicit held/full/foreign waits, inferred arrivals or native/strict equivalence",
+  "guide": "docs/blocking-motion-clauses.md",
+  "tests": [
+    "tests/test_blocking_motion_clauses.py"
+  ]
+}

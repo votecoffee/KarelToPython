@@ -326,10 +326,9 @@ class QueuedClauseGuardTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'active request'):p.run()
         self.assertEqual(len(ctx.motion.responses),1)
 
-    def test_blocking_local_clause_stays_outside_queue(self):
-        p,ctx,_,_=run('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2, WHEN TRUE DO n=7 ENDMOVE',50,20)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'active request'):p.run()
-        self.assertEqual(len(ctx.motion.responses),1)
+    def test_blocking_local_clause_joins_queue(self):
+        p,ctx,_,_=run('n=0 ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2, WHEN TRUE DO n=7 ENDMOVE',50,20)
+        self.assertEqual(p.run()['N'],7);self.assertEqual(terminal(ctx),['completed']*2);self.assertEqual(triggered(ctx),[[],[1]])
 
 
 class QueuedClauseCounterProofTests(unittest.TestCase):

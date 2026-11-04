@@ -464,8 +464,8 @@ class MotionRequests:
                 if sum(map(len, self._queued.values())) >= self.queue_limit:
                     raise ValueError('Motion waiting queue capacity exceeded')
             if (type(_queue_wait) is not bool or _queue_wait and (not self.queue_limit or nowait
-                    or not _background or _execution is None or _clauses)):
-                raise ValueError('Queued synchronous motion requires a generated callback-free scope and enabled queue')
+                    or not _background or _execution is None)):
+                raise ValueError('Queued synchronous motion requires a generated scope and enabled queue')
             if type(_background) is not bool or _background and (not (nowait or _queue_wait) or _execution is None):
                 raise ValueError('Background motion requires a generated NOWAIT execution scope')
             if _execution is not None and (operation not in MOVES or nowait and not _background or state._in_handler or root._in_handler):
@@ -823,7 +823,7 @@ class MotionRequests:
         if not self.capture_only and self.responses and self.responses[0]['operation'] == operation:
             delay = self.responses[0].get('delay_ms', 0)
             plan = self.responses[0].get('node_times')
-        queue_wait = bool(self.queue_limit and not nowait and not clauses and not conditions
+        queue_wait = bool(self.queue_limit and not nowait
                           and (state.robot_group or 1) in self._active)
         scoped = bool(clauses) or bool(delay) or plan is not None or bool(conditions) or bool(nowait and self.queue_limit) or queue_wait
         if not scoped:
@@ -917,6 +917,12 @@ class MotionRequests:
                              or progress['elapsed_ms'] == progress['delay_ms'])):
                     continue
                 remaining_us = progress['delay_ms'] * 1000 - head['active_us']
+                if head.get('clauses') and not head['request']['nowait']:
+                    for point in head['breakpoints']:
+                        distance = point * 1000 - head['active_us']
+                        if distance > 0:
+                            remaining_us = min(remaining_us, distance)
+                            break
                 step = 10 if self.background_blocked(head) else min(10, max(1, (remaining_us + 999) // 1000))
                 yield from runtime.delay_execution(state, step, line)
             if scope['request']['outcome'] not in ('completed', 'cancelled'):

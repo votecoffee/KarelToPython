@@ -105,7 +105,8 @@ schedules, with one active request per owned group. [NOWAIT local clauses](nowai
 observe live owner frames; opt-in [queues](queued-motion.md) retain
 finite FIFO batches, including [blocking MOVE waiters](synchronous-motion-queues.md).
 [Queued NOWAIT handlers](queued-motion-clauses.md) now retain live captures;
-blocking local clauses in queues and interpolation remain unavailable. Scripted results are offline data.
+[blocking local clauses](blocking-motion-clauses.md) are now supported, while
+interpolation remains unavailable. Scripted results are offline data.
 
 ## Persistence, reports and bounds
 

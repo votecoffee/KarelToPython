@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Blocking local clauses in queues](docs/blocking-motion-clauses.md) now support
+WHEN/UNTIL and supplied temporal selectors on all seven MOVE forms and VIA.
+Queued blocking scopes retain live callers, pause/resume, cancellation and checked
+terminal history; their waits target supplied temporal breakpoints.
+
 [Queued NOWAIT handlers](docs/queued-motion-clauses.md) now retain WHEN/UNTIL,
 supplied temporal selectors and live defining-frame captures until promotion.
 Blocking moves can wait behind these jobs. Frame expiry, batch cancellation,
@@ -241,7 +246,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.163903**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.171454**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1019,7 +1024,8 @@ They retain caller-owned local frames across pause/resume, validate completion
 history and clean up on cancellation or failure. [Pending NOWAIT jobs](docs/nowait-motion.md)
 now progress from task clocks; opt-in [FIFO batches](docs/queued-motion.md) retain
 supplied durations and [queued NOWAIT handlers](docs/queued-motion-clauses.md).
-Blocking local clauses and inferred arrivals remain unavailable.
+Blocking local clauses now follow the [queued blocking policy](docs/blocking-motion-clauses.md);
+inferred arrivals remain unavailable.
 
 [Explicit motion timelines](docs/motion-timeline.md) now support local AT NODE and
 TIME BEFORE/AFTER predicates, including wildcard destinations, using complete

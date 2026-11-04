@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.171454 - 2026-11-04
+
+- Let blocking MOVE statements with local WHEN/UNTIL and supplied temporal clauses
+  join enabled FIFOs on all seven forms and VIA, retaining their synchronous flag.
+- Target the next supplied breakpoint when waiting on a blocking handler head,
+  preserving NOWAIT checkpoint observation and late-clock crossed-event handling.
+- Keep defining callers and borrowed/private/USING references live through waits,
+  retain pause/stop/abort, cancellation, grant checks and active-counter protections.
+- Preserve idle/default execution and terminal-only persistence; add authored
+  regressions, four single-file examples and two linked replay projects.
+
 ## 26.1104.163903 - 2026-11-04
 
 - Enable queued NOWAIT WHEN/UNTIL and supplied temporal handlers on all seven MOVE

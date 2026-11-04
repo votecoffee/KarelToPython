@@ -32,6 +32,11 @@ caller/ancestor-frame DISCONNECT exclusions for exact references within one live
 task. Connection lifetimes do not migrate; foreign tasks, dead frames and
 uncertain claims retain their protection.
 
+The [blocking local clause ledger](blocking_motion_clause_semantics.json)
+supersedes prior blocking-clause queue exclusions for generated scopes with live
+callers. Blocking supplied-breakpoint targeting and NOWAIT checkpoint observation
+remain distinct; no callback survives its defining frame.
+
 The [queued NOWAIT clause ledger](queued_motion_clause_semantics.json)
 supersedes earlier queued-handler exclusions for enabled queues with live defining
 frames. Blocking local clauses and callbacks after frame return remain outside it.

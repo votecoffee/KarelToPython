@@ -52,8 +52,9 @@ a live request's row without dropping its scope or waiting slot.
 Both the active head and the new waiter must be newly generated scopes, owned
 by the same calling root task and exact logical ownership grant. [NOWAIT local
 clauses](queued-motion-clauses.md) retain live defining frames until promotion.
-A callback-free blocking MOVE may join under the [synchronous wait policy](synchronous-motion-queues.md).
-Old direct-invoke output and blocking local clauses cannot join a busy group. Local callback heads remain usable on their own under
+A blocking MOVE may join under the [synchronous wait policy](synchronous-motion-queues.md),
+including [local clauses](blocking-motion-clauses.md). Old direct-invoke output
+cannot join a busy group. Local callback heads remain usable on their own under
 the existing defining-frame rules. Retranslate old generated code for queueing.
 
 Capture operands and WITH settings once at admission, detaching mutable poses

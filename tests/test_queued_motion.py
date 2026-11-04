@@ -448,7 +448,7 @@ class QueueBoundaryTests(unittest.TestCase):
         _,_,_,result=run('ATTACH MOVE AWAY 1 NOWAIT',1)
         policy=result.report['motion_queue_policy'];self.assertEqual(policy['guide'],'docs/queued-motion.md')
         self.assertIn('0..127',policy['configuration']);self.assertIn('before',policy['admission'])
-        self.assertIn('no blocking local callbacks',policy['boundary']);self.assertFalse(policy['controller_validated'])
+        self.assertIn('no callbacks after defining-frame return',policy['boundary']);self.assertFalse(policy['controller_validated'])
 
     def test_task_rename_retains_queue_ownership(self):
         project,p,ctx=QueueSchedulerTests().project('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT DELAY 100')

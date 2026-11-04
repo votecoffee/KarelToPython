@@ -66,8 +66,9 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   now use explicit queue_limit and supplied response durations; [blocking MOVE
   waiters](synchronous-motion-queues.md) now wait on their own admitted FIFO result.
   [Queued NOWAIT handlers](queued-motion-clauses.md) now retain exact live captures
-  until promotion and cancel expired defining frames. Callbacks after
-  defining-frame return, blocking local clauses in queues, old direct-invoke queueing, inferred
+  until promotion and cancel expired defining frames. [Blocking local clauses](blocking-motion-clauses.md)
+  now retain the calling continuation and target supplied temporal breakpoints. Callbacks after
+  defining-frame return, old direct-invoke queueing, inferred
   node arrivals, unresolved `$REF_POS`,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
   [Ten additional WITH options](motion-options.md) now retain acceleration, accuracy,

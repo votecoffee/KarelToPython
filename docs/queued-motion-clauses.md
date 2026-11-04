@@ -3,7 +3,8 @@
 With an explicit positive MotionRequests queue_limit, NOWAIT moves with local
 WHEN and UNTIL/THEN clauses can join the selected group's FIFO. All seven MOVE
 forms and VIA retain the existing Boolean, EVAL and supplied temporal selectors.
-A callback-free blocking MOVE may follow and wait for those handler jobs.
+A blocking MOVE may follow and wait for those handler jobs, including
+[blocking local clauses](blocking-motion-clauses.md).
 
 ```karel
 ATTACH
@@ -84,7 +85,8 @@ Existing direct, transitive, predicate, service-output and retained-reference
 proofs still protect complete FOR-counter roots against pending NOWAIT writes.
 Queueing does not weaken those checks. Direct/nested MOVE, nested handlers, GOTO
 and RETURN remain forbidden in local action lists. Blocking MOVE local clauses
-still cannot join busy queues; callbacks cannot outlive their defining frames.
+now follow the [blocking clause policy](blocking-motion-clauses.md); callbacks
+cannot outlive their defining frames.
 
 ## Reports and saved data
 

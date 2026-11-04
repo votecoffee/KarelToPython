@@ -1,0 +1,18 @@
+[
+  {
+    "program": "BLOCKING_CLAUSES_ORDER",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 11
+  },
+  {
+    "program": "BLOCKING_CLAUSES_ORDER",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

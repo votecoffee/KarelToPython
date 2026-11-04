@@ -1,7 +1,7 @@
 # Blocking MOVE after queued work
 
 With an explicitly enabled MotionRequests queue_limit, a newly generated,
-callback-free blocking MOVE can join its selected group's active FIFO. Source
+blocking MOVE, including [local clauses](blocking-motion-clauses.md), can join its selected group's active FIFO. Source
 execution waits for that exact request's supplied terminal result. All seven
 MOVE forms and Cartesian VIA use the same policy.
 
@@ -41,10 +41,11 @@ capacity and ownership before publication or consumption. Reserve the reply at
 admission. A false reply rejects immediately, and an invalid admission leaves its
 reply untouched. Already completed argument effects remain visible.
 
-The blocking waiter must be callback-free and generated, belonging to the same
-calling root and exact logical group grant as the head. [Queued NOWAIT handlers](queued-motion-clauses.md)
-may precede it and scan at owner checkpoints during the wait. Blocking WHEN/UNTIL
-and temporal callback clauses still cannot join these batches.
+The blocking waiter must be generated and belong to the same calling root and
+exact logical group grant as the head. [Queued NOWAIT handlers](queued-motion-clauses.md)
+may precede it and scan at owner checkpoints during the wait. [Blocking local
+WHEN/UNTIL and temporal clauses](blocking-motion-clauses.md) now use the same live
+frame boundary, with supplied-breakpoint targeting for blocking handler heads.
 Old direct-invoke generated output must be retranslated for blocking waits.
 
 ## Waiting, controls and lifetime
