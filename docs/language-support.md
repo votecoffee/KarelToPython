@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Directory component substitutions](directory-components.md) now let COPY_FILE
+and RENAME_FILE add literal tags around source-relative directory names, including
+mixed star/globstar layouts. Complete path/depth, collision and recursive namespace
+checks retain existing file publication and device-accounting rules.
+
 [Stored translation inputs](stored-translation-inputs.md) now add explicit
 FILE-backed include bindings and saved ARRAY schemas to TRANSLATE. Primary/include
 snapshots, protected input paths and final byte checks guard product publication;

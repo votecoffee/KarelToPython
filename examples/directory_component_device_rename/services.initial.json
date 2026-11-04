@@ -1,0 +1,34 @@
+{
+  "device_files": {
+    "volumes": {
+      "RD:": {
+        "capacity": 128,
+        "retain_deleted": true
+      },
+      "FR:": {
+        "capacity": 128,
+        "retain_deleted": true
+      }
+    },
+    "files": {
+      "RD:src/Alpha/One/a.kl": {
+        "hex": "4141"
+      },
+      "RD:src/Beta/Two/b.kl": {
+        "hex": "0042"
+      },
+      "RD:src/Alpha/One/deep/c.kl": {
+        "hex": "434343"
+      },
+      "RD:src/root.kl": {
+        "hex": "52"
+      },
+      "RD:keep.dat": {
+        "hex": "4b"
+      },
+      "FR:keep.dat": {
+        "hex": "46"
+      }
+    }
+  }
+}

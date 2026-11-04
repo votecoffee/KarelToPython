@@ -52,22 +52,48 @@ def _wildcard_source(value):
     return prefix[:boundary],prefix[boundary:]+base
 
 
+def _wildcard_target_root(prefix):
+    """Literal prefix before the first destination directory substitution."""
+    if '*' not in prefix:return prefix
+    boundary=prefix.rfind('/',0,prefix.index('*'))+1
+    if not boundary and ':' in prefix:boundary=prefix.index(':')+1
+    return prefix[:boundary]
+
+
 def _wildcard_destination(value):
-    """One whole ** directory inserts source paths relative to the scan root."""
+    """One star substitutes a whole source component; ** takes remaining levels."""
     prefix,base=_wildcard_parts(value,directories=True)
-    tail=prefix.split(':',1)[-1]
-    matches=[part for part in tail.split('/') if any(c in part for c in '*?')]
-    if matches and matches!=['**']:
-        raise ValueError('Destination directories accept one whole ** placeholder only')
+    parts=prefix.split(':',1)[-1].rstrip('/').split('/')
+    if parts.count('**')>1:raise ValueError('Destination directories accept at most one whole ** placeholder')
+    if any('?' in part or part!='**' and part.count('*')>1 for part in parts):
+        raise ValueError('Destination directory components permit one star or one whole ** only')
     return prefix,base
 
 
 def _wildcard_target_prefix(prefix,name,source_folder):
-    if '**/' not in prefix:return prefix
+    if '*' not in prefix:return prefix
     relative=_wildcard_relative(name,source_folder)
     if relative is None:raise ValueError('Source is outside its captured directory root')
-    directory=relative.rsplit('/',1)[0]+'/' if '/' in relative else ''
-    return prefix.replace('**/',directory,1)
+    directories=relative.split('/')[:-1]
+    device,separator,tail=prefix.partition(':')
+    if separator:device+=':'
+    else:device='';tail=prefix
+    parts=tail.rstrip('/').split('/') if tail else []
+    singles=sum('*' in part and part!='**' for part in parts)
+    if len(directories)<singles or '**' not in parts and len(directories)!=singles:
+        raise ValueError('Destination directory substitutions require matching source-relative depth')
+    result=[];cursor=0
+    for index,part in enumerate(parts):
+        if part=='**':
+            remaining=sum('*' in item for item in parts[index+1:])
+            count=len(directories)-cursor-remaining
+            result.extend(directories[cursor:cursor+count]);cursor+=count
+        elif '*' in part:
+            expanded=part.replace('*',directories[cursor]);cursor+=1
+            _wildcard_parts(expanded,pattern=False)
+            result.append(expanded)
+        else:result.append(part)
+    return device+('/'.join(result)+'/' if result else '')
 
 
 def _wildcard_relative(name,folder):
@@ -205,7 +231,7 @@ def wildcard_file_operation(state,operation,args,line=None):
             return self.bank._key(name) if self.directory else self.bank.canonical(name) if self.device else name
         def destination(self,prefix,base,name,source_folder,folder):
             destination=self.key(_wildcard_target_prefix(prefix,name,source_folder)+base)
-            if '**/' in prefix:
+            if '*' in prefix:
                 if _wildcard_relative(destination,folder) is None:
                     raise ValueError('Expanded destination escaped its captured directory root')
                 if self.directory and not self.bank._path(destination).parent.is_dir():
@@ -317,7 +343,7 @@ def wildcard_file_operation(state,operation,args,line=None):
                 if charge:check()
                 digest.update(value[offset:offset+4096])
             return id(value),len(value),digest.digest()
-        quota();existing=target.entries(target_folder,destination=True,recursive="**/" in target_prefix);aliases={}
+        quota();existing=target.entries(target_folder,destination=True,recursive="*" in target_prefix);aliases={}
         for name in existing:aliases.setdefault(name.casefold(),[]).append(name)
         plan=[];targets=set();total=0
         for name in selected:
@@ -357,7 +383,7 @@ def wildcard_file_operation(state,operation,args,line=None):
             plan.append((name,destination,payload,prepared,before,token,pipe_name,record,signature,empty))
         if (source.bank.files is not mappings[0] or target.bank.files is not mappings[1] or pipe.bank.pipes is not mappings[2]
                 or selected!=source.source_names(source_folder,pattern,charge=False)
-                or target.entries(target_folder,destination=True,charge=False,recursive="**/" in target_prefix)!=existing):
+                or target.entries(target_folder,destination=True,charge=False,recursive="*" in target_prefix)!=existing):
             raise runtime.KarelRuntimeError('Cross-bank rename names or backing storage changed during preflight',line)
         if source.busy(selected) or target.busy([row[1] for row in plan]):return 3
         quota()
@@ -431,7 +457,7 @@ def wildcard_file_operation(state,operation,args,line=None):
                 if charge:check()
                 digest.update(data[offset:offset+4096])
             return id(data),len(data),digest.digest()
-        existing=target.entries(target_folder,destination=True,recursive="**/" in target_prefix);aliases={}
+        existing=target.entries(target_folder,destination=True,recursive="*" in target_prefix);aliases={}
         for name in existing:aliases.setdefault(name.casefold(),[]).append(name)
         plan=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None}
         for name in selected:
@@ -459,7 +485,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         if selected!=source.source_names(source_folder,pattern,charge=False):
             raise runtime.KarelRuntimeError('Wildcard rename sources changed during preflight',line)
         if source.busy(selected) or target.busy([row[1] for row in plan]):return 3
-        if target.entries(target_folder,destination=True,charge=False,recursive="**/" in target_prefix)!=existing:
+        if target.entries(target_folder,destination=True,charge=False,recursive="*" in target_prefix)!=existing:
             raise runtime.KarelRuntimeError('Wildcard rename destinations changed during preflight',line)
         for name,destination,before,token,configuration in plan:
             source.plain(name);target.plain(destination)
@@ -503,12 +529,12 @@ def wildcard_file_operation(state,operation,args,line=None):
         source=View(operands[0]);source_prefix,pattern=source.spec(operands[0],directories=True);source_folder=source.parent(source_prefix)
         if source.device:source.bank.require_volume(source.key(source_prefix+'__wildcard_probe__').split(':',1)[0])
         if operation in ('COPY_FILE','RENAME_FILE'):
-            target=View(operands[1]);target_prefix,template=target.spec(operands[1],destination=True);target_folder=target.parent(target_prefix.split('**/',1)[0])
+            target=View(operands[1]);target_prefix,template=target.spec(operands[1],destination=True);target_folder=target.parent(_wildcard_target_root(target_prefix))
             source_stem,source_dot,source_ext=pattern.rpartition('.')
             # Plain pipe snapshots can preserve extensionless names through *.
             preserve_plain=((operation=='RENAME_FILE' and not wildcard)
                 or (operation=='RENAME_FILE' or source.pipe or target.pipe) and template=='*'
-                or operation=='RENAME_FILE' and '**/' in target_prefix and not any(c in operands[0]+template for c in '*?'))
+                or operation=='RENAME_FILE' and '*' in target_prefix and not any(c in operands[0]+template for c in '*?'))
             if not preserve_plain and (not source_dot or not source_stem or not source_ext):return 2
             try:_wildcard_template(template,'probe.ext')
             except ValueError:return 2
@@ -556,7 +582,7 @@ def wildcard_file_operation(state,operation,args,line=None):
                     for cached in list(bank.files):
                         if cached.casefold()==name.casefold():bank.files.pop(cached)
             return 0
-        existing=target.entries(target_folder,destination=True,recursive="**/" in target_prefix);aliases={}
+        existing=target.entries(target_folder,destination=True,recursive="*" in target_prefix);aliases={}
         for name in existing:aliases.setdefault(name.casefold(),[]).append(name)
         plan=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None};total=0
         same=source.bank is target.bank
@@ -590,7 +616,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         if selected!=source.source_names(source_folder,pattern,charge=False):
             raise runtime.KarelRuntimeError('Wildcard sources changed during preflight',line)
         if source.busy(selected) or target.busy([row[1] for row in plan]):return 3
-        if target.entries(target_folder,destination=True,charge=False,recursive="**/" in target_prefix)!=existing:
+        if target.entries(target_folder,destination=True,charge=False,recursive="*" in target_prefix)!=existing:
             raise runtime.KarelRuntimeError('Wildcard destinations changed during preflight',line)
         for name,destination,data,old,before,target_before in plan:
             source.plain(name);target.plain(destination)

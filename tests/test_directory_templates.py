@@ -127,7 +127,7 @@ class DirectoryTemplateSyntaxTests(unittest.TestCase):
         bank=rt.MemoryFiles(DATA);before=bank.snapshot()
         with self.assertRaises(rt.KarelRuntimeError):call(bank,target=target)
         self.assertEqual(bank.snapshot(),before)
-    def test_single_star_directory_is_not_a_destination_search(self):self.invalid('dst/*/*.py')
+    def test_single_star_directory_rejects_missing_source_component(self):self.invalid('dst/*/*.py')
     def test_question_directory_is_not_a_destination_search(self):self.invalid('dst/cell?/*.py')
     def test_partial_globstar_directory_stays_rejected(self):self.invalid('dst/cell**/*.py')
     def test_multiple_destination_placeholders_stay_rejected(self):self.invalid('dst/**/more/**/*.py')

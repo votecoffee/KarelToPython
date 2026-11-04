@@ -1,0 +1,4 @@
+PROGRAM LIB
+VAR s:INTEGER
+ROUTINE work BEGIN RENAME_FILE('RD:src/*/*/*.kl','FR:dst/pre_*/post_*/*.py',FALSE,s) END work
+BEGIN END LIB

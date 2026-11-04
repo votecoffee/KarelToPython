@@ -35,7 +35,9 @@ extensionless renames retain their literal-target domain; ordinary wildcard
 extension/name rules otherwise remain unchanged. A final filename ** does not
 become a recursive destination placeholder.
 
-Partial directory stars, directory question marks, repeated destination **,
+[Single-star directory components](directory-components.md) now substitute full
+source-relative names with optional literal tags, alongside one **. Directory
+question marks, multiple stars within ordinary components, repeated destination **,
 bracket classes, empty/dot components, traversal, absolute host paths, reserved
 names and unsafe device syntax remain rejected. Template and expanded names stay
 within the existing 254-character ASCII bound.

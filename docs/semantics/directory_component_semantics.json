@@ -1,0 +1,28 @@
+{
+  "version": "26.1104.143945",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored offline component substitutions and complete FILE batch guard regressions",
+  "contract": {
+    "components": "One star per ordinary destination directory consumes one full source-relative directory name; literal tags do not consume levels",
+    "depth": "Exact ordinary-star depth unless one ** consumes remaining levels while reserving suffix stars",
+    "preflight": "Literal prefix before first star anchors recursive preflight; expanded parents/names, aliases, bytes, quotas and busy state checked before publication",
+    "publication": "Prepared memory/device updates; retained rename objects and device accounting; rooted per-file host failures may leave partial progress",
+    "persistence": "Resulting bytes/accounting only; no templates, pending scans, handles or plans"
+  },
+  "remaining": [
+    "Question/bracket/multiple-star directory templates, directory creation/search and PIP directory routing",
+    "Native/controller wildcard semantics, host transactions and strict equivalence"
+  ],
+  "verification": [
+    "tests/test_directory_component_templates.py",
+    "tests/test_directory_templates.py",
+    "examples/directory_component_copy.kl",
+    "examples/directory_component_rename.kl",
+    "examples/directory_component_globstar.kl",
+    "examples/directory_component_devices.kl",
+    "examples/directory_component_forwarded/main.kl",
+    "examples/directory_component_device_rename/main.kl"
+  ],
+  "guide": "../directory-components.md"
+}

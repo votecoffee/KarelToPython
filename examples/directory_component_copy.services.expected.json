@@ -1,0 +1,25 @@
+{
+  "files": {
+    "src/Alpha/One/a.kl": {
+      "hex": "4141"
+    },
+    "src/Beta/Two/b.kl": {
+      "hex": "0042"
+    },
+    "src/Alpha/One/deep/c.kl": {
+      "hex": "434343"
+    },
+    "src/root.kl": {
+      "hex": "52"
+    },
+    "keep.dat": {
+      "hex": "4b"
+    },
+    "dst/pre_Alpha/post_One/a.py": {
+      "hex": "4141"
+    },
+    "dst/pre_Beta/post_Two/b.py": {
+      "hex": "0042"
+    }
+  }
+}

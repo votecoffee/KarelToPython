@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.143945 - 2026-11-04
+
+- Add full source-relative directory substitutions with one star per destination
+  component, literal prefix/suffix tags and one optional globstar for remaining levels.
+- Require complete relative depth, preserve filename template rules and anchor
+  recursive preflight before the first destination directory substitution.
+- Retain source/target rescans, collisions, aliases, busy/overwrite checks,
+  virtual accounting and rooted per-file publication/error behavior.
+- Add memory/device/directory regressions, four runnable examples and two linked
+  projects with complete expected file/accounting snapshots and saved replay guards.
+
 ## 26.1104.140601 - 2026-11-04
 
 - Extend stored-source TRANSLATE with explicit FILE include bindings and canonical

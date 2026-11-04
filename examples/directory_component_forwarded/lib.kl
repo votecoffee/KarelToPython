@@ -1,0 +1,4 @@
+PROGRAM LIB
+VAR s:INTEGER
+ROUTINE work BEGIN COPY_FILE('src/*/*/*.kl','dst/pre_*/post_*/*.py',FALSE,FALSE,s) END work
+BEGIN END LIB
