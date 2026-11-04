@@ -1,0 +1,8 @@
+{
+  "files": {
+    "src/cell1/a.KL": "a",
+    "src/cell2/b.KL": "b",
+    "src/cell1/deep/c.KL": "c",
+    "src/root.KL": "r"
+  }
+}

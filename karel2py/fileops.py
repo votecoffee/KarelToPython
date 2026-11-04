@@ -21,7 +21,7 @@ WILDCARD_FILE_LIMIT=32767
 WILDCARD_COPY_BYTES=64*1024*1024
 
 
-def _wildcard_parts(value,*,pattern=True):
+def _wildcard_parts(value,*,pattern=True,directories=False):
     value=rt().ascii_string(value)
     if not 1<=len(value)<=254 or '\\' in value or any(ord(c)<32 or ord(c)==127 for c in value):
         raise ValueError('Wildcard FILE names require bounded relative ASCII paths')
@@ -32,7 +32,7 @@ def _wildcard_parts(value,*,pattern=True):
         device=device.upper()+':'
     else:device='';tail=value
     parts=tail.split('/')
-    if any(part in ('','.','..') or part.endswith((' ','.')) for part in parts) or any(any(c in part for c in '*?') for part in parts[:-1]):
+    if any(part in ('','.','..') or part.endswith((' ','.')) for part in parts) or not directories and any(any(c in part for c in '*?') for part in parts[:-1]):
         raise ValueError('Wildcard FILE stars are allowed only in the final relative filename')
     if pattern and any(c in value for c in '[]'):
         raise ValueError('Wildcard FILE operations support star/question patterns without bracket classes')
@@ -40,6 +40,44 @@ def _wildcard_parts(value,*,pattern=True):
     if not any(c in base for c in '*?') and re.fullmatch(r'(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])',base.split('.',1)[0],re.I):
         raise ValueError('Reserved device basenames are not portable FILE names')
     return device+('/'.join(parts[:-1])+'/' if len(parts)>1 else ''),base
+
+
+def _wildcard_source(value):
+    """Keep the literal root and match remaining directory components explicitly."""
+    prefix,base=_wildcard_parts(value,directories=True)
+    positions=[i for i,c in enumerate(prefix) if c in '*?']
+    if not positions:return prefix,base
+    boundary=prefix.rfind('/',0,min(positions))+1
+    if not boundary and ':' in prefix:boundary=prefix.index(':')+1
+    return prefix[:boundary],prefix[boundary:]+base
+
+
+def _wildcard_relative(name,folder):
+    device=lambda value:value.split(':',1)[0].casefold() if ':' in value else ''
+    if device(name)!=device(folder):return None
+    prefix=folder if folder.endswith(('/',':')) else folder+'/' if folder else ''
+    if not name.casefold().startswith(prefix.casefold()):return None
+    if len(name)>254:raise ValueError('Wildcard source paths exceed 254 characters')
+    return name[len(prefix):]
+
+
+def _wildcard_path_match(name,pattern,*,check=None):
+    """Bounded component matching: star/question never consume a slash; ** may."""
+    parts=name.casefold().split('/');states={0}
+    components=pattern.casefold().split('/')
+    for number,component in enumerate(components):
+        if check is not None:check()
+        if not states:return False
+        if component=='**' and number<len(components)-1:states=set(range(min(states),len(parts)+1))
+        else:states={i+1 for i in states if i<len(parts) and fnmatch.fnmatchcase(parts[i],component)}
+    return len(parts) in states
+
+
+def _wildcard_link(path):
+    """Use reparse attributes when older pathlib has no junction helper."""
+    junction=getattr(path,'is_junction',None)
+    if path.is_symlink() or junction is not None and junction():return True
+    return junction is None and bool(getattr(path.lstat(),'st_file_attributes',0)&0x400)
 
 
 def _wildcard_template(template,source):
@@ -57,7 +95,7 @@ def _wildcard_template(template,source):
 
 
 def wildcard_file_operation(state,operation,args,line=None):
-    """Preflight nonrecursive star batches over explicit ordinary/plain PIP banks."""
+    """Preflight bounded source-pattern batches over explicit ordinary/plain PIP banks."""
     positions={'COPY_FILE':(0,1),'DELETE_FILE':(0,),'RENAME_FILE':(0,1)}
     if operation not in positions:return False
     operands=[args[index] for index in positions[operation]]
@@ -82,13 +120,13 @@ def wildcard_file_operation(state,operation,args,line=None):
         def plain(self,name):
             if self.pipe and context.acquisition is not None and name in context.acquisition.files:
                 raise runtime.KarelRuntimeError('Generic wildcard FILE operations do not route DAQ PIP names',line)
-        def spec(self,name):
+        def spec(self,name,*,directories=False):
             if self.pipe:
                 name=runtime.ascii_string(name,line).upper()
                 if name.startswith('PIP:/'):name='PIP:'+name[5:]
                 # Validate bounded plain pattern syntax without discovering a device.
                 self.bank.list_names(name)
-            prefix,base=_wildcard_parts(name)
+            prefix,base=_wildcard_source(name) if directories and not self.pipe else _wildcard_parts(name)
             if self.pipe and prefix!='PIP:':raise ValueError('Pipe wildcard requires a plain basename')
             return prefix,base
         def key(self,name):
@@ -104,7 +142,7 @@ def wildcard_file_operation(state,operation,args,line=None):
             if self.pipe:return 'PIP:'
             if self.directory:return name.rsplit('/',1)[0] if '/' in name else ''
             return _wildcard_parts(name,pattern=False)[0]
-        def entries(self,folder,*,destination=False,charge=True):
+        def entries(self,folder,*,destination=False,charge=True,recursive=False):
             result=set();scanned=0;files=self.bank
             if self.pipe:
                 if set(files.files)!=set(files.pipes):raise runtime.KarelRuntimeError('Pipe bytes/configuration identity mismatch',line)
@@ -117,20 +155,36 @@ def wildcard_file_operation(state,operation,args,line=None):
                 if not root.is_dir():
                     if destination:raise ValueError('Wildcard destination parent directory must exist')
                     return []
-                for path in root.iterdir():
-                    scanned+=1
-                    if scanned>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
-                    if charge:check()
-                    result.add(path.relative_to(files.root).as_posix())
+                pending=[root]
+                while pending:
+                    parent=pending.pop()
+                    if recursive:
+                        if _wildcard_link(parent):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
+                        files._path(parent.relative_to(files.root).as_posix() or '.',directory=True)
+                    for path in parent.iterdir():
+                        scanned+=1
+                        if scanned>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+                        if charge:check()
+                        name=path.relative_to(files.root).as_posix()
+                        if recursive:
+                            if _wildcard_link(path):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
+                            if len(name)>254:raise ValueError('Wildcard source paths exceed 254 characters')
+                            files._path(name,directory=path.is_dir())
+                        result.add(name)
+                        if recursive and path.is_dir():pending.append(path)
                 for handle in files.handles:
-                    if handle.owner is files and self.scope(handle.name).casefold()==folder.casefold():result.add(handle.name)
+                    if handle.owner is files and (_wildcard_relative(handle.name,folder) is not None if recursive else self.scope(handle.name).casefold()==folder.casefold()):result.add(handle.name)
             else:
                 if len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
-                for name in files.files:
+                for name in tuple(files.files):
                     if charge:check()
-                    try:found=self.scope(name)
-                    except ValueError:continue
-                    if found.casefold()==folder.casefold():result.add(name)
+                    if recursive:
+                        if _wildcard_relative(name,folder) is not None:
+                            _wildcard_parts(name,pattern=False);result.add(name)
+                    else:
+                        try:found=self.scope(name)
+                        except ValueError:continue
+                        if found.casefold()==folder.casefold():result.add(name)
             if len(result)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE batch exceeds 32767 entries')
             return sorted(result)
         def identity(self,name):
@@ -159,9 +213,11 @@ def wildcard_file_operation(state,operation,args,line=None):
                     if fnmatch.fnmatchcase(name.casefold(),('PIP:'+pattern).casefold()):
                         raise runtime.KarelRuntimeError('Generic wildcard FILE operations do not route DAQ PIP names',line)
             found=[]
-            for name in self.entries(folder,charge=charge):
-                base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-                if not fnmatch.fnmatchcase(base.casefold(),pattern.casefold()):continue
+            recursive='/' in pattern
+            for name in self.entries(folder,charge=charge,recursive=recursive):
+                base=_wildcard_relative(name,folder) if recursive else name.rsplit('/',1)[-1].rsplit(':',1)[-1]
+                if base is None or not (_wildcard_path_match(base,pattern,check=check if charge else None) if recursive else fnmatch.fnmatchcase(base.casefold(),pattern.casefold())):continue
+                if recursive:self.key(name)
                 if self.directory and not self.bank._busy(name) and not self.bank._path(name).is_file():continue
                 self.plain(name);found.append(name)
             return found
@@ -377,7 +433,7 @@ def wildcard_file_operation(state,operation,args,line=None):
     def execute():
         if operation=='RENAME_FILE':
             runtime.boolean(args[2],line)
-        source=View(operands[0]);source_prefix,pattern=source.spec(operands[0]);source_folder=source.parent(source_prefix)
+        source=View(operands[0]);source_prefix,pattern=source.spec(operands[0],directories=True);source_folder=source.parent(source_prefix)
         if source.device:source.bank.require_volume(source.key(source_prefix+'__wildcard_probe__').split(':',1)[0])
         if operation in ('COPY_FILE','RENAME_FILE'):
             target=View(operands[1]);target_prefix,template=target.spec(operands[1]);target_folder=target.parent(target_prefix)

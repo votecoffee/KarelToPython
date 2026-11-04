@@ -119,7 +119,7 @@ class CrossVolumeRenameGuardTests(unittest.TestCase):
 
     def test_unknown_volume_and_invalid_paths_fail_before_any_publication(self):
         for source,target in [('FR:src/*.kl','UNKNOWN:dst/*.py'),('UNKNOWN:*.kl','RD:dst/*.py'),
-                ('FR:src/*.kl','RD:../*.py'),('FR:src/*/*.kl','RD:dst/*.py'),('FR:src/*.kl','RD:dst/CON.*')]:
+                ('FR:src/*.kl','RD:../*.py'),('FR:src/*/../*.kl','RD:dst/*.py'),('FR:src/*.kl','RD:dst/CON.*')]:
             with self.subTest(source=source,target=target):
                 files=bank();before=deepcopy(files.to_config())
                 with self.assertRaises(rt.KarelRuntimeError):move(files,source,target)

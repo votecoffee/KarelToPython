@@ -46,8 +46,8 @@ class QuestionWildcardTests(unittest.TestCase):
             with self.subTest(operation=operation):
                 self.assertEqual(invoke(files,operation,'a.kl','saved?.py'),2);self.assertEqual(files.snapshot(),before)
 
-    def test_parent_wildcards_brackets_traversal_and_socket_routes_stay_blocked(self):
-        for pattern in ('src?/a.kl','src/[ab]?.kl','../a?.kl','/a?.kl','C1:a?.kl'):
+    def test_brackets_traversal_and_socket_routes_stay_blocked(self):
+        for pattern in ('src?/../a.kl','src/[ab]?.kl','../a?.kl','/a?.kl','C1:a?.kl'):
             files=rt.MemoryFiles({'src/a.kl':b'a'});before=files.snapshot()
             with self.subTest(pattern=pattern),self.assertRaises(rt.KarelRuntimeError):invoke(files,'COPY_FILE',pattern,'out/*.py')
             self.assertEqual(files.snapshot(),before)

@@ -1,0 +1,45 @@
+[
+  {
+    "program": "DIRECTORY_GLOB_RENAME",
+    "path": "NAMES",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "STRING",
+        64
+      ]
+    ],
+    "value": [
+      "done/part1.DAT",
+      "done/part3.DAT",
+      {
+        "uninitialized": true
+      }
+    ]
+  },
+  {
+    "program": "DIRECTORY_GLOB_RENAME",
+    "path": "COUNT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 2
+  },
+  {
+    "program": "DIRECTORY_GLOB_RENAME",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "DIRECTORY_GLOB_RENAME",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

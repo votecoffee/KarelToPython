@@ -1,6 +1,6 @@
 # Wildcard rename
 
-Pythonic RENAME_FILE supports bounded, nonrecursive star/question source batches over explicit
+Pythonic RENAME_FILE supports bounded star/question source batches over explicit
 MemoryFiles, DirectoryFiles, DeviceFiles and plain FilePipes. Calls without a star/question matcher
 retain their existing exact-name behavior, except for the explicit PIP/ordinary
 extension described in [cross-bank rename](cross-bank-rename.md).
@@ -19,12 +19,12 @@ without a native filesystem or controller equivalence claim.
 ## Patterns and templates
 
 The existing [wildcard FILE pattern rules](wildcard-file-operations.md) apply.
-Stars occur only in the final filename. Parent paths and optional device labels
-are literal and remain within the supplied bank or directory root. Selection is
-case-insensitive, sorted and nonrecursive. Question marks, bracket patterns,
-directory stars, traversal, absolute paths, symlinks, control characters and
-reserved device basenames fail closed. Literal brackets already present in a
-matched filename remain characters.
+Ordinary source directories can also use component star/question and directory
+`**` under the [directory-pattern contract](directory-globs.md). The literal prefix
+fixes the supplied root/device; plain PIP sources remain flat. Selection is sorted,
+with case-insensitive matching below that root. Bracket patterns, traversal, absolute
+paths, encountered links/junctions, control characters and reserved basenames fail
+closed. Literal brackets in stored matched names remain characters.
 
 Destination templates use complete source components rather than the portion
 captured by a source-pattern star. Split the final filename at its last dot;

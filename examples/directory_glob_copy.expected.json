@@ -1,0 +1,13 @@
+{
+  "NAMES": [
+    "dst/backup_part0.PY",
+    "dst/backup_part1.PY",
+    "dst/backup_part2.PY",
+    {
+      "uninitialized": true
+    }
+  ],
+  "COUNT": 3,
+  "STATUS": 0,
+  "DONE": true
+}

@@ -1,0 +1,10 @@
+{
+  "files": {
+    "src/line2/old12.DAT": {
+      "hex": "6b656570"
+    },
+    "other/old3.DAT": {
+      "hex": "6f74686572"
+    }
+  }
+}

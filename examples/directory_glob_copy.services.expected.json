@@ -1,0 +1,31 @@
+{
+  "files": {
+    "src/part0.KL": {
+      "hex": "726f6f74"
+    },
+    "src/line1/part1.KL": {
+      "hex": "6f6e65"
+    },
+    "src/line1/deep/part2.KL": {
+      "hex": "74776f"
+    },
+    "src/line2/part12.KL": {
+      "hex": "6b656570"
+    },
+    "src/line2/readme.TXT": {
+      "hex": "6e6f746573"
+    },
+    "other/data.KL": {
+      "hex": "6f74686572"
+    },
+    "dst/backup_part0.PY": {
+      "hex": "726f6f74"
+    },
+    "dst/backup_part1.PY": {
+      "hex": "6f6e65"
+    },
+    "dst/backup_part2.PY": {
+      "hex": "74776f"
+    }
+  }
+}

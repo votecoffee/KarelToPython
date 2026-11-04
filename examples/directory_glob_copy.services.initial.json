@@ -1,0 +1,10 @@
+{
+  "files": {
+    "src/part0.KL": "root",
+    "src/line1/part1.KL": "one",
+    "src/line1/deep/part2.KL": "two",
+    "src/line2/part12.KL": "keep",
+    "src/line2/readme.TXT": "notes",
+    "other/data.KL": "other"
+  }
+}

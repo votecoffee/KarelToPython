@@ -5270,9 +5270,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No native PC generation, binary compilation, implicit loading, attachment or execution; synchronous offline operation, not native translation timing or controller equivalence; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation']=='TRANSLATE'],
         guide='docs/source-translations.md',controller_validated=False)
+    report['directory_glob_policy']=dict(
+        procedures=['COPY_FILE','DELETE_FILE','RENAME_FILE'],
+        source='Ordinary explicit MemoryFiles/DirectoryFiles/DeviceFiles source paths accept star/question directory components and whole ** directory components; literal prefix fixes root/device',
+        matching='Star/question consume characters within one component; directory ** consumes zero or more components; final filename ** remains an ordinary filename matcher; case-insensitive matching below the backend-resolved literal root',
+        destinations='Literal destination parents only, no implicit directory creation; existing full-basename/stem/extension templates flatten selected names and duplicate targets reject the complete plan',
+        pipes='Plain PIP sources stay flat; ordinary directory matches may copy/rename into existing reserved PIP targets under their original overwrite/capacity/configuration rules; no socket/DAQ discovery',
+        bounds='254-character source names, 32767 scanned/matched entries and existing 64 MiB COPY snapshots; rooted scans count directories and files; execution budget charges scans and matching components',
+        guards='Root containment and scoped device checks, encountered link/junction rejection, busy/alias/overlap checks and complete name/byte/quota rechecks before publication',
+        publication='Prepared memory/device publication; rooted files publish per file and late OS failures may retain earlier changes; no host filesystem transaction or concurrent-host isolation',
+        boundary='MOVE_FILE and FILE_LIST keep their own pattern contracts; no glob destination directories, traversal, bracket classes, host/device discovery, native compiler/controller equivalence or strict claim',
+        guide='docs/directory-globs.md',controller_validated=False)
     report['wildcard_file_policy']=dict(
         procedures=['COPY_FILE','DELETE_FILE','RENAME_FILE'],backends=['MemoryFiles','DirectoryFiles','DeviceFiles','FilePipes'],
-        selection='Case-insensitive star/question patterns in final basename only; question matches exactly one character, star zero or more; nonrecursive sorted explicit-file/configured-plain-PIP batches; no socket/DAQ routing',
+        selection='Case-insensitive component star/question patterns and ordinary whole-directory globstar follow directory_glob_policy; final-name PIP batches stay flat; sorted explicit backends only, no socket/DAQ routing',
         substitution='Destination standalone star retains full basename; one star per stem/extension substitutes the full source stem/extension, not matched captures',
         pipes='Explicit plain FilePipes only; COPY requires preconfigured targets and overwrite permission without ring truncation; DELETE removes selected configurations/bytes; RENAME moves original configuration/bytes to unused names in the same bank',
         rename='Explicit Pythonic extension, no overwrite, full sorted path/busy/alias/overlap/budget preflight; same-bank forms preserve byte/configuration identities and same-volume quota/garbage; cross_bank_rename_policy covers explicit PIP/ordinary moves',
@@ -5283,7 +5294,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         calls=[row for row in report['service_operations'] if row['operation'] in ('COPY_FILE','DELETE_FILE','RENAME_FILE')],
         guide='docs/wildcard-file-operations.md',rename_guide='docs/wildcard-rename.md',cross_volume_guide='docs/cross-volume-rename.md',cross_bank_guide='docs/cross-bank-rename.md',controller_validated=False)
     report['cross_bank_rename_policy']=dict(
-        procedure='RENAME_FILE',forms='Exact names and bounded final-basename star/question batches between explicit plain FilePipes and one explicit MemoryFiles, DeviceFiles or rooted DirectoryFiles bank',
+        procedure='RENAME_FILE',forms='Exact names and bounded star/question batches between explicit plain FilePipes and one explicit MemoryFiles, DeviceFiles or rooted DirectoryFiles bank; ordinary source directory patterns follow directory_glob_policy',
         destination='PIP targets must already be configured, empty and closed; retain destination configuration and replace its empty buffer; ordinary destinations must be unused and closed',
         source='Move retained bytes; preserve mutable bytearray identities in memory; exporting a PIP removes its bytes and configuration, releasing its reservation',
         preflight='Whole sorted batch checks names, busy handles, DAQ/socket exclusion, configuration identities, source fingerprints, execution budget and complete final quotas before publication',
@@ -5291,7 +5302,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing closed-bank context JSON retains final bytes, configurations and device accounting; no live handle or task checkpoint',
         limits='32767 scanned/matched/final ordinary entries, 64 MiB selected retained payloads, 32 configured pipes and existing per-file/reservation/device limits; both nowait values execute synchronously',
         status='Portable 0 success, 1 missing source/configured destination, 2 existing nonempty target/collision/template, 3 busy, 4 pipe capacity; path/quota/configuration/budget failures raise',
-        boundary='No implicit pipe configuration, nonempty replacement, DAQ/socket routing, recursive patterns, separate ordinary-bank discovery, cross-file host transaction, concurrent-host isolation, native/controller equivalence or strict mode',
+        boundary='No implicit pipe configuration, nonempty replacement, DAQ/socket routing, PIP directory patterns, separate ordinary-bank discovery, cross-file host transaction, concurrent-host isolation, native/controller equivalence or strict mode',
         calls=[row for row in report['service_operations'] if row['operation']=='RENAME_FILE'],
         guide='docs/cross-bank-rename.md',controller_validated=False)
     report['dynamic_variable_policy']=dict(

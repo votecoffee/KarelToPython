@@ -1,0 +1,18 @@
+[
+  {
+    "program": "DIRECTORY_GLOB_DELETE",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "DIRECTORY_GLOB_DELETE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

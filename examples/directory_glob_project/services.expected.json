@@ -1,0 +1,22 @@
+{
+  "files": {
+    "src/cell1/a.KL": {
+      "hex": "61"
+    },
+    "src/cell2/b.KL": {
+      "hex": "62"
+    },
+    "src/cell1/deep/c.KL": {
+      "hex": "63"
+    },
+    "src/root.KL": {
+      "hex": "72"
+    },
+    "dst/a.PY": {
+      "hex": "61"
+    },
+    "dst/b.PY": {
+      "hex": "62"
+    }
+  }
+}

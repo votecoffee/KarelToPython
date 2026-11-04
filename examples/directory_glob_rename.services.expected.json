@@ -1,0 +1,19 @@
+{
+  "files": {
+    "src/part0.KL": {
+      "hex": "726f6f74"
+    },
+    "src/line1/deep/part2.KL": {
+      "hex": "74776f"
+    },
+    "src/line2/part12.KL": {
+      "hex": "6b656570"
+    },
+    "done/part1.DAT": {
+      "hex": "6f6e65"
+    },
+    "done/part3.DAT": {
+      "hex": "7468726565"
+    }
+  }
+}

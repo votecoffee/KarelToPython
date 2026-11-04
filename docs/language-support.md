@@ -1,5 +1,10 @@
 # Language support
 
+[Directory-pattern file batches](directory-globs.md) now let COPY_FILE,
+DELETE_FILE and RENAME_FILE match ordinary source directories with `*`, `?` and
+whole-component `**`. Selection stays inside an explicit root/device, and the
+existing collision, busy-file, quota and publication checks remain active.
+
 [Collection ARRAY transfers](collection-array-transfers.md) now copy logical
 PATH/QUEUE_TYPE banks through GET_VAR/SET_VAR, including rows/planes, created
 storage and linked routines. Independent snapshots retain destination cells and
@@ -100,7 +105,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1103.225840. Acceptance is specific to
+This is the supported prototype subset as of 26.1103.232947. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -436,8 +441,9 @@ atomically before body execution. A separate `callee_scopes=True` option adds
 root-only behavior remains the default.
 [Stored source translation](source-translations.md) adds TRANSLATE over explicit
 ordinary file stores, producing Python and optional listings without execution.
-[Wildcard files](wildcard-file-operations.md) add nonrecursive star COPY/DELETE
-batches, portable full-stem templates and backend-specific publication guarantees.
+[Wildcard files](wildcard-file-operations.md) add bounded COPY/DELETE/RENAME batches,
+including [ordinary directory patterns](directory-globs.md), portable full-stem
+templates and backend-specific publication guarantees.
 [Pipe wildcard batches](pipe-wildcard-files.md) additionally route configured
 plain pipe names without implicit configuration or circular truncation.
 

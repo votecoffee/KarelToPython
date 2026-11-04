@@ -1,0 +1,8 @@
+PROGRAM DIRECTORY_GLOB_COPY
+VAR names:ARRAY[4]OF STRING[64] count,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    COPY_FILE('src/**/part?.KL','dst/backup_*.PY',FALSE,FALSE,status) FILE_LIST('dst/*',0,0,names,count,status)
+    done=TRUE
+  ENDIF
+END DIRECTORY_GLOB_COPY

@@ -1,0 +1,9 @@
+{
+  "files": {
+    "src/old0.DAT": "0",
+    "src/line1/old1.DAT": "1",
+    "src/line1/deep/old2.DAT": "2",
+    "src/line2/old12.DAT": "keep",
+    "other/old3.DAT": "other"
+  }
+}

@@ -21,10 +21,11 @@ template containing one returns invalid-template status 2 without mutation.
 For example, `backup_*.py` uses the full matched stem, rather than a single
 character captured by the source question mark.
 
-Both source matchers are confined to the final basename. Bracket classes,
-wildcard directories, recursive search, traversal, implicit devices, socket/DAQ
-endpoints and unrestricted host paths remain blocked. Paths and selected files
-retain their ordinary backend checks.
+MOVE_FILE retains its final-basename-only source contract. COPY_FILE, DELETE_FILE
+and RENAME_FILE also accept [ordinary directory patterns](directory-globs.md),
+including whole directory globstar. Bracket classes, traversal, implicit devices,
+socket/DAQ endpoints and unrestricted host paths remain blocked. Paths and selected
+files retain their ordinary backend checks.
 
 ## Existing batch guarantees
 

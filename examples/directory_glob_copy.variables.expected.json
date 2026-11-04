@@ -1,0 +1,46 @@
+[
+  {
+    "program": "DIRECTORY_GLOB_COPY",
+    "path": "NAMES",
+    "type": [
+      "ARRAY",
+      4,
+      [
+        "STRING",
+        64
+      ]
+    ],
+    "value": [
+      "dst/backup_part0.PY",
+      "dst/backup_part1.PY",
+      "dst/backup_part2.PY",
+      {
+        "uninitialized": true
+      }
+    ]
+  },
+  {
+    "program": "DIRECTORY_GLOB_COPY",
+    "path": "COUNT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 3
+  },
+  {
+    "program": "DIRECTORY_GLOB_COPY",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "DIRECTORY_GLOB_COPY",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

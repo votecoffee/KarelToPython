@@ -1,0 +1,8 @@
+PROGRAM DIRECTORY_GLOB_RENAME
+VAR names:ARRAY[3]OF STRING[64] count,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    RENAME_FILE('src/line?/part?.KL','done/*.DAT',FALSE,status) FILE_LIST('done/*',0,0,names,count,status)
+    done=TRUE
+  ENDIF
+END DIRECTORY_GLOB_RENAME

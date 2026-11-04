@@ -314,9 +314,9 @@ class CrossBankGuardTests(unittest.TestCase):
         self.assertEqual(snapshots(ctx),before)
     def test_destination_question_template_is_rejected(self):
         ctx=context();before=snapshots(ctx);self.assertEqual(move(ctx,target='PIP:?.NEW'),2);self.assertEqual(snapshots(ctx),before)
-    def test_recursive_source_parent_is_rejected(self):
+    def test_recursive_source_traversal_is_rejected(self):
         ctx=context()
-        with self.assertRaises(rt.KarelRuntimeError):move(ctx,'src/**/*.kl','PIP:*.NEW')
+        with self.assertRaises(rt.KarelRuntimeError):move(ctx,'src/**/../*.kl','PIP:*.NEW')
     def test_reserved_generated_destination_is_rejected(self):
         ctx=exported()
         with self.assertRaises(rt.KarelRuntimeError):move(ctx,'PIP:A.NEW','CON')

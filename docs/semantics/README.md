@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [directory-pattern ledger](directory_glob_semantics.json) supersedes earlier
+ordinary source directory wildcard/recursion exclusions for COPY/DELETE/RENAME.
+PIP sources, MOVE_FILE and FILE_LIST retain their separate pattern contracts.
+
 The [collection ARRAY transfer ledger](collection_array_transfer_semantics.json)
 supersedes earlier whole-bank GET_VAR/SET_VAR exclusions for PATH/QUEUE_TYPE.
 Ordinary source resource values and FILE transfers retain their guards.

@@ -1,0 +1,8 @@
+PROGRAM LIB
+ROUTINE work:INTEGER
+VAR status:INTEGER
+BEGIN
+  RENAME_FILE('src/**/*.KL','PIP:*.NEW',FALSE,status)
+  RETURN(status)
+END work
+BEGIN END LIB

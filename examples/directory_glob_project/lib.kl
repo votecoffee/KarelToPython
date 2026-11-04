@@ -1,0 +1,8 @@
+PROGRAM LIB
+ROUTINE work:INTEGER
+VAR status:INTEGER
+BEGIN
+  COPY_FILE('src/*/*.KL','dst/*.PY',FALSE,FALSE,status)
+  RETURN(status)
+END work
+BEGIN END LIB

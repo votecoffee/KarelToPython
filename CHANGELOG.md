@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1103.232947 - 2026-11-03
+
+- Add ordinary source directory star/question and whole-directory globstar
+  matching to bounded COPY_FILE, DELETE_FILE and RENAME_FILE batches.
+- Retain literal root/device scope, final-name destination templates, complete
+  collision/busy/alias/quota checks and synchronous backend publication rules.
+- Bound rooted traversal and matching work; reject links/junctions and unsafe
+  paths, recheck nested source changes, and preserve flat pipe/MOVE_FILE contracts.
+- Add 86 regressions, four runnable examples and two linked projects with
+  independent snapshots, typed saved-variable rows and backend service fixtures.
+
 ## 26.1103.225840 - 2026-11-03
 
 - Add explicit logical GET_VAR/SET_VAR copies for whole PATH/QUEUE_TYPE ARRAYs

@@ -1,0 +1,19 @@
+{
+  "files": {
+    "src/a.KL": "a",
+    "src/deep/b.KL": "b",
+    "other/c.KL": "c"
+  },
+  "file_pipes": {
+    "pipes": {
+      "A.NEW": {
+        "sectors": 1,
+        "data": ""
+      },
+      "B.NEW": {
+        "sectors": 1,
+        "data": ""
+      }
+    }
+  }
+}

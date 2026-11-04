@@ -20,9 +20,11 @@ separate Pythonic extension with no overwrite and same-bank preflight, including
 
 ## Patterns and destination templates
 
-Star/question source matchers are allowed only in the final filename. Literal parent paths and optional
-device prefixes remain fixed. No recursive directory search, directory wildcard,
-bracket pattern, absolute host path or traversal is accepted.
+Star/question source matchers apply to final filenames and ordinary directory
+components. Whole directory `**` components can recurse under the separate
+[directory-pattern contract](directory-globs.md); the literal prefix fixes its
+root/device. Plain PIP sources remain flat. Bracket patterns, absolute host paths
+and traversal remain excluded; destination parents stay literal.
 Paths use forward slashes and stay relative to their explicit backend/root.
 Unmapped devices, symlinks, control characters, trailing-dot/space components and
 reserved device basenames fail closed.
@@ -53,7 +55,8 @@ Final basename matching and collision checks use case-insensitive comparisons,
 while source spelling is preserved in substitutions. Parent paths use the
 backend's explicit resolution rules. DirectoryFiles requires the selected source
 and destination parent directories to exist; it never creates them implicitly.
-Matching is nonrecursive even when deeper filenames would match the basename.
+A literal source parent remains nonrecursive. Explicit ordinary directory patterns
+select deeper matches; names are flattened through the existing final-name template.
 
 ## Preflight and publication
 

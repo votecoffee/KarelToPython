@@ -1,0 +1,25 @@
+{
+  "version": "26.1103.232947",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "guide": "../directory-globs.md",
+  "tests": [
+    "tests/test_directory_globs.py",
+    "tests/test_wildcard_file_operations.py",
+    "tests/test_wildcard_rename.py",
+    "tests/test_question_file_wildcards.py",
+    "tests/test_cross_bank_rename.py"
+  ],
+  "procedures": [
+    "COPY_FILE",
+    "DELETE_FILE",
+    "RENAME_FILE"
+  ],
+  "source": "Ordinary explicit banks: star/question directory components; whole directory ** matches zero or more components; literal root/device retained",
+  "mapping": "Existing final-name templates flatten selected basenames; duplicate targets reject whole plan; no implicit destination directories",
+  "limits": "254-character names,32767 scanned/matched entries,64MiB COPY snapshots and existing backend quotas; budget charges scans and matcher components",
+  "guard": "Reject traversal, bracket patterns, selected unsafe names, encountered links/junctions, busy/physical aliases and predictable name/byte/quota changes before publication",
+  "publication": "Prepared memory/device state; rooted per-file operations may retain earlier changes on late host failure; no filesystem transaction",
+  "pipes": "Flat configured PIP sources only; ordinary directory matches may target reserved pipes with existing overwrite/capacity/configuration rules",
+  "boundary": "Authored offline extension; MOVE_FILE/FILE_LIST unchanged; no native compiler/controller filesystem equivalence or strict claim"
+}

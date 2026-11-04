@@ -69,8 +69,9 @@ rollback or isolation from concurrent external filesystem changes.
 
 ## Limits and failures
 
-Existing pattern/template rules apply: nonrecursive final basenames only,
-case-insensitive selection and uppercase PIP names, full-stem/extension star
+Existing pattern/template rules apply: flat PIP source names and optional
+[ordinary source directory patterns](directory-globs.md), case-insensitive matching
+and uppercase PIP names, full-stem/extension star
 substitution, and standalone `*` to preserve a complete filename. Exact calls
 also support extensionless literal names. Destination question substitution,
 unsafe paths, symlinks, socket endpoints and DAQ-owned names remain excluded.
