@@ -61,8 +61,10 @@ class JointAxisScalarTests(unittest.TestCase):
         for expr in ('j[1,2]','j[1][2]'):
             with self.subTest(expr=expr),self.assertRaises(TranslationError):build('out='+expr)
 
-    def test_axis_is_real_without_implicit_integer_narrowing(self):
-        with self.assertRaises(TranslationError):build('n=j[1]')
+    def test_axis_value_narrows_privately_without_changing_real_storage(self):
+        p,_=build('j[1]=7.9 n=j[1]');state=p.run()
+        self.assertEqual((state['N'],state['J']['axes']),(7,[7.9,20.]))
+        self.assertEqual(p._state.values['J'].values[0],7.9)
 
     def test_joint_fields_and_python_attributes_remain_unavailable(self):
         for expr in ('j.j1','j.axes','j.values'):

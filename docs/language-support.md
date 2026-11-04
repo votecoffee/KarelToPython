@@ -1,5 +1,10 @@
 # Language support
 
+[Checked REAL narrowing](real-integral-conversions.md) now truncates finite
+REAL values toward zero at source assignments, private routine interfaces,
+ARRAY/record conversions and GET_VAR/SET_VAR. Integral storage bounds, SHORT
+missing markers, atomic data publication and exact reference contracts remain.
+
 [Directory-pattern moves and listings](directory-file-queries.md) now extend
 MOVE_FILE and FILE_LIST with bounded directory star/question and globstar matching.
 RD/FR moves preserve subdirectories; sorted listings retain all five formats,
@@ -110,7 +115,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.001000. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.003347. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

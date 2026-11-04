@@ -197,7 +197,7 @@ class DataRecordGuardTests(unittest.TestCase):
     def test_unknown_field(self): self.reject('p.ext1=1',code='E_FIELD')
     def test_wrong_real_field_type(self): self.reject('v.x=ON')
     def test_wrong_config_flag_type(self): self.reject('c.cfg_flip=1')
-    def test_wrong_config_turn_type(self): self.reject('c.cfg_turn_no1=1.5')
+    def test_wrong_config_turn_type(self): self.reject('c.cfg_turn_no1=TRUE')
     def test_distinct_record_types_not_interchangeable(self): self.reject('v=p')
     def test_structural_bridge_retains_strict_and_incompatible_guards(self):
         prefix='TYPE look=STRUCTURE x:REAL y:REAL z:REAL ENDSTRUCTURE';declarations='v:VECTOR other:look'

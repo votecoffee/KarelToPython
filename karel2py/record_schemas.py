@@ -39,7 +39,7 @@ def _compatible(target,source,*,models=False):
         elif first[0]==second[0]=='ARRAY':
             result=rt._source_array_pair(first,second) and match(rt.array_leaf_spec(first),rt.array_leaf_spec(second))
         elif first[0]==second[0]=='STRING':result=True
-        elif first[0] in ('INTEGER','BYTE','SHORT','REAL') and second[0] in ('INTEGER','BYTE','SHORT'):
+        elif rt.real_integral_kind(first,second) or first[0] in ('INTEGER','BYTE','SHORT','REAL') and second[0] in ('INTEGER','BYTE','SHORT'):
             result=True
         else:result=rt.config_word_kind(first,second) is not None or rt.positional_conversion_kind(first,second) is not None or (models and _model_pair(first,second) is not None)
         cache[identity]=result;return result
@@ -118,6 +118,7 @@ def _prepare_record_schema(target,value,line=None,*,source_spec=None,models=Fals
         kind=rt.positional_conversion_kind(expected,actual)
         if kind=='joint_width':return rt.convert_joint_width(expected,item,line)
         if kind=='cartesian':return rt.convert_position(expected,item,line)
+        if rt.real_integral_kind(expected,actual):return rt.checked(expected,rt.real_integral_value(expected,item,line),line)
         return rt.checked(expected,rt.require(item,line),line)
     return convert(concrete,source.spec,source),pending
 

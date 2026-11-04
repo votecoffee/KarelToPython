@@ -1,0 +1,11 @@
+PROGRAM REAL_NARROW_RECORDS
+TYPE input_t=STRUCTURE count:REAL label:STRING[8] items:ARRAY[2]OF REAL ENDSTRUCTURE
+output_t=STRUCTURE items:ARRAY[2]OF SHORT label:STRING[3] count:BYTE ENDSTRUCTURE
+VAR original:input_t result:output_t done:BOOLEAN
+
+BEGIN
+  IF UNINIT(done) THEN
+    original.count=7.9 original.label='abcdef' original.items[1]=8.1 original.items[2]=-9.9 result=original
+    done=TRUE
+  ENDIF
+END REAL_NARROW_RECORDS

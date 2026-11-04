@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR original:ARRAY[2]OF REAL result:ARRAY[2]OF INTEGER done:BOOLEAN
+ROUTINE work(values:ARRAY OF SHORT):ARRAY OF INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN original[1]=7.9 original[2]=-8.9 result=work(original) done=TRUE ENDIF
+END MAIN

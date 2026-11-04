@@ -1,0 +1,16 @@
+{
+  "ORIGINAL": [
+    7.9,
+    32767.9
+  ],
+  "RESULT": [
+    7,
+    {
+      "uninitialized": true
+    },
+    9
+  ],
+  "ENTRY": 1,
+  "STATUS": 12311,
+  "DONE": true
+}

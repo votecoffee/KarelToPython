@@ -1,0 +1,21 @@
+{
+  "version": "26.1104.003347",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_real_integral_conversions.py",
+    "tests/test_numeric_arrays.py",
+    "tests/test_numeric_variable_transfers.py",
+    "tests/test_record_schema_conversions.py",
+    "tests/test_record_variable_transfers.py",
+    "tests/test_record_bridges.py"
+  ],
+  "conversion": "Finite REAL math.trunc toward zero, then ordinary INTEGER/BYTE/SHORT receiver checks; no saturation, wrapping or nearest rounding",
+  "source": "Scalar assignments, private arguments/RETURN, matching ARRAY layouts and recursive compatible data records; supplied system-pose CONFIG turns retain bounded validation",
+  "missing": "SHORT32767 canonicalizes to missing in storage and cannot be an initialized scalar result; partial aggregate leaves and variable transfer status12311 retain their conventions",
+  "publication": "Capture before selectors/later arguments; complete aggregate and GET_VAR/SET_VAR data/cache/status preflight; no converted value copy-back",
+  "exact": "Generic typed helpers, BYNAME, linked signatures, raw callback results, typed service/address inputs, FOR controls, READ parsing and typed JSON loading unchanged",
+  "persistence": "Existing numeric values and missing markers only; no live conversion plans or aliases",
+  "boundary": "Authored offline Pythonic extension; native compiler/controller/ABI/rounding and strict equivalence unverified"
+}

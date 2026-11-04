@@ -142,8 +142,8 @@ class RecordBridgeArrayTests(unittest.TestCase):
         self.assertEqual(p.snapshot()['B'],before)
     def test_array_shape_changes_remain_rejected(self):
         with self.assertRaises(TranslationError):compile_program('b=a',prefix=definitions(),decl='a:ARRAY[2]OF u_vector b:ARRAY[3]OF VECTOR')
-    def test_real_user_fields_cannot_narrow_into_integral_association(self):
-        prefix='TYPE item=STRUCTURE segrelSpeed:REAL segmotype:INTEGER segorientype:INTEGER segbreak:BOOLEAN ENDSTRUCTURE'
+    def test_boolean_user_fields_cannot_enter_integral_association(self):
+        prefix='TYPE item=STRUCTURE segrelSpeed:BOOLEAN segmotype:INTEGER segorientype:INTEGER segbreak:BOOLEAN ENDSTRUCTURE'
         with self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl='a:item b:GROUP_ASSOC')
 
 

@@ -306,7 +306,7 @@ class ArraySchemaBoundaryTests(unittest.TestCase):
         self.assertEqual(p._state.values['B'].values[0].spec[1],'TWO')
 
     def test_boolean_and_numeric_terminals_remain_separate(self):
-        for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN'),('REAL','INTEGER')):
+        for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN')):
             with self.assertRaises(TranslationError):build(first=first,second=second)
 
     def test_unknown_byte_query_is_not_enabled_by_retyping(self):

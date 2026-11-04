@@ -1,0 +1,11 @@
+PROGRAM REAL_NARROW_SCALARS
+
+VAR original:REAL result:INTEGER octet:BYTE small:SHORT missing:BOOLEAN done:BOOLEAN
+ROUTINE bump(value:INTEGER):INTEGER
+BEGIN value=value+1 RETURN value END bump
+BEGIN
+  IF UNINIT(done) THEN
+    original=7.9 result=bump(original) octet=255.99 small=32767.9 missing=UNINIT(small)
+    done=TRUE
+  ENDIF
+END REAL_NARROW_SCALARS

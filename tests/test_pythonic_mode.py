@@ -191,7 +191,7 @@ class PythonicGuardTests(unittest.TestCase):
                 compile_program('r=' + expression)
 
     def test_structural_checks_remain(self):
-        for body in ('r=s', 'i=0.1'):
+        for body in ('r=s', 'i=TRUE'):
             with self.subTest(body=body), self.assertRaises((TranslationError, rt.KarelRuntimeError)):
                 execute(body)
 

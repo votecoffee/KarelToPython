@@ -1,0 +1,92 @@
+[
+  {
+    "program": "REAL_NARROW_RECORDS",
+    "path": "ORIGINAL",
+    "type": [
+      "STRUCTURE",
+      "INPUT_T",
+      [
+        [
+          "COUNT",
+          [
+            "REAL"
+          ]
+        ],
+        [
+          "LABEL",
+          [
+            "STRING",
+            8
+          ]
+        ],
+        [
+          "ITEMS",
+          [
+            "ARRAY",
+            2,
+            [
+              "REAL"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "COUNT": 7.9,
+      "LABEL": "abcdef",
+      "ITEMS": [
+        8.1,
+        -9.9
+      ]
+    }
+  },
+  {
+    "program": "REAL_NARROW_RECORDS",
+    "path": "RESULT",
+    "type": [
+      "STRUCTURE",
+      "OUTPUT_T",
+      [
+        [
+          "ITEMS",
+          [
+            "ARRAY",
+            2,
+            [
+              "SHORT"
+            ]
+          ]
+        ],
+        [
+          "LABEL",
+          [
+            "STRING",
+            3
+          ]
+        ],
+        [
+          "COUNT",
+          [
+            "BYTE"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "ITEMS": [
+        8,
+        -9
+      ],
+      "LABEL": "abc",
+      "COUNT": 7
+    }
+  },
+  {
+    "program": "REAL_NARROW_RECORDS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

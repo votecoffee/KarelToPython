@@ -1,0 +1,19 @@
+{
+  "ORIGINAL": {
+    "COUNT": 7.9,
+    "LABEL": "abcdef",
+    "ITEMS": [
+      8.1,
+      -9.9
+    ]
+  },
+  "RESULT": {
+    "ITEMS": [
+      8,
+      -9
+    ],
+    "LABEL": "abc",
+    "COUNT": 7
+  },
+  "DONE": true
+}

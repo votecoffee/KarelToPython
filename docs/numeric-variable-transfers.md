@@ -8,7 +8,7 @@ scalars and terminal elements of same-rank ARRAY prefix transfers:
 | INTEGER, BYTE or SHORT | INTEGER, BYTE or SHORT | Validate source domain, then check receiver domain |
 | INTEGER, BYTE or SHORT | REAL | Validate source domain and promote to finite Python float |
 | REAL | REAL | Existing finite REAL copy |
-| REAL | INTEGER, BYTE or SHORT | Incompatible type status 3; use an explicit source conversion |
+| REAL | INTEGER, BYTE or SHORT | [Truncate toward zero and validate receiver](real-integral-conversions.md) |
 | BOOLEAN | Numeric, or numeric to BOOLEAN | Incompatible type status 3 |
 
 The [existing variable transfer contract](variable-transfers.md) defines lookup,
@@ -49,7 +49,7 @@ numeric values. An unknown BYTE outside the copied prefix is not read numericall
 Every copied known source value is validated against its declared source type
 before conversion. A malformed BYTE 256 cannot become valid REAL data merely
 because REAL can represent the number. Receiver bounds and INTEGER MAXINT storage
-exclusion remain checked. No rounding, saturation or wrapping is introduced.
+exclusion remain checked. REAL narrowing truncates toward zero; nearest rounding, saturation and wrapping remain absent.
 
 Prepare the complete replacement before publishing data, cache entry or status.
 A late overflow, invalid source value or unknown-BYTE promotion raises without

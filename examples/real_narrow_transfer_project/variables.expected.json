@@ -1,0 +1,34 @@
+[
+  {
+    "program": "MAIN",
+    "path": "ORIGINAL",
+    "type": [
+      "REAL"
+    ],
+    "value": 7.9
+  },
+  {
+    "program": "MAIN",
+    "path": "RESULT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "MAIN",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -1,0 +1,5 @@
+PROGRAM LIB
+ROUTINE work(value:REAL):INTEGER
+VAR entry,status:INTEGER
+BEGIN SET_VAR(entry,'MAIN','RESULT',value,status) RETURN status END work
+BEGIN END LIB

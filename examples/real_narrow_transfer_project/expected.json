@@ -1,0 +1,15 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ORIGINAL": 7.9,
+      "RESULT": 7,
+      "STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

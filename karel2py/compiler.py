@@ -2072,6 +2072,7 @@ class Emitter:
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
         if self.is_array_prefix_value(argument):return False
         actual=self.access_type(argument)
+        if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):return False
         if self.mode=='pythonic' and (rt.config_word_kind(expected,actual) or rt.numeric_array_kind(expected,actual) or rt.positional_array_kind(expected,actual) or rt.kinematic_array_kind(expected,actual)):return False
         if self.mode=='pythonic' and expected[0]==actual[0]=='JOINTPOS' and expected!=actual:return False
         if self.mode=='pythonic' and ((expected[0]=='JOINTPOS' and actual[0] in ('POSITION','XYZWPR','XYZWPREXT')) or (actual[0]=='JOINTPOS' and expected[0] in ('POSITION','XYZWPR','XYZWPREXT'))):return False
@@ -2987,7 +2988,12 @@ class Emitter:
                     self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY arguments require borrowed storage without grouping',argument.token)
                 code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
-            if self.mode=='pythonic' and rt.config_word_kind(expected,actual):
+            if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
+                value,_=self.expression(argument)
+                code=f'_rt.value_argument({expected!r},_rt.real_integral_value({expected!r},{value},{line}),{line})'
+                is_reference,actual=False,expected;conversion_kind='real_integral'
+                self.features.add('checked REAL to integral value argument')
+            elif self.mode=='pythonic' and rt.config_word_kind(expected,actual):
                 value,_=self.expression(argument)
                 value=self.config_word_conversion(expected,actual,value,argument.token,'ARGUMENT')
                 code=f'_rt.value_argument({expected!r},{value},{line})'
@@ -3732,6 +3738,9 @@ class Emitter:
             if not path:
                 if actual[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
                     self.error('E_TYPE','System pose assignment requires a Cartesian pose',expr.token)
+            elif self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
+                value=f'_rt.real_integral_value({expected!r},{value},{line})'
+                self.features.add('checked REAL to integral system pose field')
             elif not self.compatible(expected,actual):
                 self.error('E_TYPE',f'System pose field requires {expected}',expr.token)
             captured=self.fresh();self.line(f'{captured}=_rt.assignment_value({value},{line})',token)
@@ -3797,6 +3806,9 @@ class Emitter:
                     self.record_schema_uses.append(dict(operation='ASSIGNMENT',body=self.current_routine.name,line=line,column=token.column,
                         source_type_spec=value_type,target_type_spec=target_type,conversion_kind='record_array',
                         evaluated_once=True,independent_value=True,actual_receiver_schema=True))
+            elif self.mode=='pythonic' and rt.real_integral_kind(target_type,value_type):
+                value=f'_rt.real_integral_value({target_type!r},{value},{line})'
+                self.features.add('checked REAL to integral assignment')
             elif self.mode=='pythonic' and rt.config_word_kind(target_type,value_type):
                 value=self.config_word_conversion(target_type,value_type,value,token,'ASSIGNMENT')
             elif self.mode=='pythonic' and rt.numeric_array_kind(target_type,value_type):
@@ -4197,7 +4209,11 @@ class Emitter:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
-                if self.mode=='pythonic' and rt.config_word_kind(spec,value_type):
+                if self.mode=='pythonic' and rt.real_integral_kind(spec,value_type):
+                    value=f'_rt.real_integral_value({spec!r},{value},{line})'
+                    value_type=spec;conversion_kind='real_integral'
+                    self.features.add('checked REAL to integral result')
+                elif self.mode=='pythonic' and rt.config_word_kind(spec,value_type):
                     value=self.config_word_conversion(spec,value_type,value,token,'RETURN')
                     value_type=spec;conversion_kind='config_word'
                 elif self.mode=='pythonic' and rt.numeric_array_kind(spec,value_type):
@@ -6787,7 +6803,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='Base then all indexes once left-to-right; validate declared schema and selected ARRAY/joint containers before capturing an ordinary REAL reference; no partial row views',
         interfaces='Exact REAL routine aliases, private grouped values, READ and scalar service outputs; GET_VAR/SET_VAR/BYNAME paths use the same declared joint checks',
         ordering='Assignment RHS before target selectors; READ captures destination before formats; retained references survive ordinary whole-joint replacement and cooperative pause without recapture',
-        boundaries='REAL axes remain invalid INTEGER/status/FOR controls; no joint field names, implicit robot/group/unit discovery, geometry certification or relaxation of complete model/width conversion checks',
+        boundaries='REAL axis references remain exact for INTEGER/status/FOR controls; source value narrowing follows real_integral_policy; no joint field names, implicit robot/group/unit discovery, geometry certification or relaxation of complete model/width conversion checks',
         persistence='Ordinary typed joint axes and partial markers only; no references, captured selectors or suspended execution',
         evidence='Authored Pythonic input extension; no native KAREL syntax/compiler/controller or strict-mode equivalence claim',
         guide='docs/joint-axis-access.md',controller_validated=False)
@@ -6832,6 +6848,23 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing robot JSON selections; values are private INTEGERs, never writable READ/service/timer/FOR aliases',
         boundary='Portable selection policy only; no native special-number mapping, automatic KAREL/TP frame copying, discovery, hardware/controller writes or strict equivalence',
         guide='docs/frame-tool-selection.md',controller_validated=False)
+    report['real_integral_policy']=dict(
+        source='Pythonic ordinary scalar assignments, source routine arguments/RETURN, matching ARRAY layouts, compatible user/builtin record fields and explicit GET_VAR/SET_VAR; supplied system-pose CONFIG turn writes use the same data rule',
+        conversion='Finite REAL truncates toward zero with Python math.trunc, then validates the integral receiver domain; no nearest rounding, saturation, wrap or Boolean/string truthiness',
+        domains='INTEGER -2147483648..2147483646 excludes MAXINT; BYTE0..255; SHORT -32768..32767 with 32767 canonicalized to missing by storage and disallowed as an initialized scalar result',
+        capture='Convert once before destination selectors or later routine arguments; schema-changing values and converted bare formals own private writable data, including retained handlers and pause/resume; no copy-back',
+        aggregates='Validate complete declared source and receiver data, stage all copied leaves before publication, retain shapes/receiver identities and unused variable-transfer tails; missing aggregate data propagates without inventing numeric values',
+        variables='GET_VAR/SET_VAR preserve atomic data/cache/status updates; copied missing data or truncated SHORT32767 gives status12311; incompatible categories retain status3; overflow raises before publication',
+        exact='Generic checked/integer/value/reference helpers, BYNAME, linked declared signatures and raw callback results remain exact; service INTEGER/address/status inputs, FOR controls, READ parsing and JSON schemas keep their existing checks',
+        persistence='Ordinary finite REAL and resulting integral/missing values use existing typed context/VR data; no conversion object, live alias or suspended frame serialization',
+        boundary='Authored offline Pythonic conversion; no native REAL rounding, compiler/controller/ABI/status equivalence or public strict expansion',
+        guide='docs/real-integral-conversions.md',controller_validated=False)
+    report['scalar_narrow_policy']['guards']='Initialized BYTE/SHORT FOR domains and missing markers remain; INTEGER output references stay exact; source REAL narrowing follows real_integral_policy'
+    report['numeric_array_policy']['conversions']='Checked INTEGER/BYTE/SHORT family changes, integral-to-REAL promotion and REAL truncation under real_integral_policy; no BOOLEAN or STRING coercion'
+    report['numeric_variable_transfer_policy']['boundary']='REAL-to-integral follows real_integral_policy; no BOOLEAN/numeric or rank conversion; positional and source ARRAY conversions retain separate policies'
+    report['record_schema_policy']['limits']='No field additions/removal/rename, resources, BOOLEAN/numeric or logical reshape; REAL narrowing follows real_integral_policy; POSITION construction requires valid geometry; model-backed fields require kinematic_record_policy'
+    report['record_bridge_policy']['conversions']='Checked integral-family changes, REAL promotion and REAL narrowing under real_integral_policy; bounded STRING, CONFIG word and positional/model leaves; no field renaming or truthiness'
+    report['record_variable_transfer_policy']['boundary']='REAL narrowing follows real_integral_policy; model-backed fields require kinematic_variable_transfer_policy; no field renaming/addition/removal, BOOLEAN/numeric, native cache/ABI/controller equivalence, strict mode or generic helper compatibility relaxation'
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:

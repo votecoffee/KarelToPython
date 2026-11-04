@@ -125,7 +125,7 @@ class JointGuardTests(unittest.TestCase):
         for name in ('JOINTPOS0','JOINTPOS10'):
             with self.subTest(name=name): self.reject(declarations=f'j: {name}')
     def test_group_qualifier(self): self.reject(code='E_POSITION_GROUP',declarations='j: JOINTPOS3 IN GROUP[1]', _translator=legacy_translate)
-    def test_direct_joint_index_not_invented(self): self.reject('s=j[1]')
+    def test_extra_joint_index_not_invented(self): self.reject('s=j[1,2]',code='E_ARRAY_RANK')
     def test_direct_joint_fields_not_invented(self): self.reject('j.j1=1')
     def test_strict_joint_value_argument_requires_initialized_axes(self):
         program,_=compile_program('load((j))',routines='ROUTINE load(value: JOINTPOS3) BEGIN END load', _translator=legacy_translate)

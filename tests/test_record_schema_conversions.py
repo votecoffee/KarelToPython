@@ -282,8 +282,8 @@ class RecordSchemaBoundaryTests(unittest.TestCase):
         prefix='TYPE in_t=STRUCTURE value:INTEGER ENDSTRUCTURE out_t=STRUCTURE renamed:REAL ENDSTRUCTURE'
         with self.assertRaises(TranslationError):compile_program('b=a',prefix=prefix,decl='a:in_t b:out_t')
 
-    def test_boolean_and_real_to_integral_stay_rejected(self):
-        for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN'),('REAL','INTEGER')):
+    def test_boolean_numeric_fields_stay_rejected(self):
+        for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN')):
             with self.assertRaises(TranslationError):simple(first=first,second=second)
 
     def test_builtin_and_user_records_require_matching_fields(self):

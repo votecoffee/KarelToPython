@@ -299,7 +299,7 @@ class BoundaryTests(unittest.TestCase):
                 self.rejected(routines=f'ROUTINE work: {name} BEGIN RETURN 1 END work', code='E_RETURN_TYPE', _translator=legacy_translate)
 
     def test_wrong_scalar_assignment_types_rejected(self):
-        for body in ('bytes[1] = TRUE', 'shorts[1] = 1.5', "bytes[1] = 'x'"):
+        for body in ('bytes[1] = TRUE', "shorts[1] = '1.5'", "bytes[1] = 'x'"):
             with self.subTest(body=body): self.rejected(body)
 
     def test_narrow_scalar_cannot_bind_boolean_formal(self):

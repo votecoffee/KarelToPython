@@ -41,7 +41,7 @@ their existing missing-data behavior.
 ARRAY fields within a converted record must match every logical dimension;
 receiver component names and flat/nested layout may differ. Field additions,
 removal/rename, builtin-record/user-record interchange, BOOLEAN/numeric,
-REAL-to-integral and resource fields remain excluded. Joint/Cartesian model
+[REAL-to-integral truncation](real-integral-conversions.md) now follows the checked Pythonic data rule; resource fields remain excluded. Joint/Cartesian model
 changes now follow [model-backed variable transfers](kinematic-variable-transfers.md)
 when explicit robot context is supplied. With no robot service, they retain
 incompatible status 3. Configured context/data/model failures preserve outputs.

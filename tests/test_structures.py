@@ -286,8 +286,8 @@ class StructureRejectionTests(unittest.TestCase):
     def test_wrong_scalar_field_type(self):
         self.rejected('item.count = TRUE')
 
-    def test_real_to_integer_field_requires_conversion(self):
-        self.rejected('item.count = 2.5')
+    def test_string_to_integer_field_requires_parsing(self):
+        self.rejected("item.count = '2.5'")
 
     def test_whole_structure_uninit_blocked(self):
         self.rejected('flag = UNINIT(item)')

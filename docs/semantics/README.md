@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [REAL narrowing ledger](real_integral_semantics.json) supersedes earlier
+REAL-to-integral exclusions at source scalar/ARRAY/record and GET_VAR/SET_VAR
+boundaries. Generic typed references and unrelated input/address contracts stay
+exact; public strict mode remains a future milestone.
+
 The [directory move/listing ledger](directory_file_query_semantics.json)
 supersedes earlier directory-pattern exclusions for MOVE_FILE and adds explicit
 component matching to FILE_LIST. Their legacy flat-pattern behavior and distinct

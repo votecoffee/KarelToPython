@@ -1,0 +1,52 @@
+[
+  {
+    "program": "REAL_NARROW_SCALARS",
+    "path": "ORIGINAL",
+    "type": [
+      "REAL"
+    ],
+    "value": 7.9
+  },
+  {
+    "program": "REAL_NARROW_SCALARS",
+    "path": "RESULT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 8
+  },
+  {
+    "program": "REAL_NARROW_SCALARS",
+    "path": "OCTET",
+    "type": [
+      "BYTE"
+    ],
+    "value": 255
+  },
+  {
+    "program": "REAL_NARROW_SCALARS",
+    "path": "SMALL",
+    "type": [
+      "SHORT"
+    ],
+    "value": {
+      "uninitialized": true
+    }
+  },
+  {
+    "program": "REAL_NARROW_SCALARS",
+    "path": "MISSING",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "REAL_NARROW_SCALARS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

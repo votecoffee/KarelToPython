@@ -32,7 +32,7 @@ Nested fields may themselves bridge compatible built-in/user records. Matching
 logical ARRAY dimensions use the existing named/flat/nested schema conversion
 rules. Numeric fields retain checked integral-family conversions and promotion
 to REAL; STRING capacities retain existing truncation/widening rules. There is
-no implicit REAL-to-integral conversion, BOOLEAN truthiness, field renaming,
+[checked REAL narrowing](real-integral-conversions.md) at these data boundaries, without BOOLEAN truthiness, field renaming,
 field addition/removal, resize or logical reshape.
 
 These bridges apply at whole assignment, ordinary routine argument and RETURN

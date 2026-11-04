@@ -70,13 +70,14 @@ class NumericVariableTransferTests(unittest.TestCase):
             with self.subTest(kind=kind),self.assertRaises(rt.KarelRuntimeError):p.run()
             self.assertEqual((p.snapshot()['B'],p.snapshot()['E'],p.snapshot()['S']),(8.,99,77))
 
-    def test_real_to_integral_remains_incompatible_without_rounding(self):
+    def test_real_to_integral_truncates_with_checked_receivers(self):
         for target in TYPES[:-1]:
             for array in (False,True):
                 decl=f'a:REAL b:{target}' if not array else f'a:ARRAY[1] OF REAL b:ARRAY[1] OF {target}'
-                setup='a=7.0 b=9' if not array else 'a[1]=7.0 b[1]=9'
+                setup='a=7.9 b=9' if not array else 'a[1]=7.9 b[1]=9'
                 p,_=build('e=99 '+setup+' '+transfer(),decl)
-                with self.subTest(target=target,array=array):self.assertEqual((p.run()['S'],p.snapshot()['E'],p.snapshot()['B']),(3,99,[9] if array else 9))
+                with self.subTest(target=target,array=array):
+                    self.assertEqual((p.run()['S'],p.snapshot()['E'],p.snapshot()['B']),(0,1,[7] if array else 7))
 
     def test_boolean_never_enters_numeric_conversions(self):
         for source_type,target_type in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN'),('BOOLEAN','REAL')):

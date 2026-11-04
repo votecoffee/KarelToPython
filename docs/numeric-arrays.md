@@ -11,7 +11,7 @@ preserve receiver schemas across named types and matching nested components.
 | INTEGER, BYTE, SHORT | Different INTEGER, BYTE, SHORT | Check the source domain and then the receiver domain |
 | INTEGER, BYTE, SHORT | REAL | Promote checked values to finite Python floats |
 | Same numeric type | Same numeric type | Existing checked copy or bare-reference contract |
-| REAL | INTEGER, BYTE, SHORT | Rejected; use explicit ROUND/TRUNC per element |
+| REAL | INTEGER, BYTE, SHORT | [Truncate toward zero, then check receiver domain](real-integral-conversions.md) |
 | CONFIG | INTEGER, BYTE, SHORT | [Portable word encoding](config-words.md), with checked destination domains |
 | INTEGER, BYTE, SHORT | CONFIG | Portable word decoding in 0..65535 |
 | BOOLEAN, STRING, resource or other record | Numeric | Rejected |
@@ -75,7 +75,7 @@ conversion. Malformed BYTE 256 does not become valid REAL data. INTEGER MAXINT
 storage exclusion, strict Boolean separation and checked BYTE/SHORT ranges remain.
 SHORT 32767 normalizes to missing data during source copying, and narrowing a
 valid INTEGER 32767 to SHORT also creates its existing missing sentinel. There is
-no wrapping, saturation, Boolean coercion or implicit REAL rounding.
+no wrapping, saturation, Boolean coercion or nearest rounding; REAL narrowing follows the documented truncation rule.
 
 A late invalid source leaf or receiver overflow fails the complete conversion.
 No partially converted destination, argument or RETURN result is published.

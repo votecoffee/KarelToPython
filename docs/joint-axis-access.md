@@ -22,8 +22,9 @@ model conversion and joint-width changes retain their existing full-input checks
 
 JOINTPOS1 through JOINTPOS9 retain their declared width; bare JOINTPOS is nine
 slots. Each final axis index must be INTEGER-compatible and within 1..width.
-BOOLEAN truthiness, REAL indexes, implicit axis-to-INTEGER conversion and native
-joint field names such as J1 are not added. A REAL axis cannot become a FOR counter
+BOOLEAN truthiness, REAL indexes and native joint field names such as J1 remain
+excluded. Axis values may use [checked REAL narrowing](real-integral-conversions.md)
+at ordinary source data boundaries; the axis reference itself retains REAL type. A REAL axis cannot become a FOR counter
 or an INTEGER/status output alias. No robot service or joint_axes constructor
 context is needed for this data-only operation.
 

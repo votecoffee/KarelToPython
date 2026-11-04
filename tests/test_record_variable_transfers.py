@@ -142,7 +142,7 @@ class RecordTransferMissingTests(unittest.TestCase):
         p,_=build(second='SHORT');seed(p,32767);self.assertEqual((p.run()['B']['COUNT'],p.snapshot()['S']),(U,12311))
 
     def test_missing_type_incompatible_record_does_not_clear_receiver(self):
-        p,_=build('e=99 '+call(),first='REAL',second='INTEGER');seed(p);p._state.values['A']=rt.UNINITIALIZED;before=p.snapshot()['B'];v=p.run();self.assertEqual((v['B'],v['E'],v['S']),(before,99,3))
+        p,_=build('e=99 '+call(),first='BOOLEAN',second='INTEGER');seed(p);p._state.values['A']=rt.UNINITIALIZED;before=p.snapshot()['B'];v=p.run();self.assertEqual((v['B'],v['E'],v['S']),(before,99,3))
 
 
 class RecordPrefixTransferTests(unittest.TestCase):
@@ -320,8 +320,8 @@ class RecordTransferBoundaryTests(unittest.TestCase):
             prefix='TYPE in_t=STRUCTURE count:INTEGER label:STRING[8] ENDSTRUCTURE out_t=STRUCTURE '+target+' ENDSTRUCTURE'
             p,_=compile_program('e=99 '+call(),prefix=prefix,decl='a:in_t b:out_t e,s:INTEGER');self.assertEqual((p.run()['E'],p.snapshot()['S']),(99,3))
 
-    def test_boolean_and_real_to_integral_fields_are_status_only(self):
-        for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN'),('REAL','INTEGER')):
+    def test_boolean_numeric_fields_are_status_only(self):
+        for first,second in (('BOOLEAN','INTEGER'),('INTEGER','BOOLEAN')):
             p,_=build('e=99 '+call(),first=first,second=second);v=p.run();self.assertEqual((v['E'],v['S']),(99,3))
 
     def test_generic_transfer_helper_requires_explicit_record_opt_in(self):

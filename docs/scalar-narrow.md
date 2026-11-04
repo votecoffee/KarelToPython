@@ -23,8 +23,9 @@ milestone.
 Assignments from integral expressions check the destination range. Arithmetic
 promotes narrow operands to ordinary Pythonic numeric values: adding one to 255
 produces 256, which an `INTEGER` can hold and a `BYTE` cannot. Narrow values can
-promote to `INTEGER` and `REAL`. There is no wrapping, REAL-to-narrow conversion,
-or Boolean/string coercion. Out-of-range assignments preserve the previous
+promote to `INTEGER` and `REAL`. [Checked REAL narrowing](real-integral-conversions.md)
+now truncates finite REAL source values toward zero before checking the receiver
+range. There is no wrapping, saturation or Boolean/string coercion. Out-of-range assignments preserve the previous
 destination.
 
 Unknown BYTE contents are distinct from uninitialized SHORT storage. Scalar

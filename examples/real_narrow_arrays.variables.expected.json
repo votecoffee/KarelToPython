@@ -1,0 +1,40 @@
+[
+  {
+    "program": "REAL_NARROW_ARRAYS",
+    "path": "ORIGINAL",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "REAL"
+      ]
+    ],
+    "value": [
+      7.9,
+      -8.9
+    ]
+  },
+  {
+    "program": "REAL_NARROW_ARRAYS",
+    "path": "RESULT",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      9,
+      -8
+    ]
+  },
+  {
+    "program": "REAL_NARROW_ARRAYS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -185,6 +185,23 @@ def integer(value, line=None):
     return value
 
 
+def real_integral_kind(target,source):
+    """Describe the source/value conversion without relaxing typed references."""
+    return target in (('INTEGER',),('BYTE',),('SHORT',)) and source==('REAL',)
+
+
+def real_integral_value(target,value,line=None):
+    """Pythonic truncation toward zero, followed by ordinary storage checks."""
+    if not _pythonic() or not real_integral_kind(target,('REAL',)):
+        raise KarelRuntimeError('REAL narrowing requires a Pythonic integral receiver',line)
+    require(value,line)
+    if type(value) is not float or not math.isfinite(value):
+        raise KarelRuntimeError('REAL narrowing requires finite REAL data',line)
+    result=math.trunc(value)
+    checked(target,result,line)
+    return result
+
+
 def boolean(value, line=None):
     require(value, line)
     if type(value) is not bool:
@@ -505,6 +522,7 @@ def numeric_array_kind(target,source):
         if config_word_kind(first,second):return 'config_word'
         if first==('REAL',) and second in integral:return 'promote_real'
         if first in integral and second in integral:return 'checked_integral'
+        if real_integral_kind(first,second):return 'truncate_real'
     except (KarelRuntimeError,TypeError,IndexError):return None
     return None
 
@@ -520,7 +538,7 @@ def convert_numeric_array(target,value,line=None):
     for (output,index),(storage,key) in zip(_array_conversion_cells(result),_array_conversion_cells(source)):
         item=storage[key]
         output[index]=(_config_word_data(leaf,source_leaf,item,line) if word
-                       else UNINITIALIZED if item is UNINITIALIZED else checked(leaf,require(item,line),line))
+                       else UNINITIALIZED if item is UNINITIALIZED else checked(leaf,real_integral_value(leaf,item,line),line) if real_integral_kind(leaf,source_leaf) else checked(leaf,require(item,line),line))
     return result
 
 

@@ -170,9 +170,9 @@ class RejectionTests(unittest.TestCase):
             with self.subTest(kind=kind): self.reject('x = 1', 'E_TYPE', declarations='x: ' + kind,
                                                     _translator=legacy_translate if kind=='BYTE' else translate)
 
-    def test_real_literal_and_division(self):
-        self.reject('x = 1.25', 'E_TYPE')
-        self.reject('x = 4 / 2', 'E_TYPE')
+    def test_legacy_real_literal_and_division(self):
+        self.reject('x = 1.25', 'E_TYPE', _translator=legacy_translate)
+        self.reject('x = 4 / 2', 'E_TYPE', _translator=legacy_translate)
 
     def test_unknown_symbols_and_calls(self):
         self.reject('x = missing', 'E_SYMBOL')

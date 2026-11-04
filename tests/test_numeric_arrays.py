@@ -117,8 +117,8 @@ class NumericArrayAssignmentTests(unittest.TestCase):
                 self.assertEqual(p.run()['B'],[1.,2.]);self.assertEqual(p._state.values['A'].spec,original)
                 self.assertEqual(p._state.values['B'].spec,p._state.types['B'])
 
-    def test_real_to_integral_and_boolean_numeric_pairs_remain_rejected(self):
-        for first,second in [('REAL','INTEGER'),('REAL','BYTE'),('REAL','SHORT'),('BOOLEAN','REAL'),('INTEGER','BOOLEAN'),('STRING[4]','REAL')]:
+    def test_boolean_and_string_numeric_pairs_remain_rejected(self):
+        for first,second in [('BOOLEAN','REAL'),('INTEGER','BOOLEAN'),('STRING[4]','REAL')]:
             with self.subTest(first=first,second=second),self.assertRaises(TranslationError):build(first=first,second=second)
 
 
@@ -293,7 +293,8 @@ class NumericArrayRuntimeTests(unittest.TestCase):
     def test_named_array_specs_classify_only_supported_numeric_changes(self):
         for target,source_spec in [(('ARRAY',2,('REAL',)),('ARRAY',2,('INTEGER',),'ROW')), (('ARRAY',2,('REAL',),'ROW'),('ARRAY',2,('INTEGER',)))]:
             self.assertEqual(rt.numeric_array_kind(target,source_spec),'promote_real')
-        for target,source_spec in [(('ARRAY',2,('INTEGER',)),('ARRAY',2,('REAL',))), (('ARRAY',2,('REAL',)),('ARRAY',2,('BOOLEAN',)))]:
+        self.assertEqual(rt.numeric_array_kind(('ARRAY',2,('INTEGER',)),('ARRAY',2,('REAL',))),'truncate_real')
+        for target,source_spec in [(('ARRAY',2,('REAL',)),('ARRAY',2,('BOOLEAN',)))]:
             with self.subTest(target=target,source=source_spec):self.assertIsNone(rt.numeric_array_kind(target,source_spec))
 
     def test_legacy_conversion_helper_remains_unavailable(self):

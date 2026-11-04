@@ -56,8 +56,8 @@ class NarrowScalarStorageTests(unittest.TestCase):
                 with self.assertRaisesRegex(rt.KarelRuntimeError, 'outside'): p.run()
                 self.assertEqual(p.snapshot()[name.upper()], 7)
 
-    def test_nonintegral_assignments_remain_rejected(self):
-        for value in ('1.5', 'TRUE', "'4'"):
+    def test_boolean_and_string_assignments_remain_rejected(self):
+        for value in ('TRUE', "'4'"):
             for name in ('b', 'small'):
                 with self.subTest(name=name, value=value), self.assertRaises(TranslationError): program(f'{name}={value}')
 
@@ -175,9 +175,9 @@ class NarrowScalarInterfaceTests(unittest.TestCase):
                 with self.assertRaisesRegex(rt.KarelRuntimeError, message): p.run()
                 self.assertEqual((p.snapshot()['N'], p._state.local_frames), (9, []))
 
-    def test_real_or_boolean_actuals_do_not_silently_narrow(self):
+    def test_boolean_actuals_do_not_silently_narrow(self):
         for kind in ('BYTE', 'SHORT'):
-            for value in ('1.0', 'TRUE'):
+            for value in ('TRUE',):
                 with self.subTest(kind=kind, value=value), self.assertRaises(TranslationError):
                     program(f'put({value})', f'ROUTINE put(a: {kind}) BEGIN END put')
 

@@ -1,0 +1,11 @@
+PROGRAM REAL_NARROW_ARRAYS
+
+VAR original:ARRAY[2]OF REAL result:ARRAY[2]OF INTEGER done:BOOLEAN
+ROUTINE work(values:ARRAY OF SHORT):ARRAY OF INTEGER
+BEGIN values[1]=9 RETURN values END work
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=7.9 original[2]=-8.9 result=work(original)
+    done=TRUE
+  ENDIF
+END REAL_NARROW_ARRAYS

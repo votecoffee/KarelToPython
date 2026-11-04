@@ -39,6 +39,7 @@ ABI or controller-equivalence claim. Public strict mode remains future work.
 | Different user STRUCTURE names/order | Recursively map the identical field-name set |
 | INTEGER/BYTE/SHORT family | Check source domain and receiver range |
 | Integral family to REAL | Practical Python float promotion |
+| REAL to integral family | [Checked truncation toward zero](real-integral-conversions.md) |
 | Bounded STRING capacities | Validate source ASCII/capacity, then right-truncate or widen |
 | ARRAY schemas | Match every logical dimension; rebuild receiver names and flat/nested components |
 | POSITION/XYZWPR/XYZWPREXT | Existing complete context-free Cartesian representation rules |
@@ -97,7 +98,7 @@ ARRAY prefixes. They retain their own missing-container, cache and status rules.
 ## Remaining exclusions
 
 Field additions, removal and renaming,
-resource fields, BOOLEAN/numeric changes and implicit REAL-to-integral conversion
+resource fields and BOOLEAN/numeric changes
 remain excluded. Model-backed JOINT/Cartesian changes inside records and nested
 arrays now use the separate [explicit-model source policy](kinematic-records.md).
 The context-free convert_record_schema helper still never invokes robot services.

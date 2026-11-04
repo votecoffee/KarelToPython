@@ -1,0 +1,59 @@
+[
+  {
+    "program": "REAL_NARROW_VARIABLES",
+    "path": "ORIGINAL",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "REAL"
+      ]
+    ],
+    "value": [
+      7.9,
+      32767.9
+    ]
+  },
+  {
+    "program": "REAL_NARROW_VARIABLES",
+    "path": "RESULT",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "SHORT"
+      ]
+    ],
+    "value": [
+      7,
+      {
+        "uninitialized": true
+      },
+      9
+    ]
+  },
+  {
+    "program": "REAL_NARROW_VARIABLES",
+    "path": "ENTRY",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "REAL_NARROW_VARIABLES",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 12311
+  },
+  {
+    "program": "REAL_NARROW_VARIABLES",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

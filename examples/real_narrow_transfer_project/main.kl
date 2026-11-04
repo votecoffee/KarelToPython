@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR original:REAL result,status:INTEGER done:BOOLEAN
+ROUTINE work(value:REAL):INTEGER FROM LIB
+BEGIN
+  IF UNINIT(done) THEN original=7.9 status=work(original) done=TRUE ENDIF
+END MAIN

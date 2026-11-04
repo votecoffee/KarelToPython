@@ -1,0 +1,10 @@
+PROGRAM REAL_NARROW_VARIABLES
+
+VAR original:ARRAY[2]OF REAL result:ARRAY[3]OF SHORT entry,status:INTEGER done:BOOLEAN
+
+BEGIN
+  IF UNINIT(done) THEN
+    original[1]=7.9 original[2]=32767.9 result[3]=9 GET_VAR(entry,'','ORIGINAL',result,status)
+    done=TRUE
+  ENDIF
+END REAL_NARROW_VARIABLES

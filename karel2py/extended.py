@@ -977,7 +977,8 @@ def variable_reference(reference,line=None):
 def _variable_compatible(target,source,*,numeric=False):
     if target==source or target[0]==source[0]=='STRING': return True
     return numeric and ((target[0]=='REAL' and source[0] in ('INTEGER','BYTE','SHORT'))
-                        or target[0] in ('INTEGER','BYTE','SHORT') and source[0] in ('INTEGER','BYTE','SHORT'))
+                        or target[0] in ('INTEGER','BYTE','SHORT') and source[0] in ('INTEGER','BYTE','SHORT')
+                        or runtime()._pythonic() and runtime().real_integral_kind(target,source))
 
 
 def _variable_copy(spec,value,line=None):
@@ -996,6 +997,13 @@ def _variable_copy(spec,value,line=None):
     if kind=='JOINTPOS':
         copied=rt.JointPosition(spec);copied.values[:]=[_variable_copy(('REAL',),axis,line) for axis in value.values];return copied
     return rt.checked(spec,value,line)
+
+
+def _variable_numeric_copy(target,source,value,line=None):
+    rt=runtime();captured=_variable_copy(source,value,line)
+    if captured is rt.UNINITIALIZED:return captured
+    if rt.real_integral_kind(target,source):return _variable_copy(target,rt.real_integral_value(target,captured,line),line)
+    return _variable_copy(target,captured,line)
 
 
 def _variable_record_copy(spec,source_spec,value,line=None):
@@ -1024,7 +1032,7 @@ def _variable_record_copy(spec,source_spec,value,line=None):
             for (storage,key),member in zip(rt._array_conversion_cells(result),_variable_array_values(actual,item)):
                 storage[key]=convert(first,second,member)
             return result
-        return _variable_copy(expected,_variable_copy(actual,item,line),line)
+        return _variable_numeric_copy(expected,actual,item,line)
     return convert(spec,source_spec,_variable_copy(source_spec,value,line))
 
 
@@ -1108,7 +1116,7 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
         if array_positional:fail('Positional ARRAY conversion requires initialized source values',line)
         return rt.UNINITIALIZED,True
     if not arrays:
-        copied=_variable_record_copy(spec,source.spec,source.value,line) if record_schema else _variable_copy(spec,_variable_copy(source.spec,source.value,line),line)
+        copied=_variable_record_copy(spec,source.spec,source.value,line) if record_schema else _variable_numeric_copy(spec,source.spec,source.value,line)
         return copied,_variable_missing(copied)
     current=target.raw()
     copied=rt.Array(spec) if current is rt.UNINITIALIZED else deepcopy(current)
@@ -1121,7 +1129,7 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
             convert=rt.convert_joint_width if reference.spec[0]=='JOINTPOS' else rt.convert_position
             prepared=convert(reference.spec,captured,line)
         elif array_record:prepared=_variable_record_copy(reference.spec,source_leaf,captured,line)
-        else:prepared=_variable_copy(reference.spec,captured,line)
+        else:prepared=_variable_numeric_copy(reference.spec,source_leaf,captured,line)
         missing|=_variable_missing(prepared)
         reference.storage[reference.key]=rt.replace_value(reference.raw(),prepared)
     return copied,missing

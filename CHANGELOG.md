@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.003347 - 2026-11-04
+
+- Add checked Pythonic finite REAL truncation toward zero into INTEGER/BYTE/SHORT
+  at scalar source, private routine, ARRAY/record and GET_VAR/SET_VAR boundaries.
+- Preserve receiver ranges, MAXINT exclusion, SHORT missing state, private alias
+  ownership, complete aggregate publication and variable cache/status atomicity.
+- Retain exact generic helpers, BYNAME, linked declarations, callback results,
+  typed service/address inputs, FOR controls and input parsing.
+- Add 110 regressions, four standalone examples and two linked projects with
+  independent expected snapshots and typed saved-variable fixtures.
+
 ## 26.1104.001000 - 2026-11-04
 
 - Extend MOVE_FILE and FILE_LIST with bounded directory star/question and

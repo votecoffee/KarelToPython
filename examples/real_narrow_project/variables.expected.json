@@ -1,0 +1,40 @@
+[
+  {
+    "program": "MAIN",
+    "path": "ORIGINAL",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "REAL"
+      ]
+    ],
+    "value": [
+      7.9,
+      -8.9
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "RESULT",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      9,
+      -8
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

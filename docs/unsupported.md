@@ -199,9 +199,11 @@ components with complete-batch pose validation and bounded rounding normalizatio
   arguments and RETURN values while preserving receiver schemas.
   [Source schema conversion](array-schema-conversions.md) now adds same-terminal
   ARRAY names, bounded STRING capacities and flat/nested layouts with matching
-  logical dimensions, including actual generic receiver schemas. Implicit
-  REAL-to-integral conversion, incompatible record fields, rank/dimension
-  changes, equal-count reshape and generic runtime compatibility changes remain blocked.
+  logical dimensions, including actual generic receiver schemas.
+  [Checked REAL narrowing](real-integral-conversions.md) now truncates toward zero
+  at source and explicit variable-transfer data boundaries, including nested
+  records/ARRAYs; generic references and typed service inputs remain exact.
+  Incompatible record fields, rank/dimension changes, equal-count reshape and generic runtime compatibility changes remain blocked.
 - Unbounded/Unicode strings, lengths above 254, implicit numeric-to-BOOLEAN
   truthiness, arbitrary-size INTEGERs, MAXINT as ordinary initialized storage,
   NaN/Infinity and exact native numeric/storage/rounding equivalence. Public
