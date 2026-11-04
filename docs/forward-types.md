@@ -51,8 +51,9 @@ Transparent aliases add no schema depth and long finite chains remain usable.
 Resource fields in STRUCTURE remain prohibited. Supported root FILE/PATH/queue
 aliases and collection ARRAYs keep their existing ownership, initialization and
 interface rules. Wildcard TYPE dimensions, routine-local TYPE declarations,
-forward constant chains, implicit model discovery and unsupported result domains
-remain unavailable. Public strict mode remains a future milestone; internal
+implicit model discovery and unsupported result domains remain unavailable.
+[Forward constant chains](forward-constants.md) now follow their own checked
+module/routine scope policy. Public strict mode remains a future milestone; internal
 legacy translation retains its prior-definition rules.
 
 ## Linking, dynamic creation and saved data

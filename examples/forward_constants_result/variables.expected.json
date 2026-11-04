@@ -1,0 +1,26 @@
+[
+  {
+    "program": "MAIN",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "INTEGER"
+      ],
+      "ROW_T"
+    ],
+    "value": [
+      7,
+      8
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "program": "FORWARD_CONSTANT_SHAPES",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "INTEGER"
+      ],
+      "ROW_T"
+    ],
+    "value": [
+      7,
+      8
+    ]
+  },
+  {
+    "program": "FORWARD_CONSTANT_SHAPES",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

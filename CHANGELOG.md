@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1104.075842 - 2026-11-04
+
+- Resolve acyclic forward CONST chains across module and routine sections with an
+  iterative dependency walk, source-located unknown names and bounded cycle paths.
+- Resolve routine constants before local VAR schemas, including earlier ARRAY
+  dimensions, STRING capacities and group annotations; interfaces remain module-only.
+- Preserve checked scalar operators, immutable values, lexical namespaces and
+  internal legacy ordering. Reject calls, runtime reads and unused invalid graphs.
+- Report source-order values, scoped dependency origins and actual resolution order.
+- Add 90 regressions, four standalone examples and two linked projects with typed
+  expected data and generated CLI/context replay.
+
 ## 26.1104.072519 - 2026-11-04
 
 - Resolve acyclic forward TYPE references across aliases, ARRAY elements,

@@ -1,0 +1,18 @@
+[
+  {
+    "program": "MAIN",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 8
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

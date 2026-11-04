@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Forward CONST references](forward-constants.md) now resolve acyclic module
+and routine chains before dependent schemas. Local VAR declarations may precede
+their local size/capacity constants; lexical scope, checked values and module-only
+routine interfaces remain enforced.
+
 [Forward type references](forward-types.md) now resolve acyclic aliases,
 ARRAY/STRUCTURE components, PATH layouts and routine interfaces before allocation.
 Original nominal identities and source-order metadata remain; cycles, unknown
@@ -162,7 +167,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.072519. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.075842. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -179,6 +184,7 @@ internally and in the historical semantic notes.
 | Motion requests | Seven basic MOVE forms, Cartesian VIA, direct PATH-node destinations and inclusive PATH ranges, hand statements and ATTACH/RELEASE | Explicit [MotionRequests](motion-requests.md) capture-only or immediate scripted responses; detached operands, logical group ownership, independent HOLD/UNHOLD/CANCEL, 21 [local WITH settings](motion-controls.md), including [termination/orientation choices](extended-motion-settings.md) [deceleration/acceleration intent](motion-deceleration-settings.md) and [additional scalar options](motion-options.md), [local WHEN/UNTIL and supplied delays](motion-handlers.md), [scheduled node/time predicates](motion-timeline.md), and bounded JSON history. No trajectories, inferred arrival timing, remaining native motion environment, queued completion or robot feedback updates. |
 | Control flow | Assignment, IF/ELSE, WHILE, REPEAT, inclusive FOR/DOWNTO, SELECT, RETURN | FOR can capture INTEGER/BYTE/SHORT fields/elements/USING fields with checked counter domains; conservative aggregate-root write/reuse guards and exact cleanup apply. Formal/nonlocal roots in parameterized routines require fresh locals; unproven external calls over global aggregate counters remain blocked. [Scalar SELECT](scalar-select.md) accepts finite numeric, BOOLEAN and ASCII STRING categories, evaluates compatible constant/dynamic labels once in source order before choosing the first matching case and errors without a match/ELSE. |
 | Labels | Body-scoped labels and GOTO, nested/sibling IF/WHILE/REPEAT/SELECT targets and active FOR-body transfers | Ordinary continuation, retained active FOR bounds and exited-counter cleanup; no entry into new FOR or USING scopes or cross-routine transfers. See [nested jumps](nested-jumps.md) and [FOR jumps](for-jumps.md). |
+| Constants | Pure scalar module/routine CONST expressions and acyclic forward dependencies across repeated sections | Iterative resolution before dependent schemas; module-only interfaces, lexical scope and immutable values. Calls, runtime storage, cycles and namespace collisions remain blocked. See [forward constants](forward-constants.md). |
 | Routines | Internal procedures/functions, bare zero-argument function calls, fresh local frames, local constants, reference/value arguments, recursion | Depth limit 64; chosen Pythonic left-to-right evaluation; existing FOR rules; typed FROM project/callback linkage; no native external ABI or local TYPE sections. |
 | INTEGER | Checked signed 32-bit expressions, bit operators, DIV and signed MOD | MAXINT excluded from normal storage; DIV truncates toward zero; MOD follows Python remainder. |
 | BOOLEAN | Strict Boolean storage, operators and comparisons | Numeric values are not implicitly Booleans. |

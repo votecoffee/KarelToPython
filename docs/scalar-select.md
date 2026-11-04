@@ -55,7 +55,7 @@ truncated to the length of a case constant.
 The selector may be an ordinary scalar expression, field/element access or
 typed function result. It evaluates once before dispatch. Its ordinary calls,
 argument modes, effects, short-circuit behavior and active-counter guards remain
-in force. Case labels can be literals, previously declared constant expressions or
+in force. Case labels can be literals, resolved constant expressions or
 [dynamic scalar expressions](dynamic-select.md) of the selector's category.
 Local constants retain lexical scope; variables, typed functions and USING fields
 are runtime labels. Aggregates and resources remain blocked. The selector is

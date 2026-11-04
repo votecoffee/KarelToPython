@@ -1,0 +1,24 @@
+{
+  "version": "26.1104.075842",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_forward_constants.py",
+    "tests/test_local_constants.py",
+    "tests/test_forward_types.py",
+    "examples/forward_constant_values.kl",
+    "examples/forward_constant_shapes.kl",
+    "examples/forward_constant_locals.kl",
+    "examples/forward_constant_control.kl",
+    "examples/forward_constants_linked/main.kl",
+    "examples/forward_constants_result/main.kl"
+  ],
+  "source": "Complete acyclic module and declaring-routine CONST graphs resolve before dependent schemas",
+  "resolution": "Iterative dependency-first evaluation with E_CONSTANT for unknown/nonconstant dependencies and bounded cycle paths; validate unused definitions",
+  "evaluation": "Existing checked scalar literals, predefined constants, grouping and unary/binary operators; no calls, runtime storage or host evaluation",
+  "scope": "Module-only interfaces and global schemas; lexical routine-local values and local VAR schemas; namespace and immutable/output guards retained",
+  "metadata": "Source-order global/local values and physical origins; scoped constant_dependencies and actual constant_resolution_order",
+  "persistence": "Generated scalar values and ordinary saved data only; no runtime constant cells or deferred graphs",
+  "boundary": "Authored offline Pythonic extension; no local TYPE, inferred external constants, native source/compiler/controller or strict equivalence; legacy ordering preserved"
+}

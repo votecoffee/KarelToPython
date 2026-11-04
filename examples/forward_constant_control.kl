@@ -1,0 +1,8 @@
+PROGRAM FORWARD_CONSTANT_CONTROL
+CONST last=finish finish=3 selected=last*2
+VAR total,i:INTEGER done:BOOLEAN
+BEGIN IF UNINIT(done) THEN
+  total=0 FOR i=1 TO last DO total=total+i ENDFOR
+  SELECT total OF CASE(selected): total=7 ENDSELECT
+  done=TRUE
+ENDIF END FORWARD_CONSTANT_CONTROL

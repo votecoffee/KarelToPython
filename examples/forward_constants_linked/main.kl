@@ -1,0 +1,5 @@
+PROGRAM MAIN
+CONST answer=base+1 base=6
+VAR value:INTEGER done:BOOLEAN
+ROUTINE work(n:INTEGER) FROM LIB
+BEGIN IF UNINIT(done) THEN value=answer work(value) done=TRUE ENDIF END MAIN

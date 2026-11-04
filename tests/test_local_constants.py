@@ -276,8 +276,9 @@ class LocalConstantRejectionTests(unittest.TestCase):
     def test_controller_name_collision(self):
         self.reject('ROUTINE work CONST DIN=7 BEGIN END work', 'E_DUPLICATE')
 
-    def test_forward_constant_dependency(self):
-        self.reject('ROUTINE work CONST a=b b=7 BEGIN END work', 'E_CONSTANT')
+    def test_forward_constant_dependency_executes(self):
+        state=execute('ROUTINE work CONST a=b b=7 BEGIN result=a END work')
+        self.assertEqual(state['RESULT'],7)
 
     def test_self_constant_dependency(self):
         self.reject('ROUTINE work CONST a=a BEGIN END work', 'E_CONSTANT')
@@ -291,8 +292,9 @@ class LocalConstantRejectionTests(unittest.TestCase):
     def test_local_variable_not_constant_expression(self):
         self.reject('ROUTINE work VAR v: INTEGER CONST a=v BEGIN END work', 'E_CONSTANT')
 
-    def test_local_dimension_cannot_use_later_constant(self):
-        self.reject('ROUTINE work VAR a: ARRAY[count] OF INTEGER CONST count=3 BEGIN END work', 'E_CONSTANT')
+    def test_local_dimension_can_use_later_constant(self):
+        state=execute('ROUTINE work VAR a:ARRAY[count]OF INTEGER CONST count=3 BEGIN a[count]=7 result=a[3] END work')
+        self.assertEqual(state['RESULT'],7)
 
     def test_routine_local_type_still_prohibited(self):
         self.reject('ROUTINE work CONST size=2 TYPE row_t=ARRAY[size] OF INTEGER BEGIN END work', 'E_ROUTINE_LOCALS')

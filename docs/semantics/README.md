@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [forward-constant ledger](forward_constant_semantics.json) supersedes earlier
+forward CONST and local VAR-before-size exclusions in Pythonic mode. Module-only
+interfaces, lexical scope, scalar checks, namespace and immutability guards remain.
+
 The [forward-type ledger](forward_type_semantics.json) supersedes earlier acyclic
 forward-reference exclusions for module types and routine interfaces. It retains
 nominal identities, exact external linking, bounded resolved schemas and source

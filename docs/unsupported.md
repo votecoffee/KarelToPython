@@ -25,6 +25,11 @@ value helpers, resource fields and native collection layouts remain unavailable.
 callback values and typed JSON, with optional fixed results from an explicit CLI
 file. They supply no executable libraries, inferred function logic or native ABI.
 
+[Forward constants](forward-constants.md) now resolve acyclic chains across module
+CONST sections and each routine's own CONST sections before dependent schemas.
+Unknown names, cycles, calls and runtime reads remain errors. Local constants do
+not enter global type declarations, routine interfaces or caller/sibling scopes.
+
 ## Language and source forms
 
 - Unknown directives and binary environments. %INCLUDE now expands

@@ -1,0 +1,7 @@
+PROGRAM FORWARD_CONSTANT_LOCALS
+VAR value:INTEGER text:STRING[8] done:BOOLEAN
+ROUTINE work
+VAR word:STRING[width] values:ARRAY[count]OF INTEGER
+CONST width=length length=3 count=last last=2
+BEGIN word='abcdef' values[2]=7 value=values[2] text=word END work
+BEGIN IF UNINIT(done) THEN work done=TRUE ENDIF END FORWARD_CONSTANT_LOCALS

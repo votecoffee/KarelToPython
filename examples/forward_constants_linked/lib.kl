@@ -1,0 +1,4 @@
+PROGRAM LIB
+CONST step=next_step next_step=1
+ROUTINE work(n:INTEGER) CONST delta=increment increment=step BEGIN n=n+delta END work
+BEGIN END LIB

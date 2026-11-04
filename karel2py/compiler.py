@@ -1209,6 +1209,7 @@ class Emitter:
         self.mode = mode
         self.constants, self.types, self.routines, self.user_types = {}, {}, {}, {}
         self.type_aliases = []
+        self.constant_dependency_uses=[];self.constant_resolution_order=[]
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
@@ -1342,6 +1343,54 @@ class Emitter:
         except rt.KarelRuntimeError as exc:
             self.error('E_CONSTANT', str(exc), expr.token)
         self.error('E_CONSTANT', 'Expected a literal or previously declared constant expression', expr.token)
+
+    def resolve_constants(self,declarations,target,routine=None):
+        """Resolve pure scalar declarations without recursive dependency chasing."""
+        definitions={token.value:(token,expr) for token,expr in declarations}
+        references={}
+        for name,(_,expr) in definitions.items():
+            pending=[expr];references[name]=[]
+            while pending:
+                node=pending.pop()
+                if node.kind=='name':references[name].append(node)
+                elif node.kind in ('group','unary','binary'):pending.extend(reversed(node.args))
+                elif node.kind not in ('literal','real_literal','predefined'):
+                    self.error('E_CONSTANT','CONST requires literals, visible constants and pure scalar operators',node.token)
+        marks={};active=[];positions={}
+        global_tokens={token.value:token for token,_ in self.program.constants}
+        scope='routine' if routine else 'module'
+        for start in definitions:
+            if marks.get(start)==2:continue
+            marks[start]=1;positions[start]=len(active);active.append(start)
+            pending=[(start,iter(references[start]))]
+            while pending:
+                name,children=pending[-1];reference=next(children,None)
+                if reference is None:
+                    token,expr=definitions[name];value=self.constant(expr)
+                    if type(value) is int:
+                        try:rt.integer(value)
+                        except rt.KarelRuntimeError as exc:self.error('E_CONSTANT',str(exc),token)
+                    target[name]=value
+                    self.constant_resolution_order.append(dict(scope=scope,routine=routine,name=name))
+                    marks[name]=2;pending.pop();positions.pop(name);active.pop();continue
+                dependency=reference.value
+                if dependency not in definitions and dependency not in self.constants:
+                    self.error('E_CONSTANT',dependency+' is not a visible declared constant',reference.token)
+                local=dependency in definitions
+                dependency_token=definitions[dependency][0] if local else global_tokens[dependency]
+                forward=(dependency_token.line,dependency_token.column)>(reference.token.line,reference.token.column)
+                self.constant_dependency_uses.append(dict(scope=scope,routine=routine,name=name,dependency=dependency,
+                    dependency_scope=scope if local else 'module',line=reference.token.line,column=reference.token.column,forward=forward))
+                if not local:continue
+                if marks.get(dependency)==1:
+                    cycle=active[positions[dependency]:]+[dependency]
+                    shown=cycle if len(cycle)<=32 else cycle[:31]+['...',dependency]
+                    self.error('E_CONSTANT','Cyclic CONST dependency: '+' -> '.join(shown),reference.token)
+                if marks.get(dependency)==2:continue
+                marks[dependency]=1;positions[dependency]=len(active);active.append(dependency)
+                pending.append((dependency,iter(references[dependency])))
+        ordered={name:target[name] for name in definitions};target.clear();target.update(ordered)
+        if any(row['forward'] for row in self.constant_dependency_uses):self.features.add('forward CONST dependency resolution')
 
     @staticmethod
     def is_minimum_literal(expr):
@@ -1605,11 +1654,13 @@ class Emitter:
             if token.value in ex.PORT_TYPES: self.error('E_DUPLICATE','Port identifiers cannot be constants',token)
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
             names.add(token.value)
-            value = self.constant(expr)
-            if type(value) is int:
-                try: rt.integer(value)
-                except rt.KarelRuntimeError as exc: self.error('E_CONSTANT', str(exc), token)
-            self.constants[token.value] = value
+            if self.mode!='pythonic':
+                value = self.constant(expr)
+                if type(value) is int:
+                    try: rt.integer(value)
+                    except rt.KarelRuntimeError as exc: self.error('E_CONSTANT', str(exc), token)
+                self.constants[token.value] = value
+        if self.mode=='pythonic':self.resolve_constants(self.program.constants,self.constants)
         self.resolve_type_definitions(names)
         for token, spec in self.program.declarations:
             if token.value in names: self.error('E_DUPLICATE', 'Duplicate declaration', token)
@@ -1687,7 +1738,19 @@ class Emitter:
                 routine.local_types[token.value] = resolved
             routine.parameters = [(token, routine.local_types[token.value]) for token, _ in routine.parameters]
             self.current_routine = routine
+            if self.mode=='pythonic':
+                local_names=set(routine.local_types)
+                for kind,token,definition in routine.local_declarations:
+                    if (token.value in local_names or token.value in self.constants or token.value in self.user_types
+                            or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys()):
+                        self.error('E_DUPLICATE','Duplicate, constant-shadowing or controller local identifier',token)
+                    local_names.add(token.value)
+                    if kind=='CONST' and (token.value in names or token.value==self.program.name):
+                        self.error('E_LOCAL_CONST_SHADOW','Local constants that shadow global declarations need namespace evidence',token)
+                self.resolve_constants([(token,definition) for kind,token,definition in routine.local_declarations if kind=='CONST'],routine.local_constants,routine.name)
+                if routine.local_constants:self.features.add('routine-local CONST')
             for kind, token, definition in routine.local_declarations:
+                if self.mode=='pythonic' and kind=='CONST':continue
                 if (token.value in routine.local_types or token.value in routine.local_constants
                         or token.value in self.constants or token.value in self.user_types
                         or token.value in blocked_controller_names(self.mode) | ex.PORT_TYPES.keys()):
@@ -1707,6 +1770,7 @@ class Emitter:
                         self.error('E_TYPE', 'BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields', token)
                     routine.local_types[token.value] = resolved
             self.current_routine = None
+        self.constant_dependency_uses.sort(key=lambda row:(row['line'],row['column']))
         self.resolve_using_fields()
         self.resolve_bare_function_calls()
         if self.mode=='pythonic' and any(isinstance(node,Expr) and node.kind=='call' and node.value in ex.COOPERATIVE_PROCEDURES
@@ -4895,6 +4959,8 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         escaped_string_literals=parser.escaped_string_literals,
         python_sha256=hashlib.sha256(generated.encode('utf-8')).hexdigest(),
         features=sorted(emitter.features), source_map=emitter.source_map,
+        constant_dependencies=emitter.constant_dependency_uses,constant_resolution_order=emitter.constant_resolution_order,
+        global_constants=[dict(name=t.value,value=emitter.constants[t.value],line=t.line,column=t.column) for t,_ in program.constants],
         local_constant_policy=dict(scope='Declaring routine only; lexical resolution, not caller inheritance',
                                    declarations='Source order; existing literal/previous-constant expression subset',
                                    storage='Immutable scalar values emitted directly; no writable runtime cells',
@@ -6102,6 +6168,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guards='FOR counters remain exact INTEGER; INTEGER output references do not widen to narrow storage; REAL-to-narrow conversion remains rejected',
         boundary='Deliberate Pythonic extension; internal legacy declaration/interface restrictions remain aggregate-only, without native/controller equivalence',
         guide='docs/scalar-narrow.md',controller_validated=False)
+    report['forward_constant_policy']=dict(
+        declarations='Acyclic global CONST sections resolve before types/globals/interfaces; each routine resolves its own CONST sections before local VAR shapes and capacities',
+        resolution='Iterative dependency-first walk validates every definition, including unused ones; E_CONSTANT for unknown/nonconstant expressions and bounded explicit cycle paths',
+        evaluation='Existing checked scalar literal, predefined, grouping, unary and binary operators only; no built-in/user calls, storage reads, callbacks or arbitrary Python evaluation',
+        scope='Module constants plus declaring-routine constants only; interfaces use module constants and never local or caller/sibling names; existing namespace and immutability guards remain',
+        metadata='global_constants and local_constants retain source declaration order; constant_dependencies records reference origins, scope and forward edges; constant_resolution_order records actual evaluation order',
+        boundary='Authored offline Pythonic extension; no recursive constants, local TYPE sections, native compiler/controller or strict equivalence; internal legacy declaration ordering remains',
+        guide='docs/forward-constants.md',controller_validated=False)
+    report['local_constant_policy']['declarations']='Pythonic acyclic dependencies across all declaring-routine CONST sections, resolved before local VAR schemas; forward_constant_policy retains module-only interfaces'
     report['forward_type_policy']=dict(
         source='Acyclic named dependencies across module TYPE sections, aliases, ARRAY elements, STRUCTURE fields, PATH NODEDATA/PATHHEADER and routine interfaces declared before their types',
         resolution='Iterative dependency-first walk without recursive alias chasing; validate all definitions including unused ones, reject unknown names and explicit cycle paths; memoize shared data schemas within 32767 leaves and 64 levels before emitting literals',
@@ -6274,7 +6349,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing STRUCTURE/PATH tuple schemas and codecs; no new JSON format or native binary layout',
         boundary='No obsolete COMMON_ASSOC/GROUP_ASSOC layouts, native screen execution, automatic UFRAME/UTOOL recording or controller storage/ABI claim',
         guide='docs/path-declarations.md',controller_validated=False)
-    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies']]:
+    for row in [*report['path_clause_uses'],*report['predefined_structure_uses'],*report['type_dependencies'],*report['constant_dependencies'],*report['global_constants'],*[row for rows in report['local_constants'].values() for row in rows]]:
         label,line,stack=expansion.origin(row['line']) or (str(filename),row['line'],())
         row.update(source_file=label,source_line=line,source_column=row['column'],include_stack=list(stack))
     report['diagnostic_policy']=dict(

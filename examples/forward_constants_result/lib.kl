@@ -1,0 +1,6 @@
+PROGRAM LIB
+TYPE row_t=ARRAY[width]OF INTEGER
+CONST width=next_width next_width=2
+ROUTINE make:row_t VAR local:row_t CONST first=next_first next_first=7
+BEGIN local[1]=first local[2]=first+1 RETURN local END make
+BEGIN END LIB

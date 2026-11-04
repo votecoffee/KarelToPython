@@ -1,0 +1,27 @@
+[
+  {
+    "program": "FORWARD_CONSTANT_LOCALS",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "FORWARD_CONSTANT_LOCALS",
+    "path": "TEXT",
+    "type": [
+      "STRING",
+      8
+    ],
+    "value": "abc"
+  },
+  {
+    "program": "FORWARD_CONSTANT_LOCALS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -1,0 +1,6 @@
+PROGRAM MAIN
+TYPE row_t=ARRAY[width]OF INTEGER
+CONST width=next_width next_width=2
+VAR values:row_t done:BOOLEAN
+ROUTINE make:row_t FROM LIB
+BEGIN IF UNINIT(done) THEN values=make done=TRUE ENDIF END MAIN

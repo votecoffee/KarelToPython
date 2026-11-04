@@ -1,0 +1,28 @@
+[
+  {
+    "program": "FORWARD_CONSTANT_CONTROL",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "FORWARD_CONSTANT_CONTROL",
+    "path": "I",
+    "type": [
+      "INTEGER"
+    ],
+    "value": {
+      "uninitialized": true
+    }
+  },
+  {
+    "program": "FORWARD_CONSTANT_CONTROL",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]
