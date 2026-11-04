@@ -1,0 +1,5 @@
+PROGRAM LIB
+ROUTINE work(value:QUEUE_TYPE;status:INTEGER) FROM HOST
+ROUTINE fill(value:QUEUE_TYPE;status:INTEGER)
+BEGIN work(value,status) END fill
+BEGIN END LIB

@@ -1,0 +1,26 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "N": {
+        "initialized": true,
+        "entries": [
+          [
+            3,
+            17
+          ],
+          [
+            1,
+            9
+          ]
+        ]
+      },
+      "STATUS": 42,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

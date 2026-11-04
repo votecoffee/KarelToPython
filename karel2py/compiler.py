@@ -7343,22 +7343,31 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['external_output_policy']=dict(
         source='Explicit JSON responses with result and outputs, plus optional case outputs in --external-values or direct Python callback replies',
         interfaces='One-based argument ordinals within 1..64, exact captured concrete data schemas, ordinary writable references and existing source private-value/borrowed-reference rules',
-        values='Ordinary scalar/record/ARRAY/Cartesian/joint data, including missing scalar leaves; no resource data, implicit casts or writable protected reference classes',
+        values='Ordinary scalar/record/ARRAY/Cartesian/joint data and bounded logical PATH/QUEUE_TYPE scalar/banks via external_logical_value_policy; no FILE, resource fields, implicit casts or writable protected reference classes',
         capture='Normal argument selectors once in source order; case selection uses old snapshots before writes; preserve root, field, element and joint-axis aliases during publication',
         publication='Validate result, all output schemas/known target data and complete disjoint target cells before any response writes; no callbacks, clock reads or checkpoints during publication',
-        bounds='64 outputs and arguments, existing 128 bindings/rows and depth64; 32767 scalar leaves shared by response result/output data before codec allocation',
+        bounds='64 outputs and arguments, existing 128 bindings/rows and depth64; 32767 units shared by result/outputs before codec allocation, including logical descriptors and contents',
         persistence='Copied global data only; response definitions, references, callbacks and suspended frames are not serialized',
         boundary='Explicit offline responses only; raw callback effects before a rejected response remain visible; no inferred algorithms, native ABI/controller execution or public strict mode',
         guide='docs/external-outputs.md',controller_validated=False)
+    report['external_logical_value_policy']=dict(
+        source='Explicit --external-values fixed results, argument cases and result/outputs responses, plus direct Python callback responses',
+        interfaces='Exact PATH/QUEUE_TYPE scalar and named/nested ARRAY logical schemas; existing anonymous function-result dimensions and captured argument ownership rules',
+        matching='Canonical logical snapshots including PATH nodes/headers, queue initialized/sequence/ordered entries; valid queue buffer links omitted from matching and copies',
+        publication='Validate result, exact output metadata, current logical state and disjoint physical target cells before any writes; retain roots/headers/cells, detach old PATH nodes and queue buffer links',
+        bounds='32767 combined snapshot units: ordinary leaves plus collection descriptors, PATH header/node leaves and two units per queue entry; existing 64 arguments/outputs, 128 bindings/rows, depth64 and 4 MiB JSON',
+        persistence='Copied global logical data and sequence only; bindings, references, callbacks, buffer links and suspended frames are not serialized',
+        boundary='Authored offline logical data protocol; no FILE, resource fields, inferred algorithms, native ABI/controller execution or strict equivalence',
+        guide='docs/external-logical-values.md',controller_validated=False)
     report['external_value_policy']=dict(
         source='Pythonic typed JSON callback data results plus explicit --external-values for fixed data, no-op procedures and exact argument/result cases',
         interfaces='Complete concrete metadata, exact declared scalar/record/joint schemas and existing ARRAY wildcard/inherited-capacity result rules; ordinary raw callbacks and source links retain their contracts',
         capture='Validate supplied bindings before installation; fresh detached results; case arguments snapshot once after normal source evaluation, including partial data and concrete caller schemas',
         matching='Canonical typed snapshots, field order independent and REAL zero sign normalized; no Boolean/numeric coercion, wildcard cases, implicit fallback or executable host code; explicit output batches follow external_output_policy',
-        bounds='128 bindings and fixed/case rows, 64 arguments per case, 32767 stored/incoming scalar leaves, existing 64-level schema limit and strict UTF-8 JSON files within 4 MiB',
+        bounds='128 bindings and fixed/case rows, 64 arguments per case, 32767 stored/incoming data or logical snapshot units, existing 64-level schema limit and strict UTF-8 JSON files within 4 MiB',
         persistence='Global result data only; callbacks/case tables are not persisted, supply the binding file again for saved-context replay',
         cli='Standalone and project CLI share input/trace/state alias protection; legacy --external-collections may be supplied alongside disjoint data bindings',
-        boundary='Explicit offline responses only; no inferred library algorithms, native external ABI/controller execution, resource data results or public strict mode',
+        boundary='Explicit offline responses only; no inferred library algorithms, native external ABI/controller execution, FILE results or public strict mode',
         guide='docs/external-values.md',controller_validated=False)
     report['external_collection_result_policy']=dict(
         source='Explicit FROM callbacks returning scalar PATH/QUEUE_TYPE or collection ARRAYs, plus existing compiled linked results',

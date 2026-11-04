@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.125804 - 2026-11-04
+
+- Extend external-values JSON to logical PATH/QUEUE_TYPE results, exact argument
+  cases and atomic scalar/collection-bank output batches.
+- Preserve root/header/cell identities, detach replaced nodes and queue buffers,
+  and reject malformed old/new state, protected headers and overlapping writes.
+- Count complete data and logical descriptor/content budgets before decoding or
+  copying; retain existing explicit callback, linked and execution lifetime rules.
+- Add logical response regressions, four CLI examples and two linked projects
+  with independent expected snapshots and saved-context replay.
+
 ## 26.1104.110331 - 2026-11-04
 
 - Add explicit typed argument outputs to fixed/case JSON responses and direct

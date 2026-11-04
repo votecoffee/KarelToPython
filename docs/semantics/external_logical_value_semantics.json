@@ -1,0 +1,27 @@
+{
+  "version": "26.1104.125804",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored logical external result/case/output examples and offline runtime regressions",
+  "contract": {
+    "values": "Exact PATH/QUEUE_TYPE scalar and concrete collection ARRAY logical snapshots",
+    "publication": "Complete result/new/current/overlap validation before response writes; retain roots/headers/cells and detach nodes/buffer links",
+    "matching": "Canonical logical state including ordered queue IDs and last sequence, excluding valid buffer links",
+    "bounds": "32767 combined descriptor/content units; 64 args/outputs, 128 bindings/rows, depth64, 4 MiB JSON",
+    "persistence": "Copied globals only; no bindings, callbacks, references, buffers or continuations"
+  },
+  "remaining": [
+    "External algorithms and FILE effects require supplied source or explicit callbacks",
+    "Native ABI/controller execution and strict equivalence"
+  ],
+  "verification": [
+    "tests/test_external_logical_values.py",
+    "examples/external_logical_paths.kl",
+    "examples/external_logical_queues.kl",
+    "examples/external_logical_banks.kl",
+    "examples/external_logical_path_cases.kl",
+    "examples/external_logical_forwarded/main.kl",
+    "examples/external_logical_cases/main.kl"
+  ],
+  "guide": "../external-logical-values.md"
+}

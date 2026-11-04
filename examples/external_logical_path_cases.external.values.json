@@ -1,0 +1,126 @@
+{
+  "HOST": {
+    "FILL": {
+      "cases": [
+        {
+          "arguments": [
+            {
+              "type": [
+                "PATH",
+                [
+                  "STRUCTURE",
+                  "NODE_T",
+                  [
+                    [
+                      "ID",
+                      [
+                        "INTEGER"
+                      ]
+                    ],
+                    [
+                      "OCTET",
+                      [
+                        "BYTE"
+                      ]
+                    ]
+                  ]
+                ],
+                [
+                  "STRUCTURE",
+                  "HEADER_T",
+                  [
+                    [
+                      "TAG",
+                      [
+                        "INTEGER"
+                      ]
+                    ]
+                  ]
+                ]
+              ],
+              "value": {
+                "nodes": [],
+                "data": {
+                  "TAG": {
+                    "uninitialized": true
+                  }
+                }
+              }
+            },
+            {
+              "type": [
+                "INTEGER"
+              ],
+              "value": {
+                "uninitialized": true
+              }
+            }
+          ],
+          "result": null,
+          "outputs": [
+            {
+              "argument": 1,
+              "value": {
+                "type": [
+                  "PATH",
+                  [
+                    "STRUCTURE",
+                    "NODE_T",
+                    [
+                      [
+                        "ID",
+                        [
+                          "INTEGER"
+                        ]
+                      ],
+                      [
+                        "OCTET",
+                        [
+                          "BYTE"
+                        ]
+                      ]
+                    ]
+                  ],
+                  [
+                    "STRUCTURE",
+                    "HEADER_T",
+                    [
+                      [
+                        "TAG",
+                        [
+                          "INTEGER"
+                        ]
+                      ]
+                    ]
+                  ]
+                ],
+                "value": {
+                  "nodes": [
+                    {
+                      "ID": 17,
+                      "OCTET": {
+                        "unknown_byte": true
+                      }
+                    }
+                  ],
+                  "data": {
+                    "TAG": 7
+                  }
+                }
+              }
+            },
+            {
+              "argument": 2,
+              "value": {
+                "type": [
+                  "INTEGER"
+                ],
+                "value": 42
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

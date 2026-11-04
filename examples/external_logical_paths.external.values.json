@@ -1,0 +1,107 @@
+{
+  "HOST": {
+    "FILL": {
+      "result": {
+        "type": [
+          "PATH",
+          [
+            "STRUCTURE",
+            "NODE_T",
+            [
+              [
+                "ID",
+                [
+                  "INTEGER"
+                ]
+              ],
+              [
+                "OCTET",
+                [
+                  "BYTE"
+                ]
+              ]
+            ]
+          ],
+          [
+            "STRUCTURE",
+            "HEADER_T",
+            [
+              [
+                "TAG",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ]
+        ],
+        "value": {
+          "nodes": [
+            {
+              "ID": 42,
+              "OCTET": {
+                "unknown_byte": true
+              }
+            }
+          ],
+          "data": {
+            "TAG": 7
+          }
+        }
+      },
+      "outputs": [
+        {
+          "argument": 1,
+          "value": {
+            "type": [
+              "PATH",
+              [
+                "STRUCTURE",
+                "NODE_T",
+                [
+                  [
+                    "ID",
+                    [
+                      "INTEGER"
+                    ]
+                  ],
+                  [
+                    "OCTET",
+                    [
+                      "BYTE"
+                    ]
+                  ]
+                ]
+              ],
+              [
+                "STRUCTURE",
+                "HEADER_T",
+                [
+                  [
+                    "TAG",
+                    [
+                      "INTEGER"
+                    ]
+                  ]
+                ]
+              ]
+            ],
+            "value": {
+              "nodes": [
+                {
+                  "ID": 17,
+                  "OCTET": {
+                    "unknown_byte": true
+                  }
+                }
+              ],
+              "data": {
+                "TAG": 7
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

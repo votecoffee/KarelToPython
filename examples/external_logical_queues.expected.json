@@ -1,0 +1,35 @@
+{
+  "N": {
+    "initialized": true,
+    "entries": [
+      [
+        3,
+        17
+      ],
+      [
+        1,
+        9
+      ]
+    ]
+  },
+  "TARGET": {
+    "initialized": true,
+    "entries": [
+      [
+        3,
+        42
+      ],
+      [
+        1,
+        9
+      ]
+    ]
+  },
+  "BUFFER": [
+    99,
+    0,
+    0
+  ],
+  "SEQ": 1,
+  "STATUS": 0
+}

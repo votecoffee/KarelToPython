@@ -1,0 +1,17 @@
+{
+  "N": {
+    "nodes": [
+      {
+        "ID": 17,
+        "OCTET": {
+          "unknown_byte": true
+        }
+      }
+    ],
+    "data": {
+      "TAG": 7
+    }
+  },
+  "STATUS": 42,
+  "DONE": true
+}

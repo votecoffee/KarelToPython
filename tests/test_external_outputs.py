@@ -241,7 +241,7 @@ class ExternalOutputValidationTests(unittest.TestCase):
     def test_case_ordinal_must_exist_in_selector_arity(self):self.reject(cases([integer(7)],reply(output(2,integer(17)))))
     def test_none_output_is_not_a_typed_value(self):self.reject(reply(output(1,None)))
     def test_resource_output_schema_rejects(self):self.reject(reply(output(1,row(['FILE'],{}))))
-    def test_collection_output_uses_separate_contract(self):self.reject(reply(output(1,row(['QUEUE_TYPE'],dict(initialized=True,sequence=0,entries=[])))))
+    def test_collection_output_has_logical_contract(self):self.assertEqual(callbacks(reply(output(1,row(['QUEUE_TYPE'],dict(initialized=True,sequence=0,entries=[])))))['HOST','WORK']()['outputs'][0]['value']['value']['entries'],[])
     def test_missing_aggregate_container_rejects(self):self.reject(reply(output(1,row(['ARRAY',2,['INTEGER']],U))))
     def test_oversized_string_output_rejects(self):self.reject(reply(output(1,row(['STRING',2],'seed'))))
     def test_bad_later_output_rejects_before_installation(self):
@@ -317,8 +317,8 @@ class ExternalOutputOrderingTests(unittest.TestCase):
         first=reference(rt.INTEGER,7);second=reference(('ARRAY',2,rt.INTEGER),rt.UNINITIALIZED)
         with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):rt.external_reply_result(None,reply(output(1,integer(17)),output(2,row(['ARRAY',2,['INTEGER']],[7,9]))),[first,second])
         self.assertEqual(first.raw(),7);self.assertIs(second.raw(),rt.UNINITIALIZED)
-    def test_resource_result_is_not_silently_accepted(self):
-        with self.assertRaises(ValueError):callbacks(reply(output(1,integer(17)),result=row(['QUEUE_TYPE'],dict(initialized=True,sequence=0,entries=[]))))
+    def test_file_result_is_not_silently_accepted(self):
+        with self.assertRaises(ValueError):callbacks(reply(output(1,integer(17)),result=row(['FILE'],{})))
 
 
 class ExternalOutputCLITests(unittest.TestCase):

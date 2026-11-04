@@ -55,6 +55,10 @@ result helpers, whole collection UNINIT and FILE results retain their guards.
 [Typed ordinary data results](external-values.md) now have a separate explicit
 contract; logical collection schemas keep the rules documented here.
 
+[External logical responses](external-logical-values.md) now extend
+`--external-values` to fixed logical results, exact argument cases and atomic
+scalar/bank outputs. The legacy fixed loader below remains unchanged.
+
 ## Fixed values from the CLI
 
 Create the ignored `.local` directory before running this example:

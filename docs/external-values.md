@@ -50,8 +50,9 @@ over supplied source libraries is unchanged.
 
 The separate `--external-collections` option retains its existing logical
 PATH/QUEUE contract. Both files may be supplied for one execution when normalized
-program/routine pairs are disjoint. The new data file excludes FILE, PATH and
-QUEUE_TYPE schemas; no resource values are cast into data.
+program/routine pairs are disjoint. [Logical snapshots](external-logical-values.md) now extend the same value file
+to PATH/QUEUE_TYPE results, cases and scalar/bank outputs. FILE storage and
+resource-bearing record fields remain excluded; generic data helpers stay guarded.
 
 ## Data and interfaces
 
@@ -89,7 +90,8 @@ The complete concrete schema participates in matching, including nominal names,
 STRING capacities, actual dimensions, known values and explicit missing markers.
 Generic formals retain the caller's actual schema. Computed/grouped/converted
 arguments keep their ordinary private-cell rules; live data prefixes are copied
-for matching. Resource or protected reference objects are excluded.
+for matching. [Logical collection arguments](external-logical-values.md) use
+their own checked snapshots; FILE and protected reference objects are excluded.
 
 Matching uses canonical typed snapshots. Payload object key order is ignored;
 schema lists and nominal layouts remain exact. REAL JSON integers normalize to
@@ -111,8 +113,9 @@ sticky abort and frame cleanup retain their existing contracts.
 The data file permits 128 case-insensitive program/routine bindings and at most
 128 total fixed/case rows. Names are ASCII identifiers within 254 characters.
 Each case has at most 64 arguments. The complete data configuration is limited
-to 32767 stored scalar leaves; each case call's incoming arguments share that same
-32767-leaf bound, checked before copying. STRING capacity and ordinary schema
+to 32767 stored snapshot units; each case call's incoming arguments share that
+same bound, checked before copying. Ordinary leaves cost one unit; logical
+descriptors and contents follow the [logical response budget](external-logical-values.md). STRING capacity and ordinary schema
 bounds still apply. These are offline prototype limits.
 
 Files are strict UTF-8 JSON, optionally with a BOM, within 4 MiB per file.

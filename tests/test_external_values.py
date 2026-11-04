@@ -220,7 +220,7 @@ class ExternalValueValidationTests(unittest.TestCase):
     def test_record_payload_field_case_is_explicit(self):self.reject(row(ITEM,dict(id=17,LABEL='seed')))
     def test_joint_payload_requires_canonical_axes(self):self.reject(row(['JOINTPOS',2],[0.,90.]))
     def test_file_schema_rejects(self):self.reject(row(['FILE'],{}))
-    def test_path_schema_uses_separate_collection_loader(self):self.reject(row(['PATH',None,None],{'nodes':[],'data':None}))
+    def test_path_schema_has_logical_value_contract(self):self.assertEqual(prepare(row(['PATH',None,None],{'nodes':[],'data':None}))['HOST','FETCH'](),row(['PATH',None,None],{'nodes':[],'data':None}))
     def test_embedded_resource_schema_rejects(self):self.reject(row(['STRUCTURE','ITEM_T',[['HANDLE',['FILE']]]],{'HANDLE':{}}))
     def test_unknown_type_rejects(self):self.reject(row(['UNLISTED'],17))
     def test_extra_typed_keys_reject(self):self.reject(dict(type=['INTEGER'],value=17,extra=1))

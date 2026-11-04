@@ -1,0 +1,6 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE id:INTEGER octet:BYTE ENDSTRUCTURE header_t=STRUCTURE tag:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+ROUTINE work(value:route_t;status:INTEGER) FROM HOST
+ROUTINE fill(value:route_t;status:INTEGER)
+BEGIN work(value,status) END fill
+BEGIN END LIB

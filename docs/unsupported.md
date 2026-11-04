@@ -28,8 +28,10 @@ file. They supply no executable libraries, inferred function logic or native ABI
 [Explicit external data](external-values.md) now adds typed ordinary callback
 results plus CLI fixed values, explicit no-op procedures and exact typed argument
 cases. [Explicit response outputs](external-outputs.md) now update selected
-ordinary data arguments after whole-response validation. Algorithmic behavior and
-resource effects still require supplied source or Python callbacks; bindings are
+ordinary data arguments after whole-response validation.
+[Logical responses](external-logical-values.md) now also cover PATH/QUEUE_TYPE
+results, argument cases and scalar/bank outputs. Algorithmic behavior and FILE
+effects still require supplied source or Python callbacks; bindings are
 not inferred or persisted.
 
 [Forward constants](forward-constants.md) now resolve acyclic chains across module

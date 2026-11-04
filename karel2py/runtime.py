@@ -951,6 +951,47 @@ def external_data_result(spec,value,line=None):
         raise KarelRuntimeError('External data result: '+str(error),line) from error
 
 
+def _external_value_units(spec,value,line=None):
+    """Preflight explicit data or logical snapshots before decoding/copying contents."""
+    from .storage import collection_array_cost,_collection_array_units
+    from .variable_archives import schema
+    if type(spec) is not tuple or not spec or type(spec[0]) is not str:
+        return _validate_data_schema(spec,line)
+    if spec[0] in ('PATH','QUEUE_TYPE'):return schema(spec,value)
+    if spec[0]=='ARRAY' and collection_array_cost(spec) is not None:
+        if type(value) is not Array:return schema(spec,value)
+        units=0
+        def visit(expected,item):
+            nonlocal units
+            if expected[0]!='ARRAY':
+                units+=_collection_array_units(expected,item,False)
+                if units>32767:raise ValueError('External collection ARRAY exceeds 32767 units including contents')
+                return
+            shape=array_shape(expected)
+            if (type(item) is not Array or item.spec!=expected or item.shape!=shape
+                    or not _array_storage(item.values,line) or len(item.values)!=math.prod(shape)):
+                raise ValueError('External collection ARRAY storage does not match its schema')
+            for child in item.values:visit(expected[2],child)
+        visit(spec,value)
+        return units
+    return _validate_data_schema(spec,line)
+
+
+def _external_value_snapshot(spec,value,line=None):
+    if collection_type(spec):return collection_source_value(spec,value,line,source_spec=spec)
+    if collection_array_type(spec):return collection_array_source_value(spec,value,line,source_spec=spec)
+    return _aggregate_value(spec,value,line)
+
+
+def _external_value_decode(row,line=None,*,selector=False):
+    from .storage import tuple_spec
+    if type(row) is not dict or set(row)!={'type','value'} or type(row['type']) is not list:
+        raise ValueError('Typed external value requires exactly type and value, with a type list')
+    spec=tuple_spec(row['type']);_external_value_units(spec,row['value'],line)
+    if collection_type(spec) or collection_array_type(spec):return spec,external_collection_result(spec,row,line)
+    return _external_data_decode(row,line,selector=selector)
+
+
 def _external_reply_outputs(outputs,arity=None):
     """Validate explicit one-based output ordinals without touching argument storage."""
     if type(outputs) is not list or len(outputs)>64:raise ValueError('External reply outputs require a list of at most 64 entries')
@@ -966,10 +1007,10 @@ def _external_reply_outputs(outputs,arity=None):
 
 
 def external_reply_result(spec,reply,arguments,line=None):
-    """Stage a declared result and disjoint data outputs before any publication."""
+    """Stage a declared result and disjoint data/logical outputs before publication."""
     if not _pythonic():raise KarelRuntimeError('External reply outputs require Pythonic mode',line)
     from .storage import tuple_spec
-    from .variable_archives import ordinary,cells
+    from .variable_archives import ordinary,cells,replace_collections
     try:
         if type(reply) is not dict or set(reply)!={'result','outputs'}:raise ValueError('External reply requires exactly result and outputs')
         if type(arguments) not in (list,tuple) or len(arguments)>64:raise ValueError('External reply requires at most 64 source arguments')
@@ -980,37 +1021,45 @@ def external_reply_result(spec,reply,arguments,line=None):
         for value in encoded:
             if type(value) is not dict or set(value)!={'type','value'} or type(value['type']) is not list:
                 raise ValueError('External reply data requires exactly type and value')
-            units+=_validate_data_schema(tuple_spec(value['type']),line)
-            if units>32767:raise ValueError('External reply exceeds 32767 scalar leaves including result and outputs')
+            units+=_external_value_units(tuple_spec(value['type']),value['value'],line)
+            if units>32767:raise ValueError('External reply exceeds 32767 snapshot units including result and outputs')
         if spec is None:
             if reply['result'] is not None:raise ValueError('External procedure must return None')
             result=None
         else:
             if reply['result'] is None:raise ValueError('External function requires its declared data result')
-            result=external_data_result(spec,reply['result'],line)
+            result=(external_collection_result(spec,reply['result'],line) if collection_type(spec) or collection_array_type(spec)
+                    else external_data_result(spec,reply['result'],line))
         staged=[];occupied=set()
         for row in rows:
             target=arguments[row['argument']-1]
             if not ordinary(target):raise ValueError('External reply output requires an ordinary writable data reference')
-            actual=tuple_spec(row['value']['type']);_validate_data_schema(target.spec,line)
+            actual=tuple_spec(row['value']['type']);current=target.raw()
+            _external_value_units(target.spec,current,line)
             if target.spec!=actual:raise ValueError('External reply output differs from its captured argument schema')
-            current=target.raw()
             if type(current) is Structure and current.read_only:raise ValueError('External reply cannot write a read-only record value')
-            _aggregate_value(actual,current,line)
-            _,prepared=_external_data_decode(row['value'],line,selector=True)
+            _external_value_snapshot(actual,current,line)
+            # PATH headers are retained and updated; old nodes are detached instead.
+            pending=[current]
+            while pending:
+                item=pending.pop()
+                if type(item) is Array and collection_array_type(item.spec):pending.extend(item.values)
+                elif type(item) is PathValue and type(item.data) is Structure and item.data.read_only:
+                    raise ValueError('External reply cannot write a read-only PATH header')
+            _,prepared=_external_value_decode(row['value'],line,selector=True)
             addresses=cells(target)
             if occupied&addresses:raise ValueError('External reply output arguments overlap')
             occupied.update(addresses);staged.append((target,current,prepared))
         # Exact ordinary containers and disjoint cells have been checked completely.
         # No callback, clock read or checkpoint runs during these replacements.
-        for target,current,prepared in staged:target.storage[target.key]=replace_value(current,prepared)
+        for target,current,prepared in staged:target.storage[target.key]=replace_collections(current,prepared)
         return result
     except (ValueError,KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
         raise KarelRuntimeError('External reply: '+str(error),line) from error
 
 
 def external_value_callbacks(config):
-    """Prepare explicit fixed data, no-op procedures or exact argument/result tables."""
+    """Prepare fixed data/logical values, no-op procedures or exact argument cases."""
     import json
     from .storage import tuple_spec,typed_value
     if type(config) is not dict or not config or len(config)>128:
@@ -1024,9 +1073,9 @@ def external_value_callbacks(config):
             return None
         if type(row) is not dict or set(row)!={'type','value'} or type(row['type']) is not list:
             raise ValueError('External value data requires exactly type and value')
-        spec=tuple_spec(row['type']);units+=_validate_data_schema(spec)
+        spec=tuple_spec(row['type']);units+=_external_value_units(spec,row['value'])
         if units>32767:raise ValueError('External values exceed 32767 stored scalar leaves')
-        spec,copied=_external_data_decode(row,selector=selector)
+        spec,copied=_external_value_decode(row,selector=selector)
         return typed_value(copied,spec)
     def response(result,outputs,arity=None):
         rows=_external_reply_outputs(outputs,arity)
@@ -1045,10 +1094,10 @@ def external_value_callbacks(config):
             snapshots=[];incoming=0
             for reference in arguments:
                 if not ordinary(reference):raise KarelRuntimeError('External value cases require ordinary typed data arguments')
-                incoming+=_validate_data_schema(reference.spec)
+                incoming+=_external_value_units(reference.spec,reference.raw())
                 if incoming>32767:raise KarelRuntimeError('External value arguments exceed 32767 scalar leaves')
             for reference in arguments:
-                copied=_aggregate_value(reference.spec,reference.raw())
+                copied=_external_value_snapshot(reference.spec,reference.raw())
                 snapshots.append(typed_value(copied,reference.spec))
             selected=key(snapshots)
             if selected not in table:raise KarelRuntimeError('No external value case matches the captured arguments')

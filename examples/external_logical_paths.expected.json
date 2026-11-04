@@ -1,0 +1,29 @@
+{
+  "N": {
+    "nodes": [
+      {
+        "ID": 17,
+        "OCTET": {
+          "unknown_byte": true
+        }
+      }
+    ],
+    "data": {
+      "TAG": 99
+    }
+  },
+  "TARGET": {
+    "nodes": [
+      {
+        "ID": 42,
+        "OCTET": {
+          "unknown_byte": true
+        }
+      }
+    ],
+    "data": {
+      "TAG": 7
+    }
+  },
+  "SEEN": 7
+}

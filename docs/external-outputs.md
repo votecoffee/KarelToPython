@@ -69,9 +69,9 @@ and readonly record roots reject. Source constants, computed values and protecte
 CONFIG subfields retain their existing private-argument rules; POSITION
 orientation source arguments retain their existing rejection. Whole POSITION
 replacement remains legal and keeps its orientation-column protection.
-FILE, PATH and QUEUE_TYPE outputs/results are excluded from this data response
-form. Use the existing explicit callbacks or source implementations where those
-resource effects are needed.
+[Logical collection responses](external-logical-values.md) now extend this form
+to PATH/QUEUE_TYPE scalar and bank results/outputs with their separate ownership
+and descriptor/content budgets. FILE outputs/results remain excluded.
 
 ## Atomic response publication
 
@@ -104,7 +104,8 @@ existing timer/frame cleanup retain their normal rules.
 
 The existing data configuration limits remain: 128 bindings/fixed/case rows,
 64-level schemas and 32767 stored scalar leaves. Each response's result and
-outputs share a 32767-leaf budget checked before decoding. A response call has
+outputs share a 32767-unit budget checked before decoding, including
+[logical descriptors and contents](external-logical-values.md). A response call has
 at most 64 arguments and at most 64 outputs. The input file remains strict UTF-8
 JSON within 4 MiB, with duplicate-key/nonfinite checks and state/trace output
 alias protection, including hard links. All definitions validate before loading.

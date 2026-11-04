@@ -1,0 +1,7 @@
+PROGRAM EXTERNAL_LOGICAL_PATHS
+TYPE node_t=STRUCTURE id:INTEGER octet:BYTE ENDSTRUCTURE header_t=STRUCTURE tag:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR n,target:route_t seen:INTEGER
+ROUTINE fill(value:route_t):route_t FROM HOST
+ROUTINE borrow(alias:INTEGER)
+BEGIN target=fill(n) seen=alias alias=99 END borrow
+BEGIN borrow(n.tag) END EXTERNAL_LOGICAL_PATHS

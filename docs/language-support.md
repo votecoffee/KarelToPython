@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[External logical responses](external-logical-values.md) now carry PATH/QUEUE_TYPE
+values and collection ARRAYs through fixed results, argument cases and atomic
+output batches. Retained roots/headers, detached nodes and omitted queue buffer
+links follow the existing logical-copy rules.
+
 [Explicit external outputs](external-outputs.md) now let JSON responses update selected
 ordinary data arguments as well as returning data. Results, values and disjoint
 captured destinations validate before any response write; borrowed/private source
