@@ -1,0 +1,16 @@
+{
+  "variables": [
+    {
+      "program": "MAIN",
+      "path": "VALUES",
+      "type": [
+        "ARRAY",
+        2,
+        [
+          "QUEUE_TYPE"
+        ]
+      ],
+      "value": null
+    }
+  ]
+}

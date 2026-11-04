@@ -1,0 +1,4 @@
+PROGRAM ARRAY_CONTEXT_RECORDS
+TYPE item_t=STRUCTURE id:INTEGER label:STRING[4] ENDSTRUCTURE
+VAR values:ARRAY[*]OF item_t
+BEGIN values[2].id=values[1].id+17 values[2].label=values[1].label END ARRAY_CONTEXT_RECORDS

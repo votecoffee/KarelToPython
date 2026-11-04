@@ -1,0 +1,26 @@
+[
+  {
+    "program": "ARRAY_CONTEXT_SCALARS",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      7,
+      9,
+      16
+    ]
+  },
+  {
+    "program": "ARRAY_CONTEXT_SCALARS",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 3
+  }
+]

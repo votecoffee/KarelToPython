@@ -1,22 +1,22 @@
 """KAREL source conversion prototype; no robot connection is created."""
 
 # Fixed UTC release timestamp: YY.MMDD.HHmmss. Never derive it at import time.
-__version__ = "26.1104.125804"
+__version__ = "26.1104.132555"
 
 
-def translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False, includes=None):
+def translate(source, *, filename="<input>", array_shapes=None, mode="pythonic", cooperative=False, includes=None, array_context=None):
     """Return a Translation; raise TranslationError for unsupported source."""
     from .compiler import translate as compile_source
-    return compile_source(source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative, includes=includes)
+    return compile_source(source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative, includes=includes, array_context=array_context)
 
 
-def translate_project(sources, *, array_shapes=None, includes=None):
+def translate_project(sources, *, array_shapes=None, includes=None, array_context=None):
     """Translate a mapping of source filenames to text and expose explicit linkage."""
     from .project import translate_project as compile_project
-    return compile_project(sources,array_shapes=array_shapes,includes=includes)
+    return compile_project(sources,array_shapes=array_shapes,includes=includes,array_context=array_context)
 
 
-def load_project(directory, *, array_shapes=None, include_dirs=(), include_devices=None):
+def load_project(directory, *, array_shapes=None, include_dirs=(), include_devices=None, array_context=None):
     """Read and translate regular .kl sources from one explicitly selected directory."""
     from .project import load_project as read_project
-    return read_project(directory,array_shapes=array_shapes,include_dirs=include_dirs,include_devices=include_devices)
+    return read_project(directory,array_shapes=array_shapes,include_dirs=include_dirs,include_devices=include_devices,array_context=array_context)

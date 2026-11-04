@@ -1,0 +1,32 @@
+{
+  "variables": [
+    {
+      "program": "ARRAY_CONTEXT_RECORDS",
+      "path": "VALUES",
+      "type": [
+        "ARRAY",
+        2,
+        [
+          "STRUCTURE",
+          "ITEM_T",
+          [
+            [
+              "ID",
+              [
+                "INTEGER"
+              ]
+            ],
+            [
+              "LABEL",
+              [
+                "STRING",
+                4
+              ]
+            ]
+          ]
+        ]
+      ],
+      "value": null
+    }
+  ]
+}

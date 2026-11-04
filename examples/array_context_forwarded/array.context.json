@@ -1,0 +1,16 @@
+{
+  "variables": [
+    {
+      "program": "LIB",
+      "path": "VALUES",
+      "type": [
+        "ARRAY",
+        2,
+        [
+          "INTEGER"
+        ]
+      ],
+      "value": null
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+[
+  {
+    "program": "ARRAY_CONTEXT_RECORDS",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "STRUCTURE",
+        "ITEM_T",
+        [
+          [
+            "ID",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "LABEL",
+            [
+              "STRING",
+              4
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "ID": 7,
+        "LABEL": "seed"
+      },
+      {
+        "ID": 24,
+        "LABEL": "seed"
+      }
+    ]
+  }
+]

@@ -161,7 +161,9 @@ components with complete-batch pose validation and bounded rounding normalizatio
   memory layouts and widget rendering remain unverified.
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
-  wildcard declarations require translation-time shapes; no VR auto-discovery.
+  wildcard declarations require translation-time shapes; no native VR auto-discovery.
+  [Explicit saved JSON schemas](array-context.md) now supply dimensions through
+  API/CLI opt-in, with exact source types and separate execution-state loading.
   Linked projects now route common or [program-qualified shapes](project-array-shapes.md)
   to the declared wildcard storage, including differing module-local dimensions.
   [Complete chained indexes](chained-array-indexes.md) now use the existing comma

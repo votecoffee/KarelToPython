@@ -73,6 +73,8 @@ def run_example(source, *, inject_write=False):
     fixture = source.parent
     context_file = fixture / f'{name}.translation_context.json'
     translation_context = read_json(context_file) if context_file.exists() else {}
+    array_context_file=fixture/f'{name}.array.context.json'
+    if array_context_file.exists():translation_context['array_context']=read_json(array_context_file)
     translation_context.setdefault('includes',IncludeLibrary.from_directories([source.parent]))
     result = translate(source.read_text(encoding='utf-8'),
                        filename=source.relative_to(ROOT).as_posix(), **translation_context)
@@ -176,14 +178,16 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 516, 'Update the expected example count when adding examples'
+    assert count == 520, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==190, 'Update the expected project count when adding projects'
+    assert len(projects)==192, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
         translation_context=folder/'translation_context.json'
         options=read_json(translation_context) if translation_context.exists() else {}
+        array_context_file=folder/'array.context.json'
+        if array_context_file.exists():options['array_context']=read_json(array_context_file)
         provider=services
         external_file=folder/'external.collections.json';data_file=folder/'external.values.json'
         if external_file.exists() or data_file.exists():

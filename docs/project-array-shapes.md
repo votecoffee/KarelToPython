@@ -23,7 +23,10 @@ python -m karel2py.project source_modules --array-shape MAIN.VALUES=3,2 --array-
 The first CLI invocation validates and links without executing KAREL bodies. The
 second explicitly executes MAIN and saves the ordinary context values. Every
 invocation needs the same explicit specialization; saved JSON does not discover
-ARRAY dimensions or resize generated storage.
+ARRAY dimensions or resize generated storage by default.
+[Explicit saved-schema specialization](array-context.md) now optionally supplies
+those dimensions through `array_context` or `--array-context`, with exact schema
+checks and separate execution-state loading.
 
 ## Routing and validation
 
@@ -62,7 +65,7 @@ records. Generated `Program.external_array_shapes` contains the same concrete
 local specialization. Program qualification is a project routing choice; it does
 not change the single-source `translate()` or `karel2py` CLI name grammar.
 
-This is translation-time allocation from supplied source and dimensions. There
-is no VR inspection, runtime wildcard discovery, ragged ARRAY, native allocation
+This is translation-time allocation from supplied source and dimensions. [Explicit saved JSON schemas](array-context.md) can also supply those dimensions.
+There is no native VR inspection, runtime wildcard discovery, ragged ARRAY, native allocation
 or controller-loading behavior. Stored task/FILE handles and suspended stacks
 keep their existing persistence restrictions. Strict mode remains future work.

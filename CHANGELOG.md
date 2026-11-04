@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.132555 - 2026-11-04
+
+- Specialize direct global wildcard ARRAYs from explicitly supplied saved JSON
+  root schemas through the API and converter/project CLI `--array-context` option.
+- Route program-qualified metadata and imported-variable owner/reexport chains;
+  reject conflicting dimensions, nominal layouts and unresolved source interfaces.
+- Preserve existing rank, fixed-dimension and allocation bounds while keeping
+  schema selection separate from payload/service restoration and source execution.
+- Protect schema files from output aliases; add schema, CLI, collection/joint and
+  linked replay regressions plus four authored examples and two linked projects.
+
 ## 26.1104.125804 - 2026-11-04
 
 - Extend external-values JSON to logical PATH/QUEUE_TYPE results, exact argument

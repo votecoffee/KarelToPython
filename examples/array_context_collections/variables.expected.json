@@ -1,0 +1,30 @@
+[
+  {
+    "program": "MAIN",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      {
+        "initialized": true,
+        "sequence": 4,
+        "entries": [
+          [
+            4,
+            17
+          ]
+        ]
+      },
+      {
+        "initialized": true,
+        "sequence": 0,
+        "entries": []
+      }
+    ]
+  }
+]

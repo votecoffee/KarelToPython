@@ -1,0 +1,29 @@
+{
+  "version": "26.1104.132555",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored explicit saved-schema specialization, CLI and linked replay regressions",
+  "contract": {
+    "input": "Saved JSON variables root ARRAY schemas only; values/services/creation state are not restored",
+    "selection": "Parsed direct global wildcard declarations, program identities and explicit import owner chains",
+    "validation": "Concrete bounded metadata, existing dimensions/quota rules, exact complete resolved source schema",
+    "publication": "No generated output until successful translation; schema input protected from output aliases",
+    "persistence": "Concrete dimensions and selected metadata only; execution values supplied separately"
+  },
+  "remaining": [
+    "Native VR discovery, resizing, local/field/TYPE wildcards and strict equivalence",
+    "Future runner and input-discovery UI"
+  ],
+  "verification": [
+    "tests/test_array_context.py",
+    "tests/test_project_array_shapes.py",
+    "tests/test_variable_arrays.py",
+    "examples/array_context_scalars.kl",
+    "examples/array_context_records.kl",
+    "examples/array_context_joints.kl",
+    "examples/array_context_paths.kl",
+    "examples/array_context_forwarded/main.kl",
+    "examples/array_context_collections/main.kl"
+  ],
+  "guide": "../array-context.md"
+}

@@ -1,0 +1,16 @@
+{
+  "variables": [
+    {
+      "program": "ARRAY_CONTEXT_SCALARS",
+      "path": "VALUES",
+      "type": [
+        "ARRAY",
+        3,
+        [
+          "INTEGER"
+        ]
+      ],
+      "value": null
+    }
+  ]
+}

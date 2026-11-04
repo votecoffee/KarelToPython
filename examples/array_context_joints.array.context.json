@@ -1,0 +1,22 @@
+{
+  "variables": [
+    {
+      "program": "ARRAY_CONTEXT_JOINTS",
+      "path": "VALUES",
+      "type": [
+        "ARRAY",
+        2,
+        [
+          "ARRAY",
+          2,
+          [
+            "JOINTPOS",
+            2
+          ],
+          "ROW_T"
+        ]
+      ],
+      "value": null
+    }
+  ]
+}

@@ -101,17 +101,29 @@ class LinkedRoutine:
 
 class Project:
     """A set of translated sources. Construction executes no KAREL statements."""
-    def __init__(self,sources,*,array_shapes=None,includes=None):
+    def __init__(self,sources,*,array_shapes=None,includes=None,array_context=None):
         if not sources: raise ValueError('A project requires at least one KAREL source')
         self.translations={}; self.classes={}
         library=includes if type(includes) is IncludeLibrary else IncludeLibrary(includes)
         routed_shapes=route_array_shapes(sources,array_shapes,library)
         self.array_shapes={}
+        catalog=None
+        if array_context is not None:
+            from .array_context import prepare
+            from .compiler import Parser
+            catalog=prepare(array_context);programs=[];names=set()
+            for filename,source in sources.items():
+                expansion=expand(source,str(filename),library)
+                try:parsed=Parser(expansion.source,str(filename),mode='pythonic').parse()
+                except TranslationError as exc:raise expansion.remap(exc) from exc
+                if parsed.name in names:raise ValueError('Duplicate project program: '+parsed.name)
+                names.add(parsed.name);programs.append(parsed)
+            catalog.link(programs)
         for filename,source in sources.items():
             # Translation remains the authority for fixed dimensions, rank,
             # leaf capacity and types after routing the explicit shape names.
             local_shapes=(routed_shapes or {}).get(filename,{})
-            translation=translate(source,filename=str(filename),array_shapes=local_shapes,cooperative=True,includes=library)
+            translation=translate(source,filename=str(filename),array_shapes=local_shapes,cooperative=True,includes=library,array_context=catalog)
             namespace={'__name__':'karel2py_project'}
             exec(compile(translation.python_source,str(filename)+'.py','exec'),namespace)
             cls=namespace['Program']; name=cls.source_program.upper()
@@ -211,11 +223,11 @@ class ProjectInstance:
                          for name,program in self.scheduler.tasks.items()}}
 
 
-def translate_project(sources,*,array_shapes=None,includes=None):
-    return Project(sources,array_shapes=array_shapes,includes=includes)
+def translate_project(sources,*,array_shapes=None,includes=None,array_context=None):
+    return Project(sources,array_shapes=array_shapes,includes=includes,array_context=array_context)
 
 
-def load_project(directory,*,array_shapes=None,include_dirs=(),include_devices=None):
+def load_project(directory,*,array_shapes=None,include_dirs=(),include_devices=None,array_context=None):
     root=Path(directory).resolve(strict=True)
     if not root.is_dir(): raise ValueError('Project input must be a directory')
     files=sorted(path for path in root.iterdir() if path.suffix.lower()=='.kl')
@@ -229,7 +241,7 @@ def load_project(directory,*,array_shapes=None,include_dirs=(),include_devices=N
         referenced.update(Path(row['file']) for row in expansion.files)
     sources={str(path):document.text for path,document in documents.items() if path not in referenced}
     if not sources:raise ValueError('Project requires a top-level program not included by another source')
-    return Project(sources,array_shapes=array_shapes,includes=library)
+    return Project(sources,array_shapes=array_shapes,includes=library,array_context=array_context)
 
 
 def main(argv=None):
@@ -239,6 +251,7 @@ def main(argv=None):
     parser.add_argument('directory',type=Path)
     parser.add_argument('--entry',help='Explicitly execute this program after linking; otherwise check translation only')
     parser.add_argument('--context',type=Path)
+    parser.add_argument('--array-context',type=Path,help='Specialize global wildcard ARRAYs using root schemas from an explicit saved JSON context')
     parser.add_argument('--external-collections',type=Path,help='Fixed logical results for explicitly named external collection functions')
     parser.add_argument('--external-values',type=Path,help='Explicit data, procedures, argument cases and staged outputs for external routines')
     parser.add_argument('--filesystem-root',type=Path)
@@ -262,14 +275,19 @@ def main(argv=None):
         if not args.entry: parser.error('--trace-out requires --entry')
         target=args.trace_out.resolve()
         inputs=[path.resolve() for path in args.directory.glob('*') if path.suffix.lower()=='.kl']
-        inputs.extend(path.resolve() for path in (args.context,args.state_out,args.external_collections,args.external_values) if path is not None)
+        inputs.extend(path.resolve() for path in (args.context,args.state_out,args.external_collections,args.external_values,args.array_context) if path is not None)
         if target in inputs: parser.error('--trace-out must differ from source, context and state paths')
     print(f'KarelToPython {__version__}',file=sys.stderr)
-    try:project=load_project(args.directory,array_shapes=array_shapes,include_dirs=args.include_dir,include_devices=devices)
+    try:
+        from .array_context import load_array_context
+        catalog=load_array_context(args.array_context) if args.array_context else None
+        project=load_project(args.directory,array_shapes=array_shapes,include_dirs=args.include_dir,include_devices=devices,array_context=catalog)
     except TranslationError as exc:
         print(str(exc),file=sys.stderr);return 2
     except (OSError,UnicodeError,ValueError) as exc:
         print('karel2py.project: '+str(exc),file=sys.stderr);return 1
+    if args.array_context and any(same_file(output,args.array_context) for output in (args.state_out,args.trace_out) if output is not None):
+        parser.error('State/trace output must differ from ARRAY schema context, including aliases')
     for output in (args.state_out,args.trace_out):
         if output is not None and any(same_file(output,source) for source in project.source_files):
             parser.error('State/trace output must differ from all program and included source files, including aliases')

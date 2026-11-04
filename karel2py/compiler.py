@@ -4884,7 +4884,7 @@ class Emitter:
         return result
 
 
-def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', cooperative=False):
+def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', cooperative=False, array_context=None):
     parser = Parser(source, filename, mode)
     program = parser.parse()
     if mode=='pythonic':
@@ -4901,16 +4901,23 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
             else:retained.append(routine)
         program.routines[:]=retained
     emitter = Emitter(program, filename, array_shapes, mode, cooperative)
+    context_selected=[]
+    if array_context is not None:
+        emitter.array_shapes,context_selected=array_context.select(program,emitter.array_shapes,filename)
     if parser.continuations:
         emitter.features.add('physical line continuation')
     if parser.escaped_string_literals:
         emitter.features.add('doubled apostrophe STRING literal')
     emitter.features.update('predefined ' + use['name'] for use in parser.predefined_uses)
     generated = emitter.emit()
+    if array_context is not None:
+        from .array_context import check_selected
+        check_selected(context_selected,emitter.types,filename)
     if emitter.kinematic_assignment_uses or emitter.joint_geometry_uses or emitter.kinematic_interface_uses or emitter.kinematic_array_uses or emitter.joint_width_uses: emitter.analyze_routine_effects()
     return Translation(generated, dict(
         status='translated', translator_version=__version__, filename=filename,
         cooperative_execution=emitter.cooperative,
+        array_context_specializations=context_selected,
         group_declarations=emitter.group_uses,
         program=program.name, source_sha256=hashlib.sha256(source.encode('utf-8')).hexdigest(),
         translation_context=dict(mode=mode, array_shapes={key: list(shape) for key, shape in emitter.array_shapes.items()}),
@@ -5278,7 +5285,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
     ))
 
 
-def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic', cooperative=False, includes=None):
+def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic', cooperative=False, includes=None, array_context=None):
     """Translate using the public Pythonic contract; strict is a future milestone."""
     if type(mode) is not str or mode != 'pythonic':
         message = ('Strict mode is a future milestone; use mode="pythonic"'
@@ -5286,13 +5293,29 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         raise TranslationError('E_MODE', message, Token('NAME', '', 1, 1), filename)
     if type(cooperative) is not bool: raise ValueError('cooperative must be BOOLEAN')
     from .includes import expand
+    if array_context is not None:
+        from .array_context import prepare
+        array_context=prepare(array_context)
     expansion=expand(source,filename,includes)
     try:
         with rt._numeric_scope(mode):
-            result = _translate(expansion.source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative)
+            result = _translate(expansion.source, filename=filename, array_shapes=array_shapes, mode=mode, cooperative=cooperative,array_context=array_context)
     except TranslationError as exc:
         raise expansion.remap(exc) from exc
     report = result.report
+    report['array_context_policy']=dict(
+        source='Explicit array_context API metadata or --array-context JSON; direct global wildcard declarations only',
+        routing='Parsed program/root names and explicit import-owner chains; matching explicit dimensions may coexist, conflicting schemas or dimensions reject',
+        validation='Concrete bounded ARRAY schemas before allocation; existing rank/fixed dimensions/leaf quota checks, then exact resolved source schema comparison before returning generated output',
+        data='Inspect only root ARRAY metadata; do not restore payload values, creation policies, services, callbacks or programs; no source execution or native VR discovery',
+        bounds='16 MiB strict UTF-8 JSON, 32767 variable rows and existing schema/dimension/allocation bounds; duplicate keys/nonfinite numbers reject',
+        persistence='Embed concrete dimensions and selected schemas only; ordinary execution context must be supplied separately for saved values',
+        guide='docs/array-context.md',controller_validated=False)
+    if array_context is not None:
+        report['translation_context']['array_context']=report['array_context_specializations']
+        report['translation_context_sha256']=hashlib.sha256(json.dumps(report['translation_context'],sort_keys=True,separators=(',',':')).encode('ascii')).hexdigest()
+        report['features']=sorted(set(report['features'])|{'explicit saved ARRAY schema specialization'})
+        report['variable_array_policy']['boundary']='Explicit saved JSON root ARRAY schemas follow array_context_policy; no native VR/KCL discovery, resizing, TYPE/field/local wildcards or controller load behavior'
     report['select_policy'].update(
         selector='Finite numeric, BOOLEAN or bounded ASCII STRING expression evaluated once',
         cases='Compatible compile-time constants and dynamic scalar expressions; BOOLEAN/STRING/numeric categories remain separate; ordinary finite numeric equality without integer-to-float conversion')

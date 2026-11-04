@@ -44,6 +44,7 @@ def main(argv=None):
     parser.add_argument('--cooperative', action='store_true', help='Enable host pause/resume even without source task-control statements')
     parser.add_argument('--array-shape', action='append', type=array_shape_option, default=[], metavar='NAME=DIM[,DIM]',
                         help='Explicit outer dimensions for a global ARRAY containing *; repeated for each variable, embedded during translation')
+    parser.add_argument('--array-context',type=Path,help='Specialize global wildcard ARRAYs using root schemas from an explicit saved JSON context')
     parser.add_argument('-I','--include-dir',type=Path,action='append',default=[],help='Additional include root, searched after the source directory')
     parser.add_argument('--include-device',type=device_option,action='append',default=[],metavar='DEVICE=DIRECTORY',help='Explicit include device mapping; never discovers controller files')
     args = parser.parse_args(argv)
@@ -66,14 +67,17 @@ def main(argv=None):
             parser.error('Output/report must differ from source, including file aliases')
         if len(paths) == 2 and same_file(*paths):
             parser.error('Output and report must differ, including file aliases')
+        inputs=(args.source,)+((args.array_context,) if args.array_context else ())
         for path in paths:
-            check_output(path, overwrite=args.force, protected=(args.source,))
+            check_output(path, overwrite=args.force, protected=inputs)
+        from .array_context import load_array_context
+        catalog=load_array_context(args.array_context) if args.array_context else None
         source_bytes = args.source.read_bytes()
         source = source_bytes.decode('utf-8-sig')
         library=IncludeLibrary.from_directories([args.source.parent,*args.include_dir],devices=devices)
-        def protected():return (args.source,*library.paths)
+        def protected():return (*inputs,*library.paths)
         try:
-            result = translate(source, filename=str(args.source), array_shapes=array_shapes, mode=args.mode, cooperative=args.cooperative,includes=library)
+            result = translate(source, filename=str(args.source), array_shapes=array_shapes, mode=args.mode, cooperative=args.cooperative,includes=library,array_context=catalog)
         except TranslationError as exc:
             report = dict(status='rejected', translator_version=__version__,
                           source_file_sha256=hashlib.sha256(source_bytes).hexdigest(), diagnostics=[exc.as_dict()],

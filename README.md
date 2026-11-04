@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Saved ARRAY schemas](docs/array-context.md) now supply wildcard global dimensions
+through explicit API and CLI options, including linked owner/reexport chains.
+Source types and allocation bounds remain checked; saved values and services
+load separately through the existing execution context.
+
 [External logical responses](docs/external-logical-values.md) now carry PATH/QUEUE_TYPE
 values and collection ARRAYs through fixed results, argument cases and atomic
 output batches. Retained roots/headers, detached nodes and omitted queue buffer
@@ -210,7 +215,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.125804**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.132555**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1041,9 +1046,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 516 authored runnable examples, checks complete
+The example runner translates 520 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 190 complete linked source projects. It also checks that nested
+fixtures, plus 192 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

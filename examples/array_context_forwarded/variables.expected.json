@@ -1,0 +1,32 @@
+[
+  {
+    "program": "MAIN",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      7,
+      24
+    ]
+  },
+  {
+    "program": "LIB",
+    "path": "VALUES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      7,
+      24
+    ]
+  }
+]

@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Saved ARRAY schemas](array-context.md) now supply wildcard global dimensions
+through explicit API and CLI options, including linked owner/reexport chains.
+Source types and allocation bounds remain checked; saved values and services
+load separately through the existing execution context.
+
 [External logical responses](external-logical-values.md) now carry PATH/QUEUE_TYPE
 values and collection ARRAYs through fixed results, argument cases and atomic
 output batches. Retained roots/headers, detached nodes and omitted queue buffer

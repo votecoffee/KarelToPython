@@ -1,0 +1,40 @@
+{
+  "variables": [
+    {
+      "program": "ARRAY_CONTEXT_PATHS",
+      "path": "VALUES",
+      "type": [
+        "ARRAY",
+        2,
+        [
+          "PATH",
+          [
+            "STRUCTURE",
+            "NODE_T",
+            [
+              [
+                "ID",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ],
+          [
+            "STRUCTURE",
+            "HEADER_T",
+            [
+              [
+                "TAG",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ]
+        ]
+      ],
+      "value": null
+    }
+  ]
+}
