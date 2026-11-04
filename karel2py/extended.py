@@ -1890,6 +1890,91 @@ def predefined_file_config(config):
     return dict(sorted(result.items()))
 
 
+class _SystemVariableTarget:
+    """Private checked transfer endpoint, never a writable source reference."""
+    def __init__(self,context,kind,group,number,path,write,line):
+        rt=runtime()
+        if not rt._pythonic():fail('Robot system transfers require Pythonic mode',line)
+        self.context,self.kind,self.group,self.path=context,kind,group,path
+        self.selection=kind in ('FRAME_ID','TOOL_ID')
+        self.robot=context.require('robot',line).for_group(group,line)
+        self.table=self.robot.frames if kind in ('FRAME','ACTIVE_FRAME','FRAME_ID') else self.robot.tools
+        if type(self.table) is not dict:fail('System variable transfers require ordinary configured tables',line)
+        self.attribute='active_frame' if kind in ('FRAME','ACTIVE_FRAME','FRAME_ID') else 'active_tool'
+        if self.selection or kind.startswith('ACTIVE_'):number=getattr(self.robot,self.attribute)
+        self.number,self.write=number,write
+        self.cells={(id(self.robot.__dict__),self.attribute)} if self.selection or kind.startswith('ACTIVE_') else set()
+        self.row=self.table.get(number,rt.UNINITIALIZED) if type(number) is int else rt.UNINITIALIZED
+        if type(number) is int:
+            self.cells.add((id(self.table),number))
+            if type(self.row) is rt.Structure:self.cells.update(rt._reference_cells(rt.Reference(self.row.spec,self.table,number)))
+
+    def capture(self,line):
+        rt=runtime();context,kind,write,row=self.context,self.kind,self.write,self.row
+        self.number=rt.integer(self.number,line)
+        if not 0<=self.number<=32767:fail('Frame/tool identifier must be in 0..32767',line)
+        path=self.path
+        if self.selection:
+            # A setter can repair a missing old selected row; its new row must validate.
+            if not write:context._system_selection_number(self.table,self.number,line)
+            spec,value=('INTEGER',),self.number
+        elif write and not path:
+            if kind.startswith('ACTIVE_') and self.number not in self.table:fail('Active robot system pose is not configured',line)
+            spec,value=('POSITION',),rt.initial_value(('POSITION',))
+        else:
+            if self.number not in self.table or type(row) is not rt.Structure:fail('Requested ordinary frame/tool is not configured',line)
+            value=rt.frame_value(row,line)
+            if path:
+                axes={('EXT1',),('EXT2',),('EXT3',)}
+                if path in axes:
+                    if value.spec!=('XYZWPREXT',):fail('External-axis fields require an XYZWPREXT row',line)
+                else:
+                    writable={('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',)))}
+                    readable=writable|{(name,) for name in ('NORMAL','ORIENT','APPROACH')}|{(name,axis) for name in ('NORMAL','ORIENT','APPROACH') for axis in ('X','Y','Z')}
+                    if path not in (writable if write else readable):fail('Unsupported robot system variable field',line)
+                    if value.spec!=('POSITION',):value=rt.convert_position(('POSITION',),value,line)
+                for part in path:value=rt.field_reference(value,part,line).raw()
+            spec=value.spec if hasattr(value,'spec') else ('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',)
+        self.reference=rt.Reference(spec,{'value':value},'value')
+        return self.reference
+
+    def prepare(self,source,line):
+        rt=runtime()
+        if not self.selection and not self.path:
+            if source.spec not in (('POSITION',),('XYZWPR',),('XYZWPREXT',)):return False
+            self.reference=rt.Reference(source.spec,{'value':rt.initial_value(source.spec)},'value')
+        return True
+
+    def guard(self,outputs,line):
+        self.outputs=outputs
+        if any(self.cells&_variable_cells(output,line) for output in outputs):
+            fail('System variable transfer overlaps configured row or selection storage',line)
+
+    def publish(self,value,line):
+        if self.selection:
+            rt=runtime();number=rt.integer(value,line);row=self.table.get(number)
+            if type(row) is rt.Structure:self.cells.update(rt._reference_cells(rt.Reference(row.spec,self.table,number)))
+            self.cells.add((id(self.table),number));self.guard(self.outputs,line)
+            self.context.system_selection_write('FRAME' if self.kind=='FRAME_ID' else 'TOOL',self.group,number,line)
+        else:self.context.system_pose_write(self.kind,self.group,None if self.kind.startswith('ACTIVE_') else self.number,value,self.path,line)
+
+
+def _system_variable_target(context,path,write,line):
+    """Parse only literal bounded robot paths; never evaluate quoted expressions."""
+    suffix=r'((?:\.[A-Z_][A-Z_0-9]*){0,2})'
+    numbered=re.fullmatch(r'\$(MNUFRAME|MNUTOOL)\[([0-9]{1,5}),([0-9]{1,5})\]'+suffix,path)
+    active=re.fullmatch(r'\$GROUP\[([0-9]{1,5})\]\.\$(UFRAME|UTOOL)'+suffix,path)
+    selection=re.fullmatch(r'\$(MNUFRAMENUM|MNUTOOLNUM)\[([0-9]{1,5})\]',path)
+    if numbered:
+        kind='FRAME' if numbered[1]=='MNUFRAME' else 'TOOL';group,number=int(numbered[2]),int(numbered[3]);tail=numbered[4]
+    elif active:
+        kind='ACTIVE_FRAME' if active[2]=='UFRAME' else 'ACTIVE_TOOL';group,number,tail=int(active[1]),None,active[3]
+    elif selection:
+        kind='FRAME_ID' if selection[1]=='MNUFRAMENUM' else 'TOOL_ID';group,number,tail=int(selection[2]),None,''
+    else:fail('Unsupported static robot system variable path',line)
+    return _SystemVariableTarget(context,kind,group,number,tuple(tail[1:].split('.')) if tail else (),write,line)
+
+
 class ExecutionContext:
     def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None,motion=None,predefined_files=None):
         self.strings,self.positions,self.ports=strings,positions,ports
@@ -2504,7 +2589,7 @@ class ExecutionContext:
             return robot.in_range(args[0],name,line)
         if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=rt.task_root(state).robot_group)
         fail('Unsupported extended operation '+name,line)
-    def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False,resources=False):
+    def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False,resources=False,system_transfer=None):
         rt=runtime(); program=program.upper(); path=path.upper()
         # Explicit system roots and full-path bindings have precedence over discovery.
         selected=program if program not in ('',state.program_name) else state.program_name
@@ -2517,6 +2602,8 @@ class ExecutionContext:
             if candidates:
                 key,reference=max(candidates,key=lambda item:len(item[0])); rest=path[len(key):]
                 return self.descend(reference,rest,line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
+        if path.startswith('$') and system_transfer is not None and rt._pythonic() and program in ('','SYSTEM','*SYSTEM*'):
+            return _system_variable_target(self,path,system_transfer=='SET_VAR',line)
         if root is not None and (owner is None or root[0] not in owner.types):
             reference=self.variables.bindings.get((selected,root[0])) or self.variables.bindings.get((program,root[0]))
             if reference is not None: return self.descend(reference,path[root.end():],line,path_nodes=path_nodes,prefixes=prefixes,resources=resources)
@@ -2563,8 +2650,13 @@ class ExecutionContext:
         return reference
     def variable(self,state,name,args,line):
         rt=runtime(); entry,program,path,value,status=args
-        try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,prefixes=rt._pythonic(),resources='collections' if rt._pythonic() else False)
+        try: target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,prefixes=rt._pythonic(),resources='collections' if rt._pythonic() else False,system_transfer=name)
         except rt.KarelRuntimeError: status.set(1,line); return
+        system_target=target if type(target) is _SystemVariableTarget else None
+        if system_target is not None:
+            system_target.guard((entry,status,value) if name=='GET_VAR' else (entry,status),line)
+            try:target=system_target.capture(line)
+            except rt.KarelRuntimeError:status.set(1,line);return
         if rt._pythonic() and type(target) is rt.AssociationFieldReference:
             # An explicit named data transfer; never expose a borrowed field alias.
             target.validate_storage(line);target=rt.Reference(target.spec,target.storage,target.key)
@@ -2578,9 +2670,12 @@ class ExecutionContext:
                 spec=getattr(value,'spec',None) or (('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254) if type(value) is str else None)
                 if spec is None: fail('SET_VAR requires a typed data input',line)
                 source=variable_value(spec,value,line)
+            if system_target is not None:
+                if not system_target.prepare(source,line):status.set(3,line);return
+                target=system_target.reference
             destination=target
         from .variable_kinematics import transfer as model_transfer
-        prepared=model_transfer(state,destination,source,line)
+        prepared=None if system_target is not None else model_transfer(state,destination,source,line)
         if prepared is None:prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,paths=True,line=line)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
@@ -2589,7 +2684,8 @@ class ExecutionContext:
         if prefix and _variable_cells(destination,line) & (rt._reference_cells(entry)|rt._reference_cells(status)):
             fail('Prefix variable target overlaps entry/status',line)
         current=destination.raw()
-        if prefix:destination.set(copied,line)
+        if system_target is not None and name=='SET_VAR':system_target.publish(copied,line)
+        elif prefix:destination.set(copied,line)
         elif rt._pythonic() and rt.collection_array_type(destination.spec):
             from .variable_archives import replace_collections
             destination.storage[destination.key]=replace_collections(current,copied)
@@ -2707,7 +2803,8 @@ class ExecutionContext:
         if not rt._pythonic():fail('Robot system pose writes require Pythonic mode',line)
         if kind not in ('FRAME','TOOL','ACTIVE_FRAME','ACTIVE_TOOL'):fail('Unsupported robot system pose write',line)
         allowed={(),('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),
-            ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',)))}
+            ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',))),
+            ('EXT1',),('EXT2',),('EXT3',)}
         if type(path) is not tuple or any(type(part) is not str for part in path) or path not in allowed:fail('Unsupported robot system pose write field',line)
         robot=self.require('robot',line).for_group(rt.integer(group,line),line)
         table=robot.frames if kind in ('FRAME','ACTIVE_FRAME') else robot.tools
@@ -2725,7 +2822,10 @@ class ExecutionContext:
             if number not in table:fail('Requested frame/tool is not configured',line)
             if type(table[number]) is not rt.Structure:fail('System pose table requires ordinary Cartesian records',line)
             prepared=rt.frame_value(table[number],line)
-            if path[0]=='LOCATION':
+            if path[0] in ('EXT1','EXT2','EXT3'):
+                if prepared.spec!=('XYZWPREXT',):fail('External-axis fields require an XYZWPREXT row',line)
+                rt.field_reference(prepared,path[0],line).set(value,line)
+            elif path[0]=='LOCATION':
                 if len(path)==1:
                     updated=rt.vector_value(value,line)
                     for axis in ('X','Y','Z'):

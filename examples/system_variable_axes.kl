@@ -1,0 +1,8 @@
+PROGRAM SYSTEM_VARIABLE_AXES
+VAR point:XYZWPREXT value:REAL entry,status:INTEGER
+BEGIN
+  SET_VAR(entry,'*SYSTEM*','$MNUFRAME[1,2].EXT2',42,status)
+  GET_VAR(entry,'*SYSTEM*','$MNUFRAME[1,2]',point,status)
+  point.ext1=99
+  GET_VAR(entry,'*SYSTEM*','$MNUFRAME[1,2].EXT3',value,status)
+END SYSTEM_VARIABLE_AXES

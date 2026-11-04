@@ -1,0 +1,8 @@
+PROGRAM SYSTEM_VARIABLE_FIELDS
+VAR value:REAL cfg:CONFIG entry,status:INTEGER
+BEGIN
+  GET_VAR(entry,'','$MNUFRAME[1,2].CONFIG_DATA',cfg,status)
+  cfg.cfg_turn_no1=3 SET_VAR(entry,'','$MNUFRAME[1,2].CONFIG_DATA',cfg,status)
+  SET_VAR(entry,'','$MNUFRAME[1,2].LOCATION.X',42,status)
+  GET_VAR(entry,'','$MNUFRAME[1,2].LOCATION.X',value,status)
+END SYSTEM_VARIABLE_FIELDS

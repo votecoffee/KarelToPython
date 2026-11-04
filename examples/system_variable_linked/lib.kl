@@ -1,0 +1,9 @@
+PROGRAM LIB
+VAR point:XYZWPR entry,status:INTEGER
+ROUTINE work
+BEGIN
+  GET_VAR(entry,'','$MNUFRAME[1,2]',point,status)
+  point.x=30 SET_VAR(entry,'','$MNUFRAME[1,7]',point,status)
+  SET_VAR(entry,'','$MNUFRAMENUM[1]',7,status)
+END work
+BEGIN END LIB

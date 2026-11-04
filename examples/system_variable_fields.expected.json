@@ -1,0 +1,14 @@
+{
+  "VALUE": 42.0,
+  "CFG": {
+    "CFG_TURN_NO1": 3,
+    "CFG_TURN_NO2": 0,
+    "CFG_TURN_NO3": 0,
+    "CFG_FLIP": false,
+    "CFG_LEFT": false,
+    "CFG_UP": false,
+    "CFG_FRONT": false
+  },
+  "ENTRY": 2,
+  "STATUS": 0
+}

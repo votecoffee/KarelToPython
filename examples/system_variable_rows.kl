@@ -1,0 +1,7 @@
+PROGRAM SYSTEM_VARIABLE_ROWS
+VAR a:XYZWPR b:XYZWPREXT entry,status:INTEGER
+BEGIN
+  GET_VAR(entry,'','$MNUFRAME[1,2]',a,status)
+  a.x=30 SET_VAR(entry,'','$MNUFRAME[1,7]',a,status)
+  GET_VAR(entry,'','$MNUFRAME[1,7]',b,status)
+END SYSTEM_VARIABLE_ROWS

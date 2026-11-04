@@ -1,6 +1,6 @@
 # Remaining Pythonic support
 
-Audited on 2026-11-02 against the 465-heading, multi-edition KAREL feature
+Audited on 2026-11-04 against the 465-heading, multi-edition KAREL feature
 inventory, the programmer reference and the implemented parser/runtime. This is
 a product backlog, not a controller compatibility certificate. The inventory
 contains statements, actions, clauses, types and directives as well as calls;
@@ -118,6 +118,11 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   preprocessor/compiler extensions.
 
 ## Types, expressions and interfaces
+
+[Explicit robot system transfers](system-variable-transfers.md) now add bounded
+GET_VAR/SET_VAR row, location/CONFIG, extended-axis and selection operations.
+They preserve existing binding precedence and publish checked offline values;
+live system aliases and native discovery remain excluded.
 
 [Offline frame/tool writes](system-pose-writes.md) now accept whole Cartesian
 poses and staged location/configuration edits, including retained external axes.

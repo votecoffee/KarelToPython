@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR point:XYZWPREXT value:REAL entry,status,i:INTEGER
+ROUTINE work FROM LIB
+BEGIN
+  CONDITION[1]: WHEN TRUE DO work ENDCONDITION
+  ENABLE CONDITION[1] i=0
+  GET_VAR(entry,'','$MNUFRAME[1,2]',point,status)
+  GET_VAR(entry,'','$MNUFRAME[1,2].EXT2',value,status)
+END MAIN

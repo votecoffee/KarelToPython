@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.093249 - 2026-11-04
+
+- Extend explicit GET_VAR/SET_VAR to supplied frame/tool tables and active IDs
+  through bounded literal paths, preserving existing explicit binding precedence.
+- Retain Cartesian representations/external axes on whole-row transfers; stage
+  location, CONFIG and extended-axis edits through checked atomic publication.
+- Preserve private source values and reject system BYNAME/output aliases, invalid
+  geometry, overlapping host metadata and inferred joint/model conversions.
+- Add 106 regressions, four CLI examples and two linked projects with independent
+  complete state/table fixtures and saved-context replay.
+
 ## 26.1104.085319 - 2026-11-04
 
 - Borrow incomplete FILE ARRAY rows/planes directly in typed user routines using

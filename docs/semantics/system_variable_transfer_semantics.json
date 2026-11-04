@@ -1,0 +1,32 @@
+{
+  "version": "26.1104.093249",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored offline source/runtime transfers, atomic rejection, explicit binding precedence, linked handlers, CLI and saved-context replay",
+  "implemented": {
+    "paths": "Six existing robot source forms in explicit GET_VAR/SET_VAR namespaces, bounded literal fields and XYZWPREXT external axes",
+    "values": "Detached actual Cartesian row representation, complete replacement and checked location/CONFIG/axis edits",
+    "capture": "SET typed source before later selectors; GET snapshot after output selectors; no evaluation of quoted expressions",
+    "publication": "Validate complete data before one row or selection, then cache and metadata; protect selected configured cells from output aliases",
+    "persistence": "Existing RobotContext JSON only; no endpoints, references, cache IDs or continuations"
+  },
+  "remaining": [
+    "BYNAME and writable direct source system references",
+    "Orientation-column writes, inferred axes and implicit joint model conversion",
+    "Native/controller storage or execution and public strict mode"
+  ],
+  "verification": [
+    "tests/test_system_variable_transfers.py",
+    "tests/test_system_pose_writes.py",
+    "tests/test_system_pose_write_guards.py",
+    "tests/test_frame_tool_selection.py",
+    "tests/test_prefix_variable_transfers.py",
+    "examples/system_variable_rows.kl",
+    "examples/system_variable_fields.kl",
+    "examples/system_variable_axes.kl",
+    "examples/system_variable_ids.kl",
+    "examples/system_variable_linked/main.kl",
+    "examples/system_variable_handler/main.kl"
+  ],
+  "guide": "../system-variable-transfers.md"
+}

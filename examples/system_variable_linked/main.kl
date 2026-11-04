@@ -1,0 +1,7 @@
+PROGRAM MAIN
+VAR value:REAL entry,status:INTEGER
+ROUTINE work FROM LIB
+BEGIN
+  work
+  GET_VAR(entry,'','$GROUP[1].$UFRAME.LOCATION.X',value,status)
+END MAIN

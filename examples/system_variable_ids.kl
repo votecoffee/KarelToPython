@@ -1,0 +1,10 @@
+PROGRAM SYSTEM_VARIABLE_IDS
+VAR selected:INTEGER point:XYZWPR entry,status:INTEGER
+BEGIN
+  SET_VAR(entry,'SYSTEM','$MNUFRAMENUM[1]',2,status)
+  SET_VAR(entry,'SYSTEM','$MNUTOOLNUM[1]',3,status)
+  GET_VAR(entry,'SYSTEM','$MNUFRAMENUM[1]',selected,status)
+  SET_VAR(entry,'SYSTEM','$MNUFRAMENUM[1]',7,status)
+  SET_VAR(entry,'SYSTEM','$GROUP[1].$UFRAME.LOCATION.X',30,status)
+  GET_VAR(entry,'SYSTEM','$GROUP[1].$UFRAME',point,status)
+END SYSTEM_VARIABLE_IDS

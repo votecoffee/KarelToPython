@@ -1,0 +1,5 @@
+PROGRAM LIB
+VAR entry,status:INTEGER
+ROUTINE work
+BEGIN SET_VAR(entry,'','$MNUFRAME[1,2].EXT2',42,status) END work
+BEGIN END LIB

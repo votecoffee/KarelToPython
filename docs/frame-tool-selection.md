@@ -15,6 +15,10 @@ BEGIN
   $MNUTOOLNUM[1]=3
 ```
 
+[Explicit robot system transfers](system-variable-transfers.md) now also read
+and set these IDs through bounded GET_VAR/SET_VAR paths in an explicit system
+namespace. They return values and create no writable system aliases.
+
 ## Validation and capture
 
 Both reads and assignments require an explicit robot context/group, an ordinary

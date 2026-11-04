@@ -7178,6 +7178,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Creation-tagged FILE ARRAY rows use exact {closed: true} allocation intent; preflight every exact container and closed/pending-free descriptor; retain schema/group/pool, reset every descriptor on restore',
         guards='Validate schema, metadata and aggregate reserved budget before fresh allocation; generic FILE ARRAY codecs, value copies, STRUCTURE fields and FILE VR archives remain excluded; PATH/QUEUE arrays follow collection_array_policy',
         guide='docs/dynamic-file-arrays.md',controller_validated=False)
+    report['system_variable_transfer_policy']=dict(
+        source='Explicit GET_VAR/SET_VAR static robot paths in empty, SYSTEM or *SYSTEM* namespace, after existing full/root bindings',
+        targets='Numbered/active frame/tool rows, LOCATION and CONFIG_DATA fields, read-only orientation values, XYZWPREXT EXT1/EXT2/EXT3 and active IDs',
+        values='Whole GET retains configured Cartesian representation and external axes; whole SET retains complete supplied Cartesian representation; ordinary numeric/CONFIG data conversions, no implicit joint model',
+        capture='SET typed input before later argument selectors; GET snapshot after output selectors; literal bounded decimal path indexes only, no expression evaluation',
+        publication='Complete data and geometry validation before one detached table row or active ID, then cache/entry/status; metadata/output aliases to selected configured storage are rejected',
+        persistence='Existing RobotContext JSON retains published rows and selections; endpoint snapshots, cache IDs, references and continuations are not serialized',
+        boundary='No BYNAME system aliases, direct READ/service output aliases, unknown dollar discovery, native layouts, controller writes or strict equivalence',
+        guide='docs/system-variable-transfers.md',controller_validated=False)
     report['system_pose_write_policy']=dict(
         targets='Whole numbered frame/tool poses or active selected rows; LOCATION vectors/scalars and CONFIG_DATA whole/scalar fields only',
         values='Complete Cartesian records, private snapshots and staged geometry/config validation; preserve supplied representation and external axes on field edits',

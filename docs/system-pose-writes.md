@@ -16,6 +16,11 @@ BEGIN
   $MNUFRAME[1,7].config_data.cfg_turn_no1=7
 ```
 
+[Explicit robot system transfers](system-variable-transfers.md) now add bounded
+GET_VAR/SET_VAR paths, including retained whole-row external axes and checked
+extended-axis fields. Direct source values and writable-alias boundaries below
+retain their existing contracts.
+
 ## Targets and values
 
 Whole assignments accept complete POSITION, XYZWPR or XYZWPREXT records. The
