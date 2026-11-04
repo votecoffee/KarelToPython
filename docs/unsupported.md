@@ -63,7 +63,8 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   arrival schedule; global temporal predicates and physical arrival discovery remain unavailable.
   [CANCEL FILE](file-cancellation.md) now interrupts explicit cooperative typed reads
   and [READ_KB editors](read-kb-cancellation.md);
-  omitted/default FILE aliases and native pending writes remain unavailable.
+  [predefined/default FILE bindings](predefined-files.md) now use supplied offline
+  endpoints; callback cancellation and native pending writes remain unavailable.
   `PURGE CONDITION` is supported; bare PURGE remains rejected. `IN GROUP[n]` does not add arbitrary native `IN` clauses.
   [VAR IN CMOS/DRAM](source-forms-and-predicates.md) now records per-declaration
   intent; native storage allocation and automatic retention remain unavailable.

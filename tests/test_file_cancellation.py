@@ -105,8 +105,9 @@ class FileCancelSourceTests(unittest.TestCase):
     def test_non_file_target_rejected(self):
         with self.assertRaises(TranslationError):compile_program('CANCEL FILE n')
 
-    def test_omitted_file_is_not_silently_motion_cancel(self):
-        with self.assertRaises(TranslationError):compile_program('CANCEL FILE')
+    def test_omitted_file_requires_explicit_default_binding(self):
+        task,_=compile_program('CANCEL FILE')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'explicit binding'):task.run()
 
     def test_closed_handle_fails_without_creating_service(self):
         task,_=compile_program('CANCEL FILE f',decl=DECL)

@@ -279,7 +279,7 @@ class ReadSourceGuardTests(unittest.TestCase):
         with self.assertRaises(TranslationError) as caught: compile_program(body,**options)
         self.assertEqual(caught.exception.code,code)
         self.assertEqual(caught.exception.filename,'pythonic_read.kl')
-    def test_explicit_device_is_blocked(self): self.reject('READ INPUT(x)','E_SYMBOL')
+    def test_unknown_device_is_blocked(self):self.reject('READ UNKNOWN_DEVICE(x)','E_SYMBOL')
     def test_empty_input_list(self): self.reject('READ()','E_READ_ITEM')
     def test_legacy_cr_is_blocked(self): self.reject('READ(x,CR)','E_UNSUPPORTED',translator=legacy_translate)
     def test_legacy_formats_are_blocked(self): self.reject('READ(x::4)','E_UNSUPPORTED',translator=legacy_translate)

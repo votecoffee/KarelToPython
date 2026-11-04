@@ -86,7 +86,8 @@ history. Pending tokens, handle identities, frames and suspended execution are
 not serialized or restored.
 
 Fileless menu/alphanumeric controls and direct typed backend read generators keep
-their separate lifetimes. Omitted/default FILE aliases, physical keyboard capture,
+their separate lifetimes. [Predefined/default FILE bindings](predefined-files.md)
+now reuse the same editor cancellation. Physical keyboard capture,
 native alarm/status equivalence and public strict mode remain outside this model.
 See [typed FILE cancellation](file-cancellation.md), [keyboard input](keyboard-input.md)
 and the [45 authored regression cases](../tests/test_read_kb_cancellation.py).

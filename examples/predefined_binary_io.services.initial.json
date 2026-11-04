@@ -1,0 +1,23 @@
+{
+  "files": {
+    "data": {
+      "hex": "07000000"
+    }
+  },
+  "predefined_files": {
+    "INPUT": {
+      "name": "data",
+      "mode": "RO",
+      "attributes": {
+        "binary": true
+      }
+    },
+    "OUTPUT": {
+      "name": "out",
+      "mode": "WO",
+      "attributes": {
+        "binary": true
+      }
+    }
+  }
+}

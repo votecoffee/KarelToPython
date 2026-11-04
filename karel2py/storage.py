@@ -475,6 +475,9 @@ class DirectoryFiles:
 
 def context_config(context):
     result={}
+    if context.predefined_files:result['predefined_files']=context.predefined_files
+    for name in context._predefined_values:
+        if context._predefined_handle(name).owner is not None:raise ValueError('Close predefined FILE handles before saving context')
     if context.serial_streams is not None:result['serial_streams']=context.serial_streams.to_config()
     if context.source_translations is not None: result['source_translations']=context.source_translations.to_config()
     if context.serial_ports is not None: result['serial_ports']=context.serial_ports.to_config()

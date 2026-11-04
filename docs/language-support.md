@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Predefined FILE bindings](predefined-files.md) now route explicit names and
+omitted READ/WRITE through configured offline endpoints. CRTDEVICE selects
+INPUT/OUTPUT, bare CANCEL FILE targets the bound default input, and existing
+callbacks remain the fallback for unbound defaults.
+
 [Forward CONST references](forward-constants.md) now resolve acyclic module
 and routine chains before dependent schemas. Local VAR declarations may precede
 their local size/capacity constants; lexical scope, checked values and module-only
@@ -167,7 +172,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.075842. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.081722. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -239,6 +244,7 @@ internally and in the historical semantic notes.
 
 
 | Registers and ports | String/position/joint banks, digital/group/analog ports, static GET_VAR/SET_VAR paths, assignment/mode settings and module lookup | Explicit context, disjoint outputs and bounded same-rank ARRAY/missing-data transfers; [compatible record schemas and record prefixes](record-variable-transfers.md) and [explicit-model geometry](kinematic-variable-transfers.md); attached foreign globals and explicit system roots; staged I/O configuration requires host apply; no live acquisition. |
+| Predefined FILEs | Eleven unshadowed standard names and omitted READ/WRITE through explicit context bindings; CRTDEVICE INPUT/OUTPUT and bare default-input CANCEL FILE | Lazy ordinary handles with checked attributes, borrowed FILE interfaces and existing text/binary/cooperative transports. Close before JSON saves; no device discovery or restored live handles. See [predefined FILEs](predefined-files.md). |
 | FILE | OPEN/CLOSE, [CANCEL FILE](file-cancellation.md), text/binary READ/WRITE, byte cursors/counts/status, CHECK_NAME and MOVE_FILE | MemoryFiles or explicit DirectoryFiles root; copy/delete/rename including [wildcard renames](wildcard-rename.md), FILE_LIST formats 0 through 4 with atomic pages and blank timestamps, preflighted RD/FR movement, ATR_UF binary, byte order, EOL and interactive flush; explicit routing without native device behavior. |
 | PATH / QUEUE_TYPE | Typed nodes/header, PATHHEADER/PATHDATA spellings, reflowed clauses, append/insert/delete/copy/length; initialized FIFO queues, GET_VAR/SET_VAR logical queue transfers and exact whole-PATH Pythonic copies | Default/explicit STD_PTH_NODE schemas canonicalize identically; one-based nodes, explicit queue capacity/rebinding; PATH transfer preserves root/header aliases, detaches nodes and extends beyond the reviewed whole-PATH manual exclusion. No native layout claim. |
 | Cooperative control | Multiple WHEN handlers/actions, controls, connected global/private USING, [routine-local](routine-local-timers.md) and [borrowed formal timers](formal-timers.md), task pause/resume/stop, TaskRegistry and external callbacks | Deterministic scheduler, event/semaphore/error/lifecycle conditions, EVAL predicates/actions, scan intervals, local lifetimes, suppression actions and typed project linkage; no native interrupts or motion behavior. |

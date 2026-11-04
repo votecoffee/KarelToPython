@@ -1,0 +1,18 @@
+[
+  {
+    "line": 4,
+    "targets": [
+      {
+        "type": "INTEGER",
+        "type_spec": [
+          "INTEGER"
+        ]
+      }
+    ],
+    "device": "CRT/KB",
+    "line_breaks": [
+      1
+    ],
+    "adapter_outcome": "callback_completed"
+  }
+]

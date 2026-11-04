@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Predefined FILE bindings](docs/predefined-files.md) now route explicit names and
+omitted READ/WRITE through configured offline endpoints. CRTDEVICE selects
+INPUT/OUTPUT, bare CANCEL FILE targets the bound default input, and existing
+callbacks remain the fallback for unbound defaults.
+
 [Forward CONST references](docs/forward-constants.md) now resolve acyclic module
 and routine chains before dependent schemas. Local VAR declarations may precede
 their local size/capacity constants; lexical scope, checked values and module-only
@@ -180,7 +185,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.075842**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.081722**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1011,9 +1016,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 492 authored runnable examples, checks complete
+The example runner translates 496 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 178 complete linked source projects. It also checks that nested
+fixtures, plus 180 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

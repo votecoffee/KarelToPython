@@ -4160,11 +4160,27 @@ class State:
     def snapshot(self):
         return {name: snapshot_value(value.raw() if isinstance(value,Reference) else value) for name, value in self.values.items()}
 
+    def predefined_file(self,name,line=None):
+        return self.execution.predefined_file(self,name,line)
+
+    def predefined_file_reference(self,name,line=None):
+        handle=self.predefined_file(name,line)
+        return Reference(('FILE',),{'value':handle},'value')
+
+    def default_file(self,direction,line=None,*,required=False):
+        if direction not in ('READ','WRITE'):raise KarelRuntimeError('Default FILE direction must be READ or WRITE',line)
+        name=('INPUT' if direction=='READ' else 'OUTPUT') if self._source_settings.get('default_io_device')=='CRT/KB' else 'TPDISPLAY'
+        return self.execution.predefined_file(self,name,line,required=required)
+
+    def optional_file_read(self,handle,targets,line=None,**options):
+        return self.read_items(targets,line,**options) if handle is None else self.file_read(handle,targets,line,**options)
+
     def file_read(self,handle,targets,line=None,**options):
         from .extended import file_read
         return file_read(self,handle,targets,line,**options)
 
     def file_open(self,handle,mode,name,line=None):
+        if any(handle is item for item in self.execution._predefined_values.values()):raise KarelRuntimeError('Predefined FILE bindings cannot be reopened; reset with close_predefined_files',line)
         name=ascii_string(name,line)
         pipe_attributes=handle.pipe_wait is not None or handle.pipe_overflow is not None
         if pipe_attributes and not name.upper().startswith('PIP:'):
@@ -4204,6 +4220,15 @@ class State:
         if _pythonic() and (collection_type(result_spec) or collection_array_type(result_spec)):
             return external_collection_result(result_spec,result,line)
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
+
+
+def optional_file_piece(handle,kind,value,formats,line=None):
+    return format_write_item(kind,value,formats,line) if handle is None else file_piece(handle,kind,value,formats,line)
+
+
+def cooperative_optional_file_read(state,handle,targets,line=None,**options):
+    if handle is None:return state.read_items(targets,line,**options)
+    return (yield from cooperative_file_read(state,handle,targets,line,**options))
 
 
 def _dispatch_file_read(state,handle,targets,line=None,*,line_breaks=(),formats=None):

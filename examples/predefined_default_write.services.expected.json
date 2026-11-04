@@ -1,0 +1,13 @@
+{
+  "files": {
+    "out": {
+      "hex": "72656164790a"
+    }
+  },
+  "predefined_files": {
+    "TPDISPLAY": {
+      "name": "out",
+      "mode": "WO"
+    }
+  }
+}

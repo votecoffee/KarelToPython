@@ -1,5 +1,10 @@
 # API and command-line guide
 
+[Predefined FILE bindings](predefined-files.md) add the optional
+ExecutionContext(predefined_files=...) argument and matching context JSON field.
+Bindings describe checked alias endpoints; source CLOSE or
+context.close_predefined_files() releases owned handles before save.
+
 ## Translation
 
 [Collection arrays](collection-arrays.md) add `collection_array_policy` for borrowed

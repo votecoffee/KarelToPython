@@ -1,0 +1,17 @@
+{
+  "files": {
+    "data": {
+      "hex": "370a"
+    }
+  },
+  "predefined_files": {
+    "INPUT": {
+      "name": "data",
+      "mode": "RO"
+    },
+    "TPDISPLAY": {
+      "name": "out",
+      "mode": "WO"
+    }
+  }
+}

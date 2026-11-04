@@ -1,5 +1,9 @@
 # Semantic notes
 
+The [predefined-FILE ledger](predefined_file_semantics.json) supersedes earlier
+blanket predefined/default FILE exclusions for explicit offline bindings. Owned
+registrations, cooperative input, pending-write and native boundaries remain.
+
 The [forward-constant ledger](forward_constant_semantics.json) supersedes earlier
 forward CONST and local VAR-before-size exclusions in Pythonic mode. Module-only
 interfaces, lexical scope, scalar checks, namespace and immutability guards remain.

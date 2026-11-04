@@ -1,0 +1,20 @@
+{
+  "files": {
+    "data": {
+      "hex": "370a"
+    },
+    "out": {
+      "hex": "20370a"
+    }
+  },
+  "predefined_files": {
+    "INPUT": {
+      "name": "data",
+      "mode": "RO"
+    },
+    "OUTPUT": {
+      "name": "out",
+      "mode": "WO"
+    }
+  }
+}

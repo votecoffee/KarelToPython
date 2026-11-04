@@ -1,0 +1,18 @@
+[
+  {
+    "program": "PREDEFINED_CRT_DEFAULTS",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "PREDEFINED_CRT_DEFAULTS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

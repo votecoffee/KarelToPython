@@ -66,7 +66,7 @@ unsupported directive continuation.
 | `%CMOS2SHADOW` | Record CMOS-to-SHADOW mapping; combined with CMOSVARS the default intent is SHADOW. |
 | `%SHADOWVARS` | Record SHADOW as the default storage intent. |
 | `%UNINITVARS` | Retain the runtime's existing uninitialized defaults. |
-| `%CRTDEVICE` | Label omitted-file READ/WRITE observations `device="CRT/KB"`. |
+| `%CRTDEVICE` | Label omitted-file READ/WRITE observations `device="CRT/KB"`; select explicit predefined INPUT/OUTPUT bindings when configured. |
 | `%DELAY = n` | Record periodic native delay intent, portable range 0..86400000 ms. |
 | `%STACKSIZE = n` | Record stack intent, portable range 1..32767 long words. |
 
@@ -125,8 +125,11 @@ Missing groups fail rather than selecting another bank.
 
 CRTDEVICE adds the device label to READ callback metadata, read observations and
 omitted-file WRITE observations. WRITE callbacks still receive only text. Explicit
-FILE operations keep their backend behavior and receive no device labels. There
+FILE operations keep their backend behavior. Observation labels do not identify
+a physical route. There
 is no native keyboard/window routing, discovery or implicit file/device access.
+[Predefined FILE bindings](predefined-files.md) now route INPUT/OUTPUT through
+explicit offline endpoints while retaining the callback fallback.
 
 Storage, periodic DELAY and STACKSIZE settings are metadata only. LOCKGROUP and
 NOLOCKGROUP can opt into [root logical acquisition](directive-group-locks.md)

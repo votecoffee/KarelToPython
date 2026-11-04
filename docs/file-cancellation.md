@@ -72,7 +72,9 @@ existing service data/history, without operation tokens, callbacks or stacks.
 
 ## Boundaries and examples
 
-An explicit FILE is required; omitted/default FILE aliases are not implemented.
+[Predefined FILE bindings](predefined-files.md) now support explicit aliases and
+bare CANCEL FILE for the configured default input. Unbound callback input cannot
+be canceled through this FILE mechanism.
 Native pending WRITE interruption, hardware/controller timing and native status
 enum equivalence remain unavailable. `CANCEL` and `CANCEL GROUP[...]` keep their
 separate logical motion behavior. `PURGE CONDITION[n]` is already supported;

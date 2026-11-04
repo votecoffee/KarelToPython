@@ -702,7 +702,8 @@ class Parser:
             self.expect('HAND')
             return Statement('motion_action',token,[name+' HAND',self.expression()])
         if self.mode=='pythonic' and name=='CANCEL' and self.accept('FILE'):
-            return Statement('file_cancel',token,[self.storage_selector()])
+            target=self.storage_selector() if self.current.kind=='NAME' and self.current.value not in RESERVED else None
+            return Statement('file_cancel',token,[target])
         if self.mode=='pythonic' and name in ('HOLD','UNHOLD','CANCEL'):
             groups=None
             if self.accept('GROUP'):
@@ -2019,6 +2020,8 @@ class Emitter:
             parameter_names = {token.value for token, _ in routine.parameters}
             calls, call_nodes = set(), []
             for node in self.walk_nodes(routine.body):
+                if (self.mode=='pythonic' and isinstance(node,Expr) and node.kind=='name' and node.value in ex.PREDEFINED_FILE_NAMES
+                        and node.value not in self.types.keys() | self.constants.keys() | self.routines.keys() | self.user_types.keys() | routine.local_types.keys() | routine.local_constants.keys()):routine.may_services=True
                 if isinstance(node,Statement) and node.kind in ('motion','motion_action','motion_control','file_cancel','system_pose_assign','system_selection_assign'):routine.may_services=True
                 if isinstance(node,Statement) and node.kind=='pulse':
                     routine.may_services=True;routine.may_delay|=not node.args[2]
@@ -2273,7 +2276,13 @@ class Emitter:
             if self.has_fresh_active_counters(): self.features.add('routine call inside FOR with fresh local counters')
             if self.mode == 'pythonic': self.features.add('routine call inside FOR with checked counter effects')
 
+    def is_predefined_file(self,expr):
+        if self.mode!='pythonic' or expr.kind!='name' or expr.value not in ex.PREDEFINED_FILE_NAMES:return False
+        local=(self.current_routine.local_types.keys() | self.current_routine.local_constants.keys()) if self.current_routine else set()
+        return expr.value not in self.types.keys() | self.constants.keys() | self.routines.keys() | self.user_types.keys() | local
+
     def symbol_type(self, expr):
+        if self.is_predefined_file(expr):return ('FILE',)
         if self.current_routine and expr.value in self.current_routine.local_types:
             return self.current_routine.local_types[expr.value]
         if expr.value in self.visible_constants():
@@ -2433,6 +2442,7 @@ class Emitter:
         if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
         if expr.kind == 'group': return self.reference(expr.args[0],config_read=config_read,allow_prefix=allow_prefix,collection_prefix=collection_prefix)
         if expr.kind == 'name':
+            if self.is_predefined_file(expr):return f'self._state.predefined_file_reference({expr.value!r},{line})',('FILE',)
             return f'self._state.reference({expr.value!r}, {line})', self.symbol_type(expr)
         base, spec = self.expression(expr.args[0], raw=True)
         if expr.kind == 'field':
@@ -2623,6 +2633,9 @@ class Emitter:
                 code = f'_rt.integer({code}, {line})'
             return code, spec
         if expr.kind == 'name':
+            if self.is_predefined_file(expr):
+                self.features.add('explicit predefined FILE binding')
+                return f'self._state.predefined_file({expr.value!r},{line})',('FILE',)
             spec = self.symbol_type(expr)
             if self.current_routine and expr.value in self.current_routine.local_constants:
                 # Immutable scalar values are emitted directly. They never become
@@ -3775,10 +3788,14 @@ class Emitter:
         return pairs
 
     def statement(self, stmt, file_code=None):
+        optional_file=self.mode=='pythonic' and file_code is None and stmt.kind in ('read','write_items')
         token, kind = stmt.token, stmt.kind
         line = token.line
         self.features.add(kind)
         self.line(f'self._state.tick({line})', token)
+        if optional_file:
+            file_code=self.fresh()
+            self.line(f'{file_code}=self._state.default_file({("READ" if kind=="read" else "WRITE")!r},{line})',token)
         if kind=='motion_control':
             captured=[]
             for expr in stmt.args[1] or []:
@@ -3932,9 +3949,11 @@ class Emitter:
             self.line(f'{captured_file}={file_value}',token); self.features.add('memory files')
             self.statement(stmt.args[1],file_code=captured_file); return
         if kind=='file_cancel':
-            file_value=self.require_type(stmt.args[0],'FILE');self.features.add('cooperative FILE cancellation')
+            file_value=self.require_type(stmt.args[0],'FILE') if stmt.args[0] is not None else f'self._state.default_file("READ",{line},required=True)'
+            self.features.add('cooperative FILE cancellation')
             self.line(f'_rt.cancel_file(self._state,{file_value},{line})',token);return
         if kind in ('file_open','file_close'):
+            if kind=='file_open' and self.is_predefined_file(stmt.args[0]):self.error('E_PREDEFINED_FILE_OPEN','Configure predefined FILE endpoints through ExecutionContext bindings',token)
             file_value=self.require_type(stmt.args[0],'FILE'); self.features.add('memory files')
             if kind=='file_open':
                 mode=self.require_type(stmt.args[1],'STRING'); name=self.require_type(stmt.args[2],'STRING')
@@ -4185,7 +4204,7 @@ class Emitter:
                               if format_exprs else f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options})')
                     write_groups.append(rendered);pieces.append(rendered)
                 else:
-                    rendered=f'_rt.file_piece({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})'
+                    rendered=f'_rt.{"optional_file_piece" if optional_file else "file_piece"}({file_code},{data_type!r},{value},[{", ".join(format_codes)}],{item.token.line})' if file_code else f'_rt.format_write_item({data_type!r}, {value}, [{", ".join(format_codes)}], {item.token.line})'
                     pieces.append(rendered);write_groups.append('['+rendered+']')
                 items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
                                   format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
@@ -4299,7 +4318,7 @@ class Emitter:
                     self.features.add('bounded CONFIG field READ')
                     destination=dict(body=self.current_routine.name if self.current_routine else self.program.name,
                         root=root,field=target.value,type_spec=spec,line=target.token.line,column=target.token.column,
-                        file_input=bool(file_code),target_evaluated_once=True,validated_before_publication=True)
+                        file_input=bool(file_code) and not optional_file,target_evaluated_once=True,validated_before_publication=True)
                     if spec==('INTEGER',):destination['integer_range']=[-8,7]
                     self.config_field_read_uses.append(destination)
                     destinations[-1]['config_field']=target.value
@@ -4311,7 +4330,7 @@ class Emitter:
                     self.features.add(f'READ {spec[0]} formatting')
             controls = f', line_breaks={tuple(line_breaks)!r}' if line_breaks else ''
             cooperative_file=bool(file_code) and self.cooperative
-            reader=f'_rt.cooperative_file_read(self._state,{file_code},' if cooperative_file else f'self._state.file_read({file_code},' if file_code else 'self._state.read_items('
+            reader=(f'_rt.cooperative_optional_file_read(self._state,{file_code},' if optional_file and cooperative_file else f'self._state.optional_file_read({file_code},' if optional_file else f'_rt.cooperative_file_read(self._state,{file_code},' if cooperative_file else f'self._state.file_read({file_code},' if file_code else 'self._state.read_items(')
             prefix='yield from ' if cooperative_file else ''
             if aggregate_input:
                 captured=self.fresh();flat_targets=self.fresh();flat_formats=self.fresh();flat_breaks=self.fresh()
@@ -6598,12 +6617,23 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Same-bank rename preserves configuration and bytes; cross-bank rename requires empty reserved PIP targets or removes exported source configuration; delete removes both; pending READ/open handles are busy; nowait remains synchronous',
         boundaries='No DAQ/socket routing, implicit pipe creation, nonempty cross-bank rename replacement, native device semantics or generic PIP MOVE_FILE',
         guide='docs/pipe-file-management.md',controller_validated=False)
+    report['predefined_file_policy']=dict(
+        names=sorted(ex.PREDEFINED_FILE_NAMES),
+        bindings='Explicit ExecutionContext(predefined_files={alias:{name,mode,attributes?}}) or context JSON; detached checked endpoint descriptions, lazy open through existing offline services',
+        source='Unshadowed predefined FILE names supply ordinary borrowed FILE references; declarations and lexical USING fields retain priority; OPEN cannot retarget a predefined binding',
+        defaults='Omitted READ/WRITE captures TPDISPLAY, or INPUT/OUTPUT under CRTDEVICE, once before destinations/items/formats; unbound defaults retain existing callbacks and observations',
+        transports='Existing text/binary, aggregate, keyboard, serial, pipe and rooted file paths; waiting default input requires cooperative translation or existing handler/task forms',
+        cancellation='Bare CANCEL FILE selects the bound default input; explicit aliases and READ_KB use the same exact pending-operation and portable status-6 rules',
+        lifetime='One cached handle per configured alias and context; source CLOSE or explicit close_predefined_files releases only owned aliases, retaining pending/foreign identities for recovery',
+        persistence='Save declarative bindings and ordinary service data only after alias handles close; loading opens nothing and later use creates fresh handles without restoring cursors/stacks',
+        boundary='No automatic controller windows/devices, native preopened status/layout, callback cancellation, pending writes or strict equivalence; no source descriptor data discovery',
+        guide='docs/predefined-files.md',controller_validated=False)
     report['file_cancel_policy']=dict(
-        source='CANCEL FILE explicit writable FILE selector, captured once; allowed in handlers and linked routines',
+        source='CANCEL FILE explicit FILE selector or omitted bound default input, captured once; allowed in handlers and linked routines',
         dispatch='Cancel the exact cooperative typed READ or READ_KB editor on its explicit FILE; idle registered FILE succeeds without discarding data',
         completion='Portable IO_STATUS 6 on the canceled READ, no new READ observation or destination/cursor publication; execution continues after READ',
         lifetime='Cancellation marks the captured operation; pause is retained, resume unwinds; stop/abort and stale registrations retain their existing precedence and cleanup',
-        boundary='Explicit FILE only; no default input aliases, native I/O interruption or pending writes because modeled writes are atomic; fileless menus and direct typed backend reads remain separate',
+        boundary='Predefined/default FILE aliases follow predefined_file_policy; no callback/native I/O interruption or pending writes because modeled writes are atomic; fileless menus and direct typed backend reads remain separate',
         guide='docs/file-cancellation.md',controller_validated=False)
     report['serial_stream_policy']=dict(
         service='SerialStreams',context='Explicit ExecutionContext serial_streams; reserve numeric P-device prefixes and require configured canonical P1: through P5: endpoints; no ordinary filename fallback',
@@ -6843,6 +6873,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Pause retains requests without implicit resume; stop/abort/budget failures retain precedence; suspension frames require explicit POP, and live handles still prevent saves',
         boundary='Explicit FILE only; fileless editors/menus and direct typed backend reads remain separate; no hardware keyboard, native status/timing or strict claim',
         guide='docs/read-kb-cancellation.md',controller_validated=False)
+    report['keyboard_policy']['predefined_files']='Explicit aliases and bare default-input cancellation follow predefined_file_policy; source CLOSE or owned host cleanup remains required'
     report['keyboard_policy']['cancellation']='Explicit CANCEL FILE supports READ_KB as well as typed FILE READ; status 6 and preserved text/count/key outputs, checked FILE binding, private pending state'
     report['keyboard_policy']['read_kb_timing']='Positive/indefinite READ_KB visits blocking per-key checkpoints; positive deadline includes scheduled processing, zero-time poll remains atomic'
     report['vision_palette_policy']=dict(

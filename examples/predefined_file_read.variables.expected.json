@@ -1,0 +1,18 @@
+[
+  {
+    "program": "PREDEFINED_FILE_READ",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "PREDEFINED_FILE_READ",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

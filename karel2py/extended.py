@@ -1855,13 +1855,50 @@ def stop_cooperative(program):
     if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
 
 
+PREDEFINED_FILE_NAMES=frozenset(('TPDISPLAY','TPPROMPT','TPSTATUS','TPFUNC','TPERROR',
+    'INPUT','OUTPUT','CRTPROMPT','CRTSTATUS','CRTFUNC','CRTERROR'))
+
+
+def predefined_file_config(config):
+    """Validate declarative endpoints without opening a resource."""
+    if config is None:return {}
+    if type(config) is not dict:raise ValueError('predefined_files must be a mapping')
+    result={}
+    flags={'binary','reverse','field','xml','passall','noecho','interactive'}
+    for name,row in config.items():
+        if type(name) is not str or not name.isascii() or name.upper() not in PREDEFINED_FILE_NAMES:
+            raise ValueError('Unknown predefined FILE name')
+        key=name.upper()
+        if key in result:raise ValueError('Duplicate case-insensitive predefined FILE name')
+        if type(row) is not dict or set(row)-{'name','mode','attributes'} or not {'name','mode'}<=set(row):
+            raise ValueError('Predefined FILE binding requires name and mode')
+        target,mode=row['name'],row['mode']
+        if type(target) is not str or not target or len(target)>254 or not target.isascii():
+            raise ValueError('Predefined FILE endpoint must be nonempty ASCII up to 254 characters')
+        if type(mode) is not str or mode.upper() not in ('R','W','RW','A','RO','WO','AP','UD'):
+            raise ValueError('Unsupported predefined FILE access mode')
+        attributes=row.get('attributes',{})
+        if type(attributes) is not dict or set(attributes)-(flags|{'eol','pipe_wait','pipe_overflow'}):
+            raise ValueError('Unknown predefined FILE attributes')
+        for attribute,value in attributes.items():
+            if attribute in flags and type(value) is not bool:raise ValueError('Predefined FILE flags must be BOOLEAN')
+            if attribute=='eol' and (type(value) is not int or not 0<=value<=127):raise ValueError('Predefined FILE eol must be ASCII')
+            if attribute=='pipe_wait' and (type(value) is not int or value not in (0,1)):raise ValueError('Predefined FILE pipe_wait must be 0 or 1')
+            if attribute=='pipe_overflow' and (type(value) is not int or not -1<=value<=64*1024*1024):raise ValueError('Predefined FILE pipe_overflow outside bounds')
+        result[key]=dict(name=target,mode=mode.upper())
+        if attributes:result[key]['attributes']=dict(sorted(attributes.items()))
+    return dict(sorted(result.items()))
+
+
 class ExecutionContext:
-    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None,motion=None):
+    def __init__(self,*,strings=None,positions=None,ports=None,variables=None,files=None,robot=None,externals=None,tasks=None,numeric=None,events=None,semaphores=None,errors=None,parameters=None,calendar=None,local_handlers=False,programs=None,config_text=None,program_attributes=None,peers=None,teach_programs=None,serial_ports=None,group_locks=None,acquisition=None,pc_exchange=None,messaging=None,file_pipes=None,remote_messages=None,variable_archives=None,diagnostics=None,kcl=None,pendant=None,dictionaries=None,dynamic_display=None,keyboard=None,table_controls=None,forms=None,controller=None,vision=None,source_translations=None,serial_streams=None,motion=None,predefined_files=None):
         self.strings,self.positions,self.ports=strings,positions,ports
         self.variables=variables if variables is not None else VariableStore()
         self.files,self.robot=files,robot
         self.externals=dict(externals or {}); self.entries={};self.program_entries={}
         self._timer_claims={}
+        self._predefined_specs=tuple((name,row['name'],row['mode'],tuple(row.get('attributes',{}).items())) for name,row in predefined_file_config(predefined_files).items())
+        self._predefined_values={};self._predefined_owners={}
         self.tasks=tasks if tasks is not None else TaskRegistry()
         self.numeric=numeric; self.events=events
         self.semaphores=semaphores; self.errors=errors
@@ -1945,6 +1982,55 @@ class ExecutionContext:
         from .configtext import ConfigTextFormats
         if config_text is not None and type(config_text) is not ConfigTextFormats: raise TypeError('config_text must be ConfigTextFormats or None')
         self.config_text=config_text
+    @property
+    def predefined_files(self):
+        result={}
+        for name,target,mode,attributes in self._predefined_specs:
+            result[name]=dict(name=target,mode=mode)
+            if attributes:result[name]['attributes']=dict(attributes)
+        return result
+    def _predefined_handle(self,name,line=None):
+        rt=runtime();handle=self._predefined_values[name];record=self._predefined_owners.get(name)
+        if type(record) is not tuple or len(record)!=3 or record[0] is not handle or type(handle) is not FileHandle:
+            fail('Predefined FILE cache identity changed',line)
+        owner=record[1]
+        if handle.owner is not None:
+            if handle.owner is not owner or rt._file_identity(handle)!=record[2]:fail('Predefined FILE backend identity changed',line)
+            handles=owner._handles if type(owner) is rt.KeyboardInput else getattr(owner,'handles',())
+            if not any(item is handle for item in handles):fail('Predefined FILE registration changed',line)
+        return handle
+    def predefined_file(self,state,name,line=None,*,required=True):
+        if getattr(state,'execution',None) is not self:fail('Predefined FILE requires its owning execution context',line)
+        if type(name) is not str or not name.isascii() or name.upper() not in PREDEFINED_FILE_NAMES:fail('Unknown predefined FILE name',line)
+        name=name.upper()
+        if name not in self.predefined_files:
+            if required:fail('Predefined FILE requires explicit binding: '+name,line)
+            return None
+        if name in self._predefined_values:return self._predefined_handle(name,line)
+        row=self.predefined_files[name];handle=FileHandle()
+        for attribute,value in row.get('attributes',{}).items():setattr(handle,attribute,value)
+        try:state.file_open(handle,row['mode'],row['name'],line)
+        except BaseException:
+            if handle.owner is not None:
+                self._predefined_values[name]=handle;self._predefined_owners[name]=(handle,handle.owner,runtime()._file_identity(handle))
+            raise
+        self._predefined_values[name]=handle;self._predefined_owners[name]=(handle,handle.owner,runtime()._file_identity(handle))
+        return handle
+    def close_predefined_files(self):
+        # Close only exact owned registrations; a foreign replacement is retained.
+        handles=[self._predefined_handle(name) for name in self._predefined_values]
+        for handle in handles:
+            owner=handle.owner;rt=runtime()
+            pending=(handle._read_operation is not None or type(owner) is rt.KeyboardInput and any(job.get('handle') is handle for job in owner._active.values())
+                or type(owner) is rt.SerialStreams and id(handle) in owner._pending
+                or type(owner) is rt.FilePipes and id(handle) in owner._reads)
+            if pending:fail('Predefined FILE has a pending READ')
+        records=[(name,handle,self._predefined_owners[name]) for name,handle in zip(self._predefined_values,handles)]
+        for name,handle,record in records:
+            if self._predefined_values.get(name) is not handle or self._predefined_owners.get(name) is not record:fail('Predefined FILE cleanup ownership changed')
+            if handle.owner is not None:handle.owner.close(handle)
+            if self._predefined_values.get(name) is not handle or self._predefined_owners.get(name) is not record:fail('Predefined FILE cleanup ownership changed')
+            del self._predefined_values[name];del self._predefined_owners[name]
     def to_config(self):
         from .storage import context_config
         return context_config(self)
@@ -1962,10 +2048,13 @@ class ExecutionContext:
         return value
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams','motion'}: raise ValueError('Unknown execution context fields')
+        if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams','motion','predefined_files'}: raise ValueError('Unknown execution context fields')
         for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
+        if 'predefined_files' in config:
+            if config['predefined_files'] is None:raise ValueError('predefined_files must be a mapping')
+            services['predefined_files']=predefined_file_config(config['predefined_files'])
         if 'serial_streams' in config:
             from .serial_io import SerialStreams
             services['serial_streams']=SerialStreams.from_config(config['serial_streams'])

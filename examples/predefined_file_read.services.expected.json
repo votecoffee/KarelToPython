@@ -1,0 +1,13 @@
+{
+  "files": {
+    "data": {
+      "hex": "370a"
+    }
+  },
+  "predefined_files": {
+    "TPDISPLAY": {
+      "name": "data",
+      "mode": "RO"
+    }
+  }
+}

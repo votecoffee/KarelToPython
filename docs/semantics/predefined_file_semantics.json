@@ -1,0 +1,23 @@
+{
+  "version": "26.1104.081722",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_predefined_files.py",
+    "tests/test_file_cancellation.py",
+    "tests/test_read_kb_cancellation.py",
+    "examples/predefined_file_read.kl",
+    "examples/predefined_default_write.kl",
+    "examples/predefined_crt_defaults.kl",
+    "examples/predefined_binary_io.kl",
+    "examples/predefined_files_linked/main.kl",
+    "examples/predefined_files_defaults/main.kl"
+  ],
+  "bindings": "Eleven unshadowed standard FILE names use explicit detached context endpoint descriptions, checked modes/attributes and lazy ordinary service handles",
+  "defaults": "Capture TPDISPLAY or module CRTDEVICE INPUT/OUTPUT once; unbound omitted operations retain callbacks, explicit aliases require bindings",
+  "cancellation": "Bare CANCEL FILE selects configured default input; typed/READ_KB exact operation, status 6 and terminal/lifetime rules retained",
+  "ownership": "Exact cached handle, original backend/identity and live registration; no retargeting, pending cleanup or foreign replacement deletion",
+  "persistence": "Close alias handles before saving declarative bindings and ordinary data; loading opens nothing; no live handles/cursors/stacks restored",
+  "boundary": "Offline Pythonic model only; no controller discovery, native preopened status/window/device/timing, pending writes, callback cancellation or strict equivalence"
+}

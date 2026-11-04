@@ -1,0 +1,9 @@
+{
+  "files": {},
+  "predefined_files": {
+    "TPDISPLAY": {
+      "name": "out",
+      "mode": "WO"
+    }
+  }
+}

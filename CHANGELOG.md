@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1104.081722 - 2026-11-04
+
+- Add eleven unshadowed predefined FILE names through explicit context/JSON
+  endpoint bindings, with lazy ordinary handles and existing checked attributes.
+- Route omitted READ/WRITE once through TPDISPLAY or CRTDEVICE INPUT/OUTPUT;
+  preserve callbacks for unbound defaults and normal declaration/USING priority.
+- Support bare CANCEL FILE for bound default input, including typed reads and
+  READ_KB editors with existing pause/stop/abort and status-6 rules.
+- Retain exact cached/registered ownership, reject retargeting and pending cleanup,
+  and save binding intent only after handles close; loading opens nothing.
+- Add 100 regressions, four CLI examples and two linked projects with authored
+  variable/service snapshots, text/binary transport and context replay.
+
 ## 26.1104.075842 - 2026-11-04
 
 - Resolve acyclic forward CONST chains across module and routine sections with an

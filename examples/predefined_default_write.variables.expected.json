@@ -1,0 +1,10 @@
+[
+  {
+    "program": "PREDEFINED_DEFAULT_WRITE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

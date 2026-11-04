@@ -29,6 +29,7 @@ def check_variable_expectations(context,path,label):
 
 def service_snapshot(services):
     observed = {}
+    if services.predefined_files:observed['predefined_files']=services.predefined_files
     if services.serial_streams is not None: observed['serial_streams']=services.serial_streams.to_config()
     if services.serial_ports is not None: observed['serial_ports']=services.serial_ports.to_config()
     if services.group_locks is not None: observed['group_locks']=services.group_locks.to_config()
@@ -175,9 +176,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 492, 'Update the expected example count when adding examples'
+    assert count == 496, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==178, 'Update the expected project count when adding projects'
+    assert len(projects)==180, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
