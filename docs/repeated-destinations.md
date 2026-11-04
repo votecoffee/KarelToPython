@@ -31,16 +31,16 @@ one source level per later component containing stars. For example, source
 `dst/*_*/**/*_*/*_*.py` produces `dst/A_A/B/C_C/d_d.py`. With `src/A/C/e.KL`,
 the same globstar inserts zero levels and produces `dst/A_A/C_C/e_e.py`.
 
-Split the final filename at its last dot. Stem stars repeat the complete source
-stem, including earlier dots; extension stars repeat the complete source
-extension. A standalone final * still preserves the whole basename. Other
-wildcard filename substitutions require nonempty source name/type and nonempty
-destination stem/type. Literal target and extensionless exact-rename rules stay
-unchanged. A source with only filename matchers has no relative directory levels.
+Split at the last dot when a nonempty stem precedes it; a lone leading dot belongs
+to the stem. Stem stars repeat that complete source part, including earlier dots;
+extension stars repeat its optional extension. [Stem-only and extensionless
+substitutions](filename-substitutions.md) now use the same rule. A standalone
+final * still preserves the whole basename. Empty expanded extensions omit the
+separator. A source with only filename matchers has no relative directory levels.
 
 Adjacent stars within an ordinary directory, filename stem or extension remain
 rejected. Whole-directory ** retains its distinct role. Question/bracket
-destination templates, partial/repeated ** directories, stem-only star templates,
+destination templates, partial/repeated ** directories,
 traversal, empty/dot components and absolute host paths remain excluded.
 
 ## Backends and preflight

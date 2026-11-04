@@ -1,0 +1,9 @@
+PROGRAM PLAIN_NAMES_HIDDEN
+VAR s:INTEGER done:BOOLEAN
+BEGIN
+ IF UNINIT(done) THEN
+ COPY_FILE('src/.env','dst/clone_*',FALSE,FALSE,s)
+ COPY_FILE('src/.env.local','dst/typed_*.*',FALSE,FALSE,s)
+ done=TRUE
+ ENDIF
+END PLAIN_NAMES_HIDDEN

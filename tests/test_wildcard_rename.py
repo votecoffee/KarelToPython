@@ -89,9 +89,9 @@ class WildcardRenameMemoryTests(unittest.TestCase):
                 bank=rt.MemoryFiles({'src/a.kl':b'a','src/a.txt':b'b'});before=bank.snapshot()
                 self.assertEqual(rename(bank,'src/*.*',target),2);self.assertEqual(bank.snapshot(),before)
 
-    def test_extensionless_substitution_requires_standalone_star(self):
-        bank=rt.MemoryFiles({'src/LOG':b'a'});before=bank.snapshot()
-        self.assertEqual(rename(bank,'src/*','dst/*.txt'),2);self.assertEqual(bank.snapshot(),before)
+    def test_extensionless_substitution_can_add_an_explicit_type(self):
+        bank=rt.MemoryFiles({'src/LOG':b'a'})
+        self.assertEqual(rename(bank,'src/*','dst/*.txt'),0);self.assertEqual(bank.snapshot(),{'dst/LOG.txt':b'a'})
 
     def test_busy_later_source_and_case_aliased_target_are_status_three(self):
         for name in ('src/b.kl','dst/B.PY'):

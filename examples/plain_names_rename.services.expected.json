@@ -1,0 +1,13 @@
+{
+  "files": {
+    "keep.dat": {
+      "hex": "6b656570"
+    },
+    "dst/backup_LOG": {
+      "hex": "50"
+    },
+    "dst/backup_part": {
+      "hex": "4b"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {}
+  },
+  "files": {
+    "out/COPY_LOG": {
+      "hex": "0050"
+    },
+    "out/COPY_PART": {
+      "hex": "4b"
+    }
+  }
+}

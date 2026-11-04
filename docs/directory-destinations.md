@@ -31,9 +31,8 @@ is interpreted as a search for a destination directory.
 
 Final-name standalone * keeps the full source basename. [Repeated nonadjacent
 stars](repeated-destinations.md) independently reuse the complete source stem
-or extension. Exact
-extensionless renames retain their literal-target domain; ordinary wildcard
-extension/name rules otherwise remain unchanged. A final filename ** does not
+or optional extension. [Extensionless and leading-dot files](filename-substitutions.md)
+now use the same rules across COPY/RENAME routes, including stem-only templates. A final filename ** does not
 become a recursive destination placeholder.
 
 [Single-star directory components](directory-components.md) now substitute full

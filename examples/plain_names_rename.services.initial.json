@@ -1,0 +1,13 @@
+{
+  "files": {
+    "src/LOG": {
+      "hex": "50"
+    },
+    "src/part.KL": {
+      "hex": "4b"
+    },
+    "keep.dat": {
+      "hex": "6b656570"
+    }
+  }
+}

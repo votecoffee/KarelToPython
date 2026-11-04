@@ -1,0 +1,13 @@
+{
+  "files": {
+    "src/LOG": {
+      "hex": "0050"
+    },
+    "src/part.KL": {
+      "hex": "4b"
+    },
+    "src/.env": {
+      "hex": "45"
+    }
+  }
+}

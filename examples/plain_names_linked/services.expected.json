@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/LOG": {
+      "hex": "0050"
+    },
+    "src/part.KL": {
+      "hex": "4b"
+    },
+    "dst/backup_LOG": {
+      "hex": "0050"
+    },
+    "dst/backup_part.KL": {
+      "hex": "4b"
+    }
+  }
+}

@@ -119,8 +119,8 @@ class RepeatedGuardTests(unittest.TestCase):
             with self.subTest(target=target),self.assertRaises(rt.KarelRuntimeError):call(bank,source='src/*/*.KL',target=target)
             self.assertEqual(bank.snapshot(),before)
 
-    def test_adjacent_filename_stars_and_stem_only_templates_keep_status_two(self):
-        for target in ('dst/**.py','dst/*_**.py','dst/*_*.**','dst/copy_*_*'):
+    def test_adjacent_filename_stars_keep_status_two(self):
+        for target in ('dst/**.py','dst/*_**.py','dst/*_*.**'):
             bank=rt.MemoryFiles(SEED);before=bank.snapshot()
             with self.subTest(target=target):self.assertEqual(call(bank,source='src/*/*.KL',target=target),2);self.assertEqual(bank.snapshot(),before)
 

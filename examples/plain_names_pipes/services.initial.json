@@ -1,0 +1,35 @@
+{
+  "files": {
+    "src/LOG": {
+      "hex": "0050"
+    },
+    "src/part.KL": {
+      "hex": "4b"
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {
+      "PIP:COPY_LOG": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "DICT",
+        "form_ele": 0,
+        "data": {
+          "hex": ""
+        }
+      },
+      "PIP:COPY_PART": {
+        "cmos": true,
+        "sectors": 1,
+        "record_size": 1,
+        "form_dict": "DICT",
+        "form_ele": 1,
+        "data": {
+          "hex": ""
+        }
+      }
+    }
+  }
+}

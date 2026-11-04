@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.184423 - 2026-11-04
+
+- Support extensionless and leading-dot files in COPY_FILE/RENAME_FILE batches,
+  including stem-only destination templates and independent optional extensions.
+- Preserve standalone-star filenames, treat a lone leading dot as part of the
+  stem, and omit the separator when a substituted extension becomes empty.
+- Use the same checked expansion across ordinary, virtual-volume and plain-PIP
+  routes; retain complete-batch collisions, aliases, busy checks and quotas.
+- Add authored regressions, four examples and two linked replay projects;
+  keep portable path rules, adjacent-star restrictions and native boundaries.
+
 ## 26.1104.181600 - 2026-11-04
 
 - Support repeated, nonadjacent destination stars in COPY_FILE and RENAME_FILE

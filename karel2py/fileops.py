@@ -177,16 +177,15 @@ def _directory_listing(files,pattern,check):
 
 def _wildcard_template(template,source):
     if '?' in template:raise ValueError('Question marks are source matchers, not destination substitutions')
+    if '**' in template:raise ValueError('Destination stars must be separated by literal text')
     if template=='*':return source
-    stem,separator,extension=template.rpartition('.')
-    if not separator:
-        if '*' in template:raise ValueError('Star destination templates need stem.extension or standalone *')
-        return template
-    if not stem or not extension or '**' in stem or '**' in extension:
-        raise ValueError('Destination permits nonempty stem/extension with stars separated by literal text')
-    source_stem,source_dot,source_extension=source.rpartition('.')
-    if not source_dot or not source_stem or not source_extension:raise ValueError('COPY_FILE source requires a name and type')
-    return stem.replace('*',source_stem)+'.'+extension.replace('*',source_extension)
+    if '*' not in template:return template
+    def parts(name):
+        stem,separator,extension=name.rpartition('.')
+        return (stem,extension) if separator and stem else (name,'')
+    stem,extension=parts(template);source_stem,source_extension=parts(source)
+    stem=stem.replace('*',source_stem);extension=extension.replace('*',source_extension)
+    return stem+('.'+extension if extension else '')
 
 
 def wildcard_file_operation(state,operation,args,line=None):
@@ -317,7 +316,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         def unchanged(self,name,data,signature):
             if self.signature(name)!=signature:return False
             return self.directory or name in self.bank.files and bytes(self.bank.files[name])==data
-    def rename_cross_bank(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,preserve_plain):
+    def rename_cross_bank(source,target,source_folder,pattern,target_prefix,target_folder,template,selected):
         """Prepared moves between plain PIP and one explicitly supplied file bank."""
         pipe=source if source.pipe else target;ordinary=target if source.pipe else source
         if type(pipe.bank) is not runtime.FilePipes:raise runtime.KarelRuntimeError('Cross-bank rename requires an exact plain FilePipes bank',line)
@@ -348,7 +347,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         plan=[];targets=set();total=0
         for name in selected:
             check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            try:destination=target.destination(target_prefix,template if not wildcard or preserve_plain and not any(c in template for c in '*?') else _wildcard_template(template,base),name,source_folder,target_folder)
+            try:destination=target.destination(target_prefix,_wildcard_template(template,base),name,source_folder,target_folder)
             except ValueError:return 2
             matches=aliases.get(destination.casefold(),[])
             if len(matches)>1:return 2
@@ -442,7 +441,7 @@ def wildcard_file_operation(state,operation,args,line=None):
             for volume,amount in garbage.items():ordinary.bank._volumes[volume]['garbage']=amount
         return 0
 
-    def rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical,preserve_plain):
+    def rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical):
         # Rename retains byte/configuration objects; fingerprints avoid taking
         # another complete in-memory copy of every retained file in the batch.
         def fingerprint(name,*,charge):
@@ -462,9 +461,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         plan=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None}
         for name in selected:
             check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            stem,separator,extension=base.rpartition('.')
-            if not preserve_plain and (not separator or not stem or not extension):return 2
-            try:target_base=template if preserve_plain and not any(c in template for c in '*?') else _wildcard_template(template,base)
+            try:target_base=_wildcard_template(template,base)
             except ValueError:return 2
             destination=target.destination(target_prefix,target_base,name,source_folder,target_folder);matches=aliases.get(destination.casefold(),[])
             if len(matches)>1:return 2
@@ -530,12 +527,6 @@ def wildcard_file_operation(state,operation,args,line=None):
         if source.device:source.bank.require_volume(source.key(source_prefix+'__wildcard_probe__').split(':',1)[0])
         if operation in ('COPY_FILE','RENAME_FILE'):
             target=View(operands[1]);target_prefix,template=target.spec(operands[1],destination=True);target_folder=target.parent(_wildcard_target_root(target_prefix))
-            source_stem,source_dot,source_ext=pattern.rpartition('.')
-            # Plain pipe snapshots can preserve extensionless names through *.
-            preserve_plain=((operation=='RENAME_FILE' and not wildcard)
-                or (operation=='RENAME_FILE' or source.pipe or target.pipe) and template=='*'
-                or operation=='RENAME_FILE' and '*' in target_prefix and not any(c in operands[0]+template for c in '*?'))
-            if not preserve_plain and (not source_dot or not source_stem or not source_ext):return 2
             try:_wildcard_template(template,'probe.ext')
             except ValueError:return 2
             if operation=='COPY_FILE':overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
@@ -550,8 +541,8 @@ def wildcard_file_operation(state,operation,args,line=None):
         if source.busy(selected):return 3
         if operation=='RENAME_FILE':
             if source.bank is not target.bank:
-                return rename_cross_bank(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,preserve_plain)
-            return rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical,preserve_plain)
+                return rename_cross_bank(source,target,source_folder,pattern,target_prefix,target_folder,template,selected)
+            return rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical)
         if operation=='DELETE_FILE':
             bank=source.bank
             if source.device:
@@ -588,8 +579,6 @@ def wildcard_file_operation(state,operation,args,line=None):
         same=source.bank is target.bank
         for name in selected:
             check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            base_stem,base_dot,base_extension=base.rpartition('.')
-            if not preserve_plain and (not base_dot or not base_stem or not base_extension):return 2
             try:target_base=_wildcard_template(template,base)
             except ValueError:return 2
             destination=target.destination(target_prefix,target_base,name,source_folder,target_folder);matches=aliases.get(destination.casefold(),[])

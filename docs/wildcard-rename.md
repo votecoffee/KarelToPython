@@ -27,8 +27,9 @@ paths, encountered links/junctions, control characters and reserved basenames fa
 closed. Literal brackets in stored matched names remain characters.
 
 Destination templates use complete source components rather than the portion
-captured by a source-pattern star. Split the final filename at its last dot;
-each nonempty destination stem and extension permits [repeated stars](repeated-destinations.md)
+captured by a source-pattern star. Split at the last dot when a nonempty stem
+precedes it; a lone leading dot belongs to the stem. Stem and optional extension
+permit [repeated stars](repeated-destinations.md)
 separated by literal text. Each star reuses the same complete source part.
 
 | Source match | Destination template | Result |
@@ -38,10 +39,11 @@ separated by literal text. Each star reuses the same complete source part.
 | `LOG` | `saved/*` | `saved/LOG` |
 
 A standalone destination `*` preserves the complete filename and permits
-extensionless sources. Other wildcard substitutions require a nonempty source
-stem and extension. A literal destination can accept a single selected source;
-multiple sources mapping to that name are rejected. Ambiguous templates such as
-`prefix_*` or `**.DAT` are rejected. `*.*` selects names containing a dot, without
+extensionless sources. [Stem-only templates and optional types](filename-substitutions.md)
+now accept extensionless, hidden and mixed source names. An empty expanded
+extension omits its separator. A literal destination can accept a single selected
+source; multiple sources mapping to that name are rejected. Adjacent-star
+templates such as `**.DAT` remain rejected. `*.*` selects names containing a dot, without
 special native DOS matching behavior.
 
 MemoryFiles and DeviceFiles have logical parent paths. DirectoryFiles requires

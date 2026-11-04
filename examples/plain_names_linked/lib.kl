@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR s:INTEGER
+ROUTINE work
+BEGIN
+ COPY_FILE('src/*','dst/backup_*.*',FALSE,FALSE,s)
+END work
+BEGIN END LIB

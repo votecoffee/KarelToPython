@@ -1,0 +1,10 @@
+{
+  "files": {
+    "src/.env": {
+      "hex": "45"
+    },
+    "src/.env.local": {
+      "hex": "4c"
+    }
+  }
+}

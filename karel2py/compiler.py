@@ -5648,20 +5648,30 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Resulting bytes and virtual accounting only; no template objects, active scans, handles or pending plans',
         boundary='Explicit offline substitution extension, no directory search/creation, resource routing, native wildcard/controller equivalence or public strict mode',
         guide='docs/directory-components.md',controller_validated=False)
+    report['filename_substitution_policy']=dict(
+        procedures=['COPY_FILE','RENAME_FILE'],
+        source='Existing exact, star/question and directory/globstar selectors may select extensionless files, ordinary dotted names or leading-dot files on configured backends',
+        parts='Split at the final dot only when a nonempty stem precedes it; leading-dot names without another dot are complete stems with an empty extension',
+        substitution='Standalone * preserves the whole filename; stem-only templates replace stars with the complete source stem; dotted templates substitute stem and optional extension independently; omit the separator when the expanded extension is empty',
+        admission='Capture once and validate the whole plan before publication; dropping extensions can cause collisions, which reject every selected write or rename',
+        bounds='Existing 254-character paths, 32767 scanned entries, 64 MiB COPY snapshots, ownership, alias, busy, rescan and complete backend quotas',
+        persistence='Resulting bytes and logical accounting only; no templates, scans, open handles or pending plans',
+        boundary='Explicit offline extension; adjacent-star/question/bracket destination restrictions and backend name/device/path rules remain; no directory creation/search, native/controller or strict equivalence',
+        guide='docs/filename-substitutions.md',controller_validated=False)
     report['repeated_destination_policy']=dict(
         procedures=['COPY_FILE','RENAME_FILE'],
-        substitution='Repeat the same complete source directory name at each nonadjacent star within one destination component; filename stem and extension independently repeat their complete source parts',
+        substitution='Repeat the same complete source directory name at each nonadjacent star within one destination component; filename stem and optional extension independently repeat their complete source parts under filename_substitution_policy',
         depth='One source-relative level per destination directory component containing stars, not per star; one whole ** consumes remaining levels while reserving suffix components',
         admission='Capture source, target and status once; validate every expanded name/depth, collision, alias, busy handle, payload and quota before publication; retain completed argument effects',
         bounds='Existing 254-character input and expanded paths, 32767 scanned entries, 64 MiB COPY snapshots and execution/backend/device/pipe quotas',
         backends='Explicit MemoryFiles, DeviceFiles, rooted DirectoryFiles and preconfigured flat plain PIP endpoints; same-bank/cross-volume and guarded cross-bank rename rules remain',
         persistence='Result bytes and logical accounting only; no templates, scans, handles or pending plans',
-        boundary='No adjacent stars in ordinary components/stem/extension, question/bracket destination matchers, stem-only templates, directory creation/search, cross-file host transaction, native/controller or strict equivalence; MOVE_FILE/FILE_LIST unchanged',
+        boundary='No adjacent stars in ordinary components/stem/extension, question/bracket destination matchers, directory creation/search, cross-file host transaction, native/controller or strict equivalence; MOVE_FILE/FILE_LIST unchanged',
         guide='docs/repeated-destinations.md',controller_validated=False)
     report['wildcard_file_policy']=dict(
         procedures=['COPY_FILE','DELETE_FILE','RENAME_FILE'],backends=['MemoryFiles','DirectoryFiles','DeviceFiles','FilePipes'],
         selection='Case-insensitive component star/question patterns and ordinary whole-directory globstar follow directory_glob_policy; final-name PIP batches stay flat; sorted explicit backends only, no socket/DAQ routing',
-        substitution='Destination standalone star retains full basename; nonadjacent stars per stem/extension repeat the full source stem/extension, not matched captures; directory ** placeholders follow directory_destination_policy',
+        substitution='Destination standalone star retains full basename; nonadjacent stars per stem/optional extension repeat full source parts under filename_substitution_policy; directory ** placeholders follow directory_destination_policy',
         pipes='Explicit plain FilePipes only; COPY requires preconfigured targets and overwrite permission without ring truncation; DELETE removes selected configurations/bytes; RENAME moves original configuration/bytes to unused names in the same bank',
         rename='Explicit Pythonic extension, no overwrite, full sorted path/busy/alias/overlap/budget preflight; same-bank forms preserve byte/configuration identities and same-volume quota/garbage; cross_bank_rename_policy covers explicit PIP/ordinary moves',
         cross_volume='One DeviceFiles bank, both volumes mounted/writable; stage final file keys and retained source garbage, validate complete live-plus-garbage quotas and final file count, then publish without callbacks/checkpoints',

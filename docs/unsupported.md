@@ -356,6 +356,8 @@ queue-entry policies; FILE banks remain excluded.
   substitution with literal prefix/suffix tags and one optional globstar.
   [Repeated destination stars](repeated-destinations.md) now reuse whole source
   directories, stems and extensions while retaining the existing checked batches.
+  [Extensionless/hidden filenames](filename-substitutions.md) now share checked
+  COPY/RENAME batch expansion, including stem-only templates and optional types.
   Question/bracket/adjacent-star directory templates, PIP directory sources, separate
   ordinary-bank discovery, socket/DAQ batches and cross-file atomic host
   transactions remain unsupported.

@@ -1,0 +1,21 @@
+{
+  "feature": "extensionless_and_optional_filename_parts",
+  "mode": "pythonic",
+  "procedures": [
+    "COPY_FILE",
+    "RENAME_FILE"
+  ],
+  "parts": "Last dot separates type only after a nonempty stem; one leading dot belongs to the complete stem; empty extension is valid",
+  "substitution": "Standalone * preserves full name; stem-only patterns drop type; dotted patterns expand stem/optional extension independently; omit empty extension separator; repeated nonadjacent stars reuse complete parts",
+  "selection": "Existing exact/star/question/component/globstar matching; *.* still requires a dot; explicit backend domains and directory depths unchanged",
+  "admission": "Capture once and preflight complete collision, alias, overlap, busy, byte/name rescan and quota checks before publication",
+  "bounds": "254-character paths, 32767 scanned entries, 64 MiB COPY snapshots, backend/device/pipe quotas and execution budgets",
+  "publication": "Prepared logical state, retained rename byte/configuration identity and device garbage; rooted per-file errors can retain earlier changes",
+  "persistence": "Resulting bytes/accounting only; no templates, scans, handles or pending plans",
+  "boundary": "Portable path rules, adjacent-star/question/bracket target restrictions and plain pipe name syntax retained; no implicit discovery, directory creation, host transaction or native/controller/strict equivalence",
+  "guide": "docs/filename-substitutions.md",
+  "controller_validated": false,
+  "tests": [
+    "tests/test_filename_substitutions.py"
+  ]
+}

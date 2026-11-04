@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Extensionless and hidden filenames](docs/filename-substitutions.md) now work
+with COPY_FILE/RENAME_FILE batches and stem-only templates. Optional-extension
+substitution, mixed-name batches, virtual devices and configured plain pipes
+retain complete collision, path, quota and publication checks.
+
 [Repeated destination substitutions](docs/repeated-destinations.md) now let
 COPY_FILE and RENAME_FILE reuse complete source directory names, filename stems
 and extensions at several separated stars. Ordinary file banks, virtual volumes,
@@ -256,7 +261,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.181600**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.184423**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

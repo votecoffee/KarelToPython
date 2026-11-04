@@ -155,13 +155,13 @@ class WildcardPreflightTests(unittest.TestCase):
         self.assertEqual(copy(files),3);self.assertEqual(files.snapshot(),before);files.close(handle)
 
     def test_bad_destination_templates_return_two(self):
-        for template in ('dst/a**.py','dst/prefix_*'):
+        for template in ('dst/a**.py','dst/prefix_**'):
             with self.subTest(template=template):
                 files=memory();before=files.snapshot();self.assertEqual(copy(files,target=template),2);self.assertEqual(files.snapshot(),before)
 
-    def test_source_copy_pattern_requires_name_and_type(self):
-        files=memory();before=files.snapshot()
-        self.assertEqual(copy(files,'src/*','dst/*'),2);self.assertEqual(files.snapshot(),before)
+    def test_source_copy_star_accepts_names_with_or_without_type(self):
+        files=memory();self.assertEqual(copy(files,'src/*','dst/*'),0)
+        self.assertEqual(files.snapshot(),{'src/a.kl':b'a','src/b.kl':b'b','src/c.txt':b'c','dst/a.kl':b'a','dst/b.kl':b'b','dst/c.txt':b'c'})
 
     def test_pattern_syntax_and_paths_fail_closed(self):
         for source,target in [('src/*/../*.kl','dst/*.py'),('../*.kl','dst/*.py'),('src/[ab]*.kl','dst/*.py'),

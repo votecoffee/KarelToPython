@@ -31,13 +31,15 @@ Paths use forward slashes and stay relative to their explicit backend/root.
 Unmapped devices, symlinks, control characters, trailing-dot/space components and
 reserved device basenames fail closed.
 
-A wildcard COPY specification must include a nonempty name and type, such as
-`part*.KL` or `*.*`. DELETE also accepts `*` to select extensionless names in the
-chosen parent. `*.*` matches names containing a dot; it is not a special native
-alias for every filename. Literal brackets in already stored matched filenames
+COPY/RENAME source patterns now accept [extensionless and leading-dot names](filename-substitutions.md).
+The source matcher `*` selects every valid filename in its scope, while `*.*`
+requires a dot; it is not a special native alias for every filename. DELETE
+keeps its existing matching rules. Literal brackets in already stored matched filenames
 are copied/deleted as characters, rather than interpreted as another pattern.
 
-For a destination containing a dot, its final filename is split at the last dot.
+Split the destination at its last dot when a nonempty stem precedes it. A lone
+leading dot belongs to the stem. Source names use the same [optional-extension
+rule](filename-substitutions.md).
 Each star in its stem or extension substitutes the complete source part, rather
 than only a source-pattern capture. [Repeated stars](repeated-destinations.md)
 must be separated by literal text and reuse that same part:
@@ -50,8 +52,9 @@ must be separated by literal text and reuse that same part:
 | `partOne.KL` | `*` | `partOne.KL` |
 
 A standalone destination `*` preserves the complete filename. A literal
-destination is allowed when the resulting batch has only one target. A star
-stem without an extension, such as `prefix_*`, is rejected as ambiguous.
+destination is allowed when the resulting batch has only one target. A stem-only
+template such as `prefix_*` uses the source stem and drops its extension. If a
+dotted template expands to an empty extension, its separator is omitted.
 Generated targets must satisfy the same backend path and size checks.
 
 Final basename matching and collision checks use case-insensitive comparisons,
