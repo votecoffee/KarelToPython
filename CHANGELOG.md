@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.152749 - 2026-11-04
+
+- Add explicit MotionRequests queue_limit for bounded callback-free NOWAIT FIFOs
+  across all seven MOVE forms and VIA, preserving disabled defaults and old JSON.
+- Capture operands/settings and consume validated replies at admission; advance
+  each group from supplied delays with fractional progress and poll overshoot.
+- Retain holds, pause/resume, scheduler deadlines, root-task/ownership identity,
+  whole-group cancellation, terminal cleanup and active-state save guards.
+- Keep local-callback batches and synchronous queueing outside the supported
+  boundary; add regressions, four CLI examples and two linked replay projects.
+
 ## 26.1104.143945 - 2026-11-04
 
 - Add full source-relative directory substitutions with one star per destination

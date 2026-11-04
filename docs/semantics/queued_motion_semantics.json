@@ -1,0 +1,15 @@
+{
+  "feature": "bounded_callback_free_nowait_fifo",
+  "mode": "pythonic",
+  "configuration": "Exact INTEGER queue_limit 0..127; shared waiting slots exclude active heads; default zero omitted",
+  "source": "Seven MOVE forms plus VIA, callback-free generated NOWAIT with same calling root and exact group grant",
+  "admission": "Capture and detach operands/settings; validate data, ownership, hold, finite capacity, response, complete schedule and stable clock before publication/consumption; false replies reject immediately",
+  "progress": "Per-group FIFO; waiting progress zero, fractional observed active time and overshoot carry across supplied completion boundaries; no inferred geometry/time",
+  "controls": "Hold/pause freeze; cancel whole selected batches; task completion/stop/abort/failure cancels unfinished root jobs; clock/grant failures fail batch while preserving foreign grants and stopped labels",
+  "persistence": "Only enabled limit, unused replies and checked terminal history; no pending reload or active/waiting saves",
+  "boundary": "No queued local callbacks, synchronous busy-group admission, native queue, robot feedback, inferred arrivals or strict/controller equivalence",
+  "guide": "docs/queued-motion.md",
+  "tests": [
+    "tests/test_queued_motion.py"
+  ]
+}

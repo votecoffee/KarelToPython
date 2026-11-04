@@ -8,6 +8,12 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Queued NOWAIT moves](docs/queued-motion.md) now provide an opt-in, bounded FIFO
+for callback-free motion requests. Supplied delays progress in group order with
+hold/pause handling, task cleanup, complete-batch cancellation and terminal replay.
+The default remains one pending move per group; physical trajectories are outside
+the offline runtime.
+
 [Directory component substitutions](docs/directory-components.md) now let COPY_FILE
 and RENAME_FILE add literal tags around source-relative directory names, including
 mixed star/globstar layouts. Complete path/depth, collision and recursive namespace
@@ -78,7 +84,7 @@ release an exact existing connection owned by the calling task, including linked
 frames and borrowed ARRAY/record/BYNAME aliases. Clocks and connection lifetimes
 keep their defining owners; cross-task and uncertain claims remain protected.
 
-[Delayed NOWAIT motion](docs/nowait-motion.md) now keeps one pending move per
+[Delayed NOWAIT motion](docs/nowait-motion.md) by default keeps one pending move per
 owned group while source code continues. Task clocks drive supplied completion,
 with hold/pause freezing, cancellation, linked launches and scheduler observation.
 
@@ -225,7 +231,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.143945**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.152749**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1001,7 +1007,8 @@ explicit; controls do not create trajectories or change robot feedback.
 one-shot WHEN actions, UNTIL/THEN cancellation and finite supplied response delays.
 They retain caller-owned local frames across pause/resume, validate completion
 history and clean up on cancellation or failure. [Pending NOWAIT jobs](docs/nowait-motion.md)
-now progress from task clocks; queued move batches and inferred arrivals remain unavailable.
+now progress from task clocks; opt-in [callback-free FIFO batches](docs/queued-motion.md)
+retain supplied durations. Queued callbacks and inferred arrivals remain unavailable.
 
 [Explicit motion timelines](docs/motion-timeline.md) now support local AT NODE and
 TIME BEFORE/AFTER predicates, including wildcard destinations, using complete

@@ -2,7 +2,8 @@
 
 Pythonic NOWAIT accepts supplied finite response delays and complete node_times
 schedules for all seven MOVE forms and VIA. Source execution continues while one
-pending request occupies its logical group. This is an authored offline model;
+active request occupies its logical group. An explicit [bounded FIFO](queued-motion.md)
+may retain callback-free NOWAIT waiters; the default still rejects busy groups. This is an authored offline model;
 it creates no trajectories, robot feedback updates, physical arrivals, background
 threads, native motion queue or controller/compiler equivalence. Strict mode
 remains a future milestone.
@@ -24,9 +25,11 @@ before release. Source without NOWAIT retains its synchronous progress policy.
 
 Validate operands, local WITH values, group ownership, response data and the task
 clock before publishing the pending request. Values detach before source code can
-change them. A second move to a busy group rejects without consuming its response.
-Different owned groups can progress independently; this is not a queued batch of
-moves or synchronized multi-group interpolation.
+change them. By default a second move to a busy group rejects without consuming
+its response. An explicit positive queue_limit allows checked callback-free waiters.
+Different owned groups can progress independently. Optional callback-free FIFOs
+follow [queue admission and lifetime rules](queued-motion.md); synchronized
+multi-group interpolation remains outside the model.
 
 The calling root task owns the job, including a MOVE launched in a linked routine
 that subsequently returns when the job has no local clauses. [NOWAIT local

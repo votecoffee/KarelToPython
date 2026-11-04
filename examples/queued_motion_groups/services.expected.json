@@ -1,0 +1,132 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2,
+      "2": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 6,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 6,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 10,
+            "elapsed_ms": 10,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 8,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 2.0,
+          "execution": {
+            "delay_ms": 20,
+            "elapsed_ms": 20,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "MAIN",
+        "source_program": "LIB",
+        "operation": "MOVE AWAY",
+        "group": 2,
+        "line": 5,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 3.0,
+          "execution": {
+            "delay_ms": 10,
+            "elapsed_ms": 10,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "MAIN",
+        "source_program": "LIB",
+        "operation": "MOVE AXIS",
+        "group": 2,
+        "line": 6,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "axis": 2,
+          "distance": 90.0,
+          "execution": {
+            "delay_ms": 20,
+            "elapsed_ms": 20,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 12,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1,
+            2
+          ]
+        }
+      }
+    ],
+    "queue_limit": 8
+  }
+}

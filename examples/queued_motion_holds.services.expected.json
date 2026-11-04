@@ -1,0 +1,145 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 6,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "QUEUED_MOTION_HOLDS",
+        "source_program": "QUEUED_MOTION_HOLDS",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "QUEUED_MOTION_HOLDS",
+        "source_program": "QUEUED_MOTION_HOLDS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 10,
+            "elapsed_ms": 10,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "QUEUED_MOTION_HOLDS",
+        "source_program": "QUEUED_MOTION_HOLDS",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 7,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 2.0,
+          "execution": {
+            "delay_ms": 20,
+            "elapsed_ms": 20,
+            "handlers": [],
+            "triggered": []
+          }
+        }
+      },
+      {
+        "sequence": 4,
+        "program": "QUEUED_MOTION_HOLDS",
+        "source_program": "QUEUED_MOTION_HOLDS",
+        "operation": "HOLD",
+        "group": 1,
+        "line": 9,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": false
+              },
+              "after": {
+                "motion": "idle",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 5,
+        "program": "QUEUED_MOTION_HOLDS",
+        "source_program": "QUEUED_MOTION_HOLDS",
+        "operation": "UNHOLD",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 6,
+        "program": "QUEUED_MOTION_HOLDS",
+        "source_program": "QUEUED_MOTION_HOLDS",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 14,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ],
+    "queue_limit": 8
+  }
+}

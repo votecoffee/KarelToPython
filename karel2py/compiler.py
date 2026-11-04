@@ -7362,9 +7362,19 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Only checked terminal metadata and data; active scopes, callbacks, frames and suspended actions cannot be saved or restored',
         boundary='Authored offline observation; no callbacks after defining-frame return, queued batches, implicit physical node arrivals, native timing/controller ABI or strict equivalence',
         guide='docs/nowait-local-clauses.md',controller_validated=False)
+    report['motion_queue_policy']=dict(
+        configuration='MotionRequests queue_limit is an exact INTEGER 0..127; zero disables queueing and is omitted from saved configuration; positive limits bound waiting jobs across all groups',
+        source='Newly generated callback-free NOWAIT for all seven MOVE forms and VIA; active head and waiters share the same calling root and exact group ownership grant',
+        admission='Detach operands/settings and validate scope, finite capacity, group, reply, complete supplied schedule and clock before history publication or response consumption; false replies reject immediately',
+        progress='One active head per group; waiting jobs retain zero progress until FIFO promotion; observed active microseconds carry through supplied completion boundaries, including zero durations and fractional remainders',
+        controls='HOLD and task pause freeze the active head; no new work while held; CANCEL cancels every unfinished job in each selected group; normal completion, stop, abort or failure cancel the owning task batch',
+        scheduler='Independent groups retain separate FIFOs and scheduler-owned clock deadlines; linked callback-free launches retain calling-root lifetime after routine return',
+        persistence='Only queue_limit, unused replies and checked terminal history persist; saving active/waiting jobs rejects, and no queue scopes, clocks, frames or suspended execution reload',
+        boundary='Authored offline model; no queued local callbacks, synchronous admission to busy groups, inferred arrivals, native trajectories, robot feedback or strict/controller equivalence',
+        guide='docs/queued-motion.md',controller_validated=False)
     report['motion_nowait_policy']=dict(
         source='Seven MOVE forms and VIA with NOWAIT plus explicit finite scripted delays or complete node_times; local clauses/temporal observation follow motion_nowait_clause_policy',
-        admission='Validate detached operands/settings, ownership, response and stable task clock before publishing; one pending request per group, no queued batches',
+        admission='Validate detached operands/settings, ownership, response and stable task clock before publishing; one pending request per group by default, opt-in callback-free FIFO follows motion_queue_policy',
         progress='Observe root monotonic/injected/scheduler microseconds at checkpoints, successful standalone DELAY return and scheduler boundaries; retain fractional milliseconds and cap at supplied delay',
         clocks='Capture adapter identity; reject negative/noninteger/backwards or replaced clocks; only scheduler-owned clocks provide inferred virtual wake deadlines',
         controls='Owned groups progress independently; HOLD and pending/active task pause freeze progress, UNHOLD/resume reanchor; CANCEL ends pending jobs and retains held/stopped protections',

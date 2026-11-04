@@ -759,7 +759,7 @@ raw byte quotas and [rounded BMP export](vision-bmp-samples.md), recorded in
 [synchronous calls](synchronous-program-calls.md) and [16-bit images](vision-16bit-images.md).
 
 [Motion requests](motion-requests.md) use `runtime.MotionRequests(groups, *, hands=None,
-capture_only=False, responses=None, limit=128, sequence=0, history=None)` through
+capture_only=False, responses=None, limit=128, sequence=0, history=None, queue_limit=0)` through
 `ExecutionContext.motion`. Groups map integer group numbers to explicit axis counts.
 Reports add `motion_requests` and `motion_request_policy`; context JSON retains
 canonical group/hand keys, detached typed history and remaining immediate replies.
@@ -777,7 +777,9 @@ ownership selection, source capture order and the absence of environment mutatio
 retains private callbacks and routine frames for synchronous scopes; save guards
 reject active scopes and loaded history validates progress, triggers and outcomes.
 Reports add local clause locations and scope rules. Older direct-invoke output
-must be retranslated for delayed responses. No queued/native motion is inferred.
+must be retranslated for delayed responses. Explicit [queue_limit](queued-motion.md)
+adds bounded callback-free NOWAIT FIFOs; zero remains the default and omitted JSON
+value. Reports add motion_queue_policy. Native motion is not inferred.
 
 [Explicit temporal predicates](motion-timeline.md) use optional response
 `node_times` with an explicit delay_ms. Complete selected-range schedules and

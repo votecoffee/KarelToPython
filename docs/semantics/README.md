@@ -32,6 +32,11 @@ caller/ancestor-frame DISCONNECT exclusions for exact references within one live
 task. Connection lifetimes do not migrate; foreign tasks, dead frames and
 uncertain claims retain their protection.
 
+The [queued motion ledger](queued_motion_semantics.json) supersedes earlier
+blanket queued-batch exclusions for explicitly enabled callback-free NOWAIT FIFOs.
+The default remains one pending request per group. Queued callbacks, synchronous
+queue admission and native trajectory/controller behavior remain outside it.
+
 The [NOWAIT motion ledger](nowait_motion_semantics.json) supersedes earlier
 delayed/scheduled NOWAIT exclusions for callback-free jobs. One pending request
 per owned group observes task clocks; local clauses, queued batches and native

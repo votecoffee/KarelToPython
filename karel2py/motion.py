@@ -215,7 +215,7 @@ def transition(operation, before):
 class MotionRequests:
     """Finite capture/scripted endpoint. No hardware adapter or implicit replies."""
     def __init__(self, groups, *, hands=None, capture_only=False, responses=None,
-                 limit=128, sequence=0, history=None):
+                 limit=128, sequence=0, history=None, queue_limit=0):
         if type(groups) is not dict or not groups or len(groups) > 31:
             raise ValueError('Motion groups require an explicit group:axis-count map')
         self.groups = {}
@@ -224,6 +224,7 @@ class MotionRequests:
             self.groups[group] = bounded(axes, 1, 9, 'Motion group axis count must be in 1..9')
         if type(capture_only) is not bool:
             raise ValueError('capture_only requires BOOLEAN')
+        self.queue_limit = bounded(queue_limit, 0, 127, "Motion queue limit must be in 0..127")
         self.capture_only = capture_only
         self.limit = bounded(limit, 1, 128, 'Motion history limit must be in 1..128')
         self.sequence = bounded(sequence, 0, MAX_SEQUENCE, 'Invalid motion sequence')
@@ -256,6 +257,7 @@ class MotionRequests:
         self.responses = deepcopy(responses)
         self._released = {}
         self._active = {}
+        self._queued = {}
         self._local_actions = {}
         if history is None:
             history = []
@@ -437,9 +439,11 @@ class MotionRequests:
             raise rt().KarelRuntimeError('Motion local clauses require bounded callable WHEN/UNTIL descriptors',line)
         return [dict(kind=kind,line=location) for kind,_,_,location in clauses]
 
-    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False, _clauses=(), _callback_context=None):
+    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False, _clauses=(), _callback_context=None, _clock_sample=None):
         runtime = rt()
-        self.poll(state,line)
+        if _clock_sample is not None and not _background:
+            raise runtime.KarelRuntimeError('Admission clock samples require generated NOWAIT scopes', line)
+        self.poll(state,line,_sample=_clock_sample)
         group = state.robot_group or 1
         root = runtime.task_root(state)
         locks = state.execution.require('group_locks', line)
@@ -449,8 +453,16 @@ class MotionRequests:
                     raise ValueError('Motion request owner requires an ASCII source identifier within 254 characters')
             if settings and operation not in MOVES:
                 raise ValueError('WITH settings require a MOVE request')
-            if operation in MOVES and group in self._active:
-                raise ValueError('Motion group already has an active request scope')
+            queued = operation in MOVES and group in self._active
+            if queued:
+                head = self._active[group]
+                if (not self.queue_limit or not _background or not head.get('background')
+                        or _clauses or head.get('clauses') or head.get('scanning') or head['cancelled']):
+                    raise ValueError('Motion group already has an active request scope; queueing requires callback-free generated NOWAIT moves')
+                if head['root'] is not root or not self.owns_scope(head):
+                    raise ValueError('Queued motion requires the same task and logical ownership grant')
+                if sum(map(len, self._queued.values())) >= self.queue_limit:
+                    raise ValueError('Motion waiting queue capacity exceeded')
             if type(_background) is not bool or _background and (not nowait or _execution is None):
                 raise ValueError('Background motion requires a generated NOWAIT execution scope')
             if _execution is not None and (operation not in MOVES or nowait and not _background or state._in_handler or root._in_handler):
@@ -516,7 +528,7 @@ class MotionRequests:
                     raise ValueError('Motion group is owned by another task')
                 if operation not in ('ATTACH', 'RELEASE') and (owner is not root or root in self._released):
                     raise ValueError('Motion requires attached logical group ownership')
-                if operation in (*MOVES, 'ATTACH', 'RELEASE') and (locks.motion.get(selected_group, 'idle') != 'idle' or selected_group in locks.held):
+                if operation in (*MOVES, 'ATTACH', 'RELEASE') and (locks.motion.get(selected_group, 'idle') != ('executing' if queued else 'idle') or selected_group in locks.held):
                     raise ValueError('Motion request requires an idle logical group without a hold')
             if self.sequence >= MAX_SEQUENCE:
                 raise ValueError('Motion request sequence exhausted')
@@ -574,8 +586,11 @@ class MotionRequests:
                 grant=locks._ownership_tokens.get(group), request=request,
                 outcome=outcome, cancelled=False, consumer=object(), events=events, breakpoints=breakpoints)
             request['outcome'] = 'pending'
-            self._active[group] = scope
-            locks.set_motion(group, 'executing')
+            if queued:
+                self._queued.setdefault(group, []).append(scope)
+            else:
+                self._active[group] = scope
+                locks.set_motion(group, 'executing')
             return scope
 
     @staticmethod
@@ -584,9 +599,12 @@ class MotionRequests:
         return (scope.get('scanning',False) or scope['group'] in scope['locks'].held or root._pause_requested or root._abort_requested
                 or root.task_state not in ('running','waiting'))
 
-    def poll(self,state=None,line=None,*,scheduler=None):
-        """Observe task clocks without source handlers or robot-data updates."""
+    def poll(self,state=None,line=None,*,scheduler=None,_sample=None):
+        """Observe task clocks and bounded FIFO progress without source callbacks."""
         runtime=rt();root=runtime.task_root(state) if state is not None else None
+        if _sample is not None and (root is None or type(_sample) is not tuple or len(_sample)!=2
+                or root._clock_us is not _sample[0] or type(_sample[1]) is not int or _sample[1]<0):
+            raise runtime.KarelRuntimeError('NOWAIT admission clock sample or adapter changed',line)
         selected=[scope for scope in self._active.values() if scope.get('background')
                   and (root is None or scope['root'] is root)
                   and (scheduler is None or scope['root']._scheduler is scheduler)]
@@ -602,22 +620,30 @@ class MotionRequests:
                 except BaseException:
                     self.finish_scope(scope,'failed');raise
             try:
-                now=runtime.timer_clock(owner,line)
+                now=runtime.timer_clock(owner,line) if _sample is None else _sample[1]
                 if any(owner._clock_us is not scope['clock'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during poll',line)
                 if any(now<scope['last_us'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock moved backwards',line)
                 for scope in scopes:self.verify_scope(scope,line)
             except BaseException:
                 for scope in scopes:self.finish_scope(scope,'failed')
                 raise
-            for scope in scopes:
-                blocked=self.background_blocked(scope)
-                progress=scope['request']['data']['execution']
-                if not scope['blocked'] and not blocked:scope['active_us']+=now-scope['last_us']
-                scope['last_us']=now;scope['blocked']=blocked
-                progress['elapsed_ms']=min(progress['delay_ms'],scope['active_us']//1000)
-                if scope.get('scanning'):continue
-                if scope['cancelled']:self.finish_scope(scope,'cancelled')
-                elif progress['elapsed_ms']==progress['delay_ms'] and not scope.get('clauses'):self.finish_scope(scope,scope['outcome'])
+            for initial in scopes:
+                scope=initial
+                while scope is not None:
+                    blocked=self.background_blocked(scope)
+                    progress=scope['request']['data']['execution']
+                    if not scope['blocked'] and not blocked:scope['active_us']+=now-scope['last_us']
+                    scope['last_us']=now;scope['blocked']=blocked
+                    progress['elapsed_ms']=min(progress['delay_ms'],scope['active_us']//1000)
+                    if scope.get('scanning'):break
+                    if scope['cancelled']:
+                        self.finish_scope(scope,'cancelled');break
+                    if progress['elapsed_ms']!=progress['delay_ms'] or scope.get('clauses'):break
+                    # A delayed poll can cross multiple supplied completions. Carry
+                    # only observed active time; held/paused intervals never enter it.
+                    completed_us=now-max(0,scope['active_us']-progress['delay_ms']*1000)
+                    self.finish_scope(scope,scope['outcome'],completed_us=completed_us)
+                    scope=self._active.get(scope['group'])
 
     def deadlines(self,scheduler):
         """Virtual deadlines apply only to the scheduler's own clock adapters."""
@@ -630,12 +656,27 @@ class MotionRequests:
         locks, group = scope['locks'], scope['group']
         return locks.owners.get(group) is scope['root'] and locks._ownership_tokens.get(group) is scope['grant']
 
-    def finish_scope(self, scope, outcome):
+    def finish_scope(self, scope, outcome, *, completed_us=None):
         scope['request']['outcome'] = outcome
-        if self._active.get(scope['group']) is scope:
-            if self.owns_scope(scope) and scope['locks'].motion.get(scope['group']) == 'executing':
-                scope['locks'].set_motion(scope['group'], 'idle')
-            self._active.pop(scope['group'])
+        group = scope['group']
+        if self._active.get(group) is scope:
+            waiting = self._queued.pop(group, [])
+            self._active.pop(group)
+            if outcome == 'completed' and waiting and self.owns_scope(scope):
+                next_scope = waiting.pop(0)
+                next_scope['last_us'] = scope['last_us'] if completed_us is None else completed_us
+                next_scope['blocked'] = self.background_blocked(next_scope)
+                self._active[group] = next_scope
+                if waiting:self._queued[group] = waiting
+            else:
+                for queued in waiting:
+                    queued['request']['outcome'] = 'failed' if outcome == 'failed' else 'cancelled'
+                if self.owns_scope(scope) and scope['locks'].motion.get(group) == 'executing':
+                    scope['locks'].set_motion(group, 'idle')
+        else:
+            waiting = self._queued.get(group, [])
+            waiting[:] = [queued for queued in waiting if queued is not scope]
+            if not waiting:self._queued.pop(group, None)
         consumer=scope['consumer']
         for cache in (scope['state']._event_seen,scope['state']._edge_history):
             for key in list(cache):
@@ -762,7 +803,7 @@ class MotionRequests:
         if not self.capture_only and self.responses and self.responses[0]['operation'] == operation:
             delay = self.responses[0].get('delay_ms', 0)
             plan = self.responses[0].get('node_times')
-        scoped = bool(clauses) or bool(delay) or plan is not None or bool(conditions)
+        scoped = bool(clauses) or bool(delay) or plan is not None or bool(conditions) or bool(nowait and self.queue_limit)
         if not scoped:
             self.invoke(state, operation, data, nowait, line, settings=settings)
             return
@@ -782,12 +823,12 @@ class MotionRequests:
                     or any(not any(frame is live for live in state._timer_frames) for frame in frames))):
                 raise runtime.KarelRuntimeError('NOWAIT local callback defining frames or task changed during capture',line)
             if root._clock_us is not clock:raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during capture',line)
-            scope=self.invoke(state,operation,data,True,line,settings=settings,_execution=execution,_background=True,_clauses=clauses,_callback_context=(root,tuple(frames)))
+            scope=self.invoke(state,operation,data,True,line,settings=settings,_execution=execution,_background=True,_clauses=clauses,_callback_context=(root,tuple(frames)),_clock_sample=(clock,now) if self.queue_limit else None)
             scope.update(background=True,clock=clock,last_us=now,active_us=0,blocked=self.background_blocked(scope),
                 clauses=tuple(clauses),frames=frames,frame=frames[-1] if frames else None,
                 scanning=False,last_scan=-1)
             if clauses:yield from self.scan_background(state,line)
-            elif delay==0:self.finish_scope(scope,scope['outcome'])
+            elif delay==0 and self._active.get(scope['group']) is scope:self.finish_scope(scope,scope['outcome'])
             return
         scope = self.invoke(state, operation, data, nowait, line, settings=settings, _execution=execution)
         outcome = 'failed'
@@ -839,20 +880,22 @@ class MotionRequests:
         self._released.pop(root, None)
 
     def to_config(self):
-        if self._active:
+        if self._active or self._queued:
             raise ValueError('Finish or stop active motion scopes before saving context')
         if self._released:
             raise ValueError('Finish or reattach released motion tasks before saving context')
-        return dict(groups={str(k):v for k,v in sorted(self.groups.items())},
+        config = dict(groups={str(k):v for k,v in sorted(self.groups.items())},
             hands={str(k):v for k,v in sorted(self.hands.items())}, capture_only=self.capture_only,
             responses=deepcopy(self.responses), limit=self.limit, sequence=self.sequence,
             history=deepcopy(self.history))
+        if self.queue_limit:config['queue_limit'] = self.queue_limit
+        return config
 
     snapshot = to_config
 
     @classmethod
     def from_config(cls, config):
-        if type(config) is not dict or set(config) - {'groups', 'hands', 'capture_only', 'responses', 'limit', 'sequence', 'history'}:
+        if type(config) is not dict or set(config) - {'groups', 'hands', 'capture_only', 'responses', 'limit', 'sequence', 'history', 'queue_limit'}:
             raise ValueError('Unknown motion request configuration fields')
         config = dict(config)
         if 'groups' not in config:

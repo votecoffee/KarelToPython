@@ -51,7 +51,7 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   An opted-in GroupLocks bank applies root LOCKGROUP/NOLOCKGROUP policies;
   a second opt-in enables [callee scopes](scoped-group-locks.md), while native
   waits remain unavailable. Include search does not discover native support installations.
-- Native motion execution, trajectories, feedback updates and queued completion. [Offline motion requests](motion-requests.md) now translate all
+- Native motion execution, trajectories, feedback updates and controller queues. [Offline motion requests](motion-requests.md) now translate all
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
@@ -62,8 +62,10 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   now use supplied delays/schedules and task clocks, including scheduler progress
   while the owner waits. [NOWAIT local clauses](nowait-local-clauses.md) now scan
   at owner checkpoints with exact live defining-frame captures and supplied
-  temporal observation windows. Callbacks after defining-frame return, queued
-  move batches, inferred node arrivals, unresolved `$REF_POS`,
+  temporal observation windows. [Bounded callback-free NOWAIT FIFOs](queued-motion.md)
+  now use explicit queue_limit and supplied response durations. Callbacks after
+  defining-frame return, queued local callbacks, synchronous queueing, inferred
+  node arrivals, unresolved `$REF_POS`,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
   [Ten additional WITH options](motion-options.md) now retain acceleration, accuracy,
   signed continuous-axis speed, timing and Boolean policy intent as checked metadata.
