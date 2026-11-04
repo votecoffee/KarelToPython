@@ -1,0 +1,6 @@
+PROGRAM LIB
+
+ROUTINE work(values:QUEUE_TYPE):QUEUE_TYPE
+VAR buffer:ARRAY[3]OF INTEGER seq,status:INTEGER
+BEGIN APPEND_QUEUE(22,values,buffer,seq,status) RETURN values END work
+BEGIN END LIB

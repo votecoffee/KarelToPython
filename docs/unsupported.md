@@ -15,6 +15,11 @@ audited set. The [support guide](language-support.md) describes accepted forms.
 Some exclusions, such as whole-array UNINIT, retain documented language rules;
 they are boundaries rather than promises to accept every such source form later.
 
+Scalar PATH/QUEUE_TYPE assignment, private arguments and internal/compiled linked
+results now follow the [scalar collection policy](scalar-collection-values.md).
+Exact schemas and logical bounds remain required; FILE copying, generic queue
+value helpers, resource fields and native collection layouts remain unavailable.
+
 ## Language and source forms
 
 - Unknown directives and binary environments. %INCLUDE now expands

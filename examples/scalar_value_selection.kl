@@ -1,0 +1,11 @@
+PROGRAM SCALAR_VALUE_SELECTION
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR source:route_t target:ARRAY[2]OF route_t status,count:INTEGER done:BOOLEAN
+ROUTINE pick:INTEGER
+BEGIN count=count+1 source[1].value=99 RETURN 2 END pick
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(source,status) source[1].value=17 count=0 target[pick()]=source
+    done=TRUE
+  ENDIF
+END SCALAR_VALUE_SELECTION

@@ -1,5 +1,9 @@
 # Whole PATH variable transfers
 
+Scalar source assignments, private arguments and function results now follow the
+[logical source-value policy](scalar-collection-values.md). GET_VAR/SET_VAR retain
+the transfer-specific cache/status and output-overlap rules below.
+
 Pythonic GET_VAR and SET_VAR copy whole logical PATH values with exact resolved
 NODEDATA and PATHHEADER schemas. This is an authored Pythonic extension: the
 reviewed KAREL manual excludes whole PATH from these calls. Offline translation

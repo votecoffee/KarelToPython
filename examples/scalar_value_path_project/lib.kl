@@ -1,0 +1,5 @@
+PROGRAM LIB
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+ROUTINE work(values:route_t):route_t
+BEGIN values[1].value=99 RETURN values END work
+BEGIN END LIB

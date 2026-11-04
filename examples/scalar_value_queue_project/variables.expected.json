@@ -1,0 +1,80 @@
+[
+  {
+    "program": "MAIN",
+    "path": "SOURCE",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "entries": [
+        [
+          1,
+          17
+        ]
+      ],
+      "sequence": 1
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "TARGET",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "entries": [
+        [
+          1,
+          17
+        ],
+        [
+          2,
+          22
+        ]
+      ],
+      "sequence": 2
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "BUFFER",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      17,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "MAIN",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

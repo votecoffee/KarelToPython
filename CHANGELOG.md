@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.015211 - 2026-11-04
+
+- Add scalar QUEUE_TYPE source assignments and private arguments; add PATH and
+  queue internal/compiled linked function results with exact logical schemas.
+- Bound source snapshots before destination selectors/later arguments; preserve
+  receiver roots/PATH headers, detach old nodes and copied queue buffer links.
+- Retain partial PATH data, queue sequence/order, borrowed bare/BYNAME arguments
+  and private lifetimes through handlers, pause/resume and stop/failure cleanup.
+- Add 81 authored regressions, four examples and two linked projects with typed
+  saved-variable expectations and exact context replay; keep generic guards.
+
 ## 26.1104.012044 - 2026-11-04
 
 - Add logical PATH/QUEUE_TYPE ARRAY source assignments, private arguments,

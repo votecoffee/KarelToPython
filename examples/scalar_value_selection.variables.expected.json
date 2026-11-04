@@ -1,0 +1,92 @@
+[
+  {
+    "program": "SCALAR_VALUE_SELECTION",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      null
+    ],
+    "value": {
+      "nodes": [
+        {
+          "VALUE": 99
+        }
+      ],
+      "data": null
+    }
+  },
+  {
+    "program": "SCALAR_VALUE_SELECTION",
+    "path": "TARGET",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        null
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": null
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 17
+          }
+        ],
+        "data": null
+      }
+    ]
+  },
+  {
+    "program": "SCALAR_VALUE_SELECTION",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "SCALAR_VALUE_SELECTION",
+    "path": "COUNT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "SCALAR_VALUE_SELECTION",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

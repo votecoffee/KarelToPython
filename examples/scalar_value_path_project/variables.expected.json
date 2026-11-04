@@ -1,0 +1,74 @@
+[
+  {
+    "program": "MAIN",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      null
+    ],
+    "value": {
+      "nodes": [
+        {
+          "VALUE": 17
+        }
+      ],
+      "data": null
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "TARGET",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      null
+    ],
+    "value": {
+      "nodes": [
+        {
+          "VALUE": 99
+        }
+      ],
+      "data": null
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

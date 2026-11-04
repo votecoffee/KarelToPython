@@ -770,6 +770,54 @@ def file_storage_type(spec):
     return spec[0] == 'FILE' or spec[0] == 'ARRAY' and array_leaf_spec(spec)[0] == 'FILE'
 
 
+def collection_type(spec):
+    return type(spec) is tuple and bool(spec) and (spec==('QUEUE_TYPE',) or spec[0]=='PATH' and len(spec)==3)
+
+
+def collection_source_value(spec,value,line=None,*,source_spec=None):
+    """Snapshot exact scalar logical data; never copy queue buffer ownership."""
+    from .extended import path_variable_value,queue_variable_value
+    if not _pythonic() or not collection_type(spec):
+        raise KarelRuntimeError('Logical collection source values require Pythonic scalar schemas',line)
+    if source_spec is not None and source_spec!=spec:
+        raise KarelRuntimeError('Logical collection value differs from its declared source schema',line)
+    expected=PathValue if spec[0]=='PATH' else QueueValue
+    if type(value) is not expected or value.spec!=spec:
+        raise KarelRuntimeError('Logical collection source requires matching owned storage',line)
+    # The checked logical codec validates all data before any destination is touched.
+    copied=path_variable_value(spec,value,line) if spec[0]=='PATH' else queue_variable_value(value,line)
+    if spec[0]=='PATH':
+        pending=[value];seen=set()
+        while pending:
+            item=pending.pop()
+            if type(item) is PathValue:
+                owned=(item,item.nodes);children=[item.data,*item.nodes]
+            elif type(item) is Structure:
+                owned=(item,item.values);children=list(item.values.values())
+            elif type(item) in (Array,JointPosition):
+                owned=(item,item.values);children=item.values
+            else:continue
+            for storage in owned:
+                if id(storage) in seen:raise KarelRuntimeError('Logical PATH source storage overlaps',line)
+                seen.add(id(storage))
+            pending.extend(children)
+    return copied
+
+
+def collection_argument(spec,value,line=None,*,source_spec=None):
+    copied=collection_source_value(spec,value,line,source_spec=source_spec)
+    return Reference(spec,{'value':copied},'value')
+
+
+def collection_assign(reference,value,line=None):
+    """Publish only after both selections validate, retaining root/header aliases."""
+    from .variable_archives import ordinary,replace_collections
+    if not ordinary(reference):raise KarelRuntimeError('Logical collection assignment requires ordinary writable storage',line)
+    copied=collection_source_value(reference.spec,value,line)
+    collection_source_value(reference.spec,reference.raw(),line,source_spec=reference.spec)
+    reference.storage[reference.key]=replace_collections(reference.raw(),copied)
+
+
 def collection_array_type(spec):
     """ARRAY roots whose terminal cells are owned logical collections."""
     return spec[0]=='ARRAY' and array_leaf_spec(spec)[0] in ('PATH','QUEUE_TYPE')
@@ -3796,6 +3844,8 @@ class State:
         if result_spec is None:
             if result is not None: raise KarelRuntimeError('External procedure must return None',line)
             return
+        if _pythonic() and collection_type(result_spec) and getattr(callback,'_karel_link',False):
+            return collection_source_value(result_spec,result,line)
         if _pythonic() and collection_array_type(result_spec) and getattr(callback,'_karel_link',False):
             return collection_array_result(result_spec,result,line)
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)

@@ -1,0 +1,11 @@
+PROGRAM SCALAR_VALUE_QUEUES
+
+VAR source,target:QUEUE_TYPE buffer,extra:ARRAY[3]OF INTEGER seq,status:INTEGER done:BOOLEAN
+ROUTINE extend(values:QUEUE_TYPE):QUEUE_TYPE
+BEGIN APPEND_QUEUE(22,values,extra,seq,status) RETURN values END extend
+BEGIN
+  IF UNINIT(done) THEN
+    INIT_QUEUE(source) APPEND_QUEUE(17,source,buffer,seq,status) target=extend((source))
+    done=TRUE
+  ENDIF
+END SCALAR_VALUE_QUEUES

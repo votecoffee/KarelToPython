@@ -1,0 +1,12 @@
+PROGRAM SCALAR_VALUE_RESULTS
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR first,second:route_t done:BOOLEAN
+ROUTINE make:route_t
+VAR values:route_t status:INTEGER
+BEGIN APPEND_NODE(values,status) values[1].value=17 RETURN values END make
+BEGIN
+  IF UNINIT(done) THEN
+    first=make() second=make() first[1].value=99
+    done=TRUE
+  ENDIF
+END SCALAR_VALUE_RESULTS

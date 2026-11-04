@@ -1,5 +1,7 @@
 # Language support
 
+[Scalar collection values](scalar-collection-values.md) add bounded PATH/QUEUE_TYPE source copies, private arguments and internal/compiled linked results. Exact schemas, borrowed bare arguments and detached queue buffers remain explicit.
+
 [Logical collection ARRAY values](collection-source-values.md) now support
 PATH/queue bank assignments, private arguments, results and selected row/plane
 copies. Existing destination cells stay live; copied nodes are independent and
@@ -120,7 +122,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.012044. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.015211. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

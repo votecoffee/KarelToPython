@@ -1,0 +1,7 @@
+PROGRAM MAIN
+
+VAR source,target:QUEUE_TYPE buffer:ARRAY[3]OF INTEGER seq,status:INTEGER done:BOOLEAN
+ROUTINE work(values:QUEUE_TYPE):QUEUE_TYPE FROM LIB
+BEGIN
+  IF UNINIT(done) THEN INIT_QUEUE(source) APPEND_QUEUE(17,source,buffer,seq,status) target=work((source)) done=TRUE ENDIF
+END MAIN

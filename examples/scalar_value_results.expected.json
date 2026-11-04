@@ -1,0 +1,19 @@
+{
+  "FIRST": {
+    "nodes": [
+      {
+        "VALUE": 99
+      }
+    ],
+    "data": null
+  },
+  "SECOND": {
+    "nodes": [
+      {
+        "VALUE": 17
+      }
+    ],
+    "data": null
+  },
+  "DONE": true
+}

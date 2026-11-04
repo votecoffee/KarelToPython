@@ -167,9 +167,9 @@ class QueueTransferGuardTests(unittest.TestCase):
         program,_=compile_program(SEED+call('SET_VAR',path='RESOURCE'),decl=DECL+' resource: PATH')
         self.assertEqual(program.run()['STATUS'],3);self.assertEqual(program._state.values['RESOURCE'].nodes,[])
 
-    def test_ordinary_queue_assignment_remains_rejected(self):
-        program,_=compile_program('target=source',decl=DECL)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'cannot be copied'): program.run()
+    def test_source_queue_assignment_preserves_generic_helper_guard(self):
+        program,_=compile_program('target=source',decl=DECL);program.run();value=program._state.values['TARGET']
+        with rt._numeric_scope('pythonic'),self.assertRaisesRegex(rt.KarelRuntimeError,'cannot be copied'):rt.checked(value.spec,value)
 
     def test_queue_uninit_query_remains_rejected(self):
         with self.assertRaises(TranslationError): compile_program('flag=UNINIT(source)',decl=DECL+' flag: BOOLEAN')

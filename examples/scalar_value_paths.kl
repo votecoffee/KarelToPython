@@ -1,0 +1,10 @@
+PROGRAM SCALAR_VALUE_PATHS
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR source,target:route_t status:INTEGER done:BOOLEAN
+
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(source,status) source[1].value=17 target=source source[1].value=99
+    done=TRUE
+  ENDIF
+END SCALAR_VALUE_PATHS

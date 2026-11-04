@@ -596,7 +596,7 @@ class Parser:
                 return_type = ('STRING', capacity)
             else: return_type = self.type_spec()
         allowed_results = ('INTEGER', 'BOOLEAN', 'REAL', *DATA_RECORD_TYPES, 'JOINTPOS', 'NAMED', 'ARRAY')
-        if self.mode == 'pythonic': allowed_results += ('STRING','GROUPED',*NARROW_TYPES)
+        if self.mode == 'pythonic': allowed_results += ('STRING','GROUPED','PATH','QUEUE_TYPE',*NARROW_TYPES)
         if return_type and return_type[0] not in allowed_results:
             self.error('E_RETURN_TYPE', 'Routine results require a supported scalar, exact data record/joint type or named STRUCTURE', token)
         self.skip_lines()
@@ -1566,13 +1566,16 @@ class Emitter:
                 routine.return_type = self.resolve_spec(routine.return_type)
                 allowed_named_results = ('STRUCTURE',)
                 if self.mode == 'pythonic':
-                    allowed_named_results += ('ARRAY', 'STRING', 'INTEGER', 'BOOLEAN', 'REAL', *NARROW_TYPES, *DATA_RECORD_TYPES, 'JOINTPOS')
+                    allowed_named_results += ('ARRAY', 'STRING', 'INTEGER', 'BOOLEAN', 'REAL', 'PATH', 'QUEUE_TYPE', *NARROW_TYPES, *DATA_RECORD_TYPES, 'JOINTPOS')
                 if routine.return_type[0] not in allowed_named_results:
                     message = ('BYTE and SHORT are permitted only as ARRAY elements or STRUCTURE fields' if self.mode == 'pythonic'
                                else 'Named ARRAY function results remain blocked; a named result type must be a STRUCTURE')
                     self.error('E_RETURN_TYPE', message, routine.token)
                 self.features.add('named ' + routine.return_type[0] + ' function result')
                 if routine.return_type[0] == 'STRING': self.features.add('STRING function result')
+            if self.mode=='pythonic' and routine.return_type and routine.return_type[0] in ('PATH','QUEUE_TYPE'):
+                routine.return_type=self.resolve_spec(routine.return_type)
+                self.features.add('logical scalar collection function result')
             if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
             if routine.return_type and routine.return_type[0] == 'ARRAY':
                 element = routine.return_type[2]
@@ -2279,6 +2282,15 @@ class Emitter:
         if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:return f'_rt.collection_path_reference({base},{index},{spec!r},{line})',selected
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
+
+    def collection_assignment(self,target,expression,token):
+        reference,expected=self.reference(target)
+        value,actual=self.expression(expression)
+        if expected!=actual:self.error('E_TYPE','Logical collection copy requires identical scalar schemas',token)
+        source=self.fresh();line=token.line
+        self.line(f'{source}=_rt.collection_source_value({actual!r},{value},{line},source_spec={actual!r})',token)
+        self.line(f'_rt.collection_assign({reference},{source},{line})',token)
+        self.features.add('logical scalar collection source copy')
 
     def collection_array_assignment(self,target,expression,token):
         reference,expected=self.reference(target,allow_prefix=True,collection_prefix=True)
@@ -2995,7 +3007,11 @@ class Emitter:
                 value, actual = self.expression(argument)
                 if actual[0]=='ARRAY' and rt.file_storage_type(actual):
                     self.error('E_FILE_ARRAY_VALUE','FILE ARRAY arguments require borrowed storage without grouping',argument.token)
-                if self.mode=='pythonic' and rt.collection_array_type(actual):
+                if self.mode=='pythonic' and rt.collection_type(actual):
+                    if expected!=actual:self.error('E_TYPE','Logical collection private argument requires identical scalar schemas',argument.token)
+                    code=f'_rt.collection_argument({expected!r},{value},{line},source_spec={actual!r})'
+                    self.features.add('private logical scalar collection argument')
+                elif self.mode=='pythonic' and rt.collection_array_type(actual):
                     if not rt.collection_array_source_accepts(expected,actual):self.error('E_TYPE','Collection ARRAY value argument requires matching component schemas',argument.token)
                     code=f'_rt.collection_array_argument({expected!r},{value},{line},source_spec={actual!r})'
                     self.features.add('private logical collection ARRAY argument')
@@ -3794,6 +3810,8 @@ class Emitter:
             reference, target_type = self.reference(target)
             if target_type[0]=='ARRAY' and rt.file_storage_type(target_type):
                 self.error('E_FILE_ARRAY_VALUE','FILE ARRAY storage cannot be assigned; pass its reference',target.token)
+            if self.mode=='pythonic' and rt.collection_type(target_type):
+                self.collection_assignment(target,expr,token);return
             if self.mode=='pythonic' and rt.collection_array_type(target_type):
                 self.collection_array_assignment(target,expr,token);return
             value, value_type = self.expression(expr, allow_array_result=True)
@@ -4224,6 +4242,10 @@ class Emitter:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
+                if self.mode=='pythonic' and rt.collection_type(spec):
+                    if spec!=value_type:self.error('E_TYPE','Logical collection result requires identical scalar schemas',expr.token)
+                    self.line(f'return _rt.collection_source_value({spec!r},{value},{line},source_spec={value_type!r})',token)
+                    self.features.add('logical scalar collection function result');return
                 if self.mode=='pythonic' and rt.collection_array_type(spec):
                     if not rt.collection_array_source_accepts(spec,value_type):self.error('E_ARRAY_RETURN_SOURCE','Collection ARRAY result requires matching component schemas',expr.token)
                     self.line(f'return _rt.collection_array_result({spec!r},{value},{line},source_spec={value_type!r})',token)
@@ -6892,7 +6914,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         arguments='Exact bare arrays retain borrowed references; grouped/computed and ordinary incomplete-prefix arguments own private values; retained handlers, pause, stop and failure never copy them back',
         results='Capture independent concrete results before routine cleanup; canonicalize declared outer result schema; compiled linked calls use the same checked logical result path, raw callback collection results remain excluded',
         bounds='One through three dimensions, 32767 descriptor/header/node/queue-entry snapshot units and 64 data-schema levels; prefix captures validate containing storage; malformed/missing ARRAY containers reject',
-        exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, whole collection READ/WRITE/UNINIT and scalar QUEUE_TYPE assignment retain their guards',
+        exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, whole collection READ/WRITE/UNINIT retain their guards; scalar source values follow scalar_collection_source_policy',
         persistence='Existing typed logical JSON/VR data only; no queue buffer links, private references, retained handlers, live row windows or suspended frames',
         boundary='Authored offline Pythonic extension; no native source/compiler/controller/ABI/strict equivalence or implicit allocation/discovery',
         guide='docs/collection-source-values.md',controller_validated=False)
@@ -6900,6 +6922,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['collection_array_transfer_policy']['source']='Explicit logical whole banks and rows/planes across static, created, borrowed, linked and named-path storage; source-language values follow collection_array_source_policy'
     report['collection_array_transfer_policy']['protection']='Reject shared owned cells/headers/nodes, malformed storage and output overlaps; preserve FOR, FILE, resource-field and ordinary resource-copy guards under collection_array_source_policy'
     report['typed_service_array_prefix_policy']['protection']='Preserve original-cell overlap, FOR, POSITION, CONFIG/association and exact linked-interface guards; live resource-prefix borrowing uses BYNAME only while private collection values follow collection_array_source_policy'
+    report['scalar_collection_source_policy']=dict(
+        source='Pythonic scalar PATH/QUEUE_TYPE assignments, grouped/computed private arguments and internal/compiled linked function results',
+        schemas='Exact collection kinds and PATH node/header layouts; declared source schemas must match; no numeric or geometry coercion',
+        capture='Validate and snapshot source once before destination selectors or later arguments; preflight receiver before publication; reject shared owned PATH data',
+        publication='Retain receiver root and compatible PATH header aliases; detach old nodes and reset receiver queue buffer links; bare/BYNAME arguments retain borrowing',
+        lifetime='Private values and results remain independent across forwarding, retained handlers, pause/resume and normal stop/failure cleanup; no copy-back',
+        bounds='32767 PATH scalar leaves or queue entries, exact scalar domains and 64 data-schema levels; partial PATH markers and uninitialized queues remain logical data',
+        exact='FILE storage, embedded resources, generic QUEUE_TYPE checked/value helpers, raw queue callback results and exact linked declarations retain guards; existing raw PATH callback contract unchanged',
+        boundary='Authored offline Pythonic extension; no native/compiler/controller/ABI/strict equivalence or persistence of buffer links/private frames',
+        guide='docs/scalar-collection-values.md',controller_validated=False)
+    report['queue_transfer_policy']['boundary']='Logical source values follow scalar_collection_source_policy; embedded resources and metadata initialization queries retain guards; no native queue/VR bytes, ownership, status equivalence or controller execution; strict deferred'
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:

@@ -210,9 +210,9 @@ class CollectionValueBoundaries(unittest.TestCase):
         for body in ('b=a','work((a))'):
             with self.subTest(body=body),self.assertRaises(TranslationError):compile_program(body,decl='a,b:ARRAY[2]OF FILE',routines='ROUTINE work(v:ARRAY OF FILE) BEGIN END work')
 
-    def test_scalar_queue_assignment_does_not_gain_generic_copying(self):
-        p,_=compile_program('b=a',decl='a,b:QUEUE_TYPE')
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
+    def test_scalar_queue_source_copy_keeps_generic_copying_closed(self):
+        p,_=compile_program('b=a',decl='a,b:QUEUE_TYPE');p.run();value=p._state.values['B']
+        with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):rt.checked(value.spec,value)
 
     def test_containing_bank_and_snapshot_costs_stay_bounded(self):
         p,_=prepare('target=source');node=cell(p).nodes[0];cell(p).nodes=[deepcopy(node) for _ in range(32767)];before=snapshot(raw(p))

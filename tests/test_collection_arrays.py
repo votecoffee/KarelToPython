@@ -61,9 +61,9 @@ class CollectionArrayStorageTests(unittest.TestCase):
         namespace={};exec(r.python_source,namespace);self.assertEqual(namespace['Program']().run()['N'],2)
     def test_path_cell_copy_remains_independent(self):
         v,_,_=execute(SEED+'paths[2]=paths[1] paths[1][1].amount=99');self.assertEqual(v['PATHS'][1]['nodes'][0]['AMOUNT'],7)
-    def test_queue_cell_copy_remains_unavailable(self):
-        p,_=build(SEED+'queues[2]=queues[1]')
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
+    def test_queue_cell_source_copy_is_independent(self):
+        p,_=build(SEED+'queues[2]=queues[1]');p.run();a,b=raw(p,'QUEUES').values
+        self.assertIsNot(a,b);self.assertEqual(a.entries,b.entries);self.assertIsNone(b.buffer)
     def test_missing_node_is_not_allocated_by_selector(self):
         p,_=build('paths[1][1].amount=7')
         with self.assertRaises(rt.KarelRuntimeError):p.run()

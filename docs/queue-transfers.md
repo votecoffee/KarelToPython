@@ -1,5 +1,9 @@
 # Queue transfers
 
+Scalar source assignments, private arguments and function results now follow the
+[logical source-value policy](scalar-collection-values.md). GET_VAR/SET_VAR retain
+the transfer-specific cache/status and output-overlap rules below.
+
 Since 0.99.0, Pythonic GET_VAR and SET_VAR transfer whole QUEUE_TYPE logical
 values through explicit global namespaces. This extends
 [variable transfers](variable-transfers.md) and reuses the checked queue

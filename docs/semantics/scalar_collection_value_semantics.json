@@ -1,0 +1,19 @@
+{
+  "version": "26.1104.015211",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_scalar_collection_values.py",
+    "tests/test_queue_transfers.py",
+    "tests/test_collection_arrays.py"
+  ],
+  "source": "Scalar PATH/QUEUE_TYPE assignments, private arguments and internal/compiled linked results",
+  "schema": "Exact kinds, PATH node/header metadata and declared source schemas; no field coercion",
+  "capture": "Source snapshot before target selectors/later arguments, receiver preflight before publication",
+  "ownership": "Receiver roots/headers retained, old nodes detached, copied queue buffers reset; bare/BYNAME borrowing retained",
+  "lifetime": "Private values/results independent across forwarding, handlers, pause/resume, stop and failure; no copy-back",
+  "bounds": "32767 PATH scalar leaves or queue entries and 64 data-schema levels",
+  "persistence": "Existing logical JSON/VR/DRAM only; no live buffers, private frames or callbacks",
+  "boundary": "Authored offline Pythonic source extension; FILE/generic queue helpers/resource fields/raw queue callbacks/exact linked signatures retain guards; no native/compiler/controller/strict equivalence"
+}

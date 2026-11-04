@@ -1,0 +1,66 @@
+[
+  {
+    "program": "SCALAR_VALUE_RESULTS",
+    "path": "FIRST",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      null
+    ],
+    "value": {
+      "nodes": [
+        {
+          "VALUE": 99
+        }
+      ],
+      "data": null
+    }
+  },
+  {
+    "program": "SCALAR_VALUE_RESULTS",
+    "path": "SECOND",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      null
+    ],
+    "value": {
+      "nodes": [
+        {
+          "VALUE": 17
+        }
+      ],
+      "data": null
+    }
+  },
+  {
+    "program": "SCALAR_VALUE_RESULTS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]
