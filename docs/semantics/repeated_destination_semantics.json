@@ -1,0 +1,18 @@
+{
+  "feature": "repeated_complete_destination_parts",
+  "mode": "pythonic",
+  "source": "COPY_FILE and RENAME_FILE with repeated nonadjacent destination stars",
+  "substitution": "Each star reuses the whole directory name, filename stem or extension in its own part; no recursive insertion or wildcard-substring captures",
+  "depth": "One source level per star-containing directory component; one optional whole ** inserts remaining levels while reserving suffix components",
+  "admission": "Capture source/target/status once; validate all expanded paths/depth, collisions, aliases, busy handles, rescans, payloads and quotas before publication",
+  "backends": "Explicit ordinary, virtual-volume, rooted and configured plain PIP banks; existing overwrite and guarded cross-bank rules",
+  "bounds": "254-character input/expanded names; 32767 scanned entries; 64 MiB COPY snapshots; existing budgets and backend quotas",
+  "publication": "Prepared logical state, retained rename bytes and device garbage; rooted per-file host errors may retain earlier changes",
+  "persistence": "Result bytes/accounting only; no templates, scans, handles or pending plans",
+  "boundary": "No adjacent stars within ordinary parts, question/bracket destination templates, stem-only patterns, directory creation/search, host transactions or native/controller/strict equivalence",
+  "guide": "docs/repeated-destinations.md",
+  "controller_validated": false,
+  "tests": [
+    "tests/test_repeated_destinations.py"
+  ]
+}

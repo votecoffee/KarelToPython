@@ -183,7 +183,9 @@ class ComponentSyntaxTests(unittest.TestCase):
         self.assertEqual(bank.snapshot(),before)
     def test_question_directory_is_not_a_substitution(self):self.reject('dst/pre_?/*/*.py')
     def test_partial_globstar_is_rejected(self):self.reject('dst/pre_**/*/*.py')
-    def test_two_single_stars_in_one_component_are_rejected(self):self.reject('dst/pre_*_mid_*/*/*.py')
+    def test_repeated_stars_in_one_component_consume_one_level(self):
+        bank=rt.MemoryFiles(DATA);self.assertEqual(perform(bank,target='dst/pre_*_mid_*/*/*.py'),0)
+        self.assertEqual(bank.snapshot(),{**DATA,'dst/pre_Alpha_mid_Alpha/One/a.py':b'\0a','dst/pre_Beta_mid_Beta/Two/b.py':b'b'})
     def test_repeated_globstars_are_rejected(self):self.reject('dst/**/*/**/*.py')
     def test_bracket_classes_stay_rejected(self):self.reject('dst/pre_[a]*/*/*.py')
     def test_traversal_stays_rejected(self):self.reject('dst/*/../*/*.py')

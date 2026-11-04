@@ -84,7 +84,7 @@ class WildcardRenameMemoryTests(unittest.TestCase):
                 self.assertEqual(rename(bank,source,target),2);self.assertEqual(bank.snapshot(),before)
 
     def test_extension_collapsing_and_ambiguous_templates_reject_entire_batch(self):
-        for target in ('dst/*.py','dst/prefix_*','dst/**.py','dst/*.p*y*'):
+        for target in ('dst/*.py','dst/prefix_*','dst/**.py'):
             with self.subTest(target=target):
                 bank=rt.MemoryFiles({'src/a.kl':b'a','src/a.txt':b'b'});before=bank.snapshot()
                 self.assertEqual(rename(bank,'src/*.*',target),2);self.assertEqual(bank.snapshot(),before)

@@ -1,9 +1,10 @@
 # Directory component destination substitutions
 
-Pythonic COPY_FILE and RENAME_FILE now support one star inside each ordinary
-destination directory component. Each star substitutes one complete directory
-name relative to the source's captured literal scan root. Literal prefix/suffix
-tags surround that name. Existing filename templates remain independent.
+Pythonic COPY_FILE and RENAME_FILE support stars inside ordinary destination
+directory components. Each component containing stars consumes one complete
+source-relative directory name. [Repeated nonadjacent stars](repeated-destinations.md)
+reuse that same name, with literal tags between them. Filename stem and extension
+substitutions remain independent.
 
 ```karel
 COPY_FILE('src/*/*/*.KL','dst/pre_*/post_*/*.PY',FALSE,FALSE,status)
@@ -26,7 +27,8 @@ after that matcher remain part of the relative directory sequence. An exact
 source, or a source with only a filename matcher, has zero relative directories.
 
 Without **, the number of source-relative directories must equal the number of
-destination directory stars for every selected file. Extra source levels are
+destination directory components containing stars for every selected file,
+regardless of repetition inside a component. Extra source levels are
 not silently dropped. Literal destination components do not consume source levels.
 A wholly literal destination retains its existing flattening behavior.
 
@@ -73,7 +75,7 @@ backend and per-file quotas remain. Both NOWAIT values stay synchronous.
 
 ## Exclusions and saved state
 
-Directory question marks, bracket templates, two stars inside an ordinary
+Directory question marks, bracket templates, adjacent stars inside an ordinary
 component, partial/repeated **, empty/dot/traversal components, unsafe device
 syntax, reserved expanded names and absolute host paths remain rejected. Plain
 PIP sources have no relative directories, so they cannot supply ordinary directory

@@ -38,8 +38,9 @@ alias for every filename. Literal brackets in already stored matched filenames
 are copied/deleted as characters, rather than interpreted as another pattern.
 
 For a destination containing a dot, its final filename is split at the last dot.
-Each of its stem and extension permits at most one star. That star substitutes
-the complete source stem or extension, rather than only a source-pattern capture:
+Each star in its stem or extension substitutes the complete source part, rather
+than only a source-pattern capture. [Repeated stars](repeated-destinations.md)
+must be separated by literal text and reuse that same part:
 
 | Source match | Destination template | Result |
 | --- | --- | --- |

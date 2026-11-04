@@ -1,0 +1,32 @@
+{
+  "files": {
+    "keep.dat": {
+      "hex": "4b"
+    }
+  },
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {
+      "PIP:A.KL": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "DICT",
+        "form_ele": 0,
+        "data": {
+          "hex": "41"
+        }
+      },
+      "PIP:B.KL": {
+        "cmos": true,
+        "sectors": 1,
+        "record_size": 1,
+        "form_dict": "DICT",
+        "form_ele": 1,
+        "data": {
+          "hex": "0042"
+        }
+      }
+    }
+  }
+}

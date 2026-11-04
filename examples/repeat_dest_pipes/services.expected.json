@@ -1,0 +1,17 @@
+{
+  "file_pipes": {
+    "limit": 32768,
+    "pipes": {}
+  },
+  "files": {
+    "keep.dat": {
+      "hex": "4b"
+    },
+    "dst/A_A.KL_KL": {
+      "hex": "41"
+    },
+    "dst/B_B.KL_KL": {
+      "hex": "0042"
+    }
+  }
+}

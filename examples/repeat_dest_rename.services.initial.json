@@ -1,0 +1,13 @@
+{
+  "files": {
+    "src/part.rev1.KL": {
+      "hex": "41"
+    },
+    "src/other.KL": {
+      "hex": "42"
+    },
+    "keep.dat": {
+      "hex": "4b"
+    }
+  }
+}

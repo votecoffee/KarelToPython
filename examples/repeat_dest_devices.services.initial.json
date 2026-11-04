@@ -1,0 +1,36 @@
+{
+  "device_files": {
+    "limit": 16777216,
+    "volumes": {
+      "FR:": {
+        "capacity": 128,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 0,
+        "info": {}
+      },
+      "RD:": {
+        "capacity": 128,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 0,
+        "info": {}
+      }
+    },
+    "files": {
+      "RD:keep.dat": {
+        "hex": "4b"
+      },
+      "RD:src/Alpha/a.KL": {
+        "hex": "0041"
+      },
+      "RD:src/Beta/b.KL": {
+        "hex": "42"
+      }
+    }
+  }
+}

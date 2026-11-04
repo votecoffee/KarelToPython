@@ -1,0 +1,10 @@
+{
+  "files": {
+    "src/A/B/C/d.KL": {
+      "hex": "44"
+    },
+    "src/A/C/e.KL": {
+      "hex": "45"
+    }
+  }
+}

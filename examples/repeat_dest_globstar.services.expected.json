@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/A/B/C/d.KL": {
+      "hex": "44"
+    },
+    "src/A/C/e.KL": {
+      "hex": "45"
+    },
+    "dst/A_A/B/C_C/d_d.py": {
+      "hex": "44"
+    },
+    "dst/A_A/C_C/e_e.py": {
+      "hex": "45"
+    }
+  }
+}

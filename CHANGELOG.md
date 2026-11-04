@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.181600 - 2026-11-04
+
+- Support repeated, nonadjacent destination stars in COPY_FILE and RENAME_FILE
+  directory components, filename stems and extensions, reusing each full source part.
+- Consume one source directory level per component containing stars, preserving
+  globstar suffix reservation, source case and independent filename substitutions.
+- Retain complete path/depth, collision, busy, quota and publication checks across
+  ordinary, virtual-volume and configured plain-PIP copy/rename routes.
+- Add authored regressions, four CLI examples and two linked replay projects;
+  retain adjacent-star, question/bracket and ambiguous stem-only restrictions.
+
 ## 26.1104.174903 - 2026-11-04
 
 - Add an exact-BOOLEAN cross_group_settings opt-in for detached WITH values on

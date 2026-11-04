@@ -1,0 +1,8 @@
+PROGRAM REPEAT_DEST_COPY
+VAR s:INTEGER done:BOOLEAN
+BEGIN
+ IF UNINIT(done) THEN
+ COPY_FILE('src/*/*.KL','dst/cell_*_backup_*/*_*.saved*_*',FALSE,FALSE,s)
+ done=TRUE
+ ENDIF
+END REPEAT_DEST_COPY

@@ -1,0 +1,13 @@
+{
+  "files": {
+    "keep.dat": {
+      "hex": "4b"
+    },
+    "dst/other_other.KL_KL": {
+      "hex": "42"
+    },
+    "dst/part.rev1_part.rev1.KL_KL": {
+      "hex": "41"
+    }
+  }
+}

@@ -28,7 +28,8 @@ closed. Literal brackets in stored matched names remain characters.
 
 Destination templates use complete source components rather than the portion
 captured by a source-pattern star. Split the final filename at its last dot;
-each nonempty destination stem and extension permits at most one star.
+each nonempty destination stem and extension permits [repeated stars](repeated-destinations.md)
+separated by literal text. Each star reuses the same complete source part.
 
 | Source match | Destination template | Result |
 | --- | --- | --- |

@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Repeated destination substitutions](docs/repeated-destinations.md) now let
+COPY_FILE and RENAME_FILE reuse complete source directory names, filename stems
+and extensions at several separated stars. Ordinary file banks, virtual volumes,
+rooted folders and configured plain pipes retain complete batch preflight.
+
 [Cross-group WITH settings](docs/cross-group-settings.md) now capture separate
 values for owned configured groups through an explicit offline opt-in. All 21
 settings may appear once per group, up to 651 rows, across ordinary, queued and
@@ -251,7 +256,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.174903**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.181600**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

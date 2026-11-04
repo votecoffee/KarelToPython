@@ -1,0 +1,36 @@
+{
+  "device_files": {
+    "limit": 16777216,
+    "volumes": {
+      "FR:": {
+        "capacity": 128,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 0,
+        "info": {}
+      },
+      "RD:": {
+        "capacity": 128,
+        "mounted": true,
+        "label": "",
+        "read_only": false,
+        "retain_deleted": true,
+        "garbage": 3,
+        "info": {}
+      }
+    },
+    "files": {
+      "FR:dst/Alpha_Alpha/a_a.NEW": {
+        "hex": "0041"
+      },
+      "FR:dst/Beta_Beta/b_b.NEW": {
+        "hex": "42"
+      },
+      "RD:keep.dat": {
+        "hex": "4b"
+      }
+    }
+  }
+}

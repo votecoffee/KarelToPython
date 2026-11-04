@@ -1,0 +1,19 @@
+{
+  "files": {
+    "src/Alpha/a.KL": {
+      "hex": "0041"
+    },
+    "src/Beta/b.KL": {
+      "hex": "42"
+    },
+    "keep.dat": {
+      "hex": "4b"
+    },
+    "dst/cell_Alpha_backup_Alpha/a_a.savedKL_KL": {
+      "hex": "0041"
+    },
+    "dst/cell_Beta_backup_Beta/b_b.savedKL_KL": {
+      "hex": "42"
+    }
+  }
+}

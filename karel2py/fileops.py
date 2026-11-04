@@ -61,12 +61,12 @@ def _wildcard_target_root(prefix):
 
 
 def _wildcard_destination(value):
-    """One star substitutes a whole source component; ** takes remaining levels."""
+    """Stars repeat one whole source component; whole ** takes remaining levels."""
     prefix,base=_wildcard_parts(value,directories=True)
     parts=prefix.split(':',1)[-1].rstrip('/').split('/')
     if parts.count('**')>1:raise ValueError('Destination directories accept at most one whole ** placeholder')
-    if any('?' in part or part!='**' and part.count('*')>1 for part in parts):
-        raise ValueError('Destination directory components permit one star or one whole ** only')
+    if any('?' in part or part!='**' and '**' in part for part in parts):
+        raise ValueError('Destination directory stars must be separated by literal text, except one whole **')
     return prefix,base
 
 
@@ -182,8 +182,8 @@ def _wildcard_template(template,source):
     if not separator:
         if '*' in template:raise ValueError('Star destination templates need stem.extension or standalone *')
         return template
-    if not stem or not extension or stem.count('*')>1 or extension.count('*')>1:
-        raise ValueError('Destination permits at most one star per nonempty stem/extension')
+    if not stem or not extension or '**' in stem or '**' in extension:
+        raise ValueError('Destination permits nonempty stem/extension with stars separated by literal text')
     source_stem,source_dot,source_extension=source.rpartition('.')
     if not source_dot or not source_stem or not source_extension:raise ValueError('COPY_FILE source requires a name and type')
     return stem.replace('*',source_stem)+'.'+extension.replace('*',source_extension)
