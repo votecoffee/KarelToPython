@@ -331,7 +331,9 @@ queue-entry policies; FILE banks remain excluded.
   through P1:..P5: FILEs. Hardware ports, automatic attribute application,
   physical/native producer waiting and serial timing remain unavailable.
   [Cooperative serial waiting](serial-waiting.md) now accepts explicit host feeds
-  and EOF, with atomic outputs and pending-read cleanup; it creates no connection.
+  and EOF, with atomic outputs and pending-read cleanup. [Serial output waits](serial-output-waits.md)
+  now accept explicit TX drains with captured bytes, pending-WRITE cancellation,
+  pause/resume and exact owned cleanup; neither creates a connection.
 - Proprietary PC/VR/native binary layouts, arbitrary FILE attributes/listing
   formats, device-specific parsing and controller file alarms. Text and binary
   scalar operations use the documented portable formats and bounded sizes;

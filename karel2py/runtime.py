@@ -4257,9 +4257,7 @@ class State:
             raise KarelRuntimeError('WRITE requires 1..1024 rendered items', line)
         if file is not None:
             file.require_open(line)
-            data=b''.join(piece.encode('ascii') if type(piece) is str else piece for piece in pieces)
-            if not file.binary: data=data.replace(b'\n',bytes((file.eol,)))
-            file.owner.write(file,data,line); return
+            file.owner.write(file,_file_write_data(file,pieces,line),line); return
         total = 0
         for piece in pieces:
             total += len(ascii_string(piece, line))
@@ -4269,13 +4267,7 @@ class State:
 
     def write_groups(self,groups,line=None,*,file=None):
         """Publish one rendered scalar batch with aggregate items expanded."""
-        if not _pythonic() or type(groups) not in (list,tuple):raise KarelRuntimeError('WRITE requires captured item groups',line)
-        pieces=[]
-        for group in groups:
-            if type(group) not in (list,tuple) or not group:raise KarelRuntimeError('WRITE groups require rendered scalar items',line)
-            if len(pieces)+len(group)>1024:raise KarelRuntimeError('WRITE requires 1..1024 expanded scalar items including CR',line)
-            pieces.extend(group)
-        return self.write_items(pieces,line,file=file)
+        return self.write_items(_write_group_pieces(groups,line),line,file=file)
 
     def write_boolean(self, value, line=None):
         """Default BOOLEAN text; same offline request/callback contract as STRING."""
@@ -4500,6 +4492,66 @@ def optional_file_piece(handle,kind,value,formats,line=None):
     return format_write_item(kind,value,formats,line) if handle is None else file_piece(handle,kind,value,formats,line)
 
 
+def _write_group_pieces(groups,line=None):
+    if not _pythonic() or type(groups) not in (list,tuple):raise KarelRuntimeError('WRITE requires captured item groups',line)
+    pieces=[]
+    for group in groups:
+        if type(group) not in (list,tuple) or not group:raise KarelRuntimeError('WRITE groups require rendered scalar items',line)
+        if len(pieces)+len(group)>1024:raise KarelRuntimeError('WRITE requires 1..1024 expanded scalar items including CR',line)
+        pieces.extend(group)
+    return pieces
+
+
+def _file_write_data(handle,pieces,line=None):
+    if type(pieces) not in (list,tuple) or not 1<=len(pieces)<=1024:
+        raise KarelRuntimeError('WRITE requires 1..1024 rendered items',line)
+    handle.require_open(line)
+    data=b''.join(piece.encode('ascii') if type(piece) is str else piece for piece in pieces)
+    return data if handle.binary else data.replace(b'\n',bytes((handle.eol,)))
+
+
+class _FileWriteCancelled(GeneratorExit):
+    """Internal unwind of one WRITE without publishing its captured bytes."""
+
+
+def check_file_write(handle,line=None):
+    operation=handle._write_operation
+    if operation is None:return
+    if (type(operation) is not dict or set(operation)!={'identity','position','cancelled','state','root'}
+            or type(operation['state']) is not State or task_root(operation['state']) is not operation['root']
+            or type(operation['cancelled']) is not bool or _file_identity(handle)!=operation['identity']
+            or handle.position!=operation['position'] or type(handle.owner) is not SerialStreams):
+        raise KarelRuntimeError('Pending FILE WRITE identity or cursor changed',line)
+    record=handle.owner._writes.get(id(handle))
+    if type(record) is not tuple or len(record)!=9 or type(record[8]) is not tuple or len(record[8])!=5 or record[0] is not operation['state'] or record[2]!=operation['position'] or record[8][2] is not operation['root']:
+        raise KarelRuntimeError('Serial pending WRITE registration changed',line)
+    handle.owner.validate_write(handle,record,line)
+    if operation['cancelled']:raise _FileWriteCancelled()
+
+
+def cooperative_write_items(state,pieces,line=None,*,file=None):
+    """Retain rendered values across explicit serial TX waits; other writes stay immediate."""
+    if file is None:return state.write_items(pieces,line)
+    file.require_open(line)
+    if type(file.owner) is not SerialStreams or not file.owner._active(file,line)['wait_output']:
+        return state.write_items(pieces,line,file=file)
+    if file._read_operation is not None or file._write_operation is not None:
+        raise KarelRuntimeError('FILE already has pending I/O',line)
+    data=_file_write_data(file,pieces,line)
+    operation=dict(identity=_file_identity(file),position=file.position,cancelled=False,state=state,root=task_root(state))
+    file._write_operation=operation
+    try:
+        return (yield from file.owner.write_items(state,file,data,line))
+    except _FileWriteCancelled:
+        file.status=6
+    finally:
+        if file._write_operation is operation:file._write_operation=None
+
+
+def cooperative_write_groups(state,groups,line=None,*,file=None):
+    return (yield from cooperative_write_items(state,_write_group_pieces(groups,line),line,file=file))
+
+
 def cooperative_optional_file_read(state,handle,targets,line=None,**options):
     if handle is None:return state.read_items(targets,line,**options)
     return (yield from cooperative_file_read(state,handle,targets,line,**options))
@@ -4553,13 +4605,19 @@ def check_file_read(handle,line=None):
 
 
 def cancel_file(state,handle,line=None):
-    """Mark one explicit cooperative READ; completed writes have no pending work."""
+    """Mark one explicit cooperative READ or WRITE for checked cancellation."""
     if type(handle) is not FileHandle:raise KarelRuntimeError('CANCEL FILE requires an ordinary FILE handle',line)
     handle.require_open(line);owner=handle.owner
     if type(owner) is KeyboardInput:
         registered=handle in owner._handles
     else:registered=any(item is handle for item in getattr(owner,'handles',()))
     if not registered:raise KarelRuntimeError('CANCEL FILE requires its original live FILE registration',line)
+    if handle._read_operation is not None and handle._write_operation is not None:
+        raise KarelRuntimeError('FILE has overlapping pending operations',line)
+    if handle._write_operation is not None:
+        try:check_file_write(handle,line)
+        except _FileWriteCancelled:pass
+        handle._write_operation['cancelled']=True;handle.status=6;return
     operation=handle._read_operation
     if operation is not None:
         # A repeated request is idempotent, including before a paused reader resumes.
@@ -4567,8 +4625,9 @@ def cancel_file(state,handle,line=None):
         operation['cancelled']=True;handle.status=6;return
     if type(owner) is KeyboardInput:return owner.cancel_read_kb(handle,line)
     direct=(type(owner) is SerialStreams and id(handle) in owner._pending
-        or type(owner) is FilePipes and id(handle) in owner._reads)
-    if direct:raise KarelRuntimeError('CANCEL FILE requires a cooperative typed READ, not a direct host read',line)
+        or type(owner) is FilePipes and id(handle) in owner._reads
+        or type(owner) is SerialStreams and id(handle) in owner._writes)
+    if direct:raise KarelRuntimeError('CANCEL FILE requires a cooperative typed READ/WRITE, not a direct host operation',line)
     handle.status=0
 
 
@@ -4576,6 +4635,7 @@ def cooperative_file_read(state,handle,targets,line=None,*,line_breaks=(),format
     """Register a captured FILE READ and unwind cancellation without publication."""
     handle.require_open(line)
     if handle._read_operation is not None:raise KarelRuntimeError('FILE already has a pending READ',line)
+    if handle._write_operation is not None:raise KarelRuntimeError('FILE already has a pending WRITE',line)
     operation=dict(identity=_file_identity(handle),position=handle.position,cancelled=False,state=state)
     handle._read_operation=operation
     try:

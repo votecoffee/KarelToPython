@@ -1,0 +1,18 @@
+{
+  "feature": "cooperative_serial_tx_outbox_waits",
+  "mode": "pythonic",
+  "configuration": "Exact BOOLEAN wait_output per port; false default omitted; independent of receive wait/final",
+  "source": "New cooperative scalar/aggregate/binary/bound-default WRITE; legacy direct state writes remain synchronous",
+  "capture": "FILE, values and formats once; immutable bytes and one EOL transformation before waiting",
+  "admission": "Complete payload fits beside retained RX within port/bank bounds before waiting; explicit host sleeper or scheduler for blocking; handler waits reject",
+  "progress": "Ten-ms delays and checkpoints; explicit take_output drains; atomic append after original handle/root/registration/mapping/buffer/limit revalidation",
+  "cancellation": "Exact pending token, portable status 6, no captured-byte append and normal continuation; cancellation wins over newly available space",
+  "lifetime": "One pending typed operation per FILE; pause/resume retains bytes; stop/abort/budget/errors release only exact owned registrations; FILE lifetime remains explicit",
+  "persistence": "Closed flags and RX/TX only; no pending payload/token/clock/frame/callback/generator reload",
+  "boundary": "No physical serial transport, native timing/interrupt/status, partial writes, automatic RX reclamation, host isolation or strict equivalence",
+  "guide": "docs/serial-output-waits.md",
+  "controller_validated": false,
+  "tests": [
+    "tests/test_serial_output_waits.py"
+  ]
+}

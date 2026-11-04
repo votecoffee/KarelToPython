@@ -89,7 +89,7 @@ def file_descriptor_payload(value):
     rt=runtime()
     if type(value) is not rt.FileHandle:
         raise ValueError('Created FILE descriptor requires exact FILE storage')
-    if value.owner is not None or value._read_operation is not None:
+    if value.owner is not None or value._read_operation is not None or value._write_operation is not None:
         raise ValueError('Created FILE descriptor must be closed without pending I/O')
     return {'closed':True}
 

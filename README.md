@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Cooperative serial output](docs/serial-output-waits.md) now waits for explicitly
+drained TX space under an opt-in port policy. Scalar, aggregate, binary and
+bound-default WRITE capture their bytes once; CANCEL FILE can interrupt a pending
+write without appending them. Pause/resume and owned cleanup retain that operation.
+
 [Extensionless and hidden filenames](docs/filename-substitutions.md) now work
 with COPY_FILE/RENAME_FILE batches and stem-only templates. Optional-extension
 substitution, mixed-name batches, virtual devices and configured plain pipes
@@ -261,7 +266,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.184423**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.192803**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

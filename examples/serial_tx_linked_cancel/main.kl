@@ -1,0 +1,20 @@
+PROGRAM MAIN
+VAR n,s,elapsed:INTEGER done:BOOLEAN
+ROUTINE work(target:FILE) FROM LIB
+ROUTINE run_job
+VAR f:FILE
+BEGIN
+ elapsed=0
+ OPEN FILE f('WO','P2:')
+ CONNECT TIMER TO elapsed
+ CONDITION[1]: WHEN elapsed>=10 DO CANCEL FILE f ENDCONDITION
+ ENABLE CONDITION[1]
+ work(f)
+ s=IO_STATUS(f)
+ CLOSE FILE f
+ DISCONNECT TIMER elapsed
+ elapsed=0
+END run_job
+BEGIN
+ IF UNINIT(done) THEN run_job() n=7 done=TRUE ENDIF
+END MAIN

@@ -90,7 +90,8 @@ uncompleted READ prefix.
 
 Each live handle permits one pending READ. Another READ, direct typed FILE READ,
 raw byte read or CLOSE on that handle fails while it is pending. Byte-count
-queries remain available, and an RW handle can append independent TX output.
+queries remain available, and an RW handle can append existing immediate TX
+output. Opted-in cooperative writes use the [one-operation-per-FILE rule](serial-output-waits.md).
 SET_FILE_POS remains unsupported with portable status 2. Handle ownership,
 registration identity, attributes, wait policy and unchanged starting cursor are
 validated before each retry. No automatic reopening or cursor repair occurs.
@@ -99,8 +100,8 @@ validated before each retry. No automatic reopening or cursor repair occurs.
 
 Live serial handles prevent context serialization, including after a stopped
 pending READ. Close them explicitly before saving. Closed waiting streams save
-their `wait` and `final` flags, remaining RX and retained TX. Finite streams keep
-their original JSON and snapshot shape without added flags. Saved byte queues
+their `wait` and `final` flags, remaining RX and retained TX. The independent [wait_output option](serial-output-waits.md) may also persist.
+Disabled options keep their original JSON and snapshot shape. Saved byte queues
 use the existing lowercase hex representation. Pending registrations, references,
 callbacks and execution stacks are never serialized.
 

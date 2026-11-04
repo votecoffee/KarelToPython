@@ -1217,7 +1217,7 @@ class Emitter:
         self.lines, self.source_map, self.features = [], [], set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
-        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','file_cancel','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
+        self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','file_write','write_items','file_cancel','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
         if mode=='pythonic' and any(row['name'] in rt.TASK_DIRECTIVES for row in program.directive_metadata): self.cooperative=True
         self.group_uses=[]
         self.using_scopes = []
@@ -4234,7 +4234,11 @@ class Emitter:
                 self.features.add(f'WRITE {data_type} output request')
                 if formats: self.features.add(f'WRITE {data_type} formatting')
             file_option=f',file={file_code}' if file_code else ''
-            if aggregate_output:self.line(f'self._state.write_groups([{", ".join(write_groups)}], {line}{file_option})',token)
+            if self.cooperative:
+                method='cooperative_write_groups' if aggregate_output else 'cooperative_write_items'
+                values=write_groups if aggregate_output else pieces
+                self.line(f'yield from _rt.{method}(self._state,[{", ".join(values)}],{line}{file_option})',token)
+            elif aggregate_output:self.line(f'self._state.write_groups([{", ".join(write_groups)}], {line}{file_option})',token)
             else:self.line(f'self._state.write_items([{", ".join(pieces)}], {line}{file_option})', token)
             self.features.add('WRITE output request')
             if any(item['data_type'] == 'CR' for item in items): self.features.add('WRITE CR newline')
@@ -6702,23 +6706,34 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         cancellation='Bare CANCEL FILE selects the bound default input; explicit aliases and READ_KB use the same exact pending-operation and portable status-6 rules',
         lifetime='One cached handle per configured alias and context; source CLOSE or explicit close_predefined_files releases only owned aliases, retaining pending/foreign identities for recovery',
         persistence='Save declarative bindings and ordinary service data only after alias handles close; loading opens nothing and later use creates fresh handles without restoring cursors/stacks',
-        boundary='No automatic controller windows/devices, native preopened status/layout, callback cancellation, pending writes or strict equivalence; no source descriptor data discovery',
+        boundary='No automatic controller windows/devices, native preopened status/layout, callback cancellation, native pending writes or strict equivalence; no source descriptor data discovery',
         guide='docs/predefined-files.md',controller_validated=False)
     report['file_cancel_policy']=dict(
         source='CANCEL FILE explicit FILE selector or omitted bound default input, captured once; allowed in handlers and linked routines',
-        dispatch='Cancel the exact cooperative typed READ or READ_KB editor on its explicit FILE; idle registered FILE succeeds without discarding data',
-        completion='Portable IO_STATUS 6 on the canceled READ, no new READ observation or destination/cursor publication; execution continues after READ',
+        dispatch='Cancel the exact cooperative typed READ, READ_KB editor or opted-in serial WRITE on its explicit FILE; idle registered FILE succeeds without discarding data',
+        completion='Portable IO_STATUS 6 on cancellation; READ publishes no destinations/cursor/observation, serial WRITE appends no captured payload; execution continues after the canceled operation',
         lifetime='Cancellation marks the captured operation; pause is retained, resume unwinds; stop/abort and stale registrations retain their existing precedence and cleanup',
-        boundary='Predefined/default FILE aliases follow predefined_file_policy; no callback/native I/O interruption or pending writes because modeled writes are atomic; fileless menus and direct typed backend reads remain separate',
+        boundary='Predefined/default FILE aliases follow predefined_file_policy; no callback/native I/O interruption; cooperative serial writes follow serial_output_wait_policy; fileless menus and direct typed backend reads remain separate',
         guide='docs/file-cancellation.md',controller_validated=False)
+    report['serial_output_wait_policy']=dict(
+        configuration='Exact BOOLEAN wait_output per SerialStreams port; false by default and omitted when false; existing finite/default output behavior is retained',
+        source='Newly generated Pythonic FILE and bound-default WRITE, including scalar, aggregate and portable binary items; old direct State.write_items remains synchronous',
+        capture='Resolve FILE, values and formats once before waiting; render independent immutable bytes and apply configured text EOL once',
+        admission='Validate complete payload against retained RX plus port/bank limits before waiting; require explicit host sleeper or scheduler for blocked output; no waits inside handler actions',
+        waiting='Cooperative ten-millisecond waits and checkpoints; host take_output drains retained TX; revalidate original handle, task, registration, mappings, buffer identities and fixed limits before publication',
+        cancellation='CANCEL FILE marks the exact pending WRITE; cancellation wins over newly available space; portable status 6 and source continuation without appending captured bytes',
+        lifetime='One pending typed operation per FILE; pending WRITE blocks overlapping I/O, CLOSE, seek and flush; pause/resume retains bytes, stop/abort/budget/failure releases exact owned registrations',
+        persistence='Enabled flag and ordinary RX/TX only after close; no pending writes, operation tokens, clocks, callbacks or source stacks reload',
+        boundary='Explicit offline TX outbox model; no partial/chunked writes, RX reclamation, hardware flow control, physical/native timing/status or strict equivalence',
+        guide='docs/serial-output-waits.md',controller_validated=False)
     report['serial_stream_policy']=dict(
         service='SerialStreams',context='Explicit ExecutionContext serial_streams; reserve numeric P-device prefixes and require configured canonical P1: through P5: endpoints; no ordinary filename fallback',
         transfer='Finite ASCII or portable binary scalar READ/WRITE, explicit FILE attributes, exclusive validated handles and separate input/output buffers; RO/WO/RW/UD/AP plus portable AO and binary suffix intent',
         input='Read cursor advances only after complete typed input validation; CLOSE consumes its RX prefix; finite defaults remain, wait=True permits explicit host-fed cooperative input with final/finish_input EOF and no loopback',
         waiting='Capture destinations/formats once, distinguish incomplete from invalid input, retain prefix on EOF/failure; explicit standalone sleeper or scheduler, bounded checkpoints, pending direct-read/close guards and generator cleanup',
-        output='Append retained TX, preserving prior output and RX; preflight per-port and whole-bank byte budgets before mutation; no serial or device call is performed',
+        output='Append retained TX after complete byte-budget checks, preserving RX; optional wait_output follows serial_output_wait_policy; no device call is performed',
         queries='GET_FILE_POS is the RX cursor; BYTES_LEFT/BYTES_AHEAD report supplied remaining RX; SET_FILE_POS returns unsupported status 2 with cursor unchanged; ordinary IO_STATUS retains portable behavior',
-        persistence='Canonical bounded port configuration, optional waiting wait/final flags and remaining RX/TX hex round-trip only after close; no handles, pending reads, native connections or suspended calls restored',
+        persistence='Canonical bounded port configuration, optional wait/final and wait_output flags plus remaining RX/TX hex round-trip only after close; no handles, pending I/O, native connections or suspended calls restored',
         boundary='Manual P1..P4 hardware does not establish physical P5 availability; no SerialPorts attribute inference, COM discovery/access, physical transfer, native producer timing, seek, XML/PASSALL, status equivalence or strict mode',
         guide='docs/serial-streams.md',controller_validated=False)
     report['vision_alpha_policy']=dict(

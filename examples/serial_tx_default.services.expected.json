@@ -1,0 +1,23 @@
+{
+  "predefined_files": {
+    "TPDISPLAY": {
+      "name": "P2:",
+      "mode": "WO"
+    }
+  },
+  "serial_streams": {
+    "limit": 128,
+    "ports": {
+      "2": {
+        "capacity": 64,
+        "input": {
+          "hex": ""
+        },
+        "output": {
+          "hex": "72656164790a"
+        },
+        "wait_output": true
+      }
+    }
+  }
+}

@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.192803 - 2026-11-04
+
+- Add exact-BOOLEAN SerialStreams wait_output for cooperative writes that wait
+  for host-drained TX space, preserving default immediate capacity checks.
+- Generate cooperative scalar, aggregate, binary and bound-default WRITE paths
+  with one-time rendering, complete-payload publication and explicit wait drivers.
+- Extend CANCEL FILE to exact pending serial writes with status 6, preserving
+  prior TX and source continuation, pause/resume and owned terminal cleanup.
+- Guard pending handle/root/registration/buffer identities and overlapping I/O;
+  add authored tests, four examples and two linked cancellation/replay projects.
+
 ## 26.1104.184423 - 2026-11-04
 
 - Support extensionless and leading-dot files in COPY_FILE/RENAME_FILE batches,

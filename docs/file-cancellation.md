@@ -1,7 +1,7 @@
 # Cooperative FILE cancellation
 
-Pythonic `CANCEL FILE f` interrupts the exact active cooperative typed READ on
-an explicitly opened FILE. [Dynamically created descriptors](dynamic-files.md)
+Pythonic `CANCEL FILE f` interrupts the exact active cooperative typed READ or
+[opted-in serial WRITE](serial-output-waits.md) on an explicitly opened FILE. [Dynamically created descriptors](dynamic-files.md)
 participate through exact FILE routine aliases, including linked handlers. SerialStreams, opted-in waiting FilePipes, and keyboard
 line/PASSALL FILE reads support cancellation. It opens no device or GUI.
 
@@ -41,13 +41,14 @@ source READ completion or failure observation.
 A registered idle FILE accepts cancellation as a no-op, preserving data, position
 and open state. This includes ordinary memory/rooted files and already completed
 atomic writes. Cancellation never truncates, flushes, closes or deletes a file.
-There are no pending modeled writes to interrupt.
+Opted-in [serial WRITE waits](serial-output-waits.md) now capture a complete
+payload that cancellation can discard before publication, preserving older TX.
 
 ## Identity, handlers and lifetime
 
 The explicit FILE selector is evaluated once. Reference parameters and linked
 routines can pass the same live handle; global or motion-local handler actions
-can request its cancellation. The request captures the active READ's identity.
+can request its cancellation. The request captures the active READ or opted-in serial WRITE identity.
 Changing an active READ's FILE owner, endpoint, attributes, cursor or backend registration
 fails before cancellation can conceal that change. Copied/foreign handles fail.
 Independent readers and endpoints retain separate registrations.

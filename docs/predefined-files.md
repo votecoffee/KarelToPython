@@ -63,11 +63,14 @@ when bound. No new packed layouts, device timings or numeric conventions are add
 
 ## Cancellation and ownership
 
+Bound serial output can now use [cooperative WRITE waits](serial-output-waits.md),
+including explicit alias cancellation and pending-operation cleanup guards.
+
 Bare CANCEL FILE selects the bound default input: TPDISPLAY or CRTDEVICE INPUT.
 Explicit CANCEL FILE alias and borrowed FILE arguments use the same handle.
 Typed input and READ_KB cancellation preserve existing outputs/cursors, return
 portable status 6, and retain pause, stop, abort and identity checks. Fileless
-callbacks, menu controls, direct backend readers and pending writes keep their
+callbacks, menu controls and direct backend readers keep their
 separate contracts; unbound callback input is not canceled.
 
 CLOSE FILE closes the cached handle without reopening it on a later lookup.
@@ -88,7 +91,7 @@ editors or suspended execution. Partial open failures retain any registered owne
 handle for explicit recovery, rather than losing its identity.
 
 This is an offline Pythonic model. Native preopened-file status, window routing,
-hardware/controller timing, pending WRITE interruption and strict equivalence
+hardware/controller timing, native pending WRITE interruption and strict equivalence
 remain outside it. See the [ledger](semantics/predefined_file_semantics.json),
 [regressions](../tests/test_predefined_files.py), authored
 [read](../examples/predefined_file_read.kl), [default output](../examples/predefined_default_write.kl),

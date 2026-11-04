@@ -1173,7 +1173,7 @@ class FileHandle:
         self.interactive=False; self.reverse=False; self.field=False; self.eol=10
         self.passall=False;self.noecho=False
         self.pipe_wait=None;self.pipe_overflow=None
-        self._read_operation=None
+        self._read_operation=None;self._write_operation=None
     def require_open(self,line=None):
         if self.owner is None: fail('FILE is not open',line)
     def tell(self,line=None): self.require_open(line); return self.position
@@ -1831,6 +1831,7 @@ def drive(program):
 
 def run_cooperative(program,max_steps=100000):
     state=program._state
+    if state._driving:fail('A Program cannot be driven recursively')
     if getattr(program,'_execution',None) is not None: fail('Program is paused or running; resume or stop it before starting again')
     if state.task_state=='stopped': raise KarelStop('Task is stopped; construct a new Program')
     state.begin(max_steps); state.task_state='running'; program._execution=program._execute()
@@ -2106,10 +2107,10 @@ class ExecutionContext:
         handles=[self._predefined_handle(name) for name in self._predefined_values]
         for handle in handles:
             owner=handle.owner;rt=runtime()
-            pending=(handle._read_operation is not None or type(owner) is rt.KeyboardInput and any(job.get('handle') is handle for job in owner._active.values())
-                or type(owner) is rt.SerialStreams and id(handle) in owner._pending
+            pending=(handle._read_operation is not None or handle._write_operation is not None or type(owner) is rt.KeyboardInput and any(job.get('handle') is handle for job in owner._active.values())
+                or type(owner) is rt.SerialStreams and (id(handle) in owner._pending or id(handle) in owner._writes)
                 or type(owner) is rt.FilePipes and id(handle) in owner._reads)
-            if pending:fail('Predefined FILE has a pending READ')
+            if pending:fail('Predefined FILE has a pending '+('WRITE' if handle._write_operation is not None or type(owner) is rt.SerialStreams and id(handle) in owner._writes else 'READ'))
         records=[(name,handle,self._predefined_owners[name]) for name,handle in zip(self._predefined_values,handles)]
         for name,handle,record in records:
             if self._predefined_values.get(name) is not handle or self._predefined_owners.get(name) is not record:fail('Predefined FILE cleanup ownership changed')

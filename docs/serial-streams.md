@@ -5,6 +5,8 @@ Pythonic FILE operations can use explicitly supplied serial endpoints through
 it never opens a COM port, cable, device, socket or background reader.
 An explicit per-port `wait=True` opts into [cooperative host-fed reads](serial-waiting.md)
 with a `final` flag and `finish_input(port)`. The default remains finite input.
+An independent `wait_output=True` opts into [cooperative TX waits](serial-output-waits.md)
+using explicit host drains, captured output and FILE cancellation.
 
 ```python
 from karel2py.runtime import ExecutionContext, SerialStreams
@@ -84,8 +86,8 @@ ATR_NOECHO is absent.
 Successful READ operations advance the FILE's receive cursor. A complete READ
 validates all outputs before publication. An incomplete or invalid later field
 preserves that READ's outputs and starting cursor. Failed binary decoding also
-rolls back its tentative byte progress. Input exhaustion fails immediately;
-there is no producer wait, retry, timeout, host sleep or automatic acquisition.
+rolls back its tentative byte progress. Default finite input fails immediately at exhaustion. [Opted-in input waits](serial-waiting.md)
+use supplied feeds and explicit drivers; no automatic acquisition is performed.
 
 RX bytes remain physically retained until explicit CLOSE. CLOSE consumes only
 the prefix covered by the successful cursor and resets that closed handle's
@@ -119,6 +121,8 @@ combined retained RX+TX must fit its capacity, and actual bytes across all ports
 must fit the bank limit. Capacities do not reserve memory in advance. RX that has
 been read but not closed still counts toward capacity. Appends check both budgets
 before adding any bytes. TX remains bounded until explicitly drained.
+[wait_output](serial-output-waits.md) can suspend newly generated output until the
+complete payload fits; it does not reclaim retained RX or discard old TX.
 
 Constructor/configuration data accepts ASCII text, Python bytes, or an exact
 hex object such as `{"hex":"00ff"}`. Saved configuration emits lowercase hex for
@@ -136,5 +140,6 @@ See the authored cases in `tests/test_serial_streams.py`, the runnable
 [serial metadata guide](serial-attributes.md).
 
 [Explicit CANCEL FILE](file-cancellation.md) now requests cooperative typed READ
-cancellation without publishing partial outputs. Read its lifetime and buffering
-rules before canceling; CLOSE belongs after the pending READ has unwound.
+cancellation without publishing partial outputs, plus [pending serial WRITE
+cancellation](serial-output-waits.md). CLOSE belongs after the pending operation
+has unwound.

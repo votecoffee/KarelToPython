@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR status:INTEGER
+ROUTINE work(target:FILE)
+BEGIN
+ WRITE target('XY') status=IO_STATUS(target)
+END work
+BEGIN END LIB

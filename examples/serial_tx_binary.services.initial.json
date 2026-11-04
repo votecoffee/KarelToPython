@@ -1,0 +1,18 @@
+{
+  "serial_streams": {
+    "limit": 128,
+    "ports": {
+      "2": {
+        "capacity": 64,
+        "input": {
+          "hex": ""
+        },
+        "output": {
+          "hex": "6f6c64"
+        },
+        "wait_output": true
+      }
+    }
+  },
+  "local_handlers": true
+}
