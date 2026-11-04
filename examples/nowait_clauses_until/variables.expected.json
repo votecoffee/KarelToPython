@@ -1,0 +1,26 @@
+[
+  {
+    "program": "MAIN",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "LIB",
+    "path": "CALLS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  }
+]

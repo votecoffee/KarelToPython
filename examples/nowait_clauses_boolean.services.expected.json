@@ -1,0 +1,76 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "NOWAIT_CLAUSES_BOOLEAN",
+        "source_program": "NOWAIT_CLAUSES_BOOLEAN",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "NOWAIT_CLAUSES_BOOLEAN",
+        "source_program": "NOWAIT_CLAUSES_BOOLEAN",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "execution": {
+            "delay_ms": 25,
+            "elapsed_ms": 25,
+            "handlers": [
+              {
+                "kind": "WHEN",
+                "line": 7
+              }
+            ],
+            "triggered": [
+              1
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "NOWAIT_CLAUSES_BOOLEAN",
+        "source_program": "NOWAIT_CLAUSES_BOOLEAN",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 10,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

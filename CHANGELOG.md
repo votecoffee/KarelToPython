@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1104.062349 - 2026-11-04
+
+- Add NOWAIT local WHEN/UNTIL/THEN clauses to all seven MOVE forms and VIA.
+  Scan at admission and owner checkpoints; observe crossed supplied AT NODE/TIME
+  events in source order without inferring native arrival execution.
+- Retain exact live defining frames and USING/formal captures, with cancellation
+  before defining routine/invocation exit. Keep callback-free launch lifetimes.
+- Preserve one-shot actions, holds, pause/resume, counter effects and logical
+  grants; revalidate after clock callbacks and protect replacement scopes.
+- Validate terminal callback metadata without restoring closures or active jobs.
+- Add 90 regressions, four examples and two linked projects, including independent
+  typed data/history expectations and generated CLI/context replay.
+
 ## 26.1104.054813 - 2026-11-04
 
 - Add DISCONNECT TIMER through exact helper references to an existing connection

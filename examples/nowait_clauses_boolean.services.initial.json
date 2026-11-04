@@ -1,0 +1,20 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "capture_only": false,
+    "responses": [
+      {
+        "operation": "MOVE AWAY",
+        "completed": true,
+        "delay_ms": 25
+      }
+    ]
+  }
+}

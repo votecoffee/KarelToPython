@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [NOWAIT local-clause ledger](nowait_clauses_semantics.json) supersedes earlier
+NOWAIT/local/temporal-clause exclusions. It defines owner-checkpoint observation
+and exact live defining-frame captures; callback-free root lifetimes, native
+boundaries and active-state persistence guards remain distinct.
+
 The [helper timer-control ledger](timer_control_semantics.json) supersedes earlier
 caller/ancestor-frame DISCONNECT exclusions for exact references within one live
 task. Connection lifetimes do not migrate; foreign tasks, dead frames and

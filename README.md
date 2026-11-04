@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[NOWAIT local clauses](docs/nowait-local-clauses.md) now support one-shot WHEN/UNTIL
+and supplied temporal events at owner checkpoints across all MOVE forms. Captured
+values stay live within their defining routine/invocation; pause, hold, cancellation
+and checked terminal history use the existing offline motion services.
+
 [Timer control through helpers](docs/timer-control.md) now lets DISCONNECT TIMER
 release an exact existing connection owned by the calling task, including linked
 frames and borrowed ARRAY/record/BYNAME aliases. Clocks and connection lifetimes
@@ -160,7 +165,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.054813**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.062349**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -991,10 +996,10 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 416 authored runnable examples, checks complete
+The example runner translates 480 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 140 complete linked source projects. It also checks that unsupported
-NOWAIT/local-handler combinations are rejected.
+fixtures, plus 172 complete linked source projects. It also checks that nested
+MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 
 The aggregate ARRAY example covers named records with nested arrays and STRING

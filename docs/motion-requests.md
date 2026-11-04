@@ -122,7 +122,9 @@ controller-validation boundary. Normal source maps retain include origins.
   indexes. Its nodes need a positional NODE_POS field; no associations are inferred.
 - Each request payload is limited to 64 KiB of canonical compact JSON, independently
   of the node bound. Sequence numbers stop at 2147483646.
-- NOWAIT/local-clause combinations, unsupplied arrival times, unresolved REF_POS and cross-group options,
+- Callbacks after defining-frame return, unsupplied arrival times, unresolved REF_POS
+  and cross-group options; [NOWAIT local clauses](nowait-local-clauses.md) now use
+  explicit owner-checkpoint observation,
   native group synchronization, hand-signal routing and controller timing remain
   unsupported. Supported [logical controls and nine WITH values](motion-controls.md)
   retain the offline contract. [Boolean local clauses and scripted progress](motion-handlers.md)

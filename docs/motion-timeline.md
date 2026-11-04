@@ -117,8 +117,9 @@ hand/control request report entries. Source maps retain physical include origins
 Old response JSON without node_times retains its behavior. Old direct-invoke
 generated output rejects supplied schedules instead of silently ignoring them;
 retranslate for current support. [Pending NOWAIT jobs](nowait-motion.md) now
-validate supplied schedules without local clauses or temporal selectors. Global
-temporal predicates, inferred arrivals, trajectory
+validate supplied schedules. [NOWAIT local clauses](nowait-local-clauses.md) now
+observe crossed supplied temporal events at owner checkpoints; synchronous
+scopes retain exact modeled breakpoints. Global temporal predicates, inferred arrivals, trajectory
 calculation, physical timing and native multi-group synchronization remain outside
 this model.
 

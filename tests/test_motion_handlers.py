@@ -424,7 +424,7 @@ class MotionScopePersistenceTests(unittest.TestCase):
             data=deepcopy(original);data['history'][1]['data']['execution'][key]=value
             with self.subTest(key=key,value=value),self.assertRaises(ValueError):rt.MotionRequests.from_config(data)
         data=deepcopy(original);data['history'][1]['nowait']=True
-        with self.assertRaises(ValueError):rt.MotionRequests.from_config(data)
+        self.assertEqual(rt.MotionRequests.from_config(data).to_config(),data)
 
     def test_pending_history_cannot_be_restored_as_completed_work(self):
         _,ctx,_,_,_=execute('ATTACH MOVE AWAY 1, WHEN TRUE DO n=1 ENDMOVE')
@@ -440,7 +440,7 @@ class MotionScopePersistenceTests(unittest.TestCase):
 
 class MotionScopeSourceGuards(unittest.TestCase):
     def test_unsupported_source_shapes_remain_blocked(self):
-        for body in ('MOVE TO p NOWAIT, WHEN TRUE DO n=1 ENDMOVE','MOVE AWAY 1, ENDMOVE',
+        for body in ('MOVE TO p NOWAIT, WHEN TRUE DO MOVE AWAY 1 ENDMOVE','MOVE AWAY 1, ENDMOVE',
                      'MOVE AWAY 1, WHEN TRUE DO ENDMOVE','MOVE AWAY 1, UNTIL TRUE THEN ENDMOVE',
                      'MOVE AWAY 1, WHEN TRUE DO n=1','MOVE AWAY 1, WHEN AT NODE[] DO n=1 ENDMOVE',
                      'MOVE AWAY 1, WHEN TIME 10 DO n=1 ENDMOVE','MOVE AWAY 1, WHEN 1 DO n=1 ENDMOVE',

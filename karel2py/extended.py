@@ -1777,6 +1777,9 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
                 state.local_frames=original; state.call_depth=depth; state._in_handler=False
                 state._scanning_condition=previous_scan
                 state._current_error=previous_error
+    if (not _defer_control and not state._in_handler and not state._abort_requested
+            and not state._pause_requested and state.execution.motion is not None):
+        yield from state.execution.motion.scan_background(state,line)
     if state._abort_requested and not state._in_handler and not _defer_control:
         state.abort(state._abort_request_line or line)
     if state._pause_requested and (not state._in_handler or force_pause) and not _defer_control:

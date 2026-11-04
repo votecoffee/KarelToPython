@@ -1,0 +1,37 @@
+[
+  {
+    "program": "NOWAIT_CLAUSES_PRIVATE",
+    "path": "ITEM",
+    "type": [
+      "STRUCTURE",
+      "ITEM_T",
+      [
+        [
+          "AMOUNT",
+          [
+            "INTEGER"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "AMOUNT": 9
+    }
+  },
+  {
+    "program": "NOWAIT_CLAUSES_PRIVATE",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 7
+  },
+  {
+    "program": "NOWAIT_CLAUSES_PRIVATE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

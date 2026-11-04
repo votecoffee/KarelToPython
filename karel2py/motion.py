@@ -287,8 +287,6 @@ class MotionRequests:
                 raise ValueError(str(error)) from error
             execution = row['data'].get('execution')
             if execution is not None:
-                if row['nowait'] and (execution['handlers'] or 'conditions' in execution):
-                    raise ValueError('NOWAIT motion history cannot contain local handlers or conditions')
                 if row['outcome'] in ('captured', 'completed') and execution['elapsed_ms'] != execution['delay_ms']:
                     raise ValueError('Completed motion history requires its full supplied progress')
                 if row['outcome'] == 'captured' and execution['delay_ms']:
@@ -430,7 +428,16 @@ class MotionRequests:
             raise ValueError('Motion request exceeds 64 KiB')
         return events, breakpoints
 
-    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False):
+    @staticmethod
+    def clause_metadata(clauses,line=None):
+        if (type(clauses) not in (tuple,list) or len(clauses)>32
+                or any(type(row) not in (tuple,list) or len(row)!=4
+                       or row[0] not in ('WHEN','UNTIL') or not callable(row[1]) or not callable(row[2])
+                       or type(row[3]) is not int or not 1<=row[3]<=MAX_SEQUENCE for row in clauses)):
+            raise rt().KarelRuntimeError('Motion local clauses require bounded callable WHEN/UNTIL descriptors',line)
+        return [dict(kind=kind,line=location) for kind,_,_,location in clauses]
+
+    def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False, _clauses=(), _callback_context=None):
         runtime = rt()
         self.poll(state,line)
         group = state.robot_group or 1
@@ -448,8 +455,15 @@ class MotionRequests:
                 raise ValueError('Background motion requires a generated NOWAIT execution scope')
             if _execution is not None and (operation not in MOVES or nowait and not _background or state._in_handler or root._in_handler):
                 raise ValueError('Scoped motion requires supported generated output outside handler actions')
-            if _background and (type(_execution) is not dict or _execution.get('handlers') or 'conditions' in _execution):
-                raise ValueError('NOWAIT motion does not support local handlers or conditions')
+            if _background and (type(_execution) is not dict or _execution.get('handlers')!=self.clause_metadata(_clauses,line)
+                    or 'conditions' in _execution and not _clauses):
+                raise ValueError('NOWAIT local handlers require matching generated callable descriptors')
+            if _background and _clauses:
+                if (type(_callback_context) is not tuple or len(_callback_context)!=2 or _callback_context[0] is not root
+                        or type(_callback_context[1]) is not tuple or len(_callback_context[1])!=len(state.local_frames)
+                        or any(saved is not current for saved,current in zip(_callback_context[1],state.local_frames))
+                        or any(not any(frame is live for live in state._timer_frames) for frame in _callback_context[1])):
+                    raise ValueError('NOWAIT local callback task or defining frames changed before admission')
             if operation == 'MOVE ALONG':
                 path, start, end = data.pop('path'), data['start'], data['end']
                 start = 1 if start is None else start
@@ -549,7 +563,7 @@ class MotionRequests:
                 else:
                     locks.held.discard(selected_group)
                 if scope is not None and scope.get('background'):
-                    if scope['cancelled']:self.finish_scope(scope,'cancelled')
+                    if scope['cancelled'] and not scope.get('scanning'):self.finish_scope(scope,'cancelled')
                     else:scope['blocked']=self.background_blocked(scope)
         elif operation.endswith(' HAND'):
             self.hands[data['hand']] = {'OPEN HAND': 'open', 'CLOSE HAND': 'closed', 'RELAX HAND': 'relaxed'}[operation]
@@ -567,7 +581,7 @@ class MotionRequests:
     @staticmethod
     def background_blocked(scope):
         root=scope['root']
-        return (scope['group'] in scope['locks'].held or root._pause_requested or root._abort_requested
+        return (scope.get('scanning',False) or scope['group'] in scope['locks'].held or root._pause_requested or root._abort_requested
                 or root.task_state not in ('running','waiting'))
 
     def poll(self,state=None,line=None,*,scheduler=None):
@@ -591,6 +605,7 @@ class MotionRequests:
                 now=runtime.timer_clock(owner,line)
                 if any(owner._clock_us is not scope['clock'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during poll',line)
                 if any(now<scope['last_us'] for scope in scopes):raise runtime.KarelRuntimeError('NOWAIT motion clock moved backwards',line)
+                for scope in scopes:self.verify_scope(scope,line)
             except BaseException:
                 for scope in scopes:self.finish_scope(scope,'failed')
                 raise
@@ -600,14 +615,16 @@ class MotionRequests:
                 if not scope['blocked'] and not blocked:scope['active_us']+=now-scope['last_us']
                 scope['last_us']=now;scope['blocked']=blocked
                 progress['elapsed_ms']=min(progress['delay_ms'],scope['active_us']//1000)
+                if scope.get('scanning'):continue
                 if scope['cancelled']:self.finish_scope(scope,'cancelled')
-                elif progress['elapsed_ms']==progress['delay_ms']:self.finish_scope(scope,scope['outcome'])
+                elif progress['elapsed_ms']==progress['delay_ms'] and not scope.get('clauses'):self.finish_scope(scope,scope['outcome'])
 
     def deadlines(self,scheduler):
         """Virtual deadlines apply only to the scheduler's own clock adapters."""
         return [scope['last_us']+max(0,scope['request']['data']['execution']['delay_ms']*1000-scope['active_us'])
                 for scope in self._active.values() if scope.get('background') and scope['root']._scheduler is scheduler
-                and scope['root']._scheduler_clock and not scope['blocked'] and not self.background_blocked(scope)]
+                and scope['root']._scheduler_clock and not scope['blocked'] and not self.background_blocked(scope)
+                and scope['active_us']<scope['request']['data']['execution']['delay_ms']*1000]
 
     def owns_scope(self, scope):
         locks, group = scope['locks'], scope['group']
@@ -615,16 +632,74 @@ class MotionRequests:
 
     def finish_scope(self, scope, outcome):
         scope['request']['outcome'] = outcome
-        if self.owns_scope(scope) and scope['locks'].motion.get(scope['group']) == 'executing':
-            scope['locks'].set_motion(scope['group'], 'idle')
         if self._active.get(scope['group']) is scope:
+            if self.owns_scope(scope) and scope['locks'].motion.get(scope['group']) == 'executing':
+                scope['locks'].set_motion(scope['group'], 'idle')
             self._active.pop(scope['group'])
+        consumer=scope['consumer']
+        for cache in (scope['state']._event_seen,scope['state']._edge_history):
+            for key in list(cache):
+                identity=key[0]
+                if type(identity) is tuple and len(identity)==2 and identity[0] is consumer:cache.pop(key)
 
     def verify_scope(self, scope, line):
         if not self.owns_scope(scope) or self._active.get(scope['group']) is not scope:
             raise rt().KarelRuntimeError('Active motion lost its logical ownership grant', line)
+        if scope.get('clauses') and rt().task_root(scope['state']) is not scope['root']:
+            raise rt().KarelRuntimeError('NOWAIT local callback defining task changed',line)
+        if scope.get('clauses') and any(not any(frame is live for live in scope['state']._timer_frames) for frame in scope['frames']):
+            raise rt().KarelRuntimeError('NOWAIT local callback defining frame is inactive',line)
         if not scope['cancelled'] and scope['locks'].motion.get(scope['group'], 'idle') != 'executing':
             raise rt().KarelRuntimeError('Active motion work label was changed externally', line)
+
+    def release_frame(self,state,frame):
+        """Local NOWAIT callbacks cannot outlive their actual defining frame."""
+        for scope in list(self._active.values()):
+            if scope.get('clauses') and scope['state'] is state and scope['frame'] is frame:
+                self.finish_scope(scope,'cancelled')
+
+    def finish_callbacks(self,state):
+        for scope in list(self._active.values()):
+            if scope.get('clauses') and scope['state'] is state:self.finish_scope(scope,'cancelled')
+
+    def scan_background(self,state,line=None):
+        """Run local callbacks only at an owning task's cooperative checkpoints."""
+        runtime=rt();root=runtime.task_root(state)
+        if state._in_handler or root._in_handler:return
+        selected=[scope for scope in self._active.values()
+                  if scope.get('background') and scope.get('clauses') and scope['root'] is root]
+        for scope in selected:
+            if self._active.get(scope['group']) is not scope or scope.get('scanning'):continue
+            self.poll(state,line)
+            self.verify_scope(scope,line)
+            if self.background_blocked(scope):continue
+            owner=scope['state'];original,depth=owner.local_frames,owner.call_depth
+            progress=scope['request']['data']['execution']
+            scope['window']=(scope['last_scan'],progress['elapsed_ms'])
+            scope['scanning']=True;scope['blocked']=True
+            owner.local_frames=list(scope['frames']);owner.call_depth=len(owner.local_frames)
+            try:
+                yield from self.scan_local(scope,scope['clauses'],line)
+                scope['last_scan']=progress['elapsed_ms']
+                if owner._abort_requested or owner._pause_requested:
+                    yield from runtime.checkpoint(owner,line)
+                self.verify_scope(scope,line)
+            except (GeneratorExit,runtime.KarelStop,runtime.KarelAbort):
+                self.finish_scope(scope,'cancelled');raise
+            except BaseException:
+                self.finish_scope(scope,'failed');raise
+            finally:
+                owner.local_frames,owner.call_depth=original,depth
+                try:
+                    if self._active.get(scope['group']) is scope:self.poll(state,line)
+                except BaseException:
+                    self.finish_scope(scope,'failed');raise
+                finally:
+                    scope['scanning']=False;scope['blocked']=self.background_blocked(scope)
+            if self._active.get(scope['group']) is not scope:continue
+            if scope['cancelled']:self.finish_scope(scope,'cancelled')
+            elif not self.background_blocked(scope) and progress['elapsed_ms']==progress['delay_ms']:
+                self.finish_scope(scope,scope['outcome'])
 
     def condition(self, state, descriptor, line=None):
         scope = self._local_actions.get(rt().task_root(state))
@@ -633,6 +708,8 @@ class MotionRequests:
         key = descriptor['kind'], descriptor['node'], descriptor['offset_ms']
         if key not in scope['events']:
             raise rt().KarelRuntimeError('Motion temporal selector was not captured for this scope', line)
+        if scope.get('background'):
+            lower,upper=scope['window'];return any(lower<point<=upper for point in scope['events'][key])
         return scope['request']['data']['execution']['elapsed_ms'] in scope['events'][key]
 
     def scan_local(self, scope, clauses, line):
@@ -678,8 +755,9 @@ class MotionRequests:
                     current._in_handler = previous
 
     def execute(self, state, operation, data, nowait=False, line=None, *, settings=None, clauses=(), conditions=()):
-        """Explicit progress; NOWAIT retains one callback-free pending move per group."""
+        """Explicit progress, with NOWAIT callbacks observed by owner checkpoints."""
         runtime = rt()
+        self.clause_metadata(clauses,line)
         delay, plan = 0, None
         if not self.capture_only and self.responses and self.responses[0]['operation'] == operation:
             delay = self.responses[0].get('delay_ms', 0)
@@ -695,12 +773,21 @@ class MotionRequests:
         if conditions:
             execution['conditions'] = list(conditions)
         if nowait:
-            if clauses or conditions:raise runtime.KarelRuntimeError('NOWAIT motion does not support local handlers or conditions',line)
+            frames=list(state.local_frames)
+            if clauses and any(not any(frame is live for live in state._timer_frames) for frame in frames):
+                raise runtime.KarelRuntimeError('NOWAIT local callback requires live defining frames',line)
             root=runtime.task_root(state);clock=root._clock_us;now=runtime.timer_clock(root,line)
+            if (runtime.task_root(state) is not root or clauses and (len(frames)!=len(state.local_frames)
+                    or any(saved is not current for saved,current in zip(frames,state.local_frames))
+                    or any(not any(frame is live for live in state._timer_frames) for frame in frames))):
+                raise runtime.KarelRuntimeError('NOWAIT local callback defining frames or task changed during capture',line)
             if root._clock_us is not clock:raise runtime.KarelRuntimeError('NOWAIT motion clock adapter changed during capture',line)
-            scope=self.invoke(state,operation,data,True,line,settings=settings,_execution=execution,_background=True)
-            scope.update(background=True,clock=clock,last_us=now,active_us=0,blocked=self.background_blocked(scope))
-            if delay==0:self.finish_scope(scope,scope['outcome'])
+            scope=self.invoke(state,operation,data,True,line,settings=settings,_execution=execution,_background=True,_clauses=clauses,_callback_context=(root,tuple(frames)))
+            scope.update(background=True,clock=clock,last_us=now,active_us=0,blocked=self.background_blocked(scope),
+                clauses=tuple(clauses),frames=frames,frame=frames[-1] if frames else None,
+                scanning=False,last_scan=-1)
+            if clauses:yield from self.scan_background(state,line)
+            elif delay==0:self.finish_scope(scope,scope['outcome'])
             return
         scope = self.invoke(state, operation, data, nowait, line, settings=settings, _execution=execution)
         outcome = 'failed'

@@ -1,0 +1,18 @@
+[
+  {
+    "program": "NOWAIT_CLAUSES_TEMPORAL",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 123
+  },
+  {
+    "program": "NOWAIT_CLAUSES_TEMPORAL",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

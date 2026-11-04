@@ -1,0 +1,12 @@
+PROGRAM LIB
+VAR calls:INTEGER
+ROUTINE work(value:INTEGER)
+ VAR local:INTEGER
+ BEGIN
+  local=7
+  MOVE AWAY 1 NOWAIT,
+   UNTIL TRUE THEN value=local
+  ENDMOVE
+  calls=1
+ END work
+BEGIN END LIB

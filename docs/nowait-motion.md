@@ -29,10 +29,11 @@ Different owned groups can progress independently; this is not a queued batch of
 moves or synchronized multi-group interpolation.
 
 The calling root task owns the job, including a MOVE launched in a linked routine
-that subsequently returns. No local callbacks, routine frames or USING closures
-are retained by the pending job. NOWAIT local WHEN/UNTIL clauses and temporal
-selectors remain rejected. Supplied schedules still require the complete selected
-range; no node time or condition firing is inferred from geometry.
+that subsequently returns when the job has no local clauses. [NOWAIT local
+WHEN/UNTIL and temporal selectors](nowait-local-clauses.md) now use owner-checkpoint
+observation, retaining exact live frames and USING references. Those callback
+jobs cancel before their defining routine/invocation ends. Supplied schedules
+still require the complete selected range; no node time is inferred from geometry.
 
 Progress observes the root's captured `clock_us` adapter, the scheduler's virtual
 clock, or monotonic microseconds when no adapter was supplied. Poll at source
@@ -53,7 +54,9 @@ HOLD freezes that group's progress. Pending or active task pause freezes all job
 owned by that task; resume and UNHOLD reanchor the observation so frozen intervals
 are excluded. Ordinary source and global handler execution otherwise consume
 background clock time. This differs from synchronous local-handler scopes,
-whose handler action time is excluded from supplied progress steps.
+whose handler action time is excluded from supplied progress steps. A NOWAIT
+job with local clauses also excludes its own callback action time; its supplied
+events are observed at owner checkpoints rather than exact synchronous steps.
 
 CANCEL ends an unfinished job immediately and keeps the existing hold/stopped
 label protections. A completion already observed at the control boundary remains
@@ -70,15 +73,16 @@ motion, recovery trajectory or stopped-motion resume behavior is inferred.
 ## History and replay
 
 Terminal history uses the existing `nowait` flag and `data.execution` fields:
-planned delay, observed progress, optional supplied schedule, empty handlers and
-empty triggered indexes. Completed jobs require full supplied progress; canceled
+planned delay, observed progress and optional supplied schedule. Callback-free
+jobs keep empty handlers/triggered indexes; local jobs add the ordinary checked
+clause metadata, triggered indexes and captured temporal descriptors. Completed jobs require full supplied progress; canceled
 or failed jobs may retain partial progress. False completion responses retain the
 existing rejection and consumption policy. Zero-duration scheduled jobs validate
 and complete immediately. Immediate NOWAIT calls without a delay/schedule retain
 their previous record shape.
 
-Saving any active motion job remains forbidden. Loading pending history, NOWAIT
-local handlers/conditions and inconsistent terminal progress remains forbidden.
+Saving any active motion job remains forbidden. Checked terminal local metadata
+can load as data; pending history and inconsistent terminal progress remain forbidden.
 No clock adapter, active scope or suspended execution is persisted. Retained
 history may evict an old row without ending its still-active job.
 

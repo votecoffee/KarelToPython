@@ -1,0 +1,12 @@
+PROGRAM LIB
+VAR calls:INTEGER
+ROUTINE work(value:INTEGER)
+ VAR local:INTEGER
+ BEGIN
+  local=7
+  MOVE AWAY 1 NOWAIT,
+   WHEN AT NODE[1] DO value=local
+  ENDMOVE
+  DELAY 40 calls=1
+ END work
+BEGIN END LIB

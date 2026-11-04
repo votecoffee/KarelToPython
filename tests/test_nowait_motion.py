@@ -225,11 +225,11 @@ class PendingHistoryTests(unittest.TestCase):
     def test_pending_history_cannot_be_reloaded(self):
         p,ctx,_,_,_=build('ATTACH MOVE AWAY 1 NOWAIT DELAY 25');p.run();saved=ctx.motion.to_config();saved['history'][1]['outcome']='pending'
         with self.assertRaises(ValueError):rt.MotionRequests.from_config(saved)
-    def test_nowait_history_with_local_handlers_stays_closed(self):
-        p,ctx,_,_,_=build('ATTACH MOVE AWAY 1 NOWAIT DELAY 25');p.run();saved=ctx.motion.to_config();saved['history'][1]['data']['execution']['handlers']=[dict(kind='WHEN',line=1)]
-        with self.assertRaisesRegex(ValueError,'local handlers'):rt.MotionRequests.from_config(saved)
-    def test_nowait_history_with_temporal_conditions_stays_closed(self):
-        p,ctx,_,_,_=build('ATTACH MOVE AWAY 1 NOWAIT DELAY 25',plan={'0':0,'1':25});p.run();saved=ctx.motion.to_config();saved['history'][1]['data']['execution']['conditions']=[dict(kind='AT',node=1,offset_ms=0)]
+    def test_nowait_history_with_malformed_local_handlers_stays_closed(self):
+        p,ctx,_,_,_=build('ATTACH MOVE AWAY 1 NOWAIT DELAY 25');p.run();saved=ctx.motion.to_config();saved['history'][1]['data']['execution']['handlers']=[dict(kind='INVALID',line=1)]
+        with self.assertRaises(ValueError):rt.MotionRequests.from_config(saved)
+    def test_nowait_history_with_malformed_temporal_conditions_stays_closed(self):
+        p,ctx,_,_,_=build('ATTACH MOVE AWAY 1 NOWAIT DELAY 25',plan={'0':0,'1':25});p.run();saved=ctx.motion.to_config();saved['history'][1]['data']['execution']['conditions']=[dict(kind='INVALID',node=1,offset_ms=0)]
         with self.assertRaises(ValueError):rt.MotionRequests.from_config(saved)
     def test_partial_completed_history_rejects(self):
         p,ctx,_,_,_=build('ATTACH MOVE AWAY 1 NOWAIT DELAY 25');p.run();saved=ctx.motion.to_config();saved['history'][1]['data']['execution']['elapsed_ms']=24
@@ -241,8 +241,8 @@ class PendingHistoryTests(unittest.TestCase):
         p._state.task_state='running';ctx.group_locks._grant(1,p._state)
         with rt._numeric_scope('pythonic'),self.assertRaisesRegex(rt.KarelRuntimeError,'newly generated'):ctx.motion.invoke(p._state,'MOVE AWAY',{'distance':1},True,1)
         ctx.group_locks.release_owner(p._state)
-    def test_local_nowait_source_handlers_stay_rejected(self):
-        with self.assertRaises(TranslationError):build('ATTACH MOVE AWAY 1 NOWAIT, WHEN TRUE DO n=7 ENDMOVE')
+    def test_invalid_local_nowait_predicate_stays_rejected(self):
+        with self.assertRaises(TranslationError):build('ATTACH MOVE AWAY 1 NOWAIT, WHEN 1 DO n=7 ENDMOVE')
 
 class PendingFormTests(unittest.TestCase):
     def check_move(self,body,operation):

@@ -1,0 +1,18 @@
+[
+  {
+    "program": "NOWAIT_CLAUSES_AXIS",
+    "path": "N",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 11
+  },
+  {
+    "program": "NOWAIT_CLAUSES_AXIS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

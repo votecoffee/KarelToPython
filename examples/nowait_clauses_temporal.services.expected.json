@@ -1,0 +1,114 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": false,
+    "responses": [],
+    "limit": 128,
+    "sequence": 3,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "NOWAIT_CLAUSES_TEMPORAL",
+        "source_program": "NOWAIT_CLAUSES_TEMPORAL",
+        "operation": "ATTACH",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "NOWAIT_CLAUSES_TEMPORAL",
+        "source_program": "NOWAIT_CLAUSES_TEMPORAL",
+        "operation": "MOVE AWAY",
+        "group": 1,
+        "line": 6,
+        "nowait": true,
+        "outcome": "completed",
+        "data": {
+          "distance": 1.0,
+          "settings": [
+            {
+              "name": "$SPEED",
+              "group": 1,
+              "value": 20.0
+            }
+          ],
+          "execution": {
+            "delay_ms": 25,
+            "elapsed_ms": 25,
+            "handlers": [
+              {
+                "kind": "WHEN",
+                "line": 7
+              },
+              {
+                "kind": "WHEN",
+                "line": 8
+              },
+              {
+                "kind": "WHEN",
+                "line": 9
+              }
+            ],
+            "triggered": [
+              1,
+              2,
+              3
+            ],
+            "node_times": {
+              "0": 0,
+              "1": 25
+            },
+            "conditions": [
+              {
+                "kind": "AT",
+                "node": 0,
+                "offset_ms": 0
+              },
+              {
+                "kind": "BEFORE",
+                "node": 1,
+                "offset_ms": 3
+              },
+              {
+                "kind": "AT",
+                "node": 1,
+                "offset_ms": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "sequence": 3,
+        "program": "NOWAIT_CLAUSES_TEMPORAL",
+        "source_program": "NOWAIT_CLAUSES_TEMPORAL",
+        "operation": "RELEASE",
+        "group": 1,
+        "line": 11,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

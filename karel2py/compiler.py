@@ -991,7 +991,6 @@ class Parser:
         nowait=bool(self.accept('NOWAIT'))
         clauses=[]
         if self.accept(','):
-            if nowait:self.error('E_MOTION_NOWAIT','NOWAIT with local handlers requires unsupported queued motion',token)
             self.skip_lines()
             while self.current.value in ('WHEN','UNTIL'):
                 clause=self.take()
@@ -3580,7 +3579,7 @@ class Emitter:
                     if owner is not None and name in {token.value for token,_ in owner.parameters}:continue
                     timer_local=owner is not None and name in {token.value for token,_ in owner.declarations}
                     if current_local==timer_local and (not current_local or owner is self.current_routine):return True
-                if node.kind != 'condition': continue
+                if node.kind != 'condition' and not (node.kind=='motion' and node.args[2] and node.body): continue
                 for action in self.walk_nodes(node.body):
                     if isinstance(action, Statement) and action.kind in ('assign','for') and self.protection_root(action.args[0]) == name: return True
                     if isinstance(action, Statement) and action.kind == 'read':
@@ -3712,6 +3711,9 @@ class Emitter:
                 if pairs:
                     extra+=',clauses=['+callbacks+']'
                     request_use['local_handlers']=[dict(kind=clause.token.value,line=clause.token.line,column=clause.token.column) for clause in stmt.body]
+                    if nowait:
+                        request_use.update(callback_observation='owner_checkpoints',callback_lifetime='defining_frame_or_invocation')
+                        self.features.add('NOWAIT local motion clauses')
                 if terms:
                     extra+=',conditions=['+','.join(name for name,_ in terms)+']'
                     request_use['conditions']=[info for _,info in terms]
@@ -4931,7 +4933,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
             controls='HOLD/UNHOLD flags are independent of active/stopped labels; CANCEL retains holds and preserves stopped work; selections use current root ownership at action time',
             settings='Nine local WITH settings, including termination/orientation choices, captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
             boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or queued motion',
-            nowait='Immediate requests keep their behavior; generated delayed/scheduled jobs follow motion_nowait_policy with one pending request per group; no local handlers or queued move batches',
+            nowait='Immediate requests keep their behavior; generated delayed/scheduled jobs follow motion_nowait_policy with one pending request per group; local clauses follow motion_nowait_clause_policy; no queued move batches',
             local_handlers='One-shot WHEN and UNTIL/THEN clauses at entry and 10 ms supplied-delay checkpoints; global scans first, local controls target current group; active holds suspend local scans',
             delayed_completion='Explicit finite delay_ms response, cooperative pause/resume and root-owned cleanup; no trajectory or feedback inference',
             temporal_conditions='Captured AT NODE and TIME BEFORE/AFTER selectors require complete explicit node_times; exact modeled breakpoints, start node zero and wildcard destinations, no geometry inference',
@@ -6843,7 +6845,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         admission='Exact enumeration domains, duplicate canonical names, ownership, group, VIA and history/script checks before response consumption or MOVE publication',
         execution='Detached request metadata across immediate, delayed and local/temporal scopes; no interpolation, settling, planning, speed application or RobotContext mutation',
         persistence='Canonical enumeration strings in validated JSON history; source STRAIGHT alias is saved as LINEAR; no callbacks or active scopes',
-        boundary='Other motion variables, cross-group execution, arbitrary system-variable access, NOWAIT local handlers, native/compiler/controller equivalence and public strict mode remain unavailable',
+        boundary='Other motion variables, cross-group execution, arbitrary system-variable access, native/compiler/controller equivalence and public strict mode remain unavailable',
         guide='docs/motion-options.md',controller_validated=False)
     for request in report['motion_requests']:
         for row in [request,*request.get('settings',[])]:
@@ -7069,15 +7071,27 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Existing declared values only; timer connections, clocks, ownership records, retained frames and suspended execution remain omitted',
         boundary='Authored offline Pythonic control; no persistent borrowed connection extension, native alias discovery, controller timing/ABI or strict equivalence',
         guide='docs/timer-control.md',controller_validated=False)
+    report['motion_nowait_clause_policy']=dict(
+        source='All seven MOVE forms and VIA with NOWAIT local WHEN/UNTIL/THEN and complete supplied AT NODE/TIME selectors',
+        observation='Scan at admission and owning task checkpoints after global handlers; host/scheduler clock polling never executes callbacks and does not interrupt a waiting source statement',
+        temporal='Supplied events crossed since the previous scan are eligible together in source order; no inferred exact arrival execution or replay of a missed false gate',
+        lifetime='Retain exact captured references and live defining frames; unfinished callback jobs cancel before their defining routine/invocation ends; callback-free launches keep root lifetime',
+        progress='Exclude each job own callback action time, holds and task pauses; preserve ordinary background progress and supplied duration caps',
+        ownership='Validate matching callable descriptors, task/frame identity and ownership grant before admission and after injected clock callbacks; stale cleanup cannot relabel a replacement scope',
+        controls='One-shot source order, UNTIL cancellation before THEN, current action completion after CANCEL, scoped omitted GROUP, pause/resume and owned terminal cleanup',
+        effects='Existing selector/EVAL capture and counter guards; pending clause predicate/action writes also block later counters on the complete root',
+        persistence='Only checked terminal metadata and data; active scopes, callbacks, frames and suspended actions cannot be saved or restored',
+        boundary='Authored offline observation; no callbacks after defining-frame return, queued batches, implicit physical node arrivals, native timing/controller ABI or strict equivalence',
+        guide='docs/nowait-local-clauses.md',controller_validated=False)
     report['motion_nowait_policy']=dict(
-        source='Seven MOVE forms and VIA with NOWAIT plus explicit finite scripted delays or complete node_times; no local clauses/temporal selectors',
+        source='Seven MOVE forms and VIA with NOWAIT plus explicit finite scripted delays or complete node_times; local clauses/temporal observation follow motion_nowait_clause_policy',
         admission='Validate detached operands/settings, ownership, response and stable task clock before publishing; one pending request per group, no queued batches',
         progress='Observe root monotonic/injected/scheduler microseconds at checkpoints, successful standalone DELAY return and scheduler boundaries; retain fractional milliseconds and cap at supplied delay',
         clocks='Capture adapter identity; reject negative/noninteger/backwards or replaced clocks; only scheduler-owned clocks provide inferred virtual wake deadlines',
         controls='Owned groups progress independently; HOLD and pending/active task pause freeze progress, UNHOLD/resume reanchor; CANCEL ends pending jobs and retains held/stopped protections',
-        lifetime='Caller root owns linked launches after callee return; terminal task completion/stop/abort/failure cancel unfinished jobs; failed clock/grant checks release only the matching scope',
+        lifetime='Caller root owns callback-free linked launches after callee return; local callbacks end with their defining frame/invocation; terminal task completion/stop/abort/failure cancel unfinished jobs; failed clock/grant checks release only the matching scope',
         scheduler='Completion progresses while owner waits; scheduler poll errors fail and clean the owning task; renaming retains task/ownership identity',
-        history='Existing nowait/execution fields retain full or partial progress, supplied schedules and terminal outcomes; local-handler/condition NOWAIT history and pending reload remain rejected',
+        history='Existing nowait/execution fields retain full or partial progress, supplied schedules, local metadata and terminal outcomes; pending reload remains rejected',
         persistence='Saving active jobs remains forbidden; no clocks, callbacks, pending scopes or resumable task frames are persisted',
         boundary='Authored offline model, without trajectories, feedback updates, inferred node times, background threads, native queues/controller/compiler/strict equivalence',
         guide='docs/nowait-motion.md',controller_validated=False)

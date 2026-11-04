@@ -1,0 +1,27 @@
+{
+  "version": "26.1104.062349",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_nowait_clauses.py",
+    "tests/test_nowait_motion.py",
+    "tests/test_motion_handlers.py",
+    "tests/test_motion_timeline.py",
+    "examples/nowait_clauses_boolean.kl",
+    "examples/nowait_clauses_temporal.kl",
+    "examples/nowait_clauses_private.kl",
+    "examples/nowait_clauses_axis.kl",
+    "examples/nowait_clauses_linked/main.kl",
+    "examples/nowait_clauses_until/main.kl"
+  ],
+  "source": "All seven MOVE forms and VIA with NOWAIT local WHEN/UNTIL/THEN and complete supplied temporal selectors",
+  "observation": "Admission and owner checkpoints after global scans; polling updates clocks without callbacks; no interruption of a blocked source wait",
+  "temporal": "Crossed supplied event windows are observed together in source order; no inferred exact arrival execution or replay of a missed false gate",
+  "lifetime": "Exact captured live defining frames and references; local jobs cancel at defining routine/invocation exit, while callback-free jobs retain task-root lifetime",
+  "progress": "Each job excludes its own callback action time, holds and pause; complete supplied duration remains capped",
+  "proof": "Matching callable metadata, actual task and live frame identities, exact grant/registration checks before publication and after injected clocks",
+  "effects": "Pending predicate/action writes guard later whole-root FOR counters; source selector and alias protections remain",
+  "persistence": "Checked terminal metadata/data only, without active jobs, callbacks, clocks, grants, frames or suspended execution",
+  "boundary": "Offline authored checkpoint semantics; no callbacks after defining-frame return, queued batches, physical arrivals, native controller ABI or strict equivalence"
+}

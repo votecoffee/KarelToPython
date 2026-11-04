@@ -63,9 +63,10 @@ flag; an offline timeline continues to use its explicit script.
 
 Immediate NOWAIT, synchronous delayed completion and existing local WHEN/UNTIL
 and node/time scopes retain these values. Pause/resume keeps the captured values;
-cancellation and terminal cleanup retain their existing ownership rules. Delayed
-NOWAIT and cross-group execution remain unavailable. A later MOVE starts with its
-own settings.
+cancellation and terminal cleanup retain their existing ownership rules.
+[Delayed NOWAIT](nowait-motion.md) retains these settings, and [NOWAIT local
+clauses](nowait-local-clauses.md) add owner-checkpoint observation. Cross-group
+execution remains unavailable. A later MOVE starts with its own settings.
 
 ## History and reports
 

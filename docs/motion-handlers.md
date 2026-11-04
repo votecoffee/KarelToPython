@@ -122,10 +122,11 @@ include origins. Old immediate generated output remains usable. Retranslate to
 use delayed responses: older direct-invoke output rejects them instead of
 silently skipping the delay.
 
-NOWAIT with local clauses is rejected at translation. [Pending NOWAIT jobs](nowait-motion.md)
-now accept positive supplied delays and schedules, retaining clock/ownership
-identity without local callbacks. Immediate requests keep their behavior. Queued
-move batches, native scan timing,
+[NOWAIT local clauses](nowait-local-clauses.md) now use admission/owner-checkpoint
+scans, crossed supplied temporal windows and live defining-frame lifetimes.
+[Pending NOWAIT jobs](nowait-motion.md) keep background clock/ownership behavior;
+callback-free jobs may outlive a launching routine, while local jobs cancel at
+that routine's exit. Immediate requests keep their behavior. Queued move batches, native scan timing,
 inferred arrivals, trajectory interpolation and native multi-group synchronization
 remain unsupported. [Local AT NODE/TIME predicates](motion-timeline.md) now use
 complete supplied schedules and exact progress breakpoints.

@@ -1,0 +1,24 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "capture_only": false,
+    "responses": [
+      {
+        "operation": "MOVE AXIS",
+        "completed": true,
+        "delay_ms": 25,
+        "node_times": {
+          "0": 0,
+          "1": 25
+        }
+      }
+    ]
+  }
+}

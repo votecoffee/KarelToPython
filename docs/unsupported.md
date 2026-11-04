@@ -46,7 +46,10 @@ file. They supply no executable libraries, inferred function logic or native ABI
   and [deceleration/acceleration intent](motion-deceleration-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
   now use synchronous scopes with pause/resume and cleanup. [Pending NOWAIT jobs](nowait-motion.md)
   now use supplied delays/schedules and task clocks, including scheduler progress
-  while the owner waits. NOWAIT local clauses, queued move batches, inferred node arrivals, unresolved `$REF_POS`,
+  while the owner waits. [NOWAIT local clauses](nowait-local-clauses.md) now scan
+  at owner checkpoints with exact live defining-frame captures and supplied
+  temporal observation windows. Callbacks after defining-frame return, queued
+  move batches, inferred node arrivals, unresolved `$REF_POS`,
   cross-group settings, interpolation execution and native synchronization remain unsupported.
   [Ten additional WITH options](motion-options.md) now retain acceleration, accuracy,
   signed continuous-axis speed, timing and Boolean policy intent as checked metadata.

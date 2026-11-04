@@ -3761,6 +3761,7 @@ class State:
         finish_timers(self)
 
     def finish_teach_programs(self):
+        if self.execution.motion is not None:self.execution.motion.finish_callbacks(self)
         self.finish_timers()
         if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.finish(self)
         if self._budget_parent is None and self.execution.diagnostics is not None:self.execution.diagnostics.finish(self)
@@ -4105,6 +4106,7 @@ class State:
         try:
             if self.execution.diagnostics is not None:self.execution.diagnostics.record(self,'RTN_FRM_RTN',task_root(self)._task_line or None)
         finally:
+            if self.execution.motion is not None:self.execution.motion.release_frame(self,frame)
             release_frame_timers(self,frame)
             for number,handler in list(self._handlers.items()):
                 if handler.get('local_frame') is frame: self._handlers.pop(number,None)
