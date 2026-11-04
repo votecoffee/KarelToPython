@@ -1,0 +1,27 @@
+{
+  "version": "26.1104.043724",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_external_collection_results.py",
+    "tests/test_scalar_collection_values.py",
+    "tests/test_collection_source_values.py",
+    "tests/test_generated_cli.py",
+    "examples/external_queue_result.kl",
+    "examples/external_path_result.kl",
+    "examples/external_queue_bank.kl",
+    "examples/external_path_bank.kl",
+    "examples/external_result_borrowed/main.kl",
+    "examples/external_result_forward/main.kl"
+  ],
+  "source": "Explicit FROM callback scalar PATH/QUEUE_TYPE and collection-bank results, including generic outer ARRAY dimensions and compiled forwarding",
+  "values": "Exact owned runtime values or canonical type/value JSON; named components and PATH layouts stay exact",
+  "capture": "Bound complete logical data before receiver selection or later arguments; detach nodes/headers/entries and queue buffers; keep partial markers, queue IDs/order/counter",
+  "lifetime": "Existing callback generator checkpoints/pause/resume/stop/abort and source frame cleanup; preserve earlier callback effects on invalid result",
+  "cli": "Generated output and project --external-collections provide fixed values only; source arguments evaluated normally but not inspected or written by fixed callbacks",
+  "input": "Strict optionally BOM-prefixed UTF-8 JSON, at most 4 MiB and 128 distinct case-insensitive program/function bindings; reject state/trace aliases",
+  "bounds": "32767 PATH leaves/queue entries/bank units; PATH totals before node allocation, banks before cell allocation; ordinary rank and data-depth limits",
+  "persistence": "Existing logical state only; callbacks, private frames, live buffers and suspended calls omitted; input bindings supplied again on replay",
+  "boundary": "FILE/embedded resources/generic queue codecs/UNINIT/ordinary data callback contracts and exact linked types unchanged; no native ABI/compiler/controller/strict equivalence"
+}

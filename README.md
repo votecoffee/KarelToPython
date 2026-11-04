@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[External collection results](docs/external-collection-results.md) now accept
+checked callback PATH/QUEUE_TYPE values, banks and typed JSON. Generated programs
+and the project CLI can bind fixed logical results with `--external-collections`;
+copies remain independent and queue buffers detach.
+
 [Queue entry I/O](docs/queue-io.md) now expands initialized scalar queues and
 queue banks through READ/WRITE, including selected rows/planes and linked routines.
 Input retains existing entry IDs/order, detaches the old buffer link and leaves
@@ -146,7 +151,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.035458**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.043724**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

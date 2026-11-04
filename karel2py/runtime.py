@@ -873,6 +873,84 @@ def collection_array_result(spec,value,line=None,*,source_spec=None):
     return copied
 
 
+def external_collection_result(spec,value,line=None):
+    """Detach an explicitly linked callback's exact logical value or typed JSON."""
+    if not _pythonic():raise KarelRuntimeError('External collection results require Pythonic mode',line)
+    from .storage import tuple_spec,decode_typed,collection_array_cost
+    try:
+        if not (collection_type(spec) or collection_array_type(spec)):
+            raise ValueError('External collection results require collection schemas')
+        if type(value) is dict:
+            if set(value)!={'type','value'} or type(value['type']) is not list:
+                raise ValueError('Typed collection result requires exactly type and value, with a type list')
+            actual=tuple_spec(value['type'])
+            matches=actual==spec if collection_type(spec) else collection_array_source_accepts(spec,actual)
+            if not matches:raise ValueError('Typed collection result differs from its declared schema')
+            if spec[0]=='PATH':
+                # Check total scalar storage before the codec allocates any nodes.
+                payload=value['value'];node=spec[1] or PREDEFINED_STRUCTURES['STD_PTH_NODE']
+                if (type(payload) is not dict or set(payload)!={'nodes','data'} or type(payload['nodes']) is not list
+                        or len(payload['nodes'])>32767):raise ValueError('PATH result requires bounded nodes and data')
+                width=_validate_data_schema(node,line);header=_validate_data_schema(spec[2],line) if spec[2] else 0
+                if header+len(payload['nodes'])*width>32767:raise ValueError('PATH result exceeds 32767 scalar leaves')
+            _,value=decode_typed(value)
+        if not collection_type(spec) and type(value) is Array:collection_array_cost(value.spec)
+        return collection_source_value(spec,value,line) if collection_type(spec) else collection_array_result(spec,value,line)
+    except (ValueError,KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
+        raise KarelRuntimeError('External collection result: '+str(error),line) from error
+
+
+def external_collection_callbacks(config):
+    """Prepare fixed logical function values; never load executable host code."""
+    from .storage import tuple_spec,typed_value
+    if type(config) is not dict or not config or len(config)>128:
+        raise ValueError('External collections require a nonempty program/routine object within 128 bindings')
+    prepared={}
+    with _numeric_scope('pythonic'):
+        for program,routines in config.items():
+            if type(program) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]{0,253}',program):
+                raise ValueError('External collection program requires an ASCII identifier within 254 characters')
+            if type(routines) is not dict or not routines:raise ValueError('External collection routines require a nonempty object')
+            for name,row in routines.items():
+                if type(name) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]{0,253}',name):
+                    raise ValueError('External collection routine requires an ASCII identifier within 254 characters')
+                key=program.upper(),name.upper()
+                if key in prepared or len(prepared)>=128:raise ValueError('External collection bindings must be distinct and limited to 128')
+                if type(row) is not dict or set(row)!={'type','value'} or type(row['type']) is not list:
+                    raise ValueError('External collection binding requires exactly type and value')
+                try:
+                    spec=tuple_spec(row['type']);captured=external_collection_result(spec,row)
+                    saved=typed_value(captured,spec)
+                except (ValueError,KarelRuntimeError,TypeError,IndexError,KeyError,RecursionError) as error:
+                    raise ValueError('Invalid external collection '+'.'.join(key)+': '+str(error)) from error
+                prepared[key]=lambda *arguments,_saved=saved:deepcopy(_saved)
+    return prepared
+
+
+def load_external_collections(path,*,outputs=()):
+    """Load explicit fixed function results, protecting the input from output aliases."""
+    import json
+    from pathlib import Path
+    from .fileio import same_file
+    source=Path(path)
+    if any(output is not None and same_file(source,output) for output in outputs):
+        raise ValueError('External collection input must differ from state/trace outputs, including aliases')
+    if not source.is_file() or source.stat().st_size>4*1024*1024:
+        raise ValueError('External collection input requires a regular file of at most 4 MiB')
+    data=source.read_bytes()
+    if len(data)>4*1024*1024:raise ValueError('External collection input exceeds 4 MiB')
+    def unique(pairs):
+        result={}
+        for key,value in pairs:
+            if key in result:raise ValueError('Duplicate external collection JSON key: '+key)
+            result[key]=value
+        return result
+    def finite(value):raise ValueError('Nonfinite external collection JSON number: '+value)
+    try:config=json.loads(data.decode('utf-8-sig'),object_pairs_hook=unique,parse_constant=finite)
+    except (UnicodeError,RecursionError) as error:raise ValueError('Invalid external collection JSON: '+str(error)) from error
+    return external_collection_callbacks(config)
+
+
 def collection_array_argument(spec,value,line=None,*,source_spec=None):
     copied=collection_array_source_value(spec,value,line,source_spec=source_spec)
     return Reference(copied.spec,{'value':copied},'value')
@@ -4119,10 +4197,8 @@ class State:
         if result_spec is None:
             if result is not None: raise KarelRuntimeError('External procedure must return None',line)
             return
-        if _pythonic() and collection_type(result_spec) and getattr(callback,'_karel_link',False):
-            return collection_source_value(result_spec,result,line)
-        if _pythonic() and collection_array_type(result_spec) and getattr(callback,'_karel_link',False):
-            return collection_array_result(result_spec,result,line)
+        if _pythonic() and (collection_type(result_spec) or collection_array_type(result_spec)):
+            return external_collection_result(result_spec,result,line)
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 

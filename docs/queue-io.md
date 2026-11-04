@@ -89,8 +89,9 @@ captures, pending operations and suspended frames. Reopened streams and supplied
 inputs make the authored examples replay with identical saved contexts.
 
 FILE values/banks, resource fields in STRUCTUREs, whole collection UNINIT, generic
-queue checked/value/result helpers and raw host callback collection results keep
-their guards. Linked signatures and ordinary source-root FOR proofs stay exact.
+queue checked/value/result helpers keep their guards. [Explicit callback
+collection results](external-collection-results.md) now detach bounded values or
+typed JSON. Linked signatures and ordinary source-root FOR proofs stay exact.
 
 Reports expose `queue_io_policy` and each queue item's scalar order. See the
 [semantics ledger](semantics/queue_io_semantics.json), [regressions](../tests/test_queue_io.py),

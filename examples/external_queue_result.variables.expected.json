@@ -1,0 +1,31 @@
+[
+  {
+    "program": "EXTERNAL_QUEUE_RESULT",
+    "path": "RESULT",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "sequence": 7,
+      "entries": [
+        [
+          3,
+          17
+        ],
+        [
+          1,
+          9
+        ]
+      ]
+    }
+  },
+  {
+    "program": "EXTERNAL_QUEUE_RESULT",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

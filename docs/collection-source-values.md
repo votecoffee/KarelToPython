@@ -68,8 +68,9 @@ source arguments validate before later argument expressions run.
 Internal and compiled linked function results capture independent concrete data
 before local frame cleanup. Results can feed assignments, further private calls,
 selected prefixes and ordinary value reads. Linked declarations remain exact.
-Raw host callback collection results remain rejected by generic result validation;
-this feature does not publish a native external ABI or a new callback result codec.
+[Explicit callback collection results](external-collection-results.md) now use a
+separate bounded runtime-value/typed-JSON adapter and make independent copies.
+Generic result helpers remain closed; there is no native external ABI.
 
 ## Boundaries and persistence
 

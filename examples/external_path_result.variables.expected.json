@@ -1,0 +1,68 @@
+[
+  {
+    "program": "EXTERNAL_PATH_RESULT",
+    "path": "RESULT",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "OCTET",
+            [
+              "BYTE"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "HEADER_T",
+        [
+          [
+            "TAG",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [
+        {
+          "VALUE": 17,
+          "OCTET": {
+            "unknown_byte": true
+          }
+        }
+      ],
+      "data": {
+        "TAG": 7
+      }
+    }
+  },
+  {
+    "program": "EXTERNAL_PATH_RESULT",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 24
+  },
+  {
+    "program": "EXTERNAL_PATH_RESULT",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -1,5 +1,17 @@
 # Changelog
 
+## 26.1104.043724 - 2026-11-04
+
+- Add checked scalar PATH/QUEUE_TYPE and collection-bank results from explicit
+  callbacks, accepting exact runtime storage or canonical typed JSON.
+- Detach bounded results before receiver selection, retaining partial data and
+  queue IDs/order/counters while dropping buffer links and callback ownership.
+- Add generated-program and project --external-collections CLI bindings for fixed
+  logical results, with strict JSON, bounded names/count/size and input protection.
+- Preserve compiled linked types, private lifetimes, source-effect and generic
+  resource guards. Add 101 regressions, four examples and two linked projects
+  with authored typed variables and exact context replay.
+
 ## 26.1104.035458 - 2026-11-04
 
 - Add scalar QUEUE_TYPE and whole-bank/row/plane READ/WRITE as initialized

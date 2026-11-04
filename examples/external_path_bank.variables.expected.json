@@ -1,0 +1,101 @@
+[
+  {
+    "program": "EXTERNAL_PATH_BANK",
+    "path": "RESULT",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "ARRAY",
+        2,
+        [
+          "PATH",
+          [
+            "STRUCTURE",
+            "NODE_T",
+            [
+              [
+                "VALUE",
+                [
+                  "INTEGER"
+                ]
+              ],
+              [
+                "OCTET",
+                [
+                  "BYTE"
+                ]
+              ]
+            ]
+          ],
+          [
+            "STRUCTURE",
+            "HEADER_T",
+            [
+              [
+                "TAG",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ]
+        ],
+        "ROW_T"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "nodes": [],
+          "data": {
+            "TAG": 7
+          }
+        },
+        {
+          "nodes": [],
+          "data": {
+            "TAG": 7
+          }
+        }
+      ],
+      [
+        {
+          "nodes": [],
+          "data": {
+            "TAG": 7
+          }
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 17,
+              "OCTET": {
+                "unknown_byte": true
+              }
+            }
+          ],
+          "data": {
+            "TAG": 7
+          }
+        }
+      ]
+    ]
+  },
+  {
+    "program": "EXTERNAL_PATH_BANK",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 24
+  },
+  {
+    "program": "EXTERNAL_PATH_BANK",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

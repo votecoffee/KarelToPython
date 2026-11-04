@@ -1,0 +1,67 @@
+[
+  {
+    "program": "MAIN",
+    "path": "RESULT",
+    "type": [
+      "QUEUE_TYPE"
+    ],
+    "value": {
+      "initialized": true,
+      "sequence": 7,
+      "entries": [
+        [
+          1,
+          9
+        ]
+      ]
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "LIB",
+    "path": "BUFFER",
+    "type": [
+      "ARRAY",
+      3,
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      9,
+      0,
+      0
+    ]
+  },
+  {
+    "program": "LIB",
+    "path": "FIRST",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 17
+  },
+  {
+    "program": "LIB",
+    "path": "SEQ",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 3
+  },
+  {
+    "program": "LIB",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  }
+]

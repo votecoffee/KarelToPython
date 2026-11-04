@@ -93,9 +93,15 @@ def run_example(source, *, inject_write=False):
     registers = NumericRegisters.from_config(read_json(registers_file)) if registers_file.exists() else None
     services_file = fixture / f'{name}.services.initial.json'
     services = ExecutionContext.from_config(read_json(services_file)) if services_file.exists() else None
+    provider=services
+    external_file=fixture/f'{name}.external.collections.json'
+    if external_file.exists():
+        from karel2py.runtime import load_external_collections
+        if provider is None:provider=ExecutionContext()
+        provider.externals.update(load_external_collections(external_file))
     program = namespace['Program'](sleep=delays.append,
                                   read=reader if input_file.exists() or text_input is not None else None,
-                                  write=texts.append if inject_write else None, registers=registers, context=services, **context)
+                                  write=texts.append if inject_write else None, registers=registers, context=provider, **context)
     termination_file = fixture / f'{name}.termination.expected.json'
     try:
         snapshot = program.run()
@@ -159,15 +165,21 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 464, 'Update the expected example count when adding examples'
+    assert count == 468, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==164, 'Update the expected project count when adding projects'
+    assert len(projects)==166, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
         translation_context=folder/'translation_context.json'
         options=read_json(translation_context) if translation_context.exists() else {}
-        instance=load_project(folder,**options).instantiate(context=services)
+        provider=services
+        external_file=folder/'external.collections.json'
+        if external_file.exists():
+            from karel2py.runtime import load_external_collections
+            if provider is None:provider=ExecutionContext()
+            provider.externals.update(load_external_collections(external_file))
+        instance=load_project(folder,**options).instantiate(context=provider)
         assert instance.run('MAIN')==read_json(folder/'expected.json'), folder.name+': linked project snapshot'
         check_variable_expectations(instance.context,folder/'variables.expected.json',folder.name)
         expected_services=folder/'services.expected.json'

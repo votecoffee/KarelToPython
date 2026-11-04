@@ -1,0 +1,7 @@
+PROGRAM EXTERNAL_PATH_BANK
+TYPE node_t=STRUCTURE value:INTEGER octet:BYTE ENDSTRUCTURE header_t=STRUCTURE tag:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t row_t=ARRAY[2]OF route_t
+VAR result:ARRAY[2]OF row_t total:INTEGER done:BOOLEAN
+ROUTINE fetch:ARRAY OF row_t FROM HOST
+BEGIN
+ IF UNINIT(done) THEN result=fetch() total=result[2,2][1].value+result[1,1].tag done=TRUE ENDIF
+END EXTERNAL_PATH_BANK

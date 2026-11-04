@@ -203,14 +203,18 @@ class RuntimePortabilityTests(unittest.TestCase):
                     ('frame_tool_selection', 'VALUE', 5),
                     ('frame_selection_pose', 'VALUE', 45),
                     ('tool_selection_pose', 'VALUE', 50),
-                    ('frame_selection_model', 'VALUE', 110)]
+                    ('frame_selection_model', 'VALUE', 110),
+                    ('external_queue_result','RESULT',{'initialized':True,'entries':[[3,17],[1,9]]}),
+                    ('external_queue_bank','DONE',True),
+                    ('external_path_result','TOTAL',24),
+                    ('external_path_bank','TOTAL',24)]
         for example, key, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as folder:
                 result = translate((ROOT / f'examples/{example}.kl').read_text())
                 target = Path(folder)
                 package = target / 'karel2py'
                 package.mkdir()
-                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'record_schemas.py', 'variable_kinematics.py', 'serial_io.py', 'position_input.py', 'motion.py', 'remote.py'):
+                for name in ('__init__.py', 'runtime.py', 'extended.py', 'storage.py', 'kinematics.py', 'scheduling.py', 'control.py', 'clocks.py', 'fileops.py', 'pulses.py', 'inspection.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'record_schemas.py', 'variable_kinematics.py', 'serial_io.py', 'position_input.py', 'fileio.py', 'motion.py', 'remote.py'):
                     shutil.copyfile(ROOT / 'karel2py' / name, package / name)
                 (target / 'converted.py').write_text(result.python_source, encoding='utf-8')
                 input_file=ROOT/f'examples/{example}.read.values.json'
@@ -228,9 +232,13 @@ class RuntimePortabilityTests(unittest.TestCase):
                     setup+='from karel2py.runtime import NumericRegisters\n'
                     adapter+=(', ' if adapter else '')+f'registers=NumericRegisters.from_config({json.loads(registers_file.read_text())!r})'
                 services_file=ROOT/f'examples/{example}.services.initial.json'
-                if services_file.exists():
-                    setup+='from karel2py.runtime import ExecutionContext\n'
-                    adapter+=(', ' if adapter else '')+f'context=ExecutionContext.from_config({json.loads(services_file.read_text())!r})'
+                external_file=ROOT/f'examples/{example}.external.collections.json'
+                if services_file.exists() or external_file.exists():
+                    setup+='from karel2py.runtime import ExecutionContext,load_external_collections\n'
+                    initial=json.loads(services_file.read_text()) if services_file.exists() else {}
+                    setup+=f'_context=ExecutionContext.from_config({initial!r})\n'
+                    if external_file.exists():setup+=f'_context.externals.update(load_external_collections({str(external_file)!r}))\n'
+                    adapter+=(', ' if adapter else '')+'context=_context'
                 adapter+=(', ' if adapter else '')+f'sleep=lambda _: None, **{context!r}'
                 (target / 'check.py').write_text('import json\nfrom converted import Program\n'
                                                +setup+f'print(json.dumps(Program({adapter}).run()))\n')
@@ -249,7 +257,7 @@ class RuntimePortabilityTests(unittest.TestCase):
         worker=translate('PROGRAM WORKER VAR n: INTEGER BEGIN n=1 PAUSE n=2 END WORKER')
         with tempfile.TemporaryDirectory() as folder:
             target=Path(folder);package=target/'karel2py';package.mkdir()
-            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'record_schemas.py', 'variable_kinematics.py', 'serial_io.py', 'position_input.py', 'motion.py'):
+            for name in ('__init__.py','runtime.py','extended.py','storage.py','kinematics.py','scheduling.py','control.py','clocks.py', 'fileops.py', 'pulses.py', 'configtext.py', 'teach.py', 'xmlio.py', 'devices.py', 'dynamic.py', 'programs.py', 'acquisition.py', 'pc_exchange.py', 'communications.py', 'remote_messages.py', 'archives.py', 'variable_archives.py', 'mixed_archives.py','diagnostics.py','kcl.py','pendant.py','dictionaries.py','dynamic_display.py','keyboard.py','table_controls.py','forms.py','controller.py', 'vision.py', 'vision_tracking.py', 'vt_queues.py', 'source_translations.py', 'record_schemas.py', 'variable_kinematics.py', 'serial_io.py', 'position_input.py', 'fileio.py', 'motion.py'):
                 shutil.copyfile(ROOT/'karel2py'/name,package/name)
             (target/'observer.py').write_text(observer.python_source,encoding='utf-8')
             (target/'worker.py').write_text(worker.python_source,encoding='utf-8')

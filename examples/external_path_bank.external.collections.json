@@ -1,0 +1,85 @@
+{
+  "HOST": {
+    "FETCH": {
+      "type": [
+        "ARRAY",
+        2,
+        [
+          "ARRAY",
+          2,
+          [
+            "PATH",
+            [
+              "STRUCTURE",
+              "NODE_T",
+              [
+                [
+                  "VALUE",
+                  [
+                    "INTEGER"
+                  ]
+                ],
+                [
+                  "OCTET",
+                  [
+                    "BYTE"
+                  ]
+                ]
+              ]
+            ],
+            [
+              "STRUCTURE",
+              "HEADER_T",
+              [
+                [
+                  "TAG",
+                  [
+                    "INTEGER"
+                  ]
+                ]
+              ]
+            ]
+          ],
+          "ROW_T"
+        ]
+      ],
+      "value": [
+        [
+          {
+            "nodes": [],
+            "data": {
+              "TAG": 7
+            }
+          },
+          {
+            "nodes": [],
+            "data": {
+              "TAG": 7
+            }
+          }
+        ],
+        [
+          {
+            "nodes": [],
+            "data": {
+              "TAG": 7
+            }
+          },
+          {
+            "nodes": [
+              {
+                "VALUE": 17,
+                "OCTET": {
+                  "unknown_byte": true
+                }
+              }
+            ],
+            "data": {
+              "TAG": 7
+            }
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -274,10 +274,10 @@ class CollectionValueSchemaTests(unittest.TestCase):
         p,_=prepare('target=make()',prefix=PREFIX+' TYPE row_t=ARRAY[2]OF route_t',decl='source,target:ARRAY[2]OF row_t',routines='ROUTINE make:ARRAY OF row_t BEGIN RETURN source END make');old=list(collections(raw(p)));p.run()
         self.assertTrue(all(a is b for a,b in zip(old,collections(raw(p)))));self.assertEqual(content(old[-1]),17)
 
-    def test_raw_external_callback_cannot_return_live_collection_bank(self):
-        ctx=rt.ExecutionContext();p,_=prepare('target=make()',routines='ROUTINE make:ARRAY OF route_t FROM FOREIGN',context=ctx);source=raw(p,'SOURCE');before=snapshot(raw(p));ctx.externals['FOREIGN','MAKE']=lambda:source
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
-        self.assertEqual(snapshot(raw(p)),before)
+    def test_raw_external_callback_returns_detached_collection_bank(self):
+        ctx=rt.ExecutionContext();p,_=prepare('target=make()',routines='ROUTINE make:ARRAY OF route_t FROM FOREIGN',context=ctx);source=raw(p,'SOURCE');before=snapshot(source);ctx.externals['FOREIGN','MAKE']=lambda:source
+        p.run();self.assertEqual(snapshot(source),before);self.assertEqual(snapshot(raw(p)),before)
+        self.assertIsNot(raw(p).values[0],source.values[0])
 
     def test_direct_path_result_spelling_has_default_node_schema(self):
         p,_=compile_program('b=make()',decl='a,b:ARRAY[2]OF PATH',routines='ROUTINE make:ARRAY OF PATH BEGIN RETURN a END make');state=p.run()

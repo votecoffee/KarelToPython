@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[External collection results](external-collection-results.md) now accept
+checked callback PATH/QUEUE_TYPE values, banks and typed JSON. Generated programs
+and the project CLI can bind fixed logical results with `--external-collections`;
+copies remain independent and queue buffers detach.
+
 [Queue entry I/O](queue-io.md) now expands initialized scalar queues and
 queue banks through READ/WRITE, including selected rows/planes and linked routines.
 Input retains existing entry IDs/order, detaches the old buffer link and leaves
@@ -133,7 +138,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.035458. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.043724. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

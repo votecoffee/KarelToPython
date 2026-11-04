@@ -150,10 +150,10 @@ class QueueScalarValueTests(ScalarCases,unittest.TestCase):
                 with self.subTest(operation=operation),self.assertRaises(rt.KarelRuntimeError):operation()
     def test_named_queue_result(self):
         p,_=compile_program('INIT_QUEUE(a) b=build()',prefix='TYPE queue_t=QUEUE_TYPE',decl='a,b:queue_t',routines='ROUTINE build:queue_t BEGIN RETURN a END build');self.assertTrue(p.run()['B']['initialized'])
-    def test_raw_callback_queue_result_stays_closed(self):
-        context=rt.ExecutionContext(externals={('LIB','BUILD'):lambda:rt.QueueValue()})
+    def test_raw_callback_queue_result_is_detached(self):
+        value=rt.QueueValue();context=rt.ExecutionContext(externals={('LIB','BUILD'):lambda:value})
         p,_=compile_program('b=build()',decl='b:QUEUE_TYPE',routines='ROUTINE build:QUEUE_TYPE FROM LIB',context=context)
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
+        self.assertFalse(p.run()['B']['initialized']);self.assertIsNot(p._state.values['B'],value)
     def test_invalid_queue_buffer_rejects(self):
         p,_=self.build();raw(p).buffer=rt.Array(('ARRAY',1,('INTEGER',)))
         with self.assertRaises(rt.KarelRuntimeError):p.run()

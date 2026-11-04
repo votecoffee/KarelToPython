@@ -1,0 +1,59 @@
+[
+  {
+    "program": "EXTERNAL_QUEUE_BANK",
+    "path": "RESULT",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "QUEUE_TYPE"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "initialized": true,
+          "sequence": 0,
+          "entries": []
+        },
+        {
+          "initialized": true,
+          "sequence": 0,
+          "entries": []
+        }
+      ],
+      [
+        {
+          "initialized": true,
+          "sequence": 0,
+          "entries": []
+        },
+        {
+          "initialized": true,
+          "sequence": 7,
+          "entries": [
+            [
+              3,
+              17
+            ],
+            [
+              1,
+              9
+            ]
+          ]
+        }
+      ]
+    ]
+  },
+  {
+    "program": "EXTERNAL_QUEUE_BANK",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

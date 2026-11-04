@@ -1,0 +1,52 @@
+{
+  "HOST": {
+    "FETCH": {
+      "type": [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ],
+            [
+              "OCTET",
+              [
+                "BYTE"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "TAG",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ],
+      "value": {
+        "nodes": [
+          {
+            "VALUE": 17,
+            "OCTET": {
+              "unknown_byte": true
+            }
+          }
+        ],
+        "data": {
+          "TAG": 7
+        }
+      }
+    }
+  }
+}

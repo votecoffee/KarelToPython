@@ -1,0 +1,4 @@
+PROGRAM LIB
+VAR buffer:ARRAY[3]OF INTEGER first,seq,status:INTEGER
+ROUTINE take(v:QUEUE_TYPE) BEGIN GET_QUEUE(v,buffer,first,seq,status) END take
+BEGIN END LIB

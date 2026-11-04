@@ -239,6 +239,7 @@ def main(argv=None):
     parser.add_argument('directory',type=Path)
     parser.add_argument('--entry',help='Explicitly execute this program after linking; otherwise check translation only')
     parser.add_argument('--context',type=Path)
+    parser.add_argument('--external-collections',type=Path,help='Fixed logical results for explicitly named external collection functions')
     parser.add_argument('--filesystem-root',type=Path)
     parser.add_argument('--state-out',type=Path)
     parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')
@@ -260,7 +261,7 @@ def main(argv=None):
         if not args.entry: parser.error('--trace-out requires --entry')
         target=args.trace_out.resolve()
         inputs=[path.resolve() for path in args.directory.glob('*') if path.suffix.lower()=='.kl']
-        inputs.extend(path.resolve() for path in (args.context,args.state_out) if path is not None)
+        inputs.extend(path.resolve() for path in (args.context,args.state_out,args.external_collections) if path is not None)
         if target in inputs: parser.error('--trace-out must differ from source, context and state paths')
     print(f'KarelToPython {__version__}',file=sys.stderr)
     try:project=load_project(args.directory,array_shapes=array_shapes,include_dirs=args.include_dir,include_devices=devices)
@@ -274,6 +275,9 @@ def main(argv=None):
     if args.trace_out and any(same_file(args.trace_out,path) for path in (args.context,args.state_out) if path is not None):
         parser.error('--trace-out must differ from context and state paths, including aliases')
     context=rt.ExecutionContext.load(args.context) if args.context else rt.ExecutionContext()
+    if args.external_collections:
+        try:context.externals.update(rt.load_external_collections(args.external_collections,outputs=(args.state_out,args.trace_out)))
+        except (OSError,ValueError,rt.KarelRuntimeError) as error:parser.error('Invalid external collections: '+str(error))
     if args.filesystem_root: context.files=rt.DirectoryFiles(args.filesystem_root)
     instance=project.instantiate(context=context)
     def save_trace():

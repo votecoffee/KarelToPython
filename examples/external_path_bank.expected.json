@@ -1,0 +1,41 @@
+{
+  "RESULT": [
+    [
+      {
+        "nodes": [],
+        "data": {
+          "TAG": 7
+        }
+      },
+      {
+        "nodes": [],
+        "data": {
+          "TAG": 7
+        }
+      }
+    ],
+    [
+      {
+        "nodes": [],
+        "data": {
+          "TAG": 7
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 17,
+            "OCTET": {
+              "unknown_byte": true
+            }
+          }
+        ],
+        "data": {
+          "TAG": 7
+        }
+      }
+    ]
+  ],
+  "TOTAL": 24,
+  "DONE": true
+}

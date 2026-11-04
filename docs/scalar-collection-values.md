@@ -60,9 +60,9 @@ normal frames without copy-back. Separate private arguments allocate separately.
 Results are captured before local cleanup and can feed assignments or further
 private calls. Direct PATH result clauses, prior PATH aliases and QUEUE_TYPE
 aliases resolve through the normal declaration rules. Linked interfaces still
-match exactly. Compiled linked results take the checked logical result path;
-raw host queue callbacks retain their existing rejection, and the existing raw
-PATH callback contract is unchanged.
+match exactly. Compiled linked results take the checked logical result path.
+[Explicit callback collection results](external-collection-results.md) now also
+accept bounded runtime values or typed JSON and detach their logical data.
 
 ## Boundaries and saved state
 

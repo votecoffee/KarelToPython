@@ -1,5 +1,11 @@
 # Semantic notes
 
+The [external collection result ledger](external_collection_result_semantics.json)
+supersedes earlier raw callback queue/bank result exclusions and extends partial
+PATH results through a checked runtime-value/typed-JSON boundary. Fixed CLI
+bindings provide values only; generic codecs, FILE results and linked schemas
+retain their guards.
+
 The [queue entry I/O ledger](queue_io_semantics.json) supersedes earlier scalar
 and bank queue READ/WRITE exclusions. Input changes existing values, preserves
 IDs/order/counters and detaches buffers without writing their ARRAY cells.

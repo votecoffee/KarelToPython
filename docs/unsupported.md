@@ -21,6 +21,9 @@ results now follow the [scalar collection policy](scalar-collection-values.md).
 existing counts and IDs, detached input buffers and ordinary scalar transports.
 Exact schemas and logical bounds remain required; FILE copying, generic queue
 value helpers, resource fields and native collection layouts remain unavailable.
+[External collection results](external-collection-results.md) now add checked
+callback values and typed JSON, with optional fixed results from an explicit CLI
+file. They supply no executable libraries, inferred function logic or native ABI.
 
 ## Language and source forms
 
@@ -224,6 +227,9 @@ components with complete-batch pose validation and bounded rounding normalizatio
   Pythonic mode uses finite Python float and practical numeric equivalents.
 - Native external routine ABI, PC binary execution and automatically discovered
   libraries. FROM linkage uses supplied typed source modules or explicit callbacks.
+  [Logical collection results](external-collection-results.md) add exact owned
+  values/typed JSON and explicit fixed-value CLI bindings; argument-dependent
+  behavior and writable outputs require a callback or supplied source implementation.
 
 ## Registers, variables and I/O
 

@@ -4607,6 +4607,7 @@ class Emitter:
             self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
             self.line('_parser.add_argument("--filesystem-root", help="Explicit directory for FILE operations")')
             self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
+            if self.mode=='pythonic':self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
             self.line('_args = _parser.parse_args()')
@@ -4622,6 +4623,14 @@ class Emitter:
             self.indent += 1
             self.line('_parser.error("Invalid service context: "+str(_error))')
             self.indent -= 2
+            if self.mode=='pythonic':
+                self.line('if _args.external_collections is not None:')
+                self.indent+=1;self.line('try:');self.indent+=1
+                self.line('_bindings = _rt.load_external_collections(_args.external_collections, outputs=(_args.state_out,))')
+                self.line('if _context is None: _context = _rt.ExecutionContext()')
+                self.line('_context.externals.update(_bindings)')
+                self.indent-=1;self.line('except (OSError, ValueError, _rt.KarelRuntimeError) as _error:')
+                self.indent+=1;self.line('_parser.error("Invalid external collections: "+str(_error))');self.indent-=2
             self.line('if _args.filesystem_root is not None or _args.state_out is not None:')
             self.indent += 1
             self.line('if _context is None: _context = _rt.ExecutionContext()')
@@ -6971,7 +6980,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='Snapshot source once before target selectors or later arguments; validate concrete declared source schemas, owned cells/headers/nodes and complete logical contents before publication',
         publication='Preserve existing receiver ARRAY containers, collection cells and compatible PATH headers; detach old nodes; reset copied queue buffer links; prefix writes retain unselected cells',
         arguments='Exact bare arrays retain borrowed references; grouped/computed and ordinary incomplete-prefix arguments own private values; retained handlers, pause, stop and failure never copy them back',
-        results='Capture independent concrete results before routine cleanup; canonicalize declared outer result schema; compiled linked calls use the same checked logical result path, raw callback collection results remain excluded',
+        results='Capture independent concrete results before routine cleanup; canonicalize declared outer result schema; compiled linked calls use the same checked logical result path; explicit callbacks also accept detached runtime/typed-JSON values under external_collection_result_policy',
         bounds='One through three dimensions, 32767 descriptor/header/node/queue-entry snapshot units and 64 data-schema levels; prefix captures validate containing storage; malformed/missing ARRAY containers reject',
         exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, FILE-bank READ/WRITE and whole collection UNINIT retain their guards; scalar source values follow scalar_collection_source_policy, PATH-bank I/O follows path_array_io_policy and queue I/O follows queue_io_policy',
         persistence='Existing typed logical JSON/VR data only; no queue buffer links, private references, retained handlers, live row windows or suspended frames',
@@ -7045,9 +7054,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         publication='Retain receiver root and compatible PATH header aliases; detach old nodes and reset receiver queue buffer links; bare/BYNAME arguments retain borrowing',
         lifetime='Private values and results remain independent across forwarding, retained handlers, pause/resume and normal stop/failure cleanup; no copy-back',
         bounds='32767 PATH scalar leaves or queue entries, exact scalar domains and 64 data-schema levels; partial PATH markers and uninitialized queues remain logical data',
-        exact='FILE storage, embedded resources, generic QUEUE_TYPE checked/value helpers, raw queue callback results and exact linked declarations retain guards; existing raw PATH callback contract unchanged',
+        exact='FILE storage, embedded resources, generic QUEUE_TYPE checked/value helpers and exact linked declarations retain guards; explicit callback collection results follow external_collection_result_policy',
         boundary='Authored offline Pythonic extension; no native/compiler/controller/ABI/strict equivalence or persistence of buffer links/private frames',
         guide='docs/scalar-collection-values.md',controller_validated=False)
+    report['external_collection_result_policy']=dict(
+        source='Explicit FROM callbacks returning scalar PATH/QUEUE_TYPE or collection ARRAYs, plus existing compiled linked results',
+        values='Exact owned runtime values or canonical typed JSON objects with exactly type/value; scalar layouts and named ARRAY components stay exact, declared generic outer dimensions become concrete',
+        capture='Validate complete logical data and bounds before receiver selection; detach nodes/headers/entries and drop queue buffer links; no callback-owned storage or JSON payload is retained',
+        interfaces='Assignments, private arguments, RETURN forwarding, WRITE/USING and created receivers use existing source-result rules; borrowed arguments and linked declaration checks unchanged',
+        lifetime='Synchronous and generator callback returns follow existing checkpoints/pause/stop/abort/frame cleanup; earlier callback effects survive invalid-result failure',
+        bounds='Existing 32767 PATH scalar leaves, queue entries and collection-bank snapshot units; JSON PATH totals checked before node allocation; data schemas bounded to 64 levels',
+        persistence='Copied logical data uses existing JSON/VR/DRAM codecs; callables, generators, private frames and buffer links are omitted',
+        exact='No FILE values/arrays, embedded resources, generic queue codecs/UNINIT, JSON coercion for ordinary scalar/data callbacks, inferred kinematics or implicit external library discovery',
+        boundary='Authored offline Pythonic adapter contract; no native routine ABI/compiler/controller/strict equivalence',
+        cli='Generated Python and project --external-collections load fixed values from strict UTF-8 JSON; 128 case-insensitive program/routine bindings, 4 MiB file limit and state/trace alias protection; callbacks are not persisted',
+        guide='docs/external-collection-results.md',controller_validated=False)
     report['queue_transfer_policy']['boundary']='Logical source values follow scalar_collection_source_policy; embedded resources and metadata initialization queries retain guards; no native queue/VR bytes, ownership, status equivalence or controller execution; strict deferred'
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)

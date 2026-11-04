@@ -1,0 +1,7 @@
+PROGRAM EXTERNAL_PATH_RESULT
+TYPE node_t=STRUCTURE value:INTEGER octet:BYTE ENDSTRUCTURE header_t=STRUCTURE tag:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR result:route_t total:INTEGER done:BOOLEAN
+ROUTINE fetch:route_t FROM HOST
+BEGIN
+ IF UNINIT(done) THEN result=fetch() total=result.tag+result[1].value done=TRUE ENDIF
+END EXTERNAL_PATH_RESULT
