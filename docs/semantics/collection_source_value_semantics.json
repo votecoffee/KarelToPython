@@ -1,0 +1,18 @@
+{
+  "version": "26.1104.012044",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_collection_source_values.py",
+    "tests/test_collection_arrays.py",
+    "tests/test_collection_array_transfers.py",
+    "tests/test_resource_prefix_references.py"
+  ],
+  "source": "Owned logical PATH/queue ARRAY assignments, private arguments/results and independent rows/planes; bare/BYNAME borrowing unchanged",
+  "schema": "Matching component shapes and exact terminal/inner nominal schemas; declared source checks; concrete generic dimensions and canonical result outer schema; no reshape or collection-field coercion",
+  "ownership": "Preserve destination containers/cells/headers; detach old nodes and reset copied queue buffers; private arguments/results independent with no copy-back",
+  "limits": "Three dimensions, 64 data-schema levels, 32767 descriptor/header/node/queue-entry units per snapshot; prefixes validate containing bank",
+  "persistence": "Existing typed JSON/VR/DRAM values; no live aliases, buffer links or suspended frames",
+  "boundary": "FILE arrays, generic codecs, raw callback collection results, resource fields, whole READ/WRITE/UNINIT and scalar QUEUE_TYPE assignment remain guarded; authored offline source extension without native/controller/strict equivalence"
+}

@@ -1,6 +1,6 @@
 # PATH and QUEUE_TYPE arrays
 
-Pythonic mode supports reference-only ARRAYs of PATH and QUEUE_TYPE. Each cell
+Pythonic mode supports owned logical ARRAYs of PATH and QUEUE_TYPE. Each cell
 owns an independent logical collection. Use existing PATH/queue operations on a
 selected cell, or borrow the complete ARRAY through a routine or BYNAME argument.
 This is an authored Pythonic extension, with no native source/layout claim.
@@ -44,8 +44,9 @@ rows/planes with original collection identities, including PATH node/header
 access and queue backing buffers. Entry-output overlap checks include selected
 PATH descendants and borrowed queue backing cells.
 
-Whole resource ARRAY assignment, grouped value arguments, function results,
-incomplete flat-prefix values and whole ARRAY READ/WRITE/UNINIT remain unavailable.
+[Logical source values](collection-source-values.md) now support whole ARRAY
+assignment, private grouped/computed arguments, function results and independent
+row/plane values. Whole collection ARRAY READ/WRITE/UNINIT remain unavailable.
 [Explicit logical GET_VAR/SET_VAR copies](collection-array-transfers.md) now support
 whole banks and selected rows/planes with exact schemas. Source resource fields in
 STRUCTUREs remain blocked. Individual PATH copies retain their existing logical

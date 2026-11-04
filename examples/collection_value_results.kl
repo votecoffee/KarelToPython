@@ -1,0 +1,12 @@
+PROGRAM COLLECTION_VALUE_RESULTS
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR first,second:ARRAY[2]OF route_t done:BOOLEAN
+ROUTINE make:ARRAY[2]OF route_t
+VAR values:ARRAY[2]OF route_t status:INTEGER
+BEGIN APPEND_NODE(values[2],status) values[2][1].value=17 RETURN values END make
+BEGIN
+  IF UNINIT(done) THEN
+    first=make() second=make() first[2][1].value=99
+    done=TRUE
+  ENDIF
+END COLLECTION_VALUE_RESULTS

@@ -27,10 +27,10 @@ There is no short-bank/tail copy, nominal erasure, reshape, numeric promotion or
 robot-model conversion inside a collection. Whole banks and anonymous suffixes
 can copy when their resolved schemas match.
 
-Ordinary resource-array assignment, private user-routine value syntax, grouped
-routine copies, results, READ/WRITE/UNINIT, FILE transfers and resource STRUCTURE
-fields retain their existing guards. Only the explicit transfer calls add this
-logical value route. Grouped SET sources may snapshot; GET outputs require direct
+[Logical source values](collection-source-values.md) now add ARRAY assignments,
+private arguments/results and independent prefixes under a separate ownership
+contract. READ/WRITE/UNINIT, FILE transfers and resource STRUCTURE fields retain
+their existing guards. Grouped SET sources may snapshot; GET outputs require direct
 writable storage. Generic resource codecs still reject live borrowed windows.
 
 ## Capture, identity and partial data

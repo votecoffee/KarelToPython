@@ -1,0 +1,7 @@
+PROGRAM MAIN
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR source,target:ARRAY[2]OF route_t status:INTEGER done:BOOLEAN
+ROUTINE work(values:ARRAY OF route_t):ARRAY OF route_t FROM LIB
+BEGIN
+  IF UNINIT(done) THEN APPEND_NODE(source[2],status) source[2][1].value=17 target=work((source)) done=TRUE ENDIF
+END MAIN

@@ -568,6 +568,8 @@ class Parser:
                 element = self.take()
                 if element.value in ('INTEGER', 'BOOLEAN', 'REAL', 'BYTE', 'SHORT', *DATA_RECORD_TYPES):
                     element_spec = (element.value,)
+                elif self.mode=='pythonic' and element.value in ('PATH','QUEUE_TYPE'):
+                    element_spec=('PATH',None,None) if element.value=='PATH' else ('QUEUE_TYPE',)
                 elif element.value == 'STRING':
                     if self.accept('['):
                         element_spec=('STRING',self.expression())
@@ -1572,8 +1574,6 @@ class Emitter:
                 self.features.add('named ' + routine.return_type[0] + ' function result')
                 if routine.return_type[0] == 'STRING': self.features.add('STRING function result')
             if routine.return_type == ('VECTOR',): self.features.add('VECTOR function result')
-            if routine.return_type and rt.collection_array_type(routine.return_type):
-                self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY function results are not supported',routine.token)
             if routine.return_type and routine.return_type[0] == 'ARRAY':
                 element = routine.return_type[2]
                 if element[0] == 'NAMED':
@@ -1585,7 +1585,7 @@ class Emitter:
                                        if self.mode == 'pythonic' else self.resolve_spec(routine.return_type))
                 element = routine.return_type[2]
                 leaf = rt.array_leaf_spec(element) if element[0] == 'ARRAY' else element
-                if leaf[0] not in (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS'):
+                if leaf[0] not in (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS') and not (self.mode=='pythonic' and leaf[0] in ('PATH','QUEUE_TYPE')):
                     self.error('E_RETURN_TYPE', 'ARRAY result terminal elements require supported scalars, bounded STRINGs, records or exact-width joints', routine.token)
                 if leaf[0] == 'STRING':
                     self.features.add('bounded STRING ARRAY function result')
@@ -2280,6 +2280,16 @@ class Emitter:
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
 
+    def collection_array_assignment(self,target,expression,token):
+        reference,expected=self.reference(target,allow_prefix=True,collection_prefix=True)
+        value,actual=self.expression(expression,allow_array_result=True)
+        if not rt.collection_array_source_accepts(expected,actual):
+            self.error('E_TYPE',f'Collection ARRAY copy requires matching schemas: {actual} to {expected}',token)
+        source=self.fresh();line=token.line
+        self.line(f'{source}=_rt.collection_array_source_value({actual!r},{value},{line},source_spec={actual!r})',token)
+        self.line(f'_rt.collection_array_assign({reference},{source},{line})',token)
+        self.features.add('logical collection ARRAY source copy')
+
     def prefix_assignment(self,target,expression,token):
         reference,expected=self.reference(target,allow_prefix=True)
         value,actual=self.expression(expression,allow_array_result=True)
@@ -2450,12 +2460,13 @@ class Emitter:
                 index=self.require_type(expr.args[1],'INTEGER')
                 return f'{base}.node({index},{line})',rt.PathValue(spec).node_spec
             if spec[0]!='ARRAY' and not (self.mode=='pythonic' and spec[0]=='JOINTPOS'):self.error('E_TYPE','Indexing requires ARRAY or Pythonic JOINTPOS',expr.token)
-            index, selected = self.index_code(expr, spec, allow_prefix=True)
+            index, selected = self.index_code(expr, spec, allow_prefix=True,collection_prefix=self.mode=='pythonic' and rt.collection_array_type(spec))
             if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:
                 reference=f'_rt.collection_path_reference({base},{index},{spec!r},{line})'
                 return reference+'.raw()' if raw else f'_rt.require({reference}.raw(),{line})',selected
             if self.mode=='pythonic' and rt.array_prefix_type(spec,len(expr.args)-1) is not None:
-                return f'_rt.array_prefix_value({base},{index},{spec!r},{line})',selected
+                helper='collection_array_prefix_value' if rt.collection_array_type(spec) else 'array_prefix_value'
+                return f'_rt.{helper}({base},{index},{spec!r},{line})',selected
             if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):
                 code=f'_rt.joint_index_reference({base},{index},{spec!r},{line}).raw()'
                 return code if raw else f'_rt.real({code},{line})',selected
@@ -2984,9 +2995,11 @@ class Emitter:
                 value, actual = self.expression(argument)
                 if actual[0]=='ARRAY' and rt.file_storage_type(actual):
                     self.error('E_FILE_ARRAY_VALUE','FILE ARRAY arguments require borrowed storage without grouping',argument.token)
-                if rt.collection_array_type(actual):
-                    self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY arguments require borrowed storage without grouping',argument.token)
-                code = f'_rt.value_argument({expected!r}, {value}, {line})'
+                if self.mode=='pythonic' and rt.collection_array_type(actual):
+                    if not rt.collection_array_source_accepts(expected,actual):self.error('E_TYPE','Collection ARRAY value argument requires matching component schemas',argument.token)
+                    code=f'_rt.collection_array_argument({expected!r},{value},{line},source_spec={actual!r})'
+                    self.features.add('private logical collection ARRAY argument')
+                else:code = f'_rt.value_argument({expected!r}, {value}, {line})'
             source_actual=actual;cartesian_conversion=False;conversion_kind='none'
             if self.mode=='pythonic' and rt.real_integral_kind(expected,actual):
                 value,_=self.expression(argument)
@@ -3774,13 +3787,15 @@ class Emitter:
             selected_target=target
             while selected_target.kind=='group':selected_target=selected_target.args[0]
             if self.is_array_prefix_value(selected_target):
+                if rt.collection_array_type(self.access_type(selected_target.args[0])):
+                    self.collection_array_assignment(target,expr,token);return
                 self.prefix_assignment(target,expr,token)
                 return
             reference, target_type = self.reference(target)
             if target_type[0]=='ARRAY' and rt.file_storage_type(target_type):
                 self.error('E_FILE_ARRAY_VALUE','FILE ARRAY storage cannot be assigned; pass its reference',target.token)
-            if rt.collection_array_type(target_type):
-                self.error('E_COLLECTION_ARRAY_VALUE','Collection ARRAY storage cannot be assigned; pass its reference',target.token)
+            if self.mode=='pythonic' and rt.collection_array_type(target_type):
+                self.collection_array_assignment(target,expr,token);return
             value, value_type = self.expression(expr, allow_array_result=True)
             generic_receiver=(self.mode=='pythonic' and target_type[0]=='ARRAY' and target.kind=='name'
                 and self.current_routine is not None and target.value in {name.value for name,_ in self.current_routine.parameters}
@@ -4209,6 +4224,10 @@ class Emitter:
                 if not expr: self.error('E_RETURN', 'Function RETURN requires a value', token)
                 value, value_type = self.expression(expr)
                 source_type_spec=value_type;cartesian_conversion=False;conversion_kind='none'
+                if self.mode=='pythonic' and rt.collection_array_type(spec):
+                    if not rt.collection_array_source_accepts(spec,value_type):self.error('E_ARRAY_RETURN_SOURCE','Collection ARRAY result requires matching component schemas',expr.token)
+                    self.line(f'return _rt.collection_array_result({spec!r},{value},{line},source_spec={value_type!r})',token)
+                    self.features.add('logical collection ARRAY function result');return
                 if self.mode=='pythonic' and rt.real_integral_kind(spec,value_type):
                     value=f'_rt.real_integral_value({spec!r},{value},{line})'
                     value_type=spec;conversion_kind='real_integral'
@@ -6865,6 +6884,22 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['record_schema_policy']['limits']='No field additions/removal/rename, resources, BOOLEAN/numeric or logical reshape; REAL narrowing follows real_integral_policy; POSITION construction requires valid geometry; model-backed fields require kinematic_record_policy'
     report['record_bridge_policy']['conversions']='Checked integral-family changes, REAL promotion and REAL narrowing under real_integral_policy; bounded STRING, CONFIG word and positional/model leaves; no field renaming or truthiness'
     report['record_variable_transfer_policy']['boundary']='REAL narrowing follows real_integral_policy; model-backed fields require kinematic_variable_transfer_policy; no field renaming/addition/removal, BOOLEAN/numeric, native cache/ABI/controller equivalence, strict mode or generic helper compatibility relaxation'
+    report['collection_array_source_policy']=dict(
+        source='Pythonic PATH/QUEUE_TYPE ARRAY assignment, grouped/computed private routine arguments, internal/compiled linked results and independent incomplete row/plane values; static, created, borrowed and named-component storage',
+        schemas='Exact PATH node/header and queue terminal schemas plus matching outer component shape; named receiver/result identities remain checked; generic dimensions inherit concrete source storage without logical reshape or element coercion',
+        capture='Snapshot source once before target selectors or later arguments; validate concrete declared source schemas, owned cells/headers/nodes and complete logical contents before publication',
+        publication='Preserve existing receiver ARRAY containers, collection cells and compatible PATH headers; detach old nodes; reset copied queue buffer links; prefix writes retain unselected cells',
+        arguments='Exact bare arrays retain borrowed references; grouped/computed and ordinary incomplete-prefix arguments own private values; retained handlers, pause, stop and failure never copy them back',
+        results='Capture independent concrete results before routine cleanup; canonicalize declared outer result schema; compiled linked calls use the same checked logical result path, raw callback collection results remain excluded',
+        bounds='One through three dimensions, 32767 descriptor/header/node/queue-entry snapshot units and 64 data-schema levels; prefix captures validate containing storage; malformed/missing ARRAY containers reject',
+        exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, whole collection READ/WRITE/UNINIT and scalar QUEUE_TYPE assignment retain their guards',
+        persistence='Existing typed logical JSON/VR data only; no queue buffer links, private references, retained handlers, live row windows or suspended frames',
+        boundary='Authored offline Pythonic extension; no native source/compiler/controller/ABI/strict equivalence or implicit allocation/discovery',
+        guide='docs/collection-source-values.md',controller_validated=False)
+    report['collection_array_policy']['guards']='Source copies/arguments/results and prefix values follow collection_array_source_policy; FILE storage, resource STRUCTURE fields and generic data READ/WRITE/UNINIT remain excluded; scalar collections retain their separate contracts'
+    report['collection_array_transfer_policy']['source']='Explicit logical whole banks and rows/planes across static, created, borrowed, linked and named-path storage; source-language values follow collection_array_source_policy'
+    report['collection_array_transfer_policy']['protection']='Reject shared owned cells/headers/nodes, malformed storage and output overlaps; preserve FOR, FILE, resource-field and ordinary resource-copy guards under collection_array_source_policy'
+    report['typed_service_array_prefix_policy']['protection']='Preserve original-cell overlap, FOR, POSITION, CONFIG/association and exact linked-interface guards; live resource-prefix borrowing uses BYNAME only while private collection values follow collection_array_source_policy'
     report['joint_policy']['representation']='Explicit joint storage with checked Pythonic axis subscripts under joint_axis_policy; no direct joint field syntax'
     expansion.annotate(report)
     if expansion.events:

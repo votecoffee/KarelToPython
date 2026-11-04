@@ -1,0 +1,86 @@
+[
+  {
+    "program": "COLLECTION_VALUE_RESULTS",
+    "path": "FIRST",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        null
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": null
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 99
+          }
+        ],
+        "data": null
+      }
+    ]
+  },
+  {
+    "program": "COLLECTION_VALUE_RESULTS",
+    "path": "SECOND",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        null
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": null
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 17
+          }
+        ],
+        "data": null
+      }
+    ]
+  },
+  {
+    "program": "COLLECTION_VALUE_RESULTS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

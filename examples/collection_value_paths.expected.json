@@ -1,0 +1,32 @@
+{
+  "SOURCE": [
+    {
+      "nodes": [],
+      "data": null
+    },
+    {
+      "nodes": [
+        {
+          "VALUE": 99
+        }
+      ],
+      "data": null
+    }
+  ],
+  "TARGET": [
+    {
+      "nodes": [],
+      "data": null
+    },
+    {
+      "nodes": [
+        {
+          "VALUE": 17
+        }
+      ],
+      "data": null
+    }
+  ],
+  "STATUS": 0,
+  "DONE": true
+}

@@ -1,0 +1,11 @@
+PROGRAM COLLECTION_VALUE_ROWS
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR source,target:ARRAY[2,2]OF route_t status,count:INTEGER done:BOOLEAN
+ROUTINE pick:INTEGER
+BEGIN count=count+1 source[2,2][1].value=99 RETURN 1 END pick
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(source[2,2],status) source[2,2][1].value=17 count=0 target[pick()]=source[2]
+    done=TRUE
+  ENDIF
+END COLLECTION_VALUE_ROWS

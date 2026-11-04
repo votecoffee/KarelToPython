@@ -771,8 +771,61 @@ def file_storage_type(spec):
 
 
 def collection_array_type(spec):
-    """Reference-only ARRAY roots whose terminal cells are logical collections."""
+    """ARRAY roots whose terminal cells are owned logical collections."""
     return spec[0]=='ARRAY' and array_leaf_spec(spec)[0] in ('PATH','QUEUE_TYPE')
+
+
+def collection_array_source_accepts(target,source):
+    """Source logical copies retain exact components and concrete dimensions."""
+    try:
+        if not collection_array_type(target) or not collection_array_type(source):return False
+        if target[2]!=source[2]:return False
+        if array_identity(target) is not None:return target==source
+        expected,actual=array_shape(target),array_shape(source)
+        return len(expected)==len(actual) and all(a is None or b is None or a==b for a,b in zip(expected,actual))
+    except (KarelRuntimeError,TypeError,IndexError):return False
+
+
+def collection_array_source_value(target,value,line=None,*,source_spec=None):
+    """Detach bounded logical data without relaxing generic ARRAY codecs."""
+    from .extended import collection_array_variable_value
+    if not _pythonic() or type(value) is not Array:
+        raise KarelRuntimeError('Collection ARRAY source values require Pythonic owned storage',line)
+    if source_spec is not None:
+        matches=collection_array_source_accepts(source_spec,value.spec) if None in array_dimensions(source_spec) else source_spec==value.spec
+        if not matches:raise KarelRuntimeError('Collection ARRAY value differs from its declared source schema',line)
+    if not collection_array_source_accepts(target,value.spec):
+        raise KarelRuntimeError('Collection ARRAY source copies require matching schemas and dimensions',line)
+    copied=collection_array_variable_value(value.spec,value,line)
+    return copied
+
+
+def collection_array_result(spec,value,line=None,*,source_spec=None):
+    copied=collection_array_source_value(spec,value,line,source_spec=source_spec)
+    shape=copied.shape[0] if len(copied.shape)==1 else copied.shape
+    copied.spec=('ARRAY',shape,spec[2])+((spec[3],) if len(spec)==4 else ())
+    return copied
+
+
+def collection_array_argument(spec,value,line=None,*,source_spec=None):
+    copied=collection_array_source_value(spec,value,line,source_spec=source_spec)
+    return Reference(copied.spec,{'value':copied},'value')
+
+
+def collection_array_assign(reference,value,line=None):
+    """Preflight both owned selections, then preserve receiver collection cells."""
+    from .variable_archives import replace_collections
+    if not isinstance(reference,Reference):raise KarelRuntimeError('Collection ARRAY assignment requires writable storage',line)
+    copied=collection_array_source_value(reference.spec,value,line)
+    collection_array_source_value(reference.spec,reference.raw(),line,source_spec=reference.spec)
+    if type(reference) is _ArrayPrefixTarget:reference.set(copied,line)
+    elif type(reference) is Reference:reference.storage[reference.key]=replace_collections(reference.raw(),copied)
+    else:raise KarelRuntimeError('Collection ARRAY source assignment requires an ordinary writable reference',line)
+
+
+def collection_array_prefix_value(array,index,expected,line=None):
+    reference=resource_array_prefix_reference(array,index,expected,line)
+    return collection_array_source_value(reference.spec,reference.raw(),line)
 
 
 def collection_array_node_type(spec,count):
@@ -3743,6 +3796,8 @@ class State:
         if result_spec is None:
             if result is not None: raise KarelRuntimeError('External procedure must return None',line)
             return
+        if _pythonic() and collection_array_type(result_spec) and getattr(callback,'_karel_link',False):
+            return collection_array_result(result_spec,result,line)
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 

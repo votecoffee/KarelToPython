@@ -92,10 +92,10 @@ class ArrayResultFailureTests(unittest.TestCase):
     def test_fixed_or_wildcard_result_dimensions_are_blocked(self):
         for dimensions in ('[1]','[*]','[*,*]'):
             self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY{dimensions} OF INTEGER BEGIN END make', _translator=legacy_translate)
-    def test_other_array_element_result_types_are_blocked(self):
+    def test_file_and_legacy_array_element_results_are_blocked(self):
         for element in ('STRING','FILE','PATH','ARRAY'):
             self.rejected('','E_RETURN_TYPE',routines=f'ROUTINE make: ARRAY OF {element} BEGIN END make',
-                          _translator=legacy_translate if element=='STRING' else translate)
+                          _translator=legacy_translate if element in ('STRING','PATH') else translate)
     def test_named_array_result_declaration_remains_blocked(self):
         self.rejected('','E_RETURN_TYPE',prefix='TYPE row_t=ARRAY[3] OF INTEGER',routines='ROUTINE make: row_t BEGIN END make', _translator=legacy_translate)
     def test_multidimensional_return_source_blocked(self):

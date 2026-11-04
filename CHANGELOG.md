@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.012044 - 2026-11-04
+
+- Add logical PATH/QUEUE_TYPE ARRAY source assignments, private arguments,
+  function results and independent row/plane values over owned offline data.
+- Preserve destination containers/cells/headers, detach copied PATH nodes and
+  reset receiver queue buffers under exact schemas and bounded preflight.
+- Retain bare/BYNAME borrowing, pause/handler lifetime, declared source checks,
+  FILE and generic codec guards; compiled linked results use explicit validation.
+- Add 88 regressions, four examples and two linked projects with authored
+  snapshots, complete typed saved-variable fixtures and exact JSON replay.
+
 ## 26.1104.003347 - 2026-11-04
 
 - Add checked Pythonic finite REAL truncation toward zero into INTEGER/BYTE/SHORT

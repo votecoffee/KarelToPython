@@ -104,6 +104,11 @@ PATH/QUEUE_TYPE banks through GET_VAR/SET_VAR, including rows/planes, created
 storage and linked routines. Independent snapshots retain destination cells and
 headers, detach old nodes, and reset copied queue buffer links.
 
+[Logical collection ARRAY values](docs/collection-source-values.md) now support
+PATH/queue bank assignments, private arguments, results and selected row/plane
+copies. Existing destination cells stay live; copied nodes are independent and
+queue buffer links reset. Bare arguments and explicit BYNAME still borrow.
+
 [Checked REAL narrowing](docs/real-integral-conversions.md) now truncates finite
 REAL values toward zero at source assignments, private routine interfaces,
 ARRAY/record conversions and GET_VAR/SET_VAR. Integral storage bounds, SHORT
@@ -120,7 +125,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.003347**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.012044**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

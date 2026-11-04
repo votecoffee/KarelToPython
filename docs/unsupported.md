@@ -135,7 +135,8 @@ components with complete-batch pose validation and bounded rounding normalizatio
   selected named paths, SET source values and captured GET data outputs.
   [Logical collection ARRAY transfers](collection-array-transfers.md) now extend
   GET_VAR/SET_VAR to exact whole PATH/queue banks and selected rows/planes; FILE
-  storage and ordinary resource value syntax remain excluded.
+  storage remains excluded; ordinary logical collection ARRAY values use the
+  separate [source-copy policy](collection-source-values.md).
 - BYTE unknown contents cannot be queried with UNINIT; SHORT 32767 remains the
   uninitialized sentinel. [Scalar BYTE/SHORT](scalar-narrow.md) now support
   variables, aliases and typed interfaces; numeric narrowing makes checked private
@@ -338,7 +339,9 @@ restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operati
   PATH/QUEUE_TYPE and supplied aliases with checked header/descriptor reservations;
   QUEUE_TYPE native inspection codes remain unavailable. [Collection arrays](collection-arrays.md)
   now support static/dynamic reference-only PATH/QUEUE_TYPE storage and logical JSON.
-  Whole ARRAY copies, results and ordinary incomplete prefix values remain excluded.
+  [Logical collection source values](collection-source-values.md) now add owned
+  ARRAY assignments, private interfaces/results and independent selected prefixes;
+  FILE, scalar queue assignment and generic codec/READ/WRITE guards remain.
   [Owned collection ARRAY VR archives](collection-array-archives.md) now support
   save/load/clear, recursive/mixed batches and explicit DRAM snapshots with
   exact identities, bounded validation and ordinary lifetime guards.

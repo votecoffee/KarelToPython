@@ -1,0 +1,132 @@
+[
+  {
+    "program": "COLLECTION_VALUE_ROWS",
+    "path": "SOURCE",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        null
+      ]
+    ],
+    "value": [
+      [
+        {
+          "nodes": [],
+          "data": null
+        },
+        {
+          "nodes": [],
+          "data": null
+        }
+      ],
+      [
+        {
+          "nodes": [],
+          "data": null
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 99
+            }
+          ],
+          "data": null
+        }
+      ]
+    ]
+  },
+  {
+    "program": "COLLECTION_VALUE_ROWS",
+    "path": "TARGET",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        null
+      ]
+    ],
+    "value": [
+      [
+        {
+          "nodes": [],
+          "data": null
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 17
+            }
+          ],
+          "data": null
+        }
+      ],
+      [
+        {
+          "nodes": [],
+          "data": null
+        },
+        {
+          "nodes": [],
+          "data": null
+        }
+      ]
+    ]
+  },
+  {
+    "program": "COLLECTION_VALUE_ROWS",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "COLLECTION_VALUE_ROWS",
+    "path": "COUNT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "COLLECTION_VALUE_ROWS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

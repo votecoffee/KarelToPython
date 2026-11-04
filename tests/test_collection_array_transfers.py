@@ -181,12 +181,12 @@ class CollectionTransferGuardTests(unittest.TestCase):
         p,_=compile_program("GET_VAR(entry,'','FILES[2]',target,status)",decl='files:ARRAY[2,2]OF FILE target:ARRAY[2]OF INTEGER entry,status:INTEGER');self.assertEqual(p.run()['STATUS'],1)
     def test_grouped_get_output_stays_rejected(self):
         with self.assertRaises(TranslationError):prepare(GET.replace(',target,',',(target),'))
-    def test_ordinary_resource_value_assignment_stays_rejected(self):
-        with self.assertRaises(TranslationError):prepare('target=source')
-    def test_ordinary_grouped_resource_routine_argument_stays_rejected(self):
-        with self.assertRaises(TranslationError):prepare('work((source))',routines='ROUTINE work(items:ARRAY OF route_t) BEGIN END work')
-    def test_resource_prefix_ordinary_values_stay_rejected(self):
-        with self.assertRaises(TranslationError):row('work(source[2])',routines='ROUTINE work(items:ARRAY OF route_t) BEGIN END work')
+    def test_collection_source_type_mismatch_stays_rejected(self):
+        with self.assertRaises(TranslationError):prepare('other=source',decl=DECL+' other:ARRAY[2]OF QUEUE_TYPE')
+    def test_grouped_collection_argument_type_mismatch_stays_rejected(self):
+        with self.assertRaises(TranslationError):prepare('work((source))',routines='ROUTINE work(items:ARRAY OF QUEUE_TYPE) BEGIN END work')
+    def test_collection_prefix_argument_type_mismatch_stays_rejected(self):
+        with self.assertRaises(TranslationError):row('work(source[2])',routines='ROUTINE work(items:ARRAY OF QUEUE_TYPE) BEGIN END work')
     def test_active_counter_protection_remains(self):
         with self.assertRaises(TranslationError):compile_program(SET.replace('SET_VAR','FOR visits=1 TO 2 DO SET_VAR')+' ENDFOR',decl=DECL,prefix=PREFIX)
 
