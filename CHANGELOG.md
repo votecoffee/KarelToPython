@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.030946 - 2026-11-04
+
+- Add INTEGER/BYTE/SHORT FOR counters in owned PATH headers/nodes and PATH banks,
+  including USING aliases, fresh local storage and compiled linked routines.
+- Preflight exact bounded roots and selected scalar ownership before bound
+  effects; retain captured references, narrow domains and scalar cleanup.
+- Extend complete-root proof to retained writable references and unknown retained
+  BYNAME aliases; imported/formal/nonlocal and descriptor roots stay guarded.
+- Fix PATH node USING captures to retain node objects across deletion, replacement,
+  pause and retained handlers. Add 101 regressions, four examples and two projects.
+
 ## 26.1104.023812 - 2026-11-04
 
 - Add PATH-header USING selectors for named/grouped/indexed storage and private

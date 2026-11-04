@@ -1,0 +1,78 @@
+[
+  {
+    "program": "PATH_FOR_HEADER",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "DATA_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "OTHER",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "DATA_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "OTHER",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [],
+      "data": {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "OTHER": 9
+      }
+    }
+  },
+  {
+    "program": "PATH_FOR_HEADER",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 6
+  },
+  {
+    "program": "PATH_FOR_HEADER",
+    "path": "MISSING",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "PATH_FOR_HEADER",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

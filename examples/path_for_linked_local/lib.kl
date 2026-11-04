@@ -1,0 +1,6 @@
+PROGRAM LIB
+TYPE data_t=STRUCTURE count:INTEGER other:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=data_t PATHHEADER=data_t
+ROUTINE work(last:INTEGER):INTEGER
+VAR local_path:route_t total,status:INTEGER
+BEGIN APPEND_NODE(local_path,status) total=0 USING local_path[1] DO FOR count=1 TO last DO total=total+count ENDFOR ENDUSING RETURN total END work
+BEGIN END LIB

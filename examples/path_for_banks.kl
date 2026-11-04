@@ -1,0 +1,10 @@
+PROGRAM PATH_FOR_BANKS
+TYPE data_t=STRUCTURE count:BYTE other:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=data_t PATHHEADER=data_t
+VAR bank:ARRAY[2]OF route_t total:INTEGER done:BOOLEAN
+
+BEGIN
+ IF UNINIT(done) THEN
+  bank[1].other=9 bank[2].other=11 total=0 FOR bank[2].count=254 TO 255 DO total=total+bank[2].count ENDFOR
+  done=TRUE
+ ENDIF
+END PATH_FOR_BANKS

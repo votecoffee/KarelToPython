@@ -1,0 +1,21 @@
+{
+  "version": "26.1104.030946",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_path_for_counters.py",
+    "tests/test_reference_for_counters.py",
+    "tests/test_narrow_for.py",
+    "tests/test_path_header_using.py",
+    "tests/test_collection_arrays.py"
+  ],
+  "source": "Owned declared PATH header/node and bank INTEGER/BYTE/SHORT FOR counters, USING aliases, fresh locals and compiled linked routines",
+  "capture": "Selector once, exact bounded logical root preflight and typed current-root membership before initial-bound effects; final bound once after initialization",
+  "proof": "Whole-root write/reuse and service/callee/handler/timer protection; reject retained mutable references and unknown retained BYNAME globals; readonly and detached values remain allowed",
+  "cleanup": "Existing inclusive ranges, selected-scalar frames, narrow domains and markers across jumps/pause/stop/abort/return/failure",
+  "node_using": "Freeze original selected node object across deletion/replacement and retained callbacks; detached counter before entry rejected, bound-time removal preserves captured scalar",
+  "bounds": "32767 PATH logical-leaf/collection-unit snapshots and 64-level data schemas; no implicit node/container creation",
+  "persistence": "Existing logical JSON/archives and missing markers; no counter frames, node references or suspended execution",
+  "boundary": "Imported/formal/nonlocal parameterized, descriptor, CONFIG/association, readonly, REAL/BOOLEAN and direct computed roots remain guarded; no native/compiler/controller/strict equivalence or arbitrary host/concurrent-write proof"
+}

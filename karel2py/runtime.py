@@ -1264,6 +1264,49 @@ class _ArrayPrefixTarget:
             self.storage[index]=replace_value(self.storage[index],item)
 
 
+def using_path_node_reference(spec,reference,line=None):
+    """Retain the selected node object when its PATH list changes later."""
+    from .variable_archives import ordinary
+    if not _pythonic() or not ordinary(reference) or reference.spec!=spec or spec[0]!='STRUCTURE':
+        raise KarelRuntimeError('USING PATH node requires an ordinary exact record reference',line)
+    value=reference.raw()
+    if type(value) is not Structure or value.spec!=spec:
+        raise KarelRuntimeError('USING PATH node requires existing shaped node data',line)
+    _aggregate_value(spec,value,line,allow_partial=True)
+    return Reference(spec,{'value':value},'value')
+
+
+def path_counter_root(spec):
+    """Explicit PATH storage only; FILE and queue descriptors remain resources."""
+    return collection_type(spec) and spec[0]=='PATH' or path_array_io_type(spec)
+
+
+def path_for_reference(root,spec,target,line=None):
+    """Preflight bounded owned logical storage before initial-bound effects."""
+    from .variable_archives import ordinary
+    if (not _pythonic() or not path_counter_root(spec) or not ordinary(root) or root.spec!=spec
+            or not ordinary(target) or target.spec not in (('INTEGER',),('BYTE',),('SHORT',))):
+        raise KarelRuntimeError('PATH FOR requires owned storage and an ordinary integral leaf',line)
+    if spec[0]=='PATH':collection_source_value(spec,root.raw(),line,source_spec=spec)
+    else:collection_array_source_value(spec,root.raw(),line,source_spec=spec)
+    found=False
+    def visit(schema,value,storage=None,key=None):
+        nonlocal found
+        if schema in (('INTEGER',),('BYTE',),('SHORT',)):
+            found=found or storage is target.storage and key==target.key and schema==target.spec
+        elif value is UNINITIALIZED or value is UNKNOWN_BYTE:return
+        elif schema[0]=='PATH':
+            if schema[2] is not None:visit(schema[2],value.data,vars(value),'data')
+            for index,node in enumerate(value.nodes):visit(value.node_spec,node,value.nodes,index)
+        elif schema[0]=='ARRAY':
+            for index,child in enumerate(value.values):visit(schema[2],child,value.values,index)
+        elif schema[0] in RECORD_TYPES and schema[0] not in ('CONFIG',*ASSOCIATION_TYPES):
+            for name,field in record_fields(schema):visit(field,value.values[name],value.values,name)
+    visit(spec,root.raw())
+    if not found:raise KarelRuntimeError('PATH FOR requires a matching integral cell in its current owned root',line)
+    return target
+
+
 def for_bound(spec,value,line=None):
     """Require an initialized integral loop bound in its counter's domain."""
     if type(spec) is not tuple or len(spec)!=1 or type(spec[0]) is not str or spec[0] not in ('INTEGER','BYTE','SHORT'):

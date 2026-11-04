@@ -1,5 +1,7 @@
 # Language support
 
+[PATH integral FOR counters](path-for-counters.md) now use owned header/node/bank leaves with whole-root proof, retained-alias checks and narrow cleanup. Named USING node selectors retain the original node object across deletion/replacement.
+
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
 [PATH-bank I/O](path-array-io.md) now expands whole PATH arrays and selected rows/planes through existing scalar READ/WRITE transports, with checked capture and uniform formats.
@@ -126,7 +128,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.023812. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.030946. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

@@ -84,8 +84,10 @@ value helpers, resource fields and native collection layouts remain unavailable.
   duplicate/alias checks. Persistent borrowed connections after return, control
   of another frame's timer and inferred native alias ownership remain unavailable. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
-  CONFIG/resource/PATH roots, nonlocal parameterized roots and unproven external
-  calls over global aggregate counters remain blocked. [Captured USING selectors](using-selectors.md)
+  CONFIG/FILE/queue roots, imported or borrowed PATH roots, nonlocal parameterized
+  roots and unproven external calls over global aggregate counters remain blocked.
+  [Owned PATH counters](path-for-counters.md) now cover header/node fields and
+  bank elements with complete-root write and retained-alias checks. [Captured USING selectors](using-selectors.md)
   now accept indexed/grouped record storage and built-in records; calls inside
   indexes use the one-time entry capture policy. [Scalar SELECT](scalar-select.md)
   now accepts finite numeric, BOOLEAN and ASCII STRING categories, with

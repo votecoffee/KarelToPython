@@ -1,0 +1,85 @@
+[
+  {
+    "program": "PATH_NODE_CAPTURE",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "DATA_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "OTHER",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "DATA_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "OTHER",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [
+        {
+          "COUNT": 99,
+          "OTHER": 22
+        }
+      ],
+      "data": {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "OTHER": {
+          "uninitialized": true
+        }
+      }
+    }
+  },
+  {
+    "program": "PATH_NODE_CAPTURE",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "PATH_NODE_CAPTURE",
+    "path": "RESULT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 42
+  },
+  {
+    "program": "PATH_NODE_CAPTURE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

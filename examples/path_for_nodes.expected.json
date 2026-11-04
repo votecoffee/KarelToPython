@@ -1,0 +1,31 @@
+{
+  "SOURCE": {
+    "nodes": [
+      {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "OTHER": 11
+      },
+      {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "OTHER": 22
+      }
+    ],
+    "data": {
+      "COUNT": {
+        "uninitialized": true
+      },
+      "OTHER": {
+        "uninitialized": true
+      }
+    }
+  },
+  "TOTAL": 6,
+  "STATUS": 0,
+  "SLOT": 2,
+  "VISITS": 1,
+  "DONE": true
+}

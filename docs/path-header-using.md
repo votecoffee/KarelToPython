@@ -50,7 +50,8 @@ normal scalar/aggregate input, assignment and routine-argument checks.
 ## Counters, timers and lifetime
 
 Named captures preserve their original global/formal PATH root for effect analysis
-and whole-root protection. Named PATH/resource-root FOR counters remain rejected.
+and whole-root protection. [Owned PATH integral counters](path-for-counters.md)
+now support named header/node/bank leaves; imported/borrowed roots remain excluded.
 Computed header data owns an isolated private record identity: INTEGER/BYTE/SHORT
 counter fields and nested leaves use the existing private-counter range, cleanup,
 retained-alias and whole-root write proofs. Selector calls cannot bypass active

@@ -1,0 +1,10 @@
+PROGRAM PATH_NODE_CAPTURE
+TYPE data_t=STRUCTURE count:INTEGER other:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=data_t PATHHEADER=data_t
+VAR source:route_t status,result:INTEGER done:BOOLEAN
+
+BEGIN
+ IF UNINIT(done) THEN
+  APPEND_NODE(source,status) APPEND_NODE(source,status) source[1].count=17 source[1].other=11 source[2].count=99 source[2].other=22 USING source[1] DO DELETE_NODE(source,1,status) count=count+25 result=count ENDUSING
+  done=TRUE
+ ENDIF
+END PATH_NODE_CAPTURE

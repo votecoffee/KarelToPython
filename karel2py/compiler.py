@@ -1222,6 +1222,8 @@ class Emitter:
         self.private_using_roots = {}
         self.escaped_private_using_roots = set()
         self.retained_timer_alias_roots=set()
+        self.retained_path_counter_roots=set()
+        self.unknown_path_counter_alias=False
         self.reference_for_uses=[]
         self.connected_timer_uses=[]
         self.handler_uses=[]
@@ -1810,6 +1812,7 @@ class Emitter:
                             captures.append(dict(source_kind=source_kind,provenance=provenance,source_root=source_root,
                                 expression_kind=selector.kind,independent_copy=not reference,copy_back=False))
                             if path_header:captures[-1].update(path_header=True,path_type_spec=spec,selected_type_spec=selected_spec)
+                            if reference and self.path_node_selector(selector):captures[-1]['path_node']=True
                             binding = Expr('using_ref',selector.token,
                                 (f'_using_{len(self.using_scopes)}_{len(selectors)}',selected_spec,source_root,
                                  self.is_position_read_only_access(storage),path_text(selector),source_kind,provenance,protection_root))
@@ -2060,6 +2063,29 @@ class Emitter:
                     if not self.argument_is_reference(argument,expected):continue
                     if root in locals_:self.retained_timer_alias_roots.add((routine.name,root))
                     elif root in self.types and root not in formals:self.retained_timer_alias_roots.add((None,root))
+        # A retained writable reference must not outlive the counter's root proof.
+        path_retaining=handler_retaining|{r.name for r in self.program.routines if r.external}
+        while True:
+            inherited={name for name,targets in edges.items() if targets&path_retaining}
+            if inherited<=path_retaining:break
+            path_retaining.update(inherited)
+        for routine in (None,*self.program.routines):
+            self.current_routine=routine
+            locals_={token.value for token,_ in routine.declarations} if routine else set()
+            formals={token.value for token,_ in routine.parameters} if routine else set()
+            types=self.types|(routine.local_types if routine else {})|self.private_using_roots
+            for node in self.walk_nodes(routine.body if routine else self.program.body):
+                if not isinstance(node,Expr) or node.kind!='call' or node.value not in path_retaining:continue
+                callee=self.routines[node.value]
+                for argument,(formal,expected) in zip(node.args,callee.parameters):
+                    if formal.value not in callee.parameter_writes:continue
+                    if argument.kind=='call' and argument.value=='BYNAME':
+                        self.unknown_path_counter_alias=True;continue
+                    if not self.argument_is_reference(argument,expected):continue
+                    root=self.protection_root(argument)
+                    if root not in types or not rt.path_counter_root(types[root]):continue
+                    if root in locals_:self.retained_path_counter_roots.add((routine.name,root))
+                    elif root in self.types and root not in formals:self.retained_path_counter_roots.add((None,root))
         self.current_routine=None
 
     def has_external_effect_call(self, expr):
@@ -3449,6 +3475,12 @@ class Emitter:
         if self.current_routine: self.control_flow['routines'][self.current_routine.name] = report
         else: self.control_flow['program'] = report
 
+    def path_node_selector(self,selector):
+        while selector.kind=='group':selector=selector.args[0]
+        if selector.kind!='index':return False
+        spec=self.relative_operand_type(selector.args[0])
+        return spec[0]=='PATH' or rt.collection_array_node_type(spec,len(selector.args)-1) is not None
+
     def emit_using_entry(self,stmt):
         if self.mode != 'pythonic': return
         for name,selector,kind in zip(stmt.using_captures,stmt.args,stmt.using_capture_kinds):
@@ -3460,7 +3492,11 @@ class Emitter:
             elif kind=='computed_value':
                 value,spec=self.expression(selector,raw=True)
                 reference=f'_rt.value_argument({spec!r},{value},{selector.token.line})'
-            else:reference,_=self.reference(selector)
+            else:
+                reference,spec=self.reference(selector)
+                if self.path_node_selector(selector):
+                    reference=f'_rt.using_path_node_reference({spec!r},{reference},{selector.token.line})'
+                    self.features.add('stable PATH node USING capture')
             self.line(f'{name} = {reference}',selector.token)
 
     def for_values(self,stmt):
@@ -3478,20 +3514,31 @@ class Emitter:
         counter_types=self.types|(self.current_routine.local_types if self.current_routine else {})|self.private_using_roots
         if root not in counter_types or root in self.visible_constants():
             self.error('E_FOR_COUNTER','FOR counter requires declared writable integral scalar storage',token)
+        path_root=self.mode=='pythonic' and rt.path_counter_root(counter_types[root])
+        if path_root:
+            if (local_owner,root) in self.retained_path_counter_roots or local_owner is None and self.unknown_path_counter_alias:
+                self.error('E_FOR_COUNTER','PATH counter root may have a retained writable routine or dynamic alias',token)
+            if local_owner is None and root in {row[0] for row in self.program.imported_variables}:
+                self.error('E_FOR_COUNTER','PATH counters require an owned declared root; imported roots remain excluded',token)
         if not private and self.current_routine and self.current_routine.parameters and root not in {item.value for item,_ in self.current_routine.declarations}:
             self.error('E_FOR_COUNTER','Parameterized routines require fresh local FOR counter roots until alias effects are validated',token)
         if root in self.active_counters:
             self.error('E_FOR_COUNTER','Nested loops cannot reuse an active FOR counter root',token)
         reference=None
         if self.mode=='pythonic':
-            if counter_types[root][0] in ('PATH','FILE','QUEUE_TYPE') or rt.resource_array_type(counter_types[root]) or self.is_value_only_subfield(counter):
-                self.error('E_FOR_COUNTER','FOR counters require ordinary integral leaves outside resource roots and CONFIG domains',token)
+            if (counter_types[root][0] in ('FILE','QUEUE_TYPE') or rt.resource_array_type(counter_types[root]) and not path_root
+                    or self.is_value_only_subfield(counter)):
+                self.error('E_FOR_COUNTER','FOR counters require ordinary integral leaves outside FILE/queue roots and CONFIG domains',token)
             if self.is_position_read_only_access(counter):self.error('E_POSITION_READ_ONLY','FOR counter storage is read-only',token)
             reference,spec=self.reference(counter)
             if spec[0] not in INTEGRAL_TYPES:self.error('E_FOR_COUNTER','FOR counter requires an INTEGER, BYTE or SHORT scalar reference',token)
+            if path_root:
+                reference=f'_rt.path_for_reference(self._state.reference({root!r},{token.line}),{counter_types[root]!r},{reference},{token.line})'
+                self.features.add('captured PATH integral FOR counter')
             self.reference_for_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                 line=token.line,column=token.column,selector=counter_text(counter),root=root,kind=counter.kind,
                 captured_once=True,cleanup='selected_scalar',write_protection='whole_root'))
+            if path_root:self.reference_for_uses[-1].update(path_counter=True,root_type_spec=counter_types[root],root_ownership='owned_declared_storage')
             if private:
                 self.reference_for_uses[-1].update(root=None,protection_root=root,provenance='private_temporary')
                 self.features.add('private USING '+spec[0]+' FOR counter')
@@ -6934,6 +6981,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['collection_array_transfer_policy']['source']='Explicit logical whole banks and rows/planes across static, created, borrowed, linked and named-path storage; source-language values follow collection_array_source_policy'
     report['collection_array_transfer_policy']['protection']='Reject shared owned cells/headers/nodes, malformed storage and output overlaps; preserve FOR, FILE, resource-field and ordinary resource-copy guards under collection_array_source_policy'
     report['typed_service_array_prefix_policy']['protection']='Preserve original-cell overlap, FOR, POSITION, CONFIG/association and exact linked-interface guards; live resource-prefix borrowing uses BYNAME only while private collection values follow collection_array_source_policy'
+    report['path_for_policy']=dict(
+        source='Pythonic INTEGER/BYTE/SHORT counters in owned declared PATH headers/nodes and PATH ARRAY cells, including USING aliases and fresh routine locals',
+        capture='Evaluate the original scalar selector once, then validate exact bounded logical root data before initial-bound effects; preserve the captured scalar across index/node changes and cleanup',
+        proof='Protect the whole PATH/bank root against source writes, reuse, mutable routine arguments, variable services, handlers/timers and unknown external effects; reject retained writable aliases and unknown retained BYNAME roots',
+        ranges='Existing integral bound domains, inclusive TO/DOWNTO, zero-iteration and selected-scalar cleanup rules; BYTE restores unknown-byte marker and INTEGER/SHORT uninitialized state',
+        lifetime='Normal counter frames preserve pause/resume, same-loop jumps and exits; return/stop/abort/failure clear only initialized captured counters while retaining earlier outside effects',
+        bounds='Existing 32767 logical PATH/collection-unit and 64-level data-schema limits; partial known data remains checked and no node/container is inferred or allocated',
+        exact='Imported/borrowed formal and nonlocal parameterized roots, FILE/queue descriptors, CONFIG domains, readonly POSITION fields, REAL/BOOLEAN counters and direct computed roots retain guards; generic data/reference helpers unchanged',
+        boundary='Authored offline Pythonic extension; no native FOR/compiler/controller/strict equivalence or prevention of arbitrary host/independently driven program writes',
+        guide='docs/path-for-counters.md',controller_validated=False)
+    report['reference_for_counter_policy']['path_roots']='Owned PATH header/node/bank leaves follow path_for_policy; normal data roots retain their existing contracts'
+    report['reference_for_counter_policy']['boundary']='No CONFIG domains, FILE/queue or imported/borrowed PATH roots, readonly POSITION descendants, nonlocal parameterized roots, direct computed roots, new FOR/USING scope entry, arbitrary host-write prevention or native counter ABI claim'
+    report['narrow_for_policy']['path_roots']='Owned PATH integral leaves follow path_for_policy under the same domains and cleanup markers'
+    report['narrow_for_policy']['boundary']='No REAL/BOOLEAN, FILE/queue/imported/borrowed roots or CONFIG counters, BYTE UNINIT, retained writable aliases or native counter/storage equivalence'
+    report['using_policy']['path_nodes']='Storage selectors freeze the selected node object once; later deletion/replacement cannot retarget captured fields; path_node metadata records this choice'
     report['path_header_using_policy']=dict(
         source='Pythonic USING over PATH values with explicit PATHHEADER; named/grouped/indexed storage and internal/compiled linked computed results',
         lookup='Expose direct header fields under existing inner/rightmost lexical priority; selector lists resolve against enclosing bindings and evaluate once left-to-right',
@@ -6941,7 +7003,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Retained handlers and pause/resume keep selected headers; source root/cell replacement cannot retarget old captures; no private copy-back',
         effects='Named captures preserve PATH/global/formal root effects; computed captures use isolated header protection identities with normal private-counter/escape and timer ownership checks',
         bounds='Existing 32767 PATH scalar-leaf and 64-level data-schema limits; partial scalar markers preserved; malformed known data, shared owned PATH data and missing headers reject',
-        exact='Named PATH/resource-root FOR, readonly POSITION descendants, CONFIG domains, exact linked types and scalar timer requirements retain guards; headerless PATH, whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS selectors remain excluded',
+        exact='Owned PATH counters follow path_for_policy; imported/borrowed roots, readonly POSITION descendants, CONFIG domains, exact linked types and scalar timer requirements retain guards; headerless PATH, whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS selectors remain excluded',
         persistence='Existing logical header/PATH JSON and archives only; captured references, retained handlers, private temporaries and suspended frames are not persisted',
         boundary='Authored offline Pythonic extension; no native USING/compiler/controller/strict equivalence or implicit header allocation',
         guide='docs/path-header-using.md',controller_validated=False)

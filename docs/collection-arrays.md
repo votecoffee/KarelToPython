@@ -1,5 +1,9 @@
 # PATH and QUEUE_TYPE arrays
 
+[Owned PATH counters](path-for-counters.md) now support integral header/node/bank
+leaves under complete-root and retained-alias proof. PATH node USING captures
+retain the selected node object across later deletion or replacement.
+
 [PATH-bank I/O](path-array-io.md) extends these scalar transports to whole PATH
 arrays and selected rows/planes, retaining existing supplied headers/nodes and
 normal capture, format and operation bounds. FILE/queue banks remain excluded.

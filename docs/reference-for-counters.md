@@ -59,7 +59,9 @@ USING resolves a bare counter field to its captured record storage. A global
 variable with the same spelling remains a separate cell. Nested/rightmost USING
 priority and existing selector capture rules remain unchanged. Record siblings
 may remain uninitialized: only the counter's ordinary INTEGER leaf needs storage.
-PATH/FILE/QUEUE roots, CONFIG-domain subfields, readonly POSITION orientation
+[Owned PATH header/node/bank counters](path-for-counters.md) now extend this
+contract with logical-root preflight and retained-alias proof. FILE/QUEUE roots,
+imported or borrowed PATH roots, CONFIG-domain subfields, readonly POSITION
 descendants and acquired controller/port storage remain invalid counter targets.
 
 ## Conservative write proof

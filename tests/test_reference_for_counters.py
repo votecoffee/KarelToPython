@@ -183,9 +183,9 @@ class ReferenceForGuardTests(unittest.TestCase):
         for declaration in ('values:ARRAY[2] OF BOOLEAN','values:ARRAY[2] OF REAL'):
             self.reject('FOR values[1]=1 TO 2 DO ENDFOR',decl=declaration)
 
-    def test_config_domain_fields_and_resource_root_fields_are_blocked(self):
+    def test_config_domain_fields_and_descriptor_roots_are_blocked(self):
         self.reject('FOR cfg.cfg_turn_no1=1 TO 2 DO ENDFOR',decl='cfg:CONFIG')
-        self.reject('FOR track.count=1 TO 2 DO ENDFOR',decl='track:path_t',prefix='TYPE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE path_t=PATH PATHHEADER=header_t')
+        self.reject('FOR track=1 TO 2 DO ENDFOR',decl='track:QUEUE_TYPE')
 
     def test_position_orientation_descendants_remain_readonly(self):self.reject('FOR point.normal.x=1 TO 2 DO ENDFOR','E_POSITION_READ_ONLY',decl='point:POSITION')
 

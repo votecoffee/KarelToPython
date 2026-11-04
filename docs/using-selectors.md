@@ -1,5 +1,9 @@
 # Captured USING selectors
 
+[Owned PATH counters](path-for-counters.md) now support integral header/node/bank
+leaves under complete-root and retained-alias proof. PATH node USING captures
+retain the selected node object across later deletion or replacement.
+
 Pythonic mode accepts existing STRUCTURE and supported built-in record storage
 as a USING selector. Dotted paths, ARRAY/PATH node indexes and grouping are
 accepted. Supported built-in records are VECTOR, CONFIG, XYZWPR, XYZWPREXT and

@@ -104,6 +104,10 @@ PATH/QUEUE_TYPE banks through GET_VAR/SET_VAR, including rows/planes, created
 storage and linked routines. Independent snapshots retain destination cells and
 headers, detach old nodes, and reset copied queue buffer links.
 
+[PATH integral counters](docs/path-for-counters.md) add FOR over owned header,
+node and bank cells, with checked capture, selected-leaf cleanup and whole-root
+write/alias protection. USING node captures now retain deleted/replaced nodes.
+
 [PATH-header USING](docs/path-header-using.md) exposes supplied header fields
 through lexical aliases. Storage selectors retain their selected header; computed
 PATH results use independent private headers with counter and timer checks.
@@ -137,7 +141,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.023812**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.030946**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

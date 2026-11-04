@@ -1,0 +1,109 @@
+[
+  {
+    "program": "PATH_FOR_NODES",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "DATA_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "OTHER",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "DATA_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "OTHER",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [
+        {
+          "COUNT": {
+            "uninitialized": true
+          },
+          "OTHER": 11
+        },
+        {
+          "COUNT": {
+            "uninitialized": true
+          },
+          "OTHER": 22
+        }
+      ],
+      "data": {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "OTHER": {
+          "uninitialized": true
+        }
+      }
+    }
+  },
+  {
+    "program": "PATH_FOR_NODES",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 6
+  },
+  {
+    "program": "PATH_FOR_NODES",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "PATH_FOR_NODES",
+    "path": "SLOT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 2
+  },
+  {
+    "program": "PATH_FOR_NODES",
+    "path": "VISITS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "PATH_FOR_NODES",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

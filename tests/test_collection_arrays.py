@@ -212,7 +212,8 @@ class CollectionArrayGuardTests(unittest.TestCase):
     def test_whole_resource_array_output_rejects(self):self.reject('WRITE(queues)')
     def test_whole_resource_array_uninit_rejects(self):self.reject('n=UNINIT(queues)')
     def test_collection_prefix_argument_type_mismatch_rejects(self):self.reject('work(q[1])',decl='q:ARRAY[2,2]OF QUEUE_TYPE',routines='ROUTINE work(v:ARRAY OF FILE) BEGIN END work')
-    def test_path_array_counter_root_remains_resource(self):self.reject('FOR paths[1][1].amount=1 TO 3 DO n=1 ENDFOR')
+    def test_path_array_node_counter_cleans_selected_leaf(self):
+        v,_,_=execute('APPEND_NODE(paths[1],status) n=0 FOR paths[1][1].amount=1 TO 3 DO n=n+paths[1][1].amount ENDFOR');self.assertEqual(v['N'],6);self.assertEqual(v['PATHS'][0]['nodes'][0]['AMOUNT'],{'uninitialized':True})
     def test_direct_clone_does_not_share_resource_cells(self):
         with self.assertRaises(rt.KarelRuntimeError):queue_array().clone()
     def test_checked_whole_array_copy_rejects(self):

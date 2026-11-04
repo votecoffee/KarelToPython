@@ -1,0 +1,85 @@
+[
+  {
+    "program": "PATH_FOR_BANKS",
+    "path": "BANK",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "DATA_T",
+          [
+            [
+              "COUNT",
+              [
+                "BYTE"
+              ]
+            ],
+            [
+              "OTHER",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "DATA_T",
+          [
+            [
+              "COUNT",
+              [
+                "BYTE"
+              ]
+            ],
+            [
+              "OTHER",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "unknown_byte": true
+          },
+          "OTHER": 9
+        }
+      },
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "unknown_byte": true
+          },
+          "OTHER": 11
+        }
+      }
+    ]
+  },
+  {
+    "program": "PATH_FOR_BANKS",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 509
+  },
+  {
+    "program": "PATH_FOR_BANKS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

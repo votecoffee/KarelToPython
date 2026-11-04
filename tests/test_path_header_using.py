@@ -152,8 +152,8 @@ class PathHeaderCounterTimerTests(unittest.TestCase):
         p.resume();self.assertEqual(p.snapshot()['RESULT'],0)
     def test_timer_root_cannot_be_used_as_counter(self):
         with self.assertRaises(TranslationError):build('USING make() DO CONNECT TIMER TO elapsed FOR count=1 TO 2 DO ENDFOR ENDUSING',cooperative=True)
-    def test_named_path_counter_remains_rejected(self):
-        with self.assertRaises(TranslationError):build('USING source DO FOR count=1 TO 2 DO ENDFOR ENDUSING')
+    def test_borrowed_formal_path_counter_remains_rejected(self):
+        with self.assertRaises(TranslationError):build('work(source)',routines=MAKE+' ROUTINE work(v:route_t) BEGIN USING v DO FOR count=1 TO 2 DO ENDFOR ENDUSING END work')
     def test_whole_root_write_inside_private_counter_remains_rejected(self):
         with self.assertRaises(TranslationError):build('USING make() DO FOR count=1 TO 2 DO child.value=42 ENDFOR ENDUSING')
     def test_writable_alias_escape_keeps_counter_guard(self):

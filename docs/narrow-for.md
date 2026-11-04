@@ -75,8 +75,10 @@ restricted.
 Handler writes and retained writable private aliases keep their existing guards.
 Connected timers still require ordinary declared INTEGER storage; narrow
 counters do not widen timer or other INTEGER output-reference interfaces.
-CONFIG-domain fields, readonly POSITION descendants, resource roots and direct
-function-result counter syntax remain excluded.
+[Owned PATH counters](path-for-counters.md) now share these narrow domains and
+cleanup rules. CONFIG-domain fields, readonly POSITION descendants, FILE/queue
+roots, imported/borrowed PATH roots and direct function-result counter syntax
+remain excluded.
 
 ## Jumps, suspension and failures
 

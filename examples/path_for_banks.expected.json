@@ -1,0 +1,24 @@
+{
+  "BANK": [
+    {
+      "nodes": [],
+      "data": {
+        "COUNT": {
+          "unknown_byte": true
+        },
+        "OTHER": 9
+      }
+    },
+    {
+      "nodes": [],
+      "data": {
+        "COUNT": {
+          "unknown_byte": true
+        },
+        "OTHER": 11
+      }
+    }
+  ],
+  "TOTAL": 509,
+  "DONE": true
+}

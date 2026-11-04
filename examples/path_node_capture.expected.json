@@ -1,0 +1,21 @@
+{
+  "SOURCE": {
+    "nodes": [
+      {
+        "COUNT": 99,
+        "OTHER": 22
+      }
+    ],
+    "data": {
+      "COUNT": {
+        "uninitialized": true
+      },
+      "OTHER": {
+        "uninitialized": true
+      }
+    }
+  },
+  "STATUS": 0,
+  "RESULT": 42,
+  "DONE": true
+}

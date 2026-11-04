@@ -1,0 +1,6 @@
+PROGRAM LIB
+TYPE data_t=STRUCTURE count:INTEGER other:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=data_t PATHHEADER=data_t
+VAR source:route_t total:INTEGER
+ROUTINE work:INTEGER
+BEGIN source.other=9 total=0 FOR source.count=1 TO 3 DO total=total+source.count ENDFOR RETURN total END work
+BEGIN END LIB
