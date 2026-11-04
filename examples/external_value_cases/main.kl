@@ -1,0 +1,6 @@
+PROGRAM MAIN
+VAR data:ARRAY[2]OF INTEGER result,value:INTEGER
+ROUTINE work(values:ARRAY OF INTEGER):INTEGER FROM LIB
+BEGIN
+  data[1]=7 data[2]=9 result=work(data) value=data[1]+data[2]
+END MAIN

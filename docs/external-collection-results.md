@@ -51,9 +51,9 @@ shared owned runtime cells and inconsistent JSON markers reject.
 Generator callbacks retain the normal pause/resume/stop/abort and routine-frame
 cleanup contracts. Callback results are captured before frame cleanup, and
 private values never copy back to the callback. Generic queue checked/value/
-result helpers, whole collection UNINIT, FILE results and ordinary scalar/data
-callback contracts retain their guards. Typed JSON decoding is specific to these
-collection result declarations.
+result helpers, whole collection UNINIT and FILE results retain their guards.
+[Typed ordinary data results](external-values.md) now have a separate explicit
+contract; logical collection schemas keep the rules documented here.
 
 ## Fixed values from the CLI
 
@@ -84,9 +84,10 @@ The binding file maps program names to function names and typed logical values:
 
 These functions return a fresh copy of the same supplied value on every call.
 Source arguments still evaluate and undergo normal interface checks, but this
-fixed-value adapter ignores them and never writes borrowed arguments. Use an
-explicit Python callback or supplied KAREL source for argument-dependent logic,
-writable outputs or other effects. No host code or native library is loaded.
+fixed-value adapter ignores them and never writes borrowed arguments. Use
+separate [external data case bindings](external-values.md) for exact supplied
+argument-dependent data responses. Use an explicit Python callback or supplied
+KAREL source for algorithms, writable outputs or other effects. No host code or native library is loaded.
 
 Program/function names are case-insensitive ASCII identifiers of 1..254
 characters. Normalized pairs must be distinct; at most 128 bindings are accepted.

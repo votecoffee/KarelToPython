@@ -1,0 +1,45 @@
+{
+  "HOST": {
+    "FETCH": {
+      "type": [
+        "STRUCTURE",
+        "ITEM_T",
+        [
+          [
+            "ID",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "LABEL",
+            [
+              "STRING",
+              4
+            ]
+          ],
+          [
+            "SAMPLES",
+            [
+              "ARRAY",
+              2,
+              [
+                "BYTE"
+              ]
+            ]
+          ]
+        ]
+      ],
+      "value": {
+        "ID": 17,
+        "LABEL": "seed",
+        "SAMPLES": [
+          255,
+          {
+            "unknown_byte": true
+          }
+        ]
+      }
+    }
+  }
+}

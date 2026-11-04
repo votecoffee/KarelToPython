@@ -1,0 +1,23 @@
+{
+  "A": {
+    "ID": 99,
+    "LABEL": "seed",
+    "SAMPLES": [
+      255,
+      {
+        "unknown_byte": true
+      }
+    ]
+  },
+  "B": {
+    "ID": 17,
+    "LABEL": "seed",
+    "SAMPLES": [
+      255,
+      {
+        "unknown_byte": true
+      }
+    ]
+  },
+  "TOTAL": 272
+}

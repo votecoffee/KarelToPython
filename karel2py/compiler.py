@@ -4787,7 +4787,9 @@ class Emitter:
             self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
             self.line('_parser.add_argument("--filesystem-root", help="Explicit directory for FILE operations")')
             self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
-            if self.mode=='pythonic':self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
+            if self.mode=='pythonic':
+                self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
+                self.line('_parser.add_argument("--external-values", help="UTF-8 JSON explicit fixed data, no-op procedures or exact argument/result cases for external routines")')
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
             self.line('_args = _parser.parse_args()')
@@ -4804,13 +4806,13 @@ class Emitter:
             self.line('_parser.error("Invalid service context: "+str(_error))')
             self.indent -= 2
             if self.mode=='pythonic':
-                self.line('if _args.external_collections is not None:')
+                self.line('if _args.external_collections is not None or _args.external_values is not None:')
                 self.indent+=1;self.line('try:');self.indent+=1
-                self.line('_bindings = _rt.load_external_collections(_args.external_collections, outputs=(_args.state_out,))')
+                self.line('_bindings = _rt.load_external_bindings(values=_args.external_values, collections=_args.external_collections, outputs=(_args.state_out,))')
                 self.line('if _context is None: _context = _rt.ExecutionContext()')
                 self.line('_context.externals.update(_bindings)')
                 self.indent-=1;self.line('except (OSError, ValueError, _rt.KarelRuntimeError) as _error:')
-                self.indent+=1;self.line('_parser.error("Invalid external collections: "+str(_error))');self.indent-=2
+                self.indent+=1;self.line('_parser.error(("Invalid external collections: " if _args.external_values is None else "Invalid external bindings: ")+str(_error))');self.indent-=2
             self.line('if _args.filesystem_root is not None or _args.state_out is not None:')
             self.indent += 1
             self.line('if _context is None: _context = _rt.ExecutionContext()')
@@ -7338,6 +7340,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Saving active jobs remains forbidden; no clocks, callbacks, pending scopes or resumable task frames are persisted',
         boundary='Authored offline model, without trajectories, feedback updates, inferred node times, background threads, native queues/controller/compiler/strict equivalence',
         guide='docs/nowait-motion.md',controller_validated=False)
+    report['external_value_policy']=dict(
+        source='Pythonic typed JSON callback data results plus explicit --external-values for fixed data, no-op procedures and exact argument/result cases',
+        interfaces='Complete concrete metadata, exact declared scalar/record/joint schemas and existing ARRAY wildcard/inherited-capacity result rules; ordinary raw callbacks and source links retain their contracts',
+        capture='Validate supplied bindings before installation; fresh detached results; case arguments snapshot once after normal source evaluation, including partial data and concrete caller schemas',
+        matching='Canonical typed snapshots, field order independent and REAL zero sign normalized; no Boolean/numeric coercion, wildcard cases, implicit fallback, argument writes or executable host code',
+        bounds='128 bindings and fixed/case rows, 64 arguments per case, 32767 stored/incoming scalar leaves, existing 64-level schema limit and strict UTF-8 JSON files within 4 MiB',
+        persistence='Global result data only; callbacks/case tables are not persisted, supply the binding file again for saved-context replay',
+        cli='Standalone and project CLI share input/trace/state alias protection; legacy --external-collections may be supplied alongside disjoint data bindings',
+        boundary='Explicit offline responses only; no inferred library algorithms, native external ABI/controller execution, resource data results or public strict mode',
+        guide='docs/external-values.md',controller_validated=False)
     report['external_collection_result_policy']=dict(
         source='Explicit FROM callbacks returning scalar PATH/QUEUE_TYPE or collection ARRAYs, plus existing compiled linked results',
         values='Exact owned runtime values or canonical typed JSON objects with exactly type/value; scalar layouts and named ARRAY components stay exact, declared generic outer dimensions become concrete',

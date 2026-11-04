@@ -1,0 +1,9 @@
+PROGRAM EXTERNAL_VALUE_PROCEDURES
+VAR n,total:INTEGER data:ARRAY[2]OF INTEGER queue:QUEUE_TYPE
+ROUTINE notify(value:INTEGER) FROM HOST
+ROUTINE numbers:ARRAY OF INTEGER FROM HOST
+ROUTINE fetch_queue:QUEUE_TYPE FROM HOST
+BEGIN
+  n=7 notify(n) data=numbers() queue=fetch_queue()
+  total=n+data[1]+data[2]
+END EXTERNAL_VALUE_PROCEDURES

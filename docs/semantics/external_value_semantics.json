@@ -1,0 +1,32 @@
+{
+  "version": "26.1104.102405",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored typed callback results, explicit fixed/case adapters, source/linked ownership and CLI saved-context replay; no native compiler or controller execution",
+  "implemented": {
+    "data": "Concrete ordinary scalar/record/ARRAY/Cartesian/joint metadata, partial aggregate leaves and exact external result interfaces",
+    "adapters": "Fixed data, explicit no-op procedures and canonical typed argument/result tables without argument writes or executable host code",
+    "matching": "Exact concrete schemas and logical data; REAL zero sign normalized; duplicate selectors and unmatched calls reject",
+    "bounds": "128 bindings/response rows, 64 case arguments, 32767 stored/incoming scalar leaves, depth64 and strict JSON within4MiB",
+    "persistence": "Copied global data only; input bindings must be supplied again on replay",
+    "cli": "Generated and project --external-values; disjoint legacy --external-collections composition with alias protection"
+  },
+  "remaining": [
+    "Algorithmic external behavior and writable outputs require supplied source or explicit Python callbacks",
+    "Resource result data uses the separate logical collection contract; FILE remains excluded",
+    "Implicit libraries, native ABI/controller execution and public strict mode"
+  ],
+  "verification": [
+    "tests/test_external_values.py",
+    "tests/test_external_collection_results.py",
+    "tests/test_aggregate_array_results.py",
+    "tests/test_pythonic_array_results.py",
+    "examples/external_value_scalars.kl",
+    "examples/external_value_records.kl",
+    "examples/external_value_poses.kl",
+    "examples/external_value_procedures.kl",
+    "examples/external_value_forwarded/main.kl",
+    "examples/external_value_cases/main.kl"
+  ],
+  "guide": "../external-values.md"
+}

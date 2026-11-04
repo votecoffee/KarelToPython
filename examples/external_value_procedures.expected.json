@@ -1,0 +1,21 @@
+{
+  "N": 7,
+  "TOTAL": 23,
+  "DATA": [
+    7,
+    9
+  ],
+  "QUEUE": {
+    "initialized": true,
+    "entries": [
+      [
+        3,
+        17
+      ],
+      [
+        1,
+        9
+      ]
+    ]
+  }
+}

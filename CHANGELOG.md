@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1104.102405 - 2026-11-04
+
+- Accept exact typed JSON callback data for scalars, records, arrays and pose/joint
+  results, retaining ordinary raw callback and supplied-source interfaces.
+- Add explicit fixed data, no-op procedures and exact argument/result case tables
+  through --external-values in generated and project CLIs.
+- Validate canonical shapes, missing markers, names and shared storage budgets;
+  preserve independent data, source capture, frame cleanup and failed receivers.
+- Compose disjoint legacy collection bindings after complete input validation,
+  protect input/output aliases and omit adapters from saved context/VR/DRAM.
+- Add 147 regressions, four CLI examples and two linked projects with independent
+  complete expected data and binding fixtures for saved-context replay.
+
 ## 26.1104.093249 - 2026-11-04
 
 - Extend explicit GET_VAR/SET_VAR to supplied frame/tool tables and active IDs

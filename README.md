@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Explicit external data](docs/external-values.md) now accepts typed callback results and
+CLI JSON bindings for fixed data, no-op procedures and exact argument cases.
+Scalars, records, ARRAYs and pose/joint data retain checked independent values;
+legacy collection bindings can be supplied alongside disjoint data bindings.
+
 [Explicit robot system transfers](docs/system-variable-transfers.md) now extend GET_VAR/SET_VAR to
 configured frame/tool rows, location/CONFIG fields, external axes and active IDs.
 Transfers stage complete checked values; direct source reads remain private and
@@ -195,7 +200,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.093249**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.102405**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1026,9 +1031,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 504 authored runnable examples, checks complete
+The example runner translates 508 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 184 complete linked source projects. It also checks that nested
+fixtures, plus 186 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

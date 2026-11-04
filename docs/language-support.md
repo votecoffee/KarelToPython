@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Explicit external data](external-values.md) now accepts typed callback results and
+CLI JSON bindings for fixed data, no-op procedures and exact argument cases.
+Scalars, records, ARRAYs and pose/joint data retain checked independent values;
+legacy collection bindings can be supplied alongside disjoint data bindings.
+
 [Explicit robot system transfers](system-variable-transfers.md) now extend GET_VAR/SET_VAR to
 configured frame/tool rows, location/CONFIG fields, external axes and active IDs.
 Transfers stage complete checked values; direct source reads remain private and
@@ -182,7 +187,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.093249. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.102405. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

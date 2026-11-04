@@ -1,0 +1,18 @@
+{
+  "HOST": {
+    "NOTIFY": null,
+    "NUMBERS": {
+      "type": [
+        "ARRAY",
+        2,
+        [
+          "INTEGER"
+        ]
+      ],
+      "value": [
+        7,
+        9
+      ]
+    }
+  }
+}

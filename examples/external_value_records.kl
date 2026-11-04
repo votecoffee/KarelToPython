@@ -1,0 +1,7 @@
+PROGRAM EXTERNAL_VALUE_RECORDS
+TYPE item_t=STRUCTURE id:INTEGER label:STRING[4] samples:ARRAY[2]OF BYTE ENDSTRUCTURE
+VAR a,b:item_t total:INTEGER
+ROUTINE fetch:item_t FROM HOST
+BEGIN
+  a=fetch() b=fetch() a.id=99 total=b.id+b.samples[1]
+END EXTERNAL_VALUE_RECORDS

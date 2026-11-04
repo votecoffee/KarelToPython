@@ -1,0 +1,53 @@
+{
+  "HOST": {
+    "FETCH": {
+      "cases": [
+        {
+          "arguments": [
+            {
+              "type": [
+                "INTEGER"
+              ],
+              "value": 1
+            }
+          ],
+          "result": {
+            "type": [
+              "INTEGER"
+            ],
+            "value": 17
+          }
+        },
+        {
+          "arguments": [
+            {
+              "type": [
+                "INTEGER"
+              ],
+              "value": 2
+            }
+          ],
+          "result": {
+            "type": [
+              "INTEGER"
+            ],
+            "value": 42
+          }
+        }
+      ]
+    },
+    "WORDS": {
+      "type": [
+        "STRING",
+        4
+      ],
+      "value": "seed"
+    },
+    "AVAILABLE": {
+      "type": [
+        "BOOLEAN"
+      ],
+      "value": true
+    }
+  }
+}

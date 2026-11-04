@@ -900,6 +900,166 @@ def external_collection_result(spec,value,line=None):
         raise KarelRuntimeError('External collection result: '+str(error),line) from error
 
 
+def _external_data_payload(spec,payload,line=None):
+    """Check canonical data shapes before the general state codec can normalize them."""
+    kind=spec[0]
+    if type(payload) is dict and ('uninitialized' in payload or 'unknown_byte' in payload):
+        if (set(payload) not in ({'uninitialized'},{'unknown_byte'}) or next(iter(payload.values())) is not True
+                or kind in ('ARRAY','JOINTPOS',*RECORD_TYPES)
+                or 'unknown_byte' in payload and kind!='BYTE'):
+            raise ValueError('External data requires exact scalar missing markers and shaped containers')
+        return
+    if kind=='ARRAY':
+        def dimensions(shape,value):
+            if type(value) is not list or len(value)!=shape[0]:raise ValueError('External data ARRAY payload must match its canonical shape')
+            for item in value:
+                if len(shape)>1:dimensions(shape[1:],item)
+                else:_external_data_payload(spec[2],item,line)
+        dimensions(array_shape(spec),payload)
+    elif kind in RECORD_TYPES:
+        fields=dict(record_fields(spec))
+        if type(payload) is not dict or set(payload)!=set(fields):raise ValueError('External data record payload requires exact declared field names')
+        for name,field in fields.items():_external_data_payload(field,payload[name],line)
+    elif kind=='JOINTPOS':
+        if type(payload) is not dict or set(payload)!={'axes'} or type(payload['axes']) is not list or len(payload['axes'])!=joint_width(spec):
+            raise ValueError('External joint payload requires exactly its declared axes')
+        for item in payload['axes']:_external_data_payload(REAL,item,line)
+    elif kind=='STRING' and len(ascii_string(payload,line))>spec[1]:
+        raise ValueError('External STRING payload exceeds its declared capacity')
+
+
+def _external_data_decode(row,line=None,*,selector=False):
+    from .storage import tuple_spec,decode_typed
+    if type(row) is not dict or set(row)!={'type','value'} or type(row['type']) is not list:
+        raise ValueError('Typed external data requires exactly type and value, with a type list')
+    spec=tuple_spec(row['type']);_validate_data_schema(spec,line)
+    _external_data_payload(spec,row['value'],line)
+    _,value=decode_typed(row);value=_aggregate_value(spec,value,line)
+    if not selector and spec[0] not in ('ARRAY','JOINTPOS',*RECORD_TYPES):value=require(checked(spec,value,line),line)
+    return spec,value
+
+
+def external_data_result(spec,value,line=None):
+    """Decode only explicitly typed callback data; preserve exact result interfaces."""
+    if not _pythonic():raise KarelRuntimeError('Typed external data results require Pythonic mode',line)
+    try:
+        actual,copied=_external_data_decode(value,line)
+        if spec[0]=='ARRAY':return array_result(spec,copied,line)
+        if not parameter_accepts(spec,actual):raise ValueError('Typed external data differs from its declared schema')
+        return checked(spec,copied,line)
+    except (ValueError,KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
+        raise KarelRuntimeError('External data result: '+str(error),line) from error
+
+
+def external_value_callbacks(config):
+    """Prepare explicit fixed data, no-op procedures or exact argument/result tables."""
+    import json
+    from .storage import tuple_spec,typed_value
+    if type(config) is not dict or not config or len(config)>128:
+        raise ValueError('External values require a nonempty program/routine object within 128 bindings')
+    prepared={};units=0;rows=0
+    def capture(row,*,selector=False):
+        nonlocal units
+        if row is None and not selector:
+            units+=1
+            if units>32767:raise ValueError('External values exceed 32767 stored scalar leaves')
+            return None
+        if type(row) is not dict or set(row)!={'type','value'} or type(row['type']) is not list:
+            raise ValueError('External value data requires exactly type and value')
+        spec=tuple_spec(row['type']);units+=_validate_data_schema(spec)
+        if units>32767:raise ValueError('External values exceed 32767 stored scalar leaves')
+        spec,copied=_external_data_decode(row,selector=selector)
+        return typed_value(copied,spec)
+    def key(arguments):
+        def normalize(value):
+            if type(value) is dict:return {name:normalize(item) for name,item in value.items()}
+            if type(value) is list:return [normalize(item) for item in value]
+            return 0.0 if type(value) is float and value==0.0 else value
+        return json.dumps(normalize(arguments),sort_keys=True,separators=(',',':'),allow_nan=False)
+    def cases_callback(table,arity):
+        @_with_numeric_mode('pythonic')
+        def callback(*arguments):
+            from .variable_archives import ordinary
+            if len(arguments)!=arity:raise KarelRuntimeError('External value case argument count differs')
+            snapshots=[];incoming=0
+            for reference in arguments:
+                if not ordinary(reference):raise KarelRuntimeError('External value cases require ordinary typed data arguments')
+                incoming+=_validate_data_schema(reference.spec)
+                if incoming>32767:raise KarelRuntimeError('External value arguments exceed 32767 scalar leaves')
+            for reference in arguments:
+                copied=_aggregate_value(reference.spec,reference.raw())
+                snapshots.append(typed_value(copied,reference.spec))
+            selected=key(snapshots)
+            if selected not in table:raise KarelRuntimeError('No external value case matches the captured arguments')
+            return deepcopy(table[selected])
+        return callback
+    with _numeric_scope('pythonic'):
+        try:
+            for program,routines in config.items():
+                if type(program) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]{0,253}',program):
+                    raise ValueError('External value program requires an ASCII identifier within 254 characters')
+                if type(routines) is not dict or not routines:raise ValueError('External value routines require a nonempty object')
+                for name,row in routines.items():
+                    if type(name) is not str or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]{0,253}',name):
+                        raise ValueError('External value routine requires an ASCII identifier within 254 characters')
+                    pair=program.upper(),name.upper()
+                    if pair in prepared or len(prepared)>=128:raise ValueError('External value bindings must be distinct and limited to 128')
+                    if type(row) is dict and set(row)=={'cases'}:
+                        cases=row['cases']
+                        if type(cases) is not list or not cases:raise ValueError('External value cases require a nonempty list')
+                        rows+=len(cases)
+                        if rows>128:raise ValueError('External values are limited to 128 fixed/case rows')
+                        table={};arity=None
+                        for case in cases:
+                            if (type(case) is not dict or set(case)!={'arguments','result'} or type(case['arguments']) is not list
+                                    or len(case['arguments'])>64):raise ValueError('External value case requires arguments (up to 64) and result')
+                            if arity is None:arity=len(case['arguments'])
+                            if len(case['arguments'])!=arity:raise ValueError('External value cases require one argument count per binding')
+                            selected=key([capture(argument,selector=True) for argument in case['arguments']])
+                            if selected in table:raise ValueError('Duplicate normalized external value case arguments')
+                            table[selected]=capture(case['result'])
+                        prepared[pair]=cases_callback(table,arity)
+                    else:
+                        rows+=1
+                        if rows>128:raise ValueError('External values are limited to 128 fixed/case rows')
+                        saved=capture(row);prepared[pair]=lambda *arguments,_saved=saved:deepcopy(_saved)
+        except (KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
+            raise ValueError('Invalid external value data: '+str(error)) from error
+    return prepared
+
+
+def load_external_values(path,*,outputs=()):
+    """Strict explicit JSON data bindings; no executable code or persisted callbacks."""
+    import json
+    from pathlib import Path
+    from .fileio import same_file
+    source=Path(path)
+    if any(output is not None and same_file(source,output) for output in outputs):
+        raise ValueError('External value input must differ from state/trace outputs, including aliases')
+    if not source.is_file() or source.stat().st_size>4*1024*1024:
+        raise ValueError('External value input requires a regular file of at most 4 MiB')
+    data=source.read_bytes()
+    if len(data)>4*1024*1024:raise ValueError('External value input exceeds 4 MiB')
+    def unique(pairs):
+        result={}
+        for key,value in pairs:
+            if key in result:raise ValueError('Duplicate external value JSON key: '+key)
+            result[key]=value
+        return result
+    def finite(value):raise ValueError('Nonfinite external value JSON number: '+value)
+    try:config=json.loads(data.decode('utf-8-sig'),object_pairs_hook=unique,parse_constant=finite)
+    except (UnicodeError,RecursionError) as error:raise ValueError('Invalid external value JSON: '+str(error)) from error
+    return external_value_callbacks(config)
+
+
+def load_external_bindings(*,values=None,collections=None,outputs=()):
+    """Validate both explicit files before returning one disjoint callback bank."""
+    prepared=load_external_collections(collections,outputs=outputs) if collections is not None else {}
+    data=load_external_values(values,outputs=outputs) if values is not None else {}
+    if set(prepared)&set(data):raise ValueError('External data and collection files contain duplicate program/routine bindings')
+    prepared.update(data);return prepared
+
+
 def external_collection_callbacks(config):
     """Prepare fixed logical function values; never load executable host code."""
     from .storage import tuple_spec,typed_value
@@ -4219,6 +4379,7 @@ class State:
             return
         if _pythonic() and (collection_type(result_spec) or collection_array_type(result_spec)):
             return external_collection_result(result_spec,result,line)
+        if _pythonic() and type(result) is dict:return external_data_result(result_spec,result,line)
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 

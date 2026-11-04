@@ -1,0 +1,8 @@
+PROGRAM EXTERNAL_VALUE_SCALARS
+VAR first,second:INTEGER label:STRING[4] ready:BOOLEAN
+ROUTINE fetch(value:INTEGER):INTEGER FROM HOST
+ROUTINE words:STRING[4] FROM HOST
+ROUTINE available:BOOLEAN FROM HOST
+BEGIN
+  first=fetch(1) second=fetch(2) label=words() ready=available()
+END EXTERNAL_VALUE_SCALARS

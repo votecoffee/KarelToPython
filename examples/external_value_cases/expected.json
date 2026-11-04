@@ -1,0 +1,17 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "DATA": [
+        7,
+        9
+      ],
+      "RESULT": 17,
+      "VALUE": 16
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

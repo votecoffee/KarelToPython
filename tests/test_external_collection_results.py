@@ -180,8 +180,8 @@ class ResultBoundaryTests(unittest.TestCase):
             with self.assertRaises(rt.KarelRuntimeError):rt.array_result(value.spec,value)
     def test_generic_file_result_stays_closed(self):
         with self.assertRaises(TranslationError):compile_program('f=make()',decl='f:FILE',routines='ROUTINE make:FILE FROM HOST')
-    def test_ordinary_scalar_callback_does_not_decode_typed_json(self):
-        p,_=compile_program('n=make()',routines='ROUTINE make:INTEGER FROM HOST',context=rt.ExecutionContext(externals={('HOST','MAKE'):lambda:dict(type=['INTEGER'],value=17)}))
+    def test_ordinary_scalar_callback_rejects_mismatched_typed_json(self):
+        p,_=compile_program('n=make()',routines='ROUTINE make:INTEGER FROM HOST',context=rt.ExecutionContext(externals={('HOST','MAKE'):lambda:dict(type=['BOOLEAN'],value=True)}))
         with self.assertRaises(rt.KarelRuntimeError):p.run()
     def test_procedure_still_requires_none(self):
         p,_=compile_program('work()',routines='ROUTINE work FROM HOST',context=rt.ExecutionContext(externals={('HOST','WORK'):lambda:dict(type=['QUEUE_TYPE'],value={})}))

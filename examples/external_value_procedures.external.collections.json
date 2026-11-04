@@ -1,0 +1,23 @@
+{
+  "HOST": {
+    "FETCH_QUEUE": {
+      "type": [
+        "QUEUE_TYPE"
+      ],
+      "value": {
+        "initialized": true,
+        "sequence": 7,
+        "entries": [
+          [
+            3,
+            17
+          ],
+          [
+            1,
+            9
+          ]
+        ]
+      }
+    }
+  }
+}

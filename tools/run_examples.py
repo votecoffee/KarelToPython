@@ -95,11 +95,11 @@ def run_example(source, *, inject_write=False):
     services_file = fixture / f'{name}.services.initial.json'
     services = ExecutionContext.from_config(read_json(services_file)) if services_file.exists() else None
     provider=services
-    external_file=fixture/f'{name}.external.collections.json'
-    if external_file.exists():
-        from karel2py.runtime import load_external_collections
+    external_file=fixture/f'{name}.external.collections.json';data_file=fixture/f'{name}.external.values.json'
+    if external_file.exists() or data_file.exists():
+        from karel2py.runtime import load_external_bindings
         if provider is None:provider=ExecutionContext()
-        provider.externals.update(load_external_collections(external_file))
+        provider.externals.update(load_external_bindings(values=data_file if data_file.exists() else None,collections=external_file if external_file.exists() else None))
     sleeper=delays.append
     clock_file=fixture/f'{name}.clock.initial.json'
     if clock_file.exists():
@@ -176,20 +176,20 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 504, 'Update the expected example count when adding examples'
+    assert count == 508, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==184, 'Update the expected project count when adding projects'
+    assert len(projects)==186, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
         translation_context=folder/'translation_context.json'
         options=read_json(translation_context) if translation_context.exists() else {}
         provider=services
-        external_file=folder/'external.collections.json'
-        if external_file.exists():
-            from karel2py.runtime import load_external_collections
+        external_file=folder/'external.collections.json';data_file=folder/'external.values.json'
+        if external_file.exists() or data_file.exists():
+            from karel2py.runtime import load_external_bindings
             if provider is None:provider=ExecutionContext()
-            provider.externals.update(load_external_collections(external_file))
+            provider.externals.update(load_external_bindings(values=data_file if data_file.exists() else None,collections=external_file if external_file.exists() else None))
         instance=load_project(folder,**options).instantiate(context=provider)
         assert instance.run('MAIN')==read_json(folder/'expected.json'), folder.name+': linked project snapshot'
         check_variable_expectations(instance.context,folder/'variables.expected.json',folder.name)

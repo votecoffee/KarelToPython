@@ -25,6 +25,11 @@ value helpers, resource fields and native collection layouts remain unavailable.
 callback values and typed JSON, with optional fixed results from an explicit CLI
 file. They supply no executable libraries, inferred function logic or native ABI.
 
+[Explicit external data](external-values.md) now adds typed ordinary callback
+results plus CLI fixed values, explicit no-op procedures and exact typed argument
+cases. Algorithmic external behavior and writable outputs still require supplied
+source or Python callbacks; bindings are not inferred or persisted.
+
 [Forward constants](forward-constants.md) now resolve acyclic chains across module
 CONST sections and each routine's own CONST sections before dependent schemas.
 Unknown names, cycles, calls and runtime reads remain errors. Local constants do
@@ -247,8 +252,10 @@ components with complete-batch pose validation and bounded rounding normalizatio
 - Native external routine ABI, PC binary execution and automatically discovered
   libraries. FROM linkage uses supplied typed source modules or explicit callbacks.
   [Logical collection results](external-collection-results.md) add exact owned
-  values/typed JSON and explicit fixed-value CLI bindings; argument-dependent
+  values/typed JSON and explicit fixed-value CLI bindings; algorithmic
   behavior and writable outputs require a callback or supplied source implementation.
+  [Explicit data case bindings](external-values.md) now cover supplied fixed or
+  exact argument-dependent data responses and no-op procedures from CLI JSON.
 
 ## Registers, variables and I/O
 
