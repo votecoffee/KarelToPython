@@ -1,0 +1,10 @@
+PROGRAM PATH_HEADER_STORAGE
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER label:STRING[4] ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source:route_t done:BOOLEAN
+
+BEGIN
+  IF UNINIT(done) THEN
+    source.count=7 source.label='seed' USING (source) DO count=count+35 label='longer' ENDUSING
+    done=TRUE
+  ENDIF
+END PATH_HEADER_STORAGE

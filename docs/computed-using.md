@@ -1,5 +1,9 @@
 # Computed USING selectors
 
+[PATH-header USING](path-header-using.md) extends these lexical capture rules to
+explicit PATH headers. Computed PATH selectors provide isolated private header
+data; named selectors retain their existing resource-root protections.
+
 Pythonic translation accepts computed record values in `USING`, alongside the
 existing [captured storage selectors](using-selectors.md). Supported selected
 types are named `STRUCTURE`, `VECTOR`, `CONFIG`, `XYZWPR`, `XYZWPREXT` and

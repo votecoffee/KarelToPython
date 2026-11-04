@@ -818,6 +818,24 @@ def collection_assign(reference,value,line=None):
     reference.storage[reference.key]=replace_collections(reference.raw(),copied)
 
 
+def using_path_header(spec,value,line=None,*,reference=False):
+    """Select a checked existing header, or detach a computed PATH header value."""
+    from .variable_archives import ordinary
+    if not collection_type(spec) or spec[0]!='PATH' or spec[2] is None:
+        raise KarelRuntimeError('USING PATH requires an explicit PATHHEADER',line)
+    if reference:
+        if not ordinary(value) or value.spec!=spec:
+            raise KarelRuntimeError('USING PATH requires an ordinary matching storage reference',line)
+        source=value.raw()
+    else:source=value
+    copied=collection_source_value(spec,source,line,source_spec=spec)
+    header=(source if reference else copied).data
+    if type(header) is not Structure or header.spec!=spec[2]:
+        raise KarelRuntimeError('USING PATH requires an existing shaped header',line)
+    # Freeze the selected header object: later root/cell replacement cannot retarget it.
+    return Reference(spec[2],{'value':header},'value')
+
+
 def collection_array_type(spec):
     """ARRAY roots whose terminal cells are owned logical collections."""
     return spec[0]=='ARRAY' and array_leaf_spec(spec)[0] in ('PATH','QUEUE_TYPE')

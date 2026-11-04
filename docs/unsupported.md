@@ -68,7 +68,10 @@ value helpers, resource fields and native collection layouts remain unavailable.
   definitions, cyclic ownership and native binary type environments remain blocked.
   Routine-local TYPE declarations
   remain prohibited by the KAREL language, rather than a planned extension.
-- Whole ARRAY/resource/joint USING selectors and dynamic caller scope.
+- Whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS and headerless PATH USING selectors, plus
+  dynamic caller scope. [Explicit PATH headers](path-header-using.md) now support
+  captured named/indexed storage and private computed results, with existing
+  lexical, retained-handler, counter and timer checks.
   [Computed record selectors](computed-using.md) now capture checked private values;
   [private INTEGER counters](private-using-counters.md) now use internal lexical
   whole-root identities, including [checked narrow counters](narrow-for.md).

@@ -1,0 +1,26 @@
+{
+  "BANK": [
+    {
+      "nodes": [],
+      "data": {
+        "COUNT": {
+          "uninitialized": true
+        },
+        "LABEL": {
+          "uninitialized": true
+        }
+      }
+    },
+    {
+      "nodes": [],
+      "data": {
+        "COUNT": 42,
+        "LABEL": "two"
+      }
+    }
+  ],
+  "RESULT": 42,
+  "VISITS": 1,
+  "INDEX_VALUE": 1,
+  "DONE": true
+}

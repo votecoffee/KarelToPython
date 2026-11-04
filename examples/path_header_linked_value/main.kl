@@ -1,0 +1,7 @@
+PROGRAM MAIN
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER label:STRING[4] ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source:route_t total:INTEGER missing,done:BOOLEAN
+ROUTINE copy(v:route_t):route_t FROM LIB
+BEGIN
+ IF UNINIT(done) THEN source.count=7 source.label='seed' total=0 USING copy(source) DO FOR count=1 TO 3 DO total=total+count ENDFOR missing=UNINIT(count) ENDUSING done=TRUE ENDIF
+END MAIN

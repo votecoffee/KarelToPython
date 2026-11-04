@@ -1,0 +1,96 @@
+[
+  {
+    "program": "PATH_HEADER_INDEXED",
+    "path": "BANK",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ],
+            [
+              "LABEL",
+              [
+                "STRING",
+                4
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": {
+            "uninitialized": true
+          },
+          "LABEL": {
+            "uninitialized": true
+          }
+        }
+      },
+      {
+        "nodes": [],
+        "data": {
+          "COUNT": 42,
+          "LABEL": "two"
+        }
+      }
+    ]
+  },
+  {
+    "program": "PATH_HEADER_INDEXED",
+    "path": "RESULT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 42
+  },
+  {
+    "program": "PATH_HEADER_INDEXED",
+    "path": "VISITS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "PATH_HEADER_INDEXED",
+    "path": "INDEX_VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  },
+  {
+    "program": "PATH_HEADER_INDEXED",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

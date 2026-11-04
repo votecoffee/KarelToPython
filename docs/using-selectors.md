@@ -3,8 +3,10 @@
 Pythonic mode accepts existing STRUCTURE and supported built-in record storage
 as a USING selector. Dotted paths, ARRAY/PATH node indexes and grouping are
 accepted. Supported built-in records are VECTOR, CONFIG, XYZWPR, XYZWPREXT and
-POSITION. Whole ARRAY, FILE, PATH, QUEUE_TYPE and JOINTPOS values are not records;
-select a record element, node or field instead.
+POSITION. [Explicit PATH headers](path-header-using.md) now expose their direct
+fields through a checked header capture. Whole ARRAY, FILE, QUEUE_TYPE, JOINTPOS
+and headerless PATH selectors remain excluded; select a record element or node
+for other supported cases.
 
 ```karel
 PROGRAM sample

@@ -1785,8 +1785,14 @@ class Emitter:
                         selector = resolve(selector, bindings, scope)
                         if self.mode=='pythonic':selector=selector_names(selector)
                         spec = self.relative_operand_type(selector) if self.mode=='pythonic' else self.access_type(selector)
-                        if spec[0] not in (RECORD_TYPES if self.mode == 'pythonic' else ('STRUCTURE',)):
-                            self.error('E_USING_TYPE', 'USING requires STRUCTURE or a supported built-in record', selector.token)
+                        path_header=self.mode=='pythonic' and spec[0]=='PATH'
+                        if path_header:
+                            if spec[2] is None:self.error('E_USING_TYPE','USING PATH requires an explicit PATHHEADER',selector.token)
+                            selected_spec=spec[2]
+                            self.features.add('PATH header USING selector')
+                        else:selected_spec=spec
+                        if selected_spec[0] not in (RECORD_TYPES if self.mode == 'pythonic' else ('STRUCTURE',)):
+                            self.error('E_USING_TYPE', 'USING requires STRUCTURE, a supported record or explicit PATH header', selector.token)
                         binding = selector
                         if self.mode == 'pythonic':
                             storage = selector
@@ -1794,19 +1800,20 @@ class Emitter:
                             root=storage
                             while root.kind in ('group','field','index'):root=root.args[0]
                             reference=root.kind in ('name','using_ref')
-                            if not reference and not data_only(spec):
+                            if not reference and not data_only(selected_spec):
                                 self.error('E_USING_VALUE','Computed USING records require data without FILE/PATH/QUEUE resources',selector.token)
                             source_root=self.root_name(selector) if reference else None
                             protection_root=self.protection_root(selector) if reference else f'_using_{len(self.using_scopes)}_{len(selectors)}'
-                            if not reference:self.private_using_roots[protection_root]=spec
+                            if not reference:self.private_using_roots[protection_root]=selected_spec
                             source_kind='storage_reference' if reference else 'computed_value'
                             provenance='declared_storage' if source_root is not None else 'private_temporary'
                             captures.append(dict(source_kind=source_kind,provenance=provenance,source_root=source_root,
                                 expression_kind=selector.kind,independent_copy=not reference,copy_back=False))
+                            if path_header:captures[-1].update(path_header=True,path_type_spec=spec,selected_type_spec=selected_spec)
                             binding = Expr('using_ref',selector.token,
-                                (f'_using_{len(self.using_scopes)}_{len(selectors)}',spec,source_root,
+                                (f'_using_{len(self.using_scopes)}_{len(selectors)}',selected_spec,source_root,
                                  self.is_position_read_only_access(storage),path_text(selector),source_kind,provenance,protection_root))
-                        for name, _ in rt.record_fields(spec): fields[name] = binding
+                        for name, _ in rt.record_fields(selected_spec): fields[name] = binding
                         selectors.append(selector)
                     parent = scope
                     scope = dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -3445,7 +3452,12 @@ class Emitter:
     def emit_using_entry(self,stmt):
         if self.mode != 'pythonic': return
         for name,selector,kind in zip(stmt.using_captures,stmt.args,stmt.using_capture_kinds):
-            if kind=='computed_value':
+            selected=self.relative_operand_type(selector)
+            if selected[0]=='PATH':
+                if kind=='computed_value':value,_=self.expression(selector,raw=True)
+                else:value,_=self.reference(selector)
+                reference=f'_rt.using_path_header({selected!r},{value},{selector.token.line},reference={kind=="storage_reference"})'
+            elif kind=='computed_value':
                 value,spec=self.expression(selector,raw=True)
                 reference=f'_rt.value_argument({spec!r},{value},{selector.token.line})'
             else:reference,_=self.reference(selector)
@@ -6922,6 +6934,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['collection_array_transfer_policy']['source']='Explicit logical whole banks and rows/planes across static, created, borrowed, linked and named-path storage; source-language values follow collection_array_source_policy'
     report['collection_array_transfer_policy']['protection']='Reject shared owned cells/headers/nodes, malformed storage and output overlaps; preserve FOR, FILE, resource-field and ordinary resource-copy guards under collection_array_source_policy'
     report['typed_service_array_prefix_policy']['protection']='Preserve original-cell overlap, FOR, POSITION, CONFIG/association and exact linked-interface guards; live resource-prefix borrowing uses BYNAME only while private collection values follow collection_array_source_policy'
+    report['path_header_using_policy']=dict(
+        source='Pythonic USING over PATH values with explicit PATHHEADER; named/grouped/indexed storage and internal/compiled linked computed results',
+        lookup='Expose direct header fields under existing inner/rightmost lexical priority; selector lists resolve against enclosing bindings and evaluate once left-to-right',
+        capture='Validate exact bounded logical PATH data before body; require an existing shaped header; named selectors retain the original header object, computed selectors own independent private header copies',
+        lifetime='Retained handlers and pause/resume keep selected headers; source root/cell replacement cannot retarget old captures; no private copy-back',
+        effects='Named captures preserve PATH/global/formal root effects; computed captures use isolated header protection identities with normal private-counter/escape and timer ownership checks',
+        bounds='Existing 32767 PATH scalar-leaf and 64-level data-schema limits; partial scalar markers preserved; malformed known data, shared owned PATH data and missing headers reject',
+        exact='Named PATH/resource-root FOR, readonly POSITION descendants, CONFIG domains, exact linked types and scalar timer requirements retain guards; headerless PATH, whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS selectors remain excluded',
+        persistence='Existing logical header/PATH JSON and archives only; captured references, retained handlers, private temporaries and suspended frames are not persisted',
+        boundary='Authored offline Pythonic extension; no native USING/compiler/controller/strict equivalence or implicit header allocation',
+        guide='docs/path-header-using.md',controller_validated=False)
+    report['using_policy']['path_headers']='Explicit PATH header selectors follow path_header_using_policy; ordinary data record selectors retain their existing contracts'
+    report['using_policy']['boundary']='No whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS or headerless PATH selectors, resource-bearing selected records, escaping private counter aliases, implicit nested-field search or native namespace/timing/alias-lifetime claim'
+    report['computed_using_policy']['path_headers']='Computed PATH selectors provide checked private header data under path_header_using_policy'
+    report['computed_using_policy']['limits']='No resource-bearing selected records, whole ARRAY/QUEUE/FILE/JOINT or headerless PATH selectors or private counters with retained writable aliases; explicit PATH headers follow path_header_using_policy; existing POSITION/CONFIG guards remain'
     report['path_array_io_policy']=dict(
         source='Pythonic whole PATH ARRAY READ/WRITE, named components, selected rows/planes, explicit created/borrowed/linked storage and computed output values',
         order='ARRAY row-major cells, each PATH header then existing nodes, data declaration/row-major/joint-axis order; no tags, separators or inferred node counts',

@@ -1,0 +1,10 @@
+PROGRAM PATH_HEADER_INDEXED
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER label:STRING[4] ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR bank:ARRAY[2]OF route_t result,visits,index_value:INTEGER done:BOOLEAN
+ROUTINE pick:INTEGER BEGIN visits=visits+1 RETURN index_value END pick
+BEGIN
+  IF UNINIT(done) THEN
+    bank[2].count=17 bank[2].label='two' visits=0 index_value=2 USING bank[pick()] DO count=count+25 index_value=1 result=count ENDUSING
+    done=TRUE
+  ENDIF
+END PATH_HEADER_INDEXED

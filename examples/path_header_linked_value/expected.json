@@ -1,0 +1,21 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "SOURCE": {
+        "nodes": [],
+        "data": {
+          "COUNT": 7,
+          "LABEL": "seed"
+        }
+      },
+      "TOTAL": 6,
+      "MISSING": true,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

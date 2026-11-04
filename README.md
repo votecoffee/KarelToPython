@@ -104,6 +104,10 @@ PATH/QUEUE_TYPE banks through GET_VAR/SET_VAR, including rows/planes, created
 storage and linked routines. Independent snapshots retain destination cells and
 headers, detach old nodes, and reset copied queue buffer links.
 
+[PATH-header USING](docs/path-header-using.md) exposes supplied header fields
+through lexical aliases. Storage selectors retain their selected header; computed
+PATH results use independent private headers with counter and timer checks.
+
 [PATH-bank I/O](docs/path-array-io.md) adds whole-bank and selected row/plane
 READ/WRITE over existing headers/nodes, with uniform formats and ordinary text,
 binary and cooperative transports. Input retains original captured cells.
@@ -133,7 +137,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.021339**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.023812**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

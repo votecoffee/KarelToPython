@@ -1,0 +1,10 @@
+PROGRAM PATH_HEADER_VALUES
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER label:STRING[4] ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source:route_t result,visits:INTEGER done:BOOLEAN
+ROUTINE make:route_t BEGIN visits=visits+1 RETURN source END make
+BEGIN
+  IF UNINIT(done) THEN
+    source.count=7 source.label='seed' visits=0 USING make() DO count=42 label='private' result=count ENDUSING
+    done=TRUE
+  ENDIF
+END PATH_HEADER_VALUES

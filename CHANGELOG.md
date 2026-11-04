@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.023812 - 2026-11-04
+
+- Add PATH-header USING selectors for named/grouped/indexed storage and private
+  computed PATH results, including compiled linked results and created storage.
+- Capture exact existing headers once, preserving lexical priority, source-root
+  effects, retained handlers, pause/resume and independent computed values.
+- Apply private integral counter/escape proofs and connected-timer ownership to
+  private headers; retain named resource-root and POSITION/CONFIG protections.
+- Add 78 regressions, four standalone examples and two linked projects with
+  authored snapshots and complete typed saved-variable expectations.
+
 ## 26.1104.021339 - 2026-11-04
 
 - Add whole PATH ARRAY and selected row/plane READ/WRITE, including named,

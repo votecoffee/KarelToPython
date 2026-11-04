@@ -1,0 +1,12 @@
+{
+  "SOURCE": {
+    "nodes": [],
+    "data": {
+      "COUNT": 7,
+      "LABEL": "seed"
+    }
+  },
+  "RESULT": 42,
+  "VISITS": 1,
+  "DONE": true
+}

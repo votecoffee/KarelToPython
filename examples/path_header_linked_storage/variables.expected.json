@@ -1,0 +1,63 @@
+[
+  {
+    "program": "MAIN",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "HEADER_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "LABEL",
+            [
+              "STRING",
+              4
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [],
+      "data": {
+        "COUNT": 42,
+        "LABEL": "upda"
+      }
+    }
+  },
+  {
+    "program": "MAIN",
+    "path": "RESULT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 42
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

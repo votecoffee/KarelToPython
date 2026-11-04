@@ -1,5 +1,9 @@
 # Connected timers in private USING records
 
+[PATH-header USING](path-header-using.md) extends these lexical capture rules to
+explicit PATH headers. Computed PATH selectors provide isolated private header
+data; named selectors retain their existing resource-root protections.
+
 Pythonic CONNECT/DISCONNECT TIMER accepts ordinary INTEGER fields and ARRAY
 leaves in a captured computed USING record. These values are independent checked
 copies; timer writes never copy back to the record returned by the selector.

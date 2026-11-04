@@ -1,0 +1,21 @@
+{
+  "version": "26.1104.023812",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_path_header_using.py",
+    "tests/test_using_selectors.py",
+    "tests/test_computed_using.py",
+    "tests/test_private_using_counters.py",
+    "tests/test_private_using_timers.py"
+  ],
+  "source": "USING with explicit PATH headers over storage, computed values, created storage and compiled linked calls",
+  "lookup": "Direct header fields; normal inner/rightmost lexical priority and left-to-right once-only capture",
+  "capture": "Validate complete exact bounded logical PATH; require existing shaped header; named storage retains original header identity and computed values use private header data",
+  "effects": "Declared PATH roots retained for global/formal effects; isolated private header roots use existing counter/escape and timer ownership proofs",
+  "lifetime": "Retained handlers and pause/jumps keep captures; reentry recaptures; normal cleanup without private copy-back",
+  "bounds": "32767 PATH scalar leaves and 64 data-schema levels; partial markers retained and malformed/shared data rejected",
+  "persistence": "Existing logical JSON/archives only; captures, callbacks, private values and suspended frames omitted",
+  "boundary": "Headerless PATH and whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS selectors, named resource-root FOR, POSITION/CONFIG and exact linked contracts retain guards; no native/compiler/controller/strict equivalence"
+}

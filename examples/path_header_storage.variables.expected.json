@@ -1,0 +1,55 @@
+[
+  {
+    "program": "PATH_HEADER_STORAGE",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "HEADER_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "LABEL",
+            [
+              "STRING",
+              4
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [],
+      "data": {
+        "COUNT": 42,
+        "LABEL": "long"
+      }
+    }
+  },
+  {
+    "program": "PATH_HEADER_STORAGE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

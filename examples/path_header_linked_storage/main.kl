@@ -1,0 +1,7 @@
+PROGRAM MAIN
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER label:STRING[4] ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR source:route_t result:INTEGER done:BOOLEAN
+ROUTINE work(v:route_t):INTEGER FROM LIB
+BEGIN
+ IF UNINIT(done) THEN source.count=7 source.label='seed' result=work(source) done=TRUE ENDIF
+END MAIN

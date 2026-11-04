@@ -1,5 +1,9 @@
 # FOR counters in private USING values
 
+[PATH-header USING](path-header-using.md) extends these lexical capture rules to
+explicit PATH headers. Computed PATH selectors provide isolated private header
+data; named selectors retain their existing resource-root protections.
+
 Pythonic mode accepts INTEGER, BYTE and SHORT counter fields and ARRAY elements inside
 [computed USING record captures](computed-using.md). The counter owns a single
 captured scalar reference, and protects the complete private record while it is

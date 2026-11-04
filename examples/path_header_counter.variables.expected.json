@@ -1,0 +1,71 @@
+[
+  {
+    "program": "PATH_HEADER_COUNTER",
+    "path": "SOURCE",
+    "type": [
+      "PATH",
+      [
+        "STRUCTURE",
+        "NODE_T",
+        [
+          [
+            "VALUE",
+            [
+              "INTEGER"
+            ]
+          ]
+        ]
+      ],
+      [
+        "STRUCTURE",
+        "HEADER_T",
+        [
+          [
+            "COUNT",
+            [
+              "INTEGER"
+            ]
+          ],
+          [
+            "LABEL",
+            [
+              "STRING",
+              4
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "nodes": [],
+      "data": {
+        "COUNT": 7,
+        "LABEL": "seed"
+      }
+    }
+  },
+  {
+    "program": "PATH_HEADER_COUNTER",
+    "path": "TOTAL",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 6
+  },
+  {
+    "program": "PATH_HEADER_COUNTER",
+    "path": "MISSING",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "PATH_HEADER_COUNTER",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

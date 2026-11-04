@@ -1,5 +1,7 @@
 # Language support
 
+[PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
+
 [PATH-bank I/O](path-array-io.md) now expands whole PATH arrays and selected rows/planes through existing scalar READ/WRITE transports, with checked capture and uniform formats.
 
 [Scalar collection values](scalar-collection-values.md) add bounded PATH/QUEUE_TYPE source copies, private arguments and internal/compiled linked results. Exact schemas, borrowed bare arguments and detached queue buffers remain explicit.
@@ -124,7 +126,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.021339. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.023812. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
@@ -156,7 +158,7 @@ internally and in the historical semantic notes.
 | Predefined structures | DISP_DAT_T SHORT fields/fixed arrays, portable COL_DESC_T/XWORK_T and STD_PTH_NODE NODE_POS; aliases, arrays, fields, routine interfaces and CREATE_VAR | Existing nominal STRUCTURE schemas and initialization/copy/output guards; no obsolete association fields, native UI execution or ABI claim. |
 | TYPE aliases | Transparent supported scalar, bounded STRING, record, joint and prior named type aliases; chains and routine interfaces | Preserve original aggregate identity and capacities; bounded STRING formal references require matching capacity, values truncate to private alias capacity. No forward/self/cyclic aliases or local TYPE; aliases preserve scalar/aggregate storage domains. |
 | External types | Full TYPE name FROM owner definitions; supported aliases, structures, arrays and resource schemas | Standalone layout and owner metadata; source projects validate exact resolved schemas, self owners and acyclic reexports before allocation. No binary environments or native owner-qualified ABI. |
-| USING | Nested scopes; named/grouped record storage references and independent computed record captures | One-time left-to-right capture, inner/right-most field priority and handler lifetime. No copy-back for computed values; isolated private integral counters use whole-root/retained-alias proofs. [Private timers](private-using-timers.md) accept ordinary INTEGER leaves with terminal cleanup; whole ARRAY/resource/joint selectors remain blocked. See [computed USING](computed-using.md). |
+| USING | Nested scopes; named/grouped record storage references and independent computed record captures | One-time left-to-right capture, inner/right-most field priority and handler lifetime. No copy-back for computed values; isolated private integral counters use whole-root/retained-alias proofs. [Private timers](private-using-timers.md) accept ordinary INTEGER leaves with terminal cleanup; whole ARRAY/FILE/QUEUE_TYPE/JOINTPOS and headerless PATH selectors remain blocked. [Explicit PATH headers](path-header-using.md) now use checked storage/private capture. See [computed USING](computed-using.md). |
 | Positional data | CONFIG, VECTOR, XYZWPR, XYZWPREXT, POSITION data and exact value/result copies; POS constructs XYZWPR from six numbers and explicit CONFIG | POS retains coordinate/angle bounds and complete CONFIG checks without robot-specific validity. POSITION orientation starts unknown; explicit XYZWPR assignment can initialize it while retaining recursive read-only protection. No robot defaults. |
 | Initialization queries | UNINIT on supported scalar/joint storage and whole builtin records, including nested fields and individual ARRAY elements | Any missing builtin-record leaf means TRUE; read-only schema/type checks. Whole ARRAY, PATH, user STRUCTURE, QUEUE_TYPE and BYTE queries remain blocked. FILE descriptors, including ARRAY cells, use the [open-state policy](path-io-and-file-initialization.md). |
 | Variable inspection | VAR_INFO metadata and VAR_LIST filtered/paged global names | Current/attached declarations and explicit bindings; canonical types, bounded dimensions/formats, portable initialization flags and statuses; no local/controller discovery. |
