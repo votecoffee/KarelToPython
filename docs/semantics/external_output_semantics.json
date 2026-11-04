@@ -1,0 +1,31 @@
+{
+  "version": "26.1104.110331",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored staged callback/JSON response outputs, alias preservation/rejection, source/linked lifetimes and CLI saved-context replay; no native compiler or controller execution",
+  "implemented": {
+    "format": "Explicit result/outputs responses or optional outputs on exact argument cases; one-based ordinals and exact typed ordinary data",
+    "ownership": "Normal borrowed/private source argument rules; captured exact cells including live data prefixes",
+    "publication": "Result and all selected output values/storage validate before disjoint ordinary cell replacements; preserve record, ARRAY and joint aliases",
+    "bounds": "Existing128 bindings/rows and depth64; response result/outputs share32767 leaves; at most64 arguments/outputs",
+    "persistence": "Copied globals only; no response definitions, callbacks, references or continuations"
+  },
+  "remaining": [
+    "Algorithmic external behavior and resource effects require supplied source or explicit Python callbacks",
+    "Implicit library/schema discovery, native ABI/controller execution and public strict mode"
+  ],
+  "verification": [
+    "tests/test_external_outputs.py",
+    "tests/test_external_values.py",
+    "tests/test_external_collection_results.py",
+    "tests/test_array_prefix_references.py",
+    "tests/test_joint_axis_access.py",
+    "examples/external_output_scalars.kl",
+    "examples/external_output_records.kl",
+    "examples/external_output_prefixes.kl",
+    "examples/external_output_poses.kl",
+    "examples/external_output_forwarded/main.kl",
+    "examples/external_output_cases/main.kl"
+  ],
+  "guide": "../external-outputs.md"
+}

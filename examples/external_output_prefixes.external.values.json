@@ -1,0 +1,41 @@
+{
+  "HOST": {
+    "FILL": {
+      "result": null,
+      "outputs": [
+        {
+          "argument": 1,
+          "value": {
+            "type": [
+              "ARRAY",
+              2,
+              [
+                "INTEGER"
+              ]
+            ],
+            "value": [
+              17,
+              42
+            ]
+          }
+        },
+        {
+          "argument": 2,
+          "value": {
+            "type": [
+              "ARRAY",
+              2,
+              [
+                "INTEGER"
+              ]
+            ],
+            "value": [
+              7,
+              9
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

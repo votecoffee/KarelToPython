@@ -4789,7 +4789,7 @@ class Emitter:
             self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
             if self.mode=='pythonic':
                 self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
-                self.line('_parser.add_argument("--external-values", help="UTF-8 JSON explicit fixed data, no-op procedures or exact argument/result cases for external routines")')
+                self.line('_parser.add_argument("--external-values", help="UTF-8 JSON explicit data, procedures, argument cases and staged outputs for external routines")')
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
             self.line('_args = _parser.parse_args()')
@@ -7340,11 +7340,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Saving active jobs remains forbidden; no clocks, callbacks, pending scopes or resumable task frames are persisted',
         boundary='Authored offline model, without trajectories, feedback updates, inferred node times, background threads, native queues/controller/compiler/strict equivalence',
         guide='docs/nowait-motion.md',controller_validated=False)
+    report['external_output_policy']=dict(
+        source='Explicit JSON responses with result and outputs, plus optional case outputs in --external-values or direct Python callback replies',
+        interfaces='One-based argument ordinals within 1..64, exact captured concrete data schemas, ordinary writable references and existing source private-value/borrowed-reference rules',
+        values='Ordinary scalar/record/ARRAY/Cartesian/joint data, including missing scalar leaves; no resource data, implicit casts or writable protected reference classes',
+        capture='Normal argument selectors once in source order; case selection uses old snapshots before writes; preserve root, field, element and joint-axis aliases during publication',
+        publication='Validate result, all output schemas/known target data and complete disjoint target cells before any response writes; no callbacks, clock reads or checkpoints during publication',
+        bounds='64 outputs and arguments, existing 128 bindings/rows and depth64; 32767 scalar leaves shared by response result/output data before codec allocation',
+        persistence='Copied global data only; response definitions, references, callbacks and suspended frames are not serialized',
+        boundary='Explicit offline responses only; raw callback effects before a rejected response remain visible; no inferred algorithms, native ABI/controller execution or public strict mode',
+        guide='docs/external-outputs.md',controller_validated=False)
     report['external_value_policy']=dict(
         source='Pythonic typed JSON callback data results plus explicit --external-values for fixed data, no-op procedures and exact argument/result cases',
         interfaces='Complete concrete metadata, exact declared scalar/record/joint schemas and existing ARRAY wildcard/inherited-capacity result rules; ordinary raw callbacks and source links retain their contracts',
         capture='Validate supplied bindings before installation; fresh detached results; case arguments snapshot once after normal source evaluation, including partial data and concrete caller schemas',
-        matching='Canonical typed snapshots, field order independent and REAL zero sign normalized; no Boolean/numeric coercion, wildcard cases, implicit fallback, argument writes or executable host code',
+        matching='Canonical typed snapshots, field order independent and REAL zero sign normalized; no Boolean/numeric coercion, wildcard cases, implicit fallback or executable host code; explicit output batches follow external_output_policy',
         bounds='128 bindings and fixed/case rows, 64 arguments per case, 32767 stored/incoming scalar leaves, existing 64-level schema limit and strict UTF-8 JSON files within 4 MiB',
         persistence='Global result data only; callbacks/case tables are not persisted, supply the binding file again for saved-context replay',
         cli='Standalone and project CLI share input/trace/state alias protection; legacy --external-collections may be supplied alongside disjoint data bindings',

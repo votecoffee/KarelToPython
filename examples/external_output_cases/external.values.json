@@ -1,0 +1,45 @@
+{
+  "HOST": {
+    "RESPOND": {
+      "cases": [
+        {
+          "arguments": [
+            {
+              "type": [
+                "INTEGER"
+              ],
+              "value": 7
+            },
+            {
+              "type": [
+                "INTEGER"
+              ],
+              "value": 0
+            }
+          ],
+          "result": null,
+          "outputs": [
+            {
+              "argument": 1,
+              "value": {
+                "type": [
+                  "INTEGER"
+                ],
+                "value": 17
+              }
+            },
+            {
+              "argument": 2,
+              "value": {
+                "type": [
+                  "INTEGER"
+                ],
+                "value": 42
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

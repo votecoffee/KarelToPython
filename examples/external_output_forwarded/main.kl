@@ -1,0 +1,4 @@
+PROGRAM MAIN
+VAR n,status:INTEGER
+ROUTINE fill(value,result:INTEGER) FROM LIB
+BEGIN fill(n,status) END MAIN

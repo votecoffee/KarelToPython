@@ -951,6 +951,64 @@ def external_data_result(spec,value,line=None):
         raise KarelRuntimeError('External data result: '+str(error),line) from error
 
 
+def _external_reply_outputs(outputs,arity=None):
+    """Validate explicit one-based output ordinals without touching argument storage."""
+    if type(outputs) is not list or len(outputs)>64:raise ValueError('External reply outputs require a list of at most 64 entries')
+    seen=set();rows=[]
+    for row in outputs:
+        if type(row) is not dict or set(row)!={'argument','value'}:raise ValueError('External reply output requires exactly argument and value')
+        number=row['argument']
+        if type(number) is not int or not 1<=number<=64 or arity is not None and number>arity:
+            raise ValueError('External reply output argument must be in 1..64 and present in the call')
+        if number in seen:raise ValueError('Duplicate external reply output argument')
+        seen.add(number);rows.append(row)
+    return sorted(rows,key=lambda row:row['argument'])
+
+
+def external_reply_result(spec,reply,arguments,line=None):
+    """Stage a declared result and disjoint data outputs before any publication."""
+    if not _pythonic():raise KarelRuntimeError('External reply outputs require Pythonic mode',line)
+    from .storage import tuple_spec
+    from .variable_archives import ordinary,cells
+    try:
+        if type(reply) is not dict or set(reply)!={'result','outputs'}:raise ValueError('External reply requires exactly result and outputs')
+        if type(arguments) not in (list,tuple) or len(arguments)>64:raise ValueError('External reply requires at most 64 source arguments')
+        rows=_external_reply_outputs(reply['outputs'],len(arguments))
+        # Bound all supplied data before any decoding or target snapshot allocation.
+        units=1 if reply['result'] is None else 0
+        encoded=([reply['result']] if reply['result'] is not None else [])+[row['value'] for row in rows]
+        for value in encoded:
+            if type(value) is not dict or set(value)!={'type','value'} or type(value['type']) is not list:
+                raise ValueError('External reply data requires exactly type and value')
+            units+=_validate_data_schema(tuple_spec(value['type']),line)
+            if units>32767:raise ValueError('External reply exceeds 32767 scalar leaves including result and outputs')
+        if spec is None:
+            if reply['result'] is not None:raise ValueError('External procedure must return None')
+            result=None
+        else:
+            if reply['result'] is None:raise ValueError('External function requires its declared data result')
+            result=external_data_result(spec,reply['result'],line)
+        staged=[];occupied=set()
+        for row in rows:
+            target=arguments[row['argument']-1]
+            if not ordinary(target):raise ValueError('External reply output requires an ordinary writable data reference')
+            actual=tuple_spec(row['value']['type']);_validate_data_schema(target.spec,line)
+            if target.spec!=actual:raise ValueError('External reply output differs from its captured argument schema')
+            current=target.raw()
+            if type(current) is Structure and current.read_only:raise ValueError('External reply cannot write a read-only record value')
+            _aggregate_value(actual,current,line)
+            _,prepared=_external_data_decode(row['value'],line,selector=True)
+            addresses=cells(target)
+            if occupied&addresses:raise ValueError('External reply output arguments overlap')
+            occupied.update(addresses);staged.append((target,current,prepared))
+        # Exact ordinary containers and disjoint cells have been checked completely.
+        # No callback, clock read or checkpoint runs during these replacements.
+        for target,current,prepared in staged:target.storage[target.key]=replace_value(current,prepared)
+        return result
+    except (ValueError,KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
+        raise KarelRuntimeError('External reply: '+str(error),line) from error
+
+
 def external_value_callbacks(config):
     """Prepare explicit fixed data, no-op procedures or exact argument/result tables."""
     import json
@@ -970,6 +1028,9 @@ def external_value_callbacks(config):
         if units>32767:raise ValueError('External values exceed 32767 stored scalar leaves')
         spec,copied=_external_data_decode(row,selector=selector)
         return typed_value(copied,spec)
+    def response(result,outputs,arity=None):
+        rows=_external_reply_outputs(outputs,arity)
+        return dict(result=capture(result),outputs=[dict(argument=row['argument'],value=capture(row['value'],selector=True)) for row in rows])
     def key(arguments):
         def normalize(value):
             if type(value) is dict:return {name:normalize(item) for name,item in value.items()}
@@ -1011,18 +1072,19 @@ def external_value_callbacks(config):
                         if rows>128:raise ValueError('External values are limited to 128 fixed/case rows')
                         table={};arity=None
                         for case in cases:
-                            if (type(case) is not dict or set(case)!={'arguments','result'} or type(case['arguments']) is not list
-                                    or len(case['arguments'])>64):raise ValueError('External value case requires arguments (up to 64) and result')
+                            if (type(case) is not dict or set(case) not in ({'arguments','result'},{'arguments','result','outputs'}) or type(case['arguments']) is not list
+                                    or len(case['arguments'])>64):raise ValueError('External value case requires arguments (up to 64), result and optional outputs')
                             if arity is None:arity=len(case['arguments'])
                             if len(case['arguments'])!=arity:raise ValueError('External value cases require one argument count per binding')
                             selected=key([capture(argument,selector=True) for argument in case['arguments']])
                             if selected in table:raise ValueError('Duplicate normalized external value case arguments')
-                            table[selected]=capture(case['result'])
+                            table[selected]=response(case['result'],case['outputs'],arity) if 'outputs' in case else capture(case['result'])
                         prepared[pair]=cases_callback(table,arity)
                     else:
                         rows+=1
                         if rows>128:raise ValueError('External values are limited to 128 fixed/case rows')
-                        saved=capture(row);prepared[pair]=lambda *arguments,_saved=saved:deepcopy(_saved)
+                        saved=response(row['result'],row['outputs']) if type(row) is dict and set(row)=={'result','outputs'} else capture(row)
+                        prepared[pair]=lambda *arguments,_saved=saved:deepcopy(_saved)
         except (KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
             raise ValueError('Invalid external value data: '+str(error)) from error
     return prepared
@@ -4374,6 +4436,8 @@ class State:
         except (KarelPause,KarelStop): raise
         except Exception as exc: raise KarelRuntimeError('External routine failed: '+str(exc),line) from exc
         if self._aborted: raise KarelAbort(self._abort_line)
+        if _pythonic() and type(result) is dict and set(result)=={'result','outputs'}:
+            return external_reply_result(result_spec,result,arguments,line)
         if result_spec is None:
             if result is not None: raise KarelRuntimeError('External procedure must return None',line)
             return

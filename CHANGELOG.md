@@ -1,5 +1,18 @@
 # Changelog
 
+## 26.1104.110331 - 2026-11-04
+
+- Add explicit typed argument outputs to fixed/case JSON responses and direct
+  Python callback replies through the existing external-values protocol.
+- Stage the declared result, every exact data output and complete destination
+  overlap checks before publication; preserve field, ARRAY/prefix and joint aliases.
+- Retain source borrowed/private argument rules, partial data, ordinary callback
+  effects, linked/handler execution and pause/stop/abort frame lifetimes.
+- Bound outputs/arguments and combined result/output storage; reject protected
+  references, implicit casts, malformed data, resource replies and overlapping writes.
+- Add 125 regressions, four CLI examples and two linked projects with independent
+  complete expected snapshots and explicit response files for saved-context replay.
+
 ## 26.1104.102405 - 2026-11-04
 
 - Accept exact typed JSON callback data for scalars, records, arrays and pose/joint

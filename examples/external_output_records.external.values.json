@@ -1,0 +1,42 @@
+{
+  "HOST": {
+    "FILL": {
+      "result": {
+        "type": [
+          "INTEGER"
+        ],
+        "value": 42
+      },
+      "outputs": [
+        {
+          "argument": 1,
+          "value": {
+            "type": [
+              "STRUCTURE",
+              "ITEM_T",
+              [
+                [
+                  "ID",
+                  [
+                    "INTEGER"
+                  ]
+                ],
+                [
+                  "LABEL",
+                  [
+                    "STRING",
+                    4
+                  ]
+                ]
+              ]
+            ],
+            "value": {
+              "ID": 17,
+              "LABEL": "seed"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

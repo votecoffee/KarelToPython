@@ -1,0 +1,4 @@
+PROGRAM MAIN
+VAR n,status:INTEGER
+ROUTINE work(value,result:INTEGER) FROM LIB
+BEGIN n=7 status=0 work(n,status) END MAIN

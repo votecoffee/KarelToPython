@@ -5,6 +5,10 @@ The generated Python and project CLIs also accept `--external-values` to supply
 fixed data, explicit no-op procedures, or exact argument/result tables. They run
 without executable host code or inferred external-library behavior.
 
+[Explicit response outputs](external-outputs.md) now add selected writable data
+arguments through result/outputs responses or optional case outputs. Legacy fixed
+values, null no-ops and cases without outputs retain the rules below.
+
 ## Binding file and CLI
 
 ```json

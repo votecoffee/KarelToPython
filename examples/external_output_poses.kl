@@ -1,0 +1,7 @@
+PROGRAM EXTERNAL_OUTPUT_POSES
+VAR point:XYZWPREXT joints:JOINTPOS2 cfg:CONFIG value:INTEGER
+ROUTINE fetch(p:XYZWPREXT;j:JOINTPOS2;c:CONFIG) FROM HOST
+BEGIN
+  fetch(point,joints,cfg)
+  value=ROUND(point.x+point.ext1+joints[2])+cfg.cfg_turn_no1
+END EXTERNAL_OUTPUT_POSES

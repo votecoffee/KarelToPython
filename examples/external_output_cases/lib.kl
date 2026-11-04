@@ -1,0 +1,5 @@
+PROGRAM LIB
+ROUTINE respond(value,result:INTEGER) FROM HOST
+ROUTINE work(value,result:INTEGER)
+BEGIN respond(value,result) END work
+BEGIN END LIB

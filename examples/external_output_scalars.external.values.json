@@ -1,0 +1,46 @@
+{
+  "HOST": {
+    "FILL": {
+      "result": null,
+      "outputs": [
+        {
+          "argument": 1,
+          "value": {
+            "type": [
+              "INTEGER"
+            ],
+            "value": 17
+          }
+        },
+        {
+          "argument": 2,
+          "value": {
+            "type": [
+              "INTEGER"
+            ],
+            "value": 42
+          }
+        },
+        {
+          "argument": 3,
+          "value": {
+            "type": [
+              "REAL"
+            ],
+            "value": 1.25
+          }
+        },
+        {
+          "argument": 4,
+          "value": {
+            "type": [
+              "STRING",
+              4
+            ],
+            "value": "seed"
+          }
+        }
+      ]
+    }
+  }
+}

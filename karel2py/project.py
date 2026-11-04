@@ -240,7 +240,7 @@ def main(argv=None):
     parser.add_argument('--entry',help='Explicitly execute this program after linking; otherwise check translation only')
     parser.add_argument('--context',type=Path)
     parser.add_argument('--external-collections',type=Path,help='Fixed logical results for explicitly named external collection functions')
-    parser.add_argument('--external-values',type=Path,help='Explicit fixed data, no-op procedures or exact argument/result cases for external routines')
+    parser.add_argument('--external-values',type=Path,help='Explicit data, procedures, argument cases and staged outputs for external routines')
     parser.add_argument('--filesystem-root',type=Path)
     parser.add_argument('--state-out',type=Path)
     parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')

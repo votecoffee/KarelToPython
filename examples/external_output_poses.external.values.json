@@ -1,0 +1,69 @@
+{
+  "HOST": {
+    "FETCH": {
+      "result": null,
+      "outputs": [
+        {
+          "argument": 1,
+          "value": {
+            "type": [
+              "XYZWPREXT"
+            ],
+            "value": {
+              "X": 12.0,
+              "Y": 0.0,
+              "Z": 0.0,
+              "W": 0.0,
+              "P": 0.0,
+              "R": 0.0,
+              "CONFIG_DATA": {
+                "CFG_TURN_NO1": 0,
+                "CFG_TURN_NO2": 0,
+                "CFG_TURN_NO3": 0,
+                "CFG_FLIP": false,
+                "CFG_LEFT": false,
+                "CFG_UP": false,
+                "CFG_FRONT": false
+              },
+              "EXT1": 7.0,
+              "EXT2": 8.0,
+              "EXT3": 9.0
+            }
+          }
+        },
+        {
+          "argument": 2,
+          "value": {
+            "type": [
+              "JOINTPOS",
+              2
+            ],
+            "value": {
+              "axes": [
+                0.0,
+                90.0
+              ]
+            }
+          }
+        },
+        {
+          "argument": 3,
+          "value": {
+            "type": [
+              "CONFIG"
+            ],
+            "value": {
+              "CFG_TURN_NO1": 3,
+              "CFG_TURN_NO2": 0,
+              "CFG_TURN_NO3": 0,
+              "CFG_FLIP": false,
+              "CFG_LEFT": false,
+              "CFG_UP": false,
+              "CFG_FRONT": false
+            }
+          }
+        }
+      ]
+    }
+  }
+}

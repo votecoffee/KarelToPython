@@ -87,7 +87,9 @@ Source arguments still evaluate and undergo normal interface checks, but this
 fixed-value adapter ignores them and never writes borrowed arguments. Use
 separate [external data case bindings](external-values.md) for exact supplied
 argument-dependent data responses. Use an explicit Python callback or supplied
-KAREL source for algorithms, writable outputs or other effects. No host code or native library is loaded.
+KAREL source for algorithms or resource effects. Separate
+[explicit data response outputs](external-outputs.md) now add staged ordinary
+argument writes. No host code or native library is loaded.
 
 Program/function names are case-insensitive ASCII identifiers of 1..254
 characters. Normalized pairs must be distinct; at most 128 bindings are accepted.

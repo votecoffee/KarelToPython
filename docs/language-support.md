@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Explicit external outputs](external-outputs.md) now let JSON responses update selected
+ordinary data arguments as well as returning data. Results, values and disjoint
+captured destinations validate before any response write; borrowed/private source
+argument rules and retained data aliases remain intact.
+
 [Explicit external data](external-values.md) now accepts typed callback results and
 CLI JSON bindings for fixed data, no-op procedures and exact argument cases.
 Scalars, records, ARRAYs and pose/joint data retain checked independent values;
@@ -187,7 +192,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1104.102405. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.110331. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.
