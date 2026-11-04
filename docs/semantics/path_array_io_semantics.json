@@ -1,0 +1,20 @@
+{
+  "version": "26.1104.021339",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_path_array_io.py",
+    "tests/test_path_io.py",
+    "tests/test_collection_arrays.py",
+    "tests/test_aggregate_formats.py"
+  ],
+  "source": "Whole PATH ARRAY and selected row/plane READ/WRITE; static, created, borrowed and compiled linked storage; computed output values",
+  "order": "ARRAY row-major, each PATH header then existing nodes; declaration/row-major/joint-axis data fields",
+  "capture": "Preflight complete selected bank before formats/transport; independent immutable output values and original scalar input cells",
+  "bounds": "Three logical dimensions, 32767 collection units, 64-level data schemas and 1024 scalar fields including CR per operation",
+  "empty": "Empty headerless cells skipped; all-empty unformatted WRITE emits one empty item; all-empty READ/formatted output reject",
+  "transports": "Existing callback/JSON/TextInput/text/binary/cooperative transports, byte order, complete POSITION cohorts and normal rollback/status/lifetime rules",
+  "persistence": "Existing logical JSON/VR/DRAM data; captures, FILE handles, pending I/O and suspended frames omitted",
+  "boundary": "FILE/queue banks, resource fields, generic collection codecs/UNINIT, direct orientation writes and resource-root FOR remain guarded; no native/compiler/controller/strict equivalence"
+}

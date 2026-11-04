@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.021339 - 2026-11-04
+
+- Add whole PATH ARRAY and selected row/plane READ/WRITE, including named,
+  created, borrowed and compiled linked storage plus computed output values.
+- Preflight matching owned banks and existing node/header data before I/O;
+  preserve original input cells across later selectors, formats and node changes.
+- Reuse uniform scalar formats, text/binary byte ordering, complete POSITION
+  cohorts, cooperative cancellation and pause/stop cleanup with existing bounds.
+- Add 70 regressions, four examples and two linked projects with authored state,
+  file bytes and typed saved-variable fixtures; retain FILE/queue bank guards.
+
 ## 26.1104.015211 - 2026-11-04
 
 - Add scalar QUEUE_TYPE source assignments and private arguments; add PATH and

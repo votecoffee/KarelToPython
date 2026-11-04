@@ -1,0 +1,38 @@
+{
+  "PATHS": [
+    [
+      {
+        "nodes": [],
+        "data": null
+      },
+      {
+        "nodes": [],
+        "data": null
+      }
+    ],
+    [
+      {
+        "nodes": [],
+        "data": null
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 19
+          }
+        ],
+        "data": null
+      }
+    ]
+  ],
+  "VALUE": 19,
+  "STATUS": 0,
+  "STREAM": {
+    "file": "input",
+    "open": false,
+    "position": 4,
+    "binary": true,
+    "status": 0
+  },
+  "DONE": true
+}

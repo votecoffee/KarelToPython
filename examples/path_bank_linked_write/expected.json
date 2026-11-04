@@ -1,0 +1,42 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "PATHS": [
+        {
+          "nodes": [
+            {
+              "VALUE": 7
+            }
+          ],
+          "data": {
+            "COUNT": 1
+          }
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 9
+            }
+          ],
+          "data": {
+            "COUNT": 2
+          }
+        }
+      ],
+      "VALUE": 16,
+      "STATUS": 0,
+      "STREAM": {
+        "file": "output",
+        "open": false,
+        "position": 16,
+        "binary": true,
+        "status": 0
+      }
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

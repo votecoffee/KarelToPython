@@ -1,0 +1,10 @@
+PROGRAM PATH_BANK_PREFIX
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t
+VAR paths:ARRAY[2,2]OF route_t value,status:INTEGER stream:FILE done:BOOLEAN
+BEGIN
+  IF PATH_LEN(paths[2,2])=0 THEN APPEND_NODE(paths[2,2],status) ENDIF
+  paths[2,2][1].value=17
+  OPEN FILE stream('WB','output') WRITE stream(paths[2]) CLOSE FILE stream
+  OPEN FILE stream('RB','input') READ stream(paths[2]) CLOSE FILE stream
+  value=paths[2,2][1].value done=TRUE
+END PATH_BANK_PREFIX

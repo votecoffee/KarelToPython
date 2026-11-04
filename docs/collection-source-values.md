@@ -74,8 +74,9 @@ this feature does not publish a native external ABI or a new callback result cod
 ## Boundaries and persistence
 
 FILE descriptors/arrays, resource STRUCTURE fields and generic checked/clone/value/
-result helpers keep their guards. Whole collection READ/WRITE/UNINIT remains
-unavailable. Scalar assignments, private arguments and results now follow the
+result helpers keep their guards. Whole collection UNINIT and FILE/queue
+bank READ/WRITE remain unavailable; [PATH-bank I/O](path-array-io.md) has an
+explicit scalar transport contract. Scalar assignments, private arguments and results now follow the
 [scalar collection policy](scalar-collection-values.md). Existing resource-root FOR and POSITION
 orientation protection also remain. Live queue-buffer ownership is never copied:
 a later queue operation binds a compatible explicitly supplied INTEGER buffer.

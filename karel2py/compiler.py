@@ -3990,7 +3990,7 @@ class Emitter:
                 items.append(dict(data_type=data_type, line=item.token.line, column=item.token.column,
                                   format_specifiers=formats, dynamic_formats=any(x is None for x in literals)))
                 if aggregate:
-                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='PATH-header/nodes/declaration/row-major/joint-axis' if data_type=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
+                    items[-1].update(aggregate=True,type_spec=spec,scalar_order='ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if data_type=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                     self.features.add('whole data aggregate WRITE')
                 self.features.add(f'WRITE {data_type} output request')
                 if formats: self.features.add(f'WRITE {data_type} formatting')
@@ -4069,7 +4069,7 @@ class Emitter:
                     self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
                 if self.is_value_only_subfield(target) and self.mode!='pythonic':
                     self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
-                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic')
+                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic',collection_prefix=self.mode=='pythonic' and rt.path_array_io_type(self.access_type(target)))
                 aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
                 if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
                     self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data',target.token)
@@ -4093,7 +4093,7 @@ class Emitter:
                 destinations.append(dict(root=root, expression_kind=target.kind, type_spec=spec,
                                          line=target.token.line, column=target.token.column))
                 if aggregate:
-                    destinations[-1].update(aggregate=True,scalar_order='PATH-header/nodes/declaration/row-major/joint-axis' if spec[0]=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
+                    destinations[-1].update(aggregate=True,scalar_order='ARRAY-row-major/PATH-header/nodes/declaration/row-major/joint-axis' if rt.path_array_io_type(spec) else 'PATH-header/nodes/declaration/row-major/joint-axis' if spec[0]=='PATH' else 'declaration/row-major/joint-axis',formats='uniform scalar formats' if format_exprs else 'scalar defaults',capture_before_formats=True)
                     self.features.add('whole data aggregate READ')
                 if self.mode=='pythonic' and self.is_config_subfield(target):
                     self.features.add('bounded CONFIG field READ')
@@ -6914,7 +6914,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         arguments='Exact bare arrays retain borrowed references; grouped/computed and ordinary incomplete-prefix arguments own private values; retained handlers, pause, stop and failure never copy them back',
         results='Capture independent concrete results before routine cleanup; canonicalize declared outer result schema; compiled linked calls use the same checked logical result path, raw callback collection results remain excluded',
         bounds='One through three dimensions, 32767 descriptor/header/node/queue-entry snapshot units and 64 data-schema levels; prefix captures validate containing storage; malformed/missing ARRAY containers reject',
-        exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, whole collection READ/WRITE/UNINIT retain their guards; scalar source values follow scalar_collection_source_policy',
+        exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, FILE/queue bank READ/WRITE and whole collection UNINIT retain their guards; scalar source values follow scalar_collection_source_policy and PATH-bank I/O follows path_array_io_policy',
         persistence='Existing typed logical JSON/VR data only; no queue buffer links, private references, retained handlers, live row windows or suspended frames',
         boundary='Authored offline Pythonic extension; no native source/compiler/controller/ABI/strict equivalence or implicit allocation/discovery',
         guide='docs/collection-source-values.md',controller_validated=False)
@@ -6922,6 +6922,20 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['collection_array_transfer_policy']['source']='Explicit logical whole banks and rows/planes across static, created, borrowed, linked and named-path storage; source-language values follow collection_array_source_policy'
     report['collection_array_transfer_policy']['protection']='Reject shared owned cells/headers/nodes, malformed storage and output overlaps; preserve FOR, FILE, resource-field and ordinary resource-copy guards under collection_array_source_policy'
     report['typed_service_array_prefix_policy']['protection']='Preserve original-cell overlap, FOR, POSITION, CONFIG/association and exact linked-interface guards; live resource-prefix borrowing uses BYNAME only while private collection values follow collection_array_source_policy'
+    report['path_array_io_policy']=dict(
+        source='Pythonic whole PATH ARRAY READ/WRITE, named components, selected rows/planes, explicit created/borrowed/linked storage and computed output values',
+        order='ARRAY row-major cells, each PATH header then existing nodes, data declaration/row-major/joint-axis order; no tags, separators or inferred node counts',
+        capture='Preflight matching schemas, owned bank cells and known data before formats or transport; WRITE snapshots immutable leaves and READ retains original scalar cells',
+        formats='Existing uniform aggregate controls and default/text/binary/cooperative FILE transports; source items and CR share the 1024-field operation bound',
+        empty='Skip empty headerless cells; all-empty unformatted WRITE emits one empty item; all-empty READ and formatted all-empty output reject',
+        bounds='One through three logical dimensions, existing 32767 collection-unit and 64-level data-schema limits; at most 1024 scalar fields including CR per operation',
+        exact='QUEUE_TYPE/FILE banks, resource STRUCTURE fields, generic codecs/UNINIT, active FOR and direct POSITION orientation references retain guards; input does not allocate nodes or resize containers',
+        persistence='Existing typed JSON/VR logical data only; no transport captures, live FILE handles, pending I/O or suspended frames',
+        boundary='Authored offline Pythonic extension; no native compiler/controller/packed layout/strict equivalence',
+        guide='docs/path-array-io.md',controller_validated=False)
+    for policy in ('aggregate_read_policy','aggregate_write_policy','aggregate_format_policy'):
+        report[policy]['path_arrays']='Whole PATH banks and selected rows/planes follow path_array_io_policy; FILE/queue banks and embedded resources retain guards'
+    report['path_io_policy']['arrays']='Whole banks and selected rows/planes follow path_array_io_policy; scalar PATH I/O keeps its existing contracts'
     report['scalar_collection_source_policy']=dict(
         source='Pythonic scalar PATH/QUEUE_TYPE assignments, grouped/computed private arguments and internal/compiled linked function results',
         schemas='Exact collection kinds and PATH node/header layouts; declared source schemas must match; no numeric or geometry coercion',

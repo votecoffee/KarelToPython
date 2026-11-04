@@ -208,7 +208,7 @@ class CollectionArrayGuardTests(unittest.TestCase):
     def test_returned_collection_array_shape_mismatch_rejects(self):self.reject('',routines='ROUTINE work:ARRAY[3]OF QUEUE_TYPE BEGIN RETURN queues END work')
     def test_named_collection_results_require_matching_storage_identity(self):self.reject('',prefix=TYPES+' TYPE batch_t=ARRAY[2]OF QUEUE_TYPE',routines='ROUTINE work:batch_t BEGIN RETURN queues END work')
     def test_record_resource_array_fields_reject(self):self.reject('',prefix='TYPE data_t=STRUCTURE q:ARRAY[2]OF QUEUE_TYPE ENDSTRUCTURE',decl='d:data_t')
-    def test_whole_resource_array_input_rejects(self):self.reject('READ(paths)')
+    def test_whole_queue_array_input_rejects(self):self.reject('READ(queues)')
     def test_whole_resource_array_output_rejects(self):self.reject('WRITE(queues)')
     def test_whole_resource_array_uninit_rejects(self):self.reject('n=UNINIT(queues)')
     def test_collection_prefix_argument_type_mismatch_rejects(self):self.reject('work(q[1])',decl='q:ARRAY[2,2]OF QUEUE_TYPE',routines='ROUTINE work(v:ARRAY OF FILE) BEGIN END work')

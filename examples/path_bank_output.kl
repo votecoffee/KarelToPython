@@ -1,0 +1,9 @@
+PROGRAM PATH_BANK_OUTPUT
+TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE route_t=PATH NODEDATA=node_t PATHHEADER=header_t
+VAR paths:ARRAY[2]OF route_t value,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    APPEND_NODE(paths[1],status) APPEND_NODE(paths[2],status) paths[1].count=1 paths[2].count=2 paths[1][1].value=7 paths[2][1].value=9
+    WRITE(paths::4::0,CR) value=paths[1][1].value+paths[2][1].value done=TRUE
+  ENDIF
+END PATH_BANK_OUTPUT

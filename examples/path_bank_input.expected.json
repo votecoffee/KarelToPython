@@ -1,0 +1,33 @@
+{
+  "PATHS": [
+    {
+      "nodes": [
+        {
+          "VALUE": 17
+        }
+      ],
+      "data": {
+        "COUNT": 3
+      }
+    },
+    {
+      "nodes": [
+        {
+          "VALUE": 19
+        }
+      ],
+      "data": {
+        "COUNT": 4
+      }
+    }
+  ],
+  "VALUE": 36,
+  "STATUS": 0,
+  "STREAM": {
+    "file": "input",
+    "open": false,
+    "position": 16,
+    "binary": true,
+    "status": 0
+  }
+}

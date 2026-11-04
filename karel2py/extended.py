@@ -935,9 +935,9 @@ def path_variable_value(spec,value,line=None):
     except (ValueError,rt.KarelRuntimeError) as error: fail('PATH variable transfer: '+str(error),line)
 
 
-def collection_array_variable_value(spec,value,line=None):
-    """Detach exact logical collection data, including explicitly captured row windows."""
-    from .storage import collection_array_cost,collection_array_payload,restore_collection_array
+def collection_array_storage(spec,value,line=None):
+    """Validate exact owned cells and retain their original identities in row windows."""
+    from .storage import collection_array_cost
     from .variable_archives import collection_root
     rt=runtime()
     if not rt._pythonic():fail('Collection ARRAY transfers require Pythonic mode',line)
@@ -952,8 +952,16 @@ def collection_array_variable_value(spec,value,line=None):
                              if expected[2][0]=='ARRAY' else list(item.values))
             return captured
         captured=mirror(spec,value);collection_root(spec,captured)
-        return restore_collection_array(spec,collection_array_payload(spec,captured))
+        return captured
     except (ValueError,rt.KarelRuntimeError) as error:fail('Collection ARRAY variable transfer: '+str(error),line)
+
+
+def collection_array_variable_value(spec,value,line=None):
+    """Detach exact logical collection data, including explicitly captured row windows."""
+    from .storage import collection_array_payload,restore_collection_array
+    captured=collection_array_storage(spec,value,line)
+    try:return restore_collection_array(spec,collection_array_payload(spec,captured))
+    except (ValueError,runtime().KarelRuntimeError) as error:fail('Collection ARRAY variable transfer: '+str(error),line)
 
 
 def variable_value(spec,value,line=None):

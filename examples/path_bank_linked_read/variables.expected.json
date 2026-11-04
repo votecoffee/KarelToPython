@@ -1,0 +1,75 @@
+[
+  {
+    "program": "MAIN",
+    "path": "PATHS",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        [
+          "STRUCTURE",
+          "HEADER_T",
+          [
+            [
+              "COUNT",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ]
+      ]
+    ],
+    "value": [
+      {
+        "nodes": [
+          {
+            "VALUE": 17
+          }
+        ],
+        "data": {
+          "COUNT": 3
+        }
+      },
+      {
+        "nodes": [
+          {
+            "VALUE": 19
+          }
+        ],
+        "data": {
+          "COUNT": 4
+        }
+      }
+    ]
+  },
+  {
+    "program": "MAIN",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 36
+  },
+  {
+    "program": "MAIN",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  }
+]

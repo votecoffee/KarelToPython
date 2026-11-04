@@ -1,5 +1,9 @@
 # PATH and QUEUE_TYPE arrays
 
+[PATH-bank I/O](path-array-io.md) extends these scalar transports to whole PATH
+arrays and selected rows/planes, retaining existing supplied headers/nodes and
+normal capture, format and operation bounds. FILE/queue banks remain excluded.
+
 Pythonic mode supports owned logical ARRAYs of PATH and QUEUE_TYPE. Each cell
 owns an independent logical collection. Use existing PATH/queue operations on a
 selected cell, or borrow the complete ARRAY through a routine or BYNAME argument.

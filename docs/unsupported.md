@@ -148,13 +148,13 @@ components with complete-batch pose validation and bounded rounding normalizatio
   values. [Narrow FOR counters](narrow-for.md) now enforce initialized BYTE/SHORT
   domains and type-specific cleanup; [dynamic narrow creation](dynamic-narrow.md)
   now supports direct BYTE/SHORT and supplied aliases with existing allocation guards.
-- Resource output, incomplete/unknown aggregate output, per-field aggregate-format
+- FILE/queue resource output, incomplete/unknown aggregate output, per-field aggregate-format
   mapping syntax and native packed layouts remain unavailable.
   [Uniform aggregate formats](aggregate-formats.md) now apply scalar format lists
   to every expanded member of whole-data READ/WRITE, with capture before formats.
   [Whole-data WRITE](aggregate-output.md) now supports complete data, including
   readable POSITION columns, without changing orientation-write restrictions.
-- Resource READ, missing whole/nested data containers, direct readonly POSITION
+- FILE/queue resource READ, missing whole/nested data containers, direct readonly POSITION
   orientation destinations and generic CONFIG conversion/status aliases remain blocked.
   [Portable CONFIG words](config-words.md) now support source and explicit
   variable-transfer value conversions, with a documented 16-bit Pythonic layout;
@@ -346,7 +346,9 @@ restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operati
   now support static/dynamic reference-only PATH/QUEUE_TYPE storage and logical JSON.
   [Logical collection source values](collection-source-values.md) now add owned
   ARRAY assignments, private interfaces/results and independent selected prefixes;
-  FILE, scalar queue assignment and generic codec/READ/WRITE guards remain.
+  FILE/queue bank READ/WRITE, generic codecs and whole collection UNINIT retain
+  guards. [PATH-bank I/O](path-array-io.md) now adds whole-bank and selected
+  row/plane READ/WRITE; scalar queue source copies follow the scalar policy.
   [Owned collection ARRAY VR archives](collection-array-archives.md) now support
   save/load/clear, recursive/mixed batches and explicit DRAM snapshots with
   exact identities, bounded validation and ordinary lifetime guards.

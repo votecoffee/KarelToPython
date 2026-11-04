@@ -1,0 +1,79 @@
+[
+  {
+    "program": "PATH_BANK_PREFIX",
+    "path": "PATHS",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "PATH",
+        [
+          "STRUCTURE",
+          "NODE_T",
+          [
+            [
+              "VALUE",
+              [
+                "INTEGER"
+              ]
+            ]
+          ]
+        ],
+        null
+      ]
+    ],
+    "value": [
+      [
+        {
+          "nodes": [],
+          "data": null
+        },
+        {
+          "nodes": [],
+          "data": null
+        }
+      ],
+      [
+        {
+          "nodes": [],
+          "data": null
+        },
+        {
+          "nodes": [
+            {
+              "VALUE": 19
+            }
+          ],
+          "data": null
+        }
+      ]
+    ]
+  },
+  {
+    "program": "PATH_BANK_PREFIX",
+    "path": "VALUE",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 19
+  },
+  {
+    "program": "PATH_BANK_PREFIX",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "PATH_BANK_PREFIX",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

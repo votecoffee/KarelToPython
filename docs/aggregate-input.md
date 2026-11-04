@@ -1,5 +1,9 @@
 # Whole data aggregate READ
 
+[PATH-bank I/O](path-array-io.md) extends these scalar transports to whole PATH
+arrays and selected rows/planes, retaining existing supplied headers/nodes and
+normal capture, format and operation bounds. FILE/queue banks remain excluded.
+
 Pythonic READ accepts whole ARRAYs, user STRUCTUREs, VECTORs, CONFIGs,
 POSITION/XYZWPR/XYZWPREXT records and JOINTPOS values. This is an authored Pythonic
 extension using the existing scalar input transports, without native aggregate

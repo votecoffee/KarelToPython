@@ -186,7 +186,7 @@ class PathIOGuardTests(unittest.TestCase):
     def test_position_orientation_input_inside_path_remains_excluded(self):
         with self.assertRaises(TranslationError):build('READ(p[1].point.normal)',prefix='TYPE node_t=STRUCTURE point:POSITION ENDSTRUCTURE',decl='p:PATH NODEDATA=node_t',seed=False)
     def test_nested_path_schema_does_not_become_data_output(self):
-        bad=('STRUCTURE','NESTED',(('VALUE',('PATH',None,None)),));self.assertFalse(rt.aggregate_write_type(bad));self.assertFalse(rt.aggregate_read_type(('ARRAY',2,('PATH',None,None))))
+        bad=('STRUCTURE','NESTED',(('VALUE',('PATH',None,None)),));self.assertFalse(rt.aggregate_write_type(bad));self.assertFalse(rt.aggregate_read_type(('ARRAY',2,('QUEUE_TYPE',))))
     def test_unknown_byte_cannot_be_written(self):
         p,_=build('INSERT_NODE(p,1,s) WRITE(p)',prefix='TYPE node_t=STRUCTURE amount:BYTE ENDSTRUCTURE',decl='p:PATH NODEDATA=node_t s:INTEGER',seed=False)
         with self.assertRaises(rt.KarelRuntimeError):p.run()
