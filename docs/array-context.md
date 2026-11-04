@@ -92,8 +92,9 @@ input, including hard links and forced converter overwrites. Project execution
 context loading and generated-code execution remain separate explicit actions.
 There is no native PC/VR inspection, file searching, runtime resizing, wildcard
 TYPE/field/local support, GUI interaction or controller allocation equivalence.
-The stored-source TRANSLATE service retains its existing explicit `array_shapes`
-configuration. Strict mode remains future work.
+The stored-source TRANSLATE service also accepts optional
+[array_context metadata and explicit include FILE bindings](stored-translation-inputs.md),
+retaining its existing explicit `array_shapes` configuration. Strict mode remains future work.
 
 See [project shape routing](project-array-shapes.md),
 [regressions](../tests/test_array_context.py),

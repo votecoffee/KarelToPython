@@ -1,0 +1,61 @@
+{
+  "enabled": true,
+  "overwrite": false,
+  "source_limit": 1048576,
+  "output_limit": 16777216,
+  "limit": 64,
+  "includes": {},
+  "array_shapes": {},
+  "sequence": 1,
+  "history": [
+    {
+      "sequence": 1,
+      "program": "STORED_INPUTS_RECORDS",
+      "request": "child",
+      "source": "child.kl",
+      "python": "child.py",
+      "listing": "child.LS",
+      "status": 0,
+      "phase": "completed",
+      "diagnostic": "",
+      "source_sha256": "fcdc4400eafbfaec2f5b384c82f1e94b3e3e0ba8ec509051fdc964ff4eb3700e",
+      "python_sha256": "sha256",
+      "listing_sha256": "sha256",
+      "include_sources": [
+        {
+          "include": "DECL.KL",
+          "source": "dep.inc",
+          "sha256": "9900df46f08702387e358f70cbf3fb2d5b74428a520f680227d7feffd0be30cf"
+        }
+      ]
+    }
+  ],
+  "include_files": {
+    "DECL.KL": "dep.inc"
+  },
+  "array_context": {
+    "variables": [
+      {
+        "program": "CHILD",
+        "path": "VALUES",
+        "type": [
+          "ARRAY",
+          2,
+          [
+            "STRUCTURE",
+            "ITEM_T",
+            [
+              [
+                "ID",
+                [
+                  "INTEGER"
+                ]
+              ]
+            ]
+          ]
+        ],
+        "value": null
+      }
+    ]
+  }
+}

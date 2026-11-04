@@ -48,6 +48,16 @@ def source_name(value):
     return prefix+stem+'.KL'
 
 
+def include_key(name):
+    key=relative_name(name);base=key.rsplit('/',1)[-1].rsplit(':',1)[-1]
+    if '.' not in base:key+='.KL';stem=base
+    else:
+        stem,extension=base.rsplit('.',1)
+        if extension.upper() not in ('KL','KH','INC'):raise ValueError('Include extensions require KL, KH or INC')
+    if not 1<=len(stem)<=36:raise ValueError('Include basenames require 1..36 characters')
+    return key.upper()
+
+
 def load_compiler():
     # Importing runtime or restoring service configuration must not import the
     # lexer/compiler. A runtime-only deployment can report option unavailable.
@@ -66,24 +76,19 @@ def check_abort(state,line):
 class SourceTranslations:
     """Bounded, opt-in code generation over an explicitly supplied FILE backend."""
     def __init__(self,*,enabled=True,overwrite=False,source_limit=1024*1024,output_limit=16*1024*1024,
-                 limit=64,includes=None,array_shapes=None,sequence=0,history=None):
+                 limit=64,includes=None,array_shapes=None,sequence=0,history=None,include_files=None,array_context=None):
         if type(enabled) is not bool or type(overwrite) is not bool:raise ValueError('Source translation enabled/overwrite require BOOLEANs')
         self.enabled=enabled;self.overwrite=overwrite
         self.source_limit=bounded(source_limit,1,4*1024*1024,'Source byte limit')
         self.output_limit=bounded(output_limit,1,64*1024*1024,'Output byte limit')
         self.limit=bounded(limit,1,4096,'Translation history limit');self.sequence=bounded(sequence,0,MAX_SEQUENCE,'Translation sequence')
-        self.includes={};self.array_shapes={};self.history=[];self._active=False
+        self.includes={};self.array_shapes={};self.include_files={};self.array_context=None;self.history=[];self._active=False
         includes={} if includes is None else includes;array_shapes={} if array_shapes is None else array_shapes
         if type(includes) is not dict or len(includes)>256:raise ValueError('Includes require at most 256 named texts')
         total=0
         for name,text in includes.items():
-            key=relative_name(name);base=key.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            if '.' not in base:key+='.KL';stem=base
-            else:
-                stem,extension=base.rsplit('.',1)
-                if extension.upper() not in ('KL','KH','INC'):raise ValueError('Include extensions require KL, KH or INC')
-            key=key.upper()
-            if not 1<=len(stem)<=36 or key in self.includes or type(text) is not str:raise ValueError('Invalid or duplicate include source')
+            key=include_key(name)
+            if key in self.includes or type(text) is not str:raise ValueError('Invalid or duplicate include source')
             size=len(text.encode('utf-8'));total+=size
             if size>4*1024*1024 or total>8*1024*1024:raise ValueError('Include sources exceed the explicit byte budget')
             self.includes[key]=text
@@ -92,12 +97,25 @@ class SourceTranslations:
             if type(name) is not str or re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*',name) is None or name.upper() in self.array_shapes:raise ValueError('Invalid or duplicate ARRAY shape name')
             if type(shape) not in (list,tuple) or not 1<=len(shape)<=3:raise ValueError('ARRAY shapes require one to three dimensions')
             self.array_shapes[name.upper()]=[bounded(size,1,32767,'ARRAY dimension') for size in shape]
+        include_files={} if include_files is None else include_files
+        if type(include_files) is not dict or len(include_files)+len(self.includes)>256:
+            raise ValueError('Combined text/file includes require at most 256 bindings')
+        for name,target in include_files.items():
+            key=include_key(name)
+            if key in self.includes or key in self.include_files:raise ValueError('Duplicate text/file include name')
+            self.include_files[key]=relative_name(target)
+        if array_context is not None:
+            import json
+            from .array_context import ArrayContext,MAX_BYTES
+            self.array_context=ArrayContext(array_context).to_config()
+            if len(json.dumps(self.array_context,separators=(',',':'),allow_nan=False).encode('utf-8'))>MAX_BYTES:
+                raise ValueError('Stored ARRAY schema metadata exceeds 16 MiB')
         if history is None:history=[]
         if type(history) is not list or len(history)>self.limit:raise ValueError('Translation history exceeds its limit')
         previous=0
         fields={'sequence','program','request','source','python','listing','status','phase','diagnostic','source_sha256','python_sha256','listing_sha256'}
         for row in history:
-            if type(row) is not dict or set(row)!=fields:raise ValueError('Malformed source translation history')
+            if type(row) is not dict or not fields<=set(row) or set(row)-fields-{'include_sources'}:raise ValueError('Malformed source translation history')
             number=bounded(row['sequence'],1,self.sequence,'History sequence')
             if number<=previous:raise ValueError('Translation history sequence must increase')
             previous=number
@@ -122,6 +140,16 @@ class SourceTranslations:
                 if (row[artifact] is None)!=(row[artifact+'_sha256'] is None):raise ValueError('History artifact requires both published path and hash')
             if row['source'] is None and any(row[field] is not None for field in ('source_sha256','python','listing')):raise ValueError('History artifacts require a resolved source')
             if any(row[field] is not None for field in ('python','listing')) and row['source_sha256'] is None:raise ValueError('Published artifacts require the source byte hash')
+            if 'include_sources' in row:
+                inputs=row['include_sources'];seen=set()
+                if type(inputs) is not list or len(inputs)>256:raise ValueError('Include history exceeds 256 bindings')
+                for item in inputs:
+                    if type(item) is not dict or set(item)!={'include','source','sha256'}:raise ValueError('Malformed include source history')
+                    name=include_key(item['include']);relative_name(item['source'])
+                    if name!=item['include'] or name in seen:raise ValueError('Include history names require distinct canonical names')
+                    seen.add(name)
+                    if type(item['sha256']) is not str or re.fullmatch('[0-9a-f]{64}',item['sha256']) is None:raise ValueError('Invalid include source hash')
+                if inputs and row['source_sha256'] is None:raise ValueError('Include reads require a primary source snapshot')
             self.history.append(deepcopy(row))
 
     @staticmethod
@@ -137,7 +165,7 @@ class SourceTranslations:
                     if path.exists() and other.exists() and path.samefile(other):return True
         return False
 
-    def lookup(self,state,files,name,line,*,output=False):
+    def lookup(self,state,files,name,line,*,output=False,charge=True):
         from .storage import DirectoryFiles
         if type(files) is DirectoryFiles:
             wanted=files._key(name);parts=wanted.split('/');current=files.root
@@ -146,7 +174,7 @@ class SourceTranslations:
                 matches=[]
                 for index,path in enumerate(current.iterdir(),1):
                     if index>32767:raise FileProblem('File lookup exceeds 32767 entries in one directory')
-                    if index%256==1:state.tick(line)
+                    if charge and index%256==1:state.tick(line)
                     if path.name.casefold()==component.casefold():matches.append(path)
                 if len(matches)>1:raise FileProblem('Case-insensitive file specification is ambiguous')
                 if not matches:
@@ -157,7 +185,7 @@ class SourceTranslations:
         if len(files.files)>32767:raise FileProblem('File lookup exceeds 32767 stored names')
         matches=[];wanted=relative_name(name).casefold()
         for index,key in enumerate(files.files):
-            if index%256==0:state.tick(line)
+            if charge and index%256==0:state.tick(line)
             try:canonical=relative_name(key).casefold()
             except ValueError:continue
             if canonical==wanted:matches.append(key)
@@ -178,20 +206,44 @@ class SourceTranslations:
         if len(data)>self.source_limit:raise FileProblem('Source exceeds its byte limit')
         return data
 
-    def preflight(self,state,files,source,products,line):
+    def capture_includes(self,state,files,line,inputs,row):
+        texts=dict(self.includes);total=sum(len(text.encode('utf-8')) for text in texts.values())
+        if self.include_files:row.setdefault('include_sources',[])
+        for name,wanted in sorted(dict(self.include_files).items()):
+            check_abort(state,line)
+            key=self.lookup(state,files,wanted,line)
+            if key is None:raise FileProblem('Explicit include FILE is absent')
+            data=self.read(files,key);inputs.append((wanted,key,data))
+            row['include_sources'].append(dict(include=name,source=key,sha256=hashlib.sha256(data).hexdigest()))
+            total+=len(data)
+            if total>8*1024*1024:raise FileProblem('Combined include sources exceed 8 MiB')
+            try:texts[name]=data.decode('utf-8-sig')
+            except UnicodeError as error:raise FileProblem('Explicit include FILE requires UTF-8') from error
+            for _ in range(0,len(data),4096):state.tick(line)
+        return texts
+
+    def verify_inputs(self,state,files,inputs,line):
+        # The final read-set pass adds no checkpoints or callbacks. Host races
+        # remain possible; this is not a filesystem lock or multi-file transaction.
+        for wanted,key,data in inputs:
+            if self.lookup(state,files,wanted,line,charge=False)!=key or self.read(files,key)!=data:
+                raise FileProblem('Translation input resolution or bytes changed')
+        check_abort(state,line)
+
+    def preflight(self,state,files,source,products,line,*,inputs=()):
         from .storage import DirectoryFiles
         from .devices import DeviceFiles
-        plan=[];growth={};new=0
+        plan=[];growth={};new=0;protected=[source,*[key for _,key,_ in inputs]]
         if self.busy(files,source):raise FileProblem('Source FILE became busy')
         for wanted,data in products:
             key=self.lookup(state,files,wanted,line,output=True)
-            if key.casefold()==source.casefold() or any(key.casefold()==old.casefold() for old,_ in plan):raise FileProblem('Translation source/output aliases overlap')
+            if any(key.casefold()==old.casefold() for old in protected) or any(key.casefold()==old.casefold() for old,_ in plan):raise FileProblem('Translation input/output aliases overlap')
             if self.busy(files,key):raise FileProblem('Output FILE is busy')
             if len(data)>files.limit:raise FileProblem('Output exceeds its backend byte limit')
             if type(files) is DirectoryFiles:
                 path=files._path(key);exists=path.exists()
                 if exists and not path.is_file():raise FileProblem('Output is not a regular file')
-                for other in [source,*[old for old,_ in plan]]:
+                for other in [*protected,*[old for old,_ in plan]]:
                     peer=files._path(other)
                     if exists and peer.exists() and path.samefile(peer):raise FileProblem('Translation source/output aliases overlap')
             else:
@@ -206,6 +258,7 @@ class SourceTranslations:
         if type(files) is DeviceFiles:
             for device,delta in growth.items():
                 if files.used(device)+delta>files._volumes[device]['capacity']:raise FileProblem('Combined translation products exceed virtual device capacity')
+        self.verify_inputs(state,files,inputs,line)
         return plan
 
     @staticmethod
@@ -237,6 +290,7 @@ class SourceTranslations:
         if self.sequence>=MAX_SEQUENCE:raise rt().KarelRuntimeError('Source translation sequence exhausted',line)
         self.sequence+=1;row=dict(sequence=self.sequence,program=program,request=file_spec,
             source=None,python=None,listing=None,status=None,phase='raised',diagnostic='',source_sha256=None,python_sha256=None,listing_sha256=None)
+        if self.include_files:row['include_sources']=[]
         self._active=True
         try:
             if not self.enabled:row.update(status=268,phase='unavailable');return 268
@@ -247,16 +301,18 @@ class SourceTranslations:
             if type(files) not in (rt().MemoryFiles,DirectoryFiles,DeviceFiles):raise FileProblem('Source translation requires an explicit ordinary FILE backend')
             wanted=source_name(file_spec);key=self.lookup(state,files,wanted,line)
             if key is None:raise FileProblem('Forced .KL source file is absent')
-            row['source']=key;data=self.read(files,key);row['source_sha256']=hashlib.sha256(data).hexdigest()
+            row['source']=key;data=self.read(files,key);row['source_sha256']=hashlib.sha256(data).hexdigest();inputs=[(wanted,key,data)]
             for _ in range(0,len(data),4096):state.tick(line)
             for text in self.includes.values():
                 for _ in range(0,len(text.encode('utf-8')),4096):state.tick(line)
             try:compiler,error_type=load_compiler()
             except ImportError as error:row.update(status=268,phase='unavailable',diagnostic=str(error)[:1024]);return 268
+            includes=self.capture_includes(state,files,line,inputs,row)
+            options=dict(array_context=deepcopy(self.array_context)) if self.array_context is not None else {}
             diagnostic='';result=None
             try:
                 source=data.decode('utf-8-sig')
-                result=compiler(source,filename=key,mode='pythonic',includes=self.includes,array_shapes=self.array_shapes)
+                result=compiler(source,filename=key,mode='pythonic',includes=includes,array_shapes=self.array_shapes,**options)
             except (error_type,UnicodeError) as error:
                 diagnostic=str(error);source=data.decode('utf-8-sig',errors='backslashreplace')
             except (ValueError,OSError) as error:
@@ -269,12 +325,12 @@ class SourceTranslations:
             if sum(len(value) for _,value in products)>self.output_limit:raise FileProblem('Combined translation products exceed output byte limit')
             for _,value in products:
                 for _ in range(0,len(value),4096):state.tick(line)
-            plan=self.preflight(state,files,key,products,line)
+            plan=self.preflight(state,files,key,products,line,inputs=inputs)
             for output,value in plan:
                 check_abort(state,line)
                 # Recheck live paths, aliases, capacity and busy state immediately
                 # before each publication; .py is deliberately the final commit.
-                self.preflight(state,files,key,[(output,value)],line)
+                self.preflight(state,files,key,[(output,value)],line,inputs=inputs)
                 self.publish(files,output,value,line)
                 field='python' if output.casefold().endswith('.py') else 'listing'
                 row[field]=output;row[field+'_sha256']=hashlib.sha256(value).hexdigest()
@@ -289,12 +345,15 @@ class SourceTranslations:
 
     def to_config(self):
         if self._active:raise ValueError('Finish active source translation before saving context')
-        return dict(enabled=self.enabled,overwrite=self.overwrite,source_limit=self.source_limit,output_limit=self.output_limit,limit=self.limit,
+        result=dict(enabled=self.enabled,overwrite=self.overwrite,source_limit=self.source_limit,output_limit=self.output_limit,limit=self.limit,
             includes=deepcopy(self.includes),array_shapes=deepcopy(self.array_shapes),sequence=self.sequence,history=deepcopy(self.history))
+        if self.include_files:result['include_files']=deepcopy(self.include_files)
+        if self.array_context is not None:result['array_context']=deepcopy(self.array_context)
+        return result
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'enabled','overwrite','source_limit','output_limit','limit','includes','array_shapes','sequence','history'}:raise ValueError('Unknown source translation configuration fields')
+        if type(config) is not dict or set(config)-{'enabled','overwrite','source_limit','output_limit','limit','includes','array_shapes','sequence','history','include_files','array_context'}:raise ValueError('Unknown source translation configuration fields')
         return cls(**config)
 
 

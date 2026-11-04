@@ -1,0 +1,36 @@
+{
+  "files": {
+    "child.kl": "PROGRAM CHILD\n%INCLUDE 'decl'\nBEGIN values[2].id=17 END CHILD\n",
+    "dep.inc": "TYPE item_t=STRUCTURE id:INTEGER ENDSTRUCTURE\nVAR values:ARRAY[*]OF item_t\n"
+  },
+  "source_translations": {
+    "include_files": {
+      "decl": "dep.inc"
+    },
+    "array_context": {
+      "variables": [
+        {
+          "program": "CHILD",
+          "path": "VALUES",
+          "type": [
+            "ARRAY",
+            2,
+            [
+              "STRUCTURE",
+              "ITEM_T",
+              [
+                [
+                  "ID",
+                  [
+                    "INTEGER"
+                  ]
+                ]
+              ]
+            ]
+          ],
+          "value": null
+        }
+      ]
+    }
+  }
+}

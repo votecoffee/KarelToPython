@@ -1,0 +1,18 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "NAMES": [
+        "child.py"
+      ],
+      "COUNT": 1,
+      "STATUS": 0,
+      "TRANSLATION_STATUS": 0,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {}
+  }
+}

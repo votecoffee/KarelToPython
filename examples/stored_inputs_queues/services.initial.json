@@ -1,0 +1,27 @@
+{
+  "files": {
+    "child.kl": "PROGRAM CHILD\n%INCLUDE 'decl'\nBEGIN INIT_QUEUE(values[2]) END CHILD\n",
+    "dep.inc": "VAR values:ARRAY[*]OF QUEUE_TYPE\n"
+  },
+  "source_translations": {
+    "include_files": {
+      "decl": "dep.inc"
+    },
+    "array_context": {
+      "variables": [
+        {
+          "program": "CHILD",
+          "path": "VALUES",
+          "type": [
+            "ARRAY",
+            2,
+            [
+              "QUEUE_TYPE"
+            ]
+          ],
+          "value": null
+        }
+      ]
+    }
+  }
+}

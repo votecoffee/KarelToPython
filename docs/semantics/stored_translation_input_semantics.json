@@ -1,0 +1,29 @@
+{
+  "version": "26.1104.140601",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "evidence": "Authored FILE dependency capture, saved schema, publication/lifetime and runtime-only regressions",
+  "contract": {
+    "includes": "Explicit text/file binding union, 256 entries and 8 MiB; snapshot mapped UTF-8 FILEs before compile",
+    "schemas": "Copied canonical root ARRAY metadata only, exact resolved source types and no payload/service restoration",
+    "publication": "Preflight all products, protect all input aliases and recheck raw input bytes/resolutions before each write; listing-first Python-last",
+    "history": "Optional include_sources with canonical alias, actual path and raw SHA-256; prior rows/configuration unchanged",
+    "portability": "No compiler/lexer imports for configuration or reload; absent optional compiler returns 268 before mapped reads"
+  },
+  "remaining": [
+    "Implicit include discovery, native PC artifacts and controller/strict equivalence",
+    "Automatic child loading/execution and multi-file host transactions"
+  ],
+  "verification": [
+    "tests/test_stored_translation_inputs.py",
+    "tests/test_source_translations.py",
+    "tests/test_array_context.py",
+    "examples/stored_inputs_file.kl",
+    "examples/stored_inputs_nested.kl",
+    "examples/stored_inputs_records.kl",
+    "examples/stored_inputs_joints.kl",
+    "examples/stored_inputs_forwarded/main.kl",
+    "examples/stored_inputs_queues/main.kl"
+  ],
+  "guide": "../stored-translation-inputs.md"
+}

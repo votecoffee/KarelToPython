@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 
 from . import runtime as rt
-from .lexer import Token,TranslationError
 
 
 IDENTIFIER=r'[A-Za-z_][A-Za-z_0-9]{0,253}'
@@ -69,11 +68,18 @@ class ArrayContext:
         except (rt.KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
             raise ValueError('Invalid ARRAY context schema') from error
 
+    def to_config(self):
+        """Return fresh canonical schemas without values, creation state or owners."""
+        def lists(value):return [lists(item) for item in value] if type(value) is tuple else value
+        return dict(variables=[dict(program=program,path=name,type=lists(spec),value=None)
+                               for (program,name),spec in sorted(self.schemas.items())])
+
     def link(self,programs):
         self.owners={(program.name,name):(owner.upper(),foreign) for program in programs for name,owner,foreign in program.imported_variables}
 
     def select(self,program,shapes,filename):
         """Merge only parsed direct global wildcards, following explicit owner chains."""
+        from .lexer import TranslationError
         selected=[];merged=dict(shapes);owners=dict(self.owners)
         owners.update({(program.name,name):(owner.upper(),foreign) for name,owner,foreign in program.imported_variables})
         for token,declared in program.declarations:
@@ -105,6 +111,7 @@ def prepare(value):
 
 
 def check_selected(selected,types,filename):
+    from .lexer import Token,TranslationError
     for row in selected:
         if types[row['variable']]!=row['type_spec']:
             raise TranslationError('E_ARRAY_CONTEXT','Saved ARRAY schema differs from the resolved source declaration: '+row['variable'],Token('NAME',row['variable'],row['line'],row['column']),filename)

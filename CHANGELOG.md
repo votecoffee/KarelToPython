@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.140601 - 2026-11-04
+
+- Extend stored-source TRANSLATE with explicit FILE include bindings and canonical
+  saved ARRAY schema metadata, retaining lazy compiler availability and old configs.
+- Snapshot bounded primary/include inputs, retain actual dependency paths/hashes,
+  protect input aliases and recheck bytes/resolutions before every product write.
+- Preserve listing-first/Python-last publication, source diagnostics, ordinary
+  callback effects, abort/budget boundaries and explicit child execution.
+- Extend runtime-only packaging inventories and add memory/device/directory,
+  schema, replay and dependency-publication regressions with six authored fixtures.
+
 ## 26.1104.132555 - 2026-11-04
 
 - Specialize direct global wildcard ARRAYs from explicitly supplied saved JSON

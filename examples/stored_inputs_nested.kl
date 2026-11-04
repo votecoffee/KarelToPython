@@ -1,0 +1,3 @@
+PROGRAM STORED_INPUTS_NESTED
+VAR names:ARRAY[1]OF STRING[32] count,status,translation_status:INTEGER done:BOOLEAN
+BEGIN IF UNINIT(done) THEN TRANSLATE('child',TRUE,translation_status) FILE_LIST('*.py',0,3,names,count,status) DELETE_FILE('child.py',FALSE,status) DELETE_FILE('child.LS',FALSE,status) done=TRUE ENDIF END STORED_INPUTS_NESTED

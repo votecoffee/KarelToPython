@@ -1,0 +1,52 @@
+{
+  "enabled": true,
+  "overwrite": false,
+  "source_limit": 1048576,
+  "output_limit": 16777216,
+  "limit": 64,
+  "includes": {},
+  "array_shapes": {},
+  "sequence": 1,
+  "history": [
+    {
+      "sequence": 1,
+      "program": "MAIN",
+      "request": "child",
+      "source": "child.kl",
+      "python": "child.py",
+      "listing": "child.LS",
+      "status": 0,
+      "phase": "completed",
+      "diagnostic": "",
+      "source_sha256": "b12a9307c74c556ea6fa1b68121a969a245c3656db540e24ad0d256e7004db50",
+      "python_sha256": "sha256",
+      "listing_sha256": "sha256",
+      "include_sources": [
+        {
+          "include": "DECL.KL",
+          "source": "dep.inc",
+          "sha256": "9454ec97d84cf2ffcd564273980390656b22f670e90707741679303d8065a0ee"
+        }
+      ]
+    }
+  ],
+  "include_files": {
+    "DECL.KL": "dep.inc"
+  },
+  "array_context": {
+    "variables": [
+      {
+        "program": "CHILD",
+        "path": "VALUES",
+        "type": [
+          "ARRAY",
+          2,
+          [
+            "QUEUE_TYPE"
+          ]
+        ],
+        "value": null
+      }
+    ]
+  }
+}

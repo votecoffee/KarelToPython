@@ -5596,12 +5596,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/group-locks.md',controller_validated=False)
     report['stored_source_translation_policy']=dict(
         procedure='TRANSLATE',context='Explicit opt-in SourceTranslations and ordinary MemoryFiles, DirectoryFiles or DeviceFiles; absent/disabled compiler service returns 268',
-        inputs='Force .KL suffix, unique case-insensitive bounded relative lookup; explicit captured include texts and array_shapes only; no filesystem include discovery',
+        inputs='Force .KL suffix and bounded unique relative lookup; explicit include texts or include_files snapshots, array_shapes or metadata-only array_context; no implicit include discovery',
         products='Generate sibling .py and optional .LS; preserve source; explicit overwrite flag, byte limits, combined quota/alias/busy preflight and bounded history with artifact hashes',
-        publication='Preflight every product, publish listing first and atomically replace Python last; host failure or abort after listing can retain that listing without publishing Python',
+        publication='Preflight products and recheck every captured primary/include input before each publication; protect all input aliases, publish listing first and atomically replace Python last; host failure or abort after listing can retain listing only',
         status='Portable 0 accepted, -1 rejected source, 268 unavailable, 35084 file/product failure; budget/abort failures propagate with no success claim',
         boundary='No native PC generation, binary compilation, implicit loading, attachment or execution; synchronous offline operation, not native translation timing or controller equivalence; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation']=='TRANSLATE'],
+        dependencies='At most 256 combined text/file includes and 8 MiB text; mapped files obey source_limit, exact ordinary backend lookup and UTF-8; optional input path/SHA-256 history, detached saved ARRAY schemas and compiler-free configuration/reload',
         guide='docs/source-translations.md',controller_validated=False)
     report['directory_file_query_policy']=dict(
         procedures=['MOVE_FILE','FILE_LIST'],

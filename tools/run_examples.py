@@ -27,6 +27,20 @@ def check_variable_expectations(context,path,label):
     for key,row in zip(keys,expected):assert actual.get(key)==row,label+': saved variable '+str(key)
 
 
+def check_translation_expectations(context,path,label):
+    """Version-independent artifact hash tags; exact remaining config/input hashes."""
+    if not path.exists():return
+    assert context.source_translations is not None,label+': translation service required'
+    observed=context.source_translations.to_config()
+    for row in observed['history']:
+        for field in ('python_sha256','listing_sha256'):
+            digest=row[field]
+            if digest is not None:
+                assert type(digest) is str and len(digest)==64 and all(c in '0123456789abcdef' for c in digest)
+                row[field]='sha256'
+    assert observed==read_json(path),label+': translation settings/history and input hashes'
+
+
 def service_snapshot(services):
     observed = {}
     if services.predefined_files:observed['predefined_files']=services.predefined_files
@@ -128,6 +142,7 @@ def run_example(source, *, inject_write=False):
         assert program.abort_info is None, name + ': unexpected termination state'
     assert snapshot == read_json(fixture / f'{name}.expected.json'), name + ': snapshot'
     check_variable_expectations(program._state.execution,fixture/f'{name}.variables.expected.json',name)
+    check_translation_expectations(program._state.execution,fixture/f'{name}.translation.expected.json',name)
     registers_expected = fixture / f'{name}.registers.expected.json'
     if registers is not None:
         assert {str(key):value for key,value in registers.snapshot().items()} == read_json(registers_expected), name + ': register state'
@@ -178,9 +193,9 @@ def main(argv=None):
             run_example(source, inject_write=True)
         count += 1
         print('PASS ' + source.stem)
-    assert count == 520, 'Update the expected example count when adding examples'
+    assert count == 524, 'Update the expected example count when adding examples'
     projects=sorted(folder for folder in (ROOT/'examples').iterdir() if folder.is_dir() and (folder/'expected.json').is_file())
-    assert len(projects)==192, 'Update the expected project count when adding projects'
+    assert len(projects)==194, 'Update the expected project count when adding projects'
     for folder in projects:
         initial=folder/'services.initial.json'
         services=ExecutionContext.from_config(read_json(initial)) if initial.exists() else None
@@ -197,6 +212,7 @@ def main(argv=None):
         instance=load_project(folder,**options).instantiate(context=provider)
         assert instance.run('MAIN')==read_json(folder/'expected.json'), folder.name+': linked project snapshot'
         check_variable_expectations(instance.context,folder/'variables.expected.json',folder.name)
+        check_translation_expectations(instance.context,folder/'translation.expected.json',folder.name)
         expected_services=folder/'services.expected.json'
         if services is not None:
             assert service_snapshot(services)==read_json(expected_services), folder.name+': service state'

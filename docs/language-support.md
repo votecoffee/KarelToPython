@@ -4,6 +4,11 @@
 
 [PATH-header USING](path-header-using.md) now selects explicit header fields from named/indexed storage or private computed PATH results, with normal lexical, lifetime, counter and timer checks.
 
+[Stored translation inputs](stored-translation-inputs.md) now add explicit
+FILE-backed include bindings and saved ARRAY schemas to TRANSLATE. Primary/include
+snapshots, protected input paths and final byte checks guard product publication;
+runtime-only configuration retains lazy compiler availability.
+
 [Saved ARRAY schemas](array-context.md) now supply wildcard global dimensions
 through explicit API and CLI options, including linked owner/reexport chains.
 Source types and allocation bounds remain checked; saved values and services

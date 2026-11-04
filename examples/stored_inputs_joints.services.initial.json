@@ -1,0 +1,28 @@
+{
+  "files": {
+    "child.kl": "PROGRAM CHILD\n%INCLUDE 'decl'\nBEGIN values[2][1]=17 END CHILD\n",
+    "dep.inc": "VAR values:ARRAY[*]OF JOINTPOS2\n"
+  },
+  "source_translations": {
+    "include_files": {
+      "decl": "dep.inc"
+    },
+    "array_context": {
+      "variables": [
+        {
+          "program": "CHILD",
+          "path": "VALUES",
+          "type": [
+            "ARRAY",
+            2,
+            [
+              "JOINTPOS",
+              2
+            ]
+          ],
+          "value": null
+        }
+      ]
+    }
+  }
+}

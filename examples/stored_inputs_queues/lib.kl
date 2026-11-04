@@ -1,0 +1,3 @@
+PROGRAM LIB
+ROUTINE compile_src(result:INTEGER) BEGIN TRANSLATE('child',TRUE,result) END compile_src
+BEGIN END LIB

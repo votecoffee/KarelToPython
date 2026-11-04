@@ -1,0 +1,11 @@
+{
+  "files": {
+    "child.kl": "PROGRAM CHILD\n%INCLUDE 'decl'\nBEGIN value=7 END CHILD\n",
+    "dep.inc": "VAR value:INTEGER\n"
+  },
+  "source_translations": {
+    "include_files": {
+      "decl": "dep.inc"
+    }
+  }
+}

@@ -409,7 +409,8 @@ queue-entry policies; FILE banks remain excluded.
   exact identities, bounded validation and ordinary lifetime guards.
   Program catalogs and load status describe attached programs or supplied metadata.
   [TRANSLATE](source-translations.md) now generates sibling Python and optional
-  listings from explicit stored source; native PC output, implicit include discovery,
+  listings from explicit stored source, with [mapped include FILEs and saved ARRAY
+  schemas](stored-translation-inputs.md); native PC output, implicit include discovery,
   program attachment/execution and asynchronous native timing remain unsupported.
 - CALL_PROG/CALL_PROGLIN now support [attached cooperative KAREL programs](program-calls.md)
   in the calling task. Newly generated [synchronous targets](synchronous-program-calls.md)

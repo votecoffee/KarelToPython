@@ -77,11 +77,13 @@ handles reject publication.
 
 `includes` is an explicitly supplied mapping of include names to source text.
 It is copied into the service configuration and uses the ordinary include depth,
-count, format and expansion rules. Backend include files are not automatically
-read. `array_shapes` supplies ordinary single-program global wildcard dimensions;
+count, format and expansion rules. [Explicit include_files bindings](stored-translation-inputs.md) now read selected
+backend inputs; unbound include files are not automatically discovered. `array_shapes` supplies ordinary single-program global wildcard dimensions;
 unused or incompatible shapes reject through the normal compiler. Program-qualified
 project shapes do not apply to this single-source call. Translation mode is
-Pythonic; strict remains future work.
+Pythonic; strict remains future work. Optional `array_context` now supplies
+[metadata-only saved schemas](stored-translation-inputs.md), independently from
+child execution values.
 
 The primary source is decoded as UTF-8 with an optional BOM. Its original bytes,
 encoding, line endings and final newline remain unchanged. Invalid UTF-8 or
