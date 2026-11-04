@@ -1,0 +1,7 @@
+PROGRAM LIB
+ROUTINE work:INTEGER
+VAR status:INTEGER
+BEGIN
+  MOVE_FILE('RD:jobs/**/*.kl',status) RETURN(status)
+END work
+BEGIN END LIB

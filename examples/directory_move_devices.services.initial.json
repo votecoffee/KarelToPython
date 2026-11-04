@@ -1,0 +1,21 @@
+{
+  "device_files": {
+    "volumes": {
+      "RD:": {
+        "capacity": 64,
+        "retain_deleted": true
+      },
+      "FR:": {
+        "capacity": 64,
+        "retain_deleted": false
+      }
+    },
+    "files": {
+      "RD:jobs/a.KL": "A",
+      "RD:jobs/cell/b.KL": "BB",
+      "RD:jobs/cell/deep/c.KL": "CCC",
+      "RD:jobs/cell/keep.DAT": "K",
+      "FR:old.DAT": "O"
+    }
+  }
+}

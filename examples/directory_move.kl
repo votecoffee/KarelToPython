@@ -1,0 +1,8 @@
+PROGRAM DIRECTORY_MOVE
+VAR status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    MOVE_FILE('RD:jobs/**/*.kl',status)
+    done=TRUE
+  ENDIF
+END DIRECTORY_MOVE

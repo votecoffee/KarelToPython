@@ -69,6 +69,10 @@ mappings that resolve to the same source/target directory return status 4.
 
 ## Patterns and batch preparation
 
+[Directory-pattern moves](directory-file-queries.md) now also accept directory
+star/question and whole-directory globstar components, retaining each selected
+relative subdirectory under the peer mapping. Explicit target parents must exist.
+
 The final filename/extension component supports `*`, including prefixes/suffixes
 such as `RD:job_*.K*`. Matching is case-insensitive. A single optional slash or
 backslash after the colon is accepted, including the manual's `RD:\*.KL` spelling.
@@ -77,7 +81,7 @@ Stored source names are literal names, not patterns.
 Literal subdirectories such as `RD:jobs/*.KL` preserve that relative directory
 under the peer mapping. The selection does not recurse into deeper directories.
 Parents must already exist; the operation creates no directories. Traversal,
-empty/dot components, wildcard parent components, `?` and bracket patterns fail
+empty/dot components and bracket patterns fail
 before file changes. Directory paths retain the backend's root/symlink guards.
 
 Preparation selects and sorts at most 32767 matching files. It checks the whole
@@ -122,5 +126,5 @@ Native status/name rules and controller execution remain unvalidated; strict mod
 is a future milestone.
 
 MOVE_FILE also accepts [single-character question matching](question-file-wildcards.md)
-in the final source basename. Directory wildcard/traversal guards, explicit RD/FR
+in the final source basename. Bounded directory matching/traversal guards, explicit RD/FR
 mapping, complete preflight and ordinary publication outcomes remain in force.

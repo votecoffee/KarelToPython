@@ -1,0 +1,22 @@
+{
+  "version": "26.1104.001000",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_directory_file_queries.py",
+    "tests/test_directory_globs.py",
+    "tests/test_file_management.py",
+    "tests/test_file_listing_formats.py"
+  ],
+  "calls": [
+    "MOVE_FILE",
+    "FILE_LIST"
+  ],
+  "selection": "Explicit directory star/question and whole-component globstar; bounded case-insensitive matching below resolved literal prefix; old flat patterns retain call-specific semantics",
+  "move": "Explicit RD/FR swap retains complete relative directories and bytes; no mkdir; complete busy/collision/physical alias/quota preflight then ordered per-file publication",
+  "listing": "Sorted complete keys before skip/page/format0..4; busy descriptors visible without payload read or flush; stage complete page and preserve unused slots",
+  "bounds": "254-character paths, 32767 scanned entries, budgeted traversal and matching; reject encountered links/junctions",
+  "persistence": "Ordinary bytes/device accounting only; no live descriptors, cursor or glob plans",
+  "boundary": "Authored offline extension; late MOVE failures may retain earlier files; no filesystem transaction, native compiler/controller or strict equivalence"
+}

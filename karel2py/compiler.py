@@ -5096,8 +5096,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['file_management_policy']=dict(
         procedures=['CHECK_NAME','MOVE_FILE'],
         names='CHECK_NAME accepts 1..36 ASCII letters/digits/underscores without extension/device; portable 0 valid and 2 invalid; no file backend or existence lookup; not a source-program grammar check',
-        context='MOVE_FILE requires explicit MemoryFiles device-prefixed names or DirectoryFiles with RD/FR mappings; swap RD and FR only; preserve filename case, suffix, literal subdirectory and exact bytes',
-        patterns='Case-insensitive star-only final component; optional single slash/backslash after colon; literal parent components, no recursion, traversal, question/bracket patterns or automatic directory creation',
+        context='MOVE_FILE requires explicit MemoryFiles/DeviceFiles device-prefixed names or DirectoryFiles with RD/FR mappings; swap RD and FR only; preserve filename case, suffix, relative subdirectories and exact bytes',
+        patterns='Case-insensitive star/question filename or directory components and whole-directory globstar follow directory_file_query_policy; optional single slash/backslash after colon; no traversal, bracket patterns or automatic directory creation',
         preflight='Select and sort at most 32767 files; validate source/target paths, complete batch busy/collision/duplicate/size conditions before moving; guard case-only and logical MemoryFiles alias collisions',
         status='Portable MOVE codes: 0 success, 1 no source match, 2 target/duplicate collision, 3 busy source/target, 4 unsupported/unmapped device pair or identical mapped roots; checked status output only',
         execution='Synchronous ordered per-file backend renames; budget checks during preparation and commit; late OS/status/budget failures retain earlier completed moves, no automatic retry/rollback; directory cache uses read source bytes',
@@ -5270,6 +5270,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No native PC generation, binary compilation, implicit loading, attachment or execution; synchronous offline operation, not native translation timing or controller equivalence; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation']=='TRANSLATE'],
         guide='docs/source-translations.md',controller_validated=False)
+    report['directory_file_query_policy']=dict(
+        procedures=['MOVE_FILE','FILE_LIST'],
+        selection='Explicit star/question directory components and whole-directory ** match zero or more components; case-insensitive below a backend-resolved literal prefix; ordinary flat patterns retain their prior call-specific behavior',
+        context='Only explicit MemoryFiles, DeviceFiles or rooted DirectoryFiles; no discovery of devices, host roots, sockets, DAQ or pipe subdirectories',
+        move='Swap RD/FR while retaining complete relative directory paths and exact bytes; existing target parents required; reject overlapping rooted scan mappings, busy files, case collisions and selected physical aliases before moving',
+        listing='Sort full backend keys before skip/page/format0..4; preserve unused slots; prepare complete page before names/count publication; include busy descriptors without reading payloads or flushing',
+        bounds='254-character selected paths, at most 32767 scanned entries; rooted traversal counts directories and files; scan and component work charges execution budget; reject encountered links/junctions and traversal',
+        publication='MOVE_FILE retains complete quota preflight then sorted per-file renames; late budget/OS/status failure may retain earlier moves; FILE_LIST has no persistent cursor or filesystem snapshot isolation',
+        persistence='Ordinary resulting bytes and device accounting use context JSON; generated scripts and linked calls use the same offline policy; no glob plans, live handles or suspended scans are serialized',
+        boundary='Authored Pythonic extension; no implicit mkdir, native filesystem/format/status equivalence, controller validation or strict claim',
+        guide='docs/directory-file-queries.md',controller_validated=False)
     report['directory_glob_policy']=dict(
         procedures=['COPY_FILE','DELETE_FILE','RENAME_FILE'],
         source='Ordinary explicit MemoryFiles/DirectoryFiles/DeviceFiles source paths accept star/question directory components and whole ** directory components; literal prefix fixes root/device',
@@ -6124,7 +6135,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guides=['docs/keyboard-file-read.md','docs/pipe-attributes.md'],controller_validated=False)
     report['file_listing_policy']=dict(
         calls=['FILE_LIST'],formats=[0,1,2,3,4],
-        selection='Backend wildcard/device rules and sorted complete keys; nonnegative skip and one-dimensional STRING output capacity',
+        selection='Explicit directory-component star/question and globstar patterns follow directory_file_query_policy; otherwise retain backend wildcard/device rules; sorted complete keys, nonnegative skip and one-dimensional STRING output capacity',
         names='0 preserves the backend key; 1 stem, 2 final extension, 3 basename; formatted names omit device/directories and preserve case',
         metadata='Format4 has 40 columns: 8.3 name, byte count in columns21..25 and blank date/time; unrepresentable fields reject without truncation',
         publication='Validate and stage the complete page before changing names/count; preserve unused slots and all data outputs on failure',

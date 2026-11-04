@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [directory move/listing ledger](directory_file_query_semantics.json)
+supersedes earlier directory-pattern exclusions for MOVE_FILE and adds explicit
+component matching to FILE_LIST. Their legacy flat-pattern behavior and distinct
+publication contracts remain in force.
+
 The [directory-pattern ledger](directory_glob_semantics.json) supersedes earlier
 ordinary source directory wildcard/recursion exclusions for COPY/DELETE/RENAME.
 PIP sources, MOVE_FILE and FILE_LIST retain their separate pattern contracts.

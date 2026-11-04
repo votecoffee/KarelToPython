@@ -1,0 +1,19 @@
+{
+  "files": {
+    "RD:jobs/cell/keep.DAT": {
+      "hex": "4b"
+    },
+    "FR:old.DAT": {
+      "hex": "4f"
+    },
+    "FR:jobs/a.KL": {
+      "hex": "41"
+    },
+    "FR:jobs/cell/b.KL": {
+      "hex": "4242"
+    },
+    "FR:jobs/cell/deep/c.KL": {
+      "hex": "434343"
+    }
+  }
+}

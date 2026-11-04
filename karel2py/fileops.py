@@ -80,6 +80,57 @@ def _wildcard_link(path):
     return junction is None and bool(getattr(path.lstat(),'st_file_attributes',0)&0x400)
 
 
+def _wildcard_tree(files,root,check):
+    """Collect bounded contained entries, rejecting encountered links/junctions."""
+    result=set();pending=[root]
+    while pending:
+        parent=pending.pop()
+        if _wildcard_link(parent):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
+        files._path(parent.relative_to(files.root).as_posix() or '.',directory=True)
+        for path in parent.iterdir():
+            check()
+            if len(result)>=WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+            name=path.relative_to(files.root).as_posix()
+            if _wildcard_link(path):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
+            if len(name)>254:raise ValueError('Wildcard source paths exceed 254 characters')
+            directory=path.is_dir();files._path(name,directory=directory);result.add(name)
+            if directory:pending.append(path)
+    return result
+
+
+def _directory_listing(files,pattern,check):
+    """Explicit directory patterns opt into bounded component matching."""
+    from .storage import DirectoryFiles
+    from .devices import DeviceFiles
+    if type(files) not in (rt().MemoryFiles,DirectoryFiles,DeviceFiles):
+        raise ValueError('Directory FILE_LIST patterns require an explicit ordinary backend')
+    prefix,matcher=_wildcard_source(pattern)
+    if type(files) is DirectoryFiles:
+        probe=files._key(prefix+'__wildcard_probe__');folder=probe.rsplit('/',1)[0] if '/' in probe else ''
+        root=files._path(folder or '.',directory=True)
+        candidates=_wildcard_tree(files,root,check) if root.is_dir() else set()
+        candidates.update(handle.name for handle in files.handles if handle.owner is files and _wildcard_relative(handle.name,folder) is not None)
+    else:
+        folder=prefix
+        if type(files) is DeviceFiles and ':' in prefix:files.require_volume(prefix.split(':',1)[0])
+        if len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+        candidates=set()
+        for name in tuple(files.files):
+            check()
+            if _wildcard_relative(name,folder) is not None:candidates.add(name)
+    if len(candidates)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE batch exceeds 32767 entries')
+    selected=[]
+    for name in sorted(candidates):
+        relative=_wildcard_relative(name,folder)
+        if relative is None or not _wildcard_path_match(relative,matcher,check=check):continue
+        _wildcard_parts(name,pattern=False)
+        if type(files) is DirectoryFiles:
+            if not files._busy(name) and not files._path(name).is_file():continue
+        elif type(files) is DeviceFiles:files._check(name,b'')
+        selected.append(name)
+    return selected
+
+
 def _wildcard_template(template,source):
     if '?' in template:raise ValueError('Question marks are source matchers, not destination substitutions')
     if template=='*':return source
@@ -155,23 +206,13 @@ def wildcard_file_operation(state,operation,args,line=None):
                 if not root.is_dir():
                     if destination:raise ValueError('Wildcard destination parent directory must exist')
                     return []
-                pending=[root]
-                while pending:
-                    parent=pending.pop()
-                    if recursive:
-                        if _wildcard_link(parent):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
-                        files._path(parent.relative_to(files.root).as_posix() or '.',directory=True)
-                    for path in parent.iterdir():
+                if recursive:result=_wildcard_tree(files,root,check if charge else lambda:None)
+                else:
+                    for path in root.iterdir():
                         scanned+=1
                         if scanned>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
                         if charge:check()
-                        name=path.relative_to(files.root).as_posix()
-                        if recursive:
-                            if _wildcard_link(path):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
-                            if len(name)>254:raise ValueError('Wildcard source paths exceed 254 characters')
-                            files._path(name,directory=path.is_dir())
-                        result.add(name)
-                        if recursive and path.is_dir():pending.append(path)
+                        result.add(path.relative_to(files.root).as_posix())
                 for handle in files.handles:
                     if handle.owner is files and (_wildcard_relative(handle.name,folder) is not None if recursive else self.scope(handle.name).casefold()==folder.casefold()):result.add(handle.name)
             else:
@@ -639,7 +680,9 @@ def list_files(state,files,args,line=None):
     skip=runtime.integer(skip,line);form=runtime.integer(form,line)
     if skip<0 or form not in (0,1,2,3,4): return 2
     array=names.raw();capacity=len(array.values)
-    selected=files.list_names(pattern)[skip:skip+capacity];prepared=[]
+    parent=pattern.rsplit('/',1)[0] if '/' in pattern else ''
+    matches=_directory_listing(files,pattern,lambda:state.tick(line)) if any(c in parent for c in '*?') else files.list_names(pattern)
+    selected=matches[skip:skip+capacity];prepared=[]
     for name in selected:
         state.tick(line)
         if form==0: text=name
@@ -673,7 +716,7 @@ def list_files(state,files,args,line=None):
     return 0
 
 
-def move_specification(value,*,pattern=True):
+def move_specification(value,*,pattern=True,directories=False):
     value=rt().ascii_string(value)
     if ':' not in value: return None
     device,relative=value.split(':',1);device=device.upper()
@@ -681,57 +724,76 @@ def move_specification(value,*,pattern=True):
     relative=relative.replace('\\','/')
     if relative.startswith('/'): relative=relative[1:]
     parts=relative.split('/')
-    if (any(part in ('','.','..') for part in parts) or any(any(c in part for c in '*?') for part in parts[:-1])
+    if (any(part in ('','.','..') for part in parts) or not directories and any(any(c in part for c in '*?') for part in parts[:-1])
             or ':' in relative or pattern and any(char in relative for char in '[]')
             or any(ord(char)<32 or ord(char)==127 for char in relative)):
-        raise ValueError('MOVE_FILE requires a relative file pattern with star/question wildcards only in its final component')
+        raise ValueError('MOVE_FILE requires a relative star/question file pattern without traversal or bracket classes')
     return device,'/'.join(parts[:-1]),parts[-1]
 
 
 def move_files(files,specification,*,check=None):
     """Preflight a bounded RD/FR batch, then perform ordered per-file moves."""
     from .storage import DirectoryFiles
-    parsed=move_specification(specification)
+    parsed=move_specification(specification,directories=True)
     if parsed is None: return 4
     device,parent,pattern=parsed;peer='FR' if device=='RD' else 'RD'
+    recursive=any(c in parent for c in '*?')
+    if recursive:
+        prefix,pattern=_wildcard_source(device+':'+(parent+'/' if parent else '')+pattern)
+        parent=prefix.split(':',1)[1].rstrip('/')
     check=check or (lambda:None);directory=isinstance(files,DirectoryFiles)
     plan=[];existing=set()
-    def selected(name): return fnmatch.fnmatchcase(name.casefold(),pattern.casefold())
+    def selected(name): return _wildcard_path_match(name,pattern,check=check) if recursive else fnmatch.fnmatchcase(name.casefold(),pattern.casefold())
     if directory:
         if device not in files.devices or peer not in files.devices: return 4
         source_root=files._path('/'.join(part for part in (files.devices[device],parent) if part) or '.',directory=True)
         target_root=files._path('/'.join(part for part in (files.devices[peer],parent) if part) or '.',directory=True)
-        if source_root==target_root: return 4
+        if source_root==target_root or recursive and (source_root in target_root.parents or target_root in source_root.parents): return 4
         if not source_root.is_dir(): return 1
         if not target_root.is_dir(): raise ValueError('MOVE_FILE target parent directory must already exist')
         candidates=set()
-        for path in source_root.iterdir():
+        entries=(files.root/name for name in _wildcard_tree(files,source_root,check)) if recursive else source_root.iterdir()
+        for path in entries:
             check()
-            if selected(path.name) and (path.is_file() or path.is_symlink()):
+            if selected(path.relative_to(source_root).as_posix() if recursive else path.name) and (path.is_file() or path.is_symlink()):
                 candidates.add(path.relative_to(files.root).as_posix())
                 if len(candidates)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
         for handle in files.handles:
             if handle.owner is files:
                 path=files._path(handle.name)
-                if path.parent==source_root and selected(path.name):
+                if (path.is_relative_to(source_root) and selected(path.relative_to(source_root).as_posix()) if recursive else path.parent==source_root and selected(path.name)):
                     candidates.add(handle.name)
                     if len(candidates)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
         for name in sorted(candidates):
-            source=files._path(name);target=files._path((target_root/source.name).relative_to(files.root).as_posix())
+            source=files._path(name);suffix=source.relative_to(source_root) if recursive else source.name
+            target=target_root/suffix
+            if not target.parent.is_dir():raise ValueError('MOVE_FILE target parent directory must already exist')
+            if recursive:
+                cursor=target.parent
+                while cursor!=files.root:
+                    if _wildcard_link(cursor):raise ValueError('Recursive MOVE_FILE targets cannot traverse links or junctions')
+                    cursor=cursor.parent
+            target=files._path(target.relative_to(files.root).as_posix())
             plan.append((name,target.relative_to(files.root).as_posix()))
             if len(plan)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
-        wanted={files._path(target).name.casefold() for _,target in plan}
-        for path in target_root.iterdir():
-            check()
-            if path.name.casefold() in wanted: existing.add(path.relative_to(files.root).as_posix().casefold())
+        wanted={target.casefold() for _,target in plan};scanned=0
+        parents={files._path(target).parent for _,target in plan}
+        for folder in sorted(parents):
+            for path in folder.iterdir():
+                check();scanned+=1
+                if recursive and scanned>WILDCARD_FILE_LIMIT:raise ValueError('MOVE_FILE target scan exceeds 32767 entries')
+                key=path.relative_to(files.root).as_posix().casefold()
+                if key in wanted:existing.add(key)
     else:
+        if recursive and len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('MOVE_FILE scan exceeds 32767 entries')
         for name in sorted(files.files):
             check()
             try: candidate=move_specification(name,pattern=False)
             except ValueError: continue
             if candidate is None: continue
             found,folder,base=candidate
-            if found==device and folder.casefold()==parent.casefold() and selected(base):
+            relative=_wildcard_relative(found+':'+(folder+'/' if folder else '')+base,device+':'+(parent+'/' if parent else '')) if recursive else None
+            if found==device and (relative is not None and selected(relative) if recursive else folder.casefold()==parent.casefold() and selected(base)):
                 target=peer+':'+(folder+'/' if folder else '')+base
                 plan.append((name,target))
                 if len(plan)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
@@ -746,6 +808,12 @@ def move_files(files,specification,*,check=None):
     key=str.casefold if directory else logical_name
     busy={key(handle.name) for handle in files.handles if handle.owner is files}
     if any(key(source) in busy or key(target) in busy for source,target in plan): return 3
+    if directory and recursive:
+        identities=set()
+        for source,_ in plan:
+            info=files._path(source).stat();identity=(info.st_dev,info.st_ino)
+            if identity in identities:return 2
+            identities.add(identity)
     targets=[target.casefold() for _,target in plan]
     if len(set(targets))!=len(targets) or any(target in existing for target in targets): return 2
     preflight=getattr(files,'preflight_moves',None)

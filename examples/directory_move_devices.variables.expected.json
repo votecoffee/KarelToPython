@@ -1,0 +1,18 @@
+[
+  {
+    "program": "DIRECTORY_MOVE_DEVICES",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "DIRECTORY_MOVE_DEVICES",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

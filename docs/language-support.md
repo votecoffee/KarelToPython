@@ -1,5 +1,10 @@
 # Language support
 
+[Directory-pattern moves and listings](directory-file-queries.md) now extend
+MOVE_FILE and FILE_LIST with bounded directory star/question and globstar matching.
+RD/FR moves preserve subdirectories; sorted listings retain all five formats,
+pagination, busy descriptor inspection and staged output checks.
+
 [Directory-pattern file batches](directory-globs.md) now let COPY_FILE,
 DELETE_FILE and RENAME_FILE match ordinary source directories with `*`, `?` and
 whole-component `**`. Selection stays inside an explicit root/device, and the
@@ -105,7 +110,7 @@ wildcard batches between explicit plain FilePipes and ordinary file banks. Empty
 reserved pipe targets retain their metadata; ordinary exports remove source pipe
 configuration. Whole-batch quota checks and per-file host failure boundaries apply.
 
-This is the supported prototype subset as of 26.1103.232947. Acceptance is specific to
+This is the supported prototype subset as of 26.1104.001000. Acceptance is specific to
 source form, type and context. A supported feature can still reject uncertain
 inputs at runtime. The [semantic notes](semantics/README.md) separate documented
 rules, implemented restrictions and unresolved native behavior.

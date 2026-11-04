@@ -1,0 +1,8 @@
+PROGRAM DIRECTORY_LISTING
+VAR names:ARRAY[2]OF STRING[40] count,status:INTEGER done:BOOLEAN
+BEGIN
+  IF UNINIT(done) THEN
+    names[2]='tail' FILE_LIST('RD:jobs/*/*.kl',0,3,names,count,status)
+    done=TRUE
+  ENDIF
+END DIRECTORY_LISTING

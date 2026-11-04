@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.001000 - 2026-11-04
+
+- Extend MOVE_FILE and FILE_LIST with bounded directory star/question and
+  whole-directory globstar matching over explicit offline file backends.
+- Preserve RD/FR relative paths, complete busy/collision/quota preflight and
+  ordered per-file moves; retain listing formats, pagination and atomic outputs.
+- Share bounded rooted traversal with COPY/DELETE/RENAME, reject encountered
+  links/junctions and retain existing flat-pattern behavior for each call.
+- Add 95 authored regressions, four examples and two linked projects with complete
+  expected saved-variable and service state; validate through the CLI.
+
 ## 26.1103.232947 - 2026-11-03
 
 - Add ordinary source directory star/question and whole-directory globstar

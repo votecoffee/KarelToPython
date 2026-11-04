@@ -1,0 +1,42 @@
+[
+  {
+    "program": "DIRECTORY_LISTING_FORMATS",
+    "path": "NAMES",
+    "type": [
+      "ARRAY",
+      2,
+      [
+        "STRING",
+        40
+      ]
+    ],
+    "value": [
+      "b       .KL         2                   ",
+      "c       .KL         3                   "
+    ]
+  },
+  {
+    "program": "DIRECTORY_LISTING_FORMATS",
+    "path": "COUNT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 2
+  },
+  {
+    "program": "DIRECTORY_LISTING_FORMATS",
+    "path": "STATUS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "DIRECTORY_LISTING_FORMATS",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -280,6 +280,9 @@ restoration remain excluded. Whole ARRAY READ/WRITE is still a data-only operati
   batches between explicit plain PIP and ordinary file banks, using empty reserved
   pipe targets and no ordinary overwrite. [Ordinary source directory patterns](directory-globs.md)
   now add component star/question and directory globstar selection to COPY/DELETE/RENAME.
+  [Directory-pattern moves/listings](directory-file-queries.md) also extend MOVE_FILE
+  with preserved RD/FR subdirectories and FILE_LIST with bounded component matching;
+  their legacy flat selection and publication contracts remain separate.
   Glob destination directories, PIP directory sources, separate ordinary-bank
   discovery, socket/DAQ batches and cross-file atomic host
   transactions remain unsupported.

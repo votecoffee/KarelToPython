@@ -1,0 +1,7 @@
+PROGRAM LIB
+ROUTINE work:INTEGER
+VAR names:ARRAY[3]OF STRING[40] count,status:INTEGER
+BEGIN
+  FILE_LIST('RD:jobs/**/*.kl',0,3,names,count,status) RETURN(count)
+END work
+BEGIN END LIB

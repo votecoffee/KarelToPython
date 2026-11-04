@@ -17,6 +17,11 @@ section A.6.2. Exact native formatting and native status values remain unverifie
 
 ## Selection and pages
 
+[Explicit directory-component patterns](directory-file-queries.md) now opt into
+bounded star/question/globstar matching below a resolved literal prefix. They
+match case-insensitively and reject encountered links/junctions during rooted
+scans. Patterns without a directory matcher retain the backend rules below.
+
 The backend applies its ordinary wildcard and device rules, sorts its complete
 keys, skips `n_skip` matches, and selects up to the length of the one-dimensional
 STRING array. Formatting happens after selection, so duplicate stems remain
