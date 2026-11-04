@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1104.054813 - 2026-11-04
+
+- Add DISCONNECT TIMER through exact helper references to an existing connection
+  owned by the same task, including active caller frames and linked states.
+- Validate owner/record/storage/member identities and live frame bindings before
+  releasing the original claim; preserve unrelated, foreign and uncertain slots.
+- Keep connection clocks, defining-frame cleanup, formal lifetimes, private actuals
+  and existing counter-effect guards. Control adds no clock sample or data update.
+- Add 70 regressions, four examples and two linked projects with independent
+  typed snapshots and exact generated-CLI/context replay.
+
 ## 26.1104.050939 - 2026-11-04
 
 - Add delayed/scheduled NOWAIT jobs for all seven MOVE forms, retaining one

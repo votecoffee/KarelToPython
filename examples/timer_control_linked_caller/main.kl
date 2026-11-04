@@ -1,0 +1,9 @@
+PROGRAM MAIN
+VAR elapsed:INTEGER ready,done:BOOLEAN
+ROUTINE stop_timer(value:INTEGER):BOOLEAN FROM LIB
+BEGIN
+ IF UNINIT(done) THEN
+  CONNECT TIMER TO elapsed DELAY 32 ready=stop_timer(elapsed)
+  elapsed=0 DELAY 9 done=TRUE
+ ENDIF
+END MAIN

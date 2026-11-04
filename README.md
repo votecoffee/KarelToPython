@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Timer control through helpers](docs/timer-control.md) now lets DISCONNECT TIMER
+release an exact existing connection owned by the calling task, including linked
+frames and borrowed ARRAY/record/BYNAME aliases. Clocks and connection lifetimes
+keep their defining owners; cross-task and uncertain claims remain protected.
+
 [Delayed NOWAIT motion](docs/nowait-motion.md) now keeps one pending move per
 owned group while source code continues. Task clocks drive supplied completion,
 with hold/pause freezing, cancellation, linked launches and scheduler observation.
@@ -155,7 +160,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.050939**. It is a
+tool are named **karel2py**. The current implementation is **26.1104.054813**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

@@ -87,8 +87,10 @@ file. They supply no executable libraries, inferred function logic or native ABI
   [Routine-local timers](routine-local-timers.md) now accept fresh declared
   INTEGER leaves with exact-frame cleanup and pause retention. [Borrowed formal
   timers](formal-timers.md) now use callee-frame ownership and shared-context
-  duplicate/alias checks. Persistent borrowed connections after return, control
-  of another frame's timer and inferred native alias ownership remain unavailable. [Reference FOR counters](reference-for-counters.md)
+  duplicate/alias checks. [Helper timer control](timer-control.md) now releases
+  exact existing claims owned by the same task across active frames and linked
+  states. Persistent borrowed connections after return, cross-task control and
+  inferred native alias ownership remain unavailable. [Reference FOR counters](reference-for-counters.md)
   now capture writable INTEGER fields/elements once. Aggregate-root writes/reuse,
   CONFIG/FILE/queue roots, imported or borrowed PATH roots, nonlocal parameterized
   roots and unproven external calls over global aggregate counters remain blocked.

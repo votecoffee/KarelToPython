@@ -1,0 +1,26 @@
+{
+  "version": "26.1104.054813",
+  "mode": "pythonic",
+  "controller_validated": false,
+  "gui_checked": false,
+  "evidence": [
+    "tests/test_timer_control.py",
+    "tests/test_formal_timers.py",
+    "tests/test_routine_local_timers.py",
+    "tests/test_private_using_timers.py",
+    "examples/timer_control_scalar.kl",
+    "examples/timer_control_array.kl",
+    "examples/timer_control_local.kl",
+    "examples/timer_control_private.kl",
+    "examples/timer_control_linked_caller/main.kl",
+    "examples/timer_control_linked_local/main.kl"
+  ],
+  "source": "DISCONNECT TIMER through exact INTEGER references borrowed by same-task helpers, active ancestor frames, named/BYNAME aliases and linked calls",
+  "authority": "Original owner state/record/storage/member identities and member type; one ExecutionContext and task-root identity, independent of equal source names",
+  "frames": "Scoped helper and any defining connection frame must be live; dead retained frames, stale bindings and uncertain claims remain blocked",
+  "effects": "Remove only matching original owner registration and shared claim; no clock read, initialization, numeric update, copy-back or ownership migration",
+  "lifetime": "Existing connection and formal/private value lifetimes remain; new formal connections still end at defining frame return",
+  "protection": "Cross-task/context, changed owner records/endpoints, malformed or reserved claims reject; unrelated timers and source counter guards preserved",
+  "persistence": "Declared data only; no connections, clocks, claims, frames or suspended calls restored",
+  "boundary": "Authored offline control; no persistent borrowed timer extension, implicit alias discovery, native timing/ABI/controller or strict equivalence"
+}

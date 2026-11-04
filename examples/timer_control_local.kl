@@ -1,0 +1,8 @@
+PROGRAM TIMER_CONTROL_LOCAL
+VAR ready,done:BOOLEAN
+ROUTINE stop_timer(value:INTEGER):BOOLEAN BEGIN DISCONNECT TIMER value RETURN value>0 END stop_timer
+ROUTINE work:BOOLEAN
+ VAR elapsed:INTEGER
+ BEGIN CONNECT TIMER TO elapsed DELAY 32 ready=stop_timer(elapsed) elapsed=0 DELAY 9 RETURN ready AND (elapsed=0) END work
+BEGIN IF UNINIT(done) THEN ready=work() done=TRUE ENDIF
+END TIMER_CONTROL_LOCAL

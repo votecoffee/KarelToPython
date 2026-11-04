@@ -214,9 +214,9 @@ class FormalTimerProjectTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'already connected'):project.run('MAIN')
         self.assertEqual(project.context._timer_claims,{})
 
-    def test_formal_disconnect_does_not_take_over_caller_connection(self):
+    def test_formal_disconnect_controls_same_task_caller_connection(self):
         project=self.project('CONNECT TIMER TO n s=work(n)',lib='DISCONNECT TIMER value RETURN value')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'not connected|another frame'):project.run('MAIN')
+        values=project.run('MAIN');self.assertEqual(values['MAIN']['values']['N'],values['MAIN']['values']['S'])
         self.assertEqual(project.context._timer_claims,{})
 
     def test_stop_inside_linked_borrow_releases_actual_callee_claim(self):

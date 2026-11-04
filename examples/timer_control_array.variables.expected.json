@@ -1,0 +1,56 @@
+[
+  {
+    "program": "TIMER_CONTROL_ARRAY",
+    "path": "SAMPLES",
+    "type": [
+      "ARRAY",
+      [
+        2,
+        2
+      ],
+      [
+        "INTEGER"
+      ]
+    ],
+    "value": [
+      [
+        {
+          "uninitialized": true
+        },
+        {
+          "uninitialized": true
+        }
+      ],
+      [
+        0,
+        {
+          "uninitialized": true
+        }
+      ]
+    ]
+  },
+  {
+    "program": "TIMER_CONTROL_ARRAY",
+    "path": "ENTRY",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "TIMER_CONTROL_ARRAY",
+    "path": "READY",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "TIMER_CONTROL_ARRAY",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

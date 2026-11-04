@@ -39,7 +39,9 @@ cleanup. Caller and sibling-frame timers remain independent.
 Scope cleanup removes only the retained owned registration. A replaced record
 is not removed by an older frame's cleanup. Checkpoint updates reject a changed
 or lost local registration before acquiring a clock or updating values. A scoped
-DISCONNECT cannot use another frame's registration or a retained dead frame.
+DISCONNECT can now use [exact helper control](timer-control.md) within the same
+live task. It validates the defining frame and existing claim without migrating
+clock/cleanup ownership. Retained dead frames and other tasks remain blocked.
 The existing terminal task/invocation bank cleanup remains separate.
 
 Updates use the existing checkpoint model: monotonic milliseconds, fractional

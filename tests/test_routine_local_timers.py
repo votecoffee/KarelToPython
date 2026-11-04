@@ -248,10 +248,10 @@ class LocalTimerOwnershipTests(unittest.TestCase):
             with self.subTest(value=value),self.assertRaisesRegex(rt.KarelRuntimeError,'scope flag'):rt.connect_timer(state,ref,23,scoped=value)
             self.assertIs(ref.raw(),rt.UNINITIALIZED);state.leave_routine()
 
-    def test_disconnect_from_other_active_frame_preserves_connection(self):
+    def test_disconnect_from_nested_active_frame_controls_same_task_connection(self):
         p,state,ref=self.active();self.connect(state,ref);state.enter_routine({'N':('INTEGER',)},routine='INNER')
-        with rt._numeric_scope('pythonic'),self.assertRaisesRegex(rt.KarelRuntimeError,'another frame'):rt.disconnect_timer(state,ref,23,scoped=True)
-        state.leave_routine();self.assertEqual(len(state._timers),1);state.leave_routine();self.assertEqual(empty_timers(p),({},{},[]))
+        with rt._numeric_scope('pythonic'):rt.disconnect_timer(state,ref,23,scoped=True)
+        self.assertEqual(state._timers,{});state.leave_routine();state.leave_routine();self.assertEqual(empty_timers(p),({},{},[]))
 
     def test_frame_cleanup_preserves_foreign_registration_replacement(self):
         p,state,ref=self.active();self.connect(state,ref);key=next(iter(state._timers));foreign=[ref,0,0];state._timers[key]=foreign

@@ -1,0 +1,34 @@
+[
+  {
+    "program": "MAIN",
+    "path": "ELAPSED",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "MAIN",
+    "path": "READY",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "MAIN",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "LIB",
+    "path": "CALLS",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 1
+  }
+]

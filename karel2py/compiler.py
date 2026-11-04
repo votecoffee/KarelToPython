@@ -3765,7 +3765,8 @@ class Emitter:
                 body=self.current_routine.name if self.current_routine else self.program.name,
                 line=line,column=token.column,selector=counter_text(target),root=root,
                 provenance='private_temporary' if private else 'borrowed_formal' if formal else 'routine_local' if local else 'declared_storage',
-                protection_root=protection,evaluated_once=True,lifetime='routine_frame' if local or formal else 'invocation'))
+                protection_root=protection,evaluated_once=True,lifetime='routine_frame' if local or formal else 'invocation',
+                control_scope='same_task_existing_claim' if kind=='timer_disconnect' else 'defining_connection'))
             self.features.add('connected INTEGER timer')
             if private:self.features.add('private USING connected timer')
             if local:self.features.add('routine-local connected timer')
@@ -5686,11 +5687,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/routine-local-timers.md',controller_validated=False)
     report['formal_timer_policy']=dict(
         storage='Exact INTEGER formal references, fields/ARRAY leaves and named USING aliases; bare exact actuals borrow caller data, normal grouped/numeric value actuals remain private',
-        lifetime='Connections belong to the actual live callee frame and end at its unwind; DISCONNECT only removes that frame own scoped connection, never a caller timer',
+        lifetime='Connections belong to the actual live callee frame and end at its unwind; DISCONNECT may control an exact same-task live caller claim under timer_control_policy without moving its ownership',
         ownership='ExecutionContext claims retain actual state/record identities and exclude duplicate connected cells across linked/concurrent banks; changed claims fail before updates or disconnect; uncertain claims are retained',
         effects='CONNECT/DISCONNECT count as potential formal/global writes with transitive propagation; handler-retained timer aliases block later declared counters, private alias guards remain, detached values do not expose callers',
         persistence='Claims, frames, private cells and live clocks are omitted from context JSON; variable archive writes protect claimed cells even outside attached program stacks',
-        boundary='Explicit cooperative Pythonic semantics; no persistent borrowed timer after callee return, disconnecting other frames, inferred controller aliasing, native time/ABI or public strict equivalence',
+        boundary='Explicit cooperative Pythonic semantics; same-task existing-claim control follows timer_control_policy; persistent borrowed connections, cross-task control, inferred controller aliasing and native time/ABI/strict equivalence remain unavailable',
         guide='docs/formal-timers.md',controller_validated=False)
     report['error_history_policy']=dict(
         procedure='ERR_DATA(sequence,error_code,error_string,cause_code,cause_string,time_int,severity,program_name)',
@@ -7057,6 +7058,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         exact='FILE storage, embedded resources, generic QUEUE_TYPE checked/value helpers and exact linked declarations retain guards; explicit callback collection results follow external_collection_result_policy',
         boundary='Authored offline Pythonic extension; no native/compiler/controller/ABI/strict equivalence or persistence of buffer links/private frames',
         guide='docs/scalar-collection-values.md',controller_validated=False)
+    report['timer_control_policy']=dict(
+        source='DISCONNECT TIMER through exact INTEGER globals, borrowed formals, ARRAY/record leaves, named USING/BYNAME aliases and linked helper calls',
+        authority='Same live task-root identity and ExecutionContext; resolve the actual claimed cell across participating states, never by program/task-name equality',
+        proof='Exact owner state/record, original storage/member and member type; validate live defining-frame binding before removing its own registration',
+        lifetime='Control never moves the clock, defining frame or cleanup owner; new formal connections retain frame lifetime and still end on return',
+        effects='One-time source selectors and existing direct/transitive/retained-alias whole-root counter guards; value/grouped/converted actuals retain independent cells',
+        failure='Cross-task/context, inactive/dead frames, changed records/endpoints or uncertain reserved claims reject without freeing a foreign slot; unrelated timers stay connected',
+        progress='Use existing source checkpoints; disconnect performs no additional clock sample or numeric publication',
+        persistence='Existing declared values only; timer connections, clocks, ownership records, retained frames and suspended execution remain omitted',
+        boundary='Authored offline Pythonic control; no persistent borrowed connection extension, native alias discovery, controller timing/ABI or strict equivalence',
+        guide='docs/timer-control.md',controller_validated=False)
     report['motion_nowait_policy']=dict(
         source='Seven MOVE forms and VIA with NOWAIT plus explicit finite scripted delays or complete node_times; no local clauses/temporal selectors',
         admission='Validate detached operands/settings, ownership, response and stable task clock before publishing; one pending request per group, no queued batches',

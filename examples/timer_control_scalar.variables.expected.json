@@ -1,0 +1,26 @@
+[
+  {
+    "program": "TIMER_CONTROL_SCALAR",
+    "path": "ELAPSED",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "TIMER_CONTROL_SCALAR",
+    "path": "READY",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "TIMER_CONTROL_SCALAR",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

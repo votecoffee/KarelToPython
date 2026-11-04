@@ -1,0 +1,18 @@
+[
+  {
+    "program": "TIMER_CONTROL_LOCAL",
+    "path": "READY",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "TIMER_CONTROL_LOCAL",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "SAMPLES": [
+    [
+      {
+        "uninitialized": true
+      },
+      {
+        "uninitialized": true
+      }
+    ],
+    [
+      0,
+      {
+        "uninitialized": true
+      }
+    ]
+  ],
+  "ENTRY": 0,
+  "READY": true,
+  "DONE": true
+}

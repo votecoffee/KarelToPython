@@ -1,0 +1,5 @@
+PROGRAM LIB
+VAR calls:INTEGER
+ROUTINE stop_timer(value:INTEGER):BOOLEAN
+BEGIN calls=1 DISCONNECT TIMER value RETURN value>0 END stop_timer
+BEGIN END LIB

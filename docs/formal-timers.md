@@ -48,10 +48,12 @@ Normal/early return, errors, stop, sticky abort, budget exhaustion and generator
 close release the callee's exact owned registrations. Connections do not persist
 as borrowed timers after that frame returns.
 
-DISCONNECT through a formal removes only that frame's own scoped connection.
-It cannot take over a caller/ancestor timer or cancel another frame's timer.
-Use the owning scope to disconnect that connection. Ordinary global/private
-invocation timers and fresh local timers retain their separate lifetimes.
+[Helper timer control](timer-control.md) now lets DISCONNECT through an exact
+formal reference release an existing connection owned by the same calling task,
+including an active caller/ancestor frame or participating linked state. It does
+not transfer the connection, clock or cleanup owner. Cross-task and stale/dead
+frame control remains blocked. Ordinary global/private invocation and fresh local
+timer lifetimes remain unchanged.
 
 The model samples elapsed time at execution checkpoints. RETURN and explicit
 DISCONNECT provide source checkpoints after a wait. Automatic implicit return
@@ -115,8 +117,10 @@ Loading saved data starts a new model context and does not resume a borrowed tim
 or certify the state of a still-live context.
 
 connected_timers rows use provenance=borrowed_formal and lifetime=routine_frame.
-formal_timer_policy describes argument ownership, cleanup, shared claims,
-effects and persistence, with controller_validated=false. Linked signatures,
+formal_timer_policy describes argument ownership, cleanup, shared claims;
+DISCONNECT rows add control_scope=same_task_existing_claim under
+timer_control_policy. These policies also describe protected effects and
+persistence, with controller_validated=false. Linked signatures,
 native ABI/controller timing and public strict mode keep their existing boundaries.
 
 See authored [bare references](../examples/formal_timers.kl),

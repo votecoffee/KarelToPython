@@ -1,0 +1,9 @@
+PROGRAM TIMER_CONTROL_ARRAY
+VAR samples:ARRAY[2,2]OF INTEGER entry:INTEGER ready,done:BOOLEAN
+ROUTINE stop_timer(values:ARRAY OF INTEGER):BOOLEAN BEGIN DISCONNECT TIMER values[1] RETURN values[1]>0 END stop_timer
+BEGIN
+ IF UNINIT(done) THEN
+  CONNECT TIMER TO samples[2,1] DELAY 32 ready=stop_timer(BYNAME('','SAMPLES[2]',entry))
+  entry=0 samples[2,1]=0 DELAY 9 done=TRUE
+ ENDIF
+END TIMER_CONTROL_ARRAY

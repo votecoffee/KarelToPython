@@ -1,5 +1,10 @@
 # Semantic notes
 
+The [helper timer-control ledger](timer_control_semantics.json) supersedes earlier
+caller/ancestor-frame DISCONNECT exclusions for exact references within one live
+task. Connection lifetimes do not migrate; foreign tasks, dead frames and
+uncertain claims retain their protection.
+
 The [NOWAIT motion ledger](nowait_motion_semantics.json) supersedes earlier
 delayed/scheduled NOWAIT exclusions for callback-free jobs. One pending request
 per owned group observes task clocks; local clauses, queued batches and native

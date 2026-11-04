@@ -1697,17 +1697,30 @@ def connect_timer(state,reference,line=None,*,scoped=False):
 
 
 def disconnect_timer(state,reference,line=None,*,scoped=False):
-    rt=runtime();frame=_timer_frame(state,scoped,line)
-    if type(reference) is not rt.Reference or reference.spec!=('INTEGER',): fail('Timer requires ordinary INTEGER storage',line)
-    key=(id(reference.storage),reference.key)
-    if key not in state._timers: fail('Timer is not connected',line)
-    record=state._timers[key];binding=state._frame_timers.get(key)
-    if (binding is not None and binding[1] is not record) or (scoped and (binding is None or binding[0] is not frame)):
-        fail('Routine-local timer registration changed or belongs to another frame',line)
-    claim=_timer_claim(state,key,record,line)
-    del state._timers[key]
-    if state.execution._timer_claims.get(key) is claim:del state.execution._timer_claims[key]
-    if binding is not None:del state._frame_timers[key]
+    rt=runtime();_timer_frame(state,scoped,line)
+    if type(reference) is not rt.Reference or reference.spec!=('INTEGER',):fail('Timer requires ordinary INTEGER storage',line)
+    key=(id(reference.storage),reference.key);owner=state
+    if key not in owner._timers:
+        candidate=state.execution._timer_claims.get(key)
+        if type(candidate) is not tuple or len(candidate)!=4:fail('Timer is not connected',line)
+        owner=candidate[0]
+        if (type(owner) is not rt.State or owner.execution is not state.execution
+                or rt.task_root(owner) is not rt.task_root(state)):
+            fail('Timer belongs to another task or execution context',line)
+        if key not in owner._timers or owner._timers[key] is not candidate[1]:fail('Timer owner registration changed or is reserved',line)
+    record=owner._timers[key];binding=owner._frame_timers.get(key)
+    if key in owner._frame_timers:
+        if (type(binding) is not tuple or len(binding)!=2 or binding[1] is not record
+                or not any(binding[0] is live for live in owner._timer_frames)):
+            fail('Timer registration changed or its defining frame is inactive',line)
+    claim=_timer_claim(owner,key,record,line)
+    if (reference.storage is not claim[2] or type(reference.key) is not type(claim[3]) or reference.key!=claim[3]):
+        fail('Timer actual reference differs from its registered endpoint',line)
+    # Exact actual-cell borrowing authorizes control within the same live task;
+    # the connection's clock, defining frame and cleanup ownership never migrate.
+    del owner._timers[key]
+    if owner.execution._timer_claims.get(key) is claim:del owner.execution._timer_claims[key]
+    if binding is not None:del owner._frame_timers[key]
 
 
 def define_condition(state,number,clauses,line=None,*,scan_ms=0,priority=50):

@@ -1,0 +1,56 @@
+[
+  {
+    "program": "TIMER_CONTROL_PRIVATE",
+    "path": "ITEM",
+    "type": [
+      "STRUCTURE",
+      "ROW_T",
+      [
+        [
+          "ELAPSED",
+          [
+            "INTEGER"
+          ]
+        ],
+        [
+          "OTHER",
+          [
+            "INTEGER"
+          ]
+        ]
+      ]
+    ],
+    "value": {
+      "ELAPSED": {
+        "uninitialized": true
+      },
+      "OTHER": {
+        "uninitialized": true
+      }
+    }
+  },
+  {
+    "program": "TIMER_CONTROL_PRIVATE",
+    "path": "RESULT",
+    "type": [
+      "INTEGER"
+    ],
+    "value": 0
+  },
+  {
+    "program": "TIMER_CONTROL_PRIVATE",
+    "path": "READY",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  },
+  {
+    "program": "TIMER_CONTROL_PRIVATE",
+    "path": "DONE",
+    "type": [
+      "BOOLEAN"
+    ],
+    "value": true
+  }
+]

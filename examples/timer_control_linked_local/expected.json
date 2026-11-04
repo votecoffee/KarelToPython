@@ -1,0 +1,15 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "DONE": true
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "CALLS": 1
+    }
+  }
+}
