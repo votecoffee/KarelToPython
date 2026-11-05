@@ -206,44 +206,48 @@ def concrete_type(context,state,program,text,group,dimensions,line):
     return spec
 
 
-def create(context,state,args,line):
-    rt=runtime();store=context.variables
-    program,var,type_program,text,group,inner,middle,outer,status,pool=args
-    program=name(program,state,line,default=True);var=name(var,state,line)
-    type_program=name(type_program,state,line,default=True)
-    if program is None or var is None or type_program is None: status.set(2,line);return
-    if conflict(roots(store,program)|set(declared(context,state,program)),var): status.set(3,line);return
-    if type(pool) is not int or pool not in (-1,0): status.set(2,line);return
-    spec=concrete_type(context,state,type_program,text,group,(inner,middle,outer),line)
-    if spec is None: status.set(5,line);return
-    cost=creation_cost(spec)
-    if reserved(store)+cost>MAX_LEAVES: status.set(6,line);return
-    # Budget checkpoint precedes the only allocation and mutation.
+def variable_checkpoint(state,line):
+    rt=runtime()
     state.tick(line)
-    # A connected-clock callback may have changed lifetime, roots or capacity.
     for owner in (rt.task_root(state),state):
         if owner._aborted: raise rt.KarelAbort(owner._abort_line)
         if owner.task_state=='stopped': raise rt.KarelStop('Task is stopped')
+
+
+def create(context,state,args,line):
+    rt=runtime();store=context.variables
+    program,var,type_program,text,group,inner,middle,outer,pool=args
+    program=name(program,state,line,default=True);var=name(var,state,line)
+    type_program=name(type_program,state,line,default=True)
+    if program is None or var is None or type_program is None:return 2
+    if conflict(roots(store,program)|set(declared(context,state,program)),var):return 3
+    if type(pool) is not int or pool not in (-1,0):return 2
+    spec=concrete_type(context,state,type_program,text,group,(inner,middle,outer),line)
+    if spec is None:return 5
+    cost=creation_cost(spec)
+    if reserved(store)+cost>MAX_LEAVES:return 6
+    # Budget checkpoint precedes the only allocation and mutation.
+    variable_checkpoint(state,line)
     if context.variables is not store: fail('Variable store changed during CREATE_VAR',line)
-    if conflict(roots(store,program)|set(declared(context,state,program)),var): status.set(3,line);return
-    if reserved(store)+cost>MAX_LEAVES: status.set(6,line);return
+    if conflict(roots(store,program)|set(declared(context,state,program)),var):return 3
+    if reserved(store)+cost>MAX_LEAVES:return 6
     reference=rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
     key=(program,var);store.bindings[key]=reference
     store.metadata[key]={'group':group,'memory_pool':pool}
-    status.set(0,line)
+    return 0
 
 
 def rename(context,state,operation,args,line):
     store=context.variables
     if operation=='RENAME_VAR':
-        program,old,new,status=args
+        program,old,new=args
         program=name(program,state,line,default=True);old=name(old,state,line);new=name(new,state,line)
-        if None in (program,old,new): status.set(2,line);return
-        if old in declared(context,state,program): status.set(4,line);return
+        if None in (program,old,new):return 2
+        if old in declared(context,state,program):return 4
         key=(program,old)
-        if key not in store.bindings: status.set(1,line);return
-        if old==new: status.set(0,line);return
-        if conflict(roots(store,program)|set(declared(context,state,program)),new): status.set(3,line);return
+        if key not in store.bindings:return 1
+        if old==new:return 0
+        if conflict(roots(store,program)|set(declared(context,state,program)),new):return 3
         changes={key:(program,new)}
         for owner,path in store.bindings:
             if owner==program and (path.startswith(old+'.') or path.startswith(old+'[')):
@@ -253,26 +257,84 @@ def rename(context,state,operation,args,line):
                 return owner,new+path[len(old):]
             return owner,path
     else:
-        old,new,status=args;old=name(old,state,line,default=True);new=name(new,state,line)
-        if old is None or new is None: status.set(2,line);return
+        old,new=args;old=name(old,state,line,default=True);new=name(new,state,line)
+        if old is None or new is None:return 2
         # Compiled program identities and their live references cannot be renamed.
-        if old in store.programs or old==state.program_name: status.set(4,line);return
-        if not roots(store,old): status.set(1,line);return
-        if any(not re.fullmatch(IDENTIFIER,path) for path in roots(store,old)): status.set(4,line);return
-        if old==new: status.set(0,line);return
-        if new in store.programs or new==state.program_name or roots(store,new): status.set(3,line);return
+        if old in store.programs or old==state.program_name:return 4
+        if not roots(store,old):return 1
+        if any(not re.fullmatch(IDENTIFIER,path) for path in roots(store,old)):return 4
+        if old==new:return 0
+        if new in store.programs or new==state.program_name or roots(store,new):return 3
         changes={key:(new,key[1]) for key in store.bindings if key[0]==old}
         def cache_key(owner,path): return (new if owner==old else owner),path
+    bindings_before,programs_before=store.bindings.copy(),store.programs.copy()
+    variable_checkpoint(state,line)
+    if context.variables is not store or store.bindings!=bindings_before or store.programs!=programs_before:
+        fail('Variable bindings changed during rename',line)
     bindings={changes.get(key,key):value for key,value in store.bindings.items()}
     metadata={changes.get(key,key):value for key,value in store.metadata.items()}
     entries={cache_key(owner,path):value for (owner,path),value in context.entries.items()}
-    state.tick(line)
     store.bindings=bindings;store.metadata=metadata;context.entries=entries
-    status.set(0,line)
+    return 0
 
 
 def invoke(context,state,operation,args,line):
-    return create(context,state,args,line) if operation=='CREATE_VAR' else rename(context,state,operation,args,line)
+    if operation=='CREATE_VAR':
+        code=create(context,state,(*args[:-2],args[-1]),line)
+        args[-2].set(code,line)
+    else:
+        args[-1].set(rename(context,state,operation,args[:-1],line),line)
+
+
+def edit_detached_path(state,operation,program,var,index,line):
+    """Edit an explicit PATH without invalidating a compiled or retained alias."""
+    from .inspection import attached_programs
+    from .storage import collection_payload
+    from .variable_archives import cells, ordinary
+
+    rt=runtime();context=state.execution
+    program=name(program,state,line,default=True)
+    var=name(var,state,line)
+    if program is None or var is None:return 2
+    variable_checkpoint(state,line)
+    store=context.variables;key=(program,var)
+    owners=attached_programs(context,state)
+    if any(var in owner.types for owner in owners.get(program,())):return 4
+    reference=store.bindings.get(key)
+    if reference is None:return 1
+    if not ordinary(reference) or reference.spec[0]!='PATH':return 5
+    value=reference.raw()
+    if type(value) is not rt.PathValue or value.spec!=reference.spec or type(value.nodes) is not list:
+        return 5
+    try:
+        node_size=rt._validate_data_schema(value.node_spec)
+        header_size=rt._validate_data_schema(value.spec[2]) if value.spec[2] is not None else 0
+        count=len(value.nodes)
+        if count>MAX_LEAVES or header_size+count*node_size>MAX_LEAVES:return 6
+        if operation!='APPEND_NODE' and not 1<=index<=count:return 2
+        if operation!='DELETE_NODE' and (count>=MAX_LEAVES or header_size+(count+1)*node_size>MAX_LEAVES):
+            return 6
+        collection_payload(reference.spec,value)
+        selected=cells(reference)
+        for other_key,other in store.bindings.items():
+            if other_key==key:continue
+            if (other_key[0]==program and conflict((other_key[1],),var)
+                    or not ordinary(other) or selected&cells(other)):
+                return 4
+        for claim in context._timer_claims.values():
+            if type(claim) is not tuple or len(claim)!=4 or (id(claim[2]),claim[3]) in selected:return 4
+        for instances in owners.values():
+            for owner in instances:
+                for declarations,values in ((owner.types,owner.values),*owner.local_frames):
+                    for member,spec in declarations.items():
+                        stored=values[member]
+                        other=stored if type(stored) is rt.Reference else rt.Reference(spec,values,member)
+                        if selected&cells(other):return 4
+    except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+    if operation=='DELETE_NODE':
+        del value.nodes[index-1]
+        return 0
+    return value.append(index,line)
 
 
 def byname(state,expected,program,path,entry,line=None):

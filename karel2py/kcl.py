@@ -72,19 +72,49 @@ def file_command(command):
     return None
 
 
+def variable_command(command):
+    from .dynamic import IDENTIFIER
+
+    command = command.upper()
+    selected = rf'(?:\[({IDENTIFIER})\] *)?({IDENTIFIER})'
+    create = re.fullmatch(
+        rf'CREATE +VAR(?:IABLE)? +{selected}(?: +IN +(CMOS|DRAM))? *: *'
+        rf'(?:ARRAY *\[ *([0-9]+(?: *, *[0-9]+){{0,2}}) *\] +OF +)?'
+        rf'({IDENTIFIER}(?: *\[ *[0-9]+ *\])?)', command)
+    if create:
+        program, name, pool, shape, kind = create.groups()
+        sizes = tuple(reversed([int(size) for size in shape.split(',')])) if shape else ()
+        return 'CREATE_VAR', (program or '', name, pool, sizes, kind.replace(' ', ''))
+    rename = re.fullmatch(rf'RENAME +VAR(?:IABLE)? +{selected} +({IDENTIFIER})', command)
+    if rename:
+        program, old, new = rename.groups()
+        return 'RENAME_VAR', (program or '', old, new)
+    namespace = re.fullmatch(rf'RENAME +VARS +({IDENTIFIER}) +({IDENTIFIER})', command)
+    if namespace:
+        return 'RENAME_VARS', namespace.groups()
+    node = re.fullmatch(rf'(APPEND|INSERT|DELETE) +NODE +{selected}(?: *\[ *([0-9]+) *\])?', command)
+    if node:
+        action, program, name, index = node.groups()
+        if (action == 'APPEND') == (index is None):
+            return action + '_NODE', (program or '', name, int(index) if index is not None else None)
+    return None
+
+
 class KclCommands:
     """Single accepted-command channel with configured replies and bounded history."""
     def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
-                 task_commands=False,file_commands=False):
+                 task_commands=False,file_commands=False,variable_commands=False):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
         if type(sequence) is not int or not 0<=sequence<=2147483646:raise ValueError('KCL sequence is out of range')
         if type(task_commands) is not bool:raise ValueError('KCL task_commands requires a BOOLEAN')
         if type(file_commands) is not bool:raise ValueError('KCL file_commands requires a BOOLEAN')
+        if type(variable_commands) is not bool:raise ValueError('KCL variable_commands requires a BOOLEAN')
         self.replies={};self.limit=limit;self.history=[];self.sequence=sequence
         self.task_commands=task_commands
         self.file_commands=file_commands
+        self.variable_commands=variable_commands
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -201,6 +231,25 @@ class KclCommands:
             return 100+code if code else 0
         return self._dispatch(state,name,command,dispatch)
 
+    def _submit_variable(self,state,name,command,request,line):
+        from .dynamic import create, edit_detached_path, rename
+
+        operation,args=request
+        def dispatch(_job):
+            if operation=='CREATE_VAR':
+                program, variable, pool, sizes, kind = args
+                if any(size==0 for size in sizes):
+                    return 205
+                group=rt().task_root(state)._source_settings.get('default_group',1)
+                dimensions=(*sizes,*(0,)*(3-len(sizes)))
+                code=create(state.execution,state,(program,variable,program,kind,group,*dimensions,-1 if pool=='CMOS' else 0),line)
+            elif operation in ('RENAME_VAR','RENAME_VARS'):
+                code=rename(state.execution,state,operation,args,line)
+            else:
+                code=edit_detached_path(state,operation,*args,line)
+            return 200+code if code else 0
+        return self._dispatch(state,name,command,dispatch)
+
     def submit(self,state,name,command,line=None):
         try:command=command_text(command)
         except ValueError as exc:raise rt().KarelRuntimeError(str(exc),line) from exc
@@ -213,6 +262,9 @@ class KclCommands:
             if self.file_commands:
                 request=file_command(command)
                 if request is not None:return self._submit_file(state,name,command,request,line)
+            if self.variable_commands:
+                request=variable_command(command)
+                if request is not None:return self._submit_variable(state,name,command,request,line)
         phase='busy' if self._pending is not None else 'unsupported' if reply is None else 'rejected' if reply['accept_status'] else 'pending'
         code=2 if phase=='busy' else 1 if phase=='unsupported' else reply['accept_status']
         # Capture the clock only for actual delayed work, before mutating history.
@@ -257,6 +309,7 @@ class KclCommands:
         result=dict(replies=deepcopy(self.replies),limit=self.limit,history=deepcopy(self.history),sequence=self.sequence,last_status=self.last_status)
         if self.task_commands:result['task_commands']=True
         if self.file_commands:result['file_commands']=True
+        if self.variable_commands:result['variable_commands']=True
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
         return result
@@ -267,5 +320,5 @@ class KclCommands:
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands','file_commands'}:raise ValueError('Unknown KCL channel fields')
+        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands','file_commands','variable_commands'}:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

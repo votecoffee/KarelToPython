@@ -20,7 +20,7 @@
       "KCL_NO_WAIT",
       "KCL_STATUS"
     ],
-    "service": "Explicit exact-match replies with separately enabled offline task and file command dispatch",
+    "service": "Explicit exact-match replies with separately enabled offline task, file and variable command dispatch",
     "queue": "One accepted pending request; configured acceptance/completion codes and delay; portable unsupported=1/busy=2; 1..126 printable ASCII command text",
     "waiting": "Captured standalone clock/sleeper or scheduler virtual sleep; query/blocking caller receives its captured accepted result without resubmission",
     "lifetime": "Accepted jobs retained on caller stop/failure; explicit polling/collection; bounded history and finite sequence",
@@ -45,8 +45,17 @@
     "dispatch": "Explicit FILE backends and existing checked source operations. Append retains complete byte prefixes. Print and directory use existing output observations.",
     "statuses": "0 success, 4 backend/path/output error, nonzero returned FILE status plus 100. KCL_NO_WAIT separates acceptance from inline completion."
   },
+  "variable_command_extension": {
+    "version": "26.1105.185436",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [706, 711, 712, 713, 717, 726, 727],
+    "configuration": "variable_commands true with exact replies taking precedence",
+    "forms": ["CREATE VAR", "RENAME VAR", "RENAME VARS", "APPEND NODE", "INSERT NODE", "DELETE NODE"],
+    "dispatch": "Explicit variable store, current source module fallback, caller default group, checked creation and rename, detached PATH edits with alias and capacity guards",
+    "statuses": "0 success, 4 inline operation error, nonzero variable result plus 200"
+  },
   "boundaries": [
-    "No shell, live KCL connection, native command parser, variable command interpretation, TP execution or physical motion",
+    "No shell, live KCL connection, native command parser, TP execution or physical motion",
     "Reply codes and source wait behavior are configured offline scenarios rather than controller observations",
     "Strict/native compiler/controller equivalence deferred"
   ],
@@ -54,9 +63,11 @@
     "tests/test_diagnostics_commands.py",
     "tests/test_kcl_task_commands.py",
     "tests/test_kcl_file_commands.py",
+    "tests/test_kcl_variable_commands.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_file_commands",
+    "examples/kcl_variable_commands.kl",
     "examples/diagnostics_commands_project"
   ]
 }

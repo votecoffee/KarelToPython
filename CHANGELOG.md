@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.185436 - 2026-11-05
+
+- Add opt-in KCL variable creation, root and namespace renaming, and detached
+  PATH append, insert and delete commands.
+- Reuse dynamic type, allocation and namespace policies. Guard node edits
+  against compiled, borrowed and overlapping bindings.
+- Recheck rename bindings after its checkpoint before committing new names.
+  Add a CLI example that can replay the same PATH result from saved context.
+
 ## 26.1105.161331 - 2026-11-05
 
 - Add opt-in KCL COPY, RENAME, MOVE, DELETE, APPEND, PRINT and DIRECTORY over

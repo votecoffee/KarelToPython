@@ -2,7 +2,7 @@
 
 KCL, KCL_NO_WAIT and KCL_STATUS use an explicit KclCommands service. The service
 records command requests and returns configured replies. Separate opt-ins
-enable registered task controls and operations on the offline file backends.
+enable registered task controls, offline file operations and variable commands.
 A configured CLEAR ALL reply changes no variables or files.
 
 ```json
@@ -139,6 +139,49 @@ device discovery and socket/DAQ file dispatch remain outside this model.
 The [linked file example](../examples/kcl_file_commands/main.kl) copies and
 appends file data before a worker reads it from a plain pipe.
 
+## Variable and PATH commands
+
+Set `"variable_commands": true` in the `kcl` context section or pass
+`variable_commands=True` to KclCommands. Commands use the explicit variable
+store and case-insensitive names. An omitted `[program]` qualifier selects the
+currently executing source module. Exact scripted replies retain precedence.
+
+| Form | Offline effect |
+| --- | --- |
+| `CREATE VAR [program]name : type` | Allocate a new typed root. VAR and VARIABLE are accepted. |
+| `CREATE VAR [program]name IN CMOS : ARRAY[2,3] OF type` | Allocate with outer-to-inner dimensions and CMOS intent. DRAM is the default. |
+| `RENAME VAR [program]old new` | Rename an explicit root and its related bindings. VAR and VARIABLE are accepted. |
+| `RENAME VARS old new` | Move an unattached variable namespace to an unused name. |
+| `APPEND NODE [program]path` | Add an uninitialized node after the last existing node. |
+| `INSERT NODE [program]path[index]` | Insert an uninitialized node before an existing one-based index. |
+| `DELETE NODE [program]path[index]` | Remove the node at an existing one-based index. |
+
+Creation follows the [dynamic variable rules](dynamic-variables.md), including
+one to three explicit ARRAY dimensions, bounded STRING capacities, supported
+built-in types and supplied user types. A user type resolves in the selected
+program. Creation records the calling task's default group and the requested
+memory intent. Renames preserve storage identity, lookup entries and allocation
+metadata. If bindings change during the rename checkpoint, the command fails
+without overwriting the competing changes.
+
+PATH edits apply to explicit detached root bindings. Compiled storage, known
+borrowed frames, overlapping bindings and connected timers prevent an edit.
+Valid edits preserve header and surviving node identities and keep the PATH
+within the portable 32767-leaf limit. The detached PATH can be inspected with
+GET_VAR and saved through the existing typed context.
+
+These commands complete inline. KCL_NO_WAIT returns acceptance, and KCL_STATUS
+reports completion. Success is 0. Dynamic variable statuses are offset by 200.
+The portable results include 201 for missing names, 202 for invalid selectors,
+203 for collisions, 204 for protected storage, 205 for type or shape failures,
+and 206 for allocation limits. An execution error returns 4.
+
+The forms follow MARRC75KR07091E Rev N, PDF pages 706, 711–713, 717 and
+726–727. Native default programs, controller variable allocation, DELETE VAR,
+SET VARIABLE and KCL archive commands remain outside this model.
+The [PATH example](../examples/kcl_variable_commands.kl) shows creation,
+node edits and a root rename with saved-context replay.
+
 ## Failure and persistence
 
 Once accepted, a pending request remains observable if its caller pauses, stops,
@@ -149,7 +192,7 @@ the same request without increasing the submission sequence.
 `KclCommands.snapshot()` returns detached reply/history data and a pending
 descriptor when present. Context save rejects pending work; collect it first.
 Terminal configuration saves replies, bounded history, sequence and last status.
-It also retains either command opt-in when enabled.
+It also retains enabled command opt-ins.
 Reloading that terminal state starts no jobs and replays no commands. Calling the
 source again is a new explicit source execution, not automatic replay.
 
@@ -166,6 +209,8 @@ python kcl_commands.py --context examples/kcl_commands.services.initial.json --s
 python -m karel2py.project examples/diagnostics_commands_project --entry MAIN --context examples/diagnostics_commands_project/services.initial.json --state-out project-state.json
 python -m karel2py.project examples/kcl_task_commands --entry MAIN --context examples/kcl_task_commands/services.initial.json
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
+python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
+python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json
 ```
 
 Use `rt.KclCommands(replies, ...)` with `ExecutionContext(kcl=...)` for host
@@ -176,4 +221,4 @@ number and continues its pause through KCL.
 
 The report's `kcl_policy` and [semantics ledger](semantics/kcl_semantics.json)
 record the accepted command forms and evidence. Native KCL, shell execution,
-variable commands, live transport and strict mode remain outside this milestone.
+live transport and strict mode remain outside this milestone.

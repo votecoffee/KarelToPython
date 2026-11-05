@@ -1,0 +1,20 @@
+PROGRAM KCL_VARIABLES
+TYPE node_t = STRUCTURE
+  value: INTEGER
+ENDSTRUCTURE
+route_t = PATH NODEDATA=node_t
+VAR entry,value,status:INTEGER
+BEGIN
+  KCL('RENAME VAR SAVED ROUTE',status)
+  KCL('CREATE VAR ROUTE:ROUTE_T',status)
+  IF status=203 THEN
+    KCL('DELETE NODE ROUTE[1]',status)
+  ENDIF
+  KCL('APPEND NODE ROUTE',status)
+  SET_VAR(entry,'','ROUTE[1].VALUE',7,status)
+  KCL('INSERT NODE ROUTE[1]',status)
+  SET_VAR(entry,'','ROUTE[1].VALUE',9,status)
+  KCL('DELETE NODE ROUTE[2]',status)
+  KCL('RENAME VAR ROUTE SAVED',status)
+  GET_VAR(entry,'','SAVED[1].VALUE',value,status)
+END KCL_VARIABLES

@@ -6494,14 +6494,15 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Portable event IDs; START_K_LINE/PCODE_EXEC describe offline checkpoints, not native p-code, memory words, tracing clocks or controller diagnostic option',
         guide='docs/diagnostics.md',controller_validated=False)
     report['kcl_policy']=dict(
-        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional registered task and file dispatch',
+        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file and variable dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',
         completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time or captured standalone clock/sleeper completion',
         lifetime='Accepted jobs survive caller stop/failure; no resubmission on status collection; pending work cannot be serialized; explicit poll can collect elapsed work',
         task_commands='Opt in with task_commands true. RUN starts an independent registered task or continues a pause. CONT/CONTINUE, PAUSE and ABORT support named or ALL selection. PAUSE/ABORT support FORCE. Standalone no-wait RUN/CONTINUE require a scheduler.',
         file_commands='Opt in with file_commands true. COPY, DELETE, RENAME and MOVE reuse FILE services. APPEND preserves complete closed byte snapshots. PRINT and DIRECTORY use the existing offline text output.',
-        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2, task unavailable/ineligible=3, inline operation error=4, nonzero FILE result plus 100; unsubmitted/unconfigured last status raises',
-        boundary='No native KCL, shell, TP execution, variable command interpretation, physical motion or automatic replay. Shared channel status is context-wide.',
+        variable_commands='Opt in with variable_commands true. CREATE VAR, RENAME VAR and RENAME VARS use the explicit variable store. APPEND/INSERT/DELETE NODE operate on detached PATH roots with alias and capacity checks.',
+        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2, task unavailable/ineligible=3, inline operation error=4, nonzero FILE result plus 100, nonzero variable result plus 200; unsubmitted/unconfigured last status raises',
+        boundary='No native KCL, shell, TP execution, physical motion or automatic replay. Shared channel status is context-wide.',
         guide='docs/kcl-commands.md',controller_validated=False)
     report['pendant_policy']=dict(
         calls=['FORCE_LINK','FORCE_SPMENU','SET_LANG','DEF_SCREEN','DEF_WINDOW','ACT_SCREEN','ATT_WINDOW_D','ATT_WINDOW_S','DET_WINDOW','SET_CURSOR'],

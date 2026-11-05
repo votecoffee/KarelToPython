@@ -1,0 +1,17 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_VARIABLES", "operation": "KCL", "command": "RENAME VAR SAVED ROUTE", "phase": "completed", "status": 201},
+      {"sequence": 2, "program": "KCL_VARIABLES", "operation": "KCL", "command": "CREATE VAR ROUTE:ROUTE_T", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_VARIABLES", "operation": "KCL", "command": "APPEND NODE ROUTE", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_VARIABLES", "operation": "KCL", "command": "INSERT NODE ROUTE[1]", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "KCL_VARIABLES", "operation": "KCL", "command": "DELETE NODE ROUTE[2]", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "KCL_VARIABLES", "operation": "KCL", "command": "RENAME VAR ROUTE SAVED", "phase": "completed", "status": 0}
+    ],
+    "sequence": 6,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}
