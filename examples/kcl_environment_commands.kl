@@ -1,0 +1,16 @@
+PROGRAM KCL_ENVIRONMENT
+VAR simulated,enabled,changed,inspected,cleared,accepted,updated,shown:INTEGER
+    observed,stamp:INTEGER
+BEGIN
+  observed=0
+  KCL('SIM DIN[1] = OFF',simulated)
+  CONDITION[1]: WHEN DIN[1] DO observed=41 ENDCONDITION
+  KCL('ENABLE CONDITION 1',enabled)
+  KCL('SET PORT DIN[1] = ON',changed)
+  KCL('SHOW COND 1',inspected)
+  KCL('UNSIM ALL',cleared)
+  KCL_NO_WAIT('SET CLOCK ''29-FEB-24 21:45''',accepted)
+  updated=KCL_STATUS
+  KCL('SHOW CLOCK',shown)
+  GET_TIME(stamp)
+END KCL_ENVIRONMENT

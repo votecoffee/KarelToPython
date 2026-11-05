@@ -20,7 +20,7 @@
       "KCL_NO_WAIT",
       "KCL_STATUS"
     ],
-    "service": "Explicit exact-match replies with separately enabled offline task, file, variable, device, dictionary and program command dispatch",
+    "service": "Explicit exact-match replies with separately enabled offline task, file, variable, device, dictionary, program and environment command dispatch",
     "queue": "One accepted pending request; configured acceptance/completion codes and delay; portable unsupported=1/busy=2; 1..126 printable ASCII command text",
     "waiting": "Captured standalone clock/sleeper or scheduler virtual sleep; query/blocking caller receives its captured accepted result without resubmission",
     "lifetime": "Accepted jobs retained on caller stop/failure; explicit polling/collection; bounded history and finite sequence",
@@ -75,6 +75,7 @@
     "tests/test_kcl_variable_archives.py",
     "tests/test_kcl_device_dictionary_commands.py",
     "tests/test_kcl_program_commands.py",
+    "tests/test_kcl_environment_commands.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_file_commands",
@@ -82,6 +83,7 @@
     "examples/kcl_variable_archives.kl",
     "examples/kcl_offline_services.kl",
     "examples/kcl_program_commands.kl",
+    "examples/kcl_environment_commands.kl",
     "examples/diagnostics_commands_project"
   ],
   "volume_and_dictionary_extension": {
@@ -100,5 +102,14 @@
     "forms": ["SAVE TP", "LOAD TP", "CLEAR PROGRAM", "TRANSLATE", "SHOW PROGRAMS", "SHOW TASKS", "SHOW TASK"],
     "dispatch": "Explicit portable archive and stored-source services. Sorted JSON lines capture the program or task registry before output. No native artifacts or controller display.",
     "statuses": "Nonzero archive and listing results use offset 500. Stored-source TRANSLATE results are preserved."
+  },
+  "environment_and_task_admin_extension": {
+    "version": "26.1105.200311",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [714, 715, 716, 733, 735, 736, 738, 744, 746, 748, 749],
+    "configuration": "environment_commands true enables port and clock controls. task_commands true includes settings, traces and root global handlers.",
+    "forms": ["SET PORT", "SIMULATE", "UNSIMULATE", "SET CLOCK", "SHOW CLOCK", "SET TASK", "SET TRACE", "SHOW TRACE", "ENABLE CONDITION", "DISABLE CONDITION", "SHOW CONDITION"],
+    "dispatch": "Explicit logical port bank and calendar services, registered task settings and checkpoint traces, and live root-task global condition handlers.",
+    "statuses": "Environment validation and guard results use offset 600. Task selection and condition availability use 3. Invalid task settings and inline runtime errors use 4."
   }
 }

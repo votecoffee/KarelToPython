@@ -1,0 +1,5 @@
+{
+  "ports": {"counts": {"DIN": 1}, "values": {"DIN": {"1": false}}},
+  "calendar": {"value": "2024-01-01T00:00:00"},
+  "kcl": {"task_commands": true, "environment_commands": true}
+}

@@ -176,6 +176,14 @@ def select_task(registry,name,caller=None,line=None):
     return (0,name) if name in registry.tasks else (1,None)
 
 
+def selected_task_root(registry,name,caller=None,line=None):
+    status,name=select_task(registry,name,caller,line)
+    if status:return status,None
+    root=rt().task_root(registry.tasks[name]._state)
+    if root._scheduler is not None and root._scheduler is not registry:return 3,None
+    return 0,root
+
+
 def set_task_attribute(registry,name,attribute,value,*,caller=None,line=None):
     """Apply explicit portable policies to the bound task; never drive it."""
     runtime=rt();name=runtime.ascii_string(name,line)
@@ -187,14 +195,44 @@ def set_task_attribute(registry,name,attribute,value,*,caller=None,line=None):
     if key not in TASK_ATTRIBUTES: return 2
     if key not in TASK_SETTING_RANGES: return 3
     if not valid_task_setting(key,value): return 2
-    status,name=select_task(registry,name,caller,line)
+    status,root=selected_task_root(registry,name,caller,line)
     if status: return status
-    root=runtime.task_root(registry.tasks[name]._state)
-    if root._scheduler is not None and root._scheduler is not registry: return 3
     root._task_settings[key]=value
     if key=='TSK_TPMOTION': root._task_pendant_motion=False
     if key=='TSK_TRACE' and value: root._task_settings.setdefault('TSK_TRACELEN',1000)
     if key=='TSK_TRACELEN': del root._task_trace[:-value]
+    return 0
+
+
+def kcl_task_admin(state,operation,args,line=None):
+    from .extended import condition_control
+    from .fileops import write_json_lines
+
+    registry=state.execution.tasks
+    name=args[0]
+    if operation=='TASK_SETTING':
+        code=set_task_attribute(registry,*args,caller=state,line=line)
+        return {0:0,1:3,2:4,3:3}[code]
+    if name or operation=='SHOW_TRACE':
+        status,root=selected_task_root(registry,name,state,line)
+        if status:return 3
+    else:
+        root=rt().task_root(state)
+    if operation=='SHOW_TRACE':
+        write_json_lines(state,tuple(root._task_trace),line)
+        return 0
+    if root.task_state not in ('running','paused','waiting'):return 3
+    number=args[1]
+    if number is not None and not 1<=number<=1000:return 4
+    handlers={key:handler for key,handler in root._handlers.items() if handler.get('local_frame') is None}
+    if number is not None and number not in handlers:return 3
+    if operation=='SHOW_CONDITION':
+        keys=sorted(handlers) if number is None else [number]
+        rows=[dict(number=key,enabled=handlers[key]['enabled'],priority=handlers[key]['priority'],
+                   scan_ms=handlers[key]['scan_ms']) for key in keys]
+        write_json_lines(state,rows,line)
+    else:
+        condition_control(root,operation,number,line)
     return 0
 
 

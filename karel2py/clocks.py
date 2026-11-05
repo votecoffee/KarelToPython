@@ -65,3 +65,20 @@ class CalendarClock:
         if not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?',text):
             raise ValueError('Calendar value requires a complete naive ISO datetime')
         return cls(datetime.fromisoformat(text))
+
+
+def kcl_calendar(state,operation,args,line=None):
+    from .fileops import write_file_text
+
+    runtime=rt()
+    calendar=state.execution.require('calendar',line)
+    if operation=='SHOW_CLOCK':
+        write_file_text(state,runtime._format_time_text(calendar.read(line),line)+'\n',line)
+        return 0
+    day,month,year_text,time=args
+    short_year=int(year_text)
+    year=short_year+(1900 if short_year>=80 else 2000)
+    packed=runtime._parse_time_text(f'{day}-{month}-{year:04d} {time}',line)
+    if packed==0:return 2
+    calendar.set(packed,line)
+    return 0

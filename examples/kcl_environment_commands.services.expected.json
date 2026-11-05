@@ -1,0 +1,21 @@
+{
+  "ports": {"DIN:1": true},
+  "calendar": {"value": "2024-02-29T21:45:00.000000"},
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_ENVIRONMENT", "operation": "KCL", "command": "SIM DIN[1] = OFF", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_ENVIRONMENT", "operation": "KCL", "command": "ENABLE CONDITION 1", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_ENVIRONMENT", "operation": "KCL", "command": "SET PORT DIN[1] = ON", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_ENVIRONMENT", "operation": "KCL", "command": "SHOW COND 1", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "KCL_ENVIRONMENT", "operation": "KCL", "command": "UNSIM ALL", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "KCL_ENVIRONMENT", "operation": "KCL_NO_WAIT", "command": "SET CLOCK '29-FEB-24 21:45'", "phase": "completed", "status": 0},
+      {"sequence": 7, "program": "KCL_ENVIRONMENT", "operation": "KCL", "command": "SHOW CLOCK", "phase": "completed", "status": 0}
+    ],
+    "sequence": 7,
+    "last_status": 0,
+    "task_commands": true,
+    "environment_commands": true
+  }
+}

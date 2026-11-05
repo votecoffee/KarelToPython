@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.200311 - 2026-11-05
+
+- Add opt-in KCL SET PORT, SIMULATE and UNSIMULATE over the existing logical
+  port bank, and SET CLOCK and SHOW CLOCK over the supplied calendar.
+- Extend registered KCL task commands with priority, trace length and trace
+  switches, plus JSON-line trace inspection.
+- Add KCL enable, disable and inspection of live root-task global condition
+  handlers. Include a CLI example that fires a handler through simulated input.
+
 ## 26.1105.194615 - 2026-11-05
 
 - Add opt-in KCL SAVE TP, LOAD TP and CLEAR PROGRAM over portable logical

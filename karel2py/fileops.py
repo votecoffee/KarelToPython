@@ -965,6 +965,11 @@ def write_file_text(state,text,line=None):
         if state._aborted: raise runtime.KarelAbort(state._abort_line)
 
 
+def write_json_lines(state,rows,line=None):
+    for row in rows:
+        write_file_text(state,json.dumps(row,separators=(',',':'))+'\n',line)
+
+
 def print_file(state,files,name,nowait,line=None):
     rt().boolean(nowait,line)
     code,data=files.read_named(name)

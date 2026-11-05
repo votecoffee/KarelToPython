@@ -40,6 +40,28 @@ def task_command(command):
     return action, name, force
 
 
+def task_admin_command(command):
+    from .dynamic import IDENTIFIER
+
+    command=command.upper()
+    setting=re.fullmatch(rf'SET +TASK +(?:\[ *({IDENTIFIER}) *\] +)?(PRIORITY|TRACELEN) *= *([+-]?[0-9]+)',command)
+    if setting:
+        return 'TASK_SETTING',(setting[1] or '', 'TSK_'+setting[2], int(setting[3]))
+    trace=re.fullmatch(rf'SET +TRACE +(ON|OFF)(?: +\[ *({IDENTIFIER}) *\])?',command)
+    if trace:
+        return 'TASK_SETTING',(trace[2] or '', 'TSK_TRACE', int(trace[1]=='ON'))
+    show_trace=re.fullmatch(rf'SHOW +TRACE(?: +({IDENTIFIER}))?',command)
+    if show_trace:
+        return 'SHOW_TRACE',(show_trace[1] or '',)
+    change=re.fullmatch(rf'(ENABLE|DISABLE) +COND(?:ITION)? +(?:({IDENTIFIER}) +)?([0-9]+)',command)
+    if change:
+        return change[1],(change[2] or '', int(change[3]))
+    show=re.fullmatch(rf'SHOW +COND(?:ITION)?(?: +({IDENTIFIER}))?(?: +([0-9]+))?',command)
+    if show:
+        return 'SHOW_CONDITION',(show[1] or '', int(show[2]) if show[2] is not None else None)
+    return None
+
+
 def file_command(command):
     """Capture keywords separately from case-sensitive file operands."""
     action, *args = command.split()
@@ -179,11 +201,35 @@ def program_command(command):
     return None
 
 
+def environment_command(command):
+    command=command.upper()
+    if re.fullmatch(r'SHOW +CLOCK',command):
+        return 'SHOW_CLOCK',()
+    clock=re.fullmatch(r"SET +CLOCK +'([0-9]{2})-([A-Z]{3})-([0-9]{2}) ([0-9]{2}:[0-9]{2})'",command)
+    if clock:
+        return 'SET_CLOCK',clock.groups()
+    if re.fullmatch(r'UNSIM(?:ULATE)? +ALL',command):
+        return 'UNSIM_ALL',()
+    port=r'(DIN|DOUT|AIN|AOUT|GIN|GOUT) *\[ *([0-9]+) *\]'
+    simulation=re.fullmatch(rf'(SIM(?:ULATE)?|UNSIM(?:ULATE)?) +{port}(?: *= *([^ =]+))?',command)
+    if simulation:
+        action,kind,number,value=simulation.groups()
+        if action.startswith('UNSIM'):
+            return ('UNSIMULATE',(kind,int(number),None)) if value is None else None
+        return 'SIMULATE',(kind,int(number),value)
+    outputs=r'(DIN|DOUT|RDO|OPOUT|TPOUT|AIN|AOUT|GIN|GOUT) *\[ *([0-9]+) *\]'
+    set_port=re.fullmatch(rf'SET +PORT +{outputs} *= *([^ =]+)',command)
+    if set_port:
+        return 'SET_PORT',(set_port[1],int(set_port[2]),set_port[3])
+    return None
+
+
 class KclCommands:
     """Single accepted-command channel with configured replies and bounded history."""
     def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
                  task_commands=False,file_commands=False,variable_commands=False,
-                 device_commands=False,dictionary_commands=False,program_commands=False):
+                 device_commands=False,dictionary_commands=False,program_commands=False,
+                 environment_commands=False):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
@@ -194,6 +240,7 @@ class KclCommands:
         if type(device_commands) is not bool:raise ValueError('KCL device_commands requires a BOOLEAN')
         if type(dictionary_commands) is not bool:raise ValueError('KCL dictionary_commands requires a BOOLEAN')
         if type(program_commands) is not bool:raise ValueError('KCL program_commands requires a BOOLEAN')
+        if type(environment_commands) is not bool:raise ValueError('KCL environment_commands requires a BOOLEAN')
         self.replies={};self.limit=limit;self.history=[];self.sequence=sequence
         self.task_commands=task_commands
         self.file_commands=file_commands
@@ -201,6 +248,7 @@ class KclCommands:
         self.device_commands=device_commands
         self.dictionary_commands=dictionary_commands
         self.program_commands=program_commands
+        self.environment_commands=environment_commands
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -317,6 +365,12 @@ class KclCommands:
             return 100+code if code else 0
         return self._dispatch(state,name,command,dispatch)
 
+    def _submit_task_admin(self,state,name,command,request,line):
+        from .scheduling import kcl_task_admin
+
+        operation,args=request
+        return self._dispatch(state,name,command,lambda _job:kcl_task_admin(state,operation,args,line))
+
     def _submit_variable(self,state,name,command,request,line):
         from .dynamic import create, edit_detached_path, remove_detached, rename, set_detached_scalar
 
@@ -375,6 +429,19 @@ class KclCommands:
             return 500+code if code else 0
         return self._dispatch(state,name,command,dispatch)
 
+    def _submit_environment(self,state,name,command,request,line):
+        from .clocks import kcl_calendar
+
+        operation,args=request
+        def dispatch(_job):
+            if operation in ('SET_CLOCK','SHOW_CLOCK'):
+                code=kcl_calendar(state,operation,args,line)
+            else:
+                bank=state.execution.require('ports',line)
+                code=bank.kcl_operation(operation,args,line)
+            return 600+code if code else 0
+        return self._dispatch(state,name,command,dispatch)
+
     def submit(self,state,name,command,line=None):
         try:command=command_text(command)
         except ValueError as exc:raise rt().KarelRuntimeError(str(exc),line) from exc
@@ -383,11 +450,13 @@ class KclCommands:
         if self._pending is None and reply is None:
             for enabled,parse,submit in (
                 (self.task_commands,task_command,self._submit_task),
+                (self.task_commands,task_admin_command,self._submit_task_admin),
                 (self.file_commands,file_command,self._submit_file),
                 (self.variable_commands,variable_command,self._submit_variable),
                 (self.device_commands,device_command,self._submit_device),
                 (self.dictionary_commands,dictionary_command,self._submit_dictionary),
                 (self.program_commands,program_command,self._submit_program),
+                (self.environment_commands,environment_command,self._submit_environment),
             ):
                 if enabled:
                     request=parse(command)
@@ -440,6 +509,7 @@ class KclCommands:
         if self.device_commands:result['device_commands']=True
         if self.dictionary_commands:result['dictionary_commands']=True
         if self.program_commands:result['program_commands']=True
+        if self.environment_commands:result['environment_commands']=True
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
         return result
@@ -451,6 +521,6 @@ class KclCommands:
     @classmethod
     def from_config(cls,config):
         fields={'replies','limit','history','sequence','last_status','task_commands','file_commands',
-                'variable_commands','device_commands','dictionary_commands','program_commands'}
+                'variable_commands','device_commands','dictionary_commands','program_commands','environment_commands'}
         if type(config) is not dict or set(config)-fields:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

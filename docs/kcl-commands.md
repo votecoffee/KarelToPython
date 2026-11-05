@@ -2,8 +2,8 @@
 
 KCL, KCL_NO_WAIT and KCL_STATUS use an explicit KclCommands service. The service
 records command requests and returns configured replies. Separate opt-ins
-enable registered task controls and offline file, variable, volume, dictionary
-and program operations.
+enable registered task controls and offline file, variable, volume, dictionary,
+program and environment operations.
 A configured CLEAR ALL reply changes no variables or files.
 
 ```json
@@ -93,6 +93,42 @@ The modeled forms follow MARRC75KR07091E Rev N, PDF pages 283–284, 450–452,
 continuation and terminal-state rules. Native default selectors, abbreviated
 verbs beyond CONT, command files, TP execution and physical motion remain
 outside this model.
+
+### Task settings, traces and conditions
+
+The same `task_commands` opt-in enables these forms.
+
+| Form | Offline effect |
+| --- | --- |
+| `SET TASK [[name]] PRIORITY = value` | Apply the scheduler priority in 1..99. |
+| `SET TASK [[name]] TRACELEN = value` | Set the trace capacity in 1..10,000 and retain the newest rows. |
+| `SET TRACE ON\|OFF [[name]]` | Enable or disable future source checkpoint records. |
+| `SHOW TRACE [name]` | Write retained source trace rows in sequence order as JSON Lines. |
+| `ENABLE CONDITION [name] number` | Enable a live global handler and reset its scan deadline. |
+| `DISABLE CONDITION [name] number` | Disable a live global handler. |
+| `SHOW CONDITION [name] [number]` | Write enabled state, priority and scan interval as JSON Lines in condition-number order. |
+
+For SET TASK and SET TRACE, an explicit name goes inside literal brackets,
+as in `SET TASK [WORKER] PRIORITY = 9`. SHOW TRACE and condition commands
+take a bare name. Names select explicit registry bindings. Without a name,
+settings and traces require a unique caller binding. Condition commands
+default to the calling root task and also accept the COND abbreviation.
+
+Settings and traces share [SET_TSK_ATTR and Program.task_trace](task-attributes.md).
+Trace rows describe source checkpoints and include the sequence, program,
+routine and line. SHOW TRACE takes a snapshot before writing. Condition
+commands select condition numbers 1..1,000 in a running, waiting or paused
+root task. They scope inspection and changes to the root's global handlers.
+Handlers in linked modules and frame-local handlers have separate lifetimes.
+Enabling a handler makes it eligible for the target task's next normal scan.
+It does not drive the selected task. Use a host output callback to consume
+listing text, or inspect the program's recorded output requests.
+
+Status 3 indicates an unavailable task, handler or selector. Status 4
+includes invalid settings, out-of-range condition numbers and output errors.
+These forms follow MARRC75KR07091E Rev N, PDF pages 714–716, 735–736, 738 and
+744. Native breakpoints, statement text lookup and debugging execution
+remain outside this scope.
 
 ## File commands
 
@@ -308,6 +344,45 @@ translation switches, and controller listing formats remain outside this scope.
 The [archive example](../examples/kcl_program_commands.kl) saves to an alias,
 clears and restores the original program name, then lists the records.
 
+## Environment commands
+
+Set `"environment_commands": true` in the `kcl` context or pass
+`environment_commands=True` to KclCommands. Exact scripted replies take
+precedence.
+
+| Form | Offline effect |
+| --- | --- |
+| `SET PORT kind[index] = value` | Assign a configured output or simulated input using the logical port bank's checked types. |
+| `SIMULATE kind[index] [= value]` | Mark a port simulated. Use the supplied value or the current logical value. |
+| `UNSIMULATE kind[index]` or `UNSIMULATE ALL` | Remove the selected simulation flags and retain the last logical values. |
+| `SET CLOCK 'dd-mmm-yy hh:mm'` | Replace the supplied calendar anchor. |
+| `SHOW CLOCK` | Write the supplied calendar in `dd-MMM-yyyy hh:mm:ss` form. |
+
+SET PORT accepts DIN, DOUT, RDO, OPOUT, TPOUT, GIN, GOUT, AIN and AOUT.
+Individual simulation forms accept DIN, DOUT, GIN, GOUT, AIN and AOUT, and
+the SIM and UNSIM aliases. Addresses use the existing configured index
+ranges. Values use Boolean ON/OFF, TRUE/FALSE or 0/1, nonnegative decimal
+group integers, or finite decimal analog numbers. The named commands
+share the [PortBank](io-and-call-parameters.md) with KAREL port access.
+UNSIMULATE ALL clears all simulation flags in that bank. The offline
+bank holds one logical value per address.
+
+SET CLOCK uses English month abbreviations and maps years 80..99 to
+1980..1999 and 00..79 to 2000..2079. Double the inner quotes when
+embedding the command in a KAREL STRING. SHOW CLOCK uses the same
+packed value and two-second resolution as [GET_TIME](calendar-clock.md).
+Calendar changes stay within the supplied offline clock.
+
+Completion statuses are 601 for an unavailable current port value, 602
+for an invalid configured address or calendar value, 603 for an invalid
+port literal or value, and 604 for writing an unsimulated input. Status 4
+covers missing backends or inline runtime errors. KCL_NO_WAIT returns
+acceptance and KCL_STATUS returns completion. The forms follow
+MARRC75KR07091E Rev N, PDF pages 733, 735, 738, 746 and 748–749.
+
+The [environment example](../examples/kcl_environment_commands.kl) changes
+a simulated input, observes a handler fire and updates the calendar.
+
 ## Failure and persistence
 
 Once accepted, a pending request remains observable if its caller pauses, stops,
@@ -343,6 +418,8 @@ python -m karel2py examples/kcl_offline_services.kl -o kcl_offline_services.py
 python kcl_offline_services.py --context examples/kcl_offline_services.services.initial.json --state-out service-state.json
 python -m karel2py examples/kcl_program_commands.kl -o kcl_program_commands.py
 python kcl_program_commands.py --context examples/kcl_program_commands.services.initial.json --state-out program-state.json
+python -m karel2py examples/kcl_environment_commands.kl -o kcl_environment_commands.py
+python kcl_environment_commands.py --context examples/kcl_environment_commands.services.initial.json --state-out environment-state.json
 ```
 
 Use `rt.KclCommands(replies, ...)` with `ExecutionContext(kcl=...)` for host

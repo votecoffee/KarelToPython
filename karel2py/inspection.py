@@ -1,6 +1,5 @@
 """Bounded variable inspection and explicit offline program metadata."""
 import fnmatch
-import json
 import math
 import re
 from .extended import (PROGRAM_TYPES, PROGRAM_ATTRIBUTES, PROGRAM_KINDS,
@@ -249,7 +248,7 @@ def program_rows(context,state):
 
 def kcl_program_listing(state,operation,args,line=None):
     from .dynamic import IDENTIFIER
-    from .fileops import write_file_text
+    from .fileops import write_json_lines
     from .scheduling import task_status_name
 
     context=state.execution
@@ -270,8 +269,7 @@ def kcl_program_listing(state,operation,args,line=None):
         root=runtime().task_root
         rows=[dict(name=name,status=task_status_name(root(tasks[name]._state))) for name in names]
     # Capture rows before the first output callback or execution checkpoint.
-    for row in rows:
-        write_file_text(state,json.dumps(row,separators=(',',':'))+'\n',line)
+    write_json_lines(state,rows,line)
     return 0
 
 

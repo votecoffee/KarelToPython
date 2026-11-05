@@ -676,6 +676,35 @@ class PortBank:
     @property
     def pending_pulses(self): return len(self._pulses)
 
+    def _set_scalar(self,kind,number,value,*,simulate,line=None):
+        rt=runtime()
+        key=kind,number
+        if not simulate and kind not in OUTPUT_PORTS and key not in self.simulated:return 4
+        try: value=port_value(value,PORT_TYPES[kind],line)
+        except (ValueError,OverflowError,rt.KarelRuntimeError):return 3
+        if PORT_TYPES[kind]=='INTEGER' and value<0:return 3
+        self.update(kind,number,value)
+        if simulate:self.simulated.add(key)
+        return 0
+
+    def kcl_operation(self,operation,args,line=None):
+        if operation=='UNSIM_ALL':
+            self.simulated.clear()
+            return 0
+        kind,number,value=args
+        if not self.contains(kind,number):return 2
+        key=kind,number
+        if operation=='UNSIMULATE':
+            self.simulated.discard(key)
+            return 0
+        if value is None:
+            self.poll_pulses(line)
+            if key not in self.values:return 1
+            value=self.values[key]
+        elif not re.fullmatch(r'(?:ON|OFF|TRUE|FALSE|[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:E[+-]?[0-9]+)?)',value):
+            return 3
+        return self._set_scalar(kind,number,value,simulate=operation=='SIMULATE',line=line)
+
     def indirect(self,name,args,line=None):
         rt=runtime()
         if not self.type_codes: fail('Indirect port access requires explicit type_codes mapping',line)
@@ -693,13 +722,8 @@ class PortBank:
             try: value=port_value(value,args[2].spec[0],line)
             except (ValueError,rt.KarelRuntimeError): args[-1].set(3,line); return
         else:
-            if name=='SET_PORT_VAL' and kind not in OUTPUT_PORTS and key not in self.simulated: args[-1].set(4,line); return
-            try: value=port_value(args[2],PORT_TYPES[kind],line)
-            except (ValueError,OverflowError,rt.KarelRuntimeError): args[-1].set(3,line); return
-            if PORT_TYPES[kind]=='INTEGER' and value<0: args[-1].set(3,line); return
-            self.update(kind,number,value)
-            if name=='SET_PORT_SIM': self.simulated.add(key)
-            args[-1].set(0,line); return
+            code=self._set_scalar(kind,number,args[2],simulate=name=='SET_PORT_SIM',line=line)
+            args[-1].set(code,line);return
         # Validate before either output changes, including short INTEGER domains.
         value=rt.checked(args[2].spec,value,line); args[2].set(value,line); args[-1].set(0,line)
 
