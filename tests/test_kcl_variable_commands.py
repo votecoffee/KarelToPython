@@ -134,7 +134,7 @@ class KclVariableCommandTests(unittest.TestCase):
         ctx.variables.define('CACHE', 'COUNT', ('INTEGER',), 7)
         for command, status in (('APPEND NODE [CACHE]COUNT', 205), ('APPEND NODE [CACHE]MISSING', 201),
                                 ('INSERT NODE [CACHE]COUNT', 1), ('APPEND NODE [CACHE]COUNT[1]', 1),
-                                ('DELETE VARIABLE [CACHE]COUNT', 1), ('CREATE VAR [CACHE]SYS: MISSING', 205)):
+                                ('DELETE VARIABLE [CACHE]COUNT[1]', 1), ('CREATE VAR [CACHE]SYS: MISSING', 205)):
             self.assertEqual(issue(ctx, command)['S'], status)
         self.assertEqual(ctx.variables.bindings['CACHE', 'COUNT'].raw(), 7)
         with self.assertRaisesRegex(ValueError, 'variable_commands requires'):

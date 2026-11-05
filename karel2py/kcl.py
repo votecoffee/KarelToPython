@@ -75,6 +75,7 @@ def file_command(command):
 def variable_command(command):
     from .dynamic import IDENTIFIER
 
+    text = command
     command = command.upper()
     selected = rf'(?:\[({IDENTIFIER})\] *)?({IDENTIFIER})'
     create = re.fullmatch(
@@ -92,6 +93,24 @@ def variable_command(command):
     namespace = re.fullmatch(rf'RENAME +VARS +({IDENTIFIER}) +({IDENTIFIER})', command)
     if namespace:
         return 'RENAME_VARS', namespace.groups()
+    delete = re.fullmatch(rf'DELETE +VAR(?:IABLE)? +{selected}', command)
+    if delete:
+        program, name = delete.groups()
+        return 'DELETE_VAR', (program or '', name)
+    clear = re.fullmatch(rf'CLEAR +VARS +({IDENTIFIER})(?: +Y(?:ES)?)?', command)
+    if clear:
+        return 'CLEAR_VARS', (clear[1], None)
+    suffix = rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
+    assignment = re.fullmatch(rf'SET +VAR(?:IABLE)? +{selected}({suffix}) *= *(.+)', text, re.IGNORECASE)
+    if assignment:
+        program, name, rest, literal = assignment.groups()
+        return 'SET_VAR', ((program or '').upper(), (name+rest.replace(' ','')).upper(), literal)
+    save = re.fullmatch(rf'SAVE +VARS +([^ =]+)(?: *= *({IDENTIFIER}))?', text, re.IGNORECASE)
+    if save:
+        return 'SAVE_VARS', save.groups()
+    load = re.fullmatch(r'LOAD +VARS +([^ =]+)', text, re.IGNORECASE)
+    if load:
+        return 'LOAD_VARS', (load[1], None)
     node = re.fullmatch(rf'(APPEND|INSERT|DELETE) +NODE +{selected}(?: *\[ *([0-9]+) *\])?', command)
     if node:
         action, program, name, index = node.groups()
@@ -232,7 +251,7 @@ class KclCommands:
         return self._dispatch(state,name,command,dispatch)
 
     def _submit_variable(self,state,name,command,request,line):
-        from .dynamic import create, edit_detached_path, rename
+        from .dynamic import create, edit_detached_path, remove_detached, rename, set_detached_scalar
 
         operation,args=request
         def dispatch(_job):
@@ -245,6 +264,13 @@ class KclCommands:
                 code=create(state.execution,state,(program,variable,program,kind,group,*dimensions,-1 if pool=='CMOS' else 0),line)
             elif operation in ('RENAME_VAR','RENAME_VARS'):
                 code=rename(state.execution,state,operation,args,line)
+            elif operation in ('DELETE_VAR','CLEAR_VARS'):
+                code=remove_detached(state,*args,line)
+            elif operation=='SET_VAR':
+                code=set_detached_scalar(state,*args,line)
+            elif operation in ('SAVE_VARS','LOAD_VARS'):
+                from .variable_archives import kcl_archive
+                code=kcl_archive(state,operation,*args,line)
             else:
                 code=edit_detached_path(state,operation,*args,line)
             return 200+code if code else 0

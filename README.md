@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[KCL assignment and VR commands](docs/kcl-commands.md#variable-and-path-commands)
+add typed scalar SET, detached variable removal, and portable SAVE VARS and
+LOAD VARS. Restores use the archived namespace and validate the complete batch
+before changing detached storage.
+
 [KCL variable commands](docs/kcl-commands.md#variable-and-path-commands)
 add opt-in typed creation, root and namespace renaming, and bounded edits to
 detached PATH nodes. The offline store preserves names, values and allocation
@@ -316,7 +321,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.185436**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.191108**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

@@ -286,11 +286,123 @@ def invoke(context,state,operation,args,line):
         args[-1].set(rename(context,state,operation,args[:-1],line),line)
 
 
+def detached_storage(state,targets):
+    """Check that explicit roots are independent of the context's other live cells."""
+    from .inspection import attached_programs
+    from .variable_archives import cells, ordinary
+
+    if not targets:return 0
+    rt=runtime();context=state.execution;store=context.variables
+    owners=attached_programs(context,state)
+    selected=set();paths={}
+    try:
+        for (program,var),reference in targets.items():
+            if any(var in owner.types for owner in owners.get(program,())):return 4
+            record=context.program_attributes.record(program) if context.program_attributes is not None else None
+            if record is not None and (record.get('active',False) or record['attributes'].get('AT_PROTECT',1)==2):
+                return 4
+            if not ordinary(reference):return 5
+            occupied=cells(reference)
+            if selected&occupied:return 4
+            selected.update(occupied);paths.setdefault(program,set()).add(var)
+        for key,other in store.bindings.items():
+            if key in targets:continue
+            program,path=key
+            if (any(conflict((path,),var) for var in paths.get(program,()))
+                    or not ordinary(other) or selected&cells(other)):
+                return 4
+        for claim in context._timer_claims.values():
+            if type(claim) is not tuple or len(claim)!=4 or (id(claim[2]),claim[3]) in selected:return 4
+        for instances in owners.values():
+            for owner in instances:
+                for declarations,values in ((owner.types,owner.values),*owner.local_frames):
+                    for member,spec in declarations.items():
+                        stored=values[member]
+                        other=stored if type(stored) is rt.Reference else rt.Reference(spec,values,member)
+                        if selected&cells(other):return 4
+    except (ValueError,TypeError,KeyError,rt.KarelRuntimeError):return 5
+    return 0
+
+
+def remove_detached(state,program,var,line):
+    """Remove an independent root or a complete unattached ordinary namespace."""
+    from .inspection import attached_programs
+
+    rt=runtime();context=state.execution
+    program=name(program,state,line,default=True)
+    if program is None:return 2
+    if var is not None:
+        var=name(var,state,line)
+        if var is None:return 2
+    variable_checkpoint(state,line)
+    store=context.variables
+    owners=attached_programs(context,state).get(program,())
+    if var is None:
+        if owners:return 4
+        targets={key:reference for key,reference in store.bindings.items() if key[0]==program}
+        if any(not re.fullmatch(IDENTIFIER,path) for _,path in targets):return 4
+    else:
+        if any(var in owner.types for owner in owners):return 4
+        key=(program,var);reference=store.bindings.get(key)
+        targets={} if reference is None else {key:reference}
+    if not targets:return 1
+    code=detached_storage(state,targets)
+    if code:return code
+    for reference in targets.values():
+        if rt.file_storage_type(reference.spec):
+            try:file_storage_payload(reference.spec,reference.raw())
+            except (ValueError,TypeError,rt.KarelRuntimeError):return 4
+    for key in targets:
+        del store.bindings[key];store.metadata.pop(key,None)
+    for key in tuple(context.entries):
+        if key[0]==program and (var is None or conflict((key[1],),var)):
+            del context.entries[key]
+    return 0
+
+
+def set_detached_scalar(state,program,path,literal,line):
+    """Assign a checked literal to a scalar cell under a detached explicit root."""
+    from .inspection import attached_programs
+
+    rt=runtime();context=state.execution
+    program=name(program,state,line,default=True)
+    if program is None:return 2
+    selector=re.match(IDENTIFIER,path)
+    if selector is None:return 2
+    var=selector[0]
+    variable_checkpoint(state,line)
+    if any(var in owner.types for owner in attached_programs(context,state).get(program,())):return 4
+    key=(program,var);reference=context.variables.bindings.get(key)
+    if reference is None:return 1
+    code=detached_storage(state,{key:reference})
+    if code:return code
+    try:
+        target=context.descend(reference,path[len(var):],line,path_nodes=True)
+        if type(target) is not rt.Reference:return 4
+        kind=target.spec[0]
+        if kind in ('INTEGER','BYTE','SHORT') and re.fullmatch(r'[+-]?[0-9]+',literal):
+            value=int(literal)
+        elif kind=='REAL' and re.fullmatch(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?',literal):
+            value=float(literal)
+        elif kind=='BOOLEAN' and literal.upper() in ('TRUE','FALSE'):
+            value=literal.upper()=='TRUE'
+        elif kind=='STRING' and len(literal)>=2 and literal[0] in ('"',"'"):
+            quote=literal[0]
+            if not re.fullmatch(re.escape(quote)+r'(?:[^'+re.escape(quote)+r']|'+re.escape(quote)*2+r')*'+re.escape(quote),literal):
+                return 5
+            value=literal[1:-1].replace(quote*2,quote)
+            if len(value)>target.spec[1]:return 5
+        else:return 5
+        target.set(value,line)
+    except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+    return 0
+
+
 def edit_detached_path(state,operation,program,var,index,line):
     """Edit an explicit PATH without invalidating a compiled or retained alias."""
     from .inspection import attached_programs
     from .storage import collection_payload
-    from .variable_archives import cells, ordinary
+    from .variable_archives import ordinary
 
     rt=runtime();context=state.execution
     program=name(program,state,line,default=True)
@@ -315,22 +427,9 @@ def edit_detached_path(state,operation,program,var,index,line):
         if operation!='DELETE_NODE' and (count>=MAX_LEAVES or header_size+(count+1)*node_size>MAX_LEAVES):
             return 6
         collection_payload(reference.spec,value)
-        selected=cells(reference)
-        for other_key,other in store.bindings.items():
-            if other_key==key:continue
-            if (other_key[0]==program and conflict((other_key[1],),var)
-                    or not ordinary(other) or selected&cells(other)):
-                return 4
-        for claim in context._timer_claims.values():
-            if type(claim) is not tuple or len(claim)!=4 or (id(claim[2]),claim[3]) in selected:return 4
-        for instances in owners.values():
-            for owner in instances:
-                for declarations,values in ((owner.types,owner.values),*owner.local_frames):
-                    for member,spec in declarations.items():
-                        stored=values[member]
-                        other=stored if type(stored) is rt.Reference else rt.Reference(spec,values,member)
-                        if selected&cells(other):return 4
     except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+    code=detached_storage(state,{key:reference})
+    if code:return code
     if operation=='DELETE_NODE':
         del value.nodes[index-1]
         return 0

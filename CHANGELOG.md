@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.191108 - 2026-11-05
+
+- Add opt-in KCL SET VAR, DELETE VAR and CLEAR VARS with detached storage,
+  typed literal, alias and FILE lifetime checks.
+- Add portable SAVE VARS and LOAD VARS over the existing VR archive services.
+  Check the decoded namespace and all destination references before restoring.
+- Keep surviving variable lookup IDs distinct after removal. Add a generated
+  CLI example that saves, removes and reloads a typed variable.
+
 ## 26.1105.185436 - 2026-11-05
 
 - Add opt-in KCL variable creation, root and namespace renaming, and detached

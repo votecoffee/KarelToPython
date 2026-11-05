@@ -393,12 +393,12 @@ def walk(context,state,bank,root,*,missing=False):
     return order
 
 
-def invoke(state,operation,args,line=None):
+def operate(state,operation,args,line=None,*,status=None,detached=False):
     from .archives import specification,read_file,write_files
-    context=state.execution;bank=context.require('variable_archives',line);status=args[-1]
+    context=state.execution;bank=context.require('variable_archives',line)
     files=context.require('files',line) if operation in ('SAVE','LOAD','PROG_BACKUP','PROG_RESTORE') else None
     try:
-        if operation=='SAVE_DRAM':status.set(bank.save_dram(state,args[0]),line);return
+        if operation=='SAVE_DRAM':return bank.save_dram(state,args[0])
         spec=args[1] if operation=='SAVE' else args[0]
         try:prefix,root,extension=specification(spec,wildcard=operation=='SAVE')
         except ValueError:raise Failure(2,'Invalid variable archive specification')
@@ -436,9 +436,33 @@ def invoke(state,operation,args,line=None):
                 if code:raise Failure(code,'Variable archive file unavailable')
                 size+=len(data);row=bank.decode(data)
                 if operation=='PROG_RESTORE' and row['program']!=selected:raise Failure(6,'Variable dependency archive identity differs')
+                if detached:
+                    from .dynamic import detached_storage
+                    from .inspection import attached_programs
+                    program=row['program']
+                    if program in attached_programs(context,state):return 4
+                    targets={key:ref for key,ref in context.variables.bindings.items() if key[0]==program}
+                    if any(not re.fullmatch(IDENTIFIER,path) for _,path in targets):return 4
+                    code=detached_storage(state,targets)
+                    if code:return code
                 rows.append(row)
                 if operation=='PROG_RESTORE':pending.extend(reversed(row['calls']))
             prepared=prepare(context,state,bank,rows,status);commit(context,bank,prepared);code=0
     except Failure as exc:code=exc.code
     except (ValueError,TypeError,rt().KarelRuntimeError):code=6
-    status.set(code,line)
+    return code
+
+
+def invoke(state,operation,args,line=None):
+    args[-1].set(operate(state,operation,args[:-1],line,status=args[-1]),line)
+
+
+def kcl_archive(state,operation,file_name,program,line):
+    from .archives import specification
+    try:prefix,base,extension=specification(file_name)
+    except ValueError:return 2
+    if extension not in ('','VR'):return 2
+    file_name=prefix+base+'.VR'
+    if operation=='SAVE_VARS':
+        return operate(state,'SAVE',(program or base,file_name),line)
+    return operate(state,'LOAD',(file_name,),line,detached=True)

@@ -1,0 +1,21 @@
+{
+  "files": {
+    "CACHE.VR": {"hex": "7b2263616c6c73223a5b5d2c226578636c75646564223a5b5d2c22666f726d6174223a226b6172656c3270792d7661726961626c65732d7631222c2270726f6772616d223a224341434845222c227661726961626c6573223a7b22434f554e54223a7b226372656174696f6e223a7b2267726f7570223a312c226d656d6f72795f706f6f6c223a2d317d2c2274797065223a5b22494e5445474552225d2c2276616c7565223a34317d7d7d0a"}
+  },
+  "variable_archives": {"limit": 16777216, "program_limit": 256, "calls": {"CACHE": []}, "flash": {}},
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_ARCHIVE", "operation": "KCL", "command": "CLEAR VARS CACHE", "phase": "completed", "status": 201},
+      {"sequence": 2, "program": "KCL_ARCHIVE", "operation": "KCL", "command": "CREATE VAR [CACHE]COUNT IN CMOS:INTEGER", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_ARCHIVE", "operation": "KCL", "command": "SET VAR [CACHE]COUNT=41", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_ARCHIVE", "operation": "KCL_NO_WAIT", "command": "SAVE VARS CACHE", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "KCL_ARCHIVE", "operation": "KCL", "command": "DELETE VAR [CACHE]COUNT", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "KCL_ARCHIVE", "operation": "KCL", "command": "LOAD VARS CACHE", "phase": "completed", "status": 0}
+    ],
+    "sequence": 6,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}

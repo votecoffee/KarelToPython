@@ -1,0 +1,13 @@
+PROGRAM KCL_ARCHIVE
+VAR entry,value,status,accepted,saved,deleted,loaded:INTEGER
+BEGIN
+  KCL('CLEAR VARS CACHE',status)
+  DELETE_FILE('CACHE.VR',FALSE,status)
+  KCL('CREATE VAR [CACHE]COUNT IN CMOS:INTEGER',status)
+  KCL('SET VAR [CACHE]COUNT=41',status)
+  KCL_NO_WAIT('SAVE VARS CACHE',accepted)
+  saved=KCL_STATUS
+  KCL('DELETE VAR [CACHE]COUNT',deleted)
+  KCL('LOAD VARS CACHE',loaded)
+  GET_VAR(entry,'CACHE','COUNT',value,status)
+END KCL_ARCHIVE

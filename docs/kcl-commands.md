@@ -152,6 +152,11 @@ currently executing source module. Exact scripted replies retain precedence.
 | `CREATE VAR [program]name IN CMOS : ARRAY[2,3] OF type` | Allocate with outer-to-inner dimensions and CMOS intent. DRAM is the default. |
 | `RENAME VAR [program]old new` | Rename an explicit root and its related bindings. VAR and VARIABLE are accepted. |
 | `RENAME VARS old new` | Move an unattached variable namespace to an unused name. |
+| `SET VAR [program]path = literal` | Assign a checked scalar literal to an independent root or field/element. VAR and VARIABLE are accepted. |
+| `DELETE VAR [program]name` | Remove an independent explicit root and its lookup entries. VAR and VARIABLE are accepted. |
+| `CLEAR VARS program [YES]` | Remove the complete ordinary variable namespace when it is unattached. Y is also accepted. |
+| `SAVE VARS file [= program]` | Write one portable VR archive to an unused file. The filename stem supplies the program name when omitted. |
+| `LOAD VARS file` | Restore the namespace recorded in a portable VR archive into detached storage. |
 | `APPEND NODE [program]path` | Add an uninitialized node after the last existing node. |
 | `INSERT NODE [program]path[index]` | Insert an uninitialized node before an existing one-based index. |
 | `DELETE NODE [program]path[index]` | Remove the node at an existing one-based index. |
@@ -170,17 +175,41 @@ Valid edits preserve header and surviving node identities and keep the PATH
 within the portable 32767-leaf limit. The detached PATH can be inspected with
 GET_VAR and saved through the existing typed context.
 
+SET accepts decimal INTEGER, BYTE and SHORT literals, finite decimal REAL
+literals with optional exponents, TRUE and FALSE, and ASCII text in single or
+double quotes. Double the delimiting quote to include it in the text. STRING
+case is retained, and text beyond the declared capacity fails. The command
+updates one ordinary scalar cell. It does not emit an implicit console display.
+Variable-to-variable assignments, aggregate literals and system variables
+remain outside these forms.
+
+Assignment and removal reject compiled roots, known borrowed frames, overlapping
+bindings and connected timers. Removal also rejects open FILE descriptors.
+CLEAR checks the whole namespace before deleting any binding. Surviving
+references and lookup IDs retain their identities.
+
+SAVE and LOAD require the explicit variable archive and file services. File
+specifications accept an omitted `.VR` suffix and use the existing archive
+device rules. SAVE writes the portable JSON envelope over the existing memory or
+virtual-device archive backends. LOAD uses the envelope's namespace even if
+the file has a different name. It checks the entire archive and rejects attached
+namespaces or aliased destinations before publishing. Existing independent
+references with matching schemas receive the restored values. Native VR data,
+implicit filenames and LOAD VARS CONVERT remain outside these forms.
+
 These commands complete inline. KCL_NO_WAIT returns acceptance, and KCL_STATUS
 reports completion. Success is 0. Dynamic variable statuses are offset by 200.
 The portable results include 201 for missing names, 202 for invalid selectors,
 203 for collisions, 204 for protected storage, 205 for type or shape failures,
 and 206 for allocation limits. An execution error returns 4.
 
-The forms follow MARRC75KR07091E Rev N, PDF pages 706, 711–713, 717 and
-726–727. Native default programs, controller variable allocation, DELETE VAR,
-SET VARIABLE and KCL archive commands remain outside this model.
+The forms follow MARRC75KR07091E Rev N, PDF pages 706, 709, 711–713, 717,
+722, 726–727, 731 and 736. Native default programs and controller variable
+allocation remain outside this model.
 The [PATH example](../examples/kcl_variable_commands.kl) shows creation,
 node edits and a root rename with saved-context replay.
+The [VR example](../examples/kcl_variable_archives.kl) saves a value, removes
+its root, then loads and reads it back.
 
 ## Failure and persistence
 
@@ -211,6 +240,8 @@ python -m karel2py.project examples/kcl_task_commands --entry MAIN --context exa
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json
+python -m karel2py examples/kcl_variable_archives.kl -o kcl_variable_archives.py
+python kcl_variable_archives.py --context examples/kcl_variable_archives.services.initial.json --state-out archive-state.json
 ```
 
 Use `rt.KclCommands(replies, ...)` with `ExecutionContext(kcl=...)` for host

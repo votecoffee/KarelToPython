@@ -2715,7 +2715,7 @@ class ExecutionContext:
             current.data=rt.replace_value(current.data,copied.data)
             current.nodes=copied.nodes
         else: destination.storage[destination.key]=rt.replace_value(current,copied)
-        if key not in self.entries:self.entries[key]=len(self.entries)+1
+        if key not in self.entries:self.entries[key]=max(self.entries.values(),default=0)+1
         entry.set(self.entries[key],line); status.set(12311 if missing else 0,line)
     def queue(self,name,args,line):
         rt=runtime()

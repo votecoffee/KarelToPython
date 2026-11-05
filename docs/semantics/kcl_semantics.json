@@ -59,15 +59,25 @@
     "Reply codes and source wait behavior are configured offline scenarios rather than controller observations",
     "Strict/native compiler/controller equivalence deferred"
   ],
+  "variable_archive_extension": {
+    "version": "26.1105.191108",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [709, 713, 722, 731, 736],
+    "forms": ["SET VAR", "DELETE VAR", "CLEAR VARS", "SAVE VARS", "LOAD VARS"],
+    "dispatch": "Detached scalar assignment and removal. Save one portable VR envelope and load its recorded namespace with complete alias and payload checks.",
+    "statuses": "Use the variable command completion codes. Nonzero archive results are offset by 200."
+  },
   "validation": [
     "tests/test_diagnostics_commands.py",
     "tests/test_kcl_task_commands.py",
     "tests/test_kcl_file_commands.py",
     "tests/test_kcl_variable_commands.py",
+    "tests/test_kcl_variable_archives.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
+    "examples/kcl_variable_archives.kl",
     "examples/diagnostics_commands_project"
   ]
 }
