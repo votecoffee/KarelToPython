@@ -2,6 +2,7 @@
 import re
 import fnmatch
 import struct
+from dataclasses import dataclass
 from .extended import MemoryFiles,fail
 
 
@@ -50,22 +51,137 @@ def access_mode(handle,mode,line):
     return mode,binary
 
 
+class StreamRead:
+    """A validated scalar request shared by cooperative byte transports."""
+
+    def __init__(self, handle, targets, line_breaks, formats, transport, line):
+        runtime = rt()
+        if type(targets) not in (list, tuple):
+            fail(transport + ' READ requires scalar references', line)
+        self.targets = tuple(targets)
+        self.line_breaks = runtime._read_line_breaks(len(targets), line_breaks, line)
+        runtime._validate_read_targets(targets, line)
+        if formats is None:
+            formats = [()] * len(targets)
+        if type(formats) not in (list, tuple) or len(formats) != len(targets):
+            fail(transport + ' READ requires one format per scalar target', line)
+        self.formats = [runtime.read_formats(target.spec, field, line)
+                        for target, field in zip(targets, formats)]
+        self.widths = None
+        if handle.binary:
+            if self.line_breaks:
+                fail('CR is not a binary READ field', line)
+            from .extended import binary_format
+            self.widths = []
+            for target, field in zip(targets, self.formats):
+                if target.spec[0] == 'STRING' and not field:
+                    field = (target.spec[1],)
+                self.widths.append(binary_format(target.spec[0], field, line))
+            self.minimum = sum(width for width, _ in self.widths)
+        else:
+            self.minimum = sum(
+                (field[0] if field else 0)
+                or (target.spec[1] if handle.field and target.spec[0] == 'STRING' else 0)
+                for target, field in zip(targets, self.formats)
+            )
+        self.request = dict(line=line, targets=[
+            dict(type=target.spec[0], type_spec=target.spec,
+                 **({'format_specifiers': field} if field else {}))
+            for target, field in zip(targets, self.formats)
+        ])
+        if self.line_breaks:
+            self.request['line_breaks'] = list(self.line_breaks)
+        self.transport = transport
+        self.line = line
+
+    def probe(self, handle, raw, *, final):
+        runtime = rt()
+        if self.widths is not None:
+            if len(raw) < self.minimum:
+                return None
+            values = []
+            offset = 0
+            for target, (width, code) in zip(self.targets, self.widths):
+                data = raw[offset:offset + width]
+                offset += width
+                if code and handle.reverse:
+                    code = '>' + code[1:]
+                try:
+                    value = data.decode('ascii') if code is None else struct.unpack(code, data)[0]
+                except (UnicodeError, struct.error) as exc:
+                    raise runtime.KarelRuntimeError(
+                        'Invalid binary ' + self.transport.lower() + ' field: ' + str(exc),
+                        self.line,
+                    ) from exc
+                runtime._validate_read_value(target, value, self.line)
+                values.append(value)
+            return values, offset
+        try:
+            text = raw.decode('ascii')
+        except UnicodeDecodeError as exc:
+            raise runtime.KarelRuntimeError(
+                'Text ' + self.transport.lower() + ' FILE requires ASCII data', self.line,
+            ) from exc
+        reader = runtime.TextInput(text, terminator=handle.eol, field_mode=handle.field, final=final)
+        try:
+            values = reader(self.request)
+        except runtime.TextInputIncomplete:
+            return None
+        return values, reader.offset
+
+    def publish(self, state, values):
+        previous = state._read
+        try:
+            state._read = lambda request: values
+            state.read_items(self.targets, self.line, line_breaks=self.line_breaks, formats=self.formats)
+        finally:
+            state._read = previous
+
+
+@dataclass(frozen=True, slots=True)
+class _SocketOperation:
+    kind: str
+    state: object
+    root: object
+    identity: tuple
+    position: int
+    token: object
+    port: dict
+    connection: object
+    rx: bytearray
+    tx: bytearray
+    limit: int
+    pending: dict
+    ports: dict
+    files: dict
+
+
 class Messaging(MemoryFiles):
     """Scripted endpoints and ping results; never create host sockets or DNS calls."""
     def __init__(self,ports=None,*,hosts=None,limit=4*1024*1024):
-        super().__init__(limit=limit);self.ports={};self.hosts={}
+        super().__init__(limit=limit);self.ports={};self.hosts={};self._pending={}
         if ports is not None and (type(ports) is not dict or len(ports)>16):raise ValueError('Messaging requires at most sixteen ports')
         remaining=limit
         for tag,row in (ports or {}).items():
             key=tag_name(tag) if type(tag) is str else None
-            if key is None or key in self.ports or type(row) is not dict or set(row)-{'mounted','available','connected','input','output'}:
+            if key is None or key in self.ports or type(row) is not dict or set(row)-{'mounted','available','connected','input','output','wait','final','wait_output'}:
                 raise ValueError('Invalid or duplicate messaging port')
             flags={name:row.get(name,False if name=='connected' else True) for name in ('mounted','available','connected')}
             if any(type(value) is not bool for value in flags.values()) or flags['connected'] and not (flags['mounted'] and flags['available']):
                 raise ValueError('Inconsistent messaging port flags')
+            wait = row.get('wait', False)
+            final = row.get('final', not wait)
+            wait_output = row.get('wait_output', False)
+            if type(wait) is not bool or type(final) is not bool or not wait and not final:
+                raise ValueError('Socket wait/final require BOOLEANs; finite ports must be final')
+            if type(wait_output) is not bool:
+                raise ValueError('Socket wait_output requires BOOLEAN')
             incoming=data_bytes(row.get('input',b''),remaining);remaining-=len(incoming)
             outgoing=data_bytes(row.get('output',b''),remaining);remaining-=len(outgoing)
-            self.files[key]=bytearray(incoming);self.ports[key]={**flags,'output':bytearray(outgoing)}
+            self.files[key] = bytearray(incoming)
+            self.ports[key] = dict(flags, output=bytearray(outgoing), wait=wait, final=final,
+                                   wait_output=wait_output,
+                                   _connection=object() if flags['connected'] else None)
         if self.used()>limit:raise ValueError('Combined socket data exceeds its bank limit')
         if hosts is not None and (type(hosts) is not dict or len(hosts)>256):raise ValueError('Ping table requires at most 256 supplied hosts')
         for host,status in (hosts or {}).items():
@@ -88,11 +204,11 @@ class Messaging(MemoryFiles):
         row=self.ports[key]
         if operation in ('MSG_DISCO','DISMOUNT_DEV') and self._busy(key):return 3
         if operation=='MOUNT_DEV':row['mounted']=True
-        elif operation=='DISMOUNT_DEV':row.update(mounted=False,connected=False)
+        elif operation=='DISMOUNT_DEV':row.update(mounted=False,connected=False,_connection=None)
         elif operation=='MSG_CONNECT':
             if not row['mounted'] or not row['available']:return 4
-            row['connected']=True
-        elif operation=='MSG_DISCO':row['connected']=False
+            if not row['connected']:row.update(connected=True,_connection=object())
+        elif operation=='MSG_DISCO':row.update(connected=False,_connection=None)
         else:raise ValueError('Unknown messaging state operation')
         return 0
 
@@ -104,14 +220,24 @@ class Messaging(MemoryFiles):
         key=tag_name(tag)
         if key not in self.ports or type(available) is not bool:raise ValueError('Availability requires a configured port and Boolean')
         self.ports[key]['available']=available
-        if not available:self.ports[key]['connected']=False
+        if not available:self.ports[key].update(connected=False,_connection=None)
 
     def feed(self,tag,data):
         key=tag_name(tag)
         if key not in self.ports:raise ValueError('Input requires a configured messaging tag')
+        row = self.ports[key]
+        if row['wait'] and row['final']:
+            raise ValueError('Socket input is final; cannot feed more bytes')
         data=data_bytes(data,self.limit-self.used())
         if self.used()+len(data)>self.limit:raise ValueError('Combined socket data exceeds its bank limit')
         self.files[key].extend(data)
+
+    def finish_input(self, tag):
+        """Mark a waiting endpoint's explicitly supplied RX stream as final."""
+        key = tag_name(tag)
+        if key not in self.ports or self.ports[key]['wait'] is not True:
+            raise ValueError('finish_input requires a waiting messaging tag')
+        self.ports[key]['final'] = True
 
     def take_output(self,tag,count=None):
         key=tag_name(tag)
@@ -121,35 +247,195 @@ class Messaging(MemoryFiles):
         data=bytes(buffer[:count]);del buffer[:count];return data
 
     def connected(self,handle,line=None):
-        handle.require_open(line);row=self.ports[handle.name]
-        if not all(row[name] for name in ('mounted','available','connected')):fail('Offline socket endpoint is disconnected',line)
+        handle.require_open(line)
+        row = self.ports.get(handle.name)
+        if handle.owner is not self or row is None or not all(
+            row.get(name) is True for name in ('mounted', 'available', 'connected')
+        ):
+            fail('Offline socket endpoint is disconnected', line)
+        if (any(type(row.get(name)) is not bool for name in ('wait', 'final', 'wait_output'))
+                or not row['wait'] and not row['final']):
+            fail('Socket wait policy is invalid', line)
         return row
 
     def open_for(self,state,handle,mode,name,line=None):
         mode,binary=access_mode(handle,mode,line);key=tag_name(name)
         if key not in self.ports:fail('Socket FILE requires an explicitly configured C1:..C8:/S1:..S8: tag',line)
-        if self._busy(key):fail('Socket endpoint already has an open FILE',line)
+        if id(handle) in self._pending or self._busy(key):
+            fail('Socket endpoint already has an open FILE or pending operation', line)
         row=self.ports[key]
         if not all(row[name] for name in ('mounted','available','connected')):fail('Offline socket endpoint is disconnected',line)
         handle.name,handle.mode,handle.owner,handle.binary=key,mode,self,binary
         handle.logical_name=key;handle.position=0;handle.status=0;self.handles.append(handle)
 
-    def before_read(self,handle,line=None):self.connected(handle,line)
-    def read_bytes(self,handle,count,line=None):self.connected(handle,line);return super().read_bytes(handle,count,line)
+    def require_idle(self, handle, line=None, *, reading=False):
+        if id(handle) in self._pending:
+            fail('Socket FILE has pending I/O', line)
+        if handle._write_operation is not None:
+            fail('Socket FILE has a pending WRITE', line)
+        if not reading and handle._read_operation is not None:
+            fail('Socket FILE has a pending READ', line)
+
+    def before_read(self, handle, line=None):
+        self.require_idle(handle, line, reading=True)
+        self.connected(handle, line)
+
+    def read_bytes(self, handle, count, line=None):
+        self.before_read(handle, line)
+        return super().read_bytes(handle, count, line)
+
+    def close(self, handle, line=None):
+        self.require_idle(handle, line)
+        return super().close(handle, line)
+
+    def flush(self, handle, line=None):
+        self.require_idle(handle, line)
+        return super().flush(handle, line)
 
     def after_read(self,handle,start,line=None):
         if handle.position:del self.files[handle.name][:handle.position];handle.position=0
 
     def write(self,handle,data,line=None):
+        self.require_idle(handle, line)
         row=self.connected(handle,line)
         if handle.mode=='R':fail('Socket FILE is read-only',line)
         if self.used()+len(data)>self.limit:fail('Combined socket data exceeds its bank limit',line)
         row['output'].extend(data);handle.status=0
 
+    def _start_operation(self, state, handle, row, kind, line):
+        if id(handle) in self._pending or not any(item is handle for item in self.handles):
+            fail('Socket FILE has pending I/O or a stale open registration', line)
+        if type(handle.position) is not int or not 0 <= handle.position <= len(self.files[handle.name]):
+            fail('Socket FILE has an invalid receive cursor', line)
+        runtime = rt()
+        token = handle._read_operation if kind == 'READ' else handle._write_operation
+        record = _SocketOperation(kind, state, runtime.task_root(state), runtime._file_identity(handle),
+                                  handle.position, token, row, row['_connection'],
+                                  self.files[handle.name], row['output'], self.limit,
+                                  self._pending, self.ports, self.files)
+        self._pending[id(handle)] = record
+        return record
+
+    def validate_pending(self, handle, state, kind, line=None, *, expected=None):
+        record = self._pending.get(id(handle))
+        if (type(record) is not _SocketOperation or expected is not None and record is not expected
+                or record.kind != kind or record.state is not state
+                or rt().task_root(state) is not record.root
+                or record.pending is not self._pending or record.ports is not self.ports
+                or record.files is not self.files or handle.owner is not self
+                or not any(item is handle for item in self.handles)
+                or type(handle.position) is not int or handle.position != record.position
+                or type(self.limit) is not int or self.limit != record.limit):
+            fail('Socket pending I/O registration, cursor or limit changed', line)
+        identity = rt()._file_identity(handle)
+        if any(type(value) is not type(original) or value != original
+               for value, original in zip(identity, record.identity)):
+            fail('Socket pending FILE attributes changed', line)
+        token = handle._read_operation if kind == 'READ' else handle._write_operation
+        if token is not record.token:
+            fail('Socket pending I/O source token changed', line)
+        row = self.ports.get(handle.name)
+        if (row is not record.port or self.files.get(handle.name) is not record.rx
+                or row.get('output') is not record.tx):
+            fail('Socket pending I/O buffer identity changed', line)
+        self.connected(handle, line)
+        if row.get('_connection') is not record.connection:
+            fail('Socket connection changed during pending I/O', line)
+        policy = 'wait' if kind == 'READ' else 'wait_output'
+        if row.get(policy) is not True or type(row.get('final')) is not bool:
+            fail('Socket pending I/O wait policy changed', line)
+        return row
+
+    def _release_operation(self, handle, record):
+        if self._pending is record.pending and self._pending.get(id(handle)) is record:
+            del self._pending[id(handle)]
+
+    def _operation_failed(self, handle, record):
+        if (handle.owner is self and self._pending is record.pending
+                and self._pending.get(id(handle)) is record
+                and any(item is handle for item in self.handles)):
+            handle.status = 1
+
+    @staticmethod
+    def _wait(state, kind, line):
+        runtime = rt()
+        root = runtime.task_root(state)
+        if state._in_handler or root._in_handler:
+            fail('Pending socket ' + kind + ' cannot wait inside a handler action', line)
+        if state._scheduler is None and not getattr(root, '_sleep_injected', False):
+            fail('Indefinite standalone socket ' + kind + ' requires an explicit sleeper callback', line)
+        yield from runtime.delay_execution(state, 10, line)
+        yield from runtime.checkpoint(state, line)
+
+    def read_items(self, state, handle, targets, line=None, *, line_breaks=(), formats=None):
+        row = self.connected(handle, line)
+        if not row['wait']:
+            return state.file_read(handle, targets, line, line_breaks=line_breaks, formats=formats)
+        if handle.mode in ('W', 'A'):
+            fail('Socket FILE is not readable', line)
+        request = StreamRead(handle, targets, line_breaks, formats, 'Socket', line)
+        record = self._start_operation(state, handle, row, 'READ', line)
+        try:
+            if record.position + request.minimum > record.limit:
+                fail('Atomic socket READ exceeds receive bank limit', line)
+            while True:
+                row = self.validate_pending(handle, state, 'READ', line, expected=record)
+                rt().check_file_read(handle, line)
+                result = request.probe(handle, bytes(record.rx[record.position:]), final=row['final'])
+                if result is not None:
+                    values, offset = result
+                    request.publish(state, values)
+                    handle.position = record.position + offset
+                    self.after_read(handle, record.position, line)
+                    handle.status = 0
+                    return
+                if row['final']:
+                    fail('End of finalized socket input before complete READ', line)
+                yield from self._wait(state, 'READ', line)
+        except GeneratorExit:
+            raise
+        except BaseException:
+            self._operation_failed(handle, record)
+            raise
+        finally:
+            self._release_operation(handle, record)
+
+    def write_items(self, state, handle, data, line=None):
+        row = self.connected(handle, line)
+        if not row['wait_output']:
+            return self.write(handle, data, line)
+        if handle.mode == 'R':
+            fail('Socket FILE is read-only', line)
+        if type(data) is not bytes:
+            fail('Socket output requires explicit bytes', line)
+        record = self._start_operation(state, handle, row, 'WRITE', line)
+        try:
+            while True:
+                self.validate_pending(handle, state, 'WRITE', line, expected=record)
+                rt().check_file_write(handle, line)
+                if len(record.rx) + len(data) > record.limit:
+                    fail('Atomic socket WRITE exceeds retained receive and output bank limit', line)
+                if self.used() + len(data) <= record.limit:
+                    record.tx.extend(data)
+                    handle.status = 0
+                    return
+                yield from self._wait(state, 'WRITE', line)
+        except GeneratorExit:
+            raise
+        except BaseException:
+            self._operation_failed(handle, record)
+            raise
+        finally:
+            self._release_operation(handle, record)
+
     def to_config(self):
-        if self.handles:raise ValueError('Close live messaging FILEs before saving context')
+        if self.handles or self._pending:
+            raise ValueError('Close live messaging FILEs before saving context')
         ports={key:{**{name:row[name] for name in ('mounted','available','connected')},
-            'input':{'hex':self.files[key].hex()},'output':{'hex':row['output'].hex()}} for key,row in sorted(self.ports.items())}
+            'input':{'hex':self.files[key].hex()},'output':{'hex':row['output'].hex()},
+            **(dict(wait=True, final=row['final']) if row['wait'] else {}),
+            **(dict(wait_output=True) if row['wait_output'] else {})}
+            for key,row in sorted(self.ports.items())}
         return {'limit':self.limit,'ports':ports,'hosts':dict(sorted(self.hosts.items()))}
 
     @classmethod
@@ -318,24 +604,9 @@ class FilePipes(MemoryFiles):
     def pipe_read(self,state,handle,targets,line=None,*,line_breaks=(),formats=None):
         """Probe complete input without publication, then commit one READ request."""
         runtime=rt();self.before_read(handle,line)
-        if type(targets) not in (list,tuple):fail('Pipe READ requires scalar references',line)
-        line_breaks=runtime._read_line_breaks(len(targets),line_breaks,line)
-        runtime._validate_read_targets(targets,line)
-        formats=[()] * len(targets) if formats is None else formats
-        if type(formats) not in (list,tuple) or len(formats)!=len(targets):fail('Pipe READ requires one format per scalar target',line)
-        formats=[runtime.read_formats(target.spec,field,line) for target,field in zip(targets,formats)]
-        widths=[]
-        if handle.binary:
-            if line_breaks:fail('CR is not a binary READ field',line)
-            from .extended import binary_format
-            for target,field in zip(targets,formats):
-                if target.spec[0]=='STRING' and not field:field=(target.spec[1],)
-                widths.append(binary_format(target.spec[0],field,line))
-            if sum(width for width,code in widths)>self.pipes[handle.name]['sectors']*1024:
-                fail('Atomic pipe READ exceeds circular capacity',line)
-        request=dict(line=line,targets=[dict(type=target.spec[0],type_spec=target.spec,
-            **({'format_specifiers':field} if field else {})) for target,field in zip(targets,formats)])
-        if line_breaks:request['line_breaks']=list(line_breaks)
+        request = StreamRead(handle, targets, line_breaks, formats, 'Pipe', line)
+        if handle.binary and request.minimum > self.pipes[handle.name]['sectors'] * 1024:
+            fail('Atomic pipe READ exceeds circular capacity', line)
         if id(handle) in self._reads:fail('Pipe FILE already has an active READ',line)
         self._reads[id(handle)]=state
         try:
@@ -344,32 +615,13 @@ class FilePipes(MemoryFiles):
                 runtime.check_file_read(handle,line)
                 start=handle.position;available=self.bytes_ahead(handle,line)
                 raw=bytes(self.files[handle.name][start:start+available]);waiting=getattr(handle,'pipe_wait',None)==1
-                result=None
-                if handle.binary:
-                    size=sum(width for width,code in widths)
-                    if len(raw)>=size:
-                        offset=0;values=[]
-                        for target,(width,code) in zip(targets,widths):
-                            data=raw[offset:offset+width];offset+=width
-                            if code and handle.reverse:code='>'+code[1:]
-                            try:value=data.decode('ascii') if code is None else struct.unpack(code,data)[0]
-                            except (UnicodeError,struct.error) as exc:raise runtime.KarelRuntimeError('Invalid binary pipe field: '+str(exc),line) from exc
-                            runtime._validate_read_value(target,value,line);values.append(value)
-                        result=values,offset
-                else:
-                    try:text=raw.decode('ascii')
-                    except UnicodeDecodeError as exc:raise runtime.KarelRuntimeError('Text pipe FILE requires ASCII data',line) from exc
-                    reader=runtime.TextInput(text,terminator=handle.eol,field_mode=handle.field,final=not waiting)
-                    try:values=reader(request)
-                    except runtime.TextInputIncomplete:pass
-                    else:result=values,reader.offset
+                result = request.probe(handle, raw, final=not waiting)
                 if result is not None:
-                    values,offset=result;previous=state._read
-                    try:
-                        state._read=lambda request:values
-                        state.read_items(targets,line,line_breaks=line_breaks,formats=formats)
-                    finally:state._read=previous
-                    handle.position=start+offset;handle.status=0;return
+                    values, offset = result
+                    request.publish(state, values)
+                    handle.position = start + offset
+                    handle.status = 0
+                    return
                 if not waiting:
                     handle.status=1;fail('End of pipe FILE',line)
                 if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):

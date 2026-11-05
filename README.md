@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Cooperative socket FILE operations](docs/communications.md#cooperative-input-and-output)
+can wait for explicit input or shared TX space. Complete typed READs consume
+only their RX prefix. WRITE captures its payload once and appends it atomically.
+CANCEL FILE can unwind either pending operation with status 6.
+
 [Cooperative serial output](docs/serial-output-waits.md) now waits for explicitly
 drained TX space under an opt-in port policy. Scalar, aggregate, binary and
 bound-default WRITE capture their bytes once; CANCEL FILE can interrupt a pending
@@ -266,7 +271,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1104.192803**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.124610**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -737,7 +742,8 @@ SEND_EVENTPC publish to an explicit bounded offline outbox, with typed and raw
 payload modes. See [PC data and events](docs/pc-exchange.md).
 MSG_CONNECT/MSG_DISCO/MSG_PING use configured offline socket buffers and host
 results; PIPE_CONFIG provides circular PIP FILE histories. Both support ordinary
-FILE I/O and saved state; see [communications](docs/communications.md).
+FILE I/O and saved state. Socket FILEs can opt in to cooperative input and output
+waits. See [communications](docs/communications.md).
 Plain pipes also support explicit wait/snapshot and overflow attributes, with
 cooperative text/binary reads and scripted producers; see
 [pipe attributes](docs/pipe-attributes.md).

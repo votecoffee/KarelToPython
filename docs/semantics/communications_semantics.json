@@ -28,8 +28,9 @@
   "contract": {
     "guide": "../communications.md",
     "messaging": "Explicit sixteen-tag Messaging bank, combined bounded input/output bytes, supplied host-result table and logical mounted/available/connected flags",
-    "socket_files": "One text/binary FILE per endpoint; distinct RX/TX; successful reads consume input, writes append output, failed reads retain data/outputs/cursor; EOF rather than transport waits",
-    "host_helpers": "Explicit feed and output drain, no implicit peer link or callback; availability loss disconnects",
+    "socket_files": "One text/binary FILE per endpoint; distinct RX/TX; successful reads consume input, writes append output, failed reads retain data/outputs/cursor; immediate defaults and explicit cooperative wait policies",
+    "host_helpers": "Explicit feed, finish_input and output drain; availability loss disconnects and invalidates pending operations",
+    "socket_waits": "Independent wait/final and wait_output flags; complete typed reads and captured writes; explicit sleeper or scheduler; exact CANCEL FILE and lifetime guards",
     "file_pipes": "Explicit circular byte histories, newest configured sector capacity retained, independent cursors adjusted on overwrite; W clears, A/RW append, reads retain history",
     "metadata": "CMOS intent and formatting/record metadata retained; FILE field encoding remains explicit and no native formatting/alignment is applied",
     "namespace": "Source, context load and FILE open protect distinct plain/DAQ PIP names; no filesystem fallback",
@@ -59,12 +60,17 @@
   },
   "boundaries": [
     "No actual sockets, DNS, ping, controller devices, transport callbacks or automatic peers",
-    "No blocking/wait/snapshot pipe attributes, formatted dictionary display or generic pipe file-operation routing",
+    "No native pipe timing, formatted dictionary display or generic DAQ/socket file-operation routing",
     "Offline connected flags and CMOS intent do not imply native sessions or power-cycle restoration",
     "Native status/timing equivalence and strict mode remain future work"
   ],
   "validation": [
     "tests/test_communications.py",
+    "tests/test_socket_waits.py",
+    "examples/socket_wait_text.kl",
+    "examples/socket_wait_binary.kl",
+    "examples/socket_wait_read_cancel/main.kl",
+    "examples/socket_wait_default_cancel/main.kl",
     "examples/socket_messaging.kl",
     "examples/file_pipes.kl"
   ]

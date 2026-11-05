@@ -1,0 +1,20 @@
+PROGRAM MAIN
+VAR status,elapsed:INTEGER done:BOOLEAN
+ROUTINE receive(target:FILE) FROM LIB
+ROUTINE exchange
+VAR channel:FILE
+BEGIN
+ elapsed=0
+ OPEN FILE channel('RO','S1:')
+ CONNECT TIMER TO elapsed
+ CONDITION[1]: WHEN elapsed>=10 DO CANCEL FILE channel ENDCONDITION
+ ENABLE CONDITION[1]
+ receive(channel)
+ status=IO_STATUS(channel)
+ CLOSE FILE channel
+ DISCONNECT TIMER elapsed
+ elapsed=0
+END exchange
+BEGIN
+ IF UNINIT(done) THEN exchange() done=TRUE ENDIF
+END MAIN

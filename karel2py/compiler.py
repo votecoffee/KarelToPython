@@ -5527,13 +5527,21 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         procedures=['MSG_CONNECT','MSG_DISCO','MSG_PING'],device_forms=['MOUNT_DEV','DISMOUNT_DEV'],
         context='Explicit Messaging with at most sixteen C1:..C8:/S1:..S8: endpoints and supplied host-result table; combined RX/TX byte limit; no socket, DNS, operating-system ping or transport callback',
         lifecycle='Logical mounted/available/connected flags; idempotent connect/disconnect, busy disconnect/dismount guard, supplied availability loss disconnects; mount forms route socket tags only',
-        files='One text/binary R/W/RW FILE per endpoint; distinct RX and TX queues; writes never echo into RX, successful reads consume RX only, failed reads retain outputs/data/cursor; empty input returns EOF rather than blocking',
+        files='One text/binary R/W/RW FILE per endpoint; distinct RX and TX queues; writes never echo into RX, successful reads consume RX only, failed reads retain outputs/data/cursor; defaults remain immediate, optional waits follow socket_wait_policy',
         host='Explicit feed appends supplied RX data; take_output drains detached TX bytes; no automatic peer or response discovery',
         status='Portable 0 success, 1 missing configured tag/host, 2 invalid tag/host, 3 busy FILE, 4 unavailable/unmounted endpoint; configured ping codes pass through as data',
         persistence='Bounded data and host results plus logical flags round-trip in messaging JSON; live FILEs prevent save, no native connection or cursor restored',
-        boundary='No actual TCP/client/server connection, DNS, ping, reconnect/wait, timeouts or native transport/status equivalence; strict deferred',
+        boundary='No actual TCP/client/server connection, DNS, ping, automatic reconnect, timeouts or native transport/status equivalence; strict deferred',
         calls=[row for row in report['service_operations'] if row['operation'] in ('MSG_CONNECT','MSG_DISCO','MSG_PING')],
         guide='docs/communications.md',controller_validated=False)
+    report['socket_wait_policy']=dict(
+        configuration='Exact BOOLEAN wait/final and independent wait_output per Messaging endpoint; default immediate RX/TX behavior is retained',
+        input='Explicit host feed and finish_input; validate a complete typed text/binary READ before consuming its RX prefix or publishing destinations',
+        output='Capture complete rendered WRITE bytes once; wait for bank space from explicit host drains or another endpoint consuming RX, then append atomically',
+        lifetime='Explicit standalone sleeper or scheduler; ten-millisecond delays and checkpoints; one pending operation per FILE with exact connection and buffer identity checks',
+        cancellation='CANCEL FILE unwinds the exact pending READ/WRITE with portable status 6; disconnect fails pending operations even after reconnect; close/reposition require unwind',
+        persistence='Closed endpoint flags and RX/TX data only; no pending operation, connection identity, handle or task stack is restored',
+        guide='docs/communications.md#cooperative-input-and-output',controller_validated=False)
     report['file_pipe_policy']=dict(
         procedures=['PIPE_CONFIG'],
         context='Explicit FilePipes with up to 32 canonical PIP names and bounded combined configured sector capacities; zero sectors selects default eight KiB; DAQ and plain pipe names must be distinct',
@@ -6686,7 +6694,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['limitations'].append('Partial data aggregate copies preserve missing markers; scalar reads and complete geometry/kinematics/vision consumers still reject unavailable values')
     report['keyboard_policy']['files']='READ_KB, typed line FILE READ and bounded PASSALL ASCII STRING fields; printable EOL is a portable keyboard extension; shared pane, echo/noecho, buffering and cleanup; no binary/XML/native-key layouts or byte queries'
     report['keyboard_policy']['raw']='STRING-only fixed widths or concrete capacities, total at most4096 bytes, no CR/quote formats; printable keys and explicit ENTER13/DELETE8/REFRESH23 bytes; no editing/echo interpretation'
-    report['file_read_policy']['dispatch']='Injected keyboard typed lines/custom printable delimiters/PASSALL ASCII STRING fields, opted-in waiting/snapshot pipes, explicit finite/default or opted-in waiting SerialStreams RX, otherwise existing synchronous backend semantics'
+    report['file_read_policy']['dispatch']='Injected keyboard typed lines/custom printable delimiters/PASSALL ASCII STRING fields, opted-in waiting/snapshot pipes, explicit finite/default or opted-in waiting SerialStreams or Messaging RX, otherwise existing synchronous backend semantics'
     report['file_pipe_policy']['management']='Explicit PIP COPY/DELETE/RENAME/LIST routing, finite closed-file snapshots and configured destination capacities; cross-backend copies honor ordinary quotas and path confinement'
     report['file_pipe_policy']['boundary']='No native timing or dictionary display, DAQ/socket generic routing, implicit COPY target configuration, native byte/status equivalence or strict mode; RENAME moves existing configuration to unused names'
     report['file_listing_policy']['boundary']='Explicit MemoryFiles/DirectoryFiles/DeviceFiles or PIP FilePipes routing; no native timestamp/order/alarm or controller-equivalence claim; strict deferred'
@@ -6702,7 +6710,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         bindings='Explicit ExecutionContext(predefined_files={alias:{name,mode,attributes?}}) or context JSON; detached checked endpoint descriptions, lazy open through existing offline services',
         source='Unshadowed predefined FILE names supply ordinary borrowed FILE references; declarations and lexical USING fields retain priority; OPEN cannot retarget a predefined binding',
         defaults='Omitted READ/WRITE captures TPDISPLAY, or INPUT/OUTPUT under CRTDEVICE, once before destinations/items/formats; unbound defaults retain existing callbacks and observations',
-        transports='Existing text/binary, aggregate, keyboard, serial, pipe and rooted file paths; waiting default input requires cooperative translation or existing handler/task forms',
+        transports='Existing text/binary, aggregate, keyboard, serial, socket, pipe and rooted file paths; waiting default input requires cooperative translation or existing handler/task forms',
         cancellation='Bare CANCEL FILE selects the bound default input; explicit aliases and READ_KB use the same exact pending-operation and portable status-6 rules',
         lifetime='One cached handle per configured alias and context; source CLOSE or explicit close_predefined_files releases only owned aliases, retaining pending/foreign identities for recovery',
         persistence='Save declarative bindings and ordinary service data only after alias handles close; loading opens nothing and later use creates fresh handles without restoring cursors/stacks',
@@ -6710,10 +6718,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/predefined-files.md',controller_validated=False)
     report['file_cancel_policy']=dict(
         source='CANCEL FILE explicit FILE selector or omitted bound default input, captured once; allowed in handlers and linked routines',
-        dispatch='Cancel the exact cooperative typed READ, READ_KB editor or opted-in serial WRITE on its explicit FILE; idle registered FILE succeeds without discarding data',
-        completion='Portable IO_STATUS 6 on cancellation; READ publishes no destinations/cursor/observation, serial WRITE appends no captured payload; execution continues after the canceled operation',
+        dispatch='Cancel the exact cooperative typed READ, READ_KB editor or opted-in serial/socket WRITE on its explicit FILE; idle registered FILE succeeds without discarding data',
+        completion='Portable IO_STATUS 6 on cancellation; READ publishes no destinations/cursor/observation, waiting WRITE appends no captured payload; execution continues after the canceled operation',
         lifetime='Cancellation marks the captured operation; pause is retained, resume unwinds; stop/abort and stale registrations retain their existing precedence and cleanup',
-        boundary='Predefined/default FILE aliases follow predefined_file_policy; no callback/native I/O interruption; cooperative serial writes follow serial_output_wait_policy; fileless menus and direct typed backend reads remain separate',
+        boundary='Predefined/default FILE aliases follow predefined_file_policy; no callback/native I/O interruption; cooperative writes follow serial_output_wait_policy or socket_wait_policy; fileless menus and direct typed backend reads remain separate',
         guide='docs/file-cancellation.md',controller_validated=False)
     report['serial_output_wait_policy']=dict(
         configuration='Exact BOOLEAN wait_output per SerialStreams port; false by default and omitted when false; existing finite/default output behavior is retained',

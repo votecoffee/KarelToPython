@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.124610 - 2026-11-05
+
+- Add independent Messaging RX and TX wait options, explicit input completion,
+  and atomic typed FILE operations across text, binary and aggregate fields.
+- Share complete READ probing across socket, serial and plain-pipe transports.
+- Support CANCEL FILE, pause/resume and terminal cleanup for pending socket I/O.
+  Connection loss invalidates pending operations, including after reconnection.
+- Verify linked and bound FILE operations with authored CLI replay examples.
+
 ## 26.1104.192803 - 2026-11-04
 
 - Add exact-BOOLEAN SerialStreams wait_output for cooperative writes that wait

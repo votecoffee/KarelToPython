@@ -1,0 +1,22 @@
+{
+  "messaging": {
+    "limit": 32,
+    "ports": {
+      "S1:": {
+        "mounted": true,
+        "available": true,
+        "connected": true,
+        "input": {
+          "hex": ""
+        },
+        "output": {
+          "hex": "0700000009000000"
+        },
+        "wait": true,
+        "final": true,
+        "wait_output": true
+      }
+    },
+    "hosts": {}
+  }
+}

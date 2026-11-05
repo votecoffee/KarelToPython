@@ -4520,28 +4520,42 @@ def check_file_write(handle,line=None):
     if (type(operation) is not dict or set(operation)!={'identity','position','cancelled','state','root'}
             or type(operation['state']) is not State or task_root(operation['state']) is not operation['root']
             or type(operation['cancelled']) is not bool or _file_identity(handle)!=operation['identity']
-            or handle.position!=operation['position'] or type(handle.owner) is not SerialStreams):
+            or handle.position!=operation['position'] or type(handle.owner) not in (SerialStreams,Messaging)):
         raise KarelRuntimeError('Pending FILE WRITE identity or cursor changed',line)
-    record=handle.owner._writes.get(id(handle))
-    if type(record) is not tuple or len(record)!=9 or type(record[8]) is not tuple or len(record[8])!=5 or record[0] is not operation['state'] or record[2]!=operation['position'] or record[8][2] is not operation['root']:
-        raise KarelRuntimeError('Serial pending WRITE registration changed',line)
-    handle.owner.validate_write(handle,record,line)
+    owner = handle.owner
+    if type(owner) is Messaging:
+        owner.validate_pending(handle, operation['state'], 'WRITE', line)
+    else:
+        record = owner._writes.get(id(handle))
+        if (type(record) is not tuple or len(record) != 9 or type(record[8]) is not tuple
+                or len(record[8]) != 5 or record[0] is not operation['state']
+                or record[2] != operation['position'] or record[8][2] is not operation['root']):
+            raise KarelRuntimeError('Serial pending WRITE registration changed', line)
+        owner.validate_write(handle, record, line)
     if operation['cancelled']:raise _FileWriteCancelled()
 
 
 def cooperative_write_items(state,pieces,line=None,*,file=None):
-    """Retain rendered values across explicit serial TX waits; other writes stay immediate."""
-    if file is None:return state.write_items(pieces,line)
+    """Retain rendered bytes across an explicitly enabled TX wait."""
+    if file is None:
+        return state.write_items(pieces, line)
     file.require_open(line)
-    if type(file.owner) is not SerialStreams or not file.owner._active(file,line)['wait_output']:
-        return state.write_items(pieces,line,file=file)
+    owner = file.owner
+    if type(owner) is SerialStreams:
+        waiting = owner._active(file, line)['wait_output']
+    elif type(owner) is Messaging:
+        waiting = owner.connected(file, line)['wait_output']
+    else:
+        waiting = False
+    if not waiting:
+        return state.write_items(pieces, line, file=file)
     if file._read_operation is not None or file._write_operation is not None:
         raise KarelRuntimeError('FILE already has pending I/O',line)
     data=_file_write_data(file,pieces,line)
     operation=dict(identity=_file_identity(file),position=file.position,cancelled=False,state=state,root=task_root(state))
     file._write_operation=operation
     try:
-        return (yield from file.owner.write_items(state,file,data,line))
+        return (yield from owner.write_items(state, file, data, line))
     except _FileWriteCancelled:
         file.status=6
     finally:
@@ -4564,7 +4578,7 @@ def _dispatch_file_read(state,handle,targets,line=None,*,line_breaks=(),formats=
         return (yield from handle.owner.file_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
     if type(handle.owner) is FilePipes and (handle.pipe_wait is not None or handle.pipe_overflow is not None):
         return (yield from handle.owner.pipe_read(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
-    if type(handle.owner) is SerialStreams:
+    if type(handle.owner) in (SerialStreams, Messaging):
         return (yield from handle.owner.read_items(state,handle,targets,line,line_breaks=line_breaks,formats=formats))
     return state.file_read(handle,targets,line,line_breaks=line_breaks,formats=formats)
 
@@ -4590,6 +4604,8 @@ def _validate_file_read(handle,operation,line=None):
         if (type(pending) is not tuple or len(pending)!=3 or pending[0] is not state
                 or pending[1] is not registration or pending[2]!=operation['position']):
             raise KarelRuntimeError('Serial pending READ registration changed',line)
+    if type(owner) is Messaging:
+        owner.validate_pending(handle, state, 'READ', line)
     if type(owner) is FilePipes and owner._reads.get(id(handle)) is not state:
         raise KarelRuntimeError('Pipe pending READ registration changed',line)
     if type(owner) is KeyboardInput and not any(job.get('handle') is handle and job['state'] is state for job in owner._active.values()):
@@ -4626,6 +4642,7 @@ def cancel_file(state,handle,line=None):
     if type(owner) is KeyboardInput:return owner.cancel_read_kb(handle,line)
     direct=(type(owner) is SerialStreams and id(handle) in owner._pending
         or type(owner) is FilePipes and id(handle) in owner._reads
+        or type(owner) is Messaging and id(handle) in owner._pending
         or type(owner) is SerialStreams and id(handle) in owner._writes)
     if direct:raise KarelRuntimeError('CANCEL FILE requires a cooperative typed READ/WRITE, not a direct host operation',line)
     handle.status=0

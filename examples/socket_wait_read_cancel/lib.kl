@@ -1,0 +1,9 @@
+PROGRAM LIB
+VAR value,status:INTEGER
+ROUTINE receive(target:FILE)
+BEGIN
+ value=77
+ READ target(value,CR)
+ status=IO_STATUS(target)
+END receive
+BEGIN END LIB

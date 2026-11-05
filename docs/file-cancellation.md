@@ -1,8 +1,8 @@
 # Cooperative FILE cancellation
 
 Pythonic `CANCEL FILE f` interrupts the exact active cooperative typed READ or
-[opted-in serial WRITE](serial-output-waits.md) on an explicitly opened FILE. [Dynamically created descriptors](dynamic-files.md)
-participate through exact FILE routine aliases, including linked handlers. SerialStreams, opted-in waiting FilePipes, and keyboard
+[opted-in serial WRITE](serial-output-waits.md) or [socket WRITE](communications.md#cooperative-input-and-output) on an explicitly opened FILE. [Dynamically created descriptors](dynamic-files.md)
+participate through exact FILE routine aliases, including linked handlers. SerialStreams, opted-in waiting Messaging and FilePipes, and keyboard
 line/PASSALL FILE reads support cancellation. It opens no device or GUI.
 
 ```karel
@@ -29,7 +29,7 @@ is published for the canceled operation. Existing successful reads and writes
 remain committed. A subsequent successful READ or an idle CANCEL resets status
 to zero. Repeated cancellation of the same pending operation is idempotent.
 
-Serial input retains the uncompleted READ prefix; CLOSE consumes only the prefix
+Socket input retains the uncompleted READ prefix. Serial input retains it as well; CLOSE consumes only the prefix
 from earlier successful reads. Pipes retain their existing circular/snapshot
 rules and bytes. Keyboard submitted lines and PASSALL bytes remain in the open
 handle's buffer for a later typed READ. Unsubmitted line-editor text has already
@@ -41,14 +41,14 @@ source READ completion or failure observation.
 A registered idle FILE accepts cancellation as a no-op, preserving data, position
 and open state. This includes ordinary memory/rooted files and already completed
 atomic writes. Cancellation never truncates, flushes, closes or deletes a file.
-Opted-in [serial WRITE waits](serial-output-waits.md) now capture a complete
-payload that cancellation can discard before publication, preserving older TX.
+Opted-in serial and socket WRITE waits capture a complete payload that cancellation
+can discard before publication, preserving older TX.
 
 ## Identity, handlers and lifetime
 
 The explicit FILE selector is evaluated once. Reference parameters and linked
 routines can pass the same live handle; global or motion-local handler actions
-can request its cancellation. The request captures the active READ or opted-in serial WRITE identity.
+can request its cancellation. The request captures the active READ or opted-in WRITE identity.
 Changing an active READ's FILE owner, endpoint, attributes, cursor or backend registration
 fails before cancellation can conceal that change. Copied/foreign handles fail.
 Independent readers and endpoints retain separate registrations.

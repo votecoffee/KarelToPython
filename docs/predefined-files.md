@@ -63,8 +63,9 @@ when bound. No new packed layouts, device timings or numeric conventions are add
 
 ## Cancellation and ownership
 
-Bound serial output can now use [cooperative WRITE waits](serial-output-waits.md),
-including explicit alias cancellation and pending-operation cleanup guards.
+Bound serial output can use [cooperative WRITE waits](serial-output-waits.md).
+Bound sockets can use [cooperative READ and WRITE waits](communications.md#cooperative-input-and-output).
+Both support explicit alias cancellation and pending-operation cleanup guards.
 
 Bare CANCEL FILE selects the bound default input: TPDISPLAY or CRTDEVICE INPUT.
 Explicit CANCEL FILE alias and borrowed FILE arguments use the same handle.

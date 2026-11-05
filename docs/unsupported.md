@@ -79,7 +79,7 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   [AT NODE and TIME BEFORE/AFTER](motion-timeline.md) now require a complete supplied
   arrival schedule; global temporal predicates and physical arrival discovery remain unavailable.
   [CANCEL FILE](file-cancellation.md) now interrupts explicit cooperative typed reads
-  and [READ_KB editors](read-kb-cancellation.md);
+  and [READ_KB editors](read-kb-cancellation.md), plus opted-in serial and socket writes.
   [predefined/default FILE bindings](predefined-files.md) now use supplied offline
   endpoints; callback cancellation and native pending writes remain unavailable.
   `PURGE CONDITION` is supported; bare PURGE remains rejected. `IN GROUP[n]` does not add arbitrary native `IN` clauses.
@@ -507,7 +507,9 @@ queue-entry policies; FILE banks remain excluded.
   custom payloads require raw mode and fully initialized bytes.
 - Native socket connections, DNS/ping, native pipe timing and formatted dictionaries.
   MSG_CONNECT/MSG_DISCO/MSG_PING and PIPE_CONFIG now have
-  [offline FILE models](communications.md); plain and DAQ pipe names stay distinct.
+  [offline FILE models](communications.md). Plain and DAQ pipe names stay distinct.
+  [Socket FILE waits](communications.md#cooperative-input-and-output) accept explicit
+  RX feeds, EOF and TX drains with complete-operation publication and CANCEL FILE.
   Explicit [plain-pipe attributes](pipe-attributes.md) add cooperative waiting
   reads, captured snapshot boundaries and checked overflow recovery.
   [Pipe file management](pipe-file-management.md) now covers finite COPY/DELETE/

@@ -2107,10 +2107,15 @@ class ExecutionContext:
         handles=[self._predefined_handle(name) for name in self._predefined_values]
         for handle in handles:
             owner=handle.owner;rt=runtime()
-            pending=(handle._read_operation is not None or handle._write_operation is not None or type(owner) is rt.KeyboardInput and any(job.get('handle') is handle for job in owner._active.values())
-                or type(owner) is rt.SerialStreams and (id(handle) in owner._pending or id(handle) in owner._writes)
-                or type(owner) is rt.FilePipes and id(handle) in owner._reads)
-            if pending:fail('Predefined FILE has a pending '+('WRITE' if handle._write_operation is not None or type(owner) is rt.SerialStreams and id(handle) in owner._writes else 'READ'))
+            writing = handle._write_operation is not None or type(owner) is rt.SerialStreams and id(handle) in owner._writes
+            reading = (handle._read_operation is not None
+                       or type(owner) is rt.KeyboardInput and any(job.get('handle') is handle for job in owner._active.values())
+                       or type(owner) is rt.SerialStreams and id(handle) in owner._pending
+                       or type(owner) is rt.FilePipes and id(handle) in owner._reads)
+            if type(owner) is rt.Messaging and id(handle) in owner._pending:
+                fail('Predefined FILE has pending socket I/O')
+            if writing or reading:
+                fail('Predefined FILE has a pending ' + ('WRITE' if writing else 'READ'))
         records=[(name,handle,self._predefined_owners[name]) for name,handle in zip(self._predefined_values,handles)]
         for name,handle,record in records:
             if self._predefined_values.get(name) is not handle or self._predefined_owners.get(name) is not record:fail('Predefined FILE cleanup ownership changed')
@@ -2572,6 +2577,8 @@ class ExecutionContext:
                 available=handle.owner.bytes_ahead(handle,line)
                 if name=='BYTES_LEFT': return available
                 args[1].set(available,line);args[2].set(0,line);return
+            if name=='SET_FILE_POS' and type(handle.owner) is rt.Messaging:
+                handle.owner.require_idle(handle, line)
             length=len(handle.owner.files[handle.name])
             if name=='BYTES_LEFT': return length-handle.position
             if name=='BYTES_AHEAD': args[1].set(length-handle.position,line); args[2].set(0,line); return

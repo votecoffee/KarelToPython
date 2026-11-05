@@ -1,0 +1,26 @@
+{
+  "messaging": {
+    "limit": 4,
+    "ports": {
+      "S1:": {
+        "mounted": true,
+        "available": true,
+        "connected": true,
+        "input": {
+          "hex": ""
+        },
+        "output": {
+          "hex": "6f6c64"
+        },
+        "wait_output": true
+      }
+    },
+    "hosts": {}
+  },
+  "predefined_files": {
+    "TPDISPLAY": {
+      "name": "S1:",
+      "mode": "WO"
+    }
+  }
+}

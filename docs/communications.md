@@ -68,8 +68,9 @@ receive bytes; a WRITE appends output without echoing into input or advancing
 the input cursor. `BYTES_AHEAD`/`BYTES_LEFT` describe receive data. Input offsets
 are relative to the current queue and return to zero when successful reads
 consume their prefix. Failed reads preserve outputs, receive bytes and cursor.
-Empty input produces the ordinary EOF/error outcome, rather than waiting for
-a network peer. Connection loss also fails before reading or writing bytes.
+By default empty input produces the ordinary EOF/error outcome. The optional
+wait policies below allow explicit host drivers or scheduled tasks to supply
+progress. Connection loss fails before reading or writing bytes.
 
 Host code can append scripted input using `bank.feed(tag,data)` and consume
 detached output with `bank.take_output(tag,count=None)`. There is no automatic
@@ -88,6 +89,62 @@ disconnects the logical endpoint; setting it true does not reconnect it.
 FILE mode, connection and byte-limit failures raise before modifying the
 affected buffers. These are portable outcomes, not native transport status
 equivalence.
+
+### Cooperative input and output
+
+Enable either wait direction per endpoint using exact BOOLEAN fields.
+
+~~~json
+{
+  "messaging": {
+    "limit": 64,
+    "ports": {
+      "S1:": {"wait": true, "final": false, "wait_output": true}
+    }
+  }
+}
+~~~
+
+Both wait flags default to false. A waiting input defaults to nonfinal.
+Host code can append RX through `feed` and mark the input complete with
+`finish_input(tag)`. Completion allows a final unterminated text token and
+reports EOF if a complete READ cannot be parsed. Further feeds on that endpoint
+are rejected. A supplied `final: true` also permits preloaded finite input.
+
+Typed READ captures destinations and format expressions before waiting. It
+checks the whole request using the ordinary text or portable binary fields.
+Partial input retains the RX bytes, cursor, destinations and READ observations.
+A successful operation consumes exactly the committed RX prefix, leaving the
+remaining bytes for the next read.
+
+With `wait_output: true`, WRITE renders the complete payload once. It waits
+for space in the shared Messaging bank, which can be freed by host
+`take_output` or a READ on another endpoint. The whole payload appends together.
+A payload that cannot fit beside this endpoint's retained RX fails before
+waiting. Complete writes preserve RX and its cursor.
+
+Retranslate source to use the cooperative typed paths. These paths include
+aggregate operations and [bound predefined FILEs](predefined-files.md).
+Direct `State.file_read` and `State.write_items` calls keep their immediate
+behavior. A blocked generated operation requires an injected standalone
+sleeper or a scheduler. It yields at logical 10 ms intervals and checkpoints.
+Handlers can perform ready operations. A handler operation that would wait
+fails before yielding.
+
+[CANCEL FILE](file-cancellation.md) on the pending handle returns status 6 and
+continues source execution with the captured read or write unpublished.
+Cancellation takes precedence over bytes or space supplied in the same step.
+Pause retains the pending operation. Stop, abort and execution failure release
+the owned registration. Overlapping I/O, CLOSE, seek and flush require unwind
+first. Availability loss invalidates an active operation even if the endpoint
+reconnects before its next check. Source must close the FILE explicitly.
+
+Closed context JSON stores enabled wait flags and remaining RX/TX data. It
+omits pending operations and connection identities. See the authored
+[text](../examples/socket_wait_text.kl) and [binary](../examples/socket_wait_binary.kl)
+examples and the linked [read cancellation](../examples/socket_wait_read_cancel/main.kl)
+and [bound write cancellation](../examples/socket_wait_default_cancel/main.kl)
+projects.
 
 ## Plain PIP files
 
@@ -194,7 +251,7 @@ python .local/socket_messaging.py --context .local/socket_state.json --state-out
 ```
 
 Create `.local` before using the output paths. Reports expose
-`socket_messaging_policy` and `file_pipe_policy`; the
+`socket_messaging_policy`, `socket_wait_policy` and `file_pipe_policy`. The
 [semantic ledger](semantics/communications_semantics.json) records their
 boundaries. Native hardware, networking, timing, protocol behavior and strict
 equivalence remain unverified.

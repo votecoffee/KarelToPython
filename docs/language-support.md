@@ -567,6 +567,8 @@ outboxes. Custom payloads use the explicit raw packet mode; no transport is open
 [Offline communications](communications.md) covers MSG_CONNECT/MSG_DISCO/MSG_PING,
 socket-tag mount forms and PIPE_CONFIG, with scripted duplex FILE buffers,
 circular plain PIP histories, distinct DAQ names and bounded saved state.
+Socket FILEs support [opt-in RX and TX waits](communications.md#cooperative-input-and-output)
+with whole-operation publication and cancellation.
 
 [Mobile-message calls](remote-messages.md) cover RMCN_ALERT/RMCN_SEND and
 QUEUE_ATTACH with explicit alert defaults, bounded XML outboxes, deferred

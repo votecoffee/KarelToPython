@@ -1,7 +1,6 @@
 """Explicit offline serial byte streams; never open host devices."""
 import re
-import struct
-from .communications import data_bytes
+from .communications import StreamRead, data_bytes
 
 
 MAX_BYTES=64*1024*1024
@@ -187,30 +186,10 @@ class SerialStreams:
         if not row['wait']:
             return state.file_read(handle,targets,line,line_breaks=line_breaks,formats=formats)
         if id(handle) in self._pending:raise runtime.KarelRuntimeError('Serial FILE already has a pending READ',line)
-        if type(targets) not in (list,tuple):raise runtime.KarelRuntimeError('Serial READ requires scalar references',line)
-        line_breaks=runtime._read_line_breaks(len(targets),line_breaks,line)
-        runtime._validate_read_targets(targets,line)
-        formats=[()] * len(targets) if formats is None else formats
-        if type(formats) not in (list,tuple) or len(formats)!=len(targets):
-            raise runtime.KarelRuntimeError('Serial READ requires one format per scalar target',line)
-        formats=[runtime.read_formats(target.spec,field,line) for target,field in zip(targets,formats)]
-        widths=[];minimum=0
-        if handle.binary:
-            if line_breaks:raise runtime.KarelRuntimeError('CR is not a binary READ field',line)
-            from .extended import binary_format
-            for target,field in zip(targets,formats):
-                if target.spec[0]=='STRING' and not field:field=(target.spec[1],)
-                widths.append(binary_format(target.spec[0],field,line))
-            minimum=sum(width for width,code in widths)
-        else:
-            minimum=sum((field[0] if field else 0) or (target.spec[1] if handle.field and target.spec[0]=='STRING' else 0)
-                for target,field in zip(targets,formats))
-        start=handle.position
-        if start+minimum>row['capacity']:
-            raise runtime.KarelRuntimeError('Atomic serial READ exceeds retained receive capacity',line)
-        request=dict(line=line,targets=[dict(type=target.spec[0],type_spec=target.spec,
-            **({'format_specifiers':field} if field else {}))for target,field in zip(targets,formats)])
-        if line_breaks:request['line_breaks']=list(line_breaks)
+        request = StreamRead(handle, targets, line_breaks, formats, 'Serial', line)
+        start = handle.position
+        if start + request.minimum > row['capacity']:
+            raise runtime.KarelRuntimeError('Atomic serial READ exceeds retained receive capacity', line)
         registration=self._open[id(handle)];pending=(state,registration,start)
         self._pending[id(handle)]=pending
         try:
@@ -220,31 +199,14 @@ class SerialStreams:
                 if (self._pending.get(id(handle)) is not pending or self._open.get(id(handle)) is not registration
                         or handle.position!=start or not row['wait']):
                     raise runtime.KarelRuntimeError('Serial pending READ registration or cursor changed',line)
-                raw=bytes(self.files[handle.name][start:]);result=None
-                if handle.binary:
-                    if len(raw)>=minimum:
-                        offset=0;values=[]
-                        for target,(width,code) in zip(targets,widths):
-                            data=raw[offset:offset+width];offset+=width
-                            if code and handle.reverse:code='>'+code[1:]
-                            try:value=data.decode('ascii') if code is None else struct.unpack(code,data)[0]
-                            except (UnicodeError,struct.error) as exc:raise runtime.KarelRuntimeError('Invalid binary serial field: '+str(exc),line)from exc
-                            runtime._validate_read_value(target,value,line);values.append(value)
-                        result=values,offset
-                else:
-                    try:text=raw.decode('ascii')
-                    except UnicodeDecodeError as exc:raise runtime.KarelRuntimeError('Text serial FILE requires ASCII data',line)from exc
-                    reader=runtime.TextInput(text,terminator=handle.eol,field_mode=handle.field,final=row['final'])
-                    try:values=reader(request)
-                    except runtime.TextInputIncomplete:pass
-                    else:result=values,reader.offset
+                raw = bytes(self.files[handle.name][start:])
+                result = request.probe(handle, raw, final=row['final'])
                 if result is not None:
-                    values,offset=result;previous=state._read
-                    try:
-                        state._read=lambda request:values
-                        state.read_items(targets,line,line_breaks=line_breaks,formats=formats)
-                    finally:state._read=previous
-                    handle.position=start+offset;handle.status=0;return
+                    values, offset = result
+                    request.publish(state, values)
+                    handle.position = start + offset
+                    handle.status = 0
+                    return
                 if row['final']:
                     raise runtime.KarelRuntimeError('End of finalized serial input before complete READ',line)
                 if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):

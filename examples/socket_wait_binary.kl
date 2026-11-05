@@ -1,0 +1,14 @@
+PROGRAM SOCKET_WAIT_BINARY
+VAR a:ARRAY[2] OF INTEGER status:INTEGER done:BOOLEAN
+ROUTINE exchange
+VAR channel:FILE
+BEGIN
+ OPEN FILE channel('RWB','S1:')
+ READ channel(a)
+ WRITE channel(a)
+ status=IO_STATUS(channel)
+ CLOSE FILE channel
+END exchange
+BEGIN
+ IF UNINIT(done) THEN exchange() done=TRUE ENDIF
+END SOCKET_WAIT_BINARY
