@@ -62,10 +62,23 @@ def task_admin_command(command):
     return None
 
 
+def task_wait_command(command):
+    match=re.fullmatch(r'WAIT +([A-Z][A-Z0-9_]*) +(DONE|PAUSE)',command.upper())
+    if match and match[1]!='ALL':
+        return match[1],match[2]=='PAUSE'
+    return None
+
+
 def file_command(command):
     """Capture keywords separately from case-sensitive file operands."""
     action, *args = command.split()
     action = action.upper()
+    if action in ('CHDIR','CD') and len(args)<=1:
+        return 'CHDIR',tuple(args)
+    if action in ('MKDIR','RMDIR') and len(args)==1:
+        return action,tuple(args)
+    if action=='TYPE' and len(args)==1:
+        return 'PRINT_FILE',tuple(args)
     explicit_file = bool(args and args[0].upper() == 'FILE')
     if action in ('COPY', 'MOVE', 'APPEND', 'DELETE', 'RENAME') and explicit_file:
         args = args[1:]
@@ -256,7 +269,7 @@ class KclCommands:
     def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
                  task_commands=False,file_commands=False,variable_commands=False,
                  device_commands=False,dictionary_commands=False,program_commands=False,
-                 environment_commands=False):
+                 environment_commands=False,working_directory='.'):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
@@ -268,9 +281,14 @@ class KclCommands:
         if type(dictionary_commands) is not bool:raise ValueError('KCL dictionary_commands requires a BOOLEAN')
         if type(program_commands) is not bool:raise ValueError('KCL program_commands requires a BOOLEAN')
         if type(environment_commands) is not bool:raise ValueError('KCL environment_commands requires a BOOLEAN')
+        if working_directory!='.':
+            from .fileops import kcl_working_directory
+            if not file_commands:raise ValueError('KCL working_directory requires file_commands')
+            kcl_working_directory(working_directory)
         self.replies={};self.limit=limit;self.history=[];self.sequence=sequence
         self.task_commands=task_commands
         self.file_commands=file_commands
+        self.working_directory=working_directory
         self.variable_commands=variable_commands
         self.device_commands=device_commands
         self.dictionary_commands=dictionary_commands
@@ -297,12 +315,18 @@ class KclCommands:
 
     def complete(self,job):
         if self._pending is job:
+            if 'task_ready' in job:
+                job['scheduler']._remove_task_wait(job['target'],job['task_ready'])
             job['row'].update(phase='completed',status=job['status'])
             self.last_status=job['status'];self._pending=None
 
     def poll(self):
         job=self._pending
-        if job is not None and job['clock'] is not None and job['clock']()>=job['due']:self.complete(job)
+        if job is None:return
+        if 'task_ready' in job:
+            job['task_ready']()
+        elif job['clock'] is not None and job['clock']()>=job['due']:
+            self.complete(job)
 
     def _record(self,state,name,command,phase,code):
         self.sequence+=1
@@ -360,9 +384,7 @@ class KclCommands:
         driving = action in ('RUN', 'CONTINUE')
         targets = self._task_targets(state, registry, owner, action, selector)
         if targets is None or (name == 'KCL_NO_WAIT' and driving and owner is None):
-            self._record(state, name, command, 'rejected', 3)
-            self.last_status = 3
-            return 3, None
+            return self._reject_task(state,name,command)
 
         def dispatch(job):
             if driving:
@@ -383,12 +405,48 @@ class KclCommands:
             return 0
         return self._dispatch(state,name,command,dispatch)
 
+    def _reject_task(self,state,name,command):
+        self._record(state,name,command,'rejected',3)
+        self.last_status=3
+        return 3,None
+
+    def _submit_task_wait(self,state,name,command,request,line):
+        from .scheduling import TaskScheduler, selected_task_root, task_wait_result
+
+        registry=state.execution.tasks
+        selector,until_pause=request
+        code,target=selected_task_root(registry,selector,state,line)
+        caller=rt().task_root(state)
+        if code or target is caller or target.task_state=='ready':
+            return self._reject_task(state,name,command)
+        run=target._task_run
+        code=task_wait_result(target,run,until_pause)
+        if code is not None:
+            return self._dispatch(state,name,command,lambda _job:code)
+        if (not isinstance(registry,TaskScheduler) or target._scheduler is not registry
+                or name=='KCL' and caller._scheduler is not registry):
+            return self._reject_task(state,name,command)
+
+        def ready():
+            if self._pending is job:
+                result=task_wait_result(target,run,until_pause)
+                if result is not None:
+                    job['status']=result
+                    self.complete(job)
+            return self._pending is not job
+
+        row=self._record(state,name,command,'pending',0)
+        job=dict(row=row,status=0,delay_ms=0,target=target,scheduler=registry,task_ready=ready)
+        self._pending=job
+        registry._add_task_wait(target,ready)
+        return 0,job
+
     def _submit_file(self,state,name,command,request,line):
         from .fileops import kcl_file_operation
 
         operation,args=request
         def dispatch(_job):
-            code=kcl_file_operation(state,operation,args,line)
+            code=kcl_file_operation(state,operation,args,line,channel=self)
             return 100+code if code else 0
         return self._dispatch(state,name,command,dispatch)
 
@@ -495,6 +553,7 @@ class KclCommands:
             for enabled,parse,submit in (
                 (self.task_commands,task_command,self._submit_task),
                 (self.task_commands,task_admin_command,self._submit_task_admin),
+                (self.task_commands,task_wait_command,self._submit_task_wait),
                 (self.file_commands,file_command,self._submit_file),
                 (self.variable_commands,variable_command,self._submit_variable),
                 (self.device_commands,device_command,self._submit_device),
@@ -523,6 +582,15 @@ class KclCommands:
         return 0,job
 
     def wait(self,state,job,line=None):
+        if 'task_ready' in job:
+            root=rt().task_root(state)
+            while not job['task_ready']():
+                if root is job['target'] or root._scheduler is not job['scheduler']:
+                    raise rt().KarelRuntimeError('Unfinished KCL task wait requires another task on its owning scheduler',line)
+                yield dict(kind='kcl_wait',ready=job['task_ready'],line=line)
+                if root._pause_requested or root._abort_requested:
+                    yield from rt().checkpoint(root,line,force_pause=True)
+            return job['status']
         if self._pending is job:
             if job['clock'] is None:
                 raise rt().KarelRuntimeError('Cannot collect an executing inline KCL command', line)
@@ -549,6 +617,7 @@ class KclCommands:
         result=dict(replies=deepcopy(self.replies),limit=self.limit,history=deepcopy(self.history),sequence=self.sequence,last_status=self.last_status)
         if self.task_commands:result['task_commands']=True
         if self.file_commands:result['file_commands']=True
+        if self.working_directory!='.':result['working_directory']=self.working_directory
         if self.variable_commands:result['variable_commands']=True
         if self.device_commands:result['device_commands']=True
         if self.dictionary_commands:result['dictionary_commands']=True
@@ -565,6 +634,7 @@ class KclCommands:
     @classmethod
     def from_config(cls,config):
         fields={'replies','limit','history','sequence','last_status','task_commands','file_commands',
-                'variable_commands','device_commands','dictionary_commands','program_commands','environment_commands'}
+                'variable_commands','device_commands','dictionary_commands','program_commands','environment_commands',
+                'working_directory'}
         if type(config) is not dict or set(config)-fields:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

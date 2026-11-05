@@ -1012,12 +1012,75 @@ def kcl_file_specification(value,*,device_directory=False):
     return name
 
 
-def kcl_file_operation(state,operation,args,line=None):
+def kcl_working_directory(value):
+    if value=='.':return value
+    if type(value) is not str or any(char in value for char in ':*?') or kcl_file_specification(value)!=value:
+        raise ValueError('KCL working directory requires a canonical root-relative directory')
+    return value
+
+
+def _kcl_directory_backend(state,line):
+    from .storage import DirectoryFiles
+
+    files=state.execution.files
+    if type(files) is not DirectoryFiles:
+        raise rt().KarelRuntimeError('KCL working directories require an explicit DirectoryFiles backend',line)
+    return files
+
+
+def _kcl_directory_operation(state,channel,operation,args,line):
+    files=_kcl_directory_backend(state,line)
+    current=channel.working_directory
+    if not args:
+        if not files._path(current,directory=True).is_dir():return 1
+        write_file_text(state,current+'\n',line)
+        return 0
+    operand=args[0].replace('\\','/')
+    if operation=='CHDIR' and operand=='.':
+        name=current
+    elif operation=='CHDIR' and operand=='..':
+        if current=='.':return 2
+        name=current.rpartition('/')[0] or '.'
+    elif operation=='CHDIR' and operand=='/':
+        name='.'
+    else:
+        name=operand.removesuffix('/')
+        if name.endswith(':') and operation=='CHDIR':
+            name=kcl_file_specification(name,device_directory=True)[:-1]+'.'
+        else:
+            name=kcl_file_specification(name)
+            if any(char in name for char in '*?'):return 2
+            if ':' not in name and current!='.':
+                name=kcl_file_specification(current+'/'+name)
+    target=files._path(name,directory=True)
+    if operation=='CHDIR':
+        if not target.is_dir():return 1
+        channel.working_directory=kcl_working_directory(target.relative_to(files.root).as_posix())
+        return 0
+    if target==files.root:return 2
+    if operation=='MKDIR':return files._create_directory(name)
+    if files._path(current,directory=True).is_relative_to(target):return 3
+    return files._remove_directory(name)
+
+
+def kcl_file_operation(state,operation,args,line=None,*,channel):
     """Dispatch accepted file commands through the explicit context backends."""
+    def scoped(value,*,device_directory=False):
+        name=kcl_file_specification(value,device_directory=device_directory)
+        current=channel.working_directory
+        if current!='.' and ':' not in name:
+            files=_kcl_directory_backend(state,line)
+            if not files._path(current,directory=True).is_dir():
+                raise ValueError('KCL working directory is unavailable')
+            name=kcl_file_specification(current+'/'+name,device_directory=device_directory)
+        return name
+
     try:
-        first=kcl_file_specification(args[0],device_directory=operation=='DIRECTORY')
+        if operation in ('CHDIR','MKDIR','RMDIR'):
+            return _kcl_directory_operation(state,channel,operation,args,line)
+        first=scoped(args[0],device_directory=operation=='DIRECTORY')
         if operation in ('COPY_FILE','RENAME_FILE','APPEND_FILE'):
-            second=kcl_file_specification(args[1],device_directory=operation=='COPY_FILE')
+            second=scoped(args[1],device_directory=operation=='COPY_FILE')
             args=(first,second,*args[2:])
         else:
             args=(first,*args[1:])

@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR phase FROM WORKER:INTEGER
+    started,paused,continued,accepted,finished:INTEGER
+BEGIN
+  phase=0
+  KCL_NO_WAIT('RUN WORKER',started)
+  KCL('WAIT WORKER PAUSE',paused)
+  KCL('CONTINUE WORKER',continued)
+  KCL_NO_WAIT('WAIT WORKER DONE',accepted)
+  finished=KCL_STATUS
+END MAIN

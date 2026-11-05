@@ -1,0 +1,4 @@
+{
+  "MAIN": {"state": "completed", "values": {"PHASE": 2, "STARTED": 0, "PAUSED": 0, "CONTINUED": 0, "ACCEPTED": 0, "FINISHED": 0}},
+  "WORKER": {"state": "completed", "values": {"PHASE": 2}}
+}

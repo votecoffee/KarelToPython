@@ -77,8 +77,10 @@
     "tests/test_kcl_program_commands.py",
     "tests/test_kcl_environment_commands.py",
     "tests/test_kcl_inspection_commands.py",
+    "tests/test_kcl_wait_and_directories.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
+    "examples/kcl_task_waits",
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
@@ -122,5 +124,13 @@
     "forms": ["SHOW VARIABLE", "SHOW VARS", "SHOW DEVICE", "SET LANGUAGE", "SHOW LANG", "SHOW LANGS", "SHOW DICTS", "SHOW CURPOS"],
     "dispatch": "Portable bounded JSON lines for ordinary variables, logical volumes, decoded dictionary metadata, configured languages and current pose. SET LANGUAGE uses the pendant when supplied or the dictionary catalog otherwise.",
     "statuses": "Retains the command group offsets, unavailable language 33003 and inline runtime error 4."
+  },
+  "task_wait_and_rooted_directory_extension": {
+    "version": "26.1105.213022",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [707, 723, 728, 748, 749],
+    "forms": ["WAIT name DONE", "WAIT name PAUSE", "CHDIR", "MKDIR", "RMDIR", "TYPE"],
+    "dispatch": "Scheduler transition observation of a captured task generation. Explicit DirectoryFiles root and KCL-local relative directory. TYPE reuses plain ASCII output.",
+    "statuses": "Task unavailable or ineligible 3, failed target 4. Directory lookup 101, collision or invalid root operation 102, active or nonempty directory 103."
   }
 }

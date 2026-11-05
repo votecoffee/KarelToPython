@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.213022 - 2026-11-05
+
+- Add named KCL WAIT DONE and WAIT PAUSE over captured cooperative task
+  runs. Support scheduler waiting and no-wait acceptance without repeated
+  virtual-time polling.
+- Add ASCII TYPE and rooted CHDIR, MKDIR and RMDIR. Scope unqualified KCL
+  file operands to a saved relative directory and protect open or nonempty
+  directories.
+
 ## 26.1105.210506 - 2026-11-05
 
 - Add KCL SHOW VAR and SHOW VARS for ordinary variable metadata, typed values,

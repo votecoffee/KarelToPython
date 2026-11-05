@@ -94,6 +94,29 @@ continuation and terminal-state rules. Native default selectors, abbreviated
 verbs beyond CONT, command files, TP execution and physical motion remain
 outside this model.
 
+### Task waits
+
+`WAIT name DONE` observes the selected task run until it completes, aborts
+or stops. `WAIT name PAUSE` also completes when that run pauses. A failed
+run completes the command with status 4. The name is an explicit registry
+binding. A missing, idle, foreign-owned or self target returns 3.
+
+An unfinished wait needs an active TaskScheduler-owned target. KCL and
+unfinished KCL_STATUS wait from another task on that scheduler. KCL_NO_WAIT
+can submit the request from a standalone observer with the same task
+registry. Terminal results and a matching paused state can complete inline.
+The command captures the bound task and its current run, including through
+a registry rename. It observes scheduler transitions without advancing the
+target itself. Acceptance, channel busy status and saved-history rules
+match other KCL jobs.
+
+An unresolved DONE wait can remain pending when its target is paused and
+the scheduler has no runnable or timed work. Continue or stop the target
+through the scheduler or another source control path. The channel stays busy
+until the captured condition is reached. The forms follow MARRC75KR07091E
+Rev N, PDF page 749. The [linked example](../examples/kcl_task_waits/main.kl)
+waits for a pause, continues the worker and collects its completion.
+
 ### Task settings, traces and conditions
 
 The same `task_commands` opt-in enables these forms.
@@ -176,6 +199,31 @@ Quoted paths, implicit directory defaults, formatted pipe printing, native
 device discovery and socket/DAQ file dispatch remain outside this model.
 The [linked file example](../examples/kcl_file_commands/main.kl) copies and
 appends file data before a worker reads it from a plain pipe.
+
+### Rooted directory commands
+
+TYPE accepts the same ASCII file or plain pipe inputs as PRINT.
+`CHDIR path` or `CD path` selects a directory within an explicitly
+supplied DirectoryFiles root. `CD` writes the current root-relative
+directory, `CD ..` selects its parent, and `CD /` selects the configured
+root. A mapped device prefix selects its configured directory. Paths use
+slash or backslash separators. The host process directory and ordinary
+KAREL FILE operands keep their own resolution rules.
+
+`MKDIR path` creates one directory under an existing parent. `RMDIR path`
+removes one empty directory. The root, the active directory and its
+ancestors are protected. An open FILE under the target also prevents
+removal. The backend rejects traversal and symlink paths. Nonempty or
+active directories and open files return 103. A missing path returns 101,
+and a collision or invalid root operation returns 102. Invalid path or
+backend errors use 4.
+
+Unqualified KCL file commands resolve from the current directory.
+Explicit device operands resolve from their device mappings. Context JSON
+saves a nonroot `working_directory` within `kcl`. Supply the rooted backend
+again when restoring it, for example with the generated CLI's
+`--filesystem-root` option. The forms follow MARRC75KR07091E Rev N, PDF
+pages 707, 723, 728 and 748.
 
 ## Variable and PATH commands
 
@@ -459,6 +507,7 @@ python -m karel2py examples/kcl_commands.kl -o kcl_commands.py
 python kcl_commands.py --context examples/kcl_commands.services.initial.json --state-out kcl-state.json
 python -m karel2py.project examples/diagnostics_commands_project --entry MAIN --context examples/diagnostics_commands_project/services.initial.json --state-out project-state.json
 python -m karel2py.project examples/kcl_task_commands --entry MAIN --context examples/kcl_task_commands/services.initial.json
+python -m karel2py.project examples/kcl_task_waits --entry MAIN --context examples/kcl_task_waits/services.initial.json
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json

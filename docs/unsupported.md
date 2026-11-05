@@ -533,7 +533,9 @@ queue-entry policies; FILE banks remain excluded.
   an [explicit command channel](kcl-commands.md) with scripted replies and opt-in
   registered RUN, CONTINUE, PAUSE and ABORT. [Opt-in file commands](kcl-commands.md#file-commands)
   route COPY, DELETE, RENAME, MOVE, APPEND, PRINT and DIRECTORY to explicit
-  offline backends. [Variable commands](kcl-commands.md#variable-and-path-commands)
+  offline backends, including TYPE and rooted CHDIR, MKDIR and RMDIR.
+  [Task waits](kcl-commands.md#task-waits) observe named cooperative task
+  generations. [Variable commands](kcl-commands.md#variable-and-path-commands)
   add typed creation, renames, detached scalar assignment and removal, PATH node
   edits and portable VR save/load. Native VR and implicit or system-variable KCL
   forms remain unavailable. [Virtual device commands](kcl-commands.md#virtual-device-commands)

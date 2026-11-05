@@ -1,5 +1,6 @@
 """Portable state serialization and explicitly rooted filesystem services."""
 from copy import deepcopy
+import errno
 import fnmatch
 import json
 import math
@@ -379,6 +380,25 @@ class DirectoryFiles:
     def _key(self,name): return self._path(name).relative_to(self.root).as_posix()
 
     def _busy(self,key): return any(handle.owner is self and os.path.normcase(handle.name)==os.path.normcase(key) for handle in self.handles)
+
+    def _create_directory(self,name):
+        target=self._path(name,directory=True)
+        try:target.mkdir()
+        except FileNotFoundError:return 1
+        except FileExistsError:return 2
+        return 0
+
+    def _remove_directory(self,name):
+        target=self._path(name,directory=True)
+        if not target.is_dir():return 1
+        if any(self._path(handle.name).is_relative_to(target) for handle in self.handles if handle.owner is self):
+            return 3
+        try:target.rmdir()
+        except FileNotFoundError:return 1
+        except OSError as exc:
+            if exc.errno in (errno.ENOTEMPTY,errno.EEXIST):return 3
+            raise
+        return 0
 
     def open(self,handle,mode,name,line=None):
         if handle.owner is not None: raise rt().KarelRuntimeError('FILE is already open',line)

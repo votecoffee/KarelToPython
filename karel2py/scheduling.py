@@ -102,6 +102,14 @@ def task_status_name(root):
             'completed':'PG_COMPLETED','stopped':'PG_STOPPED','aborted':'PG_ABORTED','failed':'PG_FAILED'}[state]
 
 
+def task_wait_result(target,run,until_pause):
+    state=target.task_state
+    if state=='failed':return 4
+    if state in ('completed','stopped','aborted') or target._task_run is not run:return 0
+    if until_pause and state=='paused':return 0
+    return None
+
+
 def task_attribute(registry,name,program,attribute,line=None):
     runtime=rt();root=runtime.task_root(program._state)
     if attribute == 'TSK_TPMOTION' and root._task_pendant_motion:
@@ -382,6 +390,7 @@ class TaskScheduler:
         if type(max_steps) is not int or max_steps<1: raise ValueError('Task step budget must be positive')
         self.tasks={}; self.attributes={}; self.quantum_us=quantum_ms*1000; self.max_steps=max_steps
         self.now_us=0; self.waiting={}; self.errors={}; self._running=False; self._step_names=None
+        self._task_waits={}
     def bind(self, name, program, *, attributes=None):
         key = rt().ascii_string(name).upper()
         previous = self.tasks.get(key)
@@ -408,6 +417,18 @@ class TaskScheduler:
 
     def rename(self,old_name,new_name): return rename_task(self,old_name,new_name)
     def set_attribute(self,name,attribute,value): return set_task_attribute(self,name,attribute,value)
+    def _add_task_wait(self,state,ready):
+        self._task_waits.setdefault(state,[]).append(ready)
+    def _remove_task_wait(self,state,ready):
+        checks=self._task_waits[state]
+        checks.remove(ready)
+        if not checks:del self._task_waits[state]
+    def _notify_task_waits(self,state):
+        for ready in tuple(self._task_waits.get(state,())):ready()
+    def _wait_ready(self,name,state):
+        if state._pause_requested or state._abort_requested:return True
+        condition=self.waiting.get(name,0)
+        return condition() if callable(condition) else self.now_us>=condition
     def start(self,name,*,paused=False):
         name=name.upper()
         if name not in self.tasks: raise KeyError(name)
@@ -415,6 +436,7 @@ class TaskScheduler:
         name = self._primary_name(program)
         if getattr(program,'_execution',None) is not None: raise rt().KarelRuntimeError('Task is already active')
         if state.task_state=='stopped': raise rt().KarelStop('Task is stopped; create a new instance')
+        self._notify_task_waits(state)
         with rt()._numeric_scope('pythonic'):
             state.begin(self.max_steps)
         state._scheduler=self
@@ -455,6 +477,7 @@ class TaskScheduler:
                 state.task_state='stopped' if isinstance(error,runtime.KarelStop) else 'aborted' if isinstance(error,runtime.KarelAbort) else 'failed'
                 state._scheduler=None;state.finish_teach_programs();self.waiting.pop(name,None)
                 if state._scheduler_clock:state._clock_us=None;state._scheduler_clock=False
+                self._notify_task_waits(state)
                 self.errors[name]=error;raise
     def _motion_deadlines(self):
         banks={program._state.execution.motion for program in self.tasks.values() if program._state.execution.motion is not None}
@@ -466,6 +489,7 @@ class TaskScheduler:
             raise rt().KarelRuntimeError('Only the owning TaskScheduler can stop a live task')
         program.stop()
         self.waiting.pop(self._primary_name(program), None)
+        self._notify_task_waits(program._state)
     def step(self):
         runtime=rt(); progressed=False
         if self._step_names is not None: raise runtime.KarelRuntimeError('Scheduler cannot be stepped recursively')
@@ -481,8 +505,7 @@ class TaskScheduler:
                 if state._scheduler is not self:
                     continue
                 if state.task_state=='waiting':
-                    deadline=self.waiting.get(name,0)
-                    if self.now_us<deadline and not state._pause_requested and not state._abort_requested: continue
+                    if not self._wait_ready(name,state):continue
                     state.task_state='running'; self.waiting.pop(name,None)
                 if state.task_state!='running' or getattr(program,'_execution',None) is None: continue
                 duration=state._task_settings.get('TSK_TIMESLIC',self.quantum_us//1000)
@@ -495,6 +518,7 @@ class TaskScheduler:
                         if type(event) is not dict: raise runtime.KarelRuntimeError('Invalid scheduler event')
                         if event['kind']=='pause': state.task_state='paused'
                         elif event['kind']=='sleep': self.waiting[name]=event['until']; state.task_state='waiting'
+                        elif event['kind']=='kcl_wait': self.waiting[name]=event['ready']; state.task_state='waiting'
                         elif event['kind']!='timeslice': raise runtime.KarelRuntimeError('Unknown scheduler event')
                     except StopIteration:
                         program._execution=None; state.task_state='completed'; state._scheduler=None
@@ -507,11 +531,15 @@ class TaskScheduler:
                         state.finish_teach_programs()
                         if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
                         self.errors[names[slot]]=exc; raise
-                    finally: state._driving=False
+                    finally:
+                        state._driving=False
+                        if state.task_state in ('paused','completed','aborted','stopped','failed'):
+                            self._notify_task_waits(state)
                     if state.task_state!='running' or program._execution is None: break
         finally: self._step_names=None
         self.now_us+=self.quantum_us
-        deadlines=[*self.waiting.values(),*self._pulse_deadlines(),*self._motion_deadlines()]
+        deadlines=[value for value in self.waiting.values() if not callable(value)]
+        deadlines.extend(self._pulse_deadlines());deadlines.extend(self._motion_deadlines())
         if not progressed and deadlines: self.now_us=max(self.now_us,min(deadlines))
         for bank in self._pulse_banks(): bank.poll_pulses()
         self._poll_motion()
@@ -523,8 +551,10 @@ class TaskScheduler:
         try:
             for _ in range(max_cycles):
                 for bank in self._pulse_banks(): bank.poll_pulses()
-                active = any(program._state._scheduler is self and program._state.task_state in ('running', 'waiting')
-                             for _, program in self._distinct_bindings())
+                active = any(program._state._scheduler is self and (
+                    program._state.task_state=='running' or program._state.task_state=='waiting'
+                    and (not callable(self.waiting.get(name)) or self._wait_ready(name,program._state)))
+                    for name,program in self._distinct_bindings())
                 if not active and not self._pulse_deadlines():
                     return self.snapshot()
                 self.step()
