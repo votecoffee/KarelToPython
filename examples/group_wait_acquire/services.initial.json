@@ -1,0 +1,10 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {},
+    "lock_wait_ms": 100
+  }
+}

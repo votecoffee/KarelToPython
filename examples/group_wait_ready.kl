@@ -1,0 +1,6 @@
+PROGRAM GROUP_WAIT_READY
+VAR acquire_status,release_status:INTEGER
+BEGIN
+ LOCK_GROUP(3,acquire_status)
+ UNLOCK_GROUP(3,release_status)
+END GROUP_WAIT_READY

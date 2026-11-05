@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Bounded group lock waits](docs/group-locks.md#bounded-acquisition-and-release)
+let LOCK_GROUP wait for foreign owners and UNLOCK_GROUP wait for owned busy
+groups. Both opt-in operations apply the complete mask together, with ordinary
+task checkpoints and exact grant checks before release.
+
 [Cooperative socket FILE operations](docs/communications.md#cooperative-input-and-output)
 can wait for explicit input or shared TX space. Complete typed READs consume
 only their RX prefix. WRITE captures its payload once and appends it atomically.
@@ -271,7 +276,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.124610**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.130929**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -732,8 +737,8 @@ for the supported source grammar and CLI examples.
 
 CALL_PROG/CALL_PROGLIN run attached KAREL main bodies in the calling task with
 separate cursors and shared module data; see [program calls](docs/program-calls.md).
-LOCK_GROUP/UNLOCK_GROUP use configured logical ownership with contention and
-terminal cleanup; see [group locks](docs/group-locks.md).
+LOCK_GROUP/UNLOCK_GROUP use configured logical ownership with immediate partial
+results or opt-in bounded waits for a complete mask. See [group locks](docs/group-locks.md).
 All six DAQ calls use explicit typed acquisition pipes with binary FILE readers,
 snapshot views, overflow tracking and batch output to supplied file backends.
 See [data acquisition](docs/data-acquisition.md).

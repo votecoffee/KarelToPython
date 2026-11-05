@@ -1,0 +1,16 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "STATUS": 0,
+      "ELAPSED": 0,
+      "DONE": true
+    }
+  }
+}

@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.130929 - 2026-11-05
+
+- Add independent GroupLocks limits for waiting on logical acquisition and
+  release. A positive limit applies the complete manual mask atomically.
+- Preserve captured status references, validate original unlock grants and
+  unwind pending requests on terminal execution.
+- Exercise acquisition after another task releases a group and release after a
+  linked routine's handler clears a stopped label.
+
 ## 26.1105.124610 - 2026-11-05
 
 - Add independent Messaging RX and TX wait options, explicit input completion,

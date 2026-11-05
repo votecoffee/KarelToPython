@@ -1,0 +1,32 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {},
+    "unlock_wait_ms": 50
+  },
+  "controller": {
+    "background": {},
+    "perch_counts": {},
+    "perches": {},
+    "resets": [],
+    "limit": 500,
+    "sequence": 1,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "CNCL_STP_MTN",
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            2
+          ]
+        }
+      }
+    ],
+    "elapsed_ms": 0
+  }
+}

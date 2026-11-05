@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR ready FROM HOLDER:BOOLEAN start_status,release_status:INTEGER
+ROUTINE acquire FROM LIB
+BEGIN
+ ready=FALSE
+ RUN_TASK('HOLDER',0,FALSE,FALSE,0,start_status)
+ WAIT FOR ready
+ acquire()
+ UNLOCK_GROUP(3,release_status)
+END MAIN

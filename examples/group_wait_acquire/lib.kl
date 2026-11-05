@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR status:INTEGER
+ROUTINE acquire
+BEGIN
+ LOCK_GROUP(3,status)
+END acquire
+BEGIN END LIB

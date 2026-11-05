@@ -543,7 +543,9 @@ and [KCL commands](kcl-commands.md) for explicit scripted acceptance/completion.
 
 CALL_PROG/CALL_PROGLIN support attached cooperative KAREL programs through
 [program calls](program-calls.md). [Logical group ownership](group-locks.md) adds
-explicit LOCK_GROUP/UNLOCK_GROUP banks, partial acquisition and terminal cleanup.
+explicit LOCK_GROUP/UNLOCK_GROUP banks, partial results and terminal cleanup.
+Opt-in [bounded waits](group-locks.md#bounded-acquisition-and-release) let a
+manual request wait for a complete mask before applying it.
 An opted-in bank also applies [root source directive locks](directive-group-locks.md)
 atomically before body execution. A separate `callee_scopes=True` option adds
 [scoped module grants](scoped-group-locks.md) with return/stop/error cleanup;

@@ -1,0 +1,8 @@
+PROGRAM HOLDER
+VAR ready:BOOLEAN acquire_status,release_status:INTEGER
+BEGIN
+ LOCK_GROUP(2,acquire_status)
+ ready=TRUE
+ DELAY 40
+ UNLOCK_GROUP(2,release_status)
+END HOLDER

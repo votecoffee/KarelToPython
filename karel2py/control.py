@@ -301,7 +301,7 @@ def cooperative_service(state,name,arguments,line=None):
     if not runtime._pythonic(): raise runtime.KarelRuntimeError('Cooperative services require Pythonic mode',line)
     row=dict(operation=name,line=line,outcome='requested'); state.service_requests.append(row)
     try:
-        result=state.execution.invoke(state,name,arguments,line)
+        result=state.execution.invoke(state,name,arguments,line,cooperative=True)
         if runtime.inspect.isgenerator(result): result=yield from result
     except GeneratorExit: row['outcome']='cancelled'; raise
     except BaseException: row['outcome']='failed'; raise

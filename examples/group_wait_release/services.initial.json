@@ -1,0 +1,14 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2
+    ],
+    "motion": {
+      "2": "stopped"
+    },
+    "unlock_wait_ms": 50
+  },
+  "controller": {},
+  "local_handlers": true
+}

@@ -436,7 +436,9 @@ queue-entry policies; FILE banks remain excluded.
 - LOCK_GROUP/UNLOCK_GROUP now have [logical ownership banks](group-locks.md).
   [Opt-in root directive acquisition](directive-group-locks.md) is available;
   a second opt-in adds [callee acquisition/release scopes](scoped-group-locks.md).
-  Native locks, lock waits and motion effects remain unavailable. The configured
+  [Bounded manual waits](group-locks.md#bounded-acquisition-and-release) now add
+  atomic mask acquisition and release with exact grant checks.
+  Native locks, native timing and motion effects remain unavailable. The configured
   bank requires explicit groups and busy labels.
 - Native alarm dictionaries, severity encodings, asynchronous history timing,
   power-cycle restoration and controller error recovery. POST_ERR, POST_ERR_L,

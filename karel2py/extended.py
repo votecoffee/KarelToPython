@@ -36,7 +36,7 @@ OI=arg('INTEGER','o'); OS=arg('STRING','o'); OA=arg('ANY','o')
 COOPERATIVE_PROCEDURES={'PEND_SEMA','POST_ERR','POST_ERR_L','PAUSE_TASK','ABORT_TASK','SET_TSK_ATTR'}
 COOPERATIVE_PROCEDURES.update(('READ_KB','DISCTRL_ALPH','DISCTRL_PLMN','DISCTRL_SBMN','ACT_TBL','DISCTRL_TBL','DISCTRL_FORM'))
 COOPERATIVE_PROCEDURES.update(('RESET','MIXBG_RUN','MIXBG_STOP','V_GET_QUEUE','VT_GET_QUEUE'))
-COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS'))
+COOPERATIVE_PROCEDURES.update(('CALL_PROG','CALL_PROGLIN','KCL','KCL_NO_WAIT','KCL_STATUS','LOCK_GROUP','UNLOCK_GROUP'))
 DYNAMIC_VARIABLE_WRITES={'MIXBG_RUN','MIXBG_STOP','DISCTRL_FORM','ACT_TBL','DISCTRL_TBL','SET_VAR','XML_SETVAR','BYNAME','CREATE_VAR','RENAME_VAR','RENAME_VARS','CALL_PROG','CALL_PROGLIN','LOAD','CLEAR','PROG_RESTORE','PROG_CLEAR'}
 SERIAL_ATTRIBUTES={'ATR_READAHD':101,'ATR_BAUD':102,'ATR_PARITY':103,'ATR_SBITS':104,
     'ATR_DBITS':105,'ATR_XONOFF':106,'ATR_EOL':5}
@@ -2292,7 +2292,7 @@ class ExecutionContext:
             services['errors']=ErrorHistory.from_config(config['errors'])
         if 'parameters' in config: services['parameters']=CallParameters.from_config(config['parameters'])
         return cls(**services)
-    def invoke(self,state,name,arguments,line=None):
+    def invoke(self,state,name,arguments,line=None,*,cooperative=False):
         rt=runtime(); args=list(arguments)
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
@@ -2354,7 +2354,10 @@ class ExecutionContext:
             from .programs import call_program
             return call_program(state,name,args,line)
         if name in ('LOCK_GROUP','UNLOCK_GROUP'):
-            args[1].set(self.require('group_locks',line).update(state,name,args[0],line),line)
+            bank = self.require('group_locks', line)
+            if cooperative and bank.wait_ms(name, line):
+                return bank.wait_update(state, name, *args, line=line)
+            args[1].set(bank.update(state, name, args[0], line), line)
             return
         if name in ('CREATE_VAR','RENAME_VAR','RENAME_VARS'):
             from .dynamic import invoke

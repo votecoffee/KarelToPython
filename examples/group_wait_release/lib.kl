@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR status:INTEGER
+ROUTINE relinquish
+BEGIN
+ UNLOCK_GROUP(3,status)
+END relinquish
+BEGIN END LIB

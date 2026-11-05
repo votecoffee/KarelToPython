@@ -1,0 +1,24 @@
+{
+  "HOLDER": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "ACQUIRE_STATUS": 0,
+      "RELEASE_STATUS": 0
+    }
+  },
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "START_STATUS": 0,
+      "RELEASE_STATUS": 0
+    }
+  }
+}

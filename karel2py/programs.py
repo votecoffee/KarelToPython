@@ -9,7 +9,8 @@ def rt():
 
 class GroupLocks:
     """Configured motion-group labels; no robot, motion or native locks."""
-    def __init__(self,groups,*,motion=None,held=None,apply_directives=False,callee_scopes=False):
+    def __init__(self,groups,*,motion=None,held=None,apply_directives=False,callee_scopes=False,
+                 lock_wait_ms=0,unlock_wait_ms=0):
         if (type(groups) not in (list,tuple) or not groups or len(groups)>31
                 or any(type(group) is not int or not 1<=group<=31 for group in groups)
                 or len(groups)!=len(set(groups))):
@@ -20,6 +21,11 @@ class GroupLocks:
         if callee_scopes and not apply_directives:raise ValueError('callee_scopes requires apply_directives=True')
         self.apply_directives=apply_directives;self.callee_scopes=callee_scopes
         self.groups=tuple(sorted(groups));self.motion={};self.owners={};self._ownership_tokens={}
+        for name, value in (('lock_wait_ms', lock_wait_ms), ('unlock_wait_ms', unlock_wait_ms)):
+            if type(value) is not int or not 0 <= value <= 86400000:
+                raise ValueError(name + ' requires an INTEGER in 0..86400000 ms')
+            setattr(self, name, value)
+        self._pending = {}
         for group,value in (motion or {}).items(): self.set_motion(group,value)
         if held is None:held=[]
         if (type(held) not in (list,tuple) or len(held)>31
@@ -95,24 +101,117 @@ class GroupLocks:
         if value=='idle': self.motion.pop(group,None)
         else:self.motion[group]=value
 
-    def update(self,state,operation,mask,line=None):
-        runtime=rt();mask=runtime.integer(mask,line)
-        allowed=sum(1<<(group-1) for group in self.groups)
-        if mask<0 or mask&~allowed: return 1
-        selected=[group for group in self.groups if mask&(1<<(group-1))]
-        root=runtime.task_root(state);code=0
+    def _selected(self, mask, line):
+        mask = rt().integer(mask, line)
+        allowed = sum(1 << (group - 1) for group in self.groups)
+        if mask < 0 or mask & ~allowed:
+            return None
+        return tuple(group for group in self.groups if mask & (1 << (group - 1)))
+
+    def _blocking_status(self, root, group, locking):
+        owner = self.owners.get(group)
+        if owner is not None and owner is not root:
+            return 2
+        if not locking and owner is root:
+            motion = self.motion.get(group, 'idle')
+            if motion != 'idle' or group in self.held:
+                return 17040 if motion == 'stopped' else 17039
+        return 0
+
+    def _apply(self, root, group, locking):
+        if locking:
+            self._grant(group, root)
+        else:
+            self.owners.pop(group, None)
+            self._ownership_tokens.pop(group, None)
+
+    def update(self, state, operation, mask, line=None):
+        """Keep the immediate partial-result contract for direct calls and defaults."""
+        selected = self._selected(mask, line)
+        if selected is None:
+            return 1
+        locking = operation == 'LOCK_GROUP'
+        root = rt().task_root(state)
+        code = 0
         for group in selected:
-            owner=self.owners.get(group)
-            if owner is not None and owner is not root:
-                if not code:code=2
-                continue
-            if operation=='LOCK_GROUP': self._grant(group,root)
+            blocked = self._blocking_status(root, group, locking)
+            if blocked:
+                code = code or blocked
             else:
-                motion=self.motion.get(group,'idle')
-                if owner is root and (motion!='idle' or group in self.held):
-                    if not code:code=17040 if motion=='stopped' else 17039
-                else:self.owners.pop(group,None);self._ownership_tokens.pop(group,None)
+                self._apply(root, group, locking)
         return code
+
+    def wait_ms(self, operation, line=None):
+        name = 'lock_wait_ms' if operation == 'LOCK_GROUP' else 'unlock_wait_ms'
+        value = getattr(self, name)
+        if type(value) is not int or not 0 <= value <= 86400000:
+            raise rt().KarelRuntimeError(name + ' requires an INTEGER in 0..86400000 ms', line)
+        return value
+
+    def wait_update(self, state, operation, mask, status, line=None):
+        """Wait on a captured mask, publishing only an entire eligible request."""
+        runtime = rt()
+        selected = self._selected(mask, line)
+        if selected is None:
+            status.set(1, line)
+            return
+        locking = operation == 'LOCK_GROUP'
+        root = runtime.task_root(state)
+        timeout = self.wait_ms(operation, line)
+        blockers = [self._blocking_status(root, group, locking) for group in selected]
+        blocked = next((code for code in blockers if code), 0)
+        if not blocked:
+            status.set(0, line)
+            for group in selected:
+                self._apply(root, group, locking)
+            return
+        # A foreign grant is never adopted by a deferred unlock.
+        if (not locking and 2 in blockers) or state._in_handler or root._in_handler:
+            status.set(blocked, line)
+            return
+        if state._scheduler is None and not getattr(root, '_sleep_injected', False):
+            raise runtime.KarelRuntimeError(operation + ' wait requires an explicit sleeper callback or scheduler', line)
+        pending = self._pending
+        if root in pending:
+            raise runtime.KarelRuntimeError('Task already has a pending group operation', line)
+        ticket = object()
+        configuration = self.groups
+        owners, tokens = self.owners, self._ownership_tokens
+        storage, key = status.storage, status.key
+        grants = () if locking else tuple(
+            (group, owners.get(group), tokens.get(group)) for group in selected
+        )
+        remaining = timeout
+        pending[root] = ticket
+        try:
+            while remaining:
+                interval = min(10, remaining)
+                yield from runtime.delay_execution(state, interval, line)
+                remaining -= interval
+                yield from runtime.checkpoint(state, line)
+                if (self._pending is not pending or pending.get(root) is not ticket
+                        or state.execution.group_locks is not self or runtime.task_root(state) is not root
+                        or self.groups is not configuration or self.owners is not owners
+                        or self._ownership_tokens is not tokens or self.wait_ms(operation, line) != timeout):
+                    raise runtime.KarelRuntimeError('Pending group operation ownership or configuration changed', line)
+                if (status.storage is not storage or type(status.key) is not type(key)
+                        or status.key != key or status.spec != ('INTEGER',)):
+                    raise runtime.KarelRuntimeError('Pending group operation status target changed', line)
+                if any(owners.get(group) is not owner or tokens.get(group) is not token
+                       for group, owner, token in grants):
+                    raise runtime.KarelRuntimeError('Pending group unlock grant changed', line)
+                blocked = next((code for code in (
+                    self._blocking_status(root, group, locking) for group in selected
+                ) if code), 0)
+                if not blocked:
+                    status.set(0, line)
+                    for group in selected:
+                        self._apply(root, group, locking)
+                    return
+            status.set(blocked, line)
+        finally:
+            if self._pending is pending and pending.get(root) is ticket:
+                del pending[root]
 
     def release_owner(self,state):
         root=rt().task_root(state)
@@ -125,24 +224,38 @@ class GroupLocks:
         if self.held:result['held']=sorted(self.held)
         if self.apply_directives:result['apply_directives']=True
         if self.callee_scopes:result['callee_scopes']=True
+        self._save_wait_settings(result)
         return result
 
+    def _save_wait_settings(self, result):
+        if self.lock_wait_ms:
+            result['lock_wait_ms'] = self.lock_wait_ms
+        if self.unlock_wait_ms:
+            result['unlock_wait_ms'] = self.unlock_wait_ms
+
     def to_config(self):
+        if self._pending:
+            raise ValueError('Cannot persist a pending group operation')
         if self.owners: raise ValueError('Cannot persist live group ownership; finish or unlock the task first')
         result={'groups':list(self.groups),'motion':{str(key):value for key,value in sorted(self.motion.items())}}
         if self.held:result['held']=sorted(self.held)
         if self.apply_directives:result['apply_directives']=True
         if self.callee_scopes:result['callee_scopes']=True
+        self._save_wait_settings(result)
         return result
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'groups','motion','held','apply_directives','callee_scopes'} or 'groups' not in config:
-            raise ValueError('Group lock configuration requires groups and optional motion/directive settings')
+        if type(config) is not dict or set(config)-{'groups','motion','held','apply_directives','callee_scopes','lock_wait_ms','unlock_wait_ms'} or 'groups' not in config:
+            raise ValueError('Group lock configuration requires groups and optional motion, directive and wait settings')
         motion=config.get('motion',{})
         if type(motion) is not dict or any(type(key) is not str or not re.fullmatch(r'[1-9][0-9]?',key) for key in motion):
             raise ValueError('Motion keys require canonical group numbers')
-        return cls(config['groups'],motion={int(key):value for key,value in motion.items()},held=config.get('held'),apply_directives=config.get('apply_directives',False),callee_scopes=config.get('callee_scopes',False))
+        return cls(
+            config['groups'], motion={int(key):value for key,value in motion.items()}, held=config.get('held'),
+            apply_directives=config.get('apply_directives',False), callee_scopes=config.get('callee_scopes',False),
+            lock_wait_ms=config.get('lock_wait_ms',0), unlock_wait_ms=config.get('unlock_wait_ms',0),
+        )
 
 
 def call_program(state,operation,args,line=None):
