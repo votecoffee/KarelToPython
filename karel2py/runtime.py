@@ -3872,6 +3872,7 @@ class State:
         self._task_run = None
         self._task_launch = None
         self._task_parent = None
+        self._task_pendant_motion = False
         self._task_settings={};self._task_trace=[];self._task_trace_sequence=0
         self._source_settings={}
         self.service_requests=[]
@@ -4018,6 +4019,10 @@ class State:
         if self._aborted: raise KarelAbort(self._abort_line)
         if type(max_steps) is not int or max_steps < 1:
             raise ValueError('max_steps must be a positive integer')
+        lineage, transferred, launch_line = self._task_launch or (None, None, None)
+        if _pythonic() and self.execution.group_locks is not None:
+            handoff = None if transferred is None else (lineage[1], transferred)
+            self.execution.group_locks.begin(self, launch_line, handoff=handoff)
         self.max_steps, self.steps = max_steps, 0
         self._task_frames.clear();self._task_line=0;self._has_run=True
         self._task_trace.clear();self._task_trace_sequence=0
@@ -4029,9 +4034,9 @@ class State:
         self._handlers.clear(); self.finish_timers()
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
         if self.execution.diagnostics is not None:self.execution.diagnostics.begin(self)
-        if _pythonic() and self.execution.group_locks is not None:self.execution.group_locks.begin(self)
         self._task_run = object()
-        self._task_parent = self._task_launch
+        self._task_parent = lineage
+        self._task_pendant_motion = transferred is not None
         self._task_launch = None
 
     def finish_timers(self):
@@ -4041,6 +4046,7 @@ class State:
         if self._budget_parent is None:
             self._task_run = None
             self._task_parent = None
+            self._task_pendant_motion = False
         if self.execution.motion is not None:self.execution.motion.finish_callbacks(self)
         self.finish_timers()
         if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.finish(self)

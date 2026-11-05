@@ -97,6 +97,8 @@ def mark_task_continued(state):
 
 def task_attribute(registry,name,program,attribute,line=None):
     runtime=rt();root=runtime.task_root(program._state)
+    if attribute == 'TSK_TPMOTION' and root._task_pendant_motion:
+        return 1
     if attribute in root._task_settings: return root._task_settings[attribute]
     active=root._task_frames[-1] if root._task_frames else (root,'')
     state=root.task_state
@@ -188,6 +190,7 @@ def set_task_attribute(registry,name,attribute,value,*,caller=None,line=None):
     root=runtime.task_root(registry.tasks[name]._state)
     if root._scheduler is not None and root._scheduler is not registry: return 3
     root._task_settings[key]=value
+    if key=='TSK_TPMOTION': root._task_pendant_motion=False
     if key=='TSK_TRACE' and value: root._task_settings.setdefault('TSK_TRACELEN',1000)
     if key=='TSK_TRACELEN': del root._task_trace[:-value]
     return 0
@@ -506,21 +509,34 @@ def run_registered_task(registry, caller, operation, args, line=None):
         raise runtime.KarelRuntimeError('A task cannot synchronously drive itself', line)
 
     pause_on_entry = False
+    transferred = None
     if operation == 'RUN_TASK':
         if runtime.integer(args[1], line) < 0:
             raise runtime.KarelRuntimeError('Offline RUN_TASK requires a nonnegative line hint', line)
         pause_on_entry = runtime.boolean(args[2], line)
-        if runtime.boolean(args[3], line) or runtime.integer(args[4], line) != 0:
-            raise runtime.KarelRuntimeError('Offline RUN_TASK requires no motion and lock mask 0', line)
+        tp_motion = runtime.boolean(args[3], line)
+        mask = runtime.integer(args[4], line)
+        if tp_motion:
+            bank = parent.execution.group_locks
+            if bank is None:
+                raise runtime.KarelRuntimeError('Offline RUN_TASK requires no motion without an explicit GroupLocks bank', line)
+            if parent.execution is not target.execution or target is not runtime.task_root(target):
+                raise runtime.KarelRuntimeError('RUN_TASK pendant motion requires separate roots in a shared execution context', line)
+            transferred = bank.pendant_launch_groups(mask, line)
+        elif mask != 0:
+            raise runtime.KarelRuntimeError('RUN_TASK requires lock mask 0 when tp_motion is FALSE', line)
     continuing = operation == 'CONT_TASK' or target.task_state == 'paused'
     previous_launch = target._task_launch
     if not continuing:
         driver = registry if isinstance(registry, TaskScheduler) else None
-        target._task_launch = (
+        lineage = (
             (registry, parent, parent._task_run)
             if (parent._task_run is not None and parent._scheduler is driver
                 and _lineage_registry(parent) is registry) else None
         )
+        if transferred is not None and lineage is None:
+            raise runtime.KarelRuntimeError('RUN_TASK pendant motion requires a live parent in the launch driver', line)
+        target._task_launch = (lineage, transferred, line) if lineage is not None else None
     try:
         if hasattr(registry, 'start'):
             if continuing:

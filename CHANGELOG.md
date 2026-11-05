@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.152956 - 2026-11-05
+
+- Add opt-in RUN_TASK pendant launch and atomic transfer of idle logical group
+  grants. Validate the child's automatic startup requirements before handoff.
+- Report the live launch setting through TSK_TPMOTION and retain the current
+  ownership when continuing a paused child.
+- Add a linked handoff example and persist the explicit pendant-enable policy
+  in offline context JSON.
+
 ## 26.1105.150241 - 2026-11-05
 
 - Continue paused RUN_TASK descendants with their parent in both task drivers.

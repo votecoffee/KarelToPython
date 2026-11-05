@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Pendant launch and group handoff](docs/task-and-file-extensions.md#pendant-launch-and-logical-group-handoff)
+lets RUN_TASK transfer idle parent grants to a child in an explicitly enabled
+offline group bank. The child's automatic group requirements are checked at the
+same time, and GET_TSK_INFO reports its live pendant-motion setting.
+
 [Parent continuation](docs/task-and-file-extensions.md#continuing-a-parent-task)
 resumes paused RUN_TASK descendants through their live launch relationships.
 Both task drivers preserve existing execution frames and deliver one CONTINUE
@@ -298,7 +303,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.150241**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.152956**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

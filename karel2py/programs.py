@@ -10,7 +10,7 @@ def rt():
 class GroupLocks:
     """Configured motion-group labels; no robot, motion or native locks."""
     def __init__(self,groups,*,motion=None,held=None,apply_directives=False,callee_scopes=False,
-                 lock_wait_ms=0,unlock_wait_ms=0):
+                 lock_wait_ms=0,unlock_wait_ms=0,pendant_enabled=False):
         if (type(groups) not in (list,tuple) or not groups or len(groups)>31
                 or any(type(group) is not int or not 1<=group<=31 for group in groups)
                 or len(groups)!=len(set(groups))):
@@ -19,7 +19,9 @@ class GroupLocks:
         if type(apply_directives) is not bool:raise ValueError('apply_directives requires a BOOLEAN')
         if type(callee_scopes) is not bool:raise ValueError('callee_scopes requires a BOOLEAN')
         if callee_scopes and not apply_directives:raise ValueError('callee_scopes requires apply_directives=True')
+        if type(pendant_enabled) is not bool:raise ValueError('pendant_enabled requires a BOOLEAN')
         self.apply_directives=apply_directives;self.callee_scopes=callee_scopes
+        self.pendant_enabled=pendant_enabled
         self.groups=tuple(sorted(groups));self.motion={};self.owners={};self._ownership_tokens={}
         for name, value in (('lock_wait_ms', lock_wait_ms), ('unlock_wait_ms', unlock_wait_ms)):
             if type(value) is not int or not 0 <= value <= 86400000:
@@ -34,7 +36,7 @@ class GroupLocks:
             raise ValueError('Held groups require distinct configured group numbers')
         self.held=set(held)
 
-    def _automatic_groups(self,state,line=None):
+    def _automatic_groups(self,state,line=None,*,transferred=()):
         """Preflight an entire module request without changing ownership."""
         runtime=rt()
         if type(self.apply_directives) is not bool:
@@ -56,6 +58,8 @@ class GroupLocks:
         if unknown:
             raise runtime.KarelRuntimeError('Automatic group requirements include unconfigured groups: '+','.join(map(str,sorted(unknown))),line)
         for group in selected:
+            if group in transferred:
+                continue
             owner=self.owners.get(group)
             if owner is not None and owner is not root:
                 raise runtime.KarelRuntimeError('Automatic logical group acquisition blocked by another task: '+str(group),line)
@@ -68,13 +72,34 @@ class GroupLocks:
             self.owners[group]=owner;self._ownership_tokens[group]=object()
         return self._ownership_tokens.get(group)
 
-    def begin(self,state,line=None):
-        """Acquire root-entry requirements, retaining the established default."""
+    def pendant_launch_groups(self, mask, line=None):
+        if self.pendant_enabled is not True:
+            raise rt().KarelRuntimeError('Offline RUN_TASK requires no motion unless pendant_enabled is true', line)
+        selected = self._selected(mask, line)
+        if selected is None:
+            raise rt().KarelRuntimeError('RUN_TASK lock mask includes invalid or unconfigured groups', line)
+        return selected
+
+    def begin(self,state,line=None,*,handoff=None):
+        """Preflight and commit the root's automatic grants and optional handoff."""
         if state is not rt().task_root(state):return
-        request=self._automatic_groups(state,line)
-        if request is None:return
-        owner,groups=request
-        for group in groups:self._grant(group,owner)
+        transferred = ()
+        if handoff is not None:
+            parent, transferred = handoff
+            motion = state.execution.motion
+            for group in transferred:
+                if self.owners.get(group) is not parent or group not in self._ownership_tokens:
+                    raise rt().KarelRuntimeError(f'RUN_TASK handoff requires a parent grant for group {group}', line)
+                if self._blocking_status(parent, group, False) or (motion is not None and motion.has_pending_group(group)):
+                    raise rt().KarelRuntimeError(f'RUN_TASK handoff blocked by a busy group: {group}', line)
+        request = self._automatic_groups(state, line, transferred=transferred)
+        for group in transferred:
+            self.owners[group] = state
+            self._ownership_tokens[group] = object()
+        if request is not None:
+            owner, groups = request
+            for group in groups:
+                self._grant(group, owner)
 
     def enter_scope(self,state,line=None):
         """Return an opaque lease for additional module groups, when opted in."""
@@ -224,10 +249,12 @@ class GroupLocks:
         if self.held:result['held']=sorted(self.held)
         if self.apply_directives:result['apply_directives']=True
         if self.callee_scopes:result['callee_scopes']=True
-        self._save_wait_settings(result)
+        self._save_optional_settings(result)
         return result
 
-    def _save_wait_settings(self, result):
+    def _save_optional_settings(self, result):
+        if self.pendant_enabled:
+            result['pendant_enabled'] = True
         if self.lock_wait_ms:
             result['lock_wait_ms'] = self.lock_wait_ms
         if self.unlock_wait_ms:
@@ -241,13 +268,13 @@ class GroupLocks:
         if self.held:result['held']=sorted(self.held)
         if self.apply_directives:result['apply_directives']=True
         if self.callee_scopes:result['callee_scopes']=True
-        self._save_wait_settings(result)
+        self._save_optional_settings(result)
         return result
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'groups','motion','held','apply_directives','callee_scopes','lock_wait_ms','unlock_wait_ms'} or 'groups' not in config:
-            raise ValueError('Group lock configuration requires groups and optional motion, directive and wait settings')
+        if type(config) is not dict or set(config)-{'groups','motion','held','apply_directives','callee_scopes','lock_wait_ms','unlock_wait_ms','pendant_enabled'} or 'groups' not in config:
+            raise ValueError('Group lock configuration requires groups and optional motion, directive, pendant and wait settings')
         motion=config.get('motion',{})
         if type(motion) is not dict or any(type(key) is not str or not re.fullmatch(r'[1-9][0-9]?',key) for key in motion):
             raise ValueError('Motion keys require canonical group numbers')
@@ -255,6 +282,7 @@ class GroupLocks:
             config['groups'], motion={int(key):value for key,value in motion.items()}, held=config.get('held'),
             apply_directives=config.get('apply_directives',False), callee_scopes=config.get('callee_scopes',False),
             lock_wait_ms=config.get('lock_wait_ms',0), unlock_wait_ms=config.get('unlock_wait_ms',0),
+            pendant_enabled=config.get('pendant_enabled',False),
         )
 
 

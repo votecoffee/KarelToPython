@@ -119,11 +119,13 @@ metadata. `GroupLocks(..., apply_directives=True)` opts into atomic root startup
 acquisition; see [directive group locks](directive-group-locks.md) for default
 selection, lifecycle and contention. A second opt-in, `callee_scopes=True`, adds
 [scoped acquisitions](scoped-group-locks.md) for called programs and routines.
+Separately, `pendant_enabled=True` allows [RUN_TASK handoff](task-and-file-extensions.md#pendant-launch-and-logical-group-handoff)
+of idle parent grants to a fresh child in the shared context.
 
 `bank.snapshot()` returns detached configured groups, motion labels and owner
 source names for inspection. Nonempty hold sets appear as `held`; empty sets
 remain omitted. JSON persists configured groups, motion labels, hold flags and
-the true `apply_directives` and `callee_scopes` flags. It also retains nonzero
+the true `apply_directives`, `callee_scopes` and `pendant_enabled` flags. It also retains nonzero
 wait limits. Saving while ownership or a wait is live raises. Finish the
 operation and release ownership before saving. Saved configuration recreates
 only the group bank, labels and policy.

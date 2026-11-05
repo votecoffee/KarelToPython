@@ -1005,6 +1005,9 @@ class MotionRequests:
         finally:
             if scope['request']['outcome'] == 'pending':self.finish_scope(scope, outcome)
 
+    def has_pending_group(self, group):
+        return group in self._active or bool(self._queued.get(group))
+
     def finish(self, state):
         root = rt().task_root(state)
         for scope in list(self._active.values()):

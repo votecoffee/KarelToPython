@@ -22,7 +22,7 @@ type, FOR-counter and output-reference guards apply before a setting changes.
 | TSK_TRACELEN | 1..10000 | Retain this many newest records, trimming immediately on shrink. |
 | TSK_PAUSESFT | 0 or 1 | Ignore/accept explicit shift-release pause notifications. |
 | TSK_NOBUSY | 0 or 1 | Readable busy-lamp capability metadata; no physical output. |
-| TSK_TPMOTION | 0 or 1 | Readable pendant-motion capability metadata; no motion execution. |
+| TSK_TPMOTION | 0 or 1 | Readable pendant-motion capability, including the live [RUN_TASK launch setting](task-and-file-extensions.md#pendant-launch-and-logical-group-handoff). |
 
 Other known attributes are read-only to this setter. Applied settings override
 matching GET_TSK_INFO reads without rewriting informational bind metadata.

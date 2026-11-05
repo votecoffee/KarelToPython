@@ -1,0 +1,19 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "RELEASE_WORKER": true,
+      "NAME": "WORKER",
+      "TEXT": {"uninitialized": true},
+      "NUMBER": 2,
+      "OWNED": 3,
+      "PENDANT": 1,
+      "STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {"READY": true, "RELEASE_WORKER": true, "RESULT": 7}
+  }
+}

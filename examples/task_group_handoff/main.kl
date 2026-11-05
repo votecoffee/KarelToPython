@@ -1,0 +1,14 @@
+PROGRAM MAIN
+%LOCKGROUP=1
+VAR ready,release_worker FROM WORKER:BOOLEAN
+    name,text:STRING[16]
+    number,owned,pendant,status:INTEGER
+BEGIN
+ ready=FALSE release_worker=FALSE
+ RUN_TASK('WORKER',0,FALSE,TRUE,1,status)
+ WAIT FOR ready
+ name='WORKER' number=0
+ GET_TSK_INFO(name,number,TSK_LOCKGRP,owned,text,status)
+ GET_TSK_INFO(name,number,TSK_TPMOTION,pendant,text,status)
+ release_worker=TRUE
+END MAIN

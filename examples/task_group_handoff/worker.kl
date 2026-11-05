@@ -1,0 +1,9 @@
+PROGRAM WORKER
+%LOCKGROUP=1,2
+VAR ready,release_worker:BOOLEAN
+    result:INTEGER
+BEGIN
+ ready=TRUE
+ WAIT FOR release_worker
+ result=7
+END WORKER

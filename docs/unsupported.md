@@ -391,10 +391,12 @@ queue-entry policies; FILE banks remain excluded.
 - Native STOP/RESUME motion behavior. Offline STOP is terminal; resume/continue
   acts on retained cooperative generators. [RUN_TASK](task-and-file-extensions.md#run_task-entry-and-continuation)
   now starts fresh KAREL tasks at main entry for nonnegative hints and resumes
-  paused registered targets. [Task motion flags](task-and-file-extensions.md#logical-motion-flags)
-  apply owned HOLD/CANCEL transitions through shared offline banks. TP line
-  execution, RUN_TASK pendant motion and native group transfer remain outside
-  the task model. Six
+  paused registered targets and their paused descendants. [Pendant launch](task-and-file-extensions.md#pendant-launch-and-logical-group-handoff)
+  supports atomic idle group handoff in a shared offline bank.
+  [Task motion flags](task-and-file-extensions.md#logical-motion-flags)
+  apply owned HOLD/CANCEL transitions. TP line execution, native STEP
+  propagation, physical pendant interlocks and in-flight motion transfer
+  remain outside the task model. Six
   [logical controller calls](controller-services.md) now cover group ownership
   queries, cancellation of owned stopped labels, stored six-axis perches, scripted
   RESET and cooperative background slots. Native motion, hardware reset, per-value

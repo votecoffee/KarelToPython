@@ -99,15 +99,48 @@ also records a live parent for [GET_TSK_INFO](task-inspection.md#live-lineage-an
 That relationship follows the exact calling and child runs.
 
 An unknown binding returns status 1. An accepted start or continuation returns
-status 0 under the driver rules above. A negative line hint raises. The offline
-form requires `tp_motion=FALSE` and `lock_mask=0`. The caller and child keep their
-separate task identities.
+status 0 under the driver rules above. A negative line hint raises.
+The ordinary form uses `tp_motion=FALSE` and requires `lock_mask=0`.
+The caller and child keep their separate task identities.
 
 MARRC75KR07091E Rev N, PDF pages 529–530, describes continuation of an already
 paused task and reserves the line selector for teach pendant programs. The
 Pythonic mapping uses main entry for KAREL. See the linked
 [continuation example](../examples/run_task_resume/main.kl) and
 [pause-on-entry example](../examples/run_task_entry_pause/main.kl).
+
+### Pendant launch and logical group handoff
+
+To use `tp_motion=TRUE`, set `pendant_enabled=true` on the explicit GroupLocks
+bank. The caller and target must be separate roots in the same ExecutionContext.
+For fresh entry, the caller must be a live parent in the launch driver. A zero
+mask requests only the child's pendant-motion setting. For other masks, bit
+n-1 selects group n. Every selected group must be configured and have a live
+parent grant. Held groups, executing or stopped labels, and pending scripted
+motion block transfer.
+
+The full transfer and the child's automatic startup requirements are checked
+together before any grant changes. A transferred group satisfies the child's
+matching automatic requirement. Other required groups use ordinary startup
+rules. Invalid options and blocked admission raise a source-located runtime
+error, leaving the status cell and both sets of grants untouched at rejection.
+Normal caller cleanup still applies if the error terminates its run.
+
+A successful handoff issues new grants to the child before its first checkpoint.
+Parent routine scope cleanup leaves those grants with the child. Pausing either
+task preserves ownership. Child terminal cleanup releases its grants to the
+bank for ordinary acquisition. Continuing an existing paused target validates
+the options and keeps its current grants and settings.
+
+GET_TSK_INFO reports TSK_TPMOTION as 1 for a live launch that requested pendant
+motion. An explicit SET_TSK_ATTR value takes precedence from that point, and
+ordinary task settings or metadata apply after the launch ends.
+The [linked handoff example](../examples/task_group_handoff/main.kl) inspects the
+child's combined startup mask and pendant-motion setting.
+
+This models the launch and transfer conditions in MARRC75KR07091E Rev N, PDF
+pages 529–530. Pendant enable is supplied offline. Native pendant interlocks,
+in-flight motion transfer and TP line execution remain outside the model.
 
 ### Continuing a parent task
 

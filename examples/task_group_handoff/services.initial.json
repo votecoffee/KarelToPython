@@ -1,0 +1,8 @@
+{
+  "group_locks": {
+    "groups": [1, 2],
+    "motion": {},
+    "apply_directives": true,
+    "pendant_enabled": true
+  }
+}
