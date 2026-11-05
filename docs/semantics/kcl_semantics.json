@@ -81,12 +81,14 @@
     "tests/test_kcl_defaults_and_frames.py",
     "tests/test_kcl_procedures.py",
     "tests/test_kcl_local_types.py",
+    "tests/test_kcl_debug_commands.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_task_waits",
     "examples/kcl_session_defaults",
     "examples/kcl_command_procedure",
     "examples/kcl_local_types",
+    "examples/kcl_source_debug",
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
@@ -162,5 +164,13 @@
     "forms": ["SET LOCAL VARIABLE", "SHOW TYPES", "SHOW data_type"],
     "dispatch": "Checked paused owned scalar writes with conservative compiler FOR metadata, retained aliases and timer claims. Bounded type and typed variable listings use generated source metadata.",
     "statuses": "Unavailable selector 201, protected or ineligible storage 204, invalid literal or bounded data error 205."
+  },
+  "source_debug_extension": {
+    "version": "26.1105.233428",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [708, 714, 715, 732, 737, 738, 747],
+    "forms": ["SET BREAK PROGRAM", "ENABLE BREAK PROGRAM", "DISABLE BREAK PROGRAM", "CLEAR BREAK PROGRAM", "SET BREAK CONDITION", "CLEAR BREAK CONDITION", "SHOW BREAK", "STEP ON", "STEP OFF"],
+    "dispatch": "Saved program slots target generated cooperative statement checkpoints. Display uses offline JSON events. Condition break marks and the selected step task are live only.",
+    "statuses": "Unavailable selector 801, invalid source position or number 802, capacity 805."
   }
 }

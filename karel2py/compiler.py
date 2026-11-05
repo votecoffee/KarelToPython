@@ -1215,6 +1215,7 @@ class Emitter:
         self.type_dependency_uses=[];self.type_resolution_order=[];self._type_schema_costs={}
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
+        self.source_checkpoints=set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
         self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','file_write','write_items','file_cancel','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
@@ -1314,7 +1315,14 @@ class Emitter:
         raise TranslationError(code, message, token, self.filename)
 
     def line(self, text='', token=None):
-        if self.cooperative: text=re.sub(r'self\._state\.tick\(([^()]*)\)',r'(yield from _rt.checkpoint(self._state,\1))',text)
+        if self.cooperative:
+            def checkpoint(match):
+                argument=match[1]
+                if self.mode=='pythonic' and token is not None and argument.isdecimal():
+                    self.source_checkpoints.add(int(argument))
+                    return f'(yield from _rt.checkpoint(self._state,{argument},_source=True))'
+                return f'(yield from _rt.checkpoint(self._state,{argument}))'
+            text=re.sub(r'self\._state\.tick\(([^()]*)\)',checkpoint,text)
         self.lines.append('    ' * self.indent + text)
         if token:
             self.source_map.append(dict(python_line=len(self.lines), karel_line=token.line,
@@ -4774,6 +4782,9 @@ class Emitter:
                     counter_roots[use['body']].add(use['root'])
             self.indent=1
             self.line(f'local_for_roots = { {name:tuple(sorted(roots)) for name,roots in counter_roots.items()}!r}')
+        if self.mode=='pythonic' and self.cooperative:
+            self.indent=1
+            self.line(f'source_checkpoints = {tuple(sorted(self.source_checkpoints))!r}')
         self.indent = 0
         self.line()
         self.line('if __name__ == "__main__":')
@@ -5018,6 +5029,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         escaped_string_literals=parser.escaped_string_literals,
         python_sha256=hashlib.sha256(generated.encode('utf-8')).hexdigest(),
         features=sorted(emitter.features), source_map=emitter.source_map,
+        source_checkpoints=sorted(emitter.source_checkpoints),
         constant_dependencies=emitter.constant_dependency_uses,constant_resolution_order=emitter.constant_resolution_order,
         global_constants=[dict(name=t.value,value=emitter.constants[t.value],line=t.line,column=t.column) for t,_ in program.constants],
         local_constant_policy=dict(scope='Declaring routine only; lexical resolution, not caller inheritance',
@@ -6501,7 +6513,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Portable event IDs; START_K_LINE/PCODE_EXEC describe offline checkpoints, not native p-code, memory words, tracing clocks or controller diagnostic option',
         guide='docs/diagnostics.md',controller_validated=False)
     report['kcl_policy']=dict(
-        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device, decoded dictionary, program, environment and procedure dispatch',
+        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device, decoded dictionary, program, environment, procedure and debugging dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',
         completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time or captured standalone clock/sleeper completion',
         lifetime='Scripted replies and task waits survive caller stop/failure. RUNCF belongs to the invoking activation. Status collection does not resubmit and pending work cannot be serialized.',
@@ -6521,7 +6533,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         session_defaults='SET DEFAULT and SHOW DEFAULT use a saved canonical program or binding name. The selection supplies omitted task and variable selectors. SET GROUP and SHOW GROUP configure a separate saved robot group for KCL SHOW CURPOS.',
         environment_commands='Opt in with environment_commands true. SET PORT, SIMULATE and UNSIMULATE use explicit named PortBank addresses. SET CLOCK and SHOW CLOCK use the supplied CalendarClock and a 1980..2079 window for two-digit input years. SHOW CURPOS uses the KCL default group when supplied and the caller group otherwise.',
         procedure_commands='Opt in with procedure_commands true. Blocking RUNCF preflights bounded ASCII .CF inputs and relative %INCLUDE files. It runs the enabled command families in order and can atomically publish a new .LS transcript on success. SET VERIFY controls command echoes.',
-        statuses='Configured ordinary INTEGER acceptance/completion codes. Portable unsupported=1, busy=2, unavailable or ineligible=3, inline runtime error=4. Nonzero FILE and variable results use offsets 100 and 200. Small nonzero device and dictionary results use offsets 300 and 400. Program archive and listing errors use offset 500. Environment command errors use offset 600. Procedure preflight and publication use 701..706 and preserve child completion statuses.',
+        debug_commands='Opt in with debug_commands true. Program breakpoints target generated cooperative source checkpoints and support PAUSE, DISPLAY, TRACE ON and TRACE OFF. Condition breaks pause once before a live root handler action. STEP pauses one selected task at each source checkpoint.',
+        source_checkpoints=report.pop('source_checkpoints'),
+        statuses='Configured ordinary INTEGER acceptance/completion codes. Portable unsupported=1, busy=2, unavailable or ineligible=3, inline runtime error=4. Nonzero FILE and variable results use offsets 100 and 200. Small nonzero device and dictionary results use offsets 300 and 400. Program archive and listing errors use offset 500. Environment command errors use offset 600. Procedure preflight and publication use 701..706 and preserve child completion statuses. Debugger selectors and limits use 801, 802 and 805.',
         boundary='No native KCL, shell, TP execution, physical motion or automatic replay. Shared channel status is context-wide.',
         guide='docs/kcl-commands.md',controller_validated=False)
     report['pendant_policy']=dict(

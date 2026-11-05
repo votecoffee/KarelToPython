@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR phase FROM WORKER:INTEGER
+    configured,at_break,cleared,continued,finished:INTEGER
+BEGIN
+  phase=0
+  KCL('SET VERIFY ON',configured)
+  KCL('RUNCF debug',configured)
+  at_break=phase
+  KCL('CLEAR BREAK PROGRAM WORKER ALL',cleared)
+  KCL('CONTINUE WORKER',continued)
+  KCL('WAIT WORKER DONE',finished)
+END MAIN

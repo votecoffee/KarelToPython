@@ -1767,11 +1767,26 @@ def condition_control(state,operation,number,line=None):
     if operation=='ENABLE': state._handlers[number]['due']=None
 
 
-def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
+def debug_pause(state,line):
+    root=runtime().task_root(state)
+    root.task_state='paused'
+    yield dict(kind='pause',line=line)
+    root.task_state='running'
+    if state._abort_requested:state.abort(state._abort_request_line or line)
+
+
+def checkpoint(state,line=None,*,force_pause=False,_defer_control=False,_source=False):
     rt=runtime(); state.tick(line,_diagnostic=not _defer_control)
+    channel=state.execution.kcl
     if not _defer_control:
         from .scheduling import record_task_trace
+        pause=False
+        if (_source and getattr(channel,'debug_commands',False)
+                and not state._pause_requested and not state._abort_requested):
+            pause=channel.source_break(state,line)
         record_task_trace(state,line)
+        if pause and not state._abort_requested:
+            yield from debug_pause(state,line)
     # A library invocation owns its locals, while its caller still owns the
     # running task. Scan that task and honor its pause requests inside the call.
     parent=state._budget_parent
@@ -1793,6 +1808,12 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False):
                     result=predicate()
                     if rt.inspect.isgenerator(result): result=yield from result
                     if rt.boolean(result,line):
+                        if (getattr(channel,'debug_commands',False) and handler.get('kcl_break') is channel
+                                and not state._abort_requested and not state._pause_requested):
+                            handler.pop('kcl_break')
+                            yield from debug_pause(state,line)
+                            if state._handlers.get(number) is not handler or not handler['enabled']:
+                                break
                         handler['enabled']=False
                         result=action()
                         if rt.inspect.isgenerator(result): yield from result

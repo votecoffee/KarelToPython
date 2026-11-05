@@ -1,0 +1,20 @@
+{
+  "files": {"debug.CF": {"hex": "53455420564552494659204f46460a53455420425245414b2050524f4752414d20574f524b4552203120350a52554e20574f524b45520a5741495420574f524b45522050415553450a53484f5720425245414b20574f524b45520a"}},
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "MAIN", "operation": "KCL", "command": "SET VERIFY ON", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "MAIN", "operation": "KCL", "command": "RUNCF debug", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "MAIN", "operation": "KCL", "command": "CLEAR BREAK PROGRAM WORKER ALL", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "MAIN", "operation": "KCL", "command": "CONTINUE WORKER", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "MAIN", "operation": "KCL", "command": "WAIT WORKER DONE", "phase": "completed", "status": 0}
+    ],
+    "sequence": 5,
+    "last_status": 0,
+    "task_commands": true,
+    "procedure_commands": true,
+    "debug_commands": true,
+    "verify": false
+  }
+}

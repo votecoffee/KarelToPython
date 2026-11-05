@@ -10,6 +10,7 @@ VARIABLE_FILTERS=frozenset((
     'POSITION','XYZWPR','XYZWPREXT','COMMON_ASSOC','GROUP_ASSOC','FILE','PATH','QUEUE_TYPE',
     'JOINTPOS',*(f'JOINTPOS{width}' for width in range(1,10)),
 ))
+BREAK_ACTIONS=('PAUSE','DISPLAY','TRACE ON','TRACE OFF')
 
 
 def rt():
@@ -319,6 +320,51 @@ def procedure_command(command):
     return None
 
 
+def debug_command(command):
+    from .dynamic import IDENTIFIER
+
+    command=command.upper()
+    name=rf'(?:({IDENTIFIER}) +)?'
+    program=re.fullmatch(rf'SET +BREAK +PROG(?:RAM)? +{name}([0-9]+) +([0-9]+)'
+                         r'(?: +(PAUSE|DISPLAY|TRACE +ON|TRACE +OFF))?',command)
+    if program:
+        selector,number,line,action=program.groups()
+        return 'PROGRAM',('SET',selector,int(number),int(line),' '.join((action or 'PAUSE').split()))
+    condition=re.fullmatch(rf'SET +BREAK +COND(?:ITION)? +{name}([0-9]+)',command)
+    if condition:
+        return 'CONDITION',('SET',condition[1],int(condition[2]))
+    edit=re.fullmatch(rf'(CLEAR|ENABLE|DISABLE) +BREAK +(PROG(?:RAM)?|COND(?:ITION)?) +'
+                      rf'{name}([0-9]+|ALL)',command)
+    if edit:
+        action,kind,selector,number=edit.groups()
+        if action!='CLEAR' and (kind.startswith('COND') or number=='ALL'):return None
+        return ('PROGRAM' if kind.startswith('PROG') else 'CONDITION',
+                (action,selector,None if number=='ALL' else int(number)))
+    show=re.fullmatch(rf'SHOW +BREAK(?: +({IDENTIFIER}))?',command)
+    if show:return 'SHOW_BREAK',(show[1],)
+    step=re.fullmatch(rf'STEP +ON(?: +({IDENTIFIER}))?',command)
+    if step:return 'STEP_ON',(step[1],)
+    if re.fullmatch(r'STEP +OFF',command):return 'STEP_OFF',()
+    return None
+
+
+def breakpoint_config(rows,enabled):
+    if rows is None:return {}
+    if not enabled or type(rows) is not list or len(rows)>256:
+        raise ValueError('Program breakpoints require debug_commands and at most 256 rows')
+    result={}
+    for row in rows:
+        if (type(row) is not dict or set(row)!={'program','number','line','action','enabled'}
+                or type(row['program']) is not str or not re.fullmatch(r'[A-Z_][A-Z0-9_]{0,35}',row['program'])
+                or any(type(row[key]) is not int or not 1<=row[key]<=32767 for key in ('number','line'))
+                or row['action'] not in BREAK_ACTIONS or type(row['enabled']) is not bool):
+            raise ValueError('Invalid program breakpoint')
+        key=row['program'],row['number']
+        if key in result:raise ValueError('Duplicate program breakpoint')
+        result[key]=row.copy()
+    return result
+
+
 class ProcedureError(Exception):
     def __init__(self,status):
         self.status=status
@@ -398,7 +444,7 @@ class KclCommands:
                  task_commands=False,file_commands=False,variable_commands=False,
                  device_commands=False,dictionary_commands=False,program_commands=False,
                  environment_commands=False,working_directory='.',default_program=None,default_group=None,
-                 procedure_commands=False,verify=True):
+                 procedure_commands=False,verify=True,debug_commands=False,program_breakpoints=None):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
@@ -411,6 +457,7 @@ class KclCommands:
         if type(program_commands) is not bool:raise ValueError('KCL program_commands requires a BOOLEAN')
         if type(environment_commands) is not bool:raise ValueError('KCL environment_commands requires a BOOLEAN')
         if type(procedure_commands) is not bool:raise ValueError('KCL procedure_commands requires a BOOLEAN')
+        if type(debug_commands) is not bool:raise ValueError('KCL debug_commands requires a BOOLEAN')
         if type(verify) is not bool or not verify and not procedure_commands:
             raise ValueError('KCL verify requires a BOOLEAN and procedure_commands to disable verification')
         if default_program is not None:
@@ -437,6 +484,9 @@ class KclCommands:
         self.environment_commands=environment_commands
         self.procedure_commands=procedure_commands
         self.verify=verify
+        self.debug_commands=debug_commands
+        self.program_breakpoints=breakpoint_config(program_breakpoints,debug_commands)
+        self._step_target=None
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -744,6 +794,106 @@ class KclCommands:
         job['procedure']=args
         return 0,job
 
+    def _debug_task(self,state,selector,line):
+        from .scheduling import selected_task_root
+
+        selector=selector or self.default_program
+        if selector is None:return rt().task_root(state)
+        return selected_task_root(state.execution.tasks,selector,state,line)[1]
+
+    def _debug_module(self,state,selector,line):
+        name=selector or self.default_program or state.program_name
+        owner=state if name==state.program_name else state.execution.variables.programs.get(name)
+        if owner is None and name in state.execution.tasks.tasks:
+            owner=self._debug_task(state,name,line)
+        return (owner.program_name,owner) if owner is not None else (name,None)
+
+    def _program_break_command(self,state,args,line):
+        action,selector,number,*options=args
+        module,owner=self._debug_module(state,selector,line)
+        if number is not None and not 1<=number<=32767:return 802
+        if action=='SET':
+            source_line,mode=options
+            if owner is None:return 801
+            if owner.execution.kcl is not state.execution.kcl:return 802
+            lines=getattr(getattr(owner,'program',None),'source_checkpoints',())
+            if not 1<=source_line<=32767 or source_line not in lines:return 802
+            key=module,number
+            if key not in self.program_breakpoints and len(self.program_breakpoints)>=256:return 805
+            self.program_breakpoints[key]=dict(program=module,number=number,line=source_line,
+                                               action=mode,enabled=True)
+        else:
+            keys=[key for key in self.program_breakpoints if key[0]==module and (number is None or key[1]==number)]
+            if not keys and (number is not None or owner is None):return 801
+            for key in keys:
+                if action=='CLEAR':del self.program_breakpoints[key]
+                else:self.program_breakpoints[key]['enabled']=action=='ENABLE'
+        return 0
+
+    def _condition_break_command(self,state,args,line):
+        action,selector,number=args
+        root=self._debug_task(state,selector,line)
+        if number is not None and not 1<=number<=1000:return 802
+        if root is None or root.task_state not in ('running','paused','waiting'):return 801
+        if root.execution.kcl is not state.execution.kcl:return 802
+        handlers={key:handler for key,handler in root._handlers.items() if handler.get('local_frame') is None}
+        if number is not None and number not in handlers:return 801
+        if action=='SET':handlers[number]['kcl_break']=state.execution.kcl
+        else:
+            for key in handlers if number is None else (number,):
+                handlers[key].pop('kcl_break',None)
+        return 0
+
+    def _show_breaks(self,state,selector,line):
+        from .fileops import write_json_lines
+
+        module,owner=self._debug_module(state,selector,line)
+        rows=[dict(kind='PROGRAM',**row) for (name,_),row in sorted(self.program_breakpoints.items())
+              if name==module]
+        root=self._debug_task(state,selector,line)
+        if root is not None and root.program_name==module:
+            rows.extend(dict(kind='CONDITION',program=module,number=number,enabled=True)
+                        for number,handler in sorted(root._handlers.items())
+                        if handler.get('kcl_break') is state.execution.kcl)
+        if not rows and owner is None:return 801
+        write_json_lines(state,rows,line)
+        return 0
+
+    def _submit_debug(self,state,name,command,request,line):
+        operation,args=request
+        def dispatch(_job):
+            if operation=='PROGRAM':return self._program_break_command(state,args,line)
+            if operation=='CONDITION':return self._condition_break_command(state,args,line)
+            if operation=='SHOW_BREAK':return self._show_breaks(state,args[0],line)
+            target=None
+            if operation=='STEP_ON':
+                target=self._debug_task(state,args[0],line)
+                if target is None:return 801
+                if (target.execution.kcl is not state.execution.kcl
+                        or not hasattr(getattr(target,'program',None),'source_checkpoints')):return 802
+            if self._step_target is not None:self._step_target._task_settings['TSK_STEP']=0
+            self._step_target=target
+            if target is not None:target._task_settings['TSK_STEP']=1
+            return 0
+        return self._dispatch(state,name,command,dispatch)
+
+    def source_break(self,state,line):
+        from .fileops import write_json_lines
+
+        root=rt().task_root(state)
+        pause=root is self._step_target
+        matches=sorted((row.copy() for row in self.program_breakpoints.values()
+                        if row['enabled'] and row['program']==state.program_name and row['line']==line),
+                       key=lambda row:row['number'])
+        for row in matches:
+            action=row['action']
+            if action=='PAUSE':pause=True
+            elif action=='DISPLAY':write_json_lines(state,[row],line)
+            else:
+                root._task_settings['TSK_TRACE']=int(action=='TRACE ON')
+                if action=='TRACE ON':root._task_settings.setdefault('TSK_TRACELEN',1000)
+        return pause
+
     def _run_procedure(self,state,job,line):
         from .fileops import kcl_procedure_output,write_file_text
 
@@ -758,6 +908,7 @@ class KclCommands:
             config=self.snapshot()
             for key in ('history','sequence','last_status','pending'):config.pop(key)
             child=self.from_config(config)
+            child._step_target=self._step_target
 
             def output(text):
                 nonlocal remaining,overflow
@@ -779,6 +930,8 @@ class KclCommands:
                 self.default_program=child.default_program
                 self.default_group=child.default_group
                 self.verify=child.verify
+                self.program_breakpoints=child.program_breakpoints
+                self._step_target=child._step_target
                 if step is not None and 'self_action' in step:
                     yield from rt().checkpoint(state,line,force_pause=step['self_action']=='PAUSE')
                 if status:break
@@ -822,6 +975,7 @@ class KclCommands:
                 (self.program_commands,program_command,self._submit_program),
                 (self.environment_commands,environment_command,self._submit_environment),
                 (self.procedure_commands,procedure_command,self._submit_procedure),
+                (self.debug_commands,debug_command,self._submit_debug),
             ):
                 if enabled:
                     request=parse(command)
@@ -892,6 +1046,9 @@ class KclCommands:
         if self.program_commands:result['program_commands']=True
         if self.environment_commands:result['environment_commands']=True
         if self.procedure_commands:result['procedure_commands']=True
+        if self.debug_commands:result['debug_commands']=True
+        if self.program_breakpoints:
+            result['program_breakpoints']=[row.copy() for _,row in sorted(self.program_breakpoints.items())]
         if not self.verify:result['verify']=False
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
@@ -905,6 +1062,7 @@ class KclCommands:
     def from_config(cls,config):
         fields={'replies','limit','history','sequence','last_status','task_commands','file_commands',
                 'variable_commands','device_commands','dictionary_commands','program_commands','environment_commands',
-                'working_directory','default_program','default_group','procedure_commands','verify'}
+                'working_directory','default_program','default_group','procedure_commands','verify',
+                'debug_commands','program_breakpoints'}
         if type(config) is not dict or set(config)-fields:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

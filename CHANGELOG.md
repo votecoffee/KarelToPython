@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1105.233428 - 2026-11-05
+
+- Add opt-in KCL source breakpoints with pause, JSON display, and trace
+  actions. Persist numbered definitions and validate lines against compiler
+  checkpoint metadata.
+- Add one-shot breaks before live root condition actions and step mode for
+  a selected cooperative task, including linked source frames.
+
 ## 26.1105.230208 - 2026-11-05
 
 - Add checked KCL SET LOCAL VAR for owned scalar roots in paused routines.

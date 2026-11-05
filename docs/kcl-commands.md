@@ -3,7 +3,7 @@
 KCL, KCL_NO_WAIT and KCL_STATUS use an explicit KclCommands service. The service
 records command requests and returns configured replies. Separate opt-ins
 enable registered task controls and offline file, variable, volume, dictionary,
-program, environment and procedure operations.
+program, environment, procedure and source debugging operations.
 A configured CLEAR ALL reply changes no variables or files.
 
 ```json
@@ -155,8 +155,8 @@ listing text, or inspect the program's recorded output requests.
 Status 3 indicates an unavailable task, handler or selector. Status 4
 includes invalid settings, out-of-range condition numbers and output errors.
 These forms follow MARRC75KR07091E Rev N, PDF pages 714–716, 735–736, 738 and
-744. Native breakpoints, statement text lookup and debugging execution
-remain outside this scope.
+744. [Source debugging](#source-debugging) uses generated statement
+checkpoints and explicit task state.
 
 SHOW HISTORY also accepts SHOW HIST. It selects an explicit registry
 binding, the configured default, or the calling root in that order.
@@ -604,6 +604,50 @@ The forms follow MARRC75KR07091E Rev N, PDF pages 729 and 737.
 The [linked example](../examples/kcl_command_procedure/main.kl) expands an
 include, runs and waits for a worker, and saves a listing.
 
+## Source debugging
+
+Set `"debug_commands": true` in the KCL context. Program breakpoints
+use the same channel as the compiled source. Retranslate cooperative
+modules to obtain checkpoint metadata. The CLI report lists eligible
+expanded-source line numbers under `kcl_policy.source_checkpoints`.
+These lines identify generated statement checkpoints, including statements
+in linked modules. Several checkpoints may share a physical source line.
+
+| Form | Offline effect |
+| --- | --- |
+| `SET BREAK PROGRAM [program] slot line [action]` | Create or replace a numbered program breakpoint. Actions are PAUSE, DISPLAY, TRACE ON and TRACE OFF. PAUSE is the default. |
+| `ENABLE BREAK PROGRAM [program] slot` | Enable the selected definition. |
+| `DISABLE BREAK PROGRAM [program] slot` | Keep the definition and suppress its effect. |
+| `CLEAR BREAK PROGRAM [program] slot` or `CLEAR BREAK PROGRAM [program] ALL` | Remove the selected definitions. |
+| `SET BREAK CONDITION [task] number` | Arm a one-shot break on an existing live root-task global condition. |
+| `CLEAR BREAK CONDITION [task] number` or `CLEAR BREAK CONDITION [task] ALL` | Remove the selected condition break marks. |
+| `SHOW BREAK [name]` | Write JSON Lines for program definitions and armed root conditions. |
+| `STEP ON [task]` or `STEP OFF` | Select one task for source-checkpoint pauses, or clear the active step selection. |
+
+PROGRAM and CONDITION accept PROG and COND. An omitted selector uses the
+configured program default or the caller. Program names select source
+modules. Registered task aliases can select their root modules. Program
+breakpoint slots and line numbers use 1..32,767, with at most 256 saved
+definitions. Condition numbers use 1..1,000.
+
+PAUSE stops before the matched statement. Continuing resumes that captured
+checkpoint, and later visits can pause again. DISPLAY writes a JSON event
+to the offline output path. TRACE actions change the root task's source
+trace setting at that checkpoint. Actions on the same line run in slot
+order, with a single resulting pause. A condition break is consumed when
+its predicate succeeds and pauses before the action. Continuing executes
+the action if the same handler is still enabled. STEP pauses before each
+eligible checkpoint for the selected root and works through linked calls.
+
+Context JSON saves program definitions under `program_breakpoints`.
+Condition break marks and step selection belong to live runtime state.
+Status 801 means an unavailable program, condition or slot. Status 802
+means an invalid number, unavailable checkpoint or ineligible source.
+Status 805 means the definition limit has been reached. The forms follow
+MARRC75KR07091E Rev N, PDF pages 708, 714–715, 732, 737–738 and 747.
+The [linked example](../examples/kcl_source_debug/main.kl) uses RUNCF
+to set a worker breakpoint and wait for the pause.
+
 ## Failure and persistence
 
 Once accepted, a scripted reply or task wait remains observable if its caller
@@ -634,6 +678,7 @@ python -m karel2py.project examples/kcl_task_waits --entry MAIN --context exampl
 python -m karel2py.project examples/kcl_session_defaults --entry MAIN --context examples/kcl_session_defaults/services.initial.json
 python -m karel2py.project examples/kcl_command_procedure --entry MAIN --context examples/kcl_command_procedure/services.initial.json --state-out procedure-state.json
 python -m karel2py.project examples/kcl_local_types --entry MAIN --context examples/kcl_local_types/services.initial.json
+python -m karel2py.project examples/kcl_source_debug --entry MAIN --context examples/kcl_source_debug/services.initial.json
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json

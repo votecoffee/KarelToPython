@@ -557,6 +557,8 @@ queue-entry policies; FILE banks remain excluded.
   ASCII CF inputs and relative includes over enabled offline services.
   The portable form uses blocking KCL, stops on the first error and saves
   complete listings on success.
+  [Source debugging](kcl-commands.md#source-debugging) uses cooperative
+  source checkpoints, one-shot condition breaks and per-task stepping.
   Physical I/O, controller time and native breakpoint
   controls remain outside these models. Three diagnostic calls use an
   [offline event/stack model](diagnostics.md).
