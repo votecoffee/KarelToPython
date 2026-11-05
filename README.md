@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[RUN_TASK continuation](docs/task-and-file-extensions.md#run_task-entry-and-continuation)
+resumes a paused KAREL task with its existing frames, timers and ownership.
+Nonnegative line hints select the main entry on a fresh KAREL start.
+
 [Bounded group lock waits](docs/group-locks.md#bounded-acquisition-and-release)
 let LOCK_GROUP wait for foreign owners and UNLOCK_GROUP wait for owned busy
 groups. Both opt-in operations apply the complete mask together, with ordinary
@@ -276,7 +280,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.130929**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.133215**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -736,7 +740,9 @@ controls have offline models. See [text dictionaries](docs/text-dictionaries.md)
 for the supported source grammar and CLI examples.
 
 CALL_PROG/CALL_PROGLIN run attached KAREL main bodies in the calling task with
-separate cursors and shared module data; see [program calls](docs/program-calls.md).
+separate cursors and shared module data. See [program calls](docs/program-calls.md).
+RUN_TASK starts a registered task or resumes its paused continuation.
+See [task requests](docs/task-and-file-extensions.md#run_task-entry-and-continuation).
 LOCK_GROUP/UNLOCK_GROUP use configured logical ownership with immediate partial
 results or opt-in bounded waits for a complete mask. See [group locks](docs/group-locks.md).
 All six DAQ calls use explicit typed acquisition pipes with binary FILE readers,

@@ -1,0 +1,22 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "PHASE": 2,
+      "START_STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "PHASE": 2,
+      "VALUE": 18
+    }
+  }
+}

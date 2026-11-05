@@ -5836,6 +5836,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Typed JSON stores caller bindings, limits and all local banks; copying programs detaches local banks while caller bindings remain unchanged; pause/completion keep values',
         boundary='Explicit offline caller association only; no TP execution, native register discovery, dynamically inferred call stack, physical controller access or strict equivalence',
         guide='docs/teach-registers.md',controller_validated=False)
+    report['task_run_policy']=dict(
+        procedures=['RUN_TASK','CONT_TASK'],
+        entry='Explicit registered KAREL target. A nonnegative RUN_TASK line hint starts a fresh target at its main entry.',
+        continuation='RUN_TASK on a paused task and CONT_TASK resume the same live generator with one CONTINUE notification. Preserve frames, owned resources and pending delay across continuation.',
+        pause='The portable RUN_TASK pause flag applies only to fresh entry. Rejected standalone admission restores its previous pause request.',
+        lifetime='Scheduler requests queue the target. Registry requests drive it synchronously to completion, pause or intentional termination.',
+        boundary='No TP instruction entry, pendant motion, group transfer or restored execution frames',
+        guide='docs/task-and-file-extensions.md#run_task-entry-and-continuation',
+        calls=[row for row in report['service_operations'] if row['operation'] in ('RUN_TASK','CONT_TASK')],
+        controller_validated=False)
     report['task_rename_policy']=dict(
         procedure='SET_TSK_NAME(old_name,new_name,status)',
         identity='Case-insensitive registry binding names; empty old_name selects the uniquely registered calling root, including linked routines; preserve numeric slot, source module and namespaces',

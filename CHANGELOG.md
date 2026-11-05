@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.133215 - 2026-11-05
+
+- Continue paused KAREL tasks through RUN_TASK in both task drivers and accept
+  nonnegative line hints for fresh main entry.
+- Preserve routine frames, pending delays and owned groups through continuation.
+  Require the owning scheduler to resume a live scheduled task.
+- Restore the prior pause request if a standalone start is rejected before
+  entry. Add linked continuation and pause-on-entry replay examples.
+
 ## 26.1105.130929 - 2026-11-05
 
 - Add independent GroupLocks limits for waiting on logical acquisition and

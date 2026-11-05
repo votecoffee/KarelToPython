@@ -296,11 +296,17 @@ class TaskScheduler:
         program._execution=program._execute(); self.waiting.pop(name,None); self.errors.pop(name,None)
     def continue_task(self,name,*,powerup=False):
         if type(powerup) is not bool: raise TypeError('powerup must be BOOLEAN')
-        program=self.tasks[name.upper()]
-        if program._state.task_state!='paused': raise rt().KarelRuntimeError('Only a paused task can continue')
-        program._state.task_state='running'; program._state._pause_requested=False
-        program._state._lifecycle['CONTINUE']=program._state._lifecycle.get('CONTINUE',0)+1
-        if powerup: program._state._lifecycle['POWERUP']=program._state._lifecycle.get('POWERUP',0)+1
+        program = self.tasks[name.upper()]
+        state = program._state
+        if state.task_state != 'paused':
+            raise rt().KarelRuntimeError('Only a paused task can continue')
+        if state._scheduler is not self or getattr(program, '_execution', None) is None:
+            raise rt().KarelRuntimeError('Only the owning TaskScheduler can continue a live paused task')
+        state.task_state = 'running'
+        state._pause_requested = False
+        state._lifecycle['CONTINUE'] = state._lifecycle.get('CONTINUE', 0) + 1
+        if powerup:
+            state._lifecycle['POWERUP'] = state._lifecycle.get('POWERUP', 0) + 1
     def powerup(self,name): self.continue_task(name,powerup=True)
     def _pulse_banks(self):
         return {program._state.execution.ports for program in self.tasks.values() if program._state.execution.ports is not None}
@@ -384,6 +390,56 @@ class TaskScheduler:
         finally: self._running=False
     def snapshot(self):
         return {name:{'state':program._state.task_state,'values':program.snapshot()} for name,program in self.tasks.items()}
+
+
+def run_registered_task(registry, caller, operation, args, line=None):
+    """Drive an explicitly registered root, preserving an existing continuation."""
+    runtime = rt()
+    name = runtime.ascii_string(args[0], line).upper()
+    status = args[-1]
+    task = registry.tasks.get(name)
+    if task is None:
+        status.set(1, line)
+        return
+    target = task._state
+    if target is runtime.task_root(caller):
+        raise runtime.KarelRuntimeError('A task cannot synchronously drive itself', line)
+
+    pause_on_entry = False
+    if operation == 'RUN_TASK':
+        if runtime.integer(args[1], line) < 0:
+            raise runtime.KarelRuntimeError('Offline RUN_TASK requires a nonnegative line hint', line)
+        pause_on_entry = runtime.boolean(args[2], line)
+        if runtime.boolean(args[3], line) or runtime.integer(args[4], line) != 0:
+            raise runtime.KarelRuntimeError('Offline RUN_TASK requires no motion and lock mask 0', line)
+    continuing = operation == 'CONT_TASK' or target.task_state == 'paused'
+    if hasattr(registry, 'start'):
+        if continuing:
+            registry.continue_task(name)
+        else:
+            registry.start(name, paused=pause_on_entry)
+    else:
+        try:
+            if continuing:
+                task.resume()
+            elif pause_on_entry:
+                if target._driving or getattr(task, '_execution', None) is not None:
+                    raise runtime.KarelRuntimeError('Task is already active', line)
+                before = target.task_state
+                prior_pause = target._pause_requested
+                target._pause_requested = True
+                try:
+                    task.run()
+                except BaseException:
+                    # Admission may fail before a continuation or body exists.
+                    if target.task_state == before and getattr(task, '_execution', None) is None:
+                        target._pause_requested = prior_pause
+                    raise
+            else:
+                task.run()
+        except (runtime.KarelPause, runtime.KarelAbort, runtime.KarelStop):
+            pass
+    status.set(0, line)
 
 
 def control_task(state,action,number,line=None):

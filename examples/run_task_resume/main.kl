@@ -1,0 +1,11 @@
+PROGRAM MAIN
+VAR phase FROM WORKER:INTEGER start_status:INTEGER
+ROUTINE resume_worker FROM LIB
+BEGIN
+ phase=0
+ RUN_TASK('WORKER',73,FALSE,FALSE,0,start_status)
+ WAIT FOR phase=1
+ DELAY 20
+ resume_worker()
+ WAIT FOR phase=2
+END MAIN

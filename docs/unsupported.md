@@ -387,8 +387,10 @@ queue-entry policies; FILE banks remain excluded.
   instruction pointers, allocated stack-byte reporting and native parent/child
   relationships. The scheduler runs deterministic cooperative checkpoints.
 - Native STOP/RESUME motion behavior. Offline STOP is terminal; resume/continue
-  acts on retained cooperative generators. Arbitrary start lines, motion flags
-  and lock masks in task procedures remain outside their supported forms. Six
+  acts on retained cooperative generators. [RUN_TASK](task-and-file-extensions.md#run_task-entry-and-continuation)
+  now starts fresh KAREL tasks at main entry for nonnegative hints and resumes
+  paused registered targets. TP line execution, motion flags and native group
+  transfer remain outside the task model. Six
   [logical controller calls](controller-services.md) now cover group ownership
   queries, cancellation of owned stopped labels, stored six-axis perches, scripted
   RESET and cooperative background slots. Native motion, hardware reset, per-value

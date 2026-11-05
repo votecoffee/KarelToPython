@@ -1,0 +1,9 @@
+PROGRAM WORKER
+VAR phase,value:INTEGER
+BEGIN
+ value=11
+ phase=1
+ PAUSE
+ value=value+7
+ phase=2
+END WORKER

@@ -1,0 +1,19 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "ENTERED": true,
+      "BEFORE_RESUME": false,
+      "START_STATUS": 0,
+      "CONTINUE_STATUS": 0,
+      "OWNERSHIP_STATUS": 2
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "ENTERED": true,
+      "VALUE": 37
+    }
+  }
+}

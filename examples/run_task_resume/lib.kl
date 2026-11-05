@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR status:INTEGER
+ROUTINE resume_worker
+BEGIN
+ RUN_TASK('WORKER',999,TRUE,FALSE,0,status)
+END resume_worker
+BEGIN END LIB

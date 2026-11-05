@@ -310,6 +310,8 @@ The [position check guide](position-checks.md) adds CHECK_EPOS with explicit
 frame/tool operands, caller-rooted groups and model/adapter reachability.
 [Task and file extensions](task-and-file-extensions.md) adds scoped POST_ERR_L,
 handler-aware task requests, ATR_FIELD reads and custom record terminators.
+[RUN_TASK entry and continuation](task-and-file-extensions.md#run_task-entry-and-continuation)
+supports nonnegative KAREL line hints and preserves paused task execution.
 [I/O and CALL parameters](io-and-call-parameters.md) adds indirect port access,
 simulation, register/port comments and supplied per-task GET_TPE_PRM arguments.
 [Current robot state](current-robot-state.md) adds supplied/model-derived CURPOS,

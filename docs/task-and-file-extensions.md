@@ -30,6 +30,31 @@ Self CONTINUE, bare or numeric, scans handlers after incrementing its lifecycle 
 including when it is the final source statement. POWERUP and ordinary resume
 retain their [existing contracts](control-notifications.md#recovery-and-handler-actions).
 
+### RUN_TASK entry and continuation
+
+`RUN_TASK(task_name,line_number,pause_on_sft,tp_motion,lock_mask,status)`
+uses the explicit task registry. A fresh KAREL task begins at its main entry for
+any nonnegative line hint. The existing portable pause flag suspends a fresh task
+before its first statement. A rejected standalone start restores the prior pause
+request, so retrying can use its own launch policy.
+
+Calling RUN_TASK again on a paused target resumes the existing execution. Its
+frames, pending delays, group ownership and budget stay with that execution.
+The start-pause flag applies only to fresh entry. Both RUN_TASK continuation
+and CONT_TASK advance the CONTINUE notification once. A scheduler can continue
+only the live paused tasks it owns.
+
+An unknown binding returns status 1. An accepted start or continuation returns
+status 0 under the driver rules above. A negative line hint raises. The offline
+form requires `tp_motion=FALSE` and `lock_mask=0`. The caller and child keep their
+separate task identities.
+
+MARRC75KR07091E Rev N, PDF pages 529–530, describes continuation of an already
+paused task and reserves the line selector for teach pendant programs. The
+Pythonic mapping uses main entry for KAREL. See the linked
+[continuation example](../examples/run_task_resume/main.kl) and
+[pause-on-entry example](../examples/run_task_entry_pause/main.kl).
+
 ## POST_ERR_L
 
 `POST_ERR_L(code,parameter,cause,severity)` accepts predefined ERSEV names. Codes

@@ -1,0 +1,14 @@
+PROGRAM MAIN
+%NOLOCKGROUP
+VAR entered FROM WORKER:BOOLEAN
+    before_resume:BOOLEAN
+    start_status,continue_status,ownership_status:INTEGER
+BEGIN
+ entered=FALSE
+ RUN_TASK('WORKER',120,TRUE,FALSE,0,start_status)
+ DELAY 10
+ before_resume=entered
+ LOCK_GROUP(1,ownership_status)
+ RUN_TASK('WORKER',180,TRUE,FALSE,0,continue_status)
+ WAIT FOR entered
+END MAIN

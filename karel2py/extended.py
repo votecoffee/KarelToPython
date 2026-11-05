@@ -2469,22 +2469,8 @@ class ExecutionContext:
             except (OSError,ValueError) as exc: raise rt.KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
             args[-1].set(code,line); return
         if name in ('CONT_TASK','RUN_TASK'):
-            task=self.tasks.tasks.get(args[0].upper())
-            if task is None: args[-1].set(1,line); return
-            if task._state is rt.task_root(state): fail('A task cannot synchronously drive itself',line)
-            else:
-                if name=='RUN_TASK' and (args[1]!=0 or args[3] or args[4]!=0): fail('Offline RUN_TASK requires line 0, no motion and lock mask 0',line)
-                if hasattr(self.tasks,'start'):
-                    if name=='CONT_TASK': self.tasks.continue_task(args[0])
-                    else: self.tasks.start(args[0],paused=args[2])
-                    args[-1].set(0,line); return
-                try:
-                    if name=='CONT_TASK': task.resume()
-                    else:
-                        if args[2]: task._state._pause_requested=True
-                        task.run()
-                except (KarelPause,rt.KarelAbort,KarelStop): pass
-            args[-1].set(0,line); return
+            from .scheduling import run_registered_task
+            return run_registered_task(self.tasks, state, name, args, line)
         if name in ('GET_STR_REG','SET_STR_REG'):
             bank=self.require('strings',line); number=args[0]
             if name=='GET_STR_REG':
