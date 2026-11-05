@@ -20,7 +20,7 @@
       "KCL_NO_WAIT",
       "KCL_STATUS"
     ],
-    "service": "Explicit exact-match replies with separately enabled offline task, file, variable, device and dictionary command dispatch",
+    "service": "Explicit exact-match replies with separately enabled offline task, file, variable, device, dictionary and program command dispatch",
     "queue": "One accepted pending request; configured acceptance/completion codes and delay; portable unsupported=1/busy=2; 1..126 printable ASCII command text",
     "waiting": "Captured standalone clock/sleeper or scheduler virtual sleep; query/blocking caller receives its captured accepted result without resubmission",
     "lifetime": "Accepted jobs retained on caller stop/failure; explicit polling/collection; bounded history and finite sequence",
@@ -74,12 +74,14 @@
     "tests/test_kcl_variable_commands.py",
     "tests/test_kcl_variable_archives.py",
     "tests/test_kcl_device_dictionary_commands.py",
+    "tests/test_kcl_program_commands.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
     "examples/kcl_offline_services.kl",
+    "examples/kcl_program_commands.kl",
     "examples/diagnostics_commands_project"
   ],
   "volume_and_dictionary_extension": {
@@ -89,5 +91,14 @@
     "configuration": "Separate device_commands and dictionary_commands opt-ins. Exact replies retain precedence.",
     "dispatch": "Virtual DeviceFiles lifecycle, decoded catalog load and clear, and KCL PRINT of closed unformatted ASCII plain pipes.",
     "statuses": "Small nonzero device and dictionary results use offsets 300 and 400. Existing 85023 and 33003 results are preserved."
+  },
+  "program_command_extension": {
+    "version": "26.1105.194615",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [709, 721, 730, 731, 742, 743, 748],
+    "configuration": "program_commands true with exact replies taking precedence",
+    "forms": ["SAVE TP", "LOAD TP", "CLEAR PROGRAM", "TRANSLATE", "SHOW PROGRAMS", "SHOW TASKS", "SHOW TASK"],
+    "dispatch": "Explicit portable archive and stored-source services. Sorted JSON lines capture the program or task registry before output. No native artifacts or controller display.",
+    "statuses": "Nonzero archive and listing results use offset 500. Stored-source TRANSLATE results are preserved."
   }
 }

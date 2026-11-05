@@ -357,7 +357,11 @@ class SourceTranslations:
         return cls(**config)
 
 
-def invoke(context,state,args,line=None):
+def translate_stored_source(context,state,file_spec,listing,line=None):
     service=context.source_translations
-    code=268 if service is None else service.translate(context,state,args[0],rt().boolean(args[1],line),line)
-    args[2].set(code,line)
+    return 268 if service is None else service.translate(context,state,file_spec,rt().boolean(listing,line),line)
+
+
+def invoke(context,state,args,line=None):
+    file_spec,listing,status=args
+    status.set(translate_stored_source(context,state,file_spec,listing,line),line)

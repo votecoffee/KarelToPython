@@ -187,3 +187,7 @@ Create `.local` first. Completion flags avoid repeating successfully saved
 example operations; they do not model crash recovery. The report exposes
 `program_archive_policy`; the [semantic ledger](semantics/program_archive_semantics.json)
 records the source basis, accepted forms and remaining boundaries.
+
+The opt-in [KCL program commands](kcl-commands.md#program-and-task-inspection-commands)
+share these archive operations for an explicit TP filename and one logical
+program per request.

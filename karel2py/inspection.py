@@ -1,5 +1,6 @@
 """Bounded variable inspection and explicit offline program metadata."""
 import fnmatch
+import json
 import math
 import re
 from .extended import (PROGRAM_TYPES, PROGRAM_ATTRIBUTES, PROGRAM_KINDS,
@@ -237,6 +238,43 @@ def variable_list(context,state,args,line=None):
     assign((names,count,status),(array,len(rows),0),line)
 
 
+def program_rows(context,state):
+    owners=list(context.variables.programs.values())+[state]
+    owners.extend(program._state for program in context.tasks.tasks.values())
+    rows={(owner.program_name,'PC') for owner in owners}
+    if context.programs is not None: rows.update(context.programs.entries)
+    if context.teach_programs is not None: rows.update(context.teach_programs.entries)
+    return rows
+
+
+def kcl_program_listing(state,operation,args,line=None):
+    from .dynamic import IDENTIFIER
+    from .fileops import write_file_text
+    from .scheduling import task_status_name
+
+    context=state.execution
+    if operation=='SHOW_PROGRAMS':
+        entries=program_rows(context,state)
+        entries.update((owner,'VR') for owner,_ in context.variables.bindings if re.fullmatch(IDENTIFIER,owner))
+        if len(entries)>32767:return 5
+        rows=[dict(name=name,type=kind) for name,kind in sorted(entries)]
+    else:
+        tasks=context.tasks.tasks
+        selector=args[0]
+        if selector is not None:
+            if selector not in tasks:return 1
+            names=[selector]
+        else:
+            if len(tasks)>32767:return 5
+            names=sorted(tasks)
+        root=runtime().task_root
+        rows=[dict(name=name,status=task_status_name(root(tasks[name]._state))) for name in names]
+    # Capture rows before the first output callback or execution checkpoint.
+    for row in rows:
+        write_file_text(state,json.dumps(row,separators=(',',':'))+'\n',line)
+    return 0
+
+
 def program_list(context,state,args,line=None):
     rt=runtime(); pattern,kind,skip,form,names,count,status=args[:7]
     cursor=args[7] if len(args)==8 else None
@@ -247,12 +285,8 @@ def program_list(context,state,args,line=None):
             or not pattern or any(symbol in pattern for symbol in '[]?')
             or (skip and (pattern!='*' or kind!=7))):
         status.set(2,line);return
-    owners=list(context.variables.programs.values())+[state]
-    owners.extend(program._state for program in context.tasks.tasks.values())
-    rows={(owner.program_name,'PC') for owner in owners}
-    if context.programs is not None: rows.update(context.programs.entries)
-    if context.teach_programs is not None: rows.update(context.teach_programs.entries)
-    rows=sorted(row for row in rows if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
+    rows=sorted(row for row in program_rows(context,state)
+                if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
     capacity=rt.array_dimensions(names.spec)[0]
     selected=rows[skip+offset:skip+offset+capacity];text=[]
     for name,program_type in selected:

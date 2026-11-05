@@ -154,3 +154,7 @@ generation and separate execution, lazy runtime portability, source rejection,
 aliases/busy files, abort/budget boundaries, per-file partial publication,
 aggregate quotas and JSON replay. Manual/compiler/controller acceptance remain
 separate evidence layers.
+
+The opt-in [KCL TRANSLATE command](kcl-commands.md#program-and-task-inspection-commands)
+uses the same service and completion codes. Its optional LIST switch requests
+the sibling listing.

@@ -1,4 +1,4 @@
-"""An explicit KCL channel for scripted replies and optional offline task control."""
+"""An explicit KCL channel for scripted replies and opt-in offline commands."""
 from copy import deepcopy
 import math
 import re
@@ -154,11 +154,36 @@ def dictionary_command(command):
     return None
 
 
+def program_command(command):
+    from .dynamic import IDENTIFIER
+
+    save = re.fullmatch(rf'SAVE +TP +([^ =]+)(?: *= *({IDENTIFIER}))?', command, re.IGNORECASE)
+    if save:
+        return 'SAVE_TP', save.groups()
+    load = re.fullmatch(r'LOAD +TP +([^ =]+)(?: +(OVERWRITE))?', command, re.IGNORECASE)
+    if load:
+        return 'LOAD_TP', (load[1], load[2] is not None)
+    clear = re.fullmatch(rf'CLEAR +PROG(?:RAM)? +({IDENTIFIER})(?: +Y(?:ES)?)?', command, re.IGNORECASE)
+    if clear:
+        return 'CLEAR_PROGRAM', (clear[1],)
+    translate = re.fullmatch(r'TRANSLATE +([^ =]+)(?: +(LIST))?', command, re.IGNORECASE)
+    if translate:
+        return 'TRANSLATE', (translate[1], translate[2] is not None)
+    fields = command.upper().split()
+    if fields == ['SHOW', 'PROGRAMS']:
+        return 'SHOW_PROGRAMS', ()
+    if fields == ['SHOW', 'TASKS']:
+        return 'SHOW_TASKS', (None,)
+    if len(fields) == 3 and fields[:2] == ['SHOW', 'TASK'] and re.fullmatch(r'[A-Z][A-Z0-9_]*', fields[2]):
+        return 'SHOW_TASKS', (fields[2],)
+    return None
+
+
 class KclCommands:
     """Single accepted-command channel with configured replies and bounded history."""
     def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
                  task_commands=False,file_commands=False,variable_commands=False,
-                 device_commands=False,dictionary_commands=False):
+                 device_commands=False,dictionary_commands=False,program_commands=False):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
@@ -168,12 +193,14 @@ class KclCommands:
         if type(variable_commands) is not bool:raise ValueError('KCL variable_commands requires a BOOLEAN')
         if type(device_commands) is not bool:raise ValueError('KCL device_commands requires a BOOLEAN')
         if type(dictionary_commands) is not bool:raise ValueError('KCL dictionary_commands requires a BOOLEAN')
+        if type(program_commands) is not bool:raise ValueError('KCL program_commands requires a BOOLEAN')
         self.replies={};self.limit=limit;self.history=[];self.sequence=sequence
         self.task_commands=task_commands
         self.file_commands=file_commands
         self.variable_commands=variable_commands
         self.device_commands=device_commands
         self.dictionary_commands=dictionary_commands
+        self.program_commands=program_commands
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -332,6 +359,22 @@ class KclCommands:
             return 400+code if 0<code<100 else code
         return self._dispatch(state,name,command,dispatch)
 
+    def _submit_program(self,state,name,command,request,line):
+        from .archives import kcl_program_archive
+        from .inspection import kcl_program_listing
+        from .source_translations import translate_stored_source
+
+        operation,args=request
+        def dispatch(_job):
+            if operation=='TRANSLATE':
+                return translate_stored_source(state.execution,state,*args,line)
+            if operation in ('SHOW_PROGRAMS','SHOW_TASKS'):
+                code=kcl_program_listing(state,operation,args,line)
+            else:
+                code=kcl_program_archive(state,operation,args,line)
+            return 500+code if code else 0
+        return self._dispatch(state,name,command,dispatch)
+
     def submit(self,state,name,command,line=None):
         try:command=command_text(command)
         except ValueError as exc:raise rt().KarelRuntimeError(str(exc),line) from exc
@@ -344,6 +387,7 @@ class KclCommands:
                 (self.variable_commands,variable_command,self._submit_variable),
                 (self.device_commands,device_command,self._submit_device),
                 (self.dictionary_commands,dictionary_command,self._submit_dictionary),
+                (self.program_commands,program_command,self._submit_program),
             ):
                 if enabled:
                     request=parse(command)
@@ -395,6 +439,7 @@ class KclCommands:
         if self.variable_commands:result['variable_commands']=True
         if self.device_commands:result['device_commands']=True
         if self.dictionary_commands:result['dictionary_commands']=True
+        if self.program_commands:result['program_commands']=True
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
         return result
@@ -405,5 +450,7 @@ class KclCommands:
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands','file_commands','variable_commands','device_commands','dictionary_commands'}:raise ValueError('Unknown KCL channel fields')
+        fields={'replies','limit','history','sequence','last_status','task_commands','file_commands',
+                'variable_commands','device_commands','dictionary_commands','program_commands'}
+        if type(config) is not dict or set(config)-fields:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

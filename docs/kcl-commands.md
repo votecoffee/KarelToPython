@@ -2,8 +2,8 @@
 
 KCL, KCL_NO_WAIT and KCL_STATUS use an explicit KclCommands service. The service
 records command requests and returns configured replies. Separate opt-ins
-enable registered task controls and offline file, variable, volume and
-dictionary operations.
+enable registered task controls and offline file, variable, volume, dictionary
+and program operations.
 A configured CLEAR ALL reply changes no variables or files.
 
 ```json
@@ -262,6 +262,52 @@ Native compressed TX decoding, COMPRESS DICT and LOAD FORM remain outside
 these forms. The [combined example](../examples/kcl_offline_services.kl)
 exercises a virtual volume, a decoded catalog and a plain pipe.
 
+## Program and task inspection commands
+
+Set `"program_commands": true` in the `kcl` context section or pass
+`program_commands=True` to KclCommands. Exact scripted replies retain
+precedence. File operands are explicit, unquoted relative specifications
+with optional logical device names.
+
+| Form | Offline effect |
+| --- | --- |
+| `SAVE TP file [= program]` | Save one logical TP record to a new portable archive. The filename stem selects the program when omitted. |
+| `LOAD TP file [OVERWRITE]` | Load the program named inside the portable archive, with optional replacement subject to the existing guards. |
+| `CLEAR PROGRAM name [YES]` | Clear one logical TP record. `CLEAR PROG` and `Y` are accepted aliases. |
+| `TRANSLATE file [LIST]` | Translate stored KAREL source to a sibling Python artifact and optionally a listing. |
+| `SHOW PROGRAMS` | Write a sorted, deduplicated snapshot of offline program names and types. |
+| `SHOW TASKS` | Write a sorted snapshot of registered task names and status labels. |
+| `SHOW TASK name` | Write one registered task row selected by an ASCII identifier starting with a letter. |
+
+The TP commands accept optional `.TP` suffixes on file operands and use the
+explicit [logical program and FILE services](program-archives.md). Selection,
+protection and attached-program guards remain in effect. Clearing removes
+logical program data only. TRANSLATE uses the explicit
+[stored-source service](source-translations.md) and its source, input and
+publication rules. The artifacts require a separate execution step.
+
+Listings use the ordinary offline output path with compact JSON per line.
+Program rows carry `name` and `type`, including `PC` for attached Python
+programs, explicit catalog and teach-program types, and `VR` for named
+variable namespaces. Task rows carry `name` and `status` using the same PG
+labels as GET_TSK_INFO. Registered aliases have separate rows. Empty task
+listings succeed without output. Rows are captured before the first write,
+with a limit of 32,767 rows per listing.
+
+Nonzero program archive and listing results use offset 500. Results include
+501 for a missing record, 502 for an invalid archive specification, 503 for
+a conflict, 504 for a protected or active record, 505 for capacity and 506
+for malformed archive data. Missing required backends and KAREL output
+errors use 4. TRANSLATE preserves its stored-source status codes. These
+commands use the existing KCL_NO_WAIT acceptance and KCL_STATUS completion
+split, with inline offline dispatch.
+
+The forms follow MARRC75KR07091E Rev N, PDF pages 709, 721, 730–731,
+742–743 and 748. Native TP and p-code loading, native display and teach-mode
+translation switches, and controller listing formats remain outside this scope.
+The [archive example](../examples/kcl_program_commands.kl) saves to an alias,
+clears and restores the original program name, then lists the records.
+
 ## Failure and persistence
 
 Once accepted, a pending request remains observable if its caller pauses, stops,
@@ -295,6 +341,8 @@ python -m karel2py examples/kcl_variable_archives.kl -o kcl_variable_archives.py
 python kcl_variable_archives.py --context examples/kcl_variable_archives.services.initial.json --state-out archive-state.json
 python -m karel2py examples/kcl_offline_services.kl -o kcl_offline_services.py
 python kcl_offline_services.py --context examples/kcl_offline_services.services.initial.json --state-out service-state.json
+python -m karel2py examples/kcl_program_commands.kl -o kcl_program_commands.py
+python kcl_program_commands.py --context examples/kcl_program_commands.services.initial.json --state-out program-state.json
 ```
 
 Use `rt.KclCommands(replies, ...)` with `ExecutionContext(kcl=...)` for host

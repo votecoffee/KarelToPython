@@ -539,7 +539,10 @@ queue-entry policies; FILE banks remain excluded.
   forms remain unavailable. [Virtual device commands](kcl-commands.md#virtual-device-commands)
   share mounted-media and open-FILE checks. [Dictionary commands](kcl-commands.md#dictionary-commands)
   load and clear supplied decoded snapshots. Native compression and form
-  loading remain unavailable. Three diagnostic calls use an
+  loading remain unavailable. [Program commands](kcl-commands.md#program-and-task-inspection-commands)
+  add portable TP save/load/clear, stored-source translation to Python, and
+  offline program/task listings. Native TP and p-code archives and controller
+  listing formats remain unavailable. Three diagnostic calls use an
   [offline event/stack model](diagnostics.md).
   Fifty-three [vision calls](vision-results.md) now consume supplied completed
   runs and retain registers/parameters. [Image/device services](vision-image-services.md)

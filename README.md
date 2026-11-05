@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[KCL program commands](docs/kcl-commands.md#program-and-task-inspection-commands)
+add portable TP save, load and clear, stored-source translation to Python,
+and JSON-line program and task listings.
+
 [KCL volume and dictionary commands](docs/kcl-commands.md#virtual-device-commands)
 add opt-in mount, dismount, format, purge, and catalog load/clear. KCL PRINT
 also accepts closed plain ASCII pipes through the existing output path.
@@ -325,7 +329,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.192643**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.194615**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -712,7 +716,8 @@ See [dynamic variables](docs/dynamic-variables.md).
 CHECK_STACK, SET_DEBUG and SET_DB_EVENT use explicit offline diagnostics with
 bounded event history and configurable logical stack estimates. KCL,
 KCL_NO_WAIT and KCL_STATUS use a command channel with scripted replies, optional
-task, file, variable, device and dictionary dispatch, completion waits and saved results. See [diagnostics](docs/diagnostics.md)
+task, file, variable, device, dictionary and program dispatch, completion waits
+and saved results. See [diagnostics](docs/diagnostics.md)
 and [KCL commands](docs/kcl-commands.md) for setup and execution boundaries.
 
 Ten pendant calls now use an explicit headless display model: opaque link/menu

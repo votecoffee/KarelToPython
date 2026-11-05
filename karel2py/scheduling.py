@@ -95,18 +95,20 @@ def mark_task_continued(state):
     state._lifecycle['CONTINUE'] += 1
 
 
+def task_status_name(root):
+    state=root.task_state
+    if root._abort_requested and state in ('ready','running','paused','waiting'):return 'PG_ABORTING'
+    return {'ready':'PG_RUNACCEPT','running':'PG_RUNNING','paused':'PG_PAUSED','waiting':'PG_WAITING',
+            'completed':'PG_COMPLETED','stopped':'PG_STOPPED','aborted':'PG_ABORTED','failed':'PG_FAILED'}[state]
+
+
 def task_attribute(registry,name,program,attribute,line=None):
     runtime=rt();root=runtime.task_root(program._state)
     if attribute == 'TSK_TPMOTION' and root._task_pendant_motion:
         return 1
     if attribute in root._task_settings: return root._task_settings[attribute]
     active=root._task_frames[-1] if root._task_frames else (root,'')
-    state=root.task_state
-    if attribute=='TSK_STATUS':
-        key={'ready':'PG_RUNACCEPT','running':'PG_RUNNING','paused':'PG_PAUSED','waiting':'PG_WAITING',
-             'completed':'PG_COMPLETED','stopped':'PG_STOPPED','aborted':'PG_ABORTED','failed':'PG_FAILED'}[state]
-        if root._abort_requested and state in ('ready','running','paused','waiting'): key='PG_ABORTING'
-        return TASK_STATES[key]
+    if attribute=='TSK_STATUS': return TASK_STATES[task_status_name(root)]
     if attribute=='TSK_PROGTYPE': return TASK_PROGRAM_TYPES['PG_AR_KAREL' if root._has_run else 'PG_NOT_EXEC']
     if attribute=='TSK_PROGNAME': return active[0].program_name
     if attribute=='TSK_ROUTNAME': return active[1]

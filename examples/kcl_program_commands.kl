@@ -1,0 +1,11 @@
+PROGRAM KCL_PROGRAMS
+VAR status,saved,cleared,accepted,loaded,shown:INTEGER
+BEGIN
+  DELETE_FILE('FR:ALIAS.TP',FALSE,status)
+  KCL('SAVE TP FR:ALIAS = DEMO',saved)
+  KCL('CLEAR PROGRAM DEMO YES',cleared)
+  KCL_NO_WAIT('LOAD TP FR:ALIAS',accepted)
+  loaded=KCL_STATUS
+  KCL('SHOW PROGRAMS',shown)
+  status=KCL_STATUS
+END KCL_PROGRAMS

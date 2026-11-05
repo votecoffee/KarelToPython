@@ -6494,7 +6494,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Portable event IDs; START_K_LINE/PCODE_EXEC describe offline checkpoints, not native p-code, memory words, tracing clocks or controller diagnostic option',
         guide='docs/diagnostics.md',controller_validated=False)
     report['kcl_policy']=dict(
-        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device and decoded dictionary dispatch',
+        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device, decoded dictionary and program dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',
         completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time or captured standalone clock/sleeper completion',
         lifetime='Accepted jobs survive caller stop/failure; no resubmission on status collection; pending work cannot be serialized; explicit poll can collect elapsed work',
@@ -6504,7 +6504,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         variable_archives='KCL SAVE VARS and LOAD VARS use portable VR files with explicit backends. LOAD resolves the archived namespace and checks detached ownership and the complete payload before publication.',
         device_commands='Opt in with device_commands true. MOUNT, DISMOUNT, FORMAT and PURGE use the explicit DeviceFiles backend and its existing checks.',
         dictionary_commands='Opt in with dictionary_commands true. LOAD DICT and CLEAR DICT use supplied decoded snapshots. Omitted language selects DEFAULT and CLEAR accepts ALL.',
-        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2, task unavailable/ineligible=3, inline operation error=4. Nonzero FILE and variable results use offsets 100 and 200. Small nonzero device and dictionary results use offsets 300 and 400.',
+        program_commands='Opt in with program_commands true. SAVE TP, LOAD TP and CLEAR PROGRAM use the portable logical TP store. TRANSLATE uses explicit stored-source translation. SHOW PROGRAMS, SHOW TASKS and SHOW TASK write sorted JSON lines from the offline registries.',
+        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2, task unavailable/ineligible=3, inline operation error=4. Nonzero FILE and variable results use offsets 100 and 200. Small nonzero device and dictionary results use offsets 300 and 400. Program archive and listing errors use offset 500. TRANSLATE retains stored-source statuses.',
         boundary='No native KCL, shell, TP execution, physical motion or automatic replay. Shared channel status is context-wide.',
         guide='docs/kcl-commands.md',controller_validated=False)
     report['pendant_policy']=dict(

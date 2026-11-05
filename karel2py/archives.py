@@ -313,6 +313,20 @@ def restore(context,state,bank,spec):
     return 0
 
 
+def kcl_program_archive(state,operation,args,line=None):
+    """Route KCL's explicit TP forms through the portable archive store."""
+    context=state.execution;bank=context.require('teach_programs',line)
+    if operation=='CLEAR_PROGRAM':
+        return clear(context,state,bank,args[0])
+    try:prefix,base,extension=specification(args[0])
+    except ValueError:return 2
+    if extension not in ('','TP'):return 2
+    path=prefix+base+'.TP'
+    if operation=='SAVE_TP':
+        return save(context,state,bank,args[1] or base,path)
+    return load(context,state,bank,path,args[1])
+
+
 def invoke(state,operation,args,line=None):
     from .variable_archives import variable_operation,invoke as invoke_variables
     if variable_operation(operation,args):return invoke_variables(state,operation,args,line)

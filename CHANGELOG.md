@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.194615 - 2026-11-05
+
+- Add opt-in KCL SAVE TP, LOAD TP and CLEAR PROGRAM over portable logical
+  TP archives, preserving archive identity and existing write guards.
+- Route KCL TRANSLATE with optional LIST through the stored-source service
+  and keep its Python artifact publication and status rules.
+- Add deterministic JSON-line SHOW PROGRAMS, SHOW TASKS and SHOW TASK output.
+  Include a CLI example that saves, clears, restores and lists a logical program.
+
 ## 26.1105.192643 - 2026-11-05
 
 - Add opt-in KCL MOUNT, DISMOUNT, FORMAT and PURGE over explicit virtual volumes.
