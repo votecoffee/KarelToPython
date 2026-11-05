@@ -549,6 +549,9 @@ queue-entry policies; FILE banks remain excluded.
   [Environment commands](kcl-commands.md#environment-commands) use explicit
   port, calendar and robot context banks. [Inspection commands](kcl-commands.md#variable-inspection)
   expose bounded variables, virtual media and the active dictionary language.
+  Session defaults and live source-frame listings use the supplied offline
+  task and robot contexts. Local mutation and native routine symbol files
+  remain outside this model.
   Physical I/O, controller time and native breakpoint
   controls remain outside these models. Three diagnostic calls use an
   [offline event/stack model](diagnostics.md).

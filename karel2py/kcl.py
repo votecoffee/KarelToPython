@@ -22,15 +22,16 @@ def status_value(value):
     return value
 
 
-def task_command(command):
+def task_command(command,default=None):
     """Recognize only an explicit task selector and the supported FORCE suffix."""
     fields = command.upper().split()
+    if len(fields)==1 and default is not None:fields.append(default)
     if len(fields) not in (2, 3):
         return None
     action, name = fields[:2]
     if action == 'CONT':
         action = 'CONTINUE'
-    if action not in ('RUN', 'CONTINUE', 'PAUSE', 'ABORT') or not re.fullmatch(r'[A-Z][A-Z0-9_]*', name):
+    if action not in ('RUN', 'CONTINUE', 'PAUSE', 'ABORT') or not re.fullmatch(r'[A-Z_][A-Z0-9_]*', name):
         return None
     force = len(fields) == 3
     if force and (action not in ('PAUSE', 'ABORT') or fields[2] != 'FORCE'):
@@ -53,6 +54,9 @@ def task_admin_command(command):
     show_trace=re.fullmatch(rf'SHOW +TRACE(?: +({IDENTIFIER}))?',command)
     if show_trace:
         return 'SHOW_TRACE',(show_trace[1] or '',)
+    history=re.fullmatch(rf'SHOW +HIST(?:ORY)?(?: +({IDENTIFIER}))?',command)
+    if history:
+        return 'SHOW_HISTORY',(history[1] or '',)
     change=re.fullmatch(rf'(ENABLE|DISABLE) +COND(?:ITION)? +(?:({IDENTIFIER}) +)?([0-9]+)',command)
     if change:
         return change[1],(change[2] or '', int(change[3]))
@@ -62,10 +66,12 @@ def task_admin_command(command):
     return None
 
 
-def task_wait_command(command):
-    match=re.fullmatch(r'WAIT +([A-Z][A-Z0-9_]*) +(DONE|PAUSE)',command.upper())
-    if match and match[1]!='ALL':
-        return match[1],match[2]=='PAUSE'
+def task_wait_command(command,default=None):
+    match=re.fullmatch(r'WAIT +(?:([A-Z_][A-Z0-9_]*) +)?(DONE|PAUSE)',command.upper())
+    if match:
+        selector=match[1] or default
+        if selector is not None and selector!='ALL':
+            return selector,match[2]=='PAUSE'
     return None
 
 
@@ -136,6 +142,15 @@ def variable_command(command):
     if clear:
         return 'CLEAR_VARS', (clear[1], None)
     suffix = rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
+    frame = rf'(?: +IN +({IDENTIFIER}))?(?: +FROM +({IDENTIFIER}))?(?: +({IDENTIFIER}))?'
+    local = re.fullmatch(rf'SHOW +LOCAL +VAR(?:IABLE)? +({IDENTIFIER}{suffix})(?: +(HEX(?:ADECIMAL)?|BINARY))?{frame}',command)
+    if local:
+        path, radix, routine, module, task = local.groups()
+        return 'SHOW_LOCAL_VAR',(task or '',routine,module,path.replace(' ',''),radix)
+    locals_list = re.fullmatch(rf'SHOW +LOCAL +VARS(?: +(VALUES))?{frame}',command)
+    if locals_list:
+        values, routine, module, task = locals_list.groups()
+        return 'SHOW_LOCAL_VARS',(task or '',routine,module,values is not None)
     assignment = re.fullmatch(rf'SET +VAR(?:IABLE)? +{selected}({suffix}) *= *(.+)', text, re.IGNORECASE)
     if assignment:
         program, name, rest, literal = assignment.groups()
@@ -217,6 +232,15 @@ def dictionary_command(command):
 def program_command(command):
     from .dynamic import IDENTIFIER
 
+    default = re.fullmatch(rf'SET +DEF(?:AULT)? +({IDENTIFIER})',command.upper())
+    if default:
+        return 'SET_DEFAULT',(default[1],)
+    if re.fullmatch(r'SHOW +DEFAULT',command.upper()):
+        return 'SHOW_DEFAULT',()
+    show = re.fullmatch(rf'SHOW +PROG(?:RAM)?(?: +({IDENTIFIER}))?',command.upper())
+    if show:
+        return 'SHOW_PROGRAM',(show[1],)
+
     save = re.fullmatch(rf'SAVE +TP +([^ =]+)(?: *= *({IDENTIFIER}))?', command, re.IGNORECASE)
     if save:
         return 'SAVE_TP', save.groups()
@@ -241,6 +265,11 @@ def program_command(command):
 
 def environment_command(command):
     command=command.upper()
+    group=re.fullmatch(r'SET +GROUP +([0-9]+)',command)
+    if group:
+        return 'SET_GROUP',(int(group[1]),)
+    if re.fullmatch(r'SHOW +GROUP',command):
+        return 'SHOW_GROUP',()
     if re.fullmatch(r'SHOW +CURPOS',command):
         return 'SHOW_CURPOS',()
     if re.fullmatch(r'SHOW +CLOCK',command):
@@ -269,7 +298,7 @@ class KclCommands:
     def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
                  task_commands=False,file_commands=False,variable_commands=False,
                  device_commands=False,dictionary_commands=False,program_commands=False,
-                 environment_commands=False,working_directory='.'):
+                 environment_commands=False,working_directory='.',default_program=None,default_group=None):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
@@ -281,6 +310,13 @@ class KclCommands:
         if type(dictionary_commands) is not bool:raise ValueError('KCL dictionary_commands requires a BOOLEAN')
         if type(program_commands) is not bool:raise ValueError('KCL program_commands requires a BOOLEAN')
         if type(environment_commands) is not bool:raise ValueError('KCL environment_commands requires a BOOLEAN')
+        if default_program is not None:
+            if (not program_commands or type(default_program) is not str or default_program=='ALL'
+                    or not re.fullmatch(r'[A-Z_][A-Z0-9_]{0,35}',default_program)):
+                raise ValueError('KCL default_program requires program_commands and a canonical program identifier')
+        if default_group is not None and (not environment_commands or type(default_group) is not int
+                                          or not 1<=default_group<=32):
+            raise ValueError('KCL default_group requires environment_commands and a group in 1..32')
         if working_directory!='.':
             from .fileops import kcl_working_directory
             if not file_commands:raise ValueError('KCL working_directory requires file_commands')
@@ -289,6 +325,8 @@ class KclCommands:
         self.task_commands=task_commands
         self.file_commands=file_commands
         self.working_directory=working_directory
+        self.default_program=default_program
+        self.default_group=default_group
         self.variable_commands=variable_commands
         self.device_commands=device_commands
         self.dictionary_commands=dictionary_commands
@@ -454,12 +492,20 @@ class KclCommands:
         from .scheduling import kcl_task_admin
 
         operation,args=request
+        if operation=='SHOW_HISTORY':
+            from .inspection import kcl_task_history
+            selector=args[0] or self.default_program
+            return self._dispatch(state,name,command,lambda _job:kcl_task_history(state,selector,line))
+        if not args[0] and self.default_program is not None:
+            args=(self.default_program,*args[1:])
         return self._dispatch(state,name,command,lambda _job:kcl_task_admin(state,operation,args,line))
 
     def _submit_variable(self,state,name,command,request,line):
         from .dynamic import create, edit_detached_path, remove_detached, rename, set_detached_scalar
 
         operation,args=request
+        if self.default_program is not None and not args[0] and operation not in ('SAVE_VARS','LOAD_VARS'):
+            args=(self.default_program,*args[1:])
         def dispatch(_job):
             if operation=='CREATE_VAR':
                 program, variable, pool, sizes, kind = args
@@ -480,6 +526,9 @@ class KclCommands:
             elif operation in ('SHOW_VAR','SHOW_VARS'):
                 from .inspection import kcl_variable_listing
                 code=kcl_variable_listing(state,operation,args,line)
+            elif operation in ('SHOW_LOCAL_VAR','SHOW_LOCAL_VARS'):
+                from .inspection import kcl_local_listing
+                code=kcl_local_listing(state,operation,args,line)
             else:
                 code=edit_detached_path(state,operation,*args,line)
             return 200+code if code else 0
@@ -508,14 +557,30 @@ class KclCommands:
 
     def _submit_program(self,state,name,command,request,line):
         from .archives import kcl_program_archive
-        from .inspection import kcl_program_listing
+        from .fileops import write_json_lines
+        from .inspection import kcl_program_entries, kcl_program_listing
         from .source_translations import translate_stored_source
 
         operation,args=request
         def dispatch(_job):
             if operation=='TRANSLATE':
                 return translate_stored_source(state.execution,state,*args,line)
-            if operation in ('SHOW_PROGRAMS','SHOW_TASKS'):
+            if operation=='SET_DEFAULT':
+                program=args[0]
+                if program=='ALL':return 502
+                context=state.execution
+                if program not in context.tasks.tasks and not any(
+                        candidate==program for candidate,_ in kcl_program_entries(context,state)):
+                    return 501
+                self.default_program=program
+                return 0
+            if operation=='SHOW_DEFAULT':
+                write_json_lines(state,[dict(program=self.default_program or state.program_name)],line)
+                return 0
+            if operation=='SHOW_PROGRAM':
+                selector=args[0] or self.default_program or state.program_name
+                code=kcl_program_listing(state,operation,(selector,),line)
+            elif operation in ('SHOW_PROGRAMS','SHOW_TASKS'):
                 code=kcl_program_listing(state,operation,args,line)
             else:
                 code=kcl_program_archive(state,operation,args,line)
@@ -529,14 +594,25 @@ class KclCommands:
         def dispatch(_job):
             if operation in ('SET_CLOCK','SHOW_CLOCK'):
                 code=kcl_calendar(state,operation,args,line)
-            elif operation=='SHOW_CURPOS':
+            elif operation in ('SET_GROUP','SHOW_GROUP','SHOW_CURPOS'):
                 from .fileops import write_json_lines
 
                 runtime=rt()
-                pose=state.execution.invoke(state,'CURPOS',(),line)
-                group=runtime.task_root(state).robot_group
-                if group is None:group=state.execution.robot.active_group
-                write_json_lines(state,[dict(group=group,pose=runtime.snapshot_value(pose))],line)
+                robot=state.execution.require('robot',line)
+                group=args[0] if operation=='SET_GROUP' else (
+                    self.default_group or runtime.task_root(state).robot_group or robot.active_group)
+                if operation=='SET_GROUP':
+                    if not 1<=group<=32:return 602
+                    try:robot.for_group(group,line)
+                    except runtime.KarelRuntimeError:return 602
+                    self.default_group=group
+                    return 0
+                row=dict(group=group)
+                if operation=='SHOW_CURPOS':
+                    pose=state.execution.invoke(state,'CURPOS',(0,0,group),line)
+                    row['pose']=runtime.snapshot_value(pose)
+                else:robot.for_group(group,line)
+                write_json_lines(state,[row],line)
                 code=0
             else:
                 bank=state.execution.require('ports',line)
@@ -551,9 +627,9 @@ class KclCommands:
         self.poll();reply=self.replies.get(command)
         if self._pending is None and reply is None:
             for enabled,parse,submit in (
-                (self.task_commands,task_command,self._submit_task),
+                (self.task_commands,lambda text:task_command(text,self.default_program),self._submit_task),
                 (self.task_commands,task_admin_command,self._submit_task_admin),
-                (self.task_commands,task_wait_command,self._submit_task_wait),
+                (self.task_commands,lambda text:task_wait_command(text,self.default_program),self._submit_task_wait),
                 (self.file_commands,file_command,self._submit_file),
                 (self.variable_commands,variable_command,self._submit_variable),
                 (self.device_commands,device_command,self._submit_device),
@@ -618,6 +694,8 @@ class KclCommands:
         if self.task_commands:result['task_commands']=True
         if self.file_commands:result['file_commands']=True
         if self.working_directory!='.':result['working_directory']=self.working_directory
+        if self.default_program is not None:result['default_program']=self.default_program
+        if self.default_group is not None:result['default_group']=self.default_group
         if self.variable_commands:result['variable_commands']=True
         if self.device_commands:result['device_commands']=True
         if self.dictionary_commands:result['dictionary_commands']=True
@@ -635,6 +713,6 @@ class KclCommands:
     def from_config(cls,config):
         fields={'replies','limit','history','sequence','last_status','task_commands','file_commands',
                 'variable_commands','device_commands','dictionary_commands','program_commands','environment_commands',
-                'working_directory'}
+                'working_directory','default_program','default_group'}
         if type(config) is not dict or set(config)-fields:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

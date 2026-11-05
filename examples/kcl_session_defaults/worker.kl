@@ -1,0 +1,12 @@
+PROGRAM WORKER
+VAR phase:INTEGER
+ROUTINE stay
+VAR value:INTEGER
+BEGIN
+  value=17
+  PAUSE
+  phase=value
+END stay
+BEGIN
+  stay
+END WORKER

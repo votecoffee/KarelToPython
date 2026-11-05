@@ -78,9 +78,11 @@
     "tests/test_kcl_environment_commands.py",
     "tests/test_kcl_inspection_commands.py",
     "tests/test_kcl_wait_and_directories.py",
+    "tests/test_kcl_defaults_and_frames.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_task_waits",
+    "examples/kcl_session_defaults",
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
@@ -132,5 +134,13 @@
     "forms": ["WAIT name DONE", "WAIT name PAUSE", "CHDIR", "MKDIR", "RMDIR", "TYPE"],
     "dispatch": "Scheduler transition observation of a captured task generation. Explicit DirectoryFiles root and KCL-local relative directory. TYPE reuses plain ASCII output.",
     "statuses": "Task unavailable or ineligible 3, failed target 4. Directory lookup 101, collision or invalid root operation 102, active or nonempty directory 103."
+  },
+  "session_defaults_and_frames_extension": {
+    "version": "26.1105.215618",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [733, 734, 739, 740, 741, 742],
+    "forms": ["SET DEFAULT", "SHOW DEFAULT", "SET GROUP", "SHOW GROUP", "SHOW HISTORY", "SHOW PROGRAM", "SHOW LOCAL VARIABLE", "SHOW LOCAL VARS"],
+    "dispatch": "Saved program and group selections. Read-only inspection of live retained source frames, including recursive and linked routine frames. Source pose and file operands retain separate defaults.",
+    "statuses": "Unavailable local frame or variable 201. Unknown program 501. Invalid program or group selection 502 or 602."
   }
 }

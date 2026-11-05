@@ -243,12 +243,7 @@ def variable_list(context,state,args,line=None):
 
 
 def kcl_variable_listing(state,operation,args,line=None):
-    from .archives import encode_json
-    from .fileops import write_file_text
-    from .storage import typed_value
-    from .variable_archives import MAX_LEAVES, schema
-
-    rt=runtime();context=state.execution
+    context=state.execution
     program=args[0] or state.program_name
     selector='' if program==state.program_name else program
     if operation=='SHOW_VAR':
@@ -261,17 +256,29 @@ def kcl_variable_listing(state,operation,args,line=None):
         names=[(name,spec) for (owner,name),spec in declarations(context,state)
                if owner==program and not name.startswith('$')]
         if not names and program!=state.program_name and program not in context.variables.programs:return 1
+    def resolve(path):
+        return context.resolve(state,selector,path,line,path_nodes=True)
+    return _kcl_value_rows(state,program,names,values,radix,resolve,line)
+
+
+def _kcl_value_rows(state,program,names,values,radix,resolve,line,**fields):
+    from .archives import encode_json
+    from .fileops import write_file_text
+    from .storage import typed_value
+    from .variable_archives import MAX_LEAVES, schema
+
+    rt=runtime()
     if len(names)>MAX_LEAVES:return 5
     remaining=1024*1024
     leaves=0
     rows=[]
     for path,spec in names:
         if values:
-            try:reference=context.resolve(state,selector,path,line,path_nodes=True)
+            try:reference=resolve(path)
             except rt.KarelRuntimeError:return 1
             spec=reference.spec
         name,leaf,shape=variable_type(spec)
-        row=dict(program=program,name=path,type=name)
+        row=dict(program=program,name=path,type=name,**fields)
         if shape:row['dimensions']=shape
         if leaf[0]=='STRING':row['string_capacity']=leaf[1]
         try:
@@ -295,6 +302,66 @@ def kcl_variable_listing(state,operation,args,line=None):
     return 0
 
 
+def _kcl_task_root(state,selector,line):
+    from .scheduling import selected_task_root
+
+    if not selector:return runtime().task_root(state)
+    return selected_task_root(state.execution.tasks,selector,state,line)[1]
+
+
+def kcl_local_listing(state,operation,args,line=None):
+    """Resolve live routine frames without substituting a global variable."""
+    from .dynamic import IDENTIFIER
+
+    selector,routine_filter,module_filter,*request=args
+    root=_kcl_task_root(state,selector,line)
+    if root is None or root.task_state not in ('running','paused','waiting'):return 1
+    # Handler predicates can temporarily replace local_frames with their captured
+    # scope. _timer_frames retains the actual entered frames, including bridges.
+    offsets={}
+    for owner,routine in reversed(root._task_frames):
+        offset=offsets.get(owner,len(owner._timer_frames))-1
+        offsets[owner]=offset
+        if (routine_filter is not None and routine!=routine_filter
+                or module_filter is not None and owner.program_name!=module_filter):
+            continue
+        declarations,storage=owner._timer_frames[offset]
+        break
+    else:return 1
+    if operation=='SHOW_LOCAL_VAR':
+        path,radix=request
+        names=[(path,None)]
+        values=True
+    else:
+        values,=request
+        radix=None
+        names=sorted(declarations.items())
+
+    def resolve(path):
+        rt=runtime();base=re.match(IDENTIFIER,path)
+        if base is None or base[0] not in declarations:
+            raise rt.KarelRuntimeError('Local variable is absent from the selected frame',line)
+        key=base[0];value=storage[key]
+        reference=value if isinstance(value,rt.Reference) else rt.Reference(declarations[key],storage,key)
+        return owner.execution.descend(reference,path[base.end():],line,path_nodes=True)
+
+    return _kcl_value_rows(state,owner.program_name,names,values,radix,resolve,line,
+                           routine=routine,task=selector or root.program_name)
+
+
+def kcl_task_history(state,selector,line=None):
+    from .fileops import write_json_lines
+
+    root=_kcl_task_root(state,selector,line)
+    if root is None:return 3
+    rows=[dict(depth=0,program=root.program_name,routine='')]
+    rows.extend(dict(depth=index,program=owner.program_name,routine=routine)
+                for index,(owner,routine) in enumerate(root._task_frames,1))
+    rows[-1]['line']=root._task_line
+    write_json_lines(state,rows,line)
+    return 0
+
+
 def program_rows(context,state):
     owners=list(context.variables.programs.values())+[state]
     owners.extend(program._state for program in context.tasks.tasks.values())
@@ -304,17 +371,40 @@ def program_rows(context,state):
     return rows
 
 
-def kcl_program_listing(state,operation,args,line=None):
+def kcl_program_entries(context,state):
     from .dynamic import IDENTIFIER
+
+    entries=program_rows(context,state)
+    entries.update((owner,'VR') for owner,_ in context.variables.bindings if re.fullmatch(IDENTIFIER,owner))
+    return entries
+
+
+def kcl_program_listing(state,operation,args,line=None):
     from .fileops import write_json_lines
     from .scheduling import task_status_name
 
     context=state.execution
-    if operation=='SHOW_PROGRAMS':
-        entries=program_rows(context,state)
-        entries.update((owner,'VR') for owner,_ in context.variables.bindings if re.fullmatch(IDENTIFIER,owner))
+    if operation in ('SHOW_PROGRAMS','SHOW_PROGRAM'):
+        entries=kcl_program_entries(context,state)
+        target=None
+        if operation=='SHOW_PROGRAM':
+            selector=args[0]
+            entries={row for row in entries if row[0]==selector}
+            program=context.tasks.tasks.get(selector)
+            if program is not None:
+                target=runtime().task_root(program._state)
+                entries.add((selector,'PC'))
+            elif selector==state.program_name:
+                target=runtime().task_root(state)
+            if not entries:return 1
         if len(entries)>32767:return 5
         rows=[dict(name=name,type=kind) for name,kind in sorted(entries)]
+        if target is not None:
+            for row in rows:
+                if row['type']=='PC':
+                    active=target._task_frames[-1] if target._task_frames else (target,'')
+                    row.update(program=active[0].program_name,routine=active[1],
+                               status=task_status_name(target),line=target._task_line)
     else:
         tasks=context.tasks.tasks
         selector=args[0]

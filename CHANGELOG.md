@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1105.215618 - 2026-11-05
+
+- Add saved KCL program and robot-group defaults with checked selectors.
+  Use the program default for omitted task and variable names, and the group
+  default for KCL current pose inspection.
+- Add SHOW PROGRAM, SHOW HISTORY, SHOW LOCAL VAR and SHOW LOCAL VARS over
+  offline registries and retained source frames, including linked routines.
+
 ## 26.1105.213022 - 2026-11-05
 
 - Add named KCL WAIT DONE and WAIT PAUSE over captured cooperative task

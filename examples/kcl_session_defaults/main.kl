@@ -1,0 +1,13 @@
+PROGRAM MAIN
+VAR phase FROM WORKER:INTEGER
+    selected,started,paused,inspected,shown,continued,finished:INTEGER
+BEGIN
+  phase=0
+  KCL('SET DEFAULT WORKER',selected)
+  KCL_NO_WAIT('RUN',started)
+  KCL('WAIT PAUSE',paused)
+  KCL('SHOW LOCAL VAR value IN stay',inspected)
+  KCL('SHOW PROGRAM',shown)
+  KCL('CONT',continued)
+  KCL('WAIT DONE',finished)
+END MAIN

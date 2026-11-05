@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[KCL session defaults](docs/kcl-commands.md#program-defaults) add saved program
+and robot-group selectors. Live local variables, source call frames, and
+individual programs can be inspected through the offline command channel.
+
 [KCL task waits and directories](docs/kcl-commands.md#task-waits)
 add scheduler-driven WAIT DONE and WAIT PAUSE, ASCII TYPE, and directory
 navigation and management within an explicitly supplied filesystem root.
@@ -341,7 +345,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.213022**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.215618**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

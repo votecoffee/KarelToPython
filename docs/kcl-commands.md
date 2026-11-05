@@ -57,7 +57,7 @@ type, alias, overlap and active-counter guards continue to apply.
 Set `"task_commands": true` in the `kcl` context section or pass
 `task_commands=True` to KclCommands. Exact scripted replies take precedence.
 The task forms accept case-insensitive verbs and names separated by spaces.
-Names use one ASCII identifier with an initial letter. Tasks must already
+Names use an ASCII identifier starting with a letter or underscore. Tasks must already
 be bound through the host registry or supplied as linked project modules.
 
 | Form | Offline effect |
@@ -117,6 +117,10 @@ until the captured condition is reached. The forms follow MARRC75KR07091E
 Rev N, PDF page 749. The [linked example](../examples/kcl_task_waits/main.kl)
 waits for a pause, continues the worker and collects its completion.
 
+With a saved [program default](#program-defaults), the name may be omitted
+from RUN, CONTINUE, CONT, PAUSE, ABORT and WAIT. Explicit selectors still
+select their named task. The abbreviated forms require a configured default.
+
 ### Task settings, traces and conditions
 
 The same `task_commands` opt-in enables these forms.
@@ -127,6 +131,7 @@ The same `task_commands` opt-in enables these forms.
 | `SET TASK [[name]] TRACELEN = value` | Set the trace capacity in 1..10,000 and retain the newest rows. |
 | `SET TRACE ON\|OFF [[name]]` | Enable or disable future source checkpoint records. |
 | `SHOW TRACE [name]` | Write retained source trace rows in sequence order as JSON Lines. |
+| `SHOW HISTORY [name]` | Write the current source call stack as JSON Lines, from the root through the innermost frame. |
 | `ENABLE CONDITION [name] number` | Enable a live global handler and reset its scan deadline. |
 | `DISABLE CONDITION [name] number` | Disable a live global handler. |
 | `SHOW CONDITION [name] [number]` | Write enabled state, priority and scan interval as JSON Lines in condition-number order. |
@@ -152,6 +157,12 @@ includes invalid settings, out-of-range condition numbers and output errors.
 These forms follow MARRC75KR07091E Rev N, PDF pages 714–716, 735–736, 738 and
 744. Native breakpoints, statement text lookup and debugging execution
 remain outside this scope.
+
+SHOW HISTORY also accepts SHOW HIST. It selects an explicit registry
+binding, the configured default, or the calling root in that order.
+Each row includes depth, source module and routine. The innermost row
+also has the last observed source line. The form follows MARRC75KR07091E
+Rev N, PDF page 740.
 
 ## File commands
 
@@ -321,6 +332,23 @@ unavailable selector, 202 an invalid radix request, and 205 a value or
 listing that cannot be represented within the portable limits. The forms
 follow MARRC75KR07091E Rev N, PDF pages 744–745.
 
+### Local variable inspection
+
+`SHOW LOCAL VAR path [HEX|HEXADECIMAL|BINARY] [IN routine] [FROM module] [task]`
+reads one local variable or parameter. `SHOW LOCAL VARS [VALUES] [IN routine]
+[FROM module] [task]` lists the frame's locals and formals. The optional
+task is a registry binding. Without one, the command uses the configured
+program default or the calling root. IN and FROM select the innermost
+matching live frame, including frames in linked source modules. With
+neither filter the command selects the top frame.
+
+The output includes the task, module and routine. Paths, type information,
+value encoding and capacity limits match the global variable views.
+Missing frames, tasks or local paths return 201. Inspection is read-only
+and uses retained Python frames. The forms follow MARRC75KR07091E Rev N,
+PDF pages 740–741. SET LOCAL VARIABLE and native RS symbol files are
+outside this model.
+
 ## Virtual device commands
 
 Set `"device_commands": true` in the `kcl` context section or pass
@@ -404,6 +432,7 @@ with optional logical device names.
 | `CLEAR PROGRAM name [YES]` | Clear one logical TP record. `CLEAR PROG` and `Y` are accepted aliases. |
 | `TRANSLATE file [LIST]` | Translate stored KAREL source to a sibling Python artifact and optionally a listing. |
 | `SHOW PROGRAMS` | Write a sorted, deduplicated snapshot of offline program names and types. |
+| `SHOW PROGRAM [name]` | Write matching rows for one name, with source task state and active routine when available. |
 | `SHOW TASKS` | Write a sorted snapshot of registered task names and status labels. |
 | `SHOW TASK name` | Write one registered task row selected by an ASCII identifier starting with a letter. |
 
@@ -436,6 +465,21 @@ translation switches, and controller listing formats remain outside this scope.
 The [archive example](../examples/kcl_program_commands.kl) saves to an alias,
 clears and restores the original program name, then lists the records.
 
+### Program defaults
+
+`SET DEFAULT name` or `SET DEF name` selects a known program, task binding,
+or detached variable namespace. `SHOW DEFAULT` writes the selected name
+or the caller's source module. An unavailable name returns 501. ALL is
+reserved and returns 502.
+
+The default applies to omitted task selectors, ordinary variable selectors,
+and SHOW PROGRAM. Each command still checks the appropriate registry or
+namespace. File operands and archive naming retain their own rules.
+Context JSON persists `default_program` within `kcl`. Rebind tasks when
+restoring a standalone context. The forms follow MARRC75KR07091E Rev N,
+PDF pages 733–734, 739 and 742. The [linked example](../examples/kcl_session_defaults/main.kl)
+uses one default for running, waiting, inspecting and continuing a worker.
+
 ## Environment commands
 
 Set `"environment_commands": true` in the `kcl` context or pass
@@ -450,6 +494,8 @@ precedence.
 | `SET CLOCK 'dd-mmm-yy hh:mm'` | Replace the supplied calendar anchor. |
 | `SHOW CLOCK` | Write the supplied calendar in `dd-MMM-yyyy hh:mm:ss` form. |
 | `SHOW CURPOS` | Write a JSON row with the active task group and the supplied or modeled current XYZWPREXT pose. |
+| `SET GROUP number` | Set the KCL group for later SHOW CURPOS calls. |
+| `SHOW GROUP` | Write the effective KCL group as a JSON row. |
 
 SET PORT accepts DIN, DOUT, RDO, OPOUT, TPOUT, GIN, GOUT, AIN and AOUT.
 Individual simulation forms accept DIN, DOUT, GIN, GOUT, AIN and AOUT, and
@@ -470,6 +516,12 @@ SHOW CURPOS shares [CURPOS](current-robot-state.md) group selection and frame/to
 rules. The pose includes the modeled external axes and structured CONFIG
 fields. Missing current state uses status 4. This form follows
 MARRC75KR07091E Rev N, PDF page 739.
+
+SET GROUP requires a configured group in 1..32 and returns 602 for an
+invalid selection. The group is saved as `default_group` within `kcl`.
+Without a KCL override, SHOW CURPOS uses the caller's group. Source CURPOS
+retains its own task selection. The group forms follow MARRC75KR07091E
+Rev N, PDF pages 734 and 740.
 
 Completion statuses are 601 for an unavailable current port value, 602
 for an invalid configured address or calendar value, 603 for an invalid
@@ -508,6 +560,7 @@ python kcl_commands.py --context examples/kcl_commands.services.initial.json --s
 python -m karel2py.project examples/diagnostics_commands_project --entry MAIN --context examples/diagnostics_commands_project/services.initial.json --state-out project-state.json
 python -m karel2py.project examples/kcl_task_commands --entry MAIN --context examples/kcl_task_commands/services.initial.json
 python -m karel2py.project examples/kcl_task_waits --entry MAIN --context examples/kcl_task_waits/services.initial.json
+python -m karel2py.project examples/kcl_session_defaults --entry MAIN --context examples/kcl_session_defaults/services.initial.json
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json
