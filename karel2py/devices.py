@@ -278,6 +278,18 @@ def manage_device(state,name,args,line=None):
         return files.mount(args[0],name=='MOUNT_DEV',line)
     if name=='FORMAT_DEV':
         return files.format(*args,check=lambda:state.tick(line),line=line)
+    if name=='SHOW_DEVICE':
+        from .fileops import write_json_lines
+
+        code,key=files.selected(args[0],line)
+        if code:return code
+        volume=files._volumes[key]
+        row=dict(name=key+':',mounted=volume['mounted'],read_only=volume['read_only'],
+                 label=volume['label'],total=volume['capacity'])
+        if key not in TOTAL_ONLY:
+            row.update(free=volume['capacity']-files.used(key),garbage=volume['garbage'])
+        write_json_lines(state,[row],line)
+        return 0
     return files.purge(args[0],check=lambda:state.tick(line),line=line)
 
 

@@ -1,0 +1,10 @@
+PROGRAM KCL_INSPECTION
+VAR value,shown,device_status,selected,dictionaries_shown,language_shown:INTEGER
+BEGIN
+  value=31
+  KCL('SHOW VAR VALUE HEX',shown)
+  KCL('SHOW DEVICE FR:',device_status)
+  KCL('SET LANG FRENCH',selected)
+  KCL('SHOW DICTS',dictionaries_shown)
+  KCL('SHOW LANG',language_shown)
+END KCL_INSPECTION

@@ -47,6 +47,37 @@ def language_name(value):
     return checked_language(value)
 
 
+def kcl_catalog(state,operation,args,line=None):
+    from .fileops import write_json_lines
+
+    context=state.execution
+    if operation=='SHOW_DICTS':
+        catalog=context.require('dictionaries',line)
+        try:language=catalog.selected_language(state)
+        except DictionaryError as error:return error.status
+        rows=[dict(name=name,language=language,source=item['source'])
+              for name,item in sorted(catalog.loaded.get(language,{}).items())]
+    else:
+        catalog=context.dictionaries
+        pendant=context.pendant
+        authority=pendant if pendant is not None else context.require('dictionaries',line)
+        available=set(authority.languages)
+        if catalog is not None:available.intersection_update(catalog.languages)
+        if operation=='SET_LANGUAGE':
+            selected=authority.default_language if args[0]=='DEFAULT' else args[0]
+            if selected not in available:return 33003
+            if pendant is not None:return pendant.set_language(state,selected)
+            authority.language=selected
+            return 0
+        if operation=='SHOW_LANG':
+            rows=[dict(language=authority.language,default=authority.default_language)]
+        else:
+            rows=[dict(language=language,active=language==authority.language,
+                       default=language==authority.default_language) for language in sorted(available)]
+    write_json_lines(state,rows,line)
+    return 0
+
+
 def parse(text):
     text=text_source(text);entries={};names={};entry=None;previous=-1;position=0;tokens=0
     pending=None;in_form=False

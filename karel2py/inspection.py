@@ -17,10 +17,15 @@ def runtime():
     return rt
 
 
-def describe(spec):
+def variable_type(spec):
     rt=runtime(); shape=rt.array_dimensions(spec) if spec[0]=='ARRAY' else ()
     leaf=rt.array_leaf_spec(spec) if shape else spec
     name=leaf[1] if leaf[0]=='STRUCTURE' else f'JOINTPOS{rt.joint_width(leaf)}' if leaf[0]=='JOINTPOS' else leaf[0]
+    return name,leaf,shape
+
+
+def describe(spec):
+    name,leaf,shape=variable_type(spec)
     code=TYPE_CODES.get('STRUCTURE' if leaf[0]=='STRUCTURE' else name)
     if code is None: raise NotImplementedError('No documented variable type code for '+name)
     return name,code,tuple(shape)+(0,)*(3-len(shape)),leaf[1] if leaf[0]=='STRING' else 0
@@ -235,6 +240,59 @@ def variable_list(context,state,args,line=None):
     array=rt.Array(names.spec)
     for index in range(1,capacity+1): array.set(index,text[index-1] if index<=len(text) else '',line)
     assign((names,count,status),(array,len(rows),0),line)
+
+
+def kcl_variable_listing(state,operation,args,line=None):
+    from .archives import encode_json
+    from .fileops import write_file_text
+    from .storage import typed_value
+    from .variable_archives import MAX_LEAVES, schema
+
+    rt=runtime();context=state.execution
+    program=args[0] or state.program_name
+    selector='' if program==state.program_name else program
+    if operation=='SHOW_VAR':
+        path,radix=args[1:]
+        names=[(path,None)]
+        values=True
+    else:
+        values=args[1]
+        radix=None
+        names=[(name,spec) for (owner,name),spec in declarations(context,state)
+               if owner==program and not name.startswith('$')]
+        if not names and program!=state.program_name and program not in context.variables.programs:return 1
+    if len(names)>MAX_LEAVES:return 5
+    remaining=1024*1024
+    leaves=0
+    rows=[]
+    for path,spec in names:
+        if values:
+            try:reference=context.resolve(state,selector,path,line,path_nodes=True)
+            except rt.KarelRuntimeError:return 1
+            spec=reference.spec
+        name,leaf,shape=variable_type(spec)
+        row=dict(program=program,name=path,type=name)
+        if shape:row['dimensions']=shape
+        if leaf[0]=='STRING':row['string_capacity']=leaf[1]
+        try:
+            if values:
+                if rt.file_storage_type(spec):
+                    if radix:return 2
+                    row['value_available']=False
+                else:
+                    value=reference.raw()
+                    if radix and (type(value) is not int or leaf[0] not in ('INTEGER','SHORT','BYTE') or shape):return 2
+                    leaves+=schema(spec,value)
+                    if leaves>MAX_LEAVES:return 5
+                    row['value']=typed_value(value,spec)['value']
+                    if radix:row['formatted']=format(value,'#b' if radix=='BINARY' else '#x')
+            encoded=encode_json(row,remaining)
+        except (ValueError,TypeError,RecursionError,rt.KarelRuntimeError):return 5
+        remaining-=len(encoded)
+        rows.append(encoded)
+    for row in rows:
+        write_file_text(state,row.decode('ascii'),line)
+    return 0
 
 
 def program_rows(context,state):

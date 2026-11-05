@@ -76,6 +76,7 @@
     "tests/test_kcl_device_dictionary_commands.py",
     "tests/test_kcl_program_commands.py",
     "tests/test_kcl_environment_commands.py",
+    "tests/test_kcl_inspection_commands.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_file_commands",
@@ -84,6 +85,7 @@
     "examples/kcl_offline_services.kl",
     "examples/kcl_program_commands.kl",
     "examples/kcl_environment_commands.kl",
+    "examples/kcl_inspection_commands.kl",
     "examples/diagnostics_commands_project"
   ],
   "volume_and_dictionary_extension": {
@@ -111,5 +113,14 @@
     "forms": ["SET PORT", "SIMULATE", "UNSIMULATE", "SET CLOCK", "SHOW CLOCK", "SET TASK", "SET TRACE", "SHOW TRACE", "ENABLE CONDITION", "DISABLE CONDITION", "SHOW CONDITION"],
     "dispatch": "Explicit logical port bank and calendar services, registered task settings and checkpoint traces, and live root-task global condition handlers.",
     "statuses": "Environment validation and guard results use offset 600. Task selection and condition availability use 3. Invalid task settings and inline runtime errors use 4."
+  },
+  "inspection_extension": {
+    "version": "26.1105.210506",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [734, 739, 740, 744, 745],
+    "configuration": "Uses the existing variable_commands, device_commands, dictionary_commands and environment_commands opt-ins.",
+    "forms": ["SHOW VARIABLE", "SHOW VARS", "SHOW DEVICE", "SET LANGUAGE", "SHOW LANG", "SHOW LANGS", "SHOW DICTS", "SHOW CURPOS"],
+    "dispatch": "Portable bounded JSON lines for ordinary variables, logical volumes, decoded dictionary metadata, configured languages and current pose. SET LANGUAGE uses the pendant when supplied or the dictionary catalog otherwise.",
+    "statuses": "Retains the command group offsets, unavailable language 33003 and inline runtime error 4."
   }
 }

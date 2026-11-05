@@ -127,6 +127,18 @@ def variable_command(command):
     if assignment:
         program, name, rest, literal = assignment.groups()
         return 'SET_VAR', ((program or '').upper(), (name+rest.replace(' ','')).upper(), literal)
+    show = re.fullmatch(rf'SHOW +VAR(?:IABLE)? +{selected}({suffix})(?: +(HEX(?:ADECIMAL)?|BINARY))?', command)
+    if show:
+        program, name, rest, radix = show.groups()
+        return 'SHOW_VAR', (program or '', name+rest.replace(' ',''), radix)
+    fields = command.split()
+    if fields[:2] == ['SHOW', 'VARS']:
+        options = fields[2:]
+        values = bool(options and options[-1] == 'VALUES')
+        if values:options.pop()
+        if not options or len(options) == 1 and re.fullmatch(IDENTIFIER,options[0]):
+            return 'SHOW_VARS', (options[0] if options else '', values)
+        return None
     save = re.fullmatch(rf'SAVE +VARS +([^ =]+)(?: *= *({IDENTIFIER}))?', text, re.IGNORECASE)
     if save:
         return 'SAVE_VARS', save.groups()
@@ -144,11 +156,17 @@ def variable_command(command):
 def device_command(command):
     action, *args = command.split()
     action = action.upper()
-    if action not in ('MOUNT', 'DISMOUNT', 'FORMAT', 'PURGE') or not args:
+    if action == 'SHOW':
+        if not args or args[0].upper() != 'DEVICE':
+            return None
+        args = args[1:]
+    if action not in ('MOUNT', 'DISMOUNT', 'FORMAT', 'PURGE', 'SHOW') or not args:
         return None
     if not re.fullmatch(r'[A-Za-z][A-Za-z_0-9]{0,7}:?', args[0]):
         return None
     device = args[0].rstrip(':').upper() + ':'
+    if action == 'SHOW':
+        return ('SHOW_DEVICE', (device,)) if len(args) == 1 else None
     if action != 'FORMAT':
         return (action + '_DEV', (device,)) if len(args) == 1 else None
     options = args[1:]
@@ -161,6 +179,13 @@ def device_command(command):
 
 def dictionary_command(command):
     fields = command.split()
+    upper = [field.upper() for field in fields]
+    if len(upper) == 2 and upper[0] == 'SHOW' and upper[1] in ('LANG','LANGS','DICTS'):
+        return 'SHOW_'+upper[1], ()
+    if len(upper) == 3 and upper[:2] in (['SET','LANG'],['SET','LANGUAGE']):
+        if re.fullmatch(r'[A-Z][A-Z_0-9]{0,15}',upper[2]):
+            return 'SET_LANGUAGE', (upper[2],)
+        return None
     if len(fields) < 2 or fields[1].upper() != 'DICT':
         return None
     action = fields[0].upper()
@@ -203,6 +228,8 @@ def program_command(command):
 
 def environment_command(command):
     command=command.upper()
+    if re.fullmatch(r'SHOW +CURPOS',command):
+        return 'SHOW_CURPOS',()
     if re.fullmatch(r'SHOW +CLOCK',command):
         return 'SHOW_CLOCK',()
     clock=re.fullmatch(r"SET +CLOCK +'([0-9]{2})-([A-Z]{3})-([0-9]{2}) ([0-9]{2}:[0-9]{2})'",command)
@@ -392,6 +419,9 @@ class KclCommands:
             elif operation in ('SAVE_VARS','LOAD_VARS'):
                 from .variable_archives import kcl_archive
                 code=kcl_archive(state,operation,*args,line)
+            elif operation in ('SHOW_VAR','SHOW_VARS'):
+                from .inspection import kcl_variable_listing
+                code=kcl_variable_listing(state,operation,args,line)
             else:
                 code=edit_detached_path(state,operation,*args,line)
             return 200+code if code else 0
@@ -407,9 +437,14 @@ class KclCommands:
         return self._dispatch(state,name,command,dispatch)
 
     def _submit_dictionary(self,state,name,command,request,line):
+        from .dictionaries import kcl_catalog
+
         operation,args=request
         def dispatch(_job):
-            code=state.execution.require('dictionaries',line).manage(state,operation,args)
+            if operation in ('ADD_DICT','REMOVE_DICT'):
+                code=state.execution.require('dictionaries',line).manage(state,operation,args)
+            else:
+                code=kcl_catalog(state,operation,args,line)
             return 400+code if 0<code<100 else code
         return self._dispatch(state,name,command,dispatch)
 
@@ -436,6 +471,15 @@ class KclCommands:
         def dispatch(_job):
             if operation in ('SET_CLOCK','SHOW_CLOCK'):
                 code=kcl_calendar(state,operation,args,line)
+            elif operation=='SHOW_CURPOS':
+                from .fileops import write_json_lines
+
+                runtime=rt()
+                pose=state.execution.invoke(state,'CURPOS',(),line)
+                group=runtime.task_root(state).robot_group
+                if group is None:group=state.execution.robot.active_group
+                write_json_lines(state,[dict(group=group,pose=runtime.snapshot_value(pose))],line)
+                code=0
             else:
                 bank=state.execution.require('ports',line)
                 code=bank.kcl_operation(operation,args,line)

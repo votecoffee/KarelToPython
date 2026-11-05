@@ -249,6 +249,30 @@ node edits and a root rename with saved-context replay.
 The [VR example](../examples/kcl_variable_archives.kl) saves a value, removes
 its root, then loads and reads it back.
 
+### Variable inspection
+
+`SHOW VAR [program]path` or `SHOW VARIABLE [program]path` uses the same
+static variable resolution as VAR_INFO. The optional program selector uses
+literal brackets, as in `SHOW VAR [WORKER]route[2].part`. The caller's
+module is the default. Fields and complete ARRAY, JOINTPOS and PATH indices
+are supported. An optional HEX, HEXADECIMAL or BINARY suffix adds signed
+Python-style formatting for an initialized integer scalar.
+
+`SHOW VARS [program] [VALUES]` writes canonical root names and types from
+the named module or detached namespace. The optional program name is bare.
+VALUES includes typed snapshots. Output is compact JSON Lines with array
+dimensions and string capacity when applicable. Uninitialized markers and
+portable PATH and QUEUE_TYPE data use the existing saved-state shapes.
+FILE storage contributes metadata with `value_available` set to false
+when values are requested. System-variable paths require their separate
+source services.
+
+The command preflights the complete listing against 32,767 rows and data
+leaves and 1 MiB of output before the first write. Status 201 indicates an
+unavailable selector, 202 an invalid radix request, and 205 a value or
+listing that cannot be represented within the portable limits. The forms
+follow MARRC75KR07091E Rev N, PDF pages 744–745.
+
 ## Virtual device commands
 
 Set `"device_commands": true` in the `kcl` context section or pass
@@ -272,6 +296,12 @@ preserved. An absent or incompatible backend returns 4. Physical volumes and
 socket endpoint changes use their separate service boundaries.
 
 The forms follow MARRC75KR07091E Rev N, PDF pages 715–716 and 723–725.
+
+`SHOW DEVICE device:` reports a configured volume as JSON with its name,
+label, mounted and read-only flags, and total capacity. File-backed volumes
+also report free and reclaimable bytes. Unmounted volumes can be inspected.
+Unknown volumes return 302. The form follows MARRC75KR07091E Rev N, PDF
+page 739.
 
 ## Dictionary commands
 
@@ -297,6 +327,20 @@ The forms follow MARRC75KR07091E Rev N, PDF pages 708–709 and 718.
 Native compressed TX decoding, COMPRESS DICT and LOAD FORM remain outside
 these forms. The [combined example](../examples/kcl_offline_services.kl)
 exercises a virtual volume, a decoded catalog and a plain pipe.
+
+`SET LANGUAGE name` or `SET LANG name` selects a configured language.
+DEFAULT selects the authority's default. With a pendant, it is the active
+language authority and the change records a SET_LANG event. Without a
+pendant, the dictionary catalog supplies the current and default language.
+When both services exist, SET accepts their shared language labels. An
+unavailable selection returns 33003 before changing either service.
+
+`SHOW LANG` reports the current and default labels. `SHOW LANGS` lists
+selectable labels in sorted order. `SHOW DICTS` lists loaded dictionary
+names and source labels for the effective current language. It uses the
+same selection rule as READ_DICT. These forms write JSON Lines through
+the offline output callback or recorded WRITE requests. The forms follow
+MARRC75KR07091E Rev N, PDF pages 734 and 739–740.
 
 ## Program and task inspection commands
 
@@ -357,6 +401,7 @@ precedence.
 | `UNSIMULATE kind[index]` or `UNSIMULATE ALL` | Remove the selected simulation flags and retain the last logical values. |
 | `SET CLOCK 'dd-mmm-yy hh:mm'` | Replace the supplied calendar anchor. |
 | `SHOW CLOCK` | Write the supplied calendar in `dd-MMM-yyyy hh:mm:ss` form. |
+| `SHOW CURPOS` | Write a JSON row with the active task group and the supplied or modeled current XYZWPREXT pose. |
 
 SET PORT accepts DIN, DOUT, RDO, OPOUT, TPOUT, GIN, GOUT, AIN and AOUT.
 Individual simulation forms accept DIN, DOUT, GIN, GOUT, AIN and AOUT, and
@@ -372,6 +417,11 @@ SET CLOCK uses English month abbreviations and maps years 80..99 to
 embedding the command in a KAREL STRING. SHOW CLOCK uses the same
 packed value and two-second resolution as [GET_TIME](calendar-clock.md).
 Calendar changes stay within the supplied offline clock.
+
+SHOW CURPOS shares [CURPOS](current-robot-state.md) group selection and frame/tool
+rules. The pose includes the modeled external axes and structured CONFIG
+fields. Missing current state uses status 4. This form follows
+MARRC75KR07091E Rev N, PDF page 739.
 
 Completion statuses are 601 for an unavailable current port value, 602
 for an invalid configured address or calendar value, 603 for an invalid
@@ -420,6 +470,8 @@ python -m karel2py examples/kcl_program_commands.kl -o kcl_program_commands.py
 python kcl_program_commands.py --context examples/kcl_program_commands.services.initial.json --state-out program-state.json
 python -m karel2py examples/kcl_environment_commands.kl -o kcl_environment_commands.py
 python kcl_environment_commands.py --context examples/kcl_environment_commands.services.initial.json --state-out environment-state.json
+python -m karel2py examples/kcl_inspection_commands.kl -o kcl_inspection_commands.py
+python kcl_inspection_commands.py --context examples/kcl_inspection_commands.services.initial.json --state-out inspection-state.json
 ```
 
 Use `rt.KclCommands(replies, ...)` with `ExecutionContext(kcl=...)` for host

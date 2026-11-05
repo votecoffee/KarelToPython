@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.210506 - 2026-11-05
+
+- Add KCL SHOW VAR and SHOW VARS for ordinary variable metadata, typed values,
+  complete array and PATH selectors, and signed integer radix formatting.
+- Add virtual SHOW DEVICE, offline SET LANGUAGE, and SHOW LANG, SHOW LANGS
+  and SHOW DICTS. Preserve the pendant's role as the effective language source.
+- Add KCL SHOW CURPOS over the existing robot context and group selection,
+  including modeled external-axis values.
+
 ## 26.1105.200311 - 2026-11-05
 
 - Add opt-in KCL SET PORT, SIMULATE and UNSIMULATE over the existing logical

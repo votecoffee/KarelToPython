@@ -1,0 +1,30 @@
+{
+  "device_files": {
+    "limit": 16777216,
+    "volumes": {"FR:": {"capacity": 32, "mounted": false, "label": "Fixture", "read_only": false, "retain_deleted": true, "garbage": 2, "info": {}}},
+    "files": {"FR:note.txt": {"hex": "70617274"}}
+  },
+  "dictionaries": {
+    "sources": {},
+    "languages": ["ENGLISH", "FRENCH"],
+    "default_language": "ENGLISH",
+    "language": "FRENCH",
+    "loaded": {"FRENCH": {"MENU": {"source": "LABELS.TX", "text": "$1 \"Pret\""}}}
+  },
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_INSPECTION", "operation": "KCL", "command": "SHOW VAR VALUE HEX", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_INSPECTION", "operation": "KCL", "command": "SHOW DEVICE FR:", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_INSPECTION", "operation": "KCL", "command": "SET LANG FRENCH", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_INSPECTION", "operation": "KCL", "command": "SHOW DICTS", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "KCL_INSPECTION", "operation": "KCL", "command": "SHOW LANG", "phase": "completed", "status": 0}
+    ],
+    "sequence": 5,
+    "last_status": 0,
+    "variable_commands": true,
+    "device_commands": true,
+    "dictionary_commands": true
+  }
+}

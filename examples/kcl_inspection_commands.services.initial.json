@@ -1,0 +1,11 @@
+{
+  "device_files": {
+    "volumes": {"FR:": {"capacity": 32, "mounted": false, "label": "Fixture", "garbage": 2}},
+    "files": {"FR:note.txt": "part"}
+  },
+  "dictionaries": {
+    "languages": ["ENGLISH", "FRENCH"],
+    "loaded": {"FRENCH": {"MENU": {"source": "LABELS.TX", "text": "$1 \"Pret\""}}}
+  },
+  "kcl": {"device_commands": true, "dictionary_commands": true, "variable_commands": true}
+}

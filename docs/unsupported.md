@@ -545,7 +545,9 @@ queue-entry policies; FILE banks remain excluded.
   listing formats remain unavailable. [Task settings and conditions](kcl-commands.md#task-settings-traces-and-conditions)
   use registered task state, source trace records and live root-task handlers.
   [Environment commands](kcl-commands.md#environment-commands) use explicit
-  port and calendar banks. Physical I/O, controller time and native breakpoint
+  port, calendar and robot context banks. [Inspection commands](kcl-commands.md#variable-inspection)
+  expose bounded variables, virtual media and the active dictionary language.
+  Physical I/O, controller time and native breakpoint
   controls remain outside these models. Three diagnostic calls use an
   [offline event/stack model](diagnostics.md).
   Fifty-three [vision calls](vision-results.md) now consume supplied completed

@@ -129,7 +129,21 @@ class PendantDisplay:
         if any(item['window']==window for item in self.screens[screen]['attachments']):return 2
         self.screens[screen]['attachments'].append(dict(window=window,row=row,col=col));return 0
 
+    def set_language(self,state,language):
+        self.reserve()
+        language=language_name(language)
+        if language=='DEFAULT':language=self.default_language
+        if language not in self.languages:return 33003
+        self.language=language
+        self.record(state,'SET_LANG',language=language)
+        return 0
+
     def invoke(self,state,name,args,line=None):
+        if name=='SET_LANG':
+            try:status=self.set_language(state,args[0])
+            except ValueError:status=1
+            args[-1].set(status,line)
+            return
         self.reserve();status=None;data={}
         try:
             if name=='FORCE_LINK':
@@ -140,10 +154,6 @@ class PendantDisplay:
                 pane,menu,screen=args
                 if any(type(value) is not int for value in args) or not 1<=pane<=9 or not 1<=menu<=32767 or not 1<=screen<=32767:raise rt().KarelRuntimeError('Invalid FORCE_SPMENU request',line)
                 self.menus[str(pane)]=dict(menu=menu,screen=screen);data=dict(pane=pane,menu=menu,screen=screen)
-            elif name=='SET_LANG':
-                language=language_name(args[0]);language=self.default_language if language=='DEFAULT' else language
-                status=0 if language in self.languages else 33003
-                if not status:self.language=language;data=dict(language=language)
             elif name=='DEF_SCREEN':
                 screen=ordinary_name(args[0]);device=args[1].upper()
                 status=1 if device!='TP' else 2 if screen in self.screens else 5 if len(self.screens)>=64 else 0

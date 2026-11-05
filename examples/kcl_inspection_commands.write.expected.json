@@ -1,0 +1,6 @@
+[
+  "{\"formatted\":\"0x1f\",\"name\":\"VALUE\",\"program\":\"KCL_INSPECTION\",\"type\":\"INTEGER\",\"value\":31}\n",
+  "{\"name\":\"FR:\",\"mounted\":false,\"read_only\":false,\"label\":\"Fixture\",\"total\":32,\"free\":26,\"garbage\":2}\n",
+  "{\"name\":\"MENU\",\"language\":\"FRENCH\",\"source\":\"LABELS.TX\"}\n",
+  "{\"language\":\"FRENCH\",\"default\":\"ENGLISH\"}\n"
+]
