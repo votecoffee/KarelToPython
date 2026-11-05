@@ -1020,8 +1020,11 @@ def kcl_file_operation(state,operation,args,line=None):
             if any(any(char in name for char in '*?') for name in args):return 2
             return append_file(state,*args,line)
         if operation=='PRINT_FILE':
-            if any(char in first for char in '*?') or first.startswith('PIP:'):return 2
+            if any(char in first for char in '*?'):return 2
             files,name=named_file_endpoint(state.execution,first,line)
+            if type(files) is rt().FilePipes:
+                pipe=files.pipes.get(name)
+                if pipe is not None and (pipe['record_size'] or pipe['form_dict']):return 2
             return print_file(state,files,name,False,line)
         if operation=='DIRECTORY':
             if first.startswith('PIP:'):

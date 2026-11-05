@@ -16,6 +16,9 @@ canonicalized and a missing extension becomes .TX. ADD_DICT never opens the
 host filesystem or searches controller devices. A label ending in .TX still
 refers to supplied decoded text, rather than native compressed bytes.
 
+The [opt-in KCL dictionary commands](kcl-commands.md#dictionary-commands)
+load and clear snapshots from the same catalog.
+
 ## Loading and languages
 
 ```karel

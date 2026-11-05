@@ -1,0 +1,38 @@
+{
+  "device_files": {
+    "limit": 16777216,
+    "volumes": {
+      "RD:": {"capacity": 32, "mounted": true, "label": "Fixture", "read_only": false, "retain_deleted": false, "garbage": 0, "info": {}},
+      "FR:": {"capacity": 32, "mounted": true, "label": "", "read_only": false, "retain_deleted": true, "garbage": 0, "info": {}}
+    },
+    "files": {"FR:keep.txt": {"hex": "6b657074"}}
+  },
+  "dictionaries": {
+    "sources": {"LABELS.TX": "$1 \"Ready\""},
+    "languages": ["ENGLISH"],
+    "default_language": "ENGLISH",
+    "language": "ENGLISH",
+    "loaded": {"ENGLISH": {"MENU": {"source": "LABELS.TX", "text": "$1 \"Ready\""}}}
+  },
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {"PIP:INFO": {"cmos": false, "sectors": 1, "record_size": 0, "form_dict": "", "form_ele": 0, "data": {"hex": "706970652072656164790a"}}}
+  },
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_SERVICES", "operation": "KCL", "command": "DISMOUNT RD:", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_SERVICES", "operation": "KCL_NO_WAIT", "command": "MOUNT RD:", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_SERVICES", "operation": "KCL", "command": "FORMAT RD: Fixture YES", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_SERVICES", "operation": "KCL", "command": "CLEAR DICT MENU ALL", "phase": "completed", "status": 403},
+      {"sequence": 5, "program": "KCL_SERVICES", "operation": "KCL", "command": "LOAD DICT labels MenuLong", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "KCL_SERVICES", "operation": "KCL", "command": "PRINT PIP:INFO", "phase": "completed", "status": 0}
+    ],
+    "sequence": 6,
+    "last_status": 0,
+    "device_commands": true,
+    "dictionary_commands": true,
+    "file_commands": true
+  }
+}

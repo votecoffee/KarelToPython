@@ -6494,15 +6494,17 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Portable event IDs; START_K_LINE/PCODE_EXEC describe offline checkpoints, not native p-code, memory words, tracing clocks or controller diagnostic option',
         guide='docs/diagnostics.md',controller_validated=False)
     report['kcl_policy']=dict(
-        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file and variable dispatch',
+        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device and decoded dictionary dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',
         completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time or captured standalone clock/sleeper completion',
         lifetime='Accepted jobs survive caller stop/failure; no resubmission on status collection; pending work cannot be serialized; explicit poll can collect elapsed work',
         task_commands='Opt in with task_commands true. RUN starts an independent registered task or continues a pause. CONT/CONTINUE, PAUSE and ABORT support named or ALL selection. PAUSE/ABORT support FORCE. Standalone no-wait RUN/CONTINUE require a scheduler.',
-        file_commands='Opt in with file_commands true. COPY, DELETE, RENAME and MOVE reuse FILE services. APPEND preserves complete closed byte snapshots. PRINT and DIRECTORY use the existing offline text output.',
+        file_commands='Opt in with file_commands true. COPY, DELETE, RENAME and MOVE reuse FILE services. APPEND preserves complete closed byte snapshots. PRINT supports ASCII ordinary files and unformatted plain pipes. DIRECTORY uses offline text output.',
         variable_commands='Opt in with variable_commands true. CREATE VAR, RENAME VAR and RENAME VARS use the explicit variable store. SET VAR assigns a checked literal to one detached scalar. DELETE VAR and CLEAR VARS remove independent bindings. APPEND/INSERT/DELETE NODE edit detached PATH roots.',
         variable_archives='KCL SAVE VARS and LOAD VARS use portable VR files with explicit backends. LOAD resolves the archived namespace and checks detached ownership and the complete payload before publication.',
-        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2, task unavailable/ineligible=3, inline operation error=4, nonzero FILE result plus 100, nonzero variable result plus 200; unsubmitted/unconfigured last status raises',
+        device_commands='Opt in with device_commands true. MOUNT, DISMOUNT, FORMAT and PURGE use the explicit DeviceFiles backend and its existing checks.',
+        dictionary_commands='Opt in with dictionary_commands true. LOAD DICT and CLEAR DICT use supplied decoded snapshots. Omitted language selects DEFAULT and CLEAR accepts ALL.',
+        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2, task unavailable/ineligible=3, inline operation error=4. Nonzero FILE and variable results use offsets 100 and 200. Small nonzero device and dictionary results use offsets 300 and 400.',
         boundary='No native KCL, shell, TP execution, physical motion or automatic replay. Shared channel status is context-wide.',
         guide='docs/kcl-commands.md',controller_validated=False)
     report['pendant_policy']=dict(

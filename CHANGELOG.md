@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.192643 - 2026-11-05
+
+- Add opt-in KCL MOUNT, DISMOUNT, FORMAT and PURGE over explicit virtual volumes.
+  Retain the source device busy, capacity and reclamation rules.
+- Add opt-in LOAD DICT and CLEAR DICT over decoded text catalogs, with default
+  and explicit language selection and all-language clearing.
+- Extend KCL PRINT to closed unformatted ASCII pipes and add a CLI example
+  covering volume, dictionary and pipe state.
+
 ## 26.1105.191108 - 2026-11-05
 
 - Add opt-in KCL SET VAR, DELETE VAR and CLEAR VARS with detached storage,

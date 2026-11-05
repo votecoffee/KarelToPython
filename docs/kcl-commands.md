@@ -2,7 +2,8 @@
 
 KCL, KCL_NO_WAIT and KCL_STATUS use an explicit KclCommands service. The service
 records command requests and returns configured replies. Separate opt-ins
-enable registered task controls, offline file operations and variable commands.
+enable registered task controls and offline file, variable, volume and
+dictionary operations.
 A configured CLEAR ALL reply changes no variables or files.
 
 ```json
@@ -110,7 +111,7 @@ separator after a device prefix selects the root of that configured device.
 | `MOVE [FILE] source` | Use MOVE_FILE to move selected files between explicit RD and FR volumes. |
 | `DELETE FILE source [YES]` | Use DELETE_FILE over the selected file or batch. YES is optional in this noninteractive service. |
 | `APPEND FILE source TO destination` | Append one complete byte snapshot to an existing closed file. |
-| `PRINT file` | Send the complete ASCII contents of an ordinary closed file to the current output sink. |
+| `PRINT file` | Send the complete ASCII contents of a closed ordinary file or unformatted plain pipe to the current output sink. |
 | `DIRECTORY pattern` | Send sorted matching filenames, one per line, to the current output sink. A device-only pattern selects that device's files. |
 
 APPEND uses exact, distinct source and destination names. The destination
@@ -122,7 +123,8 @@ atomically within its configured root.
 
 DIRECTORY uses bounded component matching on ordinary backends and plain
 basename patterns on PIP. An empty match succeeds with no output. PRINT validates
-the full payload as ASCII before sending any text. Output uses the existing
+the full payload as ASCII before sending any text. A PIP target must have zero
+record size and no format dictionary. Output uses the existing
 WRITE observation or callback, so an output callback failure can follow earlier
 successful chunks.
 
@@ -211,6 +213,55 @@ node edits and a root rename with saved-context replay.
 The [VR example](../examples/kcl_variable_archives.kl) saves a value, removes
 its root, then loads and reads it back.
 
+## Virtual device commands
+
+Set `"device_commands": true` in the `kcl` context section or pass
+`device_commands=True` to KclCommands. These forms use
+[DeviceFiles](virtual-devices.md) and its explicitly configured virtual volumes.
+Exact scripted replies retain precedence. Device names are case-insensitive
+and accept an optional trailing colon.
+
+| Form | Offline effect |
+| --- | --- |
+| `MOUNT device` | Mark the selected volume mounted. |
+| `DISMOUNT device` | Mark the selected volume unavailable while retaining its bytes. |
+| `FORMAT device [label] [YES]` | Clear the selected mounted writable volume after its busy checks. The optional label is one token and is truncated to 11 characters. YES and Y are accepted. |
+| `PURGE device` | Reclaim obsolete bytes while retaining live files. MF selects both RD and FR and checks both before reclamation. |
+
+These commands complete inline. KCL_NO_WAIT returns acceptance and KCL_STATUS
+reports completion. Small nonzero device results are offset by 300. This
+includes 302 for invalid device selection, 303 for unmounted media, 304 for an
+open FILE, and 305 for a read-only volume. DEV_NOTHING_TO_PURGE (85023) is
+preserved. An absent or incompatible backend returns 4. Physical volumes and
+socket endpoint changes use their separate service boundaries.
+
+The forms follow MARRC75KR07091E Rev N, PDF pages 715–716 and 723–725.
+
+## Dictionary commands
+
+Set `"dictionary_commands": true` in the `kcl` context section or pass
+`dictionary_commands=True` to KclCommands. The commands use a supplied
+[TextDictionaries catalog](text-dictionaries.md). Exact scripted replies
+retain precedence.
+
+| Form | Offline effect |
+| --- | --- |
+| `LOAD DICT source name [language]` | Parse an explicit decoded catalog entry and load a snapshot under the first four characters of the dictionary name. |
+| `CLEAR DICT name [language]` | Remove a loaded snapshot. ALL clears matching snapshots across languages. |
+
+An omitted language selects DEFAULT. A missing source suffix becomes `.TX`
+under the existing catalog rules. CLEAR preserves supplied source text. Loaded
+snapshots are available to CHECK_DICT, READ_DICT and WRITE_DICT. Small nonzero
+dictionary results are offset by 400, including 401 for malformed text or
+selectors, 402 for an existing snapshot, 403 for a missing source or snapshot,
+and 405 for capacity. The configured-language error 33003 is preserved.
+KCL_NO_WAIT and KCL_STATUS separate acceptance from inline completion.
+
+The forms follow MARRC75KR07091E Rev N, PDF pages 708–709 and 718.
+Native compressed TX decoding, COMPRESS DICT and LOAD FORM remain outside
+these forms. The [combined example](../examples/kcl_offline_services.kl)
+exercises a virtual volume, a decoded catalog and a plain pipe.
+
 ## Failure and persistence
 
 Once accepted, a pending request remains observable if its caller pauses, stops,
@@ -242,6 +293,8 @@ python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json
 python -m karel2py examples/kcl_variable_archives.kl -o kcl_variable_archives.py
 python kcl_variable_archives.py --context examples/kcl_variable_archives.services.initial.json --state-out archive-state.json
+python -m karel2py examples/kcl_offline_services.kl -o kcl_offline_services.py
+python kcl_offline_services.py --context examples/kcl_offline_services.services.initial.json --state-out service-state.json
 ```
 
 Use `rt.KclCommands(replies, ...)` with `ExecutionContext(kcl=...)` for host

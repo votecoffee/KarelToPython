@@ -6,7 +6,8 @@ import re
 from .extended import MemoryFiles
 
 
-DEVICE_NAMES=frozenset(('MOUNT_DEV','DISMOUNT_DEV','FORMAT_DEV','PURGE_DEV','VOL_SPACE','DOSFILE_INF'))
+DEVICE_MANAGEMENT=frozenset(('MOUNT_DEV','DISMOUNT_DEV','FORMAT_DEV','PURGE_DEV'))
+DEVICE_NAMES=DEVICE_MANAGEMENT|{'VOL_SPACE','DOSFILE_INF'}
 DEVICE_INFO={name:index for index,name in enumerate(('DF_MANUFNAME','DF_PRODNAME','DF_SERIALNO','DF_PRODID','DF_VENDID'),1)}
 DEVICE_CONSTANTS={**DEVICE_INFO,'DEV_NOTHING_TO_PURGE':85023}
 TOTAL_ONLY={'FROM','DRAM','CMOS'}
@@ -264,14 +265,28 @@ class DeviceFiles(MemoryFiles):
         return cls(config['volumes'],decoded,limit=limit)
 
 
+def virtual_files(context,line):
+    files=context.files
+    if type(files) is not DeviceFiles:
+        raise rt().KarelRuntimeError('Device operation requires explicit virtual DeviceFiles backend',line)
+    return files
+
+
+def manage_device(state,name,args,line=None):
+    files=virtual_files(state.execution,line)
+    if name in ('MOUNT_DEV','DISMOUNT_DEV'):
+        return files.mount(args[0],name=='MOUNT_DEV',line)
+    if name=='FORMAT_DEV':
+        return files.format(*args,check=lambda:state.tick(line),line=line)
+    return files.purge(args[0],check=lambda:state.tick(line),line=line)
+
+
 def invoke_device(context,state,name,args,line=None):
-    runtime=rt();files=context.files
-    if type(files) is not DeviceFiles: raise runtime.KarelRuntimeError('Device operation requires explicit virtual DeviceFiles backend',line)
-    if name=='MOUNT_DEV': code=files.mount(args[0],True,line)
-    elif name=='DISMOUNT_DEV': code=files.mount(args[0],False,line)
-    elif name=='FORMAT_DEV': code=files.format(*args[:3],check=lambda:state.tick(line),line=line)
-    elif name=='PURGE_DEV': code=files.purge(args[0],check=lambda:state.tick(line),line=line)
-    elif name=='VOL_SPACE':
+    if name in DEVICE_MANAGEMENT:
+        args[-1].set(manage_device(state,name,args[:-1],line),line)
+        return
+    runtime=rt();files=virtual_files(context,line)
+    if name=='VOL_SPACE':
         code,row=files.space(args[0],line)
         if code: raise runtime.KarelRuntimeError('VOL_SPACE failed with portable device code '+str(code),line)
         if not row['total_only']:

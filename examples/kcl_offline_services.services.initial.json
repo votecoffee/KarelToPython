@@ -1,0 +1,12 @@
+{
+  "device_files": {
+    "volumes": {
+      "RD:": {"capacity": 32, "garbage": 2},
+      "FR:": {"capacity": 32}
+    },
+    "files": {"RD:old.txt": "old", "FR:keep.txt": "kept"}
+  },
+  "dictionaries": {"sources": {"labels": "$1 \"Ready\""}},
+  "file_pipes": {"pipes": {"PIP:INFO": {"sectors": 1, "data": {"hex": "706970652072656164790a"}}}},
+  "kcl": {"device_commands": true, "dictionary_commands": true, "file_commands": true}
+}

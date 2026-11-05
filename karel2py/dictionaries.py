@@ -247,11 +247,11 @@ class TextDictionaries:
                 if size>65536:raise DictionaryError(5,'Rendered dictionary exceeds text budget')
         return output
 
-    def invoke(self,state,name,args,line=None):
-        runtime=rt();status=args[-1]
+    def manage(self,state,name,args):
+        """Load or clear decoded catalog snapshots with the source service codes."""
         try:
             if name=='ADD_DICT':
-                label,dict_name,selector,option=args[:4];label=source_name(label);dict_name=dictionary_name(dict_name)
+                label,dict_name,selector,option=args;label=source_name(label);dict_name=dictionary_name(dict_name)
                 language=self.selected_language(state,selector)
                 if option!=DICTIONARY_CONSTANTS['DP_DRAM']:raise DictionaryError(1,'Only portable DP_DRAM loading is supported')
                 if (language,dict_name) in self._parsed:raise DictionaryError(2,'Dictionary already loaded')
@@ -259,41 +259,51 @@ class TextDictionaries:
                 text=text_source(self.sources[label]);parsed=parse(text)
                 if len(self._parsed)>=64 or self.loaded_bytes()+len(text)>1048576:raise DictionaryError(5,'Loaded dictionary budget exceeded')
                 self.loaded.setdefault(language,{})[dict_name]=dict(source=label,text=text);self._parsed[(language,dict_name)]=parsed
-            elif name=='REMOVE_DICT':
-                dict_name=dictionary_name(args[0]);selector=args[1]
+            else:
+                dict_name,selector=args;dict_name=dictionary_name(dict_name)
                 languages=list(self.loaded) if selector=='' else [self.selected_language(state,selector)]
                 selected=[language for language in languages if (language,dict_name) in self._parsed]
                 if not selected:raise DictionaryError(3,'Dictionary is not loaded')
                 for language in selected:
                     self.loaded[language].pop(dict_name);self._parsed.pop((language,dict_name))
                     if not self.loaded[language]:self.loaded.pop(language)
-            else:
-                offset=1 if name.startswith('WRITE') else 0
-                tokens=self.element(state,args[offset],args[offset+1],check=name=='CHECK_DICT')
-                if name=='CHECK_DICT':status.set(0,line);return
-                values=args[offset+2] if name.endswith('_V') else None
-                rendered=self.render(state,tokens,values,line)
-                if name.startswith('READ'):
-                    target=args[3] if name.endswith('_V') else args[2]
-                    first=1 if name.endswith('_V') else args[3];array=target.raw();capacity=runtime.array_leaf_spec(target.spec)[1]
-                    if not 1<=first<=len(array.values):raise DictionaryError(1,'Dictionary first output line is outside ARRAY')
-                    text=''.join(token[1] if token[0]=='text' else '\n' if token[0]=='newline' else '' for token in rendered)
-                    rows=text.split('\n')
-                    if len(rows)>1 and not rows[-1]:rows.pop()
-                    copied=rows[:len(array.values)-first+1];truncated=len(copied)<len(rows) or any(len(row)>capacity for row in copied)
-                    staged=array.clone()
-                    for index,row in enumerate(copied,first):staged.set(index,row[:capacity],line)
-                    target.set(staged,line)
-                    if not name.endswith('_V'):args[4].set(first+len(copied)-1,line)
-                    status.set(33008 if truncated else 0,line);return
-                original=handle=args[0]
-                if state.execution.keyboard is not None and handle.owner is state.execution.keyboard:
-                    if handle.mode=='R':raise DictionaryError(4,'WRITE_DICT requires a writable window FILE')
-                    handle=state.execution.keyboard.window_handle(handle)
-                if handle is None:raise DictionaryError(4,'WRITE_DICT requires a window FILE')
-                if state.execution.pendant is None or handle.owner is not state.execution.pendant:raise DictionaryError(4,'WRITE_DICT requires an open pendant window FILE')
-                state.execution.pendant.write_dictionary(handle,rendered,line)
-                if original is not handle:original.position=handle.position;original.status=handle.status
+        except DictionaryError as error:return error.status
+        except (ValueError,OverflowError):return 1
+        except rt().KarelRuntimeError:return 4
+        return 0
+
+    def invoke(self,state,name,args,line=None):
+        runtime=rt();status=args[-1]
+        if name in ('ADD_DICT','REMOVE_DICT'):
+            status.set(self.manage(state,name,args[:-1]),line)
+            return
+        try:
+            offset=1 if name.startswith('WRITE') else 0
+            tokens=self.element(state,args[offset],args[offset+1],check=name=='CHECK_DICT')
+            if name=='CHECK_DICT':status.set(0,line);return
+            values=args[offset+2] if name.endswith('_V') else None
+            rendered=self.render(state,tokens,values,line)
+            if name.startswith('READ'):
+                target=args[3] if name.endswith('_V') else args[2]
+                first=1 if name.endswith('_V') else args[3];array=target.raw();capacity=runtime.array_leaf_spec(target.spec)[1]
+                if not 1<=first<=len(array.values):raise DictionaryError(1,'Dictionary first output line is outside ARRAY')
+                text=''.join(token[1] if token[0]=='text' else '\n' if token[0]=='newline' else '' for token in rendered)
+                rows=text.split('\n')
+                if len(rows)>1 and not rows[-1]:rows.pop()
+                copied=rows[:len(array.values)-first+1];truncated=len(copied)<len(rows) or any(len(row)>capacity for row in copied)
+                staged=array.clone()
+                for index,row in enumerate(copied,first):staged.set(index,row[:capacity],line)
+                target.set(staged,line)
+                if not name.endswith('_V'):args[4].set(first+len(copied)-1,line)
+                status.set(33008 if truncated else 0,line);return
+            original=handle=args[0]
+            if state.execution.keyboard is not None and handle.owner is state.execution.keyboard:
+                if handle.mode=='R':raise DictionaryError(4,'WRITE_DICT requires a writable window FILE')
+                handle=state.execution.keyboard.window_handle(handle)
+            if handle is None:raise DictionaryError(4,'WRITE_DICT requires a window FILE')
+            if state.execution.pendant is None or handle.owner is not state.execution.pendant:raise DictionaryError(4,'WRITE_DICT requires an open pendant window FILE')
+            state.execution.pendant.write_dictionary(handle,rendered,line)
+            if original is not handle:original.position=handle.position;original.status=handle.status
         except DictionaryError as error:status.set(error.status,line);return
         except (ValueError,OverflowError):status.set(1,line);return
         except runtime.KarelRuntimeError:

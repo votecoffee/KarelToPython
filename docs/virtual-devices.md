@@ -9,6 +9,9 @@ Socket-tag MOUNT_DEV/DISMOUNT_DEV forms use the separate explicit
 [Messaging service](communications.md). They change logical endpoint flags;
 the virtual-volume forms below continue to use DeviceFiles.
 
+The [opt-in KCL device commands](kcl-commands.md#virtual-device-commands)
+use these same virtual volume checks for mount, dismount, format and purge.
+
 | Call | Supported form |
 | --- | --- |
 | MOUNT_DEV / DISMOUNT_DEV | `(device, status)` |

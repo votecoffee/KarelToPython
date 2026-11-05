@@ -1,0 +1,13 @@
+PROGRAM KCL_SERVICES
+VAR offline_status,accepted,mounted_status,formatted,loaded,printed,last,status:INTEGER
+    lines:ARRAY[1] OF STRING[16]
+BEGIN
+  KCL('DISMOUNT RD:',offline_status)
+  KCL_NO_WAIT('MOUNT RD:',accepted)
+  mounted_status=KCL_STATUS
+  KCL('FORMAT RD: Fixture YES',formatted)
+  KCL('CLEAR DICT MENU ALL',status)
+  KCL('LOAD DICT labels MenuLong',loaded)
+  READ_DICT('MENU',1,lines,1,last,status)
+  KCL('PRINT PIP:INFO',printed)
+END KCL_SERVICES

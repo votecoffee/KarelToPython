@@ -119,10 +119,46 @@ def variable_command(command):
     return None
 
 
+def device_command(command):
+    action, *args = command.split()
+    action = action.upper()
+    if action not in ('MOUNT', 'DISMOUNT', 'FORMAT', 'PURGE') or not args:
+        return None
+    if not re.fullmatch(r'[A-Za-z][A-Za-z_0-9]{0,7}:?', args[0]):
+        return None
+    device = args[0].rstrip(':').upper() + ':'
+    if action != 'FORMAT':
+        return (action + '_DEV', (device,)) if len(args) == 1 else None
+    options = args[1:]
+    if options and options[-1].upper() in ('YES', 'Y'):
+        options.pop()
+    if len(options) > 1 or options and any(char in options[0] for char in "\"'"):
+        return None
+    return 'FORMAT_DEV', (device, options[0] if options else '', False)
+
+
+def dictionary_command(command):
+    fields = command.split()
+    if len(fields) < 2 or fields[1].upper() != 'DICT':
+        return None
+    action = fields[0].upper()
+    args = fields[2:]
+    if action == 'LOAD' and len(args) in (2, 3):
+        from .dictionaries import DICTIONARY_CONSTANTS
+        source, name = args[:2]
+        language = args[2] if len(args) == 3 else 'DEFAULT'
+        return 'ADD_DICT', (source, name, language, DICTIONARY_CONSTANTS['DP_DRAM'])
+    if action == 'CLEAR' and len(args) in (1, 2):
+        language = args[1] if len(args) == 2 else 'DEFAULT'
+        return 'REMOVE_DICT', (args[0], '' if language.upper() == 'ALL' else language)
+    return None
+
+
 class KclCommands:
     """Single accepted-command channel with configured replies and bounded history."""
     def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
-                 task_commands=False,file_commands=False,variable_commands=False):
+                 task_commands=False,file_commands=False,variable_commands=False,
+                 device_commands=False,dictionary_commands=False):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
@@ -130,10 +166,14 @@ class KclCommands:
         if type(task_commands) is not bool:raise ValueError('KCL task_commands requires a BOOLEAN')
         if type(file_commands) is not bool:raise ValueError('KCL file_commands requires a BOOLEAN')
         if type(variable_commands) is not bool:raise ValueError('KCL variable_commands requires a BOOLEAN')
+        if type(device_commands) is not bool:raise ValueError('KCL device_commands requires a BOOLEAN')
+        if type(dictionary_commands) is not bool:raise ValueError('KCL dictionary_commands requires a BOOLEAN')
         self.replies={};self.limit=limit;self.history=[];self.sequence=sequence
         self.task_commands=task_commands
         self.file_commands=file_commands
         self.variable_commands=variable_commands
+        self.device_commands=device_commands
+        self.dictionary_commands=dictionary_commands
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -276,21 +316,38 @@ class KclCommands:
             return 200+code if code else 0
         return self._dispatch(state,name,command,dispatch)
 
+    def _submit_device(self,state,name,command,request,line):
+        from .devices import manage_device
+
+        operation,args=request
+        def dispatch(_job):
+            code=manage_device(state,operation,args,line)
+            return 300+code if 0<code<100 else code
+        return self._dispatch(state,name,command,dispatch)
+
+    def _submit_dictionary(self,state,name,command,request,line):
+        operation,args=request
+        def dispatch(_job):
+            code=state.execution.require('dictionaries',line).manage(state,operation,args)
+            return 400+code if 0<code<100 else code
+        return self._dispatch(state,name,command,dispatch)
+
     def submit(self,state,name,command,line=None):
         try:command=command_text(command)
         except ValueError as exc:raise rt().KarelRuntimeError(str(exc),line) from exc
         if self.sequence>=2147483646:raise rt().KarelRuntimeError('KCL request sequence exhausted',line)
         self.poll();reply=self.replies.get(command)
         if self._pending is None and reply is None:
-            if self.task_commands:
-                request=task_command(command)
-                if request is not None:return self._submit_task(state,name,command,request,line)
-            if self.file_commands:
-                request=file_command(command)
-                if request is not None:return self._submit_file(state,name,command,request,line)
-            if self.variable_commands:
-                request=variable_command(command)
-                if request is not None:return self._submit_variable(state,name,command,request,line)
+            for enabled,parse,submit in (
+                (self.task_commands,task_command,self._submit_task),
+                (self.file_commands,file_command,self._submit_file),
+                (self.variable_commands,variable_command,self._submit_variable),
+                (self.device_commands,device_command,self._submit_device),
+                (self.dictionary_commands,dictionary_command,self._submit_dictionary),
+            ):
+                if enabled:
+                    request=parse(command)
+                    if request is not None:return submit(state,name,command,request,line)
         phase='busy' if self._pending is not None else 'unsupported' if reply is None else 'rejected' if reply['accept_status'] else 'pending'
         code=2 if phase=='busy' else 1 if phase=='unsupported' else reply['accept_status']
         # Capture the clock only for actual delayed work, before mutating history.
@@ -336,6 +393,8 @@ class KclCommands:
         if self.task_commands:result['task_commands']=True
         if self.file_commands:result['file_commands']=True
         if self.variable_commands:result['variable_commands']=True
+        if self.device_commands:result['device_commands']=True
+        if self.dictionary_commands:result['dictionary_commands']=True
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
         return result
@@ -346,5 +405,5 @@ class KclCommands:
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands','file_commands','variable_commands'}:raise ValueError('Unknown KCL channel fields')
+        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands','file_commands','variable_commands','device_commands','dictionary_commands'}:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

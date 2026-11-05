@@ -536,7 +536,10 @@ queue-entry policies; FILE banks remain excluded.
   offline backends. [Variable commands](kcl-commands.md#variable-and-path-commands)
   add typed creation, renames, detached scalar assignment and removal, PATH node
   edits and portable VR save/load. Native VR and implicit or system-variable KCL
-  forms remain unavailable. Three diagnostic calls use an
+  forms remain unavailable. [Virtual device commands](kcl-commands.md#virtual-device-commands)
+  share mounted-media and open-FILE checks. [Dictionary commands](kcl-commands.md#dictionary-commands)
+  load and clear supplied decoded snapshots. Native compression and form
+  loading remain unavailable. Three diagnostic calls use an
   [offline event/stack model](diagnostics.md).
   Fifty-three [vision calls](vision-results.md) now consume supplied completed
   runs and retain registers/parameters. [Image/device services](vision-image-services.md)
