@@ -1,0 +1,10 @@
+PROGRAM WORKER
+VAR finished:BOOLEAN
+    result:STRING[16]
+    stream:FILE
+BEGIN
+ OPEN FILE stream('RO','PIP:RESULT.DAT')
+ READ stream(result,CR)
+ CLOSE FILE stream
+ finished=TRUE
+END WORKER

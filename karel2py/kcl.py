@@ -40,16 +40,51 @@ def task_command(command):
     return action, name, force
 
 
+def file_command(command):
+    """Capture keywords separately from case-sensitive file operands."""
+    action, *args = command.split()
+    action = action.upper()
+    explicit_file = bool(args and args[0].upper() == 'FILE')
+    if action in ('COPY', 'MOVE', 'APPEND', 'DELETE', 'RENAME') and explicit_file:
+        args = args[1:]
+    if action in ('COPY', 'RENAME', 'APPEND'):
+        if action != 'COPY' and not explicit_file:
+            return None
+        overwrite = action == 'COPY' and len(args) == 4 and args[-1].upper() == 'OVERWRITE'
+        if overwrite:
+            args = args[:-1]
+        if len(args) != 3 or args[1].upper() != 'TO':
+            return None
+        source, _, target = args
+        if action == 'COPY':
+            return 'COPY_FILE', (source, target, overwrite, False)
+        if action == 'RENAME':
+            return 'RENAME_FILE', (source, target, False)
+        return 'APPEND_FILE', (source, target)
+    if action == 'DELETE' and explicit_file:
+        if len(args) == 1 or len(args) == 2 and args[1].upper() == 'YES':
+            return 'DELETE_FILE', (args[0], False)
+    if len(args) == 1:
+        if action in ('MOVE', 'PRINT'):
+            return action + '_FILE', tuple(args)
+        if action == 'DIRECTORY':
+            return action, tuple(args)
+    return None
+
+
 class KclCommands:
     """Single accepted-command channel with configured replies and bounded history."""
-    def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,task_commands=False):
+    def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
+                 task_commands=False,file_commands=False):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
         if type(sequence) is not int or not 0<=sequence<=2147483646:raise ValueError('KCL sequence is out of range')
         if type(task_commands) is not bool:raise ValueError('KCL task_commands requires a BOOLEAN')
+        if type(file_commands) is not bool:raise ValueError('KCL file_commands requires a BOOLEAN')
         self.replies={};self.limit=limit;self.history=[];self.sequence=sequence
         self.task_commands=task_commands
+        self.file_commands=file_commands
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -84,6 +119,20 @@ class KclCommands:
         self.history.append(row);del self.history[:-self.limit]
         return row
 
+    def _dispatch(self,state,name,command,operation):
+        """Hold the channel busy during a supported inline command."""
+        row=self._record(state,name,command,'pending',0)
+        job=dict(row=row,status=4,clock=None,delay_ms=0)
+        self._pending=job
+        try:
+            job['status']=operation(job)
+        except rt().KarelRuntimeError:
+            # The accepted command encountered an offline operation error.
+            pass
+        finally:
+            self.complete(job)
+        return 0,job
+
     def _task_targets(self,state,registry,owner,action,selector):
         from .control import broadcast_task_targets, task_control_eligible, task_root
         from .scheduling import live_task_parent
@@ -114,7 +163,6 @@ class KclCommands:
         from .control import request_task_control, task_root
         from .scheduling import TaskScheduler, drive_registered_task
 
-        runtime = rt()
         action, selector, force = request
         registry = state.execution.tasks
         owner = registry if isinstance(registry, TaskScheduler) else None
@@ -125,10 +173,7 @@ class KclCommands:
             self.last_status = 3
             return 3, None
 
-        row = self._record(state, name, command, 'pending', 0)
-        job = dict(row=row, status=4, clock=None, delay_ms=0)
-        self._pending = job
-        try:
+        def dispatch(job):
             if driving:
                 cohort = [(target, target._task_run, target._lifecycle['CONTINUE']) for target in targets]
                 for target, run, continued in cohort:
@@ -144,22 +189,30 @@ class KclCommands:
                     request_task_control(target, action, line, force=force)
                 if task_root(state) in targets:
                     job['self_action'] = action
-            job['status'] = 0
-        except runtime.KarelRuntimeError:
-            # The command completed with an admission or synchronous execution error.
-            pass
-        finally:
-            self.complete(job)
-        return 0, job
+            return 0
+        return self._dispatch(state,name,command,dispatch)
+
+    def _submit_file(self,state,name,command,request,line):
+        from .fileops import kcl_file_operation
+
+        operation,args=request
+        def dispatch(_job):
+            code=kcl_file_operation(state,operation,args,line)
+            return 100+code if code else 0
+        return self._dispatch(state,name,command,dispatch)
 
     def submit(self,state,name,command,line=None):
         try:command=command_text(command)
         except ValueError as exc:raise rt().KarelRuntimeError(str(exc),line) from exc
         if self.sequence>=2147483646:raise rt().KarelRuntimeError('KCL request sequence exhausted',line)
         self.poll();reply=self.replies.get(command)
-        if self._pending is None and reply is None and self.task_commands:
-            request=task_command(command)
-            if request is not None:return self._submit_task(state,name,command,request,line)
+        if self._pending is None and reply is None:
+            if self.task_commands:
+                request=task_command(command)
+                if request is not None:return self._submit_task(state,name,command,request,line)
+            if self.file_commands:
+                request=file_command(command)
+                if request is not None:return self._submit_file(state,name,command,request,line)
         phase='busy' if self._pending is not None else 'unsupported' if reply is None else 'rejected' if reply['accept_status'] else 'pending'
         code=2 if phase=='busy' else 1 if phase=='unsupported' else reply['accept_status']
         # Capture the clock only for actual delayed work, before mutating history.
@@ -180,7 +233,7 @@ class KclCommands:
     def wait(self,state,job,line=None):
         if self._pending is job:
             if job['clock'] is None:
-                raise rt().KarelRuntimeError('Cannot collect an executing KCL task command', line)
+                raise rt().KarelRuntimeError('Cannot collect an executing inline KCL command', line)
             remaining=max(0,math.ceil((job['due']-job['clock']())/1000))
             if remaining:yield from rt().delay_execution(state,remaining,line)
             # Standalone sleeper completion is the logical completion signal;
@@ -203,6 +256,7 @@ class KclCommands:
     def snapshot(self):
         result=dict(replies=deepcopy(self.replies),limit=self.limit,history=deepcopy(self.history),sequence=self.sequence,last_status=self.last_status)
         if self.task_commands:result['task_commands']=True
+        if self.file_commands:result['file_commands']=True
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
         return result
@@ -213,5 +267,5 @@ class KclCommands:
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands'}:raise ValueError('Unknown KCL channel fields')
+        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands','file_commands'}:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

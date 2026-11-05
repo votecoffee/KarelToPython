@@ -2488,21 +2488,8 @@ class ExecutionContext:
             from .fileops import check_name
             args[1].set(check_name(args[0],line),line);return
         if name in ('COPY_FILE','DELETE_FILE','RENAME_FILE','FILE_LIST','MOVE_FILE'):
-            from .fileops import wildcard_file_operation
-            if wildcard_file_operation(state,name,args,line):return
-            from .fileops import pipe_file_operation
-            if pipe_file_operation(state,name,args,line):return
-            files=self.require('files',line)
-            try:
-                if name=='COPY_FILE': code=files.copy(args[0],args[1],args[2])
-                elif name=='DELETE_FILE': code=files.delete(args[0])
-                elif name=='RENAME_FILE': code=files.rename(args[0],args[1])
-                elif name=='MOVE_FILE': code=files.move(args[0],check=lambda:state.tick(line))
-                else:
-                    from .fileops import list_files
-                    code=list_files(state,files,args,line)
-            except (OSError,ValueError) as exc: raise rt.KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
-            args[-1].set(code,line); return
+            from .fileops import manage_file
+            args[-1].set(manage_file(state,name,args[:-1],line),line);return
         if name in ('CONT_TASK','RUN_TASK'):
             from .scheduling import run_registered_task
             return run_registered_task(self.tasks, state, name, args, line)

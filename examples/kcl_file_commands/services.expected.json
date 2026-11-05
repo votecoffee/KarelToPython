@@ -1,0 +1,53 @@
+{
+  "files": {
+    "input.txt": {"hex": "7374617274"},
+    "result.txt": {"hex": "73746172742d656e640a"},
+    "tail.txt": {"hex": "2d656e640a"}
+  },
+  "file_pipes": {
+    "limit": 16777216,
+    "pipes": {
+      "PIP:RESULT.DAT": {
+        "cmos": false,
+        "sectors": 1,
+        "record_size": 0,
+        "form_dict": "",
+        "form_ele": 0,
+        "data": {"hex": "73746172742d656e640a"}
+      }
+    }
+  },
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "KCL",
+        "command": "COPY input.txt TO result.txt OVERWRITE",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "KCL",
+        "command": "APPEND FILE tail.txt TO result.txt",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 3,
+        "program": "MAIN",
+        "operation": "KCL_NO_WAIT",
+        "command": "COPY result.txt TO PIP:RESULT.DAT OVERWRITE",
+        "phase": "completed",
+        "status": 0
+      }
+    ],
+    "sequence": 3,
+    "last_status": 0,
+    "file_commands": true
+  }
+}

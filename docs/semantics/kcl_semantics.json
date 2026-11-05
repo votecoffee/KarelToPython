@@ -20,7 +20,7 @@
       "KCL_NO_WAIT",
       "KCL_STATUS"
     ],
-    "service": "Explicit exact-match replies with separately enabled offline task command dispatch",
+    "service": "Explicit exact-match replies with separately enabled offline task and file command dispatch",
     "queue": "One accepted pending request; configured acceptance/completion codes and delay; portable unsupported=1/busy=2; 1..126 printable ASCII command text",
     "waiting": "Captured standalone clock/sleeper or scheduler virtual sleep; query/blocking caller receives its captured accepted result without resubmission",
     "lifetime": "Accepted jobs retained on caller stop/failure; explicit polling/collection; bounded history and finite sequence",
@@ -36,16 +36,27 @@
     "dispatch": "Registered offline driver only. KCL_NO_WAIT RUN and CONTINUE require a scheduler. Self requests deliver after status publication.",
     "statuses": "3 unavailable or ineligible target or driver, 4 supported command with admission or synchronous execution error"
   },
+  "file_command_extension": {
+    "version": "26.1105.161331",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [706, 711, 712, 713, 714, 724, 725, 726],
+    "configuration": "file_commands true with exact replies taking precedence",
+    "forms": ["COPY", "RENAME FILE", "MOVE", "DELETE FILE", "APPEND FILE", "PRINT", "DIRECTORY"],
+    "dispatch": "Explicit FILE backends and existing checked source operations. Append retains complete byte prefixes. Print and directory use existing output observations.",
+    "statuses": "0 success, 4 backend/path/output error, nonzero returned FILE status plus 100. KCL_NO_WAIT separates acceptance from inline completion."
+  },
   "boundaries": [
-    "No shell, live KCL connection, native command parser, file or variable command interpretation, TP execution or physical motion",
+    "No shell, live KCL connection, native command parser, variable command interpretation, TP execution or physical motion",
     "Reply codes and source wait behavior are configured offline scenarios rather than controller observations",
     "Strict/native compiler/controller equivalence deferred"
   ],
   "validation": [
     "tests/test_diagnostics_commands.py",
     "tests/test_kcl_task_commands.py",
+    "tests/test_kcl_file_commands.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
+    "examples/kcl_file_commands",
     "examples/diagnostics_commands_project"
   ]
 }

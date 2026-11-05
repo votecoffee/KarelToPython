@@ -1,0 +1,12 @@
+PROGRAM MAIN
+VAR finished FROM WORKER:BOOLEAN
+    copied,appended,accepted,pipe_status,worker_status:INTEGER
+BEGIN
+ finished=FALSE
+ KCL('COPY input.txt TO result.txt OVERWRITE',copied)
+ KCL('APPEND FILE tail.txt TO result.txt',appended)
+ KCL_NO_WAIT('COPY result.txt TO PIP:RESULT.DAT OVERWRITE',accepted)
+ pipe_status=KCL_STATUS
+ RUN_TASK('WORKER',0,FALSE,FALSE,0,worker_status)
+ WAIT FOR finished
+END MAIN

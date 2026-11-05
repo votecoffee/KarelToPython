@@ -191,12 +191,12 @@ def _wildcard_template(template,source):
 def wildcard_file_operation(state,operation,args,line=None):
     """Preflight bounded source-pattern batches over explicit ordinary/plain PIP banks."""
     positions={'COPY_FILE':(0,1),'DELETE_FILE':(0,),'RENAME_FILE':(0,1)}
-    if operation not in positions:return False
+    if operation not in positions:return None
     operands=[args[index] for index in positions[operation]]
     wildcard=any(type(value) is str and any(c in value for c in '*?') for value in operands)
     crossing=(operation=='RENAME_FILE' and all(type(value) is str for value in operands)
               and operands[0].upper().startswith('PIP:')!=operands[1].upper().startswith('PIP:'))
-    if not wildcard and not crossing:return False
+    if not wildcard and not crossing:return None
     runtime=rt();context=state.execution
     from .communications import message_address,pipe_name
     from .storage import DirectoryFiles,atomic_bytes
@@ -642,61 +642,69 @@ def wildcard_file_operation(state,operation,args,line=None):
         return 0
     try:code=execute()
     except (OSError,ValueError) as exc:raise runtime.KarelRuntimeError('Wildcard FILE operation failed: '+str(exc),line) from exc
-    args[-1].set(code,line);return True
+    return code
+
+
+def plain_pipe(context,name,line=None,*,listing=False):
+    from .communications import pipe_name
+    pipes=context.require('file_pipes',line)
+    keys=pipes.list_names(name) if listing else [pipe_name(name)]
+    if context.acquisition is not None and any(key in context.acquisition.files for key in keys):
+        raise rt().KarelRuntimeError('Generic FILE operations do not route DAQ PIP names',line)
+    return pipes,name if listing else keys[0]
+
+
+def named_file_endpoint(context,name,line=None):
+    from .communications import message_address
+    from .storage import DirectoryFiles
+    from .devices import DeviceFiles
+    runtime=rt()
+    if name.upper().startswith('PIP:'):return plain_pipe(context,name,line)
+    if message_address(name):raise runtime.KarelRuntimeError('Generic FILE operations do not route socket names',line)
+    files=context.require('files',line)
+    if type(files) not in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles):
+        raise runtime.KarelRuntimeError('Named FILE operations require an explicit ordinary file backend',line)
+    if type(files) is DirectoryFiles:return files,files._key(name)
+    if type(files) is DeviceFiles:return files,files.canonical(name)
+    return files,name
+
+
+def publish_file_bytes(files,name,data,overwrite,line=None,*,obsolete=None):
+    from .storage import DirectoryFiles,atomic_bytes
+    from .devices import DeviceFiles
+    if type(files) is rt().FilePipes:return files.replace_named(name,data,overwrite)
+    if type(files) is DirectoryFiles:
+        path=files._path(name)
+        if files._busy(name):return 3
+        if path.exists() and not overwrite:return 2
+        if len(data)>files.limit:raise ValueError('Destination file size limit exceeded')
+        atomic_bytes(path,data);files.files[name]=bytearray(data);return 0
+    files._check(name,data)
+    if files._busy(name):return 3
+    if name in files.files and not overwrite:return 2
+    if type(files) is DeviceFiles:
+        if obsolete is None:obsolete=len(files.files.get(name,b''))
+        row,added=files.reserve(name,len(data),obsolete,line)
+    files.files[name]=bytearray(data)
+    if type(files) is DeviceFiles:row['garbage']+=added
+    return 0
 
 
 def pipe_file_operation(state,operation,args,line=None):
-    """Route explicit plain PIP names; return False for the ordinary dispatch."""
+    """Route explicit plain PIP names or return None for ordinary dispatch."""
     positions={'COPY_FILE':(0,1),'DELETE_FILE':(0,),'RENAME_FILE':(0,1),'FILE_LIST':(0,)}
-    if operation not in positions:return False
-    names=[args[index] for index in positions[operation]]
-    selected=[type(name) is str and name.upper().startswith('PIP:') for name in names]
-    if not any(selected):return False
+    if operation not in positions:return None
+    selected=[type(args[index]) is str and args[index].upper().startswith('PIP:') for index in positions[operation]]
+    if not any(selected):return None
     runtime=rt();context=state.execution
-    from .communications import pipe_name,message_address
-    from .storage import DirectoryFiles,atomic_bytes
-    from .devices import DeviceFiles
-    pipes=context.require('file_pipes',line)
-
-    def plain_pipe(name,*,listing=False):
-        keys=pipes.list_names(name) if listing else [pipe_name(name)]
-        if context.acquisition is not None and any(key in context.acquisition.files for key in keys):
-            raise runtime.KarelRuntimeError('Generic FILE operations do not route DAQ PIP names',line)
-        return pipes,name if listing else keys[0]
-
-    def endpoint(name,is_pipe):
-        if is_pipe:return plain_pipe(name)
-        if message_address(name):raise runtime.KarelRuntimeError('Generic FILE operations do not route socket names',line)
-        files=context.require('files',line)
-        if type(files) not in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles):
-            raise runtime.KarelRuntimeError('Pipe copies require an explicit ordinary file backend',line)
-        if type(files) is DirectoryFiles:return files,files._key(name)
-        if type(files) is DeviceFiles:return files,files.canonical(name)
-        return files,name
-
-    def publish(files,name,data,overwrite):
-        if files is pipes:return pipes.replace_named(name,data,overwrite)
-        if type(files) is DirectoryFiles:
-            path=files._path(name)
-            if files._busy(name):return 3
-            if path.exists() and not overwrite:return 2
-            if len(data)>files.limit:raise ValueError('Destination file size limit exceeded')
-            atomic_bytes(path,data);files.files[name]=bytearray(data);return 0
-        files._check(name,data)
-        if files._busy(name):return 3
-        if name in files.files and not overwrite:return 2
-        if type(files) is DeviceFiles:
-            row,added=files.reserve(name,len(data),len(files.files.get(name,b'')),line)
-        files.files[name]=bytearray(data)
-        if type(files) is DeviceFiles:row['garbage']+=added
-        return 0
-
+    context.require('file_pipes',line)
     try:
         if operation=='FILE_LIST':
-            files,pattern=plain_pipe(args[0],listing=True)
+            files,pattern=plain_pipe(context,args[0],line,listing=True)
             code=list_files(state,files,[pattern,*args[1:]],line)
         elif operation=='COPY_FILE':
-            source,source_name=endpoint(args[0],selected[0]);target,target_name=endpoint(args[1],selected[1])
+            source,source_name=named_file_endpoint(context,args[0],line)
+            target,target_name=named_file_endpoint(context,args[1],line)
             overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
             # Both endpoints must be closed, even if the source is missing.
             if source._busy(source_name) or target._busy(target_name):code=3
@@ -704,22 +712,39 @@ def pipe_file_operation(state,operation,args,line=None):
                 code,data=source.read_named(source_name)
                 if not code:
                     for offset in range(0,len(data),4096):state.tick(line)
-                    code=publish(target,target_name,data,overwrite)
+                    code=publish_file_bytes(target,target_name,data,overwrite,line)
         elif operation=='DELETE_FILE':
-            runtime.boolean(args[1],line);files,key=plain_pipe(args[0]);code=files.delete(key)
+            runtime.boolean(args[1],line);files,key=plain_pipe(context,args[0],line);code=files.delete(key)
         else:
             runtime.boolean(args[2],line)
             if not all(selected):code=2
             else:
-                files,source=plain_pipe(args[0]);_,target=plain_pipe(args[1]);code=files.rename(source,target)
+                files,source=plain_pipe(context,args[0],line);_,target=plain_pipe(context,args[1],line);code=files.rename(source,target)
     except (OSError,ValueError) as exc:
         raise runtime.KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
-    args[-1].set(code,line);return True
+    return code
+
+
+def manage_file(state,operation,args,line=None):
+    """Share checked file management between source built-ins and KCL."""
+    code=wildcard_file_operation(state,operation,args,line)
+    if code is not None:return code
+    code=pipe_file_operation(state,operation,args,line)
+    if code is not None:return code
+    files=state.execution.require('files',line)
+    try:
+        if operation=='COPY_FILE':return files.copy(args[0],args[1],args[2])
+        if operation=='DELETE_FILE':return files.delete(args[0])
+        if operation=='RENAME_FILE':return files.rename(args[0],args[1])
+        if operation=='MOVE_FILE':return files.move(args[0],check=lambda:state.tick(line))
+        return list_files(state,files,args,line)
+    except (OSError,ValueError) as exc:
+        raise rt().KarelRuntimeError('FILE operation failed: '+str(exc),line) from exc
 
 
 def list_files(state,files,args,line=None):
     """Prepare a complete FILE_LIST page before changing any output storage."""
-    runtime=rt();pattern,skip,form,names,count,status=args
+    runtime=rt();pattern,skip,form,names,count=args
     skip=runtime.integer(skip,line);form=runtime.integer(form,line)
     if skip<0 or form not in (0,1,2,3,4): return 2
     array=names.raw();capacity=len(array.values)
@@ -927,11 +952,8 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     return 0,count
 
 
-def print_file(state,files,name,nowait,line=None):
-    runtime=rt();runtime.boolean(nowait,line)
-    code,data=files.read_named(name)
-    if code: return code
-    text=data.decode('ascii');root=runtime.task_root(state)
+def write_file_text(state,text,line=None):
+    runtime=rt();root=runtime.task_root(state)
     for offset in range(0,len(text),254):
         state.tick(line)
         try: state.write_string(text[offset:offset+254],line)
@@ -941,7 +963,79 @@ def print_file(state,files,name,nowait,line=None):
             raise
         if root._aborted: raise runtime.KarelAbort(root._abort_line)
         if state._aborted: raise runtime.KarelAbort(state._abort_line)
+
+
+def print_file(state,files,name,nowait,line=None):
+    rt().boolean(nowait,line)
+    code,data=files.read_named(name)
+    if code:return code
+    write_file_text(state,data.decode('ascii'),line)
     return 0
+
+
+def append_file(state,source_name,target_name,line=None):
+    """Append one complete closed snapshot, retaining the target prefix."""
+    from .storage import DirectoryFiles
+
+    source,src=named_file_endpoint(state.execution,source_name,line)
+    target,dst=named_file_endpoint(state.execution,target_name,line)
+    if source is target and src==dst:return 2
+    if source._busy(src) or target._busy(dst):return 3
+    code,content=source.read_named(src)
+    if code:return code
+    code,prefix=target.read_named(dst)
+    if code:return code
+    if source is target and type(target) is DirectoryFiles and source._path(src).samefile(target._path(dst)):
+        return 2
+    limit=target.pipes[dst]['sectors']*1024 if type(target) is rt().FilePipes else target.limit
+    if len(prefix)+len(content)>limit:return 4
+    return publish_file_bytes(target,dst,prefix+content,True,line,obsolete=0)
+
+
+def kcl_file_specification(value,*,device_directory=False):
+    from .communications import message_address
+
+    name=value.replace('\\','/')
+    device,separator,tail=name.partition(':')
+    if separator:
+        tail=tail.removeprefix('/')
+        if not tail and device_directory:tail='*'
+        name=device.upper()+':'+tail
+    _wildcard_parts(name,directories=True)
+    if any(char in name for char in '"<>|;') or message_address(name):
+        raise ValueError('KCL file commands require an offline file specification')
+    return name
+
+
+def kcl_file_operation(state,operation,args,line=None):
+    """Dispatch accepted file commands through the explicit context backends."""
+    try:
+        first=kcl_file_specification(args[0],device_directory=operation=='DIRECTORY')
+        if operation in ('COPY_FILE','RENAME_FILE','APPEND_FILE'):
+            second=kcl_file_specification(args[1],device_directory=operation=='COPY_FILE')
+            args=(first,second,*args[2:])
+        else:
+            args=(first,*args[1:])
+        if operation=='APPEND_FILE':
+            if any(any(char in name for char in '*?') for name in args):return 2
+            return append_file(state,*args,line)
+        if operation=='PRINT_FILE':
+            if any(char in first for char in '*?') or first.startswith('PIP:'):return 2
+            files,name=named_file_endpoint(state.execution,first,line)
+            return print_file(state,files,name,False,line)
+        if operation=='DIRECTORY':
+            if first.startswith('PIP:'):
+                files,pattern=plain_pipe(state.execution,first,line,listing=True)
+                matches=files.list_names(pattern)
+            else:
+                files=state.execution.require('files',line)
+                matches=_directory_listing(files,first,lambda:state.tick(line))
+            for name in matches:
+                write_file_text(state,name+'\n',line)
+            return 0
+        return manage_file(state,operation,args,line)
+    except (OSError,ValueError) as exc:
+        raise rt().KarelRuntimeError('KCL FILE operation failed: '+str(exc),line) from exc
 
 
 def file_operation(state,name,args,line=None):

@@ -1,8 +1,8 @@
 # Offline KCL commands
 
 KCL, KCL_NO_WAIT and KCL_STATUS use an explicit KclCommands service. The service
-records command requests and returns configured replies. With a separate opt-in
-it can also dispatch a small set of task controls to the offline registry.
+records command requests and returns configured replies. Separate opt-ins
+enable registered task controls and operations on the offline file backends.
 A configured CLEAR ALL reply changes no variables or files.
 
 ```json
@@ -93,6 +93,52 @@ continuation and terminal-state rules. Native default selectors, abbreviated
 verbs beyond CONT, command files, TP execution and physical motion remain
 outside this model.
 
+## File commands
+
+Set `"file_commands": true` in the `kcl` context section or pass
+`file_commands=True` to KclCommands. File commands use the existing explicit
+memory, virtual device, rooted directory and plain PIP backends where supported.
+Exact scripted replies retain precedence. Verbs and keywords are case-insensitive.
+Path tokens preserve filename spelling and use relative paths or configured
+device prefixes. A backslash is a directory separator, and a single leading
+separator after a device prefix selects the root of that configured device.
+
+| Form | Offline effect |
+| --- | --- |
+| `COPY [FILE] source TO destination [OVERWRITE]` | Use COPY_FILE with the requested overwrite policy. A device-only destination uses the source filename. |
+| `RENAME FILE source TO destination` | Use RENAME_FILE with its existing wildcard, collision and backend rules. |
+| `MOVE [FILE] source` | Use MOVE_FILE to move selected files between explicit RD and FR volumes. |
+| `DELETE FILE source [YES]` | Use DELETE_FILE over the selected file or batch. YES is optional in this noninteractive service. |
+| `APPEND FILE source TO destination` | Append one complete byte snapshot to an existing closed file. |
+| `PRINT file` | Send the complete ASCII contents of an ordinary closed file to the current output sink. |
+| `DIRECTORY pattern` | Send sorted matching filenames, one per line, to the current output sink. A device-only pattern selects that device's files. |
+
+APPEND uses exact, distinct source and destination names. The destination
+keeps its existing prefix. An open file, alias of the source, or insufficient
+capacity prevents publication. Virtual volumes charge only the additional bytes.
+A configured plain pipe retains its configuration and rejects data that would
+discard part of the existing history. A rooted append replaces the destination
+atomically within its configured root.
+
+DIRECTORY uses bounded component matching on ordinary backends and plain
+basename patterns on PIP. An empty match succeeds with no output. PRINT validates
+the full payload as ASCII before sending any text. Output uses the existing
+WRITE observation or callback, so an output callback failure can follow earlier
+successful chunks.
+
+Inline file commands complete on the caller's turn. KCL returns the final
+result. KCL_NO_WAIT returns acceptance and KCL_STATUS exposes completion.
+Successful completion is 0. Returned FILE statuses are offset by 100, including
+101 for missing data, 102 for conflicts, 103 for busy files and 104 for
+operation-specific capacity or scope limits. A backend, path or output error
+returns 4. Unsupported command syntax and a busy channel retain statuses 1 and 2.
+
+The forms follow MARRC75KR07091E Rev N, PDF pages 706, 711–714 and 724–726.
+Quoted paths, implicit directory defaults, formatted pipe printing, native
+device discovery and socket/DAQ file dispatch remain outside this model.
+The [linked file example](../examples/kcl_file_commands/main.kl) copies and
+appends file data before a worker reads it from a plain pipe.
+
 ## Failure and persistence
 
 Once accepted, a pending request remains observable if its caller pauses, stops,
@@ -103,7 +149,7 @@ the same request without increasing the submission sequence.
 `KclCommands.snapshot()` returns detached reply/history data and a pending
 descriptor when present. Context save rejects pending work; collect it first.
 Terminal configuration saves replies, bounded history, sequence and last status.
-It also retains the task command opt-in when enabled.
+It also retains either command opt-in when enabled.
 Reloading that terminal state starts no jobs and replays no commands. Calling the
 source again is a new explicit source execution, not automatic replay.
 
@@ -119,6 +165,7 @@ python -m karel2py examples/kcl_commands.kl -o kcl_commands.py
 python kcl_commands.py --context examples/kcl_commands.services.initial.json --state-out kcl-state.json
 python -m karel2py.project examples/diagnostics_commands_project --entry MAIN --context examples/diagnostics_commands_project/services.initial.json --state-out project-state.json
 python -m karel2py.project examples/kcl_task_commands --entry MAIN --context examples/kcl_task_commands/services.initial.json
+python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 ```
 
 Use `rt.KclCommands(replies, ...)` with `ExecutionContext(kcl=...)` for host
@@ -129,5 +176,4 @@ number and continues its pause through KCL.
 
 The report's `kcl_policy` and [semantics ledger](semantics/kcl_semantics.json)
 record the accepted command forms and evidence. Native KCL, shell execution,
-file and variable commands, live transport and strict mode remain outside this
-milestone.
+variable commands, live transport and strict mode remain outside this milestone.

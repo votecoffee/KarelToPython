@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.161331 - 2026-11-05
+
+- Add opt-in KCL COPY, RENAME, MOVE, DELETE, APPEND, PRINT and DIRECTORY over
+  explicit offline backends. Reuse the existing FILE batch and ownership checks.
+- Append complete closed byte snapshots with virtual quota, rooted publication
+  and plain pipe capacity checks.
+- Keep scripted reply precedence and report file completion separately from
+  KCL_NO_WAIT acceptance. Add a linked file and pipe replay example.
+
 ## 26.1105.155238 - 2026-11-05
 
 - Add opt-in KCL RUN, CONTINUE, PAUSE and ABORT for explicitly registered offline

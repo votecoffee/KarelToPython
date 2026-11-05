@@ -1,0 +1,21 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "FINISHED": true,
+      "COPIED": 0,
+      "APPENDED": 0,
+      "ACCEPTED": 0,
+      "PIPE_STATUS": 0,
+      "WORKER_STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "FINISHED": true,
+      "RESULT": "start-end",
+      "STREAM": {"file": "PIP:RESULT.DAT", "open": false, "position": 10, "binary": false, "status": 0}
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "files": {
+    "input.txt": {"hex": "7374617274"},
+    "tail.txt": {"hex": "2d656e640a"}
+  },
+  "file_pipes": {
+    "pipes": {
+      "PIP:RESULT.DAT": {"sectors": 1}
+    }
+  },
+  "kcl": {"file_commands": true}
+}
