@@ -678,7 +678,11 @@ def publish_file_bytes(files,name,data,overwrite,line=None,*,obsolete=None):
         if files._busy(name):return 3
         if path.exists() and not overwrite:return 2
         if len(data)>files.limit:raise ValueError('Destination file size limit exceeded')
-        atomic_bytes(path,data);files.files[name]=bytearray(data);return 0
+        try:atomic_bytes(path,data,overwrite=overwrite)
+        except FileExistsError:
+            if not overwrite:return 2
+            raise
+        files.files[name]=bytearray(data);return 0
     files._check(name,data)
     if files._busy(name):return 3
     if name in files.files and not overwrite:return 2
@@ -1019,6 +1023,72 @@ def kcl_working_directory(value):
     return value
 
 
+def kcl_scoped_file(state,channel,value,line=None,*,device_directory=False):
+    name=kcl_file_specification(value,device_directory=device_directory)
+    current=channel.working_directory
+    if current!='.' and ':' not in name:
+        files=_kcl_directory_backend(state,line)
+        if not files._path(current,directory=True).is_dir():
+            raise ValueError('KCL working directory is unavailable')
+        name=kcl_file_specification(current+'/'+name,device_directory=device_directory)
+    return name
+
+
+def kcl_procedure_endpoint(state,name,suffix,line=None):
+    name=kcl_file_specification(name)
+    if name.startswith('PIP:') or any(char in name for char in '*?'):
+        raise ValueError('Command procedures require ordinary, explicit file names')
+    base=name.rsplit('/',1)[-1].split(':')[-1]
+    if '.' not in base:name+=suffix
+    elif not base.upper().endswith(suffix):
+        raise ValueError('Invalid command-procedure file extension')
+    if len(name)>254:raise ValueError('Command-procedure file name exceeds 254 characters')
+    return named_file_endpoint(state.execution,name,line)
+
+
+def kcl_procedure_input(files,key,limit,line=None):
+    from .devices import DeviceFiles
+    from .storage import DirectoryFiles
+
+    if files._busy(key):return 704,None,None
+    limit=min(limit,files.limit)
+    if type(files) is DirectoryFiles:
+        path=files._path(key)
+        if not path.exists():return 701,None,None
+        if not path.is_file():return 704,None,None
+        stat=path.stat()
+        if stat.st_size>limit:return 705,None,None
+        with path.open('rb') as stream:data=stream.read(limit+1)
+        identity=(stat.st_dev,stat.st_ino) if stat.st_ino else path
+    else:
+        if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],line=line)
+        value=files.files.get(key)
+        if value is None:return 701,None,None
+        if len(value)>limit:return 705,None,None
+        data=bytes(value);identity=key
+    if len(data)>limit:return 705,None,None
+    return 0,data,identity
+
+
+def kcl_procedure_output(files,key,line=None,*,data=None):
+    from .devices import DeviceFiles
+    from .storage import DirectoryFiles
+
+    if files._busy(key):return 704
+    if type(files) is DirectoryFiles:
+        path=files._path(key)
+        if path.exists():return 703
+        if not path.parent.is_dir():return 704
+    else:
+        if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],write=True,line=line)
+        if key in files.files:return 703
+        if len(files.files)>=32767:return 705
+    if data is None:return 0
+    if len(data)>files.limit:return 705
+    code=publish_file_bytes(files,key,data,False,line)
+    return {0:0,2:703,3:704}[code]
+
+
 def _kcl_directory_backend(state,line):
     from .storage import DirectoryFiles
 
@@ -1065,22 +1135,12 @@ def _kcl_directory_operation(state,channel,operation,args,line):
 
 def kcl_file_operation(state,operation,args,line=None,*,channel):
     """Dispatch accepted file commands through the explicit context backends."""
-    def scoped(value,*,device_directory=False):
-        name=kcl_file_specification(value,device_directory=device_directory)
-        current=channel.working_directory
-        if current!='.' and ':' not in name:
-            files=_kcl_directory_backend(state,line)
-            if not files._path(current,directory=True).is_dir():
-                raise ValueError('KCL working directory is unavailable')
-            name=kcl_file_specification(current+'/'+name,device_directory=device_directory)
-        return name
-
     try:
         if operation in ('CHDIR','MKDIR','RMDIR'):
             return _kcl_directory_operation(state,channel,operation,args,line)
-        first=scoped(args[0],device_directory=operation=='DIRECTORY')
+        first=kcl_scoped_file(state,channel,args[0],line,device_directory=operation=='DIRECTORY')
         if operation in ('COPY_FILE','RENAME_FILE','APPEND_FILE'):
-            second=scoped(args[1],device_directory=operation=='COPY_FILE')
+            second=kcl_scoped_file(state,channel,args[1],line,device_directory=operation=='COPY_FILE')
             args=(first,second,*args[2:])
         else:
             args=(first,*args[1:])

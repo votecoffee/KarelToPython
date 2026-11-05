@@ -333,14 +333,16 @@ def write_json(path, data):
     atomic_bytes(target,payload)
 
 
-def atomic_bytes(target, data):
+def atomic_bytes(target, data, *, overwrite=True):
     target=Path(target)
     descriptor,name=tempfile.mkstemp(prefix='.'+target.name+'.',suffix='.tmp',dir=target.parent)
     temporary=Path(name)
     try:
         with os.fdopen(descriptor,'wb') as stream:
             stream.write(data); stream.flush(); os.fsync(stream.fileno())
-        os.replace(temporary,target)
+        if overwrite:os.replace(temporary,target)
+        elif os.name=='nt':os.rename(temporary,target)
+        else:os.link(temporary,target)
     finally:
         if temporary.exists(): temporary.unlink()
 

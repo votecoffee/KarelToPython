@@ -79,10 +79,12 @@
     "tests/test_kcl_inspection_commands.py",
     "tests/test_kcl_wait_and_directories.py",
     "tests/test_kcl_defaults_and_frames.py",
+    "tests/test_kcl_procedures.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_task_waits",
     "examples/kcl_session_defaults",
+    "examples/kcl_command_procedure",
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
@@ -142,5 +144,13 @@
     "forms": ["SET DEFAULT", "SHOW DEFAULT", "SET GROUP", "SHOW GROUP", "SHOW HISTORY", "SHOW PROGRAM", "SHOW LOCAL VARIABLE", "SHOW LOCAL VARS"],
     "dispatch": "Saved program and group selections. Read-only inspection of live retained source frames, including recursive and linked routine frames. Source pose and file operands retain separate defaults.",
     "statuses": "Unavailable local frame or variable 201. Unknown program 501. Invalid program or group selection 502 or 602."
+  },
+  "command_procedure_extension": {
+    "version": "26.1105.223042",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [729, 737],
+    "forms": ["RUNCF input [listing]", "%INCLUDE file", "SET VERIFY ON", "SET VERIFY OFF"],
+    "dispatch": "Blocking activation-owned procedure with bounded ASCII preflight, inherited command families and scheduler waits. Optional listing is buffered, success-only and no-overwrite.",
+    "statuses": "Procedure preflight and publication use 701..706. Preserves the first nonzero child result."
   }
 }

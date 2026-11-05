@@ -1,0 +1,22 @@
+{
+  "files": {
+    "start.CF": {"hex": "3e2025494e434c554445206c61756e63680a53455420564552494659204f46460a54595045206e6f74652e7478740a"},
+    "launch.CF": {"hex": "52554e20574f524b45520a5741495420574f524b455220444f4e450a"},
+    "note.txt": {"hex": "72656164790a"},
+    "log.LS": {"hex": "52554e20574f524b45520a5741495420574f524b455220444f4e450a53455420564552494659204f46460a72656164790a"}
+  },
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "MAIN", "operation": "KCL", "command": "SET VERIFY ON", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "MAIN", "operation": "KCL", "command": "RUNCF start log", "phase": "completed", "status": 0}
+    ],
+    "sequence": 2,
+    "last_status": 0,
+    "task_commands": true,
+    "file_commands": true,
+    "procedure_commands": true,
+    "verify": false
+  }
+}

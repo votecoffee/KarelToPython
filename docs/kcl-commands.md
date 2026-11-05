@@ -3,7 +3,7 @@
 KCL, KCL_NO_WAIT and KCL_STATUS use an explicit KclCommands service. The service
 records command requests and returns configured replies. Separate opt-ins
 enable registered task controls and offline file, variable, volume, dictionary,
-program and environment operations.
+program, environment and procedure operations.
 A configured CLEAR ALL reply changes no variables or files.
 
 ```json
@@ -91,7 +91,7 @@ retain statuses 1 and 2.
 The modeled forms follow MARRC75KR07091E Rev N, PDF pages 283–284, 450–452,
 705–706, 710, 724 and 728. The offline task bank keeps explicit binding,
 continuation and terminal-state rules. Native default selectors, abbreviated
-verbs beyond CONT, command files, TP execution and physical motion remain
+verbs beyond the documented aliases, TP execution and physical motion remain
 outside this model.
 
 ### Task waits
@@ -533,10 +533,51 @@ MARRC75KR07091E Rev N, PDF pages 733, 735, 738, 746 and 748–749.
 The [environment example](../examples/kcl_environment_commands.kl) changes
 a simulated input, observes a handler fire and updates the calendar.
 
+## Command procedures
+
+Set `"procedure_commands": true` in the KCL context. Use
+`KCL('RUNCF input [listing]',status)` with a concrete input name and an
+optional listing name. Omitted extensions become `.CF` and `.LS`.
+Names resolve through the explicit ordinary FILE backend and the current
+KCL directory. Supply exact filename spelling for case-sensitive backends.
+Exact scripted replies retain precedence. Built-in RUNCF uses blocking KCL.
+KCL_NO_WAIT returns 3 for this form.
+
+The procedure accepts ASCII command lines, optional leading `>`, and
+`--` comments outside quoted values. `%INCLUDE file` expands an ordinary
+file relative to the containing procedure or to its explicit mapped device.
+The complete input graph is captured before executing commands. Limits
+are 64 KiB of input, four file levels including the entry file, 32 file
+reads, and 256 expanded commands. Includes with cycles, nested RUNCF,
+unknown directives and unsafe paths fail during preflight.
+
+Each line uses the same enabled command families and exact replies.
+The procedure stops at the first nonzero completion code and reports it.
+Effects of earlier commands remain applied. Task WAIT commands use the
+calling task's scheduler. The channel stays busy until the procedure
+finishes. The invoking activation owns the procedure and its private
+waits. Stopping it releases those waits while already launched tasks keep
+their own lifetimes. The channel history records one RUNCF request.
+
+`SET VERIFY ON` and `SET VERIFY OFF` control command echoes. ON is the
+default and OFF persists as `"verify": false`. Echoes and command output
+share a 64 KiB budget. Without a listing, text goes to the caller's output
+path as it is emitted. With a listing, output is buffered and published to
+a new file only on success. A preexisting or concurrently created file
+keeps its contents.
+
+Procedure statuses include 701 for missing input, 702 for invalid syntax
+or paths, 703 for a listing collision, 704 for a busy or unavailable file,
+705 for size or count limits, and 706 for cycles or nested RUNCF. Runtime
+service failures can return 4. Child command statuses are preserved.
+The forms follow MARRC75KR07091E Rev N, PDF pages 729 and 737.
+The [linked example](../examples/kcl_command_procedure/main.kl) expands an
+include, runs and waits for a worker, and saves a listing.
+
 ## Failure and persistence
 
-Once accepted, a pending request remains observable if its caller pauses, stops,
-aborts or its wait fails. It is not cancelled or retried implicitly. This retains
+Once accepted, a scripted reply or task wait remains observable if its caller
+pauses, stops, aborts or its wait fails. This retains
 the distinction between acceptance and collection. A later KCL_STATUS can collect
 the same request without increasing the submission sequence.
 
@@ -561,6 +602,7 @@ python -m karel2py.project examples/diagnostics_commands_project --entry MAIN --
 python -m karel2py.project examples/kcl_task_commands --entry MAIN --context examples/kcl_task_commands/services.initial.json
 python -m karel2py.project examples/kcl_task_waits --entry MAIN --context examples/kcl_task_waits/services.initial.json
 python -m karel2py.project examples/kcl_session_defaults --entry MAIN --context examples/kcl_session_defaults/services.initial.json
+python -m karel2py.project examples/kcl_command_procedure --entry MAIN --context examples/kcl_command_procedure/services.initial.json --state-out procedure-state.json
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json

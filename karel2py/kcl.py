@@ -4,6 +4,9 @@ import math
 import re
 
 
+PROCEDURE_LIMIT=65536
+
+
 def rt():
     from . import runtime
     return runtime
@@ -293,12 +296,96 @@ def environment_command(command):
     return None
 
 
+def procedure_command(command):
+    action,*args=command.split()
+    if action.upper()=='RUNCF' and len(args) in (1,2):
+        return 'RUNCF',tuple(args)
+    if action.upper()=='SET' and len(args)==2 and args[0].upper()=='VERIFY':
+        setting=args[1].upper()
+        if setting in ('ON','OFF'):return 'VERIFY',(setting=='ON',)
+    return None
+
+
+class ProcedureError(Exception):
+    def __init__(self,status):
+        self.status=status
+
+
+def procedure_line(text):
+    """Strip optional prompt and a comment outside quoted operands."""
+    text=text.strip().removeprefix('>').lstrip()
+    quote=None
+    for index,char in enumerate(text):
+        if quote:
+            if char==quote:quote=None
+        elif char in ("'",'"'):
+            quote=char
+        elif char=='-' and text[index:index+2]=='--' and (not index or text[index-1]==' '):
+            return text[:index].rstrip()
+    return text
+
+
+def procedure_plan(state,channel,args,line):
+    from .fileops import (kcl_procedure_endpoint,kcl_procedure_input,kcl_procedure_output,
+                          kcl_scoped_file)
+
+    def resolve(value,suffix):
+        return kcl_procedure_endpoint(state,kcl_scoped_file(state,channel,value,line),suffix,line)
+
+    files,source=resolve(args[0],'.CF')
+    commands=[]
+    remaining=PROCEDURE_LIMIT
+    count=0
+    def load(key,active):
+        nonlocal remaining,count
+        count+=1
+        if len(active)>=4 or count>32:raise ProcedureError(705)
+        state.tick(line)
+        status,data,identity=kcl_procedure_input(files,key,remaining,line)
+        if status:raise ProcedureError(status)
+        if identity in active:raise ProcedureError(706)
+        remaining-=len(data)
+        text=data.decode('ascii')
+        if any(ord(char)<32 and char not in '\r\n' or ord(char)==127 for char in text):
+            raise ProcedureError(702)
+        for number,physical in enumerate(text.splitlines()):
+            if number%256==0:state.tick(line)
+            command=procedure_line(physical)
+            if not command:continue
+            command=command_text(command)
+            verb,*parts=command.split()
+            if verb.upper()=='RUNCF':raise ProcedureError(706)
+            if verb.startswith('%'):
+                if verb.upper()!='%INCLUDE' or len(parts)!=1:raise ProcedureError(702)
+                include=parts[0]
+                if ':' not in include:
+                    device,separator,tail=key.partition(':')
+                    parent=(tail if separator else device).rpartition('/')[0]
+                    include=(device+':' if separator else '')+(parent+'/' if parent else '')+include
+                backend,target=kcl_procedure_endpoint(state,include,'.CF',line)
+                if backend is not files:raise ProcedureError(704)
+                load(target,(*active,identity))
+            else:
+                if len(commands)>=256:raise ProcedureError(705)
+                commands.append(command)
+
+    load(source,())
+    listing=None
+    if len(args)==2:
+        backend,listing=resolve(args[1],'.LS')
+        if backend is not files:raise ProcedureError(704)
+        status=kcl_procedure_output(files,listing,line)
+        if status:raise ProcedureError(status)
+    return files,commands,listing
+
+
 class KclCommands:
     """Single accepted-command channel with configured replies and bounded history."""
     def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,
                  task_commands=False,file_commands=False,variable_commands=False,
                  device_commands=False,dictionary_commands=False,program_commands=False,
-                 environment_commands=False,working_directory='.',default_program=None,default_group=None):
+                 environment_commands=False,working_directory='.',default_program=None,default_group=None,
+                 procedure_commands=False,verify=True):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
@@ -310,6 +397,9 @@ class KclCommands:
         if type(dictionary_commands) is not bool:raise ValueError('KCL dictionary_commands requires a BOOLEAN')
         if type(program_commands) is not bool:raise ValueError('KCL program_commands requires a BOOLEAN')
         if type(environment_commands) is not bool:raise ValueError('KCL environment_commands requires a BOOLEAN')
+        if type(procedure_commands) is not bool:raise ValueError('KCL procedure_commands requires a BOOLEAN')
+        if type(verify) is not bool or not verify and not procedure_commands:
+            raise ValueError('KCL verify requires a BOOLEAN and procedure_commands to disable verification')
         if default_program is not None:
             if (not program_commands or type(default_program) is not str or default_program=='ALL'
                     or not re.fullmatch(r'[A-Z_][A-Z0-9_]{0,35}',default_program)):
@@ -332,6 +422,8 @@ class KclCommands:
         self.dictionary_commands=dictionary_commands
         self.program_commands=program_commands
         self.environment_commands=environment_commands
+        self.procedure_commands=procedure_commands
+        self.verify=verify
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -372,11 +464,15 @@ class KclCommands:
         self.history.append(row);del self.history[:-self.limit]
         return row
 
-    def _dispatch(self,state,name,command,operation):
-        """Hold the channel busy during a supported inline command."""
+    def _begin_inline(self,state,name,command):
         row=self._record(state,name,command,'pending',0)
         job=dict(row=row,status=4,clock=None,delay_ms=0)
         self._pending=job
+        return job
+
+    def _dispatch(self,state,name,command,operation):
+        """Hold the channel busy during a supported inline command."""
+        job=self._begin_inline(state,name,command)
         try:
             job['status']=operation(job)
         except rt().KarelRuntimeError:
@@ -422,7 +518,7 @@ class KclCommands:
         driving = action in ('RUN', 'CONTINUE')
         targets = self._task_targets(state, registry, owner, action, selector)
         if targets is None or (name == 'KCL_NO_WAIT' and driving and owner is None):
-            return self._reject_task(state,name,command)
+            return self._reject_ineligible(state,name,command)
 
         def dispatch(job):
             if driving:
@@ -443,7 +539,7 @@ class KclCommands:
             return 0
         return self._dispatch(state,name,command,dispatch)
 
-    def _reject_task(self,state,name,command):
+    def _reject_ineligible(self,state,name,command):
         self._record(state,name,command,'rejected',3)
         self.last_status=3
         return 3,None
@@ -456,14 +552,14 @@ class KclCommands:
         code,target=selected_task_root(registry,selector,state,line)
         caller=rt().task_root(state)
         if code or target is caller or target.task_state=='ready':
-            return self._reject_task(state,name,command)
+            return self._reject_ineligible(state,name,command)
         run=target._task_run
         code=task_wait_result(target,run,until_pause)
         if code is not None:
             return self._dispatch(state,name,command,lambda _job:code)
         if (not isinstance(registry,TaskScheduler) or target._scheduler is not registry
                 or name=='KCL' and caller._scheduler is not registry):
-            return self._reject_task(state,name,command)
+            return self._reject_ineligible(state,name,command)
 
         def ready():
             if self._pending is job:
@@ -620,6 +716,79 @@ class KclCommands:
             return 600+code if code else 0
         return self._dispatch(state,name,command,dispatch)
 
+    def _submit_procedure(self,state,name,command,request,line):
+        operation,args=request
+        if operation=='VERIFY':
+            def set_verify(_job):
+                self.verify=args[0]
+                return 0
+            return self._dispatch(state,name,command,set_verify)
+        if name=='KCL_NO_WAIT':return self._reject_ineligible(state,name,command)
+        job=self._begin_inline(state,name,command)
+        job['procedure']=args
+        return 0,job
+
+    def _run_procedure(self,state,job,line):
+        from .fileops import kcl_procedure_output,write_file_text
+
+        previous=state._write
+        child=None
+        transcript=[]
+        remaining=PROCEDURE_LIMIT
+        overflow=False
+        try:
+            try:files,commands,listing=procedure_plan(state,self,job['procedure'],line)
+            except ValueError as error:raise ProcedureError(702) from error
+            config=self.snapshot()
+            for key in ('history','sequence','last_status','pending'):config.pop(key)
+            child=self.from_config(config)
+
+            def output(text):
+                nonlocal remaining,overflow
+                if len(text)>remaining:
+                    overflow=True
+                    raise ProcedureError(705)
+                remaining-=len(text)
+                if listing is not None:transcript.append(text)
+                elif previous is not None:return previous(text)
+
+            state._write=output
+            status=0
+            for command in commands:
+                state.tick(line)
+                if child.verify:write_file_text(state,command+'\n',line)
+                status,step=child.submit(state,'KCL',command,line)
+                if step is not None:status=yield from child.wait(state,step,line)
+                self.working_directory=child.working_directory
+                self.default_program=child.default_program
+                self.default_group=child.default_group
+                self.verify=child.verify
+                if step is not None and 'self_action' in step:
+                    yield from rt().checkpoint(state,line,force_pause=step['self_action']=='PAUSE')
+                if status:break
+            state._write=previous
+            if overflow:status=705
+            if not status and listing is not None:
+                if state.execution.files is not files:raise ProcedureError(704)
+                status=kcl_procedure_output(files,listing,line,data=''.join(transcript).encode('ascii'))
+            job['status']=status
+        except ProcedureError as error:
+            job['status']=error.status
+        except (OSError,ValueError):
+            job['status']=704
+        except rt().KarelRuntimeError:
+            if overflow:job['status']=705
+        finally:
+            state._write=previous
+            if child is not None and child._pending is not None:
+                # The enclosing source activation owns the command procedure.
+                # Retire an uncollected private wait without stopping its target.
+                pending=child._pending
+                pending['status']=4
+                child.complete(pending)
+            self.complete(job)
+        return job['status']
+
     def submit(self,state,name,command,line=None):
         try:command=command_text(command)
         except ValueError as exc:raise rt().KarelRuntimeError(str(exc),line) from exc
@@ -636,6 +805,7 @@ class KclCommands:
                 (self.dictionary_commands,dictionary_command,self._submit_dictionary),
                 (self.program_commands,program_command,self._submit_program),
                 (self.environment_commands,environment_command,self._submit_environment),
+                (self.procedure_commands,procedure_command,self._submit_procedure),
             ):
                 if enabled:
                     request=parse(command)
@@ -668,6 +838,8 @@ class KclCommands:
                     yield from rt().checkpoint(root,line,force_pause=True)
             return job['status']
         if self._pending is job:
+            if 'procedure' in job:
+                raise rt().KarelRuntimeError('An executing KCL command procedure belongs to its calling activation',line)
             if job['clock'] is None:
                 raise rt().KarelRuntimeError('Cannot collect an executing inline KCL command', line)
             remaining=max(0,math.ceil((job['due']-job['clock']())/1000))
@@ -684,7 +856,9 @@ class KclCommands:
             if self.last_status is None:raise rt().KarelRuntimeError('KCL_STATUS has no submitted or configured result',line)
             return self.last_status
         code,job=self.submit(state,name,args[0],line)
-        if name=='KCL' and job is not None:code=yield from self.wait(state,job,line)
+        if name=='KCL' and job is not None:
+            if 'procedure' in job:code=yield from self._run_procedure(state,job,line)
+            else:code=yield from self.wait(state,job,line)
         args[1].set(code,line)
         if job is not None and 'self_action' in job:
             yield from rt().checkpoint(state,line,force_pause=job['self_action']=='PAUSE')
@@ -701,6 +875,8 @@ class KclCommands:
         if self.dictionary_commands:result['dictionary_commands']=True
         if self.program_commands:result['program_commands']=True
         if self.environment_commands:result['environment_commands']=True
+        if self.procedure_commands:result['procedure_commands']=True
+        if not self.verify:result['verify']=False
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
         return result
@@ -713,6 +889,6 @@ class KclCommands:
     def from_config(cls,config):
         fields={'replies','limit','history','sequence','last_status','task_commands','file_commands',
                 'variable_commands','device_commands','dictionary_commands','program_commands','environment_commands',
-                'working_directory','default_program','default_group'}
+                'working_directory','default_program','default_group','procedure_commands','verify'}
         if type(config) is not dict or set(config)-fields:raise ValueError('Unknown KCL channel fields')
         return cls(**config)

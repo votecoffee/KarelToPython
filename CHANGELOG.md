@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1105.223042 - 2026-11-05
+
+- Add opt-in blocking KCL RUNCF with bounded ASCII input, preflighted
+  relative includes, task waits and optional success-only listing files.
+- Add SET VERIFY and preserve the first nonzero child status. Hold the
+  channel busy through the procedure and release private waits on stop.
+- Use atomic no-overwrite publication for new rooted listing files.
+
 ## 26.1105.215618 - 2026-11-05
 
 - Add saved KCL program and robot-group defaults with checked selectors.

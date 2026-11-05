@@ -552,6 +552,10 @@ queue-entry policies; FILE banks remain excluded.
   Session defaults and live source-frame listings use the supplied offline
   task and robot contexts. Local mutation and native routine symbol files
   remain outside this model.
+  [Command procedures](kcl-commands.md#command-procedures) execute bounded
+  ASCII CF inputs and relative includes over enabled offline services.
+  The portable form uses blocking KCL, stops on the first error and saves
+  complete listings on success.
   Physical I/O, controller time and native breakpoint
   controls remain outside these models. Three diagnostic calls use an
   [offline event/stack model](diagnostics.md).

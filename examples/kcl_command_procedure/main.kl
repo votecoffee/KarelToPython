@@ -1,0 +1,10 @@
+PROGRAM MAIN
+VAR phase FROM WORKER:INTEGER
+    status,finished:INTEGER
+BEGIN
+  phase=0
+  DELETE_FILE('log.LS',FALSE,status)
+  KCL('SET VERIFY ON',status)
+  KCL('RUNCF start log',status)
+  finished=KCL_STATUS
+END MAIN

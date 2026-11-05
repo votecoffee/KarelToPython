@@ -1,0 +1,8 @@
+{
+  "files": {
+    "start.CF": "> %INCLUDE launch\nSET VERIFY OFF\nTYPE note.txt\n",
+    "launch.CF": "RUN WORKER\nWAIT WORKER DONE\n",
+    "note.txt": "ready\n"
+  },
+  "kcl": {"procedure_commands": true, "task_commands": true, "file_commands": true}
+}
