@@ -1,0 +1,18 @@
+PROGRAM MAIN
+VAR lock_status,held_status,release_status:INTEGER done:BOOLEAN
+ROUTINE request_pause FROM LIB
+ROUTINE exercise
+BEGIN
+ LOCK_GROUP(1,lock_status)
+ CONDITION[1]:
+  WHEN PAUSE DO NOPAUSE
+ ENDCONDITION
+ ENABLE CONDITION[1]
+ request_pause()
+ UNLOCK_GROUP(1,held_status)
+ UNHOLD
+ UNLOCK_GROUP(1,release_status)
+END exercise
+BEGIN
+ IF UNINIT(done) THEN exercise() done=TRUE ENDIF
+END MAIN

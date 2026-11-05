@@ -1,0 +1,17 @@
+PROGRAM MAIN
+VAR lock_status,release_status:INTEGER observed,done:BOOLEAN
+ROUTINE request_abort FROM LIB
+ROUTINE exercise
+BEGIN
+ LOCK_GROUP(3,lock_status)
+ observed=FALSE
+ CONDITION[1]:
+  WHEN ABORT DO observed=TRUE NOABORT
+ ENDCONDITION
+ ENABLE CONDITION[1]
+ request_abort()
+ UNLOCK_GROUP(1,release_status)
+END exercise
+BEGIN
+ IF UNINIT(done) THEN exercise() done=TRUE ENDIF
+END MAIN

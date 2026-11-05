@@ -5841,7 +5841,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         force='Named force_sw=TRUE bypasses the command ignore mask. Handler NOPAUSE/NOABORT and cooperative checkpoint delivery still apply.',
         broadcast='Case-insensitive *ALL* selects each eligible live root once in the explicit registry. PAUSE selects running and waiting tasks. ABORT includes paused tasks.',
         ownership='Broadcasts honor the ignore masks and select executions owned by the registry driver. The complete batch is queued before a caller included in it scans its own request.',
-        status='Portable 0 accepted, including a suppressed or empty broadcast, and 1 for a missing named binding. Motion-stop flags reject.',
+        motion='Explicit shared MotionRequests and GroupLocks apply HOLD for pause or CANCEL for abort on eligible live targets. Preflight the entire batch, exact ownership and history capacity before any publication.',
+        motion_lifetime='Motion changes commit with the accepted command and use observed logical state. Hold persists through continuation until UNHOLD. A later task handler can suppress its task transition.',
+        status='Portable 0 accepted, including a suppressed or empty broadcast, and 1 for a missing named binding.',
         guide='docs/task-and-file-extensions.md#forced-and-broadcast-requests',
         controller_validated=False)
     report['task_run_policy']=dict(

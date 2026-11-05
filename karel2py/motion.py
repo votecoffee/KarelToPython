@@ -446,6 +446,92 @@ class MotionRequests:
             raise rt().KarelRuntimeError('Motion local clauses require bounded callable WHEN/UNTIL descriptors',line)
         return [dict(kind=kind,line=location) for kind,_,_,location in clauses]
 
+    @staticmethod
+    def _validate_owner_names(root, source):
+        for name in (root.program_name, source.program_name):
+            if type(name) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]{0,253}', name):
+                raise ValueError('Motion request owner requires an ASCII source identifier within 254 characters')
+
+    def _control_data(self, locks, operation, groups):
+        if (type(groups) is not list or len(groups) > 31
+                or any(type(group) is not int or group not in self.groups for group in groups)
+                or len(set(groups)) != len(groups)):
+            raise ValueError('Motion control requires distinct configured group numbers')
+        groups = sorted(groups)
+        states = []
+        for group in groups:
+            before = dict(motion=locks.motion.get(group, 'idle'), held=group in locks.held)
+            states.append(dict(group=group, before=before, after=transition(operation, before)))
+        return dict(groups=groups, states=states)
+
+    def _record_request(self, root, source, operation, group, line, nowait, outcome, data):
+        self.sequence += 1
+        request = dict(sequence=self.sequence, program=root.program_name,
+                       source_program=source.program_name, operation=operation, group=group,
+                       line=line, nowait=nowait, outcome=outcome, data=deepcopy(data))
+        self.history.append(request)
+        del self.history[:-self.limit]
+        return request
+
+    def _apply_control(self, locks, operation, data):
+        for row in data['states']:
+            group = row['group']
+            scope = self._active.get(group)
+            if operation == 'CANCEL' and scope is not None and row['before']['motion'] != 'stopped':
+                scope['cancelled'] = True
+            locks.set_motion(group, row['after']['motion'])
+            if row['after']['held']:
+                locks.held.add(group)
+            else:
+                locks.held.discard(group)
+            if scope is not None and scope.get('background'):
+                if scope['cancelled'] and not scope.get('scanning'):
+                    self.finish_scope(scope, 'cancelled')
+                else:
+                    scope['blocked'] = self.background_blocked(scope)
+
+    def prepare_task_controls(self, source, roots, operation, line):
+        """Check every live task's owned motion before accepting the command batch."""
+        runtime = rt()
+        locks = source.execution.group_locks
+        rows = []
+        try:
+            if any(group not in locks.groups for group in self.groups):
+                raise ValueError('Motion groups must exist in the logical GroupLocks bank')
+            for root in roots:
+                if root.execution.motion is not self or root.execution.group_locks is not locks:
+                    raise ValueError('Task motion control requires shared MotionRequests and GroupLocks')
+                groups = [group for group, owner in locks.owners.items() if owner is root]
+                if not groups:
+                    continue
+                if root in self._released:
+                    raise ValueError('Task motion control requires attached logical group ownership')
+                self._validate_owner_names(root, source)
+                bounded(line, 1, MAX_SEQUENCE, 'Invalid task motion source line')
+                data = self._control_data(locks, operation, groups)
+                self.validate(operation, data['groups'][0], data)
+                for group in data['groups']:
+                    scope = self._active.get(group)
+                    if scope is not None:
+                        if scope['root'] is not root or scope['locks'] is not locks:
+                            raise ValueError('Task motion control found a foreign active scope')
+                        self._verify_batch(scope, line)
+                    elif self._queued.get(group):
+                        raise ValueError('Task motion control found a queue without an active scope')
+                rows.append((root, data))
+            if self.sequence + len(rows) > MAX_SEQUENCE:
+                raise ValueError('Motion request sequence exhausted')
+        except ValueError as error:
+            raise runtime.KarelRuntimeError(str(error), line) from error
+        return locks, rows
+
+    def apply_task_controls(self, source, operation, line, plan):
+        """Commit the prepared transitions without polling clocks or driving tasks."""
+        locks, rows = plan
+        for root, data in rows:
+            self._record_request(root, source, operation, data['groups'][0], line, False, 'completed', data)
+            self._apply_control(locks, operation, data)
+
     def invoke(self, state, operation, data, nowait=False, line=None, *, settings=None, _execution=None, _background=False, _clauses=(), _callback_context=None, _clock_sample=None, _queue_wait=False):
         runtime = rt()
         if _clock_sample is not None and not _background:
@@ -455,9 +541,7 @@ class MotionRequests:
         root = runtime.task_root(state)
         locks = state.execution.require('group_locks', line)
         try:
-            for name in (root.program_name, state.program_name):
-                if type(name) is not str or not re.fullmatch(r'[A-Z_][A-Z_0-9]{0,253}', name):
-                    raise ValueError('Motion request owner requires an ASCII source identifier within 254 characters')
+            self._validate_owner_names(root, state)
             if settings and operation not in MOVES:
                 raise ValueError('WITH settings require a MOVE request')
             queued = operation in MOVES and group in self._active
@@ -507,16 +591,7 @@ class MotionRequests:
                 if groups is None:
                     local = self._local_actions.get(root)
                     groups = [local['group']] if local is not None else [g for g, owner in locks.owners.items() if owner is root]
-                if (type(groups) is not list or len(groups) > 31
-                        or any(type(g) is not int or g not in self.groups for g in groups)
-                        or len(set(groups)) != len(groups)):
-                    raise ValueError('Motion control requires distinct configured group numbers')
-                groups = sorted(groups)
-                states = []
-                for selected_group in groups:
-                    before = dict(motion=locks.motion.get(selected_group, 'idle'), held=selected_group in locks.held)
-                    states.append(dict(group=selected_group, before=before, after=transition(operation, before)))
-                data = dict(groups=groups, states=states)
+                data = self._control_data(locks, operation, groups)
             if operation == 'RELEASE':
                 data = dict(groups=sorted(g for g, owner in locks.owners.items() if owner is root))
             elif operation == 'ATTACH':
@@ -562,12 +637,7 @@ class MotionRequests:
         except (ValueError, runtime.KarelRuntimeError) as error:
             raise runtime.KarelRuntimeError(str(error), line) from error
         # All data, ownership, capacity and scripted response checks precede publication.
-        self.sequence += 1
-        request = dict(sequence=self.sequence, program=root.program_name,
-            source_program=state.program_name, operation=operation, group=group,
-            line=line, nowait=nowait, outcome=outcome, data=deepcopy(data))
-        self.history.append(request)
-        del self.history[:-self.limit]
+        request = self._record_request(root, state, operation, group, line, nowait, outcome, data)
         if operation in MOVES and not self.capture_only:
             self.responses.pop(0)
         elif operation == 'ATTACH':
@@ -581,19 +651,7 @@ class MotionRequests:
                 locks.owners.pop(selected_group, None)
                 locks._ownership_tokens.pop(selected_group, None)
         elif operation in CONTROLS:
-            for row in data['states']:
-                selected_group = row['group']
-                scope = self._active.get(selected_group)
-                if operation == 'CANCEL' and scope is not None and row['before']['motion'] != 'stopped':
-                    scope['cancelled'] = True
-                locks.set_motion(selected_group, row['after']['motion'])
-                if row['after']['held']:
-                    locks.held.add(selected_group)
-                else:
-                    locks.held.discard(selected_group)
-                if scope is not None and scope.get('background'):
-                    if scope['cancelled'] and not scope.get('scanning'):self.finish_scope(scope,'cancelled')
-                    else:scope['blocked']=self.background_blocked(scope)
+            self._apply_control(locks, operation, data)
         elif operation.endswith(' HAND'):
             self.hands[data['hand']] = {'OPEN HAND': 'open', 'CLOSE HAND': 'closed', 'RELAX HAND': 'relaxed'}[operation]
         if outcome == 'rejected':

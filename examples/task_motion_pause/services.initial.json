@@ -1,0 +1,14 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ]
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "capture_only": true
+  },
+  "local_handlers": true
+}

@@ -252,14 +252,29 @@ def named_task_control(state,name,args,line=None):
     if target is None and not broadcast:
         args[-1].set(1, line)
         return
-    force = runtime.boolean(args[1], line)
-    if runtime.boolean(args[2], line):
-        raise runtime.KarelRuntimeError('Motion-stop/cancellation semantics are outside the offline task model', line)
+    force = runtime.boolean(args[1], line) and not broadcast
+    motion = runtime.boolean(args[2], line)
     action = 'PAUSE' if name == 'PAUSE_TASK' else 'ABORT'
     targets = broadcast_task_targets(registry, action) if broadcast else (task_root(target._state),)
+    if motion:
+        from .scheduling import TaskScheduler, task_request_suppressed
+        bank = state.execution.motion
+        if bank is None or state.execution.group_locks is None:
+            raise runtime.KarelRuntimeError('Motion-stop/cancellation requires explicit MotionRequests and GroupLocks', line)
+        live = tuple(root for root in targets
+                     if root.task_state in ('running', 'waiting', 'paused')
+                     and getattr(root.program, '_execution', None) is not None
+                     and (force or not task_request_suppressed(root, action, 'command')))
+        owner = registry if isinstance(registry, TaskScheduler) else None
+        if any(root._scheduler is not owner for root in live):
+            raise runtime.KarelRuntimeError('Task motion control requires the owning task driver', line)
+        operation = 'HOLD' if action == 'PAUSE' else 'CANCEL'
+        plan = bank.prepare_task_controls(state, live, operation, line)
     args[-1].set(0, line)
+    if motion:
+        bank.apply_task_controls(state, operation, line, plan)
     for root in targets:
-        request_task_control(root, action, line, force=force and not broadcast)
+        request_task_control(root, action, line, force=force)
     if task_root(state) in targets:
         yield from runtime.checkpoint(state, line, force_pause=action == 'PAUSE')
 

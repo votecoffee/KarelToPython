@@ -70,6 +70,14 @@ the supplied labels and resulting hold flags. A new task needs explicit
 ownership before changing those flags. Source frames and task ownership are
 never restored from JSON.
 
+## Task motion switches
+
+Named and broadcast [task requests](task-and-file-extensions.md#logical-motion-flags)
+can apply HOLD on PAUSE_TASK or CANCEL on ABORT_TASK to a live target's owned
+groups. They use the same checked transitions above. The target retains its
+hold flags until explicit UNHOLD. The control record names the target and
+retains the source location of the requesting task or library.
+
 ## Temporary WITH settings
 
 ```karel

@@ -1,0 +1,17 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "LOCK_STATUS": 0,
+      "RELEASE_STATUS": 0,
+      "OBSERVED": true,
+      "DONE": true
+    }
+  }
+}

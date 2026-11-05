@@ -1,0 +1,76 @@
+{
+  "group_locks": {
+    "groups": [
+      1
+    ],
+    "motion": {}
+  },
+  "motion": {
+    "groups": {
+      "1": 2
+    },
+    "hands": {},
+    "capture_only": true,
+    "responses": [],
+    "limit": 128,
+    "sequence": 2,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "source_program": "LIB",
+        "operation": "HOLD",
+        "group": 1,
+        "line": 5,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": false
+              },
+              "after": {
+                "motion": "idle",
+                "held": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "source_program": "MAIN",
+        "operation": "UNHOLD",
+        "group": 1,
+        "line": 13,
+        "nowait": false,
+        "outcome": "completed",
+        "data": {
+          "groups": [
+            1
+          ],
+          "states": [
+            {
+              "group": 1,
+              "before": {
+                "motion": "idle",
+                "held": true
+              },
+              "after": {
+                "motion": "idle",
+                "held": false
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

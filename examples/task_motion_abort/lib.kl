@@ -1,0 +1,7 @@
+PROGRAM LIB
+VAR status:INTEGER
+ROUTINE request_abort
+BEGIN
+ ABORT_TASK('MAIN',TRUE,TRUE,status)
+END request_abort
+BEGIN END LIB

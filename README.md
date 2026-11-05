@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Task motion flags](docs/task-and-file-extensions.md#logical-motion-flags) now
+apply HOLD or CANCEL to the owned groups of eligible live tasks. The offline
+services check every target and the complete history capacity before committing
+a named request or broadcast.
+
 [Forced and broadcast task requests](docs/task-and-file-extensions.md#forced-and-broadcast-requests)
 add named force switches and `*ALL*` selection for PAUSE_TASK and ABORT_TASK.
 Scheduler aliases share one execution turn and one wait deadline per Program.
@@ -284,7 +289,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.135242**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.141837**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

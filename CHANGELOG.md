@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1105.141837 - 2026-11-05
+
+- Use explicit shared motion and group banks for the PAUSE_TASK and ABORT_TASK
+  motion flags. Apply HOLD or CANCEL only to eligible live targets' owned groups.
+- Validate all target scopes and history capacity before publishing a named
+  request or broadcast. Reuse the existing logical control transitions.
+- Retain holds through continuation until UNHOLD. Keep motion effects committed
+  if a later handler clears the task request.
+- Add authored queue, ownership, broadcast, and saved-state replay coverage.
+
 ## 26.1105.135242 - 2026-11-05
 
 - Apply the documented PAUSE_TASK and ABORT_TASK force switches to named

@@ -45,12 +45,42 @@ mask regardless of the force argument. An included caller scans its own
 request after the whole batch is queued.
 
 Status 0 acknowledges an accepted request, including a suppressed request or
-empty broadcast. Status 1 reports a missing named binding. The offline forms
-require false motion-stop and motion-cancel switches. MARRC75KR07091E Rev N,
+empty broadcast. Status 1 reports a missing named binding. MARRC75KR07091E Rev N,
 PDF pages 302 and 474, describes the force switches and wildcard selection.
 
 See the linked [pause and force example](../examples/task_broadcast_pause/main.kl)
 and the [abort handler example](../examples/task_broadcast_abort/main.kl).
+
+### Logical motion flags
+
+`PAUSE_TASK(...,TRUE,status)` in the motion-switch position applies the
+portable HOLD transition. `ABORT_TASK(...,TRUE,status)` in that position
+applies the portable CANCEL transition. These effects require the caller's
+explicit MotionRequests and GroupLocks. Each affected live target must share
+those banks and belong to the registered task driver.
+
+The command selects every group owned by each eligible target. A masked
+request has no motion effect. A live target with no owned groups adds no
+motion history row. For broadcasts, the full batch must pass group
+configuration, exact active-grant and history-capacity checks before any status,
+motion transition or task request is published. The check uses the most recently
+observed logical state and runs without advancing motion clocks.
+
+HOLD freezes queued progress and stays set through task continuation until
+explicit UNHOLD. CANCEL clears executing labels and cancels their active and
+queued work using the existing motion-control rules. Stopped labels and hold
+flags retain their existing CANCEL treatment. A synchronous or scanning scope
+unwinds at its own checked continuation.
+
+The motion action commits when the command is accepted. A later NOPAUSE or
+NOABORT handler can clear the task request while the motion transition remains
+committed. History records the target task as owner, the requester's source
+module and line, and the complete selected group list. The first selected group
+labels that row.
+
+See the linked [hold example](../examples/task_motion_pause/main.kl) and
+[cancel example](../examples/task_motion_abort/main.kl). The
+[motion control guide](motion-controls.md) describes the offline state model.
 
 ### RUN_TASK entry and continuation
 
