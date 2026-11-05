@@ -1,0 +1,21 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "FINISHED": true,
+      "NAME": "PARENT",
+      "NUMBER": 2,
+      "STATUS": 0,
+      "TEXT": {"uninitialized": true},
+      "VALUE": 103
+    }
+  },
+  "PARENT": {
+    "state": "completed",
+    "values": {"COUNT": 2, "STATUS": 0}
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {"COUNT": 7, "FINISHED": true}
+  }
+}

@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.150241 - 2026-11-05
+
+- Continue paused RUN_TASK descendants with their parent in both task drivers.
+  Match live launch runs, follow paused paths and deduplicate aliases.
+- Preserve each continuation and its owned resources. POWERUP recovery sends
+  the recovery notification to the selected root and CONTINUE to its children.
+- Document synchronous ordering and add a linked CLI example for parent
+  continuation through CONT_TASK.
+
 ## 26.1105.144141 - 2026-11-05
 
 - Track live RUN_TASK parent and child executions for GET_TSK_INFO. Preserve

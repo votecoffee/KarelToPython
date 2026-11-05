@@ -117,7 +117,7 @@ relationship, so a new run begins with a new identity.
 These reads use live lineage in the launch driver. When the selected task
 is inactive or belongs to a different driver, an explicit TSK_PARENT or
 TSK_NUMCLDS bind value supplies informational data. The fallback is zero.
-Lineage is for inspection and each task uses its explicit control operations.
+The same live links qualify [parent continuation](task-and-file-extensions.md#continuing-a-parent-task).
 
 TSK_LOCKGRP and TSK_MCTL use the same portable mask of currently owned logical
 groups. Bit n-1 represents group n, including group 31. A configured bank

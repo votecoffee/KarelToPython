@@ -1,0 +1,8 @@
+PROGRAM PARENT
+VAR status,count:INTEGER
+BEGIN
+ count=1
+ RUN_TASK('WORKER',0,TRUE,FALSE,0,status)
+ PAUSE
+ count=count+1
+END PARENT

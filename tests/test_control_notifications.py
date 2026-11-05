@@ -234,7 +234,8 @@ class LifecycleAndLinkedControlTests(unittest.TestCase):
     def test_global_post_pause_targets_active_tasks(self):
         instance=translate_project({'a':source('MAIN',"RUN_TASK('CHILD',0,FALSE,FALSE,0,s) DELAY 10 POST_ERR(12,'',0,1) n=7"),'b':source('CHILD','DELAY 100 n=9')}).instantiate()
         result=instance.run('MAIN');self.assertEqual((result['MAIN']['state'],result['CHILD']['state']),('paused','paused'))
-        for name in ('MAIN','CHILD'): instance.scheduler.continue_task(name)
+        instance.scheduler.continue_task('MAIN')
+        self.assertEqual(instance.programs['CHILD'].task_state,'running')
         result=instance.scheduler.run();self.assertEqual((result['MAIN']['values']['N'],result['CHILD']['values']['N']),(7,9))
 
     def test_global_abort_removes_other_pending_wait(self):

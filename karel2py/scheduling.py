@@ -69,6 +69,32 @@ def live_task_parent(registry, child):
     return None
 
 
+def paused_task_descendants(root):
+    """Capture paused paths in binding order within the root's launch driver."""
+    registry = _lineage_registry(root)
+    children = {}
+    seen = {root}
+    for program in registry.tasks.values():
+        child = program._state
+        if (child in seen or child.task_state != 'paused' or child._scheduler is not root._scheduler
+                or child._driving or getattr(program, '_execution', None) is None):
+            continue
+        parent = live_task_parent(registry, child)
+        if parent is not None:
+            seen.add(child)
+            children.setdefault(parent, []).append(program)
+    descendants = list(children.get(root, ()))
+    for program in descendants:
+        descendants.extend(children.get(program._state, ()))
+    return descendants
+
+
+def mark_task_continued(state):
+    state.task_state = 'running'
+    state._pause_requested = False
+    state._lifecycle['CONTINUE'] += 1
+
+
 def task_attribute(registry,name,program,attribute,line=None):
     runtime=rt();root=runtime.task_root(program._state)
     if attribute in root._task_settings: return root._task_settings[attribute]
@@ -360,9 +386,10 @@ class TaskScheduler:
             raise rt().KarelRuntimeError('Only a paused task can continue')
         if state._scheduler is not self or getattr(program, '_execution', None) is None:
             raise rt().KarelRuntimeError('Only the owning TaskScheduler can continue a live paused task')
-        state.task_state = 'running'
-        state._pause_requested = False
-        state._lifecycle['CONTINUE'] = state._lifecycle.get('CONTINUE', 0) + 1
+        descendants = paused_task_descendants(state)
+        mark_task_continued(state)
+        for child in descendants:
+            mark_task_continued(child._state)
         if powerup:
             state._lifecycle['POWERUP'] = state._lifecycle.get('POWERUP', 0) + 1
     def powerup(self,name): self.continue_task(name,powerup=True)

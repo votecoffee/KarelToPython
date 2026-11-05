@@ -1,0 +1,15 @@
+PROGRAM MAIN
+VAR finished FROM WORKER:BOOLEAN
+    name,text:STRING[16]
+    number,value,status:INTEGER
+BEGIN
+ finished=FALSE
+ RUN_TASK('PARENT',0,FALSE,FALSE,0,status)
+ name='PARENT'
+ REPEAT
+  number=0
+  GET_TSK_INFO(name,number,TSK_STATUS,value,text,status)
+ UNTIL value=PG_PAUSED
+ CONT_TASK('PARENT',status)
+ WAIT FOR finished
+END MAIN

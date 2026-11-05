@@ -109,6 +109,30 @@ Pythonic mapping uses main entry for KAREL. See the linked
 [continuation example](../examples/run_task_resume/main.kl) and
 [pause-on-entry example](../examples/run_task_entry_pause/main.kl).
 
+### Continuing a parent task
+
+Continuing a paused parent also continues its paused RUN_TASK descendants.
+The request follows paused child links in the same driver. Each link belongs
+to the exact live runs that established it. Aliases share a continuation and
+a new parent run cannot resume children left over from an earlier run.
+
+Host resume, remote numeric CONTINUE, CONT_TASK, and RUN_TASK on a paused
+target use this behavior. POWERUP recovery sends POWERUP to the selected task
+and ordinary CONTINUE to its paused descendants. Each selected task keeps
+its existing frames, pending waits and resource ownership.
+
+The scheduler makes the selected tasks runnable together and uses its regular
+priority and round ordering. The synchronous registry captures the paused
+descendants at request time, advances the parent, then visits the captured
+tasks in breadth-first registry order. A child already advanced by the parent
+keeps its new continuation. A runtime failure stops the synchronous drive and
+propagates after any effects already committed. Bare or self CONTINUE remains
+a local lifecycle action.
+
+See MARRC75KR07091E Rev N, PDF page 283, section 17.5.2, and the authored
+[parent continuation example](../examples/task_family_continue/main.kl).
+Native STEP propagation is outside this model.
+
 ## POST_ERR_L
 
 `POST_ERR_L(code,parameter,cause,severity)` accepts predefined ERSEV names. Codes

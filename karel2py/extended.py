@@ -1838,11 +1838,46 @@ def run_cooperative(program,max_steps=100000):
     return drive(program)
 
 
-def resume_cooperative(program):
-    if program._state.task_state!='paused': fail('Only a paused task can resume')
-    if program._state._scheduler is not None: fail('Scheduled tasks continue through their TaskScheduler')
-    program._state._lifecycle['CONTINUE']+=1
-    program._state.task_state='running'; return drive(program)
+def resume_cooperative(program, *, powerup=False):
+    from .scheduling import mark_task_continued, paused_task_descendants
+    state = program._state
+    if state._driving: fail('A Program cannot be driven recursively')
+    if state.task_state != 'paused': fail('Only a paused task can resume')
+    if state._scheduler is not None: fail('Scheduled tasks continue through their TaskScheduler')
+    descendants = [(child, child._state._task_run, child._state._lifecycle['CONTINUE'])
+                   for child in paused_task_descendants(state)]
+    mark_task_continued(state)
+    if powerup:
+        state._lifecycle['POWERUP'] = state._lifecycle.get('POWERUP', 0) + 1
+    if not descendants:
+        return drive(program)
+
+    control = (KarelPause, KarelStop, runtime().KarelAbort)
+    interruption = None
+    try:
+        result = drive(program)
+    except control as exc:
+        interruption = exc
+
+    # The parent can explicitly resume a child during its own continuation.
+    # Only deliver the captured request to the original, still-paused generation.
+    state._driving = True
+    try:
+        for child, run, continued in descendants:
+            target = child._state
+            if (target.task_state != 'paused' or target._task_run is not run
+                    or target._lifecycle['CONTINUE'] != continued or target._driving):
+                continue
+            mark_task_continued(target)
+            try:
+                drive(child)
+            except control:
+                pass
+    finally:
+        state._driving = False
+    if interruption is not None:
+        raise interruption
+    return result
 
 
 def stop_cooperative(program):

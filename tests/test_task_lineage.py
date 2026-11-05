@@ -75,7 +75,9 @@ class TaskLineageTests(unittest.TestCase):
         self.assertEqual(linked.programs['MAIN'].task_state, 'paused')
         self.assertEqual(value(linked.context, 'MAIN', 'TSK_NUMCLDS'), 0)
         self.assertEqual(value(linked.context, 'WORKER', 'TSK_PARENT'), 0)
-        linked.scheduler.stop('MAIN')
+        linked.scheduler.continue_task('MAIN')
+        linked.scheduler.run()
+        self.assertEqual(linked.programs['WORKER'].task_state, 'paused')
         linked.scheduler.stop('WORKER')
 
     def test_synchronous_child_can_query_parent_during_run_task(self):
@@ -165,6 +167,111 @@ class TaskLineageTests(unittest.TestCase):
         self.assertEqual(value(context, 'MAIN', 'TSK_NUMCLDS'), 1)
         child.stop()
         main.stop()
+
+
+class TaskLineageContinuationTests(unittest.TestCase):
+    def test_scheduled_powerup_cascades_across_paused_paths_once(self):
+        worker = run_child('LEAF') + ' PAUSE n=2 PAUSE'
+        main = run_child() + ' PAUSE n=3 PAUSE'
+        linked = project(main, worker, leaf=source('LEAF', 'PAUSE n=4 PAUSE'),
+                         unrelated=source('UNRELATED', 'PAUSE n=5'))
+        scheduler = linked.scheduler
+        scheduler.bind('WORKER_ALIAS', linked.programs['WORKER'])
+        scheduler.start('UNRELATED')
+        linked.run('MAIN')
+        self.assertEqual(scheduler.rename('WORKER', 'RENAMED'), 0)
+        scheduler.powerup('MAIN')
+        self.assertEqual({name: task.task_state for name, task in linked.programs.items()},
+                         {'MAIN': 'running', 'WORKER': 'running', 'LEAF': 'running', 'UNRELATED': 'paused'})
+        scheduler.run()
+        for name, number, powerup in (('MAIN', 3, 1), ('WORKER', 2, 0), ('LEAF', 4, 0)):
+            task = linked.programs[name]
+            self.assertEqual(task.snapshot()['N'], number)
+            self.assertEqual(task.task_state, 'paused')
+            self.assertEqual(task._state._lifecycle['CONTINUE'], 1)
+            self.assertEqual(task._state._lifecycle.get('POWERUP', 0), powerup)
+        for name in ('MAIN', 'WORKER_ALIAS', 'LEAF', 'UNRELATED'):
+            scheduler.stop(name)
+
+    def test_waiting_child_does_not_carry_continuation_to_paused_leaf(self):
+        linked = project(run_child() + ' PAUSE', run_child('LEAF') + ' DELAY 500',
+                         leaf=source('LEAF', 'PAUSE n=4'))
+        scheduler = linked.scheduler
+        scheduler.start('MAIN')
+        for _ in range(30):
+            if linked.programs['WORKER'].task_state == 'waiting':
+                break
+            scheduler.step()
+        self.assertEqual(linked.programs['WORKER'].task_state, 'waiting')
+        self.assertEqual(linked.programs['LEAF'].task_state, 'paused')
+        scheduler.continue_task('MAIN')
+        self.assertEqual(linked.programs['LEAF'].task_state, 'paused')
+        for name in ('MAIN', 'WORKER', 'LEAF'):
+            scheduler.stop(name)
+
+    def standalone(self, main_body, worker_body, **workers):
+        context = rt.ExecutionContext()
+        main = program(main_body, context=context, name='MAIN')
+        child = program(worker_body, context=context, name='WORKER')
+        context.tasks.bind('MAIN', main)
+        context.tasks.bind('WORKER', child)
+        for name, body in workers.items():
+            context.tasks.bind(name, program(body, context=context, name=name))
+        with self.assertRaises(rt.KarelPause):
+            main.run()
+        return context, main, child
+
+    def test_standalone_named_continue_delivers_descendant_handlers(self):
+        body = ('n=0 CONDITION[1]: WHEN CONTINUE DO n=n+1 ENDCONDITION '
+                'ENABLE CONDITION[1] PAUSE s=n PAUSE')
+        context, main, child = self.standalone(
+            run_child() + ' PAUSE n=3',
+            run_child('LEAF') + ' ' + body, LEAF=body)
+        context.tasks.bind('ALIAS', child)
+        caller = program("CONT_TASK('MAIN',s)", context=context, name='CALLER')
+        self.assertEqual(caller.run()['S'], 0)
+        self.assertEqual(main.snapshot()['N'], 3)
+        for task in (child, context.tasks.tasks['LEAF']):
+            self.assertEqual(task.snapshot(), {'N': 1, 'S': 1})
+            self.assertEqual(task.task_state, 'paused')
+            task.stop()
+
+    def test_standalone_explicit_child_resume_does_not_double_deliver(self):
+        _, main, child = self.standalone(
+            run_child() + " PAUSE CONT_TASK('WORKER',s)",
+            'PAUSE n=1 PAUSE n=2')
+        main.powerup()
+        self.assertEqual(child.snapshot()['N'], 1)
+        self.assertEqual(child._state._lifecycle['CONTINUE'], 1)
+        self.assertEqual(child._state._lifecycle.get('POWERUP', 0), 0)
+        self.assertEqual(main._state._lifecycle['POWERUP'], 1)
+        child.stop()
+
+    def test_standalone_remote_commands_use_live_lineage(self):
+        for request in ('CONTINUE PROGRAM[1]', run_child('MAIN')):
+            with self.subTest(request=request):
+                context, main, child = self.standalone(run_child() + ' PAUSE n=1', 'PAUSE n=2')
+                program(request, context=context, name='CALLER').run()
+                self.assertEqual(main.snapshot()['N'], 1)
+                self.assertEqual(child.snapshot()['N'], 2)
+
+    def test_bare_and_numeric_self_continue_leave_child_paused(self):
+        for request in ('CONTINUE', 'CONTINUE PROGRAM[1]'):
+            with self.subTest(request=request):
+                _, main, child = self.standalone(run_child() + ' ' + request + ' PAUSE', 'PAUSE n=2')
+                self.assertEqual(main._state._lifecycle['CONTINUE'], 1)
+                self.assertEqual(child.task_state, 'paused')
+                main.stop()
+                child.stop()
+
+    def test_standalone_child_error_keeps_parent_at_its_new_pause(self):
+        _, main, child = self.standalone(run_child() + ' PAUSE n=1 PAUSE n=2',
+                                         'PAUSE n=n+1')
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'uninitialized'):
+            main.resume()
+        self.assertEqual(child.task_state, 'failed')
+        self.assertEqual(main.task_state, 'paused')
+        self.assertEqual(main.resume()['N'], 2)
 
 
 class TaskGroupInspectionTests(unittest.TestCase):

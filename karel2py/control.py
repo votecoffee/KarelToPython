@@ -351,5 +351,4 @@ def cooperative_service(state,name,arguments,line=None):
 def powerup_cooperative(program):
     state=program._state
     if state.task_state!='paused' or state._scheduler is not None: raise rt().KarelRuntimeError('POWERUP recovery requires a paused standalone Program')
-    state._lifecycle['POWERUP']=state._lifecycle.get('POWERUP',0)+1
-    return rt().resume_cooperative(program)
+    return rt().resume_cooperative(program, powerup=True)
