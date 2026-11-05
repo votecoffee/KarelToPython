@@ -3869,6 +3869,9 @@ class State:
         self.robot_group=self.execution.robot.active_group if self.execution.robot is not None else None
         self.program_name=''
         self._task_frames=[];self._task_line=0;self._has_run=False
+        self._task_run = None
+        self._task_launch = None
+        self._task_parent = None
         self._task_settings={};self._task_trace=[];self._task_trace_sequence=0
         self._source_settings={}
         self.service_requests=[]
@@ -4027,11 +4030,17 @@ class State:
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
         if self.execution.diagnostics is not None:self.execution.diagnostics.begin(self)
         if _pythonic() and self.execution.group_locks is not None:self.execution.group_locks.begin(self)
+        self._task_run = object()
+        self._task_parent = self._task_launch
+        self._task_launch = None
 
     def finish_timers(self):
         finish_timers(self)
 
     def finish_teach_programs(self):
+        if self._budget_parent is None:
+            self._task_run = None
+            self._task_parent = None
         if self.execution.motion is not None:self.execution.motion.finish_callbacks(self)
         self.finish_timers()
         if self._budget_parent is None and self.execution.motion is not None:self.execution.motion.finish(self)

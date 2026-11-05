@@ -5881,8 +5881,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         constants=dict(rt.TASK_CONSTANTS),
         selection='Name lookup when task_no is uninitialized or zero; otherwise one-based registry insertion order, shared with numeric task controls; only selected identity/value outputs change on success',
         live='Program/routine names from active caller-rooted frames, latest source checkpoint line, logical routine-frame count, execution/program state and scheduler quantum',
-        metadata='Applied task_attribute_policy settings override informational bind metadata; other documented TSK_* INTEGER attributes require explicit bind(name,program,attributes={...})',
-        status='Portable 0 success, 1 unknown task, 2 invalid attribute/negative number, 3 unsupplied metadata; failure preserves identity and value outputs',
+        lineage='Fresh RUN_TASK records the live calling root in its driver. TSK_PARENT uses the first parent binding number and TSK_NUMCLDS counts distinct live direct children. Continuation preserves the existing relationship.',
+        groups='TSK_LOCKGRP and TSK_MCTL read the same portable mask of current logical GroupLocks grants. Bit n-1 selects group n.',
+        metadata='Applied settings, live lineage and configured group ownership override informational bind metadata. Inactive lineage uses supplied metadata or zero. Group queries without a bank use supplied metadata.',
+        status='Portable 0 success, 1 unknown task, 2 invalid attribute/negative number, 3 unavailable data or unrepresentable full group mask. Failure preserves identity and value outputs',
         boundary='Portable constants and additional completed/stopped/failed/waiting states; no native enum, stack byte size, priority/interrupt/motion behavior or controller acceptance; task bindings and continuations are not serialized',
         guide='docs/task-inspection.md',controller_validated=False)
     report['calendar_clock_policy']=dict(

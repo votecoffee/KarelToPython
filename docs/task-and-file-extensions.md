@@ -94,7 +94,9 @@ Calling RUN_TASK again on a paused target resumes the existing execution. Its
 frames, pending delays, group ownership and budget stay with that execution.
 The start-pause flag applies only to fresh entry. Both RUN_TASK continuation
 and CONT_TASK advance the CONTINUE notification once. A scheduler can continue
-only the live paused tasks it owns.
+only the live paused tasks it owns. A fresh RUN_TASK inside the same driver
+also records a live parent for [GET_TSK_INFO](task-inspection.md#live-lineage-and-group-masks).
+That relationship follows the exact calling and child runs.
 
 An unknown binding returns status 1. An accepted start or continuation returns
 status 0 under the driver rules above. A negative line hint raises. The offline

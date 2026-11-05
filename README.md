@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Live task inspection](docs/task-inspection.md) now reports RUN_TASK parents
+and direct children. TSK_LOCKGRP and TSK_MCTL expose the selected task's current
+logical group mask when its GroupLocks bank is supplied.
+
 [Task motion flags](docs/task-and-file-extensions.md#logical-motion-flags) now
 apply HOLD or CANCEL to the owned groups of eligible live tasks. The offline
 services check every target and the complete history capacity before committing
@@ -289,7 +293,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.141837**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.144141**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

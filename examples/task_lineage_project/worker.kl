@@ -1,0 +1,17 @@
+PROGRAM WORKER
+VAR ready,release_worker,parent_found,parent_matches:BOOLEAN
+ROUTINE inspect_parent
+VAR name,text:STRING[16] number,parent,ignored,status:INTEGER
+BEGIN
+ name='WORKER' number=0
+ GET_TSK_INFO(name,number,TSK_PARENT,parent,text,status)
+ parent_found=(parent>0)
+ name='MAIN' number=0
+ GET_TSK_INFO(name,number,TSK_STATUS,ignored,text,status)
+ parent_matches=(parent=number)
+END inspect_parent
+BEGIN
+ inspect_parent()
+ ready=TRUE
+ WAIT FOR release_worker
+END WORKER

@@ -1,0 +1,26 @@
+{
+  "LIB": {
+    "state": "ready",
+    "values": {
+      "STATUS": 0
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "RELEASE_WORKER": true,
+      "CHILDREN": 1,
+      "STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "RELEASE_WORKER": true,
+      "PARENT_FOUND": true,
+      "PARENT_MATCHES": true
+    }
+  }
+}

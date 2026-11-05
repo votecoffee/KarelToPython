@@ -3,12 +3,14 @@
   "mode":"pythonic",
   "controller_validated":false,
   "evidence":"Supplied GET_TSK_INFO API forms and authored offline task/scheduler tests; no native task inspection",
-  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[418,419],"topic":"GET_TSK_INFO directional identity operands, INTEGER/STRING value outputs, 21 TSK attributes, PG status and program-type names"}],
+  "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[283,418,419],"topic":"RUN_TASK child tasks and GET_TSK_INFO identity operands, outputs and task attributes"}],
   "implemented":{
     "lookup":"Case-insensitive registered name when number is zero/uninitialized; otherwise one-based registry order shared with numeric controls",
     "outputs":"Only selected identity and selected INTEGER/STRING output change on success; failures write status only; exact disjoint writable references",
     "live":"Caller-rooted source module/routine frames, latest checkpoint line, logical frame count, task/program state and scheduler quantum",
-    "metadata":"Fourteen remaining documented INTEGER attributes can be supplied explicitly during binding; live attributes cannot be overridden",
+    "lineage":"Live fresh RUN_TASK links remain qualified by the registry and parent run. Parent number uses first binding and direct child counts deduplicate aliases.",
+    "group_masks":"TSK_LOCKGRP and TSK_MCTL report current logical grants from the target bank. The full MAXINT mask returns status 3.",
+    "metadata":"Use supplied metadata for unmodeled attributes or an applicable lineage/group fallback. Live values take precedence.",
     "ownership":"Input/reference capture order, source guards, independent concurrent linked stacks, cleanup on completion/failure/stop and value-free operation records"
   },
   "portable_choices":[
@@ -20,7 +22,7 @@
     "Portable status 0 success, 1 unknown task, 2 invalid selector, 3 missing metadata; failed inspection preserves data/identity outputs",
     "No implicit task discovery or binding; host task configuration/continuations are omitted from value snapshots"
   ],
-  "remaining":["Native enum/task-number/stack layout, parent-child discovery, priority and interrupt execution, motion state, strict mode and native acceptance"],
-  "verification":["tests/test_task_inspection.py","tests/test_runtime_portability.py","examples/task_inspection_project/main.kl","examples/task_inspection_project/worker.kl"],
+  "remaining":["Native enum/task-number/stack layout, native task discovery, priority and interrupt execution, physical motion state, strict mode and native acceptance"],
+  "verification":["tests/test_task_inspection.py","tests/test_task_lineage.py","examples/task_lineage_project/main.kl","examples/task_group_masks/main.kl","tests/test_runtime_portability.py","examples/task_inspection_project/main.kl","examples/task_inspection_project/worker.kl"],
   "guide":"../task-inspection.md"
 }

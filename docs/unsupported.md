@@ -386,6 +386,8 @@ queue-entry policies; FILE banks remain excluded.
 - Native preemption, priorities, CPU time slices, group locks, interrupt ordering,
   instruction pointers, allocated stack-byte reporting and native parent/child
   relationships. The scheduler runs deterministic cooperative checkpoints.
+  [Live task inspection](task-inspection.md#live-lineage-and-group-masks) now
+  reports fresh RUN_TASK lineage and portable logical group masks.
 - Native STOP/RESUME motion behavior. Offline STOP is terminal; resume/continue
   acts on retained cooperative generators. [RUN_TASK](task-and-file-extensions.md#run_task-entry-and-continuation)
   now starts fresh KAREL tasks at main entry for nonnegative hints and resumes

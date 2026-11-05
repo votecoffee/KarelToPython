@@ -1,0 +1,19 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "RELEASE_WORKER": true,
+      "LOCKED": 1073741825,
+      "CONTROLLED": 1073741825,
+      "STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "RELEASE_WORKER": true
+    }
+  }
+}

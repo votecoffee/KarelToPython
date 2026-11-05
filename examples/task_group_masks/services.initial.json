@@ -1,0 +1,11 @@
+{
+  "group_locks": {
+    "groups": [
+      1,
+      2,
+      31
+    ],
+    "motion": {},
+    "apply_directives": true
+  }
+}

@@ -53,6 +53,22 @@ def bind_task(registry,name,program,attributes=None):
     registry.tasks[name]=program;registry.attributes[name]=values
 
 
+def _lineage_registry(root):
+    if root._task_parent is not None:
+        return root._task_parent[0]
+    return root._scheduler or root.execution.tasks
+
+
+def live_task_parent(registry, child):
+    """Resolve a child only within the live parent run that launched it."""
+    if child._task_run is None or child._task_parent is None:
+        return None
+    owner, parent, run = child._task_parent
+    if owner is registry and parent._task_run is run:
+        return parent
+    return None
+
+
 def task_attribute(registry,name,program,attribute,line=None):
     runtime=rt();root=runtime.task_root(program._state)
     if attribute in root._task_settings: return root._task_settings[attribute]
@@ -69,7 +85,25 @@ def task_attribute(registry,name,program,attribute,line=None):
     if attribute=='TSK_LINENUM': return root._task_line
     if attribute=='TSK_STACK': return len(root._task_frames)
     if attribute=='TSK_TIMESLIC': return getattr(root._scheduler or registry,'quantum_us',0)//1000
+    if attribute in ('TSK_LOCKGRP', 'TSK_MCTL') and root.execution.group_locks is not None:
+        bank = root.execution.group_locks
+        mask = sum(1 << (group - 1) for group in bank.groups if bank.owners.get(group) is root)
+        # All 31 bits would be the reserved MAXINT storage marker.
+        return None if mask == 2147483647 else mask
     value=getattr(registry,'attributes',{}).get(name,{}).get(attribute)
+    if attribute in ('TSK_PARENT', 'TSK_NUMCLDS'):
+        driver = registry if isinstance(registry, TaskScheduler) else None
+        if (root._task_run is not None and root._scheduler is driver
+                and _lineage_registry(root) is registry):
+            if attribute == 'TSK_PARENT':
+                parent = live_task_parent(registry, root)
+                if parent is not None:
+                    return next((index for index, item in enumerate(registry.tasks.values(), 1)
+                                 if runtime.task_root(item._state) is parent), 0)
+                return 0
+            children = {runtime.task_root(item._state) for item in registry.tasks.values()}
+            return sum(live_task_parent(registry, child) is root for child in children)
+        return 0 if value is None else runtime.integer(value, line)
     return None if value is None else runtime.integer(value,line)
 
 
@@ -440,7 +474,8 @@ def run_registered_task(registry, caller, operation, args, line=None):
         status.set(1, line)
         return
     target = task._state
-    if target is runtime.task_root(caller):
+    parent = runtime.task_root(caller)
+    if target is parent:
         raise runtime.KarelRuntimeError('A task cannot synchronously drive itself', line)
 
     pause_on_entry = False
@@ -451,32 +486,44 @@ def run_registered_task(registry, caller, operation, args, line=None):
         if runtime.boolean(args[3], line) or runtime.integer(args[4], line) != 0:
             raise runtime.KarelRuntimeError('Offline RUN_TASK requires no motion and lock mask 0', line)
     continuing = operation == 'CONT_TASK' or target.task_state == 'paused'
-    if hasattr(registry, 'start'):
-        if continuing:
-            registry.continue_task(name)
-        else:
-            registry.start(name, paused=pause_on_entry)
-    else:
-        try:
+    previous_launch = target._task_launch
+    if not continuing:
+        driver = registry if isinstance(registry, TaskScheduler) else None
+        target._task_launch = (
+            (registry, parent, parent._task_run)
+            if (parent._task_run is not None and parent._scheduler is driver
+                and _lineage_registry(parent) is registry) else None
+        )
+    try:
+        if hasattr(registry, 'start'):
             if continuing:
-                task.resume()
-            elif pause_on_entry:
-                if target._driving or getattr(task, '_execution', None) is not None:
-                    raise runtime.KarelRuntimeError('Task is already active', line)
-                before = target.task_state
-                prior_pause = target._pause_requested
-                target._pause_requested = True
-                try:
-                    task.run()
-                except BaseException:
-                    # Admission may fail before a continuation or body exists.
-                    if target.task_state == before and getattr(task, '_execution', None) is None:
-                        target._pause_requested = prior_pause
-                    raise
+                registry.continue_task(name)
             else:
-                task.run()
-        except (runtime.KarelPause, runtime.KarelAbort, runtime.KarelStop):
-            pass
+                registry.start(name, paused=pause_on_entry)
+        else:
+            try:
+                if continuing:
+                    task.resume()
+                elif pause_on_entry:
+                    if target._driving or getattr(task, '_execution', None) is not None:
+                        raise runtime.KarelRuntimeError('Task is already active', line)
+                    before = target.task_state
+                    prior_pause = target._pause_requested
+                    target._pause_requested = True
+                    try:
+                        task.run()
+                    except BaseException:
+                        # Admission may fail before a continuation or body exists.
+                        if target.task_state == before and getattr(task, '_execution', None) is None:
+                            target._pause_requested = prior_pause
+                        raise
+                else:
+                    task.run()
+            except (runtime.KarelPause, runtime.KarelAbort, runtime.KarelStop):
+                pass
+    finally:
+        if not continuing:
+            target._task_launch = previous_launch
     status.set(0, line)
 
 

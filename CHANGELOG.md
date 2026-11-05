@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.144141 - 2026-11-05
+
+- Track live RUN_TASK parent and child executions for GET_TSK_INFO. Preserve
+  relationships across pause, continuation, alias lookup and rename.
+- Expose TSK_LOCKGRP and TSK_MCTL as checked logical ownership masks. A mask
+  equal to the reserved MAXINT value returns unavailable status.
+- Retain supplied metadata when no live value is available under the documented
+  policy. Add linked lineage and ownership examples with saved-state replay.
+
 ## 26.1105.141837 - 2026-11-05
 
 - Use explicit shared motion and group banks for the PAUSE_TASK and ABORT_TASK

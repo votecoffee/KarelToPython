@@ -31,7 +31,7 @@ identity operands and both value outputs; only status changes.
 | 0 | Success |
 | 1 | No task matches the supplied name or positive number |
 | 2 | Unknown attribute or negative task number |
-| 3 | Known attribute requires metadata that was not supplied |
+| 3 | Attribute data is unavailable or a group mask equals reserved MAXINT |
 
 An uninitialized input name raises an ordinary initialization error. Invalid
 types, protected references, output overlap and FOR-counter writes fail before
@@ -84,6 +84,9 @@ host configuration and are not serialized by ExecutionContext value snapshots.
 | TSK_LINENUM | Most recent source checkpoint line; zero before execution |
 | TSK_STACK | Number of active logical routine frames, not an allocated byte size |
 | TSK_TIMESLIC | Applied slice value, otherwise scheduler quantum in milliseconds or zero for synchronous registry execution |
+| TSK_PARENT | First registry binding number of the live calling root that launched the selected task |
+| TSK_NUMCLDS | Number of distinct live direct children in the same launch registry |
+| TSK_LOCKGRP / TSK_MCTL | Bitmask of the selected root's current logical GroupLocks grants |
 
 The task state values are PG_RUNACCEPT (ready), PG_RUNNING, PG_PAUSED,
 PG_ABORTED and PG_ABORTING (an undelivered abort request). Pythonic extensions
@@ -100,21 +103,47 @@ not a native instruction pointer; it can remain from the last routine checkpoint
 until the caller next ticks. Handler-captured local storage does not create an
 additional active call frame merely by being retained.
 
+## Live lineage and group masks
+
+A fresh RUN_TASK within the same driver records the calling root and the
+specific parent run. Linked routines use their caller as the parent.
+TSK_PARENT uses the first binding for that root and reports zero when the
+relationship has no current registered parent. TSK_NUMCLDS counts direct
+children once each, including paused children. Renaming or adding an alias
+preserves the relationship. RUN_TASK on a paused target and CONT_TASK retain
+the original parent. Terminal completion, stop, abort and failure expire the
+relationship, so a new run begins with a new identity.
+
+These reads use live lineage in the launch driver. When the selected task
+is inactive or belongs to a different driver, an explicit TSK_PARENT or
+TSK_NUMCLDS bind value supplies informational data. The fallback is zero.
+Lineage is for inspection and each task uses its explicit control operations.
+
+TSK_LOCKGRP and TSK_MCTL use the same portable mask of currently owned logical
+groups. Bit n-1 represents group n, including group 31. A configured bank
+with no owned groups returns zero. With all 31 groups owned, the mask would
+equal reserved MAXINT, so inspection returns status 3 and preserves the
+identity and value outputs. If the selected task has no GroupLocks bank,
+explicit bind metadata supplies the value when present.
+
+MARRC75KR07091E Rev N, PDF pages 283 and 418, describes RUN_TASK child tasks
+and these attribute names. See the authored
+[lineage project](../examples/task_lineage_project/main.kl) and
+[group mask project](../examples/task_group_masks/main.kl).
+
 ## Supplied attributes and portable constants
 
-When no applied policy supplies a value, these attributes require INTEGER metadata on
-`bind(name,program,attributes={...})`: TSK_HOLDCOND, TSK_LOCKGRP, TSK_MCTL,
-TSK_NOABORT, TSK_NOBUSY, TSK_NOPAUSE, TSK_NUMCLDS, TSK_PARENT, TSK_PAUSESFT,
-TSK_PRIORITY, TSK_STEP, TSK_TPMOTION, TSK_TRACE and TSK_TRACELEN. Missing metadata
-returns status 3. Binding validates the entire mapping before replacing a task
-or its metadata. Dynamic execution fields cannot be supplied as bind metadata.
+TSK_HOLDCOND and TSK_STEP use explicit INTEGER bind metadata. The fallback
+fields for lineage, group ownership and the nine applied task settings also
+accept metadata through `bind(name,program,attributes={...})`. Binding
+validates the entire mapping before replacing a task or its metadata.
+The original dynamic execution fields are reserved for live values.
 
 Metadata is informational: a priority value does not change scheduling, and
 TSK_NOABORT does not suppress abort requests. Use the existing handler actions
 and task APIs to change modeled behavior. SET_TSK_ATTR and seven task directives
 now apply explicit policies, overriding matching informational reads; see
-[task attributes](task-attributes.md). Parent and child relationships are not
-inferred from synchronous or scheduled launch history.
+[task attributes](task-attributes.md).
 
 All named TSK_/PG_ constants are package INTEGER identifiers, independent of
 native controller enums. TSK attributes are 1..21 in the manual's listed order;

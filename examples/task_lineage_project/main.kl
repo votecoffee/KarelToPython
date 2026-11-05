@@ -1,0 +1,18 @@
+PROGRAM MAIN
+VAR ready FROM WORKER:BOOLEAN
+    release_worker FROM WORKER:BOOLEAN
+    children,status:INTEGER
+ROUTINE launch FROM LIB
+ROUTINE inspect_children
+VAR name,text:STRING[16] number:INTEGER
+BEGIN
+ name='MAIN' number=0
+ GET_TSK_INFO(name,number,TSK_NUMCLDS,children,text,status)
+END inspect_children
+BEGIN
+ ready=FALSE release_worker=FALSE
+ launch()
+ WAIT FOR ready
+ inspect_children()
+ release_worker=TRUE
+END MAIN

@@ -1,0 +1,19 @@
+PROGRAM MAIN
+%NOLOCKGROUP
+VAR ready FROM WORKER:BOOLEAN
+    release_worker FROM WORKER:BOOLEAN
+    locked,controlled,status:INTEGER
+ROUTINE inspect_groups
+VAR name,text:STRING[16] number:INTEGER
+BEGIN
+ name='WORKER' number=0
+ GET_TSK_INFO(name,number,TSK_LOCKGRP,locked,text,status)
+ GET_TSK_INFO(name,number,TSK_MCTL,controlled,text,status)
+END inspect_groups
+BEGIN
+ ready=FALSE release_worker=FALSE
+ RUN_TASK('WORKER',0,FALSE,FALSE,0,status)
+ WAIT FOR ready
+ inspect_groups()
+ release_worker=TRUE
+END MAIN

@@ -62,8 +62,8 @@ source-located error. Strict mode remains a future milestone.
 | `PAUSE`, host `resume()` | Suspended Python generator | Retains instruction position, routine locals, references and FOR state. |
 | `STOP`, host `stop()` | Terminal offline task state | Closes suspended frames; construct a new Program to restart. This is a Pythonic task-stop convention, not native motion STOP behavior. |
 | `RESUME`, `UNPAUSE` | Clear a pending offline pause request | A suspended Program needs a host `resume()` or another registered task's CONT_TASK call. Native motion RESUME is not modeled. |
-| `RUN_TASK`, `PAUSE_TASK`, `CONT_TASK`, `ABORT_TASK` | Explicit `TaskRegistry` | TaskRegistry or deterministic TaskScheduler; no motion flags, lock masks or arbitrary start line. |
-| `GET_TSK_INFO` | Registered task lookup plus live execution data or supplied attributes | Directional name/number operands; selected output only; portable identifiers and statuses. |
+| `RUN_TASK`, `PAUSE_TASK`, `CONT_TASK`, `ABORT_TASK` | Explicit TaskRegistry or TaskScheduler | Fresh KAREL entry, continuation, force and broadcast requests, and checked logical HOLD/CANCEL with explicit banks. See [task requests](task-and-file-extensions.md). |
+| `GET_TSK_INFO` | Registered task lookup plus live execution data or supplied attributes | Directional name/number operands, live lineage and logical group masks. See [task inspection](task-inspection.md). |
 | `SET_TSK_NAME` | In-place task binding rename | Stable task numbers, caller-rooted self lookup, retained waits/attributes/errors and collision preflight; see [task renaming](task-renaming.md). |
 | `SET_TSK_ATTR` and seven task directives | Applied task policies and bounded checkpoint traces | Nine checked settings, cooperative priority/slice effects, origin masks and explicit capability flags; see [task attributes](task-attributes.md). |
 | TP program management and position/comment calls | Explicit TeachPrograms logical store | 17 calls with root-owned access, grouped data, metadata integration and typed JSON; see [TP program data](teach-programs.md). |

@@ -1,0 +1,7 @@
+PROGRAM WORKER
+%LOCKGROUP=1,31
+VAR ready,release_worker:BOOLEAN
+BEGIN
+ ready=TRUE
+ WAIT FOR release_worker
+END WORKER
