@@ -24,6 +24,14 @@ def variable_type(spec):
     return name,leaf,shape
 
 
+def _type_metadata(spec):
+    name,leaf,shape=variable_type(spec)
+    row=dict(type=name)
+    if shape:row['dimensions']=shape
+    if leaf[0]=='STRING':row['string_capacity']=leaf[1]
+    return row
+
+
 def describe(spec):
     name,leaf,shape=variable_type(spec)
     code=TYPE_CODES.get('STRUCTURE' if leaf[0]=='STRUCTURE' else name)
@@ -251,11 +259,14 @@ def kcl_variable_listing(state,operation,args,line=None):
         names=[(path,None)]
         values=True
     else:
-        values=args[1]
+        values,kind=args[1:]
         radix=None
         names=[(name,spec) for (owner,name),spec in declarations(context,state)
                if owner==program and not name.startswith('$')]
         if not names and program!=state.program_name and program not in context.variables.programs:return 1
+        if kind is not None:
+            names=[(name,spec) for name,spec in names if spec[0]==kind
+                   or spec[0]=='JOINTPOS' and variable_type(spec)[0]==kind]
     def resolve(path):
         return context.resolve(state,selector,path,line,path_nodes=True)
     return _kcl_value_rows(state,program,names,values,radix,resolve,line)
@@ -277,10 +288,7 @@ def _kcl_value_rows(state,program,names,values,radix,resolve,line,**fields):
             try:reference=resolve(path)
             except rt.KarelRuntimeError:return 1
             spec=reference.spec
-        name,leaf,shape=variable_type(spec)
-        row=dict(program=program,name=path,type=name,**fields)
-        if shape:row['dimensions']=shape
-        if leaf[0]=='STRING':row['string_capacity']=leaf[1]
+        row=dict(program=program,name=path,**_type_metadata(spec),**fields)
         try:
             if values:
                 if rt.file_storage_type(spec):
@@ -288,7 +296,7 @@ def _kcl_value_rows(state,program,names,values,radix,resolve,line,**fields):
                     row['value_available']=False
                 else:
                     value=reference.raw()
-                    if radix and (type(value) is not int or leaf[0] not in ('INTEGER','SHORT','BYTE') or shape):return 2
+                    if radix and (type(value) is not int or spec[0] not in ('INTEGER','SHORT','BYTE')):return 2
                     leaves+=schema(spec,value)
                     if leaves>MAX_LEAVES:return 5
                     row['value']=typed_value(value,spec)['value']
@@ -309,13 +317,7 @@ def _kcl_task_root(state,selector,line):
     return selected_task_root(state.execution.tasks,selector,state,line)[1]
 
 
-def kcl_local_listing(state,operation,args,line=None):
-    """Resolve live routine frames without substituting a global variable."""
-    from .dynamic import IDENTIFIER
-
-    selector,routine_filter,module_filter,*request=args
-    root=_kcl_task_root(state,selector,line)
-    if root is None or root.task_state not in ('running','paused','waiting'):return 1
+def _kcl_routine_frame(root,routine_filter,module_filter):
     # Handler predicates can temporarily replace local_frames with their captured
     # scope. _timer_frames retains the actual entered frames, including bridges.
     offsets={}
@@ -326,8 +328,50 @@ def kcl_local_listing(state,operation,args,line=None):
                 or module_filter is not None and owner.program_name!=module_filter):
             continue
         declarations,storage=owner._timer_frames[offset]
-        break
-    else:return 1
+        return owner,routine,declarations,storage
+    return None
+
+
+def _kcl_local_write(state,root,frame,name,literal,line):
+    from .dynamic import assign_scalar_literal
+
+    rt=runtime()
+    owner,routine,declarations,storage=frame
+    if name not in declarations:return 1
+    if root.task_state!='paused' or root._driving or root._abort_requested:return 4
+    counter_roots=getattr(owner.program,'local_for_roots',{}).get(routine)
+    if counter_roots is None or name in counter_roots or isinstance(storage[name],rt.Reference):return 4
+    if declarations[name][0] not in ('INTEGER','SHORT','BYTE','REAL','BOOLEAN','STRING'):return 4
+    key=id(storage),name
+    def references():
+        contexts={state.execution:state,owner.execution:owner}
+        for context,caller in contexts.items():
+            yield from context.variables.bindings.values()
+            for instances in attached_programs(context,caller).values():
+                for active in instances:
+                    yield from active.values.values()
+                    for _,locals_ in active._timer_frames:
+                        yield from locals_.values()
+
+    if key in owner.execution._timer_claims:return 4
+    for index,value in enumerate(references(),1):
+        if index>32767:return 5
+        if isinstance(value,rt.Reference) and (id(value.storage),value.key)==key:return 4
+    return assign_scalar_literal(rt.Reference(declarations[name],storage,name),literal,line)
+
+
+def kcl_local_operation(state,operation,args,line=None):
+    """Resolve a live routine frame without substituting a global variable."""
+    from .dynamic import IDENTIFIER,variable_checkpoint
+
+    selector,routine_filter,module_filter,*request=args
+    if operation=='SET_LOCAL_VAR':variable_checkpoint(state,line)
+    root=_kcl_task_root(state,selector,line)
+    if root is None or root.task_state not in ('running','paused','waiting'):return 1
+    frame=_kcl_routine_frame(root,routine_filter,module_filter)
+    if frame is None:return 1
+    if operation=='SET_LOCAL_VAR':return _kcl_local_write(state,root,frame,*request,line)
+    owner,routine,declarations,storage=frame
     if operation=='SHOW_LOCAL_VAR':
         path,radix=request
         names=[(path,None)]
@@ -347,6 +391,34 @@ def kcl_local_listing(state,operation,args,line=None):
 
     return _kcl_value_rows(state,owner.program_name,names,values,radix,resolve,line,
                            routine=routine,task=selector or root.program_name)
+
+
+def kcl_type_listing(state,selector,fields,line=None):
+    from .archives import encode_json
+    from .fileops import write_file_text
+
+    rt=runtime();context=state.execution
+    name=selector or state.program_name
+    owner=state if name==state.program_name else context.variables.programs.get(name)
+    if owner is None and name in context.tasks.tasks:owner=_kcl_task_root(state,name,line)
+    program=getattr(owner,'program',None)
+    if program is None:return 1
+    remaining=1024*1024
+    rows=[]
+    if len(program.variable_types)>32767:return 5
+    for name,spec in sorted(program.variable_types.items()):
+        row=dict(program=owner.program_name,name=name,kind=spec[0],
+                 owner=program.type_owners.get(name,owner.program_name),**_type_metadata(spec))
+        leaf=rt.array_leaf_spec(spec) if spec[0]=='ARRAY' else spec
+        if fields and leaf[0] in rt.RECORD_TYPES:
+            row['fields']=[dict(name=member,**_type_metadata(member_spec))
+                           for member,member_spec in rt.record_fields(leaf)]
+        try:data=encode_json(row,remaining)
+        except (ValueError,TypeError,RecursionError):return 5
+        remaining-=len(data)
+        rows.append(data)
+    for data in rows:write_file_text(state,data.decode('ascii'),line)
+    return 0
 
 
 def kcl_task_history(state,selector,line=None):

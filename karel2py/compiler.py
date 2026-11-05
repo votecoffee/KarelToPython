@@ -4767,6 +4767,13 @@ class Emitter:
             self.line('try:');self.indent=3;self.line('return self._execute_sync()')
             self.indent=2;self.line('finally:');self.indent=3
             self.line('self._state._driving=False');self.line('self._state.finish_teach_programs()')
+        if self.mode=='pythonic' and self.program.routines:
+            counter_roots={routine.name:set() for routine in self.program.routines if not routine.external}
+            for use in self.reference_for_uses:
+                if use['body'] in counter_roots and use['root'] is not None:
+                    counter_roots[use['body']].add(use['root'])
+            self.indent=1
+            self.line(f'local_for_roots = { {name:tuple(sorted(roots)) for name,roots in counter_roots.items()}!r}')
         self.indent = 0
         self.line()
         self.line('if __name__ == "__main__":')
@@ -6506,6 +6513,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         variable_archives='KCL SAVE VARS and LOAD VARS use portable VR files with explicit backends. LOAD resolves the archived namespace and checks detached ownership and the complete payload before publication.',
         variable_listings='SHOW VAR and SHOW VARS inspect named ordinary globals and detached bindings as bounded JSON lines. VALUES includes portable snapshots, with FILE storage identified as unavailable. Integer radix formatting retains the original numeric value.',
         local_listings='SHOW LOCAL VAR and SHOW LOCAL VARS inspect live routine frames and formals as bounded JSON lines. Optional IN and FROM filter routine and module. An explicit task or the session default selects the root.',
+        local_writes='SET LOCAL VAR assigns a checked literal to one owned scalar in a paused source frame. Compiler-proven FOR roots, borrowed or aliased storage and connected timers remain protected.',
+        type_listings='SHOW TYPES reports declared source types and optional immediate record fields. SHOW with a supported type keyword filters root variables and optionally shows their values.',
         device_commands='Opt in with device_commands true. MOUNT, DISMOUNT, FORMAT and PURGE use the explicit DeviceFiles backend and its existing checks. SHOW DEVICE reads logical volume metadata, including dismounted volumes.',
         dictionary_commands='Opt in with dictionary_commands true. LOAD DICT and CLEAR DICT use supplied decoded snapshots. Omitted language selects DEFAULT and CLEAR accepts ALL. SET LANGUAGE selects the effective offline language. SHOW LANG, SHOW LANGS and SHOW DICTS report configured languages and current-language snapshots.',
         program_commands='Opt in with program_commands true. SAVE TP, LOAD TP and CLEAR PROGRAM use the portable logical TP store. TRANSLATE uses explicit stored-source translation. SHOW PROGRAM, SHOW PROGRAMS, SHOW TASKS and SHOW TASK write sorted JSON lines from the offline registries.',

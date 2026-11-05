@@ -344,10 +344,40 @@ neither filter the command selects the top frame.
 
 The output includes the task, module and routine. Paths, type information,
 value encoding and capacity limits match the global variable views.
-Missing frames, tasks or local paths return 201. Inspection is read-only
-and uses retained Python frames. The forms follow MARRC75KR07091E Rev N,
-PDF pages 740–741. SET LOCAL VARIABLE and native RS symbol files are
-outside this model.
+Missing frames, tasks or local paths return 201. These forms use retained
+Python frames and follow MARRC75KR07091E Rev N, PDF pages 740–741.
+
+`SET LOCAL VAR name [IN routine] [FROM module] [task] = literal` also
+accepts the full VARIABLE spelling. It assigns one checked scalar literal
+to a paused routine's owned local variable. The same routine, module and
+task selectors apply. Supported targets are INTEGER, SHORT, BYTE, REAL,
+BOOLEAN and STRING roots. Reads still support paths and borrowed formals.
+
+The compiler records FOR roots per routine. The whole routine's listed
+roots, retained aliases, borrowed formals and connected timers are
+protected. Running tasks and code without the required compiler metadata
+also reject writes with 204. Missing targets use 201 and invalid literals
+or a scan over 32,767 storage cells use 205. This subset follows
+MARRC75KR07091E Rev N, PDF pages 734–735 and 740–741.
+
+### Declared types and typed variable filters
+
+`SHOW TYPES [program] [FIELDS]` lists declared types from an attached
+source module. The optional program can name a registered task binding
+when it does not name an attached module. Rows show declared names and
+owners, resolved kinds and known dimensions or string capacities. FIELDS
+includes immediate record fields. The view uses metadata in the generated
+module and a 1 MiB output limit.
+
+`SHOW data_type [program] [VALUES]` filters the existing variable listing
+by root type. For example, SHOW INTEGER VALUES selects INTEGER scalar
+roots, SHOW ARRAY selects array roots, and SHOW JOINTPOS2 selects
+two-axis joint positions. SHOW JOINTPOS includes every joint width.
+The filter supports ARRAY, STRUCTURE, the modeled primitive, position and
+association types, FILE, PATH and QUEUE_TYPE. The forms follow
+MARRC75KR07091E Rev N, PDF pages 744–746. The
+[linked example](../examples/kcl_local_types/main.kl) lists types and
+integer variables, then edits a paused worker's local before continuing it.
 
 ## Virtual device commands
 
@@ -603,6 +633,7 @@ python -m karel2py.project examples/kcl_task_commands --entry MAIN --context exa
 python -m karel2py.project examples/kcl_task_waits --entry MAIN --context examples/kcl_task_waits/services.initial.json
 python -m karel2py.project examples/kcl_session_defaults --entry MAIN --context examples/kcl_session_defaults/services.initial.json
 python -m karel2py.project examples/kcl_command_procedure --entry MAIN --context examples/kcl_command_procedure/services.initial.json --state-out procedure-state.json
+python -m karel2py.project examples/kcl_local_types --entry MAIN --context examples/kcl_local_types/services.initial.json
 python -m karel2py.project examples/kcl_file_commands --entry MAIN --context examples/kcl_file_commands/services.initial.json
 python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json

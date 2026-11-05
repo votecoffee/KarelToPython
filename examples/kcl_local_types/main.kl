@@ -1,0 +1,14 @@
+PROGRAM MAIN
+VAR phase FROM WORKER:INTEGER
+    selected,started,paused,types_status,vars_status,edited,continued,finished:INTEGER
+BEGIN
+  phase=0
+  KCL('SET DEFAULT WORKER',selected)
+  KCL_NO_WAIT('RUN',started)
+  KCL('WAIT PAUSE',paused)
+  KCL('SHOW TYPES FIELDS',types_status)
+  KCL('SHOW INTEGER VALUES',vars_status)
+  KCL('SET LOCAL VAR value IN stage = 41',edited)
+  KCL('CONT',continued)
+  KCL('WAIT DONE',finished)
+END MAIN

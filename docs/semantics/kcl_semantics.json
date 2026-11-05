@@ -80,11 +80,13 @@
     "tests/test_kcl_wait_and_directories.py",
     "tests/test_kcl_defaults_and_frames.py",
     "tests/test_kcl_procedures.py",
+    "tests/test_kcl_local_types.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_task_waits",
     "examples/kcl_session_defaults",
     "examples/kcl_command_procedure",
+    "examples/kcl_local_types",
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
@@ -152,5 +154,13 @@
     "forms": ["RUNCF input [listing]", "%INCLUDE file", "SET VERIFY ON", "SET VERIFY OFF"],
     "dispatch": "Blocking activation-owned procedure with bounded ASCII preflight, inherited command families and scheduler waits. Optional listing is buffered, success-only and no-overwrite.",
     "statuses": "Procedure preflight and publication use 701..706. Preserves the first nonzero child result."
+  },
+  "local_write_and_type_listing_extension": {
+    "version": "26.1105.230208",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [734, 735, 740, 741, 744, 745, 746],
+    "forms": ["SET LOCAL VARIABLE", "SHOW TYPES", "SHOW data_type"],
+    "dispatch": "Checked paused owned scalar writes with conservative compiler FOR metadata, retained aliases and timer claims. Bounded type and typed variable listings use generated source metadata.",
+    "statuses": "Unavailable selector 201, protected or ineligible storage 204, invalid literal or bounded data error 205."
   }
 }

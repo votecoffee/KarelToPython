@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1105.230208 - 2026-11-05
+
+- Add checked KCL SET LOCAL VAR for owned scalar roots in paused routines.
+  Use compiler FOR metadata and retained alias and timer checks.
+- Add SHOW TYPES with optional declared record fields and SHOW data-type
+  filters over ordinary variable roots.
+
 ## 26.1105.223042 - 2026-11-05
 
 - Add opt-in blocking KCL RUNCF with bounded ASCII input, preflighted

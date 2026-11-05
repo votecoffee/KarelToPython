@@ -378,7 +378,14 @@ def set_detached_scalar(state,program,path,literal,line):
     if code:return code
     try:
         target=context.descend(reference,path[len(var):],line,path_nodes=True)
-        if type(target) is not rt.Reference:return 4
+    except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+    return assign_scalar_literal(target,literal,line)
+
+
+def assign_scalar_literal(target,literal,line):
+    rt=runtime()
+    if type(target) is not rt.Reference:return 4
+    try:
         kind=target.spec[0]
         if kind in ('INTEGER','BYTE','SHORT') and re.fullmatch(r'[+-]?[0-9]+',literal):
             value=int(literal)

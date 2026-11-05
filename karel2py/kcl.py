@@ -5,6 +5,11 @@ import re
 
 
 PROCEDURE_LIMIT=65536
+VARIABLE_FILTERS=frozenset((
+    'ARRAY','STRUCTURE','INTEGER','SHORT','BYTE','REAL','BOOLEAN','STRING','CONFIG','VECTOR',
+    'POSITION','XYZWPR','XYZWPREXT','COMMON_ASSOC','GROUP_ASSOC','FILE','PATH','QUEUE_TYPE',
+    'JOINTPOS',*(f'JOINTPOS{width}' for width in range(1,10)),
+))
 
 
 def rt():
@@ -146,6 +151,11 @@ def variable_command(command):
         return 'CLEAR_VARS', (clear[1], None)
     suffix = rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
     frame = rf'(?: +IN +({IDENTIFIER}))?(?: +FROM +({IDENTIFIER}))?(?: +({IDENTIFIER}))?'
+    set_local = re.fullmatch(rf'SET +LOCAL +VAR(?:IABLE)? +({IDENTIFIER}){frame} *= *(.+)',text,re.IGNORECASE)
+    if set_local:
+        name,routine,module,task,literal=set_local.groups()
+        return 'SET_LOCAL_VAR',((task or '').upper(),routine.upper() if routine else None,
+                                module.upper() if module else None,name.upper(),literal)
     local = re.fullmatch(rf'SHOW +LOCAL +VAR(?:IABLE)? +({IDENTIFIER}{suffix})(?: +(HEX(?:ADECIMAL)?|BINARY))?{frame}',command)
     if local:
         path, radix, routine, module, task = local.groups()
@@ -163,12 +173,15 @@ def variable_command(command):
         program, name, rest, radix = show.groups()
         return 'SHOW_VAR', (program or '', name+rest.replace(' ',''), radix)
     fields = command.split()
-    if fields[:2] == ['SHOW', 'VARS']:
+    if len(fields)>=2 and fields[0]=='SHOW' and fields[1] in VARIABLE_FILTERS|{'VARS','TYPES'}:
+        kind=fields[1]
         options = fields[2:]
-        values = bool(options and options[-1] == 'VALUES')
-        if values:options.pop()
+        include = bool(options and options[-1] == ('FIELDS' if kind=='TYPES' else 'VALUES'))
+        if include:options.pop()
         if not options or len(options) == 1 and re.fullmatch(IDENTIFIER,options[0]):
-            return 'SHOW_VARS', (options[0] if options else '', values)
+            owner=options[0] if options else ''
+            if kind=='TYPES':return 'SHOW_TYPES',(owner,include)
+            return 'SHOW_VARS',(owner,include,None if kind=='VARS' else kind)
         return None
     save = re.fullmatch(rf'SAVE +VARS +([^ =]+)(?: *= *({IDENTIFIER}))?', text, re.IGNORECASE)
     if save:
@@ -622,9 +635,12 @@ class KclCommands:
             elif operation in ('SHOW_VAR','SHOW_VARS'):
                 from .inspection import kcl_variable_listing
                 code=kcl_variable_listing(state,operation,args,line)
-            elif operation in ('SHOW_LOCAL_VAR','SHOW_LOCAL_VARS'):
-                from .inspection import kcl_local_listing
-                code=kcl_local_listing(state,operation,args,line)
+            elif operation in ('SHOW_LOCAL_VAR','SHOW_LOCAL_VARS','SET_LOCAL_VAR'):
+                from .inspection import kcl_local_operation
+                code=kcl_local_operation(state,operation,args,line)
+            elif operation=='SHOW_TYPES':
+                from .inspection import kcl_type_listing
+                code=kcl_type_listing(state,*args,line)
             else:
                 code=edit_detached_path(state,operation,*args,line)
             return 200+code if code else 0

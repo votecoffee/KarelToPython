@@ -1,0 +1,15 @@
+PROGRAM WORKER
+TYPE fixture_t=STRUCTURE
+  label:STRING[12]
+ENDSTRUCTURE
+VAR phase:INTEGER
+ROUTINE stage
+VAR value:INTEGER
+BEGIN
+  value=7
+  PAUSE
+  phase=value
+END stage
+BEGIN
+  stage
+END WORKER

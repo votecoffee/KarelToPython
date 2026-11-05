@@ -92,7 +92,7 @@ class KclRoutineInspectionTests(unittest.TestCase):
         self.assertGreater(rows[-1]['line'],0)
         status,rows = listing(ctx,'SHOW PROG')
         self.assertEqual((status,rows[0]['status'],rows[0]['routine']), (0,'PG_PAUSED','DESCEND'))
-        self.assertEqual(issue(ctx,'SET LOCAL VAR DEPTH = 99')['S'],1)
+        self.assertEqual(issue(ctx,'SET LOCAL VAR DEPTH = 99')['S'],204)
         self.assertEqual(task.resume()['S'],40)
         self.assertEqual(listing(ctx,'SHOW LOCAL VARS'),(201,[]))
 
@@ -127,7 +127,7 @@ class KclRoutineInspectionTests(unittest.TestCase):
                 PROGRAM LIB
                 ROUTINE stay(value:INTEGER)
                 VAR observed:INTEGER
-                BEGIN observed=value+1 PAUSE END stay
+                BEGIN observed=value+1 PAUSE value=observed END stay
                 BEGIN END LIB
             ''',
         }).instantiate(context=ctx)
@@ -138,8 +138,9 @@ class KclRoutineInspectionTests(unittest.TestCase):
         self.assertEqual((status,rows[0]['program'],rows[0]['value']), (0,'MAIN',77))
         status,rows=listing(ctx,'SHOW HISTORY MAIN')
         self.assertEqual((status,rows[-1]['program'],rows[-1]['routine']),(0,'LIB','STAY'))
+        self.assertEqual(issue(ctx,'SET LOCAL VAR observed FROM LIB MAIN = 81')['S'],0)
         project.scheduler.continue_task('MAIN')
-        self.assertEqual(project.scheduler.run(max_cycles=60)['MAIN']['values']['RESULT'],77)
+        self.assertEqual(project.scheduler.run(max_cycles=60)['MAIN']['values']['RESULT'],81)
 
 
 class KclDefaultGroupTests(unittest.TestCase):
