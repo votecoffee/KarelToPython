@@ -1,5 +1,16 @@
 # Changelog
 
+## 26.1105.135242 - 2026-11-05
+
+- Apply the documented PAUSE_TASK and ABORT_TASK force switches to named
+  targets. A forced named request bypasses the corresponding command mask.
+- Add case-insensitive *ALL* broadcasts to eligible live registered tasks.
+  Broadcasts honor command masks and queue each execution once.
+- Drive each Program once per scheduler round even when several bindings name
+  it. Keep wait and error records with the first binding, including on rename
+  and stop through an alias. Check ownership before driving or stopping a task.
+- Add authored pause, abort, force and alias regressions and two replay projects.
+
 ## 26.1105.133215 - 2026-11-05
 
 - Continue paused KAREL tasks through RUN_TASK in both task drivers and accept

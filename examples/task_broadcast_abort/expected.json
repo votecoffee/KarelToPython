@@ -1,0 +1,19 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "BEGUN": true,
+      "OBSERVED": true,
+      "START_STATUS": 0,
+      "BROADCAST_STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "BEGUN": true,
+      "OBSERVED": true,
+      "VALUE": 7
+    }
+  }
+}

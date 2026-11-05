@@ -1,0 +1,28 @@
+{
+  "GUARDED": {
+    "state": "completed",
+    "values": {
+      "SECURE": true,
+      "VALUE": 22
+    }
+  },
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "SECURE": true,
+      "START_STATUS": 0,
+      "BROADCAST_STATUS": 0,
+      "RESUME_STATUS": 0,
+      "FORCE_STATUS": 0,
+      "GUARD_STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {
+      "READY": true,
+      "VALUE": 11
+    }
+  }
+}

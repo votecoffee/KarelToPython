@@ -1,0 +1,14 @@
+PROGRAM MAIN
+%NOABORT=COMMAND
+VAR begun FROM WORKER:BOOLEAN
+    observed FROM WORKER:BOOLEAN
+    start_status,broadcast_status:INTEGER
+BEGIN
+ begun=FALSE
+ observed=FALSE
+ RUN_TASK('WORKER',0,FALSE,FALSE,0,start_status)
+ WAIT FOR begun
+ DELAY 10
+ ABORT_TASK('*ALL*',TRUE,FALSE,broadcast_status)
+ WAIT FOR observed
+END MAIN

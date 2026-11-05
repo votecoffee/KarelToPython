@@ -312,6 +312,8 @@ frame/tool operands, caller-rooted groups and model/adapter reachability.
 handler-aware task requests, ATR_FIELD reads and custom record terminators.
 [RUN_TASK entry and continuation](task-and-file-extensions.md#run_task-entry-and-continuation)
 supports nonnegative KAREL line hints and preserves paused task execution.
+[Forced and broadcast task requests](task-and-file-extensions.md#forced-and-broadcast-requests)
+use named force switches and the explicit registry's live task set.
 [I/O and CALL parameters](io-and-call-parameters.md) adds indirect port access,
 simulation, register/port comments and supplied per-task GET_TPE_PRM arguments.
 [Current robot state](current-robot-state.md) adds supplied/model-derived CURPOS,

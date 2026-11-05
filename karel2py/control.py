@@ -210,13 +210,15 @@ def handler_action(state,action,line=None):
     else: raise rt().KarelRuntimeError('Unknown handler action',line)
 
 
-def request_task_control(target,action,line=None,*,origin='command'):
+def request_task_control(target,action,line=None,*,origin='command',force=False):
     """Queue a request on a live task; terminal/inactive aborts have no frames."""
     if action not in ('PAUSE','ABORT') or origin not in ('command','error','tpenable','shift'):
         raise rt().KarelRuntimeError('Unsupported pending task request or origin',line)
+    if type(force) is not bool or force and origin != 'command':
+        raise rt().KarelRuntimeError('A forced task request requires a BOOLEAN command flag', line)
     target=task_root(target)
     from .scheduling import task_request_suppressed
-    if task_request_suppressed(target,action,origin): return
+    if not force and task_request_suppressed(target,action,origin): return
     if target.task_state in ('stopped','aborted'): return
     if action=='PAUSE': target._pause_requested=True; return
     if action!='ABORT': raise rt().KarelRuntimeError('Unsupported pending task request',line)
@@ -227,16 +229,39 @@ def request_task_control(target,action,line=None,*,origin='command'):
         target.task_state='running'; target._pause_requested=False
 
 
+def broadcast_task_targets(registry, action):
+    """Capture the registry's live, eligible roots in binding order."""
+    from .scheduling import TaskScheduler
+    owner = registry if isinstance(registry, TaskScheduler) else None
+    eligible = ('running', 'waiting', 'paused') if action == 'ABORT' else ('running', 'waiting')
+    targets = {}
+    for program in registry.tasks.values():
+        root = task_root(program._state)
+        if (root._scheduler is owner and root.task_state in eligible
+                and getattr(root.program, '_execution', None) is not None):
+            targets[root] = None
+    return tuple(targets)
+
+
 def named_task_control(state,name,args,line=None):
-    runtime=rt(); target=state.execution.tasks.tasks.get(args[0].upper())
-    if target is None: args[-1].set(1,line); return
-    if args[2]: raise runtime.KarelRuntimeError('Motion-stop/cancellation semantics are outside the offline task model',line)
-    action='PAUSE' if name=='PAUSE_TASK' else 'ABORT'
-    args[-1].set(0,line)
-    if target._state is task_root(state):
-        request_task_control(target._state,action,line)
-        yield from runtime.checkpoint(state,line,force_pause=action=='PAUSE')
-    else: request_task_control(target._state,action,line)
+    runtime = rt()
+    registry = state.execution.tasks
+    selected = runtime.ascii_string(args[0], line).upper()
+    broadcast = selected == '*ALL*'
+    target = registry.tasks.get(selected)
+    if target is None and not broadcast:
+        args[-1].set(1, line)
+        return
+    force = runtime.boolean(args[1], line)
+    if runtime.boolean(args[2], line):
+        raise runtime.KarelRuntimeError('Motion-stop/cancellation semantics are outside the offline task model', line)
+    action = 'PAUSE' if name == 'PAUSE_TASK' else 'ABORT'
+    targets = broadcast_task_targets(registry, action) if broadcast else (task_root(target._state),)
+    args[-1].set(0, line)
+    for root in targets:
+        request_task_control(root, action, line, force=force and not broadcast)
+    if task_root(state) in targets:
+        yield from runtime.checkpoint(state, line, force_pause=action == 'PAUSE')
 
 
 def pend_semaphore(state,number,max_time,time_out,line=None):

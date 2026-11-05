@@ -72,7 +72,8 @@ without overwriting callers during FROM linkage.
 
 The default remains one checkpoint per binding per round, in binding order,
 with a 1 ms virtual quantum. Priority changes the next round's order; every
-runnable binding still receives a turn. Task numbers retain binding order.
+runnable Program still receives a turn. Its first binding sets its slot.
+Additional aliases retain their own task numbers in binding order.
 
 A time slice gives `ceil(value_ms / quantum_ms)` checkpoint advances per turn,
 at most 1000. The budget is captured at turn start. Sleeping, pausing, completion
@@ -100,7 +101,9 @@ Named/numeric task control and Program.pause() issue command requests.
 POST_ERR/POST_ERR_L issue error requests. Suppression affects new requests only;
 it does not clear pending requests, remove error records, suppress ERROR
 notification or resume paused tasks. A suppressed command returns success.
-Handler actions retain their existing pending-request suppression rules.
+A named PAUSE_TASK or ABORT_TASK with `force_sw=TRUE` bypasses its command mask.
+[*ALL* broadcasts](task-and-file-extensions.md#forced-and-broadcast-requests)
+honor the masks. Handler actions can still clear pending requests.
 
 Bare PAUSE/ABORT, runtime failures and explicit host stop retain their behavior.
 No mask turns a runtime exception into success. Hosts can supply explicit

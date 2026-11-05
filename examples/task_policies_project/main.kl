@@ -16,7 +16,7 @@ BEGIN
   SET_TSK_ATTR('WORKER',TSK_NOABORT,PG_NP_ERROR+PG_NP_CMD,status)
   RUN_TASK('WORKER',0,FALSE,FALSE,0,status)
   DELAY 5
-  ABORT_TASK('WORKER',TRUE,FALSE,status)
+  ABORT_TASK('WORKER',FALSE,FALSE,status)
   POST_ERR(7,'authored task-policy example',0,2)
   DELAY 40
   task_name='WORKER'

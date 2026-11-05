@@ -279,13 +279,37 @@ class TaskScheduler:
         if type(max_steps) is not int or max_steps<1: raise ValueError('Task step budget must be positive')
         self.tasks={}; self.attributes={}; self.quantum_us=quantum_ms*1000; self.max_steps=max_steps
         self.now_us=0; self.waiting={}; self.errors={}; self._running=False; self._step_names=None
-    def bind(self,name,program,*,attributes=None): bind_task(self,name,program,attributes)
+    def bind(self, name, program, *, attributes=None):
+        key = rt().ascii_string(name).upper()
+        previous = self.tasks.get(key)
+        replacing = previous is not None and previous is not program
+        if replacing and (self._step_names is not None or previous._state._scheduler is self
+                          or getattr(getattr(program, '_state', None), '_scheduler', None) is self):
+            raise rt().KarelRuntimeError('Cannot replace a scheduler binding during a live run or round')
+        bind_task(self, key, program, attributes)
+        if replacing:
+            self.waiting.pop(key, None)
+            self.errors.pop(key, None)
+
+    def _distinct_bindings(self):
+        """Use the first binding as the scheduling slot for each Program."""
+        seen = set()
+        for name, program in self.tasks.items():
+            identity = id(program)
+            if identity not in seen:
+                seen.add(identity)
+                yield name, program
+
+    def _primary_name(self, program):
+        return next(name for name, item in self.tasks.items() if item is program)
+
     def rename(self,old_name,new_name): return rename_task(self,old_name,new_name)
     def set_attribute(self,name,attribute,value): return set_task_attribute(self,name,attribute,value)
     def start(self,name,*,paused=False):
         name=name.upper()
         if name not in self.tasks: raise KeyError(name)
         program=self.tasks[name]; state=program._state
+        name = self._primary_name(program)
         if getattr(program,'_execution',None) is not None: raise rt().KarelRuntimeError('Task is already active')
         if state.task_state=='stopped': raise rt().KarelStop('Task is stopped; create a new instance')
         with rt()._numeric_scope('pythonic'):
@@ -309,17 +333,20 @@ class TaskScheduler:
             state._lifecycle['POWERUP'] = state._lifecycle.get('POWERUP', 0) + 1
     def powerup(self,name): self.continue_task(name,powerup=True)
     def _pulse_banks(self):
-        return {program._state.execution.ports for program in self.tasks.values() if program._state.execution.ports is not None}
+        # A completed task can leave a NOWAIT pulse on this clock after
+        # the same Program starts again under another scheduler.
+        return {program._state.execution.ports for program in self.tasks.values()
+                if program._state.execution.ports is not None}
     def _pulse_deadlines(self):
         return [pulse.deadline for bank in self._pulse_banks() for pulse in bank._pulses.values() if pulse.scheduler is self]
     def _poll_motion(self):
         runtime=rt()
-        for name,program in list(self.tasks.items()):
+        for name,program in list(self._distinct_bindings()):
             state=program._state;bank=state.execution.motion
             if bank is None or state._scheduler is not self or runtime.task_root(state) is not state:continue
             try:bank.poll(state)
             except BaseException as error:
-                name=next((key for key,item in self.tasks.items() if item is program),name)
+                name=self._primary_name(program)
                 if getattr(program,'_execution',None) is not None:program._execution.close();program._execution=None
                 state.task_state='stopped' if isinstance(error,runtime.KarelStop) else 'aborted' if isinstance(error,runtime.KarelAbort) else 'failed'
                 state._scheduler=None;state.finish_teach_programs();self.waiting.pop(name,None)
@@ -328,19 +355,27 @@ class TaskScheduler:
     def _motion_deadlines(self):
         banks={program._state.execution.motion for program in self.tasks.values() if program._state.execution.motion is not None}
         return [deadline for bank in banks for deadline in bank.deadlines(self)]
-    def stop(self,name):
-        name=name.upper(); self.tasks[name].stop(); self.waiting.pop(name,None)
+    def stop(self, name):
+        program = self.tasks[name.upper()]
+        owner = program._state._scheduler
+        if owner is not self and (owner is not None or getattr(program, '_execution', None) is not None):
+            raise rt().KarelRuntimeError('Only the owning TaskScheduler can stop a live task')
+        program.stop()
+        self.waiting.pop(self._primary_name(program), None)
     def step(self):
         runtime=rt(); progressed=False
         if self._step_names is not None: raise runtime.KarelRuntimeError('Scheduler cannot be stepped recursively')
         self._poll_motion()
         for bank in self._pulse_banks(): bank.poll_pulses()
-        names=sorted(self.tasks,key=lambda name:rt().task_root(self.tasks[name]._state)._task_settings.get('TSK_PRIORITY',50))
+        names = sorted((name for name, _ in self._distinct_bindings()),
+                       key=lambda name: runtime.task_root(self.tasks[name]._state)._task_settings.get('TSK_PRIORITY', 50))
         self._step_names=names
         try:
             for slot in range(len(names)):
                 name=names[slot]; program=self.tasks[name]
                 state=program._state
+                if state._scheduler is not self:
+                    continue
                 if state.task_state=='waiting':
                     deadline=self.waiting.get(name,0)
                     if self.now_us<deadline and not state._pause_requested and not state._abort_requested: continue
@@ -384,7 +419,10 @@ class TaskScheduler:
         try:
             for _ in range(max_cycles):
                 for bank in self._pulse_banks(): bank.poll_pulses()
-                if not any(program._state.task_state in ('running','waiting') for program in self.tasks.values()) and not self._pulse_deadlines(): return self.snapshot()
+                active = any(program._state._scheduler is self and program._state.task_state in ('running', 'waiting')
+                             for _, program in self._distinct_bindings())
+                if not active and not self._pulse_deadlines():
+                    return self.snapshot()
                 self.step()
             raise rt().KarelRuntimeError('Scheduler cycle budget exceeded')
         finally: self._running=False
@@ -455,7 +493,11 @@ def control_task(state,action,number,line=None):
             yield from rt().checkpoint(state,line)
         return
     if action in ('PAUSE','ABORT'): rt().request_task_control(target._state,action,line)
-    elif target._state._scheduler is not None: target._state._scheduler.continue_task(next(name for name,program in state.execution.tasks.tasks.items() if program is target))
+    elif target._state._scheduler is not None:
+        scheduler = target._state._scheduler
+        if scheduler is not state.execution.tasks:
+            raise rt().KarelRuntimeError('Only the owning TaskScheduler can continue a live paused task', line)
+        scheduler.continue_task(scheduler._primary_name(target))
     else:
         try: target.resume()
         except (rt().KarelPause,rt().KarelAbort,rt().KarelStop): pass

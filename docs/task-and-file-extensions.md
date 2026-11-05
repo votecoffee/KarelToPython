@@ -18,8 +18,6 @@ standalone target needs `resume()` or CONT_TASK to process the request. An
 inactive target with no live frames becomes aborted immediately. Stopping,
 aborting or failing a task unwinds frames and removes its semaphore wait tickets.
 
-The `no_wait` Boolean is accepted, but both values queue the same cooperative
-request. There is no native acknowledgment wait. Motion flags are rejected.
 For TaskRegistry, RUN_TASK and CONT_TASK drive the child synchronously until
 completion, pause or intentional ABORT/STOP. Child ABORT/STOP returns control to
 the caller with status 0; a child runtime failure still propagates. With
@@ -29,6 +27,30 @@ the task states and drive again to process remaining work or pending requests.
 Self CONTINUE, bare or numeric, scans handlers after incrementing its lifecycle generation,
 including when it is the final source statement. POWERUP and ordinary resume
 retain their [existing contracts](control-notifications.md#recovery-and-handler-actions).
+
+### Forced and broadcast requests
+
+`PAUSE_TASK(name,force_sw,stop_mtn_sw,status)` and
+`ABORT_TASK(name,force_sw,cancel_mtn_sw,status)` queue task requests. For a
+named target, `force_sw=TRUE` bypasses its command ignore mask. Delivery still
+uses the task's checkpoint and its NOPAUSE or NOABORT action can clear the
+pending request. A false force switch applies the ordinary command mask.
+
+Use the case-insensitive name `*ALL*` to select each eligible live root once
+in binding order. PAUSE selects running and waiting tasks. ABORT also selects
+paused tasks and wakes a paused scheduled target to scan its handlers.
+A TaskScheduler selects the live executions it owns. A TaskRegistry selects
+its registered live standalone executions. The broadcast honors each command
+mask regardless of the force argument. An included caller scans its own
+request after the whole batch is queued.
+
+Status 0 acknowledges an accepted request, including a suppressed request or
+empty broadcast. Status 1 reports a missing named binding. The offline forms
+require false motion-stop and motion-cancel switches. MARRC75KR07091E Rev N,
+PDF pages 302 and 474, describes the force switches and wildcard selection.
+
+See the linked [pause and force example](../examples/task_broadcast_pause/main.kl)
+and the [abort handler example](../examples/task_broadcast_abort/main.kl).
 
 ### RUN_TASK entry and continuation
 

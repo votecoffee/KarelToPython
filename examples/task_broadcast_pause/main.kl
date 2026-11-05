@@ -1,0 +1,18 @@
+PROGRAM MAIN
+%NOPAUSE=COMMAND
+VAR ready FROM WORKER:BOOLEAN
+    secure FROM GUARDED:BOOLEAN
+    start_status,broadcast_status,resume_status,force_status,guard_status:INTEGER
+BEGIN
+ ready=FALSE
+ secure=FALSE
+ RUN_TASK('WORKER',0,FALSE,FALSE,0,start_status)
+ RUN_TASK('GUARDED',0,FALSE,FALSE,0,start_status)
+ WAIT FOR ready AND secure
+ PAUSE_TASK('*all*',TRUE,FALSE,broadcast_status)
+ DELAY 10
+ RUN_TASK('WORKER',0,FALSE,FALSE,0,resume_status)
+ PAUSE_TASK('GUARDED',TRUE,FALSE,force_status)
+ DELAY 10
+ RUN_TASK('GUARDED',0,FALSE,FALSE,0,guard_status)
+END MAIN

@@ -128,7 +128,7 @@ class TaskNotificationPolicyTests(unittest.TestCase):
         ctx,worker=registry('PAUSE n=2',kind=rt.TaskScheduler)
         ctx.tasks.set_attribute('worker','TSK_NOABORT',2);ctx.tasks.set_attribute('worker','TSK_NOPAUSE',4)
         ctx.tasks.start('worker')
-        for command in ("ABORT_TASK('worker',TRUE,FALSE,s)","PAUSE_TASK('worker',FALSE,FALSE,s)",'PAUSE PROGRAM[1]'):
+        for command in ("ABORT_TASK('worker',FALSE,FALSE,s)","PAUSE_TASK('worker',FALSE,FALSE,s)",'PAUSE PROGRAM[1]'):
             run(command,context=ctx,cooperative=True)
             self.assertFalse(worker._state._abort_requested);self.assertFalse(worker._state._pause_requested)
         worker.pause();self.assertFalse(worker._state._pause_requested)
@@ -136,7 +136,7 @@ class TaskNotificationPolicyTests(unittest.TestCase):
         ctx.tasks.continue_task('worker');ctx.tasks.run();self.assertEqual(worker.snapshot()['N'],2)
 
     def test_self_named_requests_obey_masks_but_bare_statements_do_not(self):
-        for request,setting,value in (("ABORT_TASK('worker',TRUE,FALSE,s)",'TSK_NOABORT',2),("PAUSE_TASK('worker',FALSE,FALSE,s)",'TSK_NOPAUSE',4)):
+        for request,setting,value in (("ABORT_TASK('worker',FALSE,FALSE,s)",'TSK_NOABORT',2),("PAUSE_TASK('worker',FALSE,FALSE,s)",'TSK_NOPAUSE',4)):
             with self.subTest(request=request):
                 ctx,worker=registry(request+' n=7')
                 ctx.tasks.set_attribute('worker',setting,value)

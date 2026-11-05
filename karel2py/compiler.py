@@ -5836,6 +5836,14 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         persistence='Typed JSON stores caller bindings, limits and all local banks; copying programs detaches local banks while caller bindings remain unchanged; pause/completion keep values',
         boundary='Explicit offline caller association only; no TP execution, native register discovery, dynamically inferred call stack, physical controller access or strict equivalence',
         guide='docs/teach-registers.md',controller_validated=False)
+    report['named_task_control_policy']=dict(
+        procedures=['PAUSE_TASK','ABORT_TASK'],
+        force='Named force_sw=TRUE bypasses the command ignore mask. Handler NOPAUSE/NOABORT and cooperative checkpoint delivery still apply.',
+        broadcast='Case-insensitive *ALL* selects each eligible live root once in the explicit registry. PAUSE selects running and waiting tasks. ABORT includes paused tasks.',
+        ownership='Broadcasts honor the ignore masks and select executions owned by the registry driver. The complete batch is queued before a caller included in it scans its own request.',
+        status='Portable 0 accepted, including a suppressed or empty broadcast, and 1 for a missing named binding. Motion-stop flags reject.',
+        guide='docs/task-and-file-extensions.md#forced-and-broadcast-requests',
+        controller_validated=False)
     report['task_run_policy']=dict(
         procedures=['RUN_TASK','CONT_TASK'],
         entry='Explicit registered KAREL target. A nonnegative RUN_TASK line hint starts a fresh target at its main entry.',
@@ -5849,7 +5857,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['task_rename_policy']=dict(
         procedure='SET_TSK_NAME(old_name,new_name,status)',
         identity='Case-insensitive registry binding names; empty old_name selects the uniquely registered calling root, including linked routines; preserve numeric slot, source module and namespaces',
-        retention='Rename task/attribute/waiting/error keys in place; preserve Program, generator, task state, wait deadline and scheduler iteration; aliases are separate bindings',
+        retention='Rename task/attribute/waiting/error keys in place; preserve Program, generator, task state, wait deadline and scheduler iteration; aliases retain separate numeric slots and share one turn per Program',
         status='Portable 0 success, 1 unknown old name, 2 empty/oversized new name or collision, 3 unavailable/ambiguous caller or active task owned by another registry',
         persistence='Live binding configuration only; no task bindings or suspended execution in value snapshots',
         boundary='Explicit offline registry/scheduler only; no host process rename, controller task IDs, module rename or native scheduling effect; strict mode remains future work',

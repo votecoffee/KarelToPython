@@ -35,10 +35,17 @@ the current round do not skip or duplicate that task's turn.
 
 Subsequent named queries, CONT_TASK, PAUSE_TASK, ABORT_TASK, RUN_TASK and scheduler
 host operations use the new binding. The old name stops resolving. Separate
-aliases of one Program remain separate bindings; explicit rename changes only
-the selected alias, while empty self lookup rejects ambiguity. An active task
-registered through a second registry cannot be renamed through that second
-registry: use its owning TaskScheduler.
+aliases of one Program remain separate bindings. Explicit rename changes only
+the selected alias, while empty self lookup rejects ambiguity. The first
+binding owns the Program's scheduler slot and wait/error records. A rename of
+that binding moves its records. Starting, continuing or stopping through an
+alias addresses that same execution.
+
+The scheduler advances only its own live executions. An alias in another
+scheduler can inspect task state through that binding. The owner handles
+continuation, stop and active rename. A pending NOWAIT pulse keeps the clock
+of the scheduler that started it. Replacing an occupied scheduler binding that
+would change a live run's slot, or replacing one during a round, raises.
 
 The source PROGRAM/module name, CURR_PROG, TSK_PROGNAME, imported globals,
 GET_VAR/SET_VAR namespaces, external routine linkage and `ProjectInstance.programs`
