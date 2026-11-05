@@ -494,6 +494,38 @@ class TaskScheduler:
         return {name:{'state':program._state.task_state,'values':program.snapshot()} for name,program in self.tasks.items()}
 
 
+def drive_registered_task(registry, name, task, *, continuing, pause_on_entry=False, line=None):
+    """Use the registered task's scheduler or its standalone continuation."""
+    runtime = rt()
+    if hasattr(registry, 'start'):
+        if continuing:
+            registry.continue_task(name)
+        else:
+            registry.start(name, paused=pause_on_entry)
+        return
+    try:
+        if continuing:
+            task.resume()
+        elif pause_on_entry:
+            target = task._state
+            if target._driving or getattr(task, '_execution', None) is not None:
+                raise runtime.KarelRuntimeError('Task is already active', line)
+            before = target.task_state
+            prior_pause = target._pause_requested
+            target._pause_requested = True
+            try:
+                task.run()
+            except BaseException:
+                # Admission may fail before a continuation or body exists.
+                if target.task_state == before and getattr(task, '_execution', None) is None:
+                    target._pause_requested = prior_pause
+                raise
+        else:
+            task.run()
+    except (runtime.KarelPause, runtime.KarelAbort, runtime.KarelStop):
+        pass
+
+
 def run_registered_task(registry, caller, operation, args, line=None):
     """Drive an explicitly registered root, preserving an existing continuation."""
     runtime = rt()
@@ -538,32 +570,7 @@ def run_registered_task(registry, caller, operation, args, line=None):
             raise runtime.KarelRuntimeError('RUN_TASK pendant motion requires a live parent in the launch driver', line)
         target._task_launch = (lineage, transferred, line) if lineage is not None else None
     try:
-        if hasattr(registry, 'start'):
-            if continuing:
-                registry.continue_task(name)
-            else:
-                registry.start(name, paused=pause_on_entry)
-        else:
-            try:
-                if continuing:
-                    task.resume()
-                elif pause_on_entry:
-                    if target._driving or getattr(task, '_execution', None) is not None:
-                        raise runtime.KarelRuntimeError('Task is already active', line)
-                    before = target.task_state
-                    prior_pause = target._pause_requested
-                    target._pause_requested = True
-                    try:
-                        task.run()
-                    except BaseException:
-                        # Admission may fail before a continuation or body exists.
-                        if target.task_state == before and getattr(task, '_execution', None) is None:
-                            target._pause_requested = prior_pause
-                        raise
-                else:
-                    task.run()
-            except (runtime.KarelPause, runtime.KarelAbort, runtime.KarelStop):
-                pass
+        drive_registered_task(registry, name, task, continuing=continuing, pause_on_entry=pause_on_entry, line=line)
     finally:
         if not continuing:
             target._task_launch = previous_launch

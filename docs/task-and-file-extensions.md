@@ -165,6 +165,8 @@ a local lifecycle action.
 See MARRC75KR07091E Rev N, PDF page 283, section 17.5.2, and the authored
 [parent continuation example](../examples/task_family_continue/main.kl).
 Native STEP propagation is outside this model.
+Use [opted-in KCL RUN](kcl-commands.md#registered-task-commands) for a fresh
+task that runs independently of its caller.
 
 ## POST_ERR_L
 

@@ -1,0 +1,21 @@
+{
+  "MAIN": {
+    "state": "completed",
+    "values": {
+      "PHASE": 2,
+      "ACCEPTED": 0,
+      "RUN_STATUS": 0,
+      "CONTINUED": 0,
+      "NAME": "WORKER",
+      "TEXT": {"uninitialized": true},
+      "NUMBER": 2,
+      "WORKER_STATE": 103,
+      "PARENT": 0,
+      "STATUS": 0
+    }
+  },
+  "WORKER": {
+    "state": "completed",
+    "values": {"PHASE": 2}
+  }
+}

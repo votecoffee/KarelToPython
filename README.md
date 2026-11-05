@@ -8,6 +8,10 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Registered KCL task commands](docs/kcl-commands.md#registered-task-commands)
+add opt-in independent RUN, continuation, pause and abort through the offline
+task drivers. Exact scripted replies retain precedence.
+
 [Pendant launch and group handoff](docs/task-and-file-extensions.md#pendant-launch-and-logical-group-handoff)
 lets RUN_TASK transfer idle parent grants to a child in an explicitly enabled
 offline group bank. The child's automatic group requirements are checked at the
@@ -303,7 +307,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.152956**. It is a
+tool are named **karel2py**. The current implementation is **26.1105.155238**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -689,8 +693,8 @@ loading creates a fresh closed handle while backend data uses existing snapshots
 See [dynamic variables](docs/dynamic-variables.md).
 CHECK_STACK, SET_DEBUG and SET_DB_EVENT use explicit offline diagnostics with
 bounded event history and configurable logical stack estimates. KCL,
-KCL_NO_WAIT and KCL_STATUS use a scripted command channel with acceptance,
-completion waits and saved completed results. See [diagnostics](docs/diagnostics.md)
+KCL_NO_WAIT and KCL_STATUS use a command channel with scripted replies, optional
+registered task dispatch, completion waits and saved results. See [diagnostics](docs/diagnostics.md)
 and [KCL commands](docs/kcl-commands.md) for setup and execution boundaries.
 
 Ten pendant calls now use an explicit headless display model: opaque link/menu

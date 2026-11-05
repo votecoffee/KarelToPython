@@ -20,20 +20,32 @@
       "KCL_NO_WAIT",
       "KCL_STATUS"
     ],
-    "service": "Explicit exact-match reply scenarios; no command interpretation or host/controller execution",
+    "service": "Explicit exact-match replies with separately enabled offline task command dispatch",
     "queue": "One accepted pending request; configured acceptance/completion codes and delay; portable unsupported=1/busy=2; 1..126 printable ASCII command text",
     "waiting": "Captured standalone clock/sleeper or scheduler virtual sleep; query/blocking caller receives its captured accepted result without resubmission",
     "lifetime": "Accepted jobs retained on caller stop/failure; explicit polling/collection; bounded history and finite sequence",
     "persistence": "Terminal reply/history/last-status state only; pending context save rejected; no automatic replay"
   },
+  "task_command_extension": {
+    "version": "26.1105.155238",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [283, 284, 450, 451, 452, 705, 706, 710, 724, 728],
+    "configuration": "task_commands true with exact replies taking precedence",
+    "forms": ["RUN name", "CONTINUE name|ALL", "CONT name|ALL", "PAUSE name|ALL [FORCE]", "ABORT name|ALL [FORCE]"],
+    "lineage": "Fresh KCL RUN is independent. Continued tasks retain their existing lineage and pause continuations.",
+    "dispatch": "Registered offline driver only. KCL_NO_WAIT RUN and CONTINUE require a scheduler. Self requests deliver after status publication.",
+    "statuses": "3 unavailable or ineligible target or driver, 4 supported command with admission or synchronous execution error"
+  },
   "boundaries": [
-    "No shell, live KCL connection, native command parser or real task/program/file/variable operations",
+    "No shell, live KCL connection, native command parser, file or variable command interpretation, TP execution or physical motion",
     "Reply codes and source wait behavior are configured offline scenarios rather than controller observations",
     "Strict/native compiler/controller equivalence deferred"
   ],
   "validation": [
     "tests/test_diagnostics_commands.py",
+    "tests/test_kcl_task_commands.py",
     "examples/kcl_commands.kl",
+    "examples/kcl_task_commands",
     "examples/diagnostics_commands_project"
   ]
 }

@@ -1,0 +1,27 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {
+        "sequence": 1,
+        "program": "MAIN",
+        "operation": "KCL_NO_WAIT",
+        "command": "RUN WORKER",
+        "phase": "completed",
+        "status": 0
+      },
+      {
+        "sequence": 2,
+        "program": "MAIN",
+        "operation": "KCL",
+        "command": "CONTINUE WORKER",
+        "phase": "completed",
+        "status": 0
+      }
+    ],
+    "sequence": 2,
+    "last_status": 0,
+    "task_commands": true
+  }
+}

@@ -1,0 +1,18 @@
+PROGRAM MAIN
+VAR phase FROM WORKER:INTEGER
+    accepted,run_status,continued:INTEGER
+    name,text:STRING[16]
+    number,worker_state,parent,status:INTEGER
+BEGIN
+ phase=0
+ KCL_NO_WAIT('RUN WORKER',accepted)
+ run_status=KCL_STATUS
+ name='WORKER'
+ REPEAT
+  number=0
+  GET_TSK_INFO(name,number,TSK_STATUS,worker_state,text,status)
+ UNTIL worker_state=PG_PAUSED
+ GET_TSK_INFO(name,number,TSK_PARENT,parent,text,status)
+ KCL('CONTINUE WORKER',continued)
+ WAIT FOR phase=2
+END MAIN

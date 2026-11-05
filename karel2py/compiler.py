@@ -6494,12 +6494,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Portable event IDs; START_K_LINE/PCODE_EXEC describe offline checkpoints, not native p-code, memory words, tracing clocks or controller diagnostic option',
         guide='docs/diagnostics.md',controller_validated=False)
     report['kcl_policy']=dict(
-        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands scripted channel; no command interpretation or host/controller execution',
+        calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional registered task dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',
         completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time or captured standalone clock/sleeper completion',
         lifetime='Accepted jobs survive caller stop/failure; no resubmission on status collection; pending work cannot be serialized; explicit poll can collect elapsed work',
-        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2; unsubmitted/unconfigured last status raises',
-        boundary='No KCL parser, real task/program/file/variable mutation, shell, native command queue or automatic replay; shared channel status is context-wide',
+        task_commands='Opt in with task_commands true. RUN starts an independent registered task or continues a pause. CONT/CONTINUE, PAUSE and ABORT support named or ALL selection. PAUSE/ABORT support FORCE. Standalone no-wait RUN/CONTINUE require a scheduler.',
+        statuses='Configured ordinary INTEGER acceptance/completion codes; portable unsupported=1, busy=2, task unavailable/ineligible=3, task admission/synchronous failure=4; unsubmitted/unconfigured last status raises',
+        boundary='No native KCL, shell, TP execution, file or variable command interpretation, physical motion or automatic replay. Shared channel status is context-wide.',
         guide='docs/kcl-commands.md',controller_validated=False)
     report['pendant_policy']=dict(
         calls=['FORCE_LINK','FORCE_SPMENU','SET_LANG','DEF_SCREEN','DEF_WINDOW','ACT_SCREEN','ATT_WINDOW_D','ATT_WINDOW_S','DET_WINDOW','SET_CURSOR'],

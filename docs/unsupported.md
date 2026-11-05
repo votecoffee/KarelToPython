@@ -530,8 +530,9 @@ queue-entry policies; FILE banks remain excluded.
   attachments](remote-messages.md), with explicit host publication/collection.
 - Native KCL execution, unmodeled diagnostic events/native stack-word layouts,
   controller XML services, image processing and conveyor/vision tracking. KCL calls now use
-  an [explicit scripted channel](kcl-commands.md), and three diagnostic calls use
-  an [offline event/stack model](diagnostics.md). Neither executes native commands.
+  an [explicit command channel](kcl-commands.md) with scripted replies and opt-in
+  registered RUN, CONTINUE, PAUSE and ABORT. Three diagnostic calls use an
+  [offline event/stack model](diagnostics.md).
   Fifty-three [vision calls](vision-results.md) now consume supplied completed
   runs and retain registers/parameters. [Image/device services](vision-image-services.md)
   add supplied rasters, PNG/BMP export, reader/view-line output and logical

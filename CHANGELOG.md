@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1105.155238 - 2026-11-05
+
+- Add opt-in KCL RUN, CONTINUE, PAUSE and ABORT for explicitly registered offline
+  tasks. Fresh KCL launches are independent of the caller.
+- Coalesce aliases and paused RUN_TASK descendants in CONTINUE ALL. Support
+  named and broadcast FORCE for pause and abort.
+- Keep exact scripted replies and busy-channel ordering. Add a linked CLI
+  example and saved-context coverage.
+
 ## 26.1105.152956 - 2026-11-05
 
 - Add opt-in RUN_TASK pendant launch and atomic transfer of idle logical group

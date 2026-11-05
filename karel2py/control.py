@@ -229,16 +229,22 @@ def request_task_control(target,action,line=None,*,origin='command',force=False)
         target.task_state='running'; target._pause_requested=False
 
 
+def task_control_eligible(root, owner, action):
+    eligible = {'PAUSE': ('running', 'waiting'), 'ABORT': ('running', 'waiting', 'paused'),
+                'CONTINUE': ('paused',)}[action]
+    return (root._scheduler is owner and root.task_state in eligible
+            and getattr(root.program, '_execution', None) is not None
+            and (action != 'CONTINUE' or not root._driving))
+
+
 def broadcast_task_targets(registry, action):
     """Capture the registry's live, eligible roots in binding order."""
     from .scheduling import TaskScheduler
     owner = registry if isinstance(registry, TaskScheduler) else None
-    eligible = ('running', 'waiting', 'paused') if action == 'ABORT' else ('running', 'waiting')
     targets = {}
     for program in registry.tasks.values():
         root = task_root(program._state)
-        if (root._scheduler is owner and root.task_state in eligible
-                and getattr(root.program, '_execution', None) is not None):
+        if task_control_eligible(root, owner, action):
             targets[root] = None
     return tuple(targets)
 

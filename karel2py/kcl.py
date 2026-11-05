@@ -1,6 +1,7 @@
-"""An explicit scripted KCL channel; never a host or controller command runner."""
+"""An explicit KCL channel for scripted replies and optional offline task control."""
 from copy import deepcopy
 import math
+import re
 
 
 def rt():
@@ -21,14 +22,34 @@ def status_value(value):
     return value
 
 
+def task_command(command):
+    """Recognize only an explicit task selector and the supported FORCE suffix."""
+    fields = command.upper().split()
+    if len(fields) not in (2, 3):
+        return None
+    action, name = fields[:2]
+    if action == 'CONT':
+        action = 'CONTINUE'
+    if action not in ('RUN', 'CONTINUE', 'PAUSE', 'ABORT') or not re.fullmatch(r'[A-Z][A-Z0-9_]*', name):
+        return None
+    force = len(fields) == 3
+    if force and (action not in ('PAUSE', 'ABORT') or fields[2] != 'FORCE'):
+        return None
+    if action == 'RUN' and name == 'ALL':
+        return None
+    return action, name, force
+
+
 class KclCommands:
     """Single accepted-command channel with configured replies and bounded history."""
-    def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None):
+    def __init__(self,replies=None,*,limit=500,history=None,sequence=0,last_status=None,task_commands=False):
         if replies is None:replies={}
         if type(replies) is not dict or len(replies)>256:raise ValueError('KCL requires at most 256 configured replies')
         if type(limit) is not int or not 1<=limit<=4096:raise ValueError('KCL history limit requires 1..4096')
         if type(sequence) is not int or not 0<=sequence<=2147483646:raise ValueError('KCL sequence is out of range')
+        if type(task_commands) is not bool:raise ValueError('KCL task_commands requires a BOOLEAN')
         self.replies={};self.limit=limit;self.history=[];self.sequence=sequence
+        self.task_commands=task_commands
         self.last_status=None if last_status is None else status_value(last_status);self._pending=None
         for command,row in replies.items():
             command=command_text(command)
@@ -55,13 +76,90 @@ class KclCommands:
 
     def poll(self):
         job=self._pending
-        if job is not None and job['clock']()>=job['due']:self.complete(job)
+        if job is not None and job['clock'] is not None and job['clock']()>=job['due']:self.complete(job)
+
+    def _record(self,state,name,command,phase,code):
+        self.sequence+=1
+        row=dict(sequence=self.sequence,program=rt().task_root(state).program_name,operation=name,command=command,phase=phase,status=code)
+        self.history.append(row);del self.history[:-self.limit]
+        return row
+
+    def _task_targets(self,state,registry,owner,action,selector):
+        from .control import broadcast_task_targets, task_control_eligible, task_root
+        from .scheduling import live_task_parent
+
+        if selector == 'ALL':
+            targets = broadcast_task_targets(registry, action)
+            if action == 'CONTINUE':
+                # Resume paused parents first through their normal cascade.
+                paused = set(targets)
+                targets = tuple(root for root in targets if live_task_parent(registry, root) not in paused)
+            return targets
+        program = registry.tasks.get(selector)
+        if program is None:
+            return None
+        target = task_root(program._state)
+        if action in ('PAUSE', 'ABORT'):
+            return (target,) if task_control_eligible(target, owner, action) else None
+        if target is not program._state or target is task_root(state) or target._driving:
+            return None
+        if target.task_state == 'paused':
+            return (target,) if task_control_eligible(target, owner, 'CONTINUE') else None
+        if (action == 'RUN' and getattr(target.program, '_execution', None) is None and target._scheduler is None
+                and target.task_state in ('ready', 'completed', 'failed')):
+            return (target,)
+        return None
+
+    def _submit_task(self,state,name,command,request,line):
+        from .control import request_task_control, task_root
+        from .scheduling import TaskScheduler, drive_registered_task
+
+        runtime = rt()
+        action, selector, force = request
+        registry = state.execution.tasks
+        owner = registry if isinstance(registry, TaskScheduler) else None
+        driving = action in ('RUN', 'CONTINUE')
+        targets = self._task_targets(state, registry, owner, action, selector)
+        if targets is None or (name == 'KCL_NO_WAIT' and driving and owner is None):
+            self._record(state, name, command, 'rejected', 3)
+            self.last_status = 3
+            return 3, None
+
+        row = self._record(state, name, command, 'pending', 0)
+        job = dict(row=row, status=4, clock=None, delay_ms=0)
+        self._pending = job
+        try:
+            if driving:
+                cohort = [(target, target._task_run, target._lifecycle['CONTINUE']) for target in targets]
+                for target, run, continued in cohort:
+                    # An earlier target can already have continued this descendant.
+                    if (target._task_run is not run or target._lifecycle['CONTINUE'] != continued
+                            or action == 'CONTINUE' and target.task_state != 'paused'):
+                        continue
+                    binding = owner._primary_name(target.program) if owner is not None else selector
+                    drive_registered_task(registry, binding, target.program,
+                                          continuing=target.task_state == 'paused', line=line)
+            else:
+                for target in targets:
+                    request_task_control(target, action, line, force=force)
+                if task_root(state) in targets:
+                    job['self_action'] = action
+            job['status'] = 0
+        except runtime.KarelRuntimeError:
+            # The command completed with an admission or synchronous execution error.
+            pass
+        finally:
+            self.complete(job)
+        return 0, job
 
     def submit(self,state,name,command,line=None):
         try:command=command_text(command)
         except ValueError as exc:raise rt().KarelRuntimeError(str(exc),line) from exc
         if self.sequence>=2147483646:raise rt().KarelRuntimeError('KCL request sequence exhausted',line)
         self.poll();reply=self.replies.get(command)
+        if self._pending is None and reply is None and self.task_commands:
+            request=task_command(command)
+            if request is not None:return self._submit_task(state,name,command,request,line)
         phase='busy' if self._pending is not None else 'unsupported' if reply is None else 'rejected' if reply['accept_status'] else 'pending'
         code=2 if phase=='busy' else 1 if phase=='unsupported' else reply['accept_status']
         # Capture the clock only for actual delayed work, before mutating history.
@@ -70,9 +168,7 @@ class KclCommands:
             scheduler=state._scheduler
             clock=(lambda:scheduler.now_us) if scheduler is not None else (lambda:rt().timer_clock(state,line))
             now=clock()
-        self.sequence+=1
-        row=dict(sequence=self.sequence,program=rt().task_root(state).program_name,operation=name,command=command,phase=phase,status=code)
-        self.history.append(row);del self.history[:-self.limit]
+        row=self._record(state,name,command,phase,code)
         if phase!='pending':
             if self._pending is None:self.last_status=code
             return code,None
@@ -83,6 +179,8 @@ class KclCommands:
 
     def wait(self,state,job,line=None):
         if self._pending is job:
+            if job['clock'] is None:
+                raise rt().KarelRuntimeError('Cannot collect an executing KCL task command', line)
             remaining=max(0,math.ceil((job['due']-job['clock']())/1000))
             if remaining:yield from rt().delay_execution(state,remaining,line)
             # Standalone sleeper completion is the logical completion signal;
@@ -99,9 +197,12 @@ class KclCommands:
         code,job=self.submit(state,name,args[0],line)
         if name=='KCL' and job is not None:code=yield from self.wait(state,job,line)
         args[1].set(code,line)
+        if job is not None and 'self_action' in job:
+            yield from rt().checkpoint(state,line,force_pause=job['self_action']=='PAUSE')
 
     def snapshot(self):
         result=dict(replies=deepcopy(self.replies),limit=self.limit,history=deepcopy(self.history),sequence=self.sequence,last_status=self.last_status)
+        if self.task_commands:result['task_commands']=True
         if self._pending is not None:
             job=self._pending;result['pending']=dict(sequence=job['row']['sequence'],command=job['row']['command'],status=job['status'],delay_ms=job['delay_ms'])
         return result
@@ -112,5 +213,5 @@ class KclCommands:
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status'}:raise ValueError('Unknown KCL channel fields')
+        if type(config) is not dict or set(config)-{'replies','limit','history','sequence','last_status','task_commands'}:raise ValueError('Unknown KCL channel fields')
         return cls(**config)
