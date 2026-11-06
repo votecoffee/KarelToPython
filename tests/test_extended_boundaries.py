@@ -201,6 +201,35 @@ class ExtendedBoundaryTests(unittest.TestCase):
                   prefix=prefix,decl='p:PATH NODEDATA=node s:INTEGER')
         self.assertEqual((state['P']['nodes'],state['S']),([{'N':9},{'N':7}],0))
 
+    def test_copy_path_opt_in_converts_nodes_and_header_in_selected_order(self):
+        prefix=('TYPE first=STRUCTURE n:INTEGER name:STRING[8] ENDSTRUCTURE '
+                'second=STRUCTURE name:STRING[16] n:REAL ENDSTRUCTURE '
+                'header1=STRUCTURE count:INTEGER ENDSTRUCTURE header2=STRUCTURE count:REAL ENDSTRUCTURE')
+        decl='p:PATH NODEDATA=first PATHHEADER=header1 q:PATH NODEDATA=second PATHHEADER=header2 s,old:INTEGER'
+        body=('p.count=2 APPEND_NODE(p,s) APPEND_NODE(p,s) p[1].n=7 p[2].n=9 p[2].name=\'two\' '
+              'COPY_PATH(p,2,1,q,s) old=s COPY_PATH(p,2,1,q,s,TRUE)')
+        state=run(body,prefix=prefix,decl=decl)
+        self.assertEqual((state['OLD'],state['S']),(3,0))
+        self.assertEqual(state['Q'],{'nodes':[{'N':9.,'NAME':'two'},{'N':7.,'NAME':{'uninitialized':True}}],
+                                     'data':{'COUNT':2.}})
+        self.assertIs(type(state['Q']['nodes'][0]['N']),float)
+
+    def test_copy_path_conversion_failure_preserves_existing_destination_and_status(self):
+        prefix='TYPE first=STRUCTURE n:INTEGER ENDSTRUCTURE second=STRUCTURE n:SHORT ENDSTRUCTURE'
+        decl='p:PATH NODEDATA=first q:PATH NODEDATA=second s:INTEGER'
+        body=('APPEND_NODE(p,s) APPEND_NODE(p,s) p[1].n=7 p[2].n=40000 '
+              'APPEND_NODE(q,s) q[1].n=4 s=99 COPY_PATH(p,0,0,q,s,TRUE)')
+        program,_=compile_program(body,prefix=prefix,decl=decl)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'SHORT'):
+            program.run()
+        self.assertEqual((program.snapshot()['Q']['nodes'],program.snapshot()['S']),([{'N':4}],99))
+
+    def test_copy_path_conversion_rejects_incompatible_header_presence(self):
+        prefix='TYPE node_t=STRUCTURE n:INTEGER ENDSTRUCTURE header=STRUCTURE count:INTEGER ENDSTRUCTURE'
+        decl='p:PATH NODEDATA=node_t q:PATH NODEDATA=node_t PATHHEADER=header s:INTEGER'
+        state=run('q.count=4 COPY_PATH(p,0,0,q,s,TRUE)',prefix=prefix,decl=decl)
+        self.assertEqual((state['Q']['data'],state['S']),({'COUNT':4},3))
+
     def test_path_output_status_overlap(self):
         p,_=compile_program('p.n=7 APPEND_NODE(p,p.n)',prefix='TYPE header=STRUCTURE n: INTEGER ENDSTRUCTURE',decl='p: PATH PATHHEADER=header')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'overlap'): p.run()

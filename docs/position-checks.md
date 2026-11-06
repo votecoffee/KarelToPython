@@ -8,11 +8,13 @@ current robot state or starting motion.
 The manual declares an XYZWPREXT target and POSITION frame/tool operands.
 Pythonic mode accepts complete POSITION, XYZWPR and XYZWPREXT values for all
 three operands. Positions, CONFIG data and orientation matrices retain their
-existing validation. JOINTPOS and VECTOR operands are not accepted.
+existing validation. The target can also be JOINTPOS. Frame and tool operands
+remain Cartesian.
 
 ```karel
 CHECK_EPOS(target,frame,tool,status)
 CHECK_EPOS(target,frame,tool,status,2)
+CHECK_EPOS(joints,frame,tool,status,2)
 ```
 
 The optional group overrides the calling root task's group. Without it, source
@@ -49,6 +51,13 @@ The model uses its base transform and the explicit frame and tool operands.
 It does not use active frame/tool selections or require corresponding entries
 in the frame/tool maps. For example, frame X=10 mm, target X=95 mm and tool
 X=5 mm produce a flange target at X=100 mm.
+
+For a joint target, forward conversion uses this same group, frame and tool
+with config_ref zero. The resulting XYZWPREXT carries the separate CONFIG
+and three external-axis values returned by the forward adapter. The existing
+position check then evaluates that pose. A failed forward conversion raises
+before calling the checker or writing the status. A current-joint snapshot
+is optional.
 
 Reachability uses bounded multi-seed numerical search and joint limits.
 Compatible current joints, when supplied, seed the first attempt. Exact-width

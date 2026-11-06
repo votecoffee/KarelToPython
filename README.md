@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.215414**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.221243**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -927,6 +927,7 @@ save/load. FILE operations can use memory or a caller-selected directory. Typed
 PATH and QUEUE_TYPE collections work offline. APPEND_NODE and INSERT_NODE can
 take complete node values. `COPY_PATH` charges for the header
 and selected nodes, then validates the copy before replacing the destination.
+A final `TRUE` argument enables conversion between compatible PATH schemas.
 Queue operations stage backing-array writes and outputs
 before publication. PATH declarations accept PATHHEADER
 and its PATHDATA compatibility spelling. Predefined DISP_DAT_T and portable
@@ -1143,9 +1144,9 @@ source. Strict mode remains a future milestone.
 - Read-only UNINIT queries for whole builtin records and individual queues.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
 - Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
-- CHECK_EPOS with explicit frame/tool poses, selected robot group and a supplied
-  DH model or synchronous callback. A DH model supports explicit external-axis
-  row mappings. See [position checks](docs/position-checks.md).
+- CHECK_EPOS with Cartesian or joint targets, explicit frame/tool poses and a
+  selected robot group. Joint targets use the supplied forward model before the
+  position check. See [position checks](docs/position-checks.md).
 - DH reachability tries compatible supplied current joints before its standard
   seeds. Inverse conversion and reachability both accept optional ordered
   fallback seeds. See [position checks](docs/position-checks.md).

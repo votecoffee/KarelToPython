@@ -32,6 +32,62 @@ def grouped_context():
     return rt.ExecutionContext.from_config({'robot':{'groups':{'1':{'dh':[{'a':100,'min':0,'max':0}]},'2':{'dh':[{'a':200,'min':0,'max':0}]}},'active_group':2}})
 
 
+class JointTargetPositionCheckTests(unittest.TestCase):
+    declarations=DECL+' joints:JOINTPOS2'
+    joint_call='CHECK_EPOS(joints,f,t,s,2)'
+
+    def test_joint_target_uses_the_explicit_group_and_supplied_frames(self):
+        calls=[]
+        point=pose(120,0,0)
+        config=point.values['CONFIG_DATA'].clone()
+        config.values['CFG_FLIP']=True
+        def forward(joints,frame,tool,config_ref):
+            calls.append(('forward',joints.values.copy(),frame.values['LOCATION'].values['X'],
+                          tool.values['LOCATION'].values['X'],config_ref))
+            frame.values['LOCATION'].values['X']=999.
+            return point,config,[12.,34.,0.]
+        def check(candidate,frame,tool):
+            calls.append(('check',candidate.spec,candidate.values['X'],candidate.values['EXT2'],
+                          candidate.values['CONFIG_DATA'].values['CFG_FLIP'],frame.values['LOCATION'].values['X']))
+            return True
+        robot=rt.RobotContext(groups={1:rt.RobotContext(),
+            2:rt.RobotContext(forward=forward,check_position=check)},active_group=1)
+        state=run(SETUP+' f.location.x=17 t.location.x=5 joints[1]=0 joints[2]=42 '+self.joint_call,
+                  decl=self.declarations,context=rt.ExecutionContext(robot=robot))
+        self.assertEqual(calls,[('forward',[0.,42.],17.,5.,0),
+                                ('check',('XYZWPREXT',),120.,34.,True,17.)])
+        self.assertEqual((state['S'],state['F']['LOCATION']['X'],robot.active_group),(0,17.,1))
+
+    def test_model_joint_target_works_without_current_snapshot(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{
+            'dh':[{'a':100,'min':0,'max':0},{'type':'prismatic','min':0,'max':100}],'external_axes':1}})
+        state=run(SETUP+'f.location.x=17 t.location.x=5 joints[1]=0 joints[2]=42 CHECK_EPOS(joints,f,t,s)',
+                  decl=self.declarations,context=ctx)
+        self.assertEqual(state['S'],0)
+        self.assertIsNone(ctx.robot.current)
+
+    def test_invalid_external_axis_reply_leaves_status_and_skips_check(self):
+        point=pose(120)
+        config=point.values['CONFIG_DATA']
+        consumed=[]
+        def endless():
+            while True:
+                consumed.append(1)
+                if len(consumed)>4:raise AssertionError('Adapter iterator was not bounded')
+                yield 0.
+        for external in (None,endless()):
+            with self.subTest(external=external):
+                calls=[]
+                robot=rt.RobotContext(forward=lambda *_:(point,config,external),
+                                      check_position=lambda *args:calls.append(args))
+                program,_=compile_program(SETUP+'joints[1]=0 joints[2]=42 s=99 CHECK_EPOS(joints,f,t,s)',
+                                          decl=self.declarations,context=rt.ExecutionContext(robot=robot))
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'external ax'):
+                    program.run()
+                self.assertEqual((program.snapshot()['S'],calls),(99,[]))
+        self.assertEqual(len(consumed),4)
+
+
 class PositionModelCheckTests(unittest.TestCase):
     def test_reachability_uses_supplied_fallback_seeds_with_fixed_external_axes(self):
         model={'dh':[{'type':'prismatic'},{}],'external_axes':1,'iterations':1}

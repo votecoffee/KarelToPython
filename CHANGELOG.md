@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.221243 - 2026-11-06
+
+- Accept JOINTPOS targets in Pythonic CHECK_EPOS. Convert with the selected
+  forward model and supplied frame and tool, then check the detached pose.
+- Accept an explicit conversion flag in COPY_PATH for compatible node and
+  header schemas. Stage the complete selected copy before publishing it.
+
 ## 26.1106.215414 - 2026-11-06
 
 - Accept complete typed node values in Pythonic APPEND_NODE and INSERT_NODE.

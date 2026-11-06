@@ -84,6 +84,21 @@ the node. Invalid input or an exhausted budget preserves the PATH and status.
 An out-of-range insert returns status 2. The original forms without a node
 value still allocate a node with uninitialized data.
 
+## Copy between compatible layouts
+
+`COPY_PATH(source,first,last,destination,status,TRUE)` enables a detached copy
+across compatible NODEDATA and PATHHEADER declarations. The source and
+destination must both have a header or both omit it. Each pair of record
+layouts must have matching field names and compatible data types under the
+[record conversion rules](record-schema-conversions.md).
+
+The source order, range and missing scalar data follow the ordinary COPY_PATH
+rules. The selected nodes and header use the destination schemas. Conversion
+charges the source and destination leaves of changed layouts before publishing
+the copy. Incompatible schemas return status 3. Budget or value errors preserve
+the previous destination and status. The five-argument form and an explicit
+`FALSE` require exact PATH schemas.
+
 ## Interfaces, creation and persistence
 
 `PATH NODEDATA=STD_PTH_NODE` and aliases of that predefined type normalize to the

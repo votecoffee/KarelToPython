@@ -13,7 +13,7 @@ source-located error. Strict mode remains a future milestone.
 
 | KAREL | Python implementation | Contract |
 | --- | --- | --- |
-| `CHECK_EPOS` | Explicit-frame RobotContext check | Supplied DH model or synchronous three-operand callback, selected group, portable 0/1 result and protected status; see [position checks](position-checks.md). |
+| `CHECK_EPOS` | Explicit-frame RobotContext check | Cartesian targets or JOINTPOS with forward conversion. Selected group, portable 0/1 result and protected status. See [position checks](position-checks.md). |
 | `ERR_DATA` | Shared bounded ErrorHistory | Oldest/next/latest lookup, disjoint outputs, message capacities 40..254 and optional text/time metadata; see [error history](error-history.md). |
 | `CNV_CNF_STRG` and grouped `CNV_STR_CONF` | Explicit ConfigTextFormats group profiles | Format or parse selected flags and turns. Parsing uses an explicit group and neutral defaults. See [group CONFIG text](group-config-text.md). |
 | `GET_STR_REG`, `SET_STR_REG` | `StringRegisters` dictionary | Explicit count and ASCII capacity; reads copy and truncate to destination capacity. |
@@ -80,6 +80,8 @@ See [file comparison and printing](file-comparison.md) for report format,
 source capture, budget, callback and failure behavior.
 
 `COPY_PATH` charges one step per scalar leaf in the header and selected nodes.
+With the optional conversion flag, it also charges the destination leaves of
+changed layouts.
 It preserves missing data and validates the complete selected copy before
 publishing it. A budget or validation failure preserves the destination and
 status. Unselected source nodes are outside the copy and its budget.
@@ -206,8 +208,8 @@ Obsolete association records and group-qualified node types are not modeled.
 Custom NODEDATA can include XYZWPREXT fields. Whole path copies are independent,
 including unknown leaves. `COPY_PATH(source,0,0,destination,status)` copies all;
 positive start/end select an inclusive range, reversed when start exceeds end.
-Header data is retained in copied paths. The call charges a step per selected
-node and clones only those nodes. Invalid bounds preserve the destination.
+Header data is retained in copied paths. The call charges for the header and
+selected nodes and clones only those nodes. Invalid bounds preserve the destination.
 Budget exhaustion preserves both the destination and prior status.
 Resource fields in ordinary STRUCTUREs and arrays of paths remain unsupported.
 

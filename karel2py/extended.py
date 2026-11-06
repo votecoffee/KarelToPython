@@ -4,6 +4,7 @@ No device discovery or robot access. Filesystem use requires an explicit backend
 The compiler and runtime share these signatures; adapters operate on checked values.
 """
 from copy import deepcopy
+from itertools import islice
 import math
 import re
 import struct
@@ -149,7 +150,7 @@ PROCEDURES = {
     'PROG_LIST': (S,I,I,I,arg('STRING_ARRAY','r'),OI,OI,arg('INTEGER','r')),
     'APPEND_NODE': (arg('PATH','r'),arg('PATH_NODE'),OI), 'INSERT_NODE': (arg('PATH','r'),I,arg('PATH_NODE'),OI),
     'DELETE_NODE': (arg('PATH','r'),I,OI),
-    'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
+    'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI,B),
     'INTSCT_VL_PL': (arg('VIEW_LINES'),arg('POSE'),arg('POINT_PATH','r'),OI),
     'COPY_FILE': (S,S,B,B,OI), 'DELETE_FILE': (S,B,OI), 'RENAME_FILE': (S,S,B,OI),
     'CHECK_NAME': (S,OI), 'MOVE_FILE': (S,OI),
@@ -170,7 +171,7 @@ PROCEDURES = {
     'XML_SETVAR': (arg('FILE'),S,S,OI),
     'MOUNT_DEV': (S,OI), 'DISMOUNT_DEV': (S,OI), 'FORMAT_DEV': (S,S,B,OI),
     'PURGE_DEV': (S,OI), 'VOL_SPACE': (S,OI,OI,OS), 'DOSFILE_INF': (S,I,OS,OI),
-    'CHECK_EPOS': (arg('POSE'),arg('POSE'),arg('POSE'),OI,I),
+    'CHECK_EPOS': (arg('RANGE_POSITION'),arg('POSE'),arg('POSE'),OI,I),
     'JOINT2POS': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),I,arg('POSE','o'),arg('CONFIG','o'),arg('REAL_ARRAY','r'),OI),
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
 }
@@ -221,7 +222,7 @@ _REMOTE_SIGNATURES={'GET_REG':(I,arg('BOOLEAN','o'),OI,arg('REAL','o'),OI),
                     'SET_PORT_SIM':(I,I,I,OI)}
 PROCEDURES.update({name:(S,*(_REMOTE_SIGNATURES[local] if local in _REMOTE_SIGNATURES else PROCEDURES[local]))
                    for name,local in REMOTE_SERVICES.items()})
-OPTIONAL_LAST = {'MOTION_CTL','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG','CHECK_EPOS'}
+OPTIONAL_LAST = {'MOTION_CTL','SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG','SET_FILE_ATR','CURPOS','CURJPOS','PROG_LIST','CNV_CNF_STRG','CHECK_EPOS','COPY_PATH'}
 TPE_OPTIONAL_GROUP={'SET_POS_TPE','SET_EPOS_TPE','SET_JPOS_TPE','GET_POS_TPE','GET_JPOS_TPE',
     'SET_TPE_POS_REG','SET_TPE_EPOS_REG','SET_TPE_JPOS_REG','GET_TPE_POS_REG','GET_TPE_JPOS_REG'}
 POSITION_OPTIONAL_GROUP={'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_REG','GET_JPOS_REG'}
@@ -2555,6 +2556,7 @@ class ExecutionContext:
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
         if name in OPTIONAL_PATH_NODE:signature=signature_for(name,len(args))
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
+        elif name=='COPY_PATH' and len(args)==len(signature)-1:args.append(False)
         elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'MOTION_CTL','CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP|POSITION_OPTIONAL_GROUP else 0 if name in ('SET_FILE_ATR','CREATE_VAR') else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
             group=rt.task_root(state).robot_group
@@ -2750,8 +2752,18 @@ class ExecutionContext:
             from .inspection import program_list
             return program_list(self,state,args,line)
         if name=='COPY_PATH':
-            source,start,end,destination,status=args
-            if source.spec!=destination.spec: status.set(3,line); return
+            source,start,end,destination,status,convert=args
+            convert=rt.boolean(convert,line)
+            header=source.spec[2];target_header=destination.spec[2]
+            node=source.node_spec
+            target_node=destination.spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+            if source.spec!=destination.spec:
+                if not convert:
+                    status.set(3,line); return
+                nodes_match=node==target_node or rt.record_schema_kind(target_node,node)=='structure'
+                headers_match=header==target_header or rt.record_schema_kind(target_header,header)=='structure'
+                if not (nodes_match and headers_match):
+                    status.set(3,line); return
             if type(source.nodes) is not list or len(source.nodes)>32767:
                 fail('COPY_PATH requires a bounded node list',line)
             size=len(source.nodes)
@@ -2763,18 +2775,22 @@ class ExecutionContext:
                 direction=1 if end>=start else -1
                 indices=range(start-1,end-1+direction,direction)
             nodes=[source.nodes[index] for index in indices]
-            header=source.spec[2]
             data=source.data
             if header is None and data is not None:
                 fail('Headerless PATH cannot contain header data',line)
             node_cost=rt._validate_data_schema(source.node_spec,line) if nodes else 0
             header_cost=rt._validate_data_schema(header,line) if header is not None else 0
+            if nodes and target_node!=node:node_cost+=rt._validate_data_schema(target_node,line)
+            if target_header!=header:header_cost+=rt._validate_data_schema(target_header,line)
             for _ in range(header_cost+len(nodes)*node_cost):
                 state.tick(line)
-            selected=PathValue(source.spec)
-            selected.nodes=[rt._aggregate_value(source.node_spec,node,line) for node in nodes]
+            def copy_component(expected,actual,value):
+                if expected==actual:return rt._aggregate_value(expected,value,line)
+                return rt.convert_record_schema(expected,value,line,source_spec=actual)
+            selected=PathValue(destination.spec)
+            selected.nodes=[copy_component(target_node,node,value) for value in nodes]
             if header is not None:
-                selected.data=rt._aggregate_value(header,data,line)
+                selected.data=copy_component(target_header,header,data)
             # The exact destination reference was checked with status before preparation.
             destination.storage[destination.key]=selected
             status.set(0,line); return
@@ -2851,7 +2867,11 @@ class ExecutionContext:
         if name=='CHECK_EPOS':
             group=rt.task_root(state).robot_group if args[4] is None else rt.integer(args[4],line)
             robot=self.require('robot',line).for_group(group,line)
-            answer=robot.check_pose(*args[:3],line=line)
+            position,frame,tool=args[:3]
+            if isinstance(position,rt.JointPosition):
+                frame=rt.frame_value(frame,line);tool=rt.frame_value(tool,line)
+                position=self._forward_pose(position,frame,tool,group,line)
+            answer=robot.check_pose(position,frame,tool,line)
             args[3].set(0 if answer else 1,line); return
         if name in ('IN_RANGE','J_IN_RANGE'):
             robot=self.require('robot',line).for_group(rt.task_root(state).robot_group,line)
@@ -3161,6 +3181,17 @@ class ExecutionContext:
             prepared=rt.frame_value(prepared,line)
         table[number]=prepared
 
+    def _forward_pose(self,value,frame,tool,group,line):
+        rt=runtime()
+        rt.joint_values(value,rt.joint_width(value.spec),line)
+        def output(spec):return rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
+        point=output(('XYZWPREXT',));config=output(('CONFIG',))
+        axes=output(('ARRAY',3,('REAL',)));status=output(('INTEGER',))
+        self.kinematics('JOINT2POS',[value,frame,tool,0,point,config,axes,status],line,group=group)
+        result=point.raw()
+        result.values['CONFIG_DATA']=config.raw().clone()
+        return result
+
     def kinematic_assignment(self,state,target,value,line=None):
         """Use the ordinary model/adapters with explicit selected frame/tool data."""
         rt=runtime();poses=(('POSITION',),('XYZWPR',),('XYZWPREXT',))
@@ -3169,15 +3200,11 @@ class ExecutionContext:
         if not forward and not inverse: fail('Kinematic assignment requires JOINTPOS and Cartesian storage',line)
         group=rt.task_root(state).robot_group;robot=self.require('robot',line).for_group(group)
         frame=robot.frame(robot.active_frame);tool=robot.tool(robot.active_tool)
+        if forward:
+            result=self._forward_pose(value,frame,tool,group,line)
+            return rt.convert_position(target,result,line) if target!=('XYZWPREXT',) else result
         def output(spec): return rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
         status=output(('INTEGER',))
-        if forward:
-            rt.joint_values(value,rt.joint_width(value.spec),line)
-            point=output(('POSITION',));config=output(('CONFIG',));axes=output(('ARRAY',3,('REAL',)))
-            self.kinematics('JOINT2POS',[value,frame,tool,0,point,config,axes,status],line,group=group)
-            result=pose_extended(point.raw(),line);result.values['CONFIG_DATA']=config.raw().clone()
-            result.values.update((f'EXT{i+1}',number) for i,number in enumerate(axes.raw().values))
-            return rt.convert_position(target,result,line) if target!=('XYZWPREXT',) else result
         rt.joint_width(target)
         if robot.model is not None and target not in (('JOINTPOS',robot.model.axes),('JOINTPOS',9)):
             fail('Inverse assignment output must match the model axes or JOINTPOS9',line)
@@ -3201,8 +3228,12 @@ class ExecutionContext:
             if not isinstance(result[0],rt.Structure) or result[0].spec[0] not in ('POSITION','XYZWPR','XYZWPREXT'):
                 fail('Forward adapter must return a complete pose',line)
             position=rt.convert_position(('POSITION',),result[0],line) if result[0].spec!=('POSITION',) else rt.frame_value(result[0],line)
-            config=rt.positional_value(('CONFIG',),result[1],line); external=[rt.real(v,line) for v in result[2]]
+            config=rt.positional_value(('CONFIG',),result[1],line)
             array=args[6].raw()
+            try:returned_axes=list(islice(result[2],len(array.values)+1))
+            except Exception as exc:
+                raise rt.KarelRuntimeError('Forward adapter external axes failed: '+str(exc),line) from exc
+            external=[rt.real(value,line) for value in returned_axes]
             if len(external)!=len(array.values): fail('Forward external axis result does not match output ARRAY',line)
             target=args[4].spec
             if target==('XYZWPREXT',):
