@@ -160,6 +160,39 @@ class QueueLogicalCopyTests(unittest.TestCase):
         self.assertEqual(program.snapshot(),before)
         self.assertIsNone(values['SOURCE'].buffer)
 
+    def test_queue_mutators_preserve_entries_and_outputs_on_budget_exhaustion(self):
+        for call in ('APPEND_QUEUE(8,source,a,seq,status)',
+                     'INSERT_QUEUE(8,1,source,a,status)',
+                     'MODIFY_QUEUE(8,1,source,a,status)',
+                     'DELETE_QUEUE(1,source,a,status)',
+                     'GET_QUEUE(source,a,n,seq,status)'):
+            with self.subTest(call=call):
+                program,_=prepared(call)
+                values=program._state.values
+                values['A'].set(1,11)
+                values.update(STATUS=99,SEQ=97,N=96)
+                original=values['SOURCE'].entries
+                before=program.snapshot()
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                    program.run(max_steps=3)
+                self.assertEqual(program.snapshot(),before)
+                self.assertIs(values['SOURCE'].entries,original)
+                self.assertIsNone(values['SOURCE'].buffer)
+                program.run()
+                self.assertIs(values['SOURCE'].entries,original)
+
+    def test_get_queue_checks_remaining_entries_before_popping_or_writing(self):
+        program,_=prepared('GET_QUEUE(source,a,n,seq,status)')
+        values=program._state.values
+        values['SOURCE'].entries[1]=(1,'invalid')
+        values['A'].set(1,11)
+        values.update(STATUS=99,SEQ=97,N=96)
+        before=program.snapshot()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'Expected INTEGER'):
+            program.run()
+        self.assertEqual(program.snapshot(),before)
+        self.assertIsNone(values['SOURCE'].buffer)
+
 
 class QueueTransferGuardTests(unittest.TestCase):
     def test_queue_to_scalar_mismatch_writes_status_only(self):

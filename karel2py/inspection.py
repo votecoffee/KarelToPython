@@ -106,8 +106,9 @@ def _listing_buffer(state,names,text,line):
     return array
 
 
-def any_initialized(value,spec,line=None,trail=()):
+def any_initialized(value,spec,line=None,trail=(),*,check=None):
     """Any known global content, validating all branches before returning."""
+    if check is not None:check()
     rt=runtime();kind=spec[0]
     if value is rt.UNINITIALIZED: return False
     if value is rt.UNKNOWN_BYTE:
@@ -118,54 +119,73 @@ def any_initialized(value,spec,line=None,trail=()):
     trail=trail+(id(value),)
     if isinstance(value,rt.Reference):
         if value.spec!=spec: raise rt.KarelRuntimeError('Program initialization query found mismatched reference',line)
-        return any_initialized(value.raw(),spec,line,trail)
+        return any_initialized(value.raw(),spec,line,trail,check=check)
     if kind=='ARRAY':
         if not isinstance(value,rt.Array) or value.spec!=spec or len(value.values)!=math.prod(rt.array_shape(spec)):
             raise rt.KarelRuntimeError('Program initialization query found malformed ARRAY storage',line)
-        return any([any_initialized(item,spec[2],line,trail) for item in value.values])
+        found=False
+        for item in value.values:
+            found|=any_initialized(item,spec[2],line,trail,check=check)
+        return found
     if kind in rt.RECORD_TYPES:
         fields=dict(rt.record_fields(spec))
         if not isinstance(value,rt.Structure) or value.spec!=spec or set(value.values)!=set(fields):
             raise rt.KarelRuntimeError('Program initialization query found malformed record storage',line)
         if kind in rt.DATA_RECORD_TYPES: rt._record_uninitialized(value,spec,line)
-        return any([any_initialized(value.values[name],field,line,trail) for name,field in fields.items()])
+        found=False
+        for name,field in fields.items():
+            found|=any_initialized(value.values[name],field,line,trail,check=check)
+        return found
     if kind=='JOINTPOS':
         if not isinstance(value,rt.JointPosition) or value.spec!=spec or len(value.values)!=rt.joint_width(spec):
             raise rt.KarelRuntimeError('Program initialization query found malformed joint storage',line)
-        return any([any_initialized(axis,('REAL',),line,trail) for axis in value.values])
+        found=False
+        for axis in value.values:
+            found|=any_initialized(axis,('REAL',),line,trail,check=check)
+        return found
     if kind=='FILE':
         if not isinstance(value,rt.FileHandle): raise rt.KarelRuntimeError('Program initialization query requires FILE storage',line)
         return value.owner is not None
     if kind=='PATH':
         if not isinstance(value,rt.PathValue) or value.spec!=spec or type(value.nodes) is not list or len(value.nodes)>32767:
             raise rt.KarelRuntimeError('Program initialization query requires matching PATH storage',line)
-        flags=[any_initialized(node,value.node_spec,line,trail) for node in value.nodes]
-        if spec[2]: flags.append(any_initialized(value.data,spec[2],line,trail))
-        return bool(value.nodes) or any(flags)
+        found=bool(value.nodes)
+        for node in value.nodes:
+            found|=any_initialized(node,value.node_spec,line,trail,check=check)
+        if spec[2]:
+            found|=any_initialized(value.data,spec[2],line,trail,check=check)
+        return found
     if kind=='QUEUE_TYPE':
         from .extended import queue_variable_value
+        if (check is not None and type(value) is rt.QueueValue and type(value.entries) is list
+                and len(value.entries)<=32767):
+            for _ in value.entries:check()
         return queue_variable_value(value,line).initialized
     return rt.checked(spec,value,line) is not rt.UNINITIALIZED
 
 
-def attached_programs(context,state):
+def attached_programs(context,state,*,check=None):
     rt=runtime();owners={};seen=set()
-    pending=list(context.variables.programs.values())+[state]
-    pending.extend(program._state for program in context.tasks.tasks.values())
-    while pending:
-        owner=pending.pop()
-        if id(owner) in seen: continue
-        seen.add(id(owner));owners.setdefault(owner.program_name,[]).append(owner)
-        root=rt.task_root(owner)
-        if root is not owner: pending.append(root)
-        pending.extend(frame for frame,routine in root._task_frames)
+    roots=chain((program._state for program in reversed(context.tasks.tasks.values())),
+                (state,),reversed(context.variables.programs.values()))
+    for seed in roots:
+        pending=[seed]
+        while pending:
+            owner=pending.pop()
+            if check is not None:check()
+            if id(owner) in seen: continue
+            seen.add(id(owner));owners.setdefault(owner.program_name,[]).append(owner)
+            root=rt.task_root(owner)
+            if root is not owner: pending.append(root)
+            pending.extend(frame for frame,routine in root._task_frames)
     return owners
 
 
 def program_metadata(context,state,operation,args,line=None):
     rt=runtime();name=rt.ascii_string(args[0],line).upper()
     valid=bool(re.fullmatch(r'[A-Z_][A-Z_0-9]{0,35}',name))
-    owners=attached_programs(context,state).get(name,[]) if valid else []
+    check=lambda:state.tick(line)
+    owners=attached_programs(context,state,check=check).get(name,[]) if valid else []
     service=context.program_attributes
     record=service.record(name) if valid and service is not None else None
     teach=context.teach_programs
@@ -180,8 +200,11 @@ def program_metadata(context,state,operation,args,line=None):
                                   'AT_NUM_LINE':teach_record['attributes']['AT_NUM_LINE']}}
     if operation=='LOAD_STATUS':
         if owners:
-            flags=[any_initialized(owner.values[key],spec,line) for owner in owners for key,spec in owner.types.items()]
-            loaded,initialized=True,any(flags)
+            initialized=False
+            for owner in owners:
+                for key,spec in owner.types.items():
+                    initialized|=any_initialized(owner.values[key],spec,line,check=check)
+            loaded=True
         else:
             loaded,initialized=(record.get('loaded',False),record.get('initialized',False)) if record is not None else (False,False)
         assign(args[1:],(loaded,initialized),line);return

@@ -212,6 +212,11 @@ array, zeroing unused slots. Status 2 means full, 1 means bad sequence, and 6100
 means empty for GET; these are portable statuses. INSERT goes before an existing
 sequence. COPY starts at a specified sequence or the oldest entry for zero,
 then skips the requested count and copies as many entries as fit.
+`APPEND_QUEUE`, `INSERT_QUEUE`, `MODIFY_QUEUE`, `DELETE_QUEUE` and `GET_QUEUE`
+stage the FIFO changes, scalar outputs and backing array. Each backing slot
+costs one step. If preparation fails, the queue entries, sequence counter,
+backing binding and outputs retain their prior values.
+
 `COPY_QUEUE` charges one step for each backing slot and selected output entry.
 It stages the full backing array and selected output values before binding or
 writing either array. Invalid input and budget exhaustion preserve the arrays,

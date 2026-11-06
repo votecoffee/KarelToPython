@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.194737 - 2026-11-06
+
+- Stage FIFO edits, backing slots and outputs for APPEND_QUEUE, INSERT_QUEUE,
+  MODIFY_QUEUE, DELETE_QUEUE and GET_QUEUE before publishing any change.
+- Charge program metadata scans and LOAD_STATUS global inspection to the
+  execution budget, including entries visited after finding initialized data.
+- Require positive finite numeric DH position and orientation tolerances.
+
 ## 26.1106.192915 - 2026-11-06
 
 - At a numerical half-turn, try the opposite IK rotation direction if the first

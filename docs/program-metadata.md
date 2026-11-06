@@ -29,6 +29,10 @@ count as initialized. Constants and routine locals do not count. Unknown BYTE
 contents and the SHORT uninitialized sentinel do not count. Every global branch
 is checked before either output changes, so valid data cannot hide malformed
 storage. Imported global references are followed with cycle/depth guards.
+Each candidate program state and inspected global value consumes a step.
+The scan counts aggregate members and queue entries even after finding known
+data. Exhausting the step budget preserves both `LOAD_STATUS` outputs. The
+attribute calls also charge candidate inspection before reading or writing metadata.
 
 The portable resource convention counts an open FILE, a PATH containing a node
 or known header content, and an initialized QUEUE_TYPE. It does not infer queue

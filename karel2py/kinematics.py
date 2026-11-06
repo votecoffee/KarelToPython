@@ -88,6 +88,8 @@ class SerialRobotModel:
     def __init__(self,dh,*,external_axes=0,external_axis_indices=None,base=None,iterations=200,
                  position_tolerance=.01,orientation_tolerance=.01,ik_fallback_seeds=()):
         if not isinstance(dh,(list,tuple)) or not 1<=len(dh)<=9: raise ValueError('DH model requires 1..9 joints')
+        if any(type(value) not in (int,float) for value in (position_tolerance,orientation_tolerance)):
+            raise ValueError('IK tolerances require numeric values')
         external_limit=min(3,len(dh)-1)
         if type(external_axes) is not int or not 0<=external_axes<=external_limit: raise ValueError('External-axis count must leave at least one main joint')
         if external_axis_indices is None:
@@ -122,7 +124,12 @@ class SerialRobotModel:
             seeds.append(tuple(seed))
         self.ik_fallback_seeds=tuple(seeds)
         self.external_axes=len(self._external_joints); self.base=matrix(base) if base is not None else IDENTITY
-        self.iterations=iterations; self.position_tolerance=float(position_tolerance); self.orientation_tolerance=math.radians(orientation_tolerance)
+        self.iterations=iterations
+        try:
+            self.position_tolerance=float(position_tolerance)
+            self.orientation_tolerance=math.radians(orientation_tolerance)
+        except OverflowError as error:
+            raise ValueError('Positive finite IK tolerances required') from error
         if not all(math.isfinite(v) and v>0 for v in (self.position_tolerance,self.orientation_tolerance)): raise ValueError('Positive finite IK tolerances required')
 
     @property

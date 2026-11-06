@@ -20,6 +20,13 @@ def callback_context(*,forward=None,inverse=None,values=(10.,20.),**fields):
 
 
 class AssignmentModelTests(unittest.TestCase):
+    def test_dh_tolerances_require_positive_finite_numbers(self):
+        for name in ('position_tolerance','orientation_tolerance'):
+            for bad in ('0.1',True,None,0,-1,float('inf'),float('nan'),10**500):
+                with self.subTest(name=name,bad=bad),self.assertRaisesRegex(ValueError,'tolerances'):
+                    rt.SerialRobotModel([{}],**{name:bad})
+        rt.SerialRobotModel([{}],position_tolerance=1,orientation_tolerance=.5)
+
     def test_joint_to_each_cartesian_representation(self):
         for target in ('p','a','e'):
             with self.subTest(target=target):

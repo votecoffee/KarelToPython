@@ -1520,6 +1520,15 @@ class QueueValue:
         for index in range(len(self.buffer.values)): self.buffer.set(index+1,self.entries[index][1] if index<len(self.entries) else 0,line)
 
 
+def _staged_queue_buffer(state,reference,buffer,entries,line):
+    staged=runtime().checked(reference.spec,buffer,line)
+    for index in range(len(staged.values)):
+        state.tick(line)
+        value=entries[index][1] if index<len(entries) else 0
+        staged.set(index+1,value,line)
+    return staged
+
+
 _KEEP_CURRENT=object()
 
 
@@ -2759,7 +2768,7 @@ class ExecutionContext:
                 if not code: del path.nodes[args[1]-1]
             args[-1].set(code,line); return
         if name=='COPY_QUEUE': return self.copy_queue(state,args,line)
-        if 'QUEUE' in name: return self.queue(name,args,line)
+        if 'QUEUE' in name: return self.queue(state,name,args,line)
         if name in ('GET_FILE_POS','BYTES_LEFT','IO_STATUS','SET_FILE_POS','BYTES_AHEAD','SET_FILE_ATR','CLR_IO_STAT'):
             handle=args[0]
             if name=='SET_FILE_ATR':
@@ -2929,32 +2938,58 @@ class ExecutionContext:
         else: destination.storage[destination.key]=rt.replace_value(current,copied)
         if key not in self.entries:self.entries[key]=max(self.entries.values(),default=0)+1
         entry.set(self.entries[key],line); status.set(12311 if missing else 0,line)
-    def queue(self,name,args,line):
+    def queue(self,state,name,args,line):
         rt=runtime()
         if name=='INIT_QUEUE':
             q=args[0].raw(); q.initialized=True; q.entries=[]; q.sequence=0; q.buffer=None; return
-        offset=0 if name=='GET_QUEUE' else 1 if name in ('APPEND_QUEUE','DELETE_QUEUE','MODIFY_QUEUE') else 2
-        if name=='MODIFY_QUEUE': offset=2
-        q=args[offset].raw(); buffer=args[offset+1].raw(); q.bind(buffer,line); code=0
+        offset=0 if name=='GET_QUEUE' else 2 if name in ('INSERT_QUEUE','MODIFY_QUEUE') else 1
+        target,backing=args[offset:offset+2]
+        q,buffer=target.raw(),backing.raw()
+        q._check_buffer(buffer,line)
+        original_entries=q.entries
+        original_sequence=q.sequence
+        original_binding=q.buffer
+        snapshot=tuple(original_entries)
+        entries=list(snapshot)
+        sequence=original_sequence
+        outputs=[]
+        code=0
         if name in ('APPEND_QUEUE','INSERT_QUEUE'):
-            if len(q.entries)>=len(buffer.values): code=2
-            elif name=='INSERT_QUEUE' and not any(pair[0]==args[1] for pair in q.entries): code=1
+            if len(entries)>=len(buffer.values):
+                code=2
             else:
-                q.sequence=rt.checked(('INTEGER',),q.sequence+1,line)
-                at=len(q.entries) if name=='APPEND_QUEUE' else next(i for i,pair in enumerate(q.entries) if pair[0]==args[1])
-                q.entries.insert(at,(q.sequence,rt.integer(args[0],line)))
-                if name=='APPEND_QUEUE': args[-2].set(q.sequence,line)
+                at=len(entries) if name=='APPEND_QUEUE' else next((i for i,pair in enumerate(entries) if pair[0]==args[1]),None)
+                if at is None:
+                    code=1
+                else:
+                    sequence=rt.checked(('INTEGER',),sequence+1,line)
+                    entries.insert(at,(sequence,rt.integer(args[0],line)))
+                    if name=='APPEND_QUEUE': outputs.append((args[-2],sequence))
         elif name=='GET_QUEUE':
-            if not q.entries: code=61002
+            if not entries: code=61002
             else:
-                sequence,value=q.entries.pop(0); args[2].set(value,line); args[3].set(sequence,line)
+                entry_id,value=entries.pop(0)
+                outputs.extend(((args[2],value),(args[3],entry_id)))
         else:
-            sequence=args[1] if name=='MODIFY_QUEUE' else args[0]
-            at=next((i for i,pair in enumerate(q.entries) if pair[0]==sequence),None)
+            entry_id=args[1] if name=='MODIFY_QUEUE' else args[0]
+            at=next((i for i,pair in enumerate(entries) if pair[0]==entry_id),None)
             if at is None: code=1
-            elif name=='DELETE_QUEUE': del q.entries[at]
-            else: q.entries[at]=(sequence,rt.integer(args[0],line))
-        q.sync(line); args[-1].set(code,line)
+            elif name=='DELETE_QUEUE': del entries[at]
+            else: entries[at]=(entry_id,rt.integer(args[0],line))
+
+        outputs.append((args[-1],code))
+        prepared=[(reference,rt.checked(reference.spec,value,line)) for reference,value in outputs]
+        staged=_staged_queue_buffer(state,backing,buffer,entries,line)
+        if (target.raw() is not q or backing.raw() is not buffer or q.entries is not original_entries
+                or tuple(q.entries)!=snapshot or q.sequence!=original_sequence or q.buffer is not original_binding):
+            fail(name+' storage changed during preparation',line)
+        q._check_buffer(buffer,line)
+        rt.replace_value(buffer,staged)
+        q.entries[:]=entries
+        q.sequence=sequence
+        q.buffer=buffer
+        for reference,value in prepared:
+            reference.set(value,line)
 
     def copy_queue(self,state,args,line):
         rt=runtime()
@@ -2963,16 +2998,8 @@ class ExecutionContext:
         queue,buffer,view=source.raw(),backing.raw(),output.raw()
         queue._check_buffer(buffer,line)
         entries=list(queue.entries)
-        staged=rt.checked(backing.spec,buffer,line)
-        first=0 if sequence==0 else None
-        for index in range(len(staged.values)):
-            state.tick(line)
-            value=0
-            if index<len(entries):
-                entry_id,value=entries[index]
-                if first is None and entry_id==sequence:
-                    first=index
-            staged.set(index+1,value,line)
+        staged=_staged_queue_buffer(state,backing,buffer,entries,line)
+        first=0 if sequence==0 else next((i for i,pair in enumerate(entries) if pair[0]==sequence),None)
 
         page=[]
         if first is not None:

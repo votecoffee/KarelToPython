@@ -152,6 +152,26 @@ class LoadStatusTests(unittest.TestCase):
         with self.assertRaises(rt.KarelRuntimeError): observer.run()
         self.assertEqual((observer.snapshot()['LOADED'],observer.snapshot()['INITIALIZED']),(False,False))
 
+    def test_load_status_budget_counts_children_after_first_known_value(self):
+        ctx=context({})
+        worker,_=program(name='WORKER',decl='a:ARRAY[32] OF INTEGER',context=ctx)
+        worker._state.values['A'].set(1,0)
+        observer,_=program("LOAD_STATUS('WORKER',loaded,initialized)",context=ctx)
+        observer._state.values.update(LOADED=False,INITIALIZED=True)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            observer.run(max_steps=8)
+        self.assertEqual((observer.snapshot()['LOADED'],observer.snapshot()['INITIALIZED']),(False,True))
+
+    def test_program_attribute_scan_counts_other_attached_programs(self):
+        ctx=context({})
+        for index in range(12):
+            program(name=f'OTHER{index}',context=ctx)
+        observer,_=program("GET_ATTR_PRG('OBSERVER',AT_PROG_NAME,value,text,status)",context=ctx)
+        observer._state.values.update(TEXT='before',STATUS=99)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            observer.run(max_steps=8)
+        self.assertEqual((observer.snapshot()['TEXT'],observer.snapshot()['STATUS']),('before',99))
+
     def test_host_reference_cycle_is_rejected(self):
         spec=('INTEGER',);storage={};reference=rt.Reference(spec,storage,'x');storage['x']=reference
         with self.assertRaisesRegex(rt.KarelRuntimeError,'cyclic'): any_initialized(reference,spec)

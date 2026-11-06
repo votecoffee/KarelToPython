@@ -38,6 +38,9 @@ target orientation. The solver tries the opposite sign if the first direction
 makes no progress within the limits. Failure is inconclusive for geometric
 reachability.
 
+DH `position_tolerance` and `orientation_tolerance` take positive finite
+numbers in millimetres and degrees, respectively.
+
 ```python
 from karel2py import translate, runtime as rt
 
