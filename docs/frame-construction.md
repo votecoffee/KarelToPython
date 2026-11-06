@@ -5,8 +5,8 @@ explicit external-axis metadata. The [offline service guide](offline-services.md
 defines the added conversions, propagation rules and remaining boundaries.
 
 [VECTOR point inputs](vector-translation-frames.md) now supply point locations
-while the first or explicit fourth pose origin supplies CONFIG. An all-VECTOR
-FRAME has no configured origin and remains rejected.
+while a pose origin supplies CONFIG. Three VECTOR points can also use
+`FRAME(v1,v2,v3,cfg)` with an explicit fourth CONFIG and origin at `v1`.
 
 Since 0.70.0, `FRAME(a,b,c)` and `FRAME(a,b,c,origin)` construct independent
 XYZWPR frames from explicit XYZWPR points. The result can be composed or inverted

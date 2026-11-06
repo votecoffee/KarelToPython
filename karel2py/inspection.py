@@ -42,8 +42,9 @@ def describe(spec):
     return name,code,tuple(shape)+(0,)*(3-len(shape)),leaf[1] if leaf[0]=='STRING' else 0
 
 
-def missing(value,spec,line=None):
+def missing(value,spec,line=None,*,check=None):
     """Portable content rule; BYTE has no initialization tracking."""
+    if check is not None:check()
     rt=runtime(); kind=spec[0]
     if value is rt.UNINITIALIZED: return True
     if value is rt.UNKNOWN_BYTE:
@@ -52,28 +53,39 @@ def missing(value,spec,line=None):
     if kind=='ARRAY':
         if not isinstance(value,rt.Array) or value.spec!=spec or len(value.values)!=math.prod(rt.array_shape(spec)):
             raise rt.KarelRuntimeError('Variable inspection found malformed ARRAY storage',line)
-        flags=[missing(item,spec[2],line) for item in value.values]
-        return any(flags)
+        found=False
+        for item in value.values:
+            found|=missing(item,spec[2],line,check=check)
+        return found
     if kind in rt.RECORD_TYPES:
         if not isinstance(value,rt.Structure) or value.spec!=spec:
             raise rt.KarelRuntimeError('Variable inspection found mismatched record storage',line)
-        if kind in rt.DATA_RECORD_TYPES: return rt._record_uninitialized(value,spec,line)
+        if kind in rt.DATA_RECORD_TYPES: return rt._record_uninitialized(value,spec,line,check=check)
         fields=dict(rt.record_fields(spec))
         if set(value.values)!=set(fields): raise rt.KarelRuntimeError('Variable inspection found malformed record fields',line)
-        flags=[missing(value.values[name],field,line) for name,field in fields.items()]
-        return any(flags)
+        found=False
+        for name,field in fields.items():
+            found|=missing(value.values[name],field,line,check=check)
+        return found
     if kind=='JOINTPOS':
         if not isinstance(value,rt.JointPosition) or value.spec!=spec or len(value.values)!=rt.joint_width(spec):
             raise rt.KarelRuntimeError('Variable inspection found malformed joint storage',line)
-        return any([missing(axis,('REAL',),line) for axis in value.values])
+        found=False
+        for axis in value.values:
+            found|=missing(axis,('REAL',),line,check=check)
+        return found
     if kind=='FILE':
         if not isinstance(value,rt.FileHandle): raise rt.KarelRuntimeError('Variable inspection requires FILE storage',line)
         return value.owner is None
     if kind=='PATH':
-        if not isinstance(value,rt.PathValue) or value.spec!=spec: raise rt.KarelRuntimeError('Variable inspection requires matching PATH storage',line)
-        flags=[missing(node,value.node_spec,line) for node in value.nodes]
-        if spec[2]: flags.append(missing(value.data,spec[2],line))
-        return any(flags)
+        if not isinstance(value,rt.PathValue) or value.spec!=spec or type(value.nodes) is not list or len(value.nodes)>32767:
+            raise rt.KarelRuntimeError('Variable inspection requires matching bounded PATH storage',line)
+        found=False
+        for node in value.nodes:
+            found|=missing(node,value.node_spec,line,check=check)
+        if spec[2]:
+            found|=missing(value.data,spec[2],line,check=check)
+        return found
     rt.checked(spec,value,line)
     return False
 
@@ -258,7 +270,7 @@ def variable_info(context,state,args,line=None):
     try: name,code,shape,length=describe(target.spec)
     except NotImplementedError: status.set(4,line);return
     value=target._current(line) if type(target) is rt._ArrayPrefixTarget else target.raw()
-    flag=missing(value,target.spec,line)
+    flag=missing(value,target.spec,line,check=lambda:state.tick(line))
     dimensions=rt.Array(dims.spec)
     for index,size in enumerate(shape,1): dimensions.set(index,size,line)
     assign(outputs,(flag,name,code,dimensions,length,0),line)

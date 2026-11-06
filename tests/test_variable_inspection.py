@@ -51,6 +51,19 @@ class VariableInfoTests(unittest.TestCase):
         state=info('value: ARRAY[2,3] OF STRING[7]')
         self.assertEqual((state['DIMS'],state['LABEL'],state['CODE'],state['LENGTH'],state['EMPTY']),([2,3,0],'STRING',209,7,True))
 
+    def test_inspection_budget_preserves_complete_metadata_outputs(self):
+        for kind in ('ARRAY[2,4] OF INTEGER','POSITION'):
+            with self.subTest(kind=kind):
+                program,_=compile_program(INFO,decl=f'value:{kind} '+OUTPUTS)
+                values=program._state.values
+                values.update(EMPTY=False,LABEL='old',CODE=99,LENGTH=98,STATUS=97)
+                values['DIMS'].values[:]=[9,8,7]
+                before=program.snapshot()
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                    program.run(max_steps=5)
+                self.assertEqual(program.snapshot(),before)
+                self.assertTrue(program.run()['EMPTY'])
+
     def test_nested_array_dimensions(self):
         state=info('value: ARRAY[2] OF row_t',prefix='TYPE row_t=ARRAY[3,4] OF INTEGER')
         self.assertEqual((state['DIMS'],state['CODE']),([2,3,4],16))

@@ -247,8 +247,8 @@ components with complete-batch pose validation and bounded rounding normalizatio
   Cartesian representation or checked joint width without inferring kinematics.
   POSITION orientation columns remain recursively read-only source storage.
   [VECTOR translation frames](vector-translation-frames.md) now support left
-  offsets, independent INV negation and FRAME points. A VECTOR-only origin cannot
-  supply CONFIG; complete pose/model context remains mandatory for that role.
+  offsets, independent INV negation and FRAME points. A VECTOR origin requires
+  an explicit fourth CONFIG argument.
 - [Numeric ARRAY source conversions](numeric-arrays.md) now support checked
   INTEGER/BYTE/SHORT changes and REAL promotion. [Named/component ARRAY conversions](named-array-conversions.md)
   extend numeric, Cartesian, joint-width and explicit-model source assignments,

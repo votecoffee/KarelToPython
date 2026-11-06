@@ -71,6 +71,9 @@ The initialization flag uses these portable choices:
 
 Initialized metadata does not establish valid rotation matrices, robot
 configuration or reachability. Those operations retain their own checks.
+The inspection charges each inspected value and aggregate member to the step
+budget, even after finding missing data. If the budget runs out, every
+`VAR_INFO` output keeps its previous value.
 
 ## VAR_LIST
 

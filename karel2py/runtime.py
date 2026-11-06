@@ -2230,17 +2230,18 @@ def conversion_procedure(name, source, *arguments, line=None):
     _store_conversion_text(name, target, text, line)
 
 
-def _record_uninitialized(value,spec,line=None):
+def _record_uninitialized(value,spec,line=None,*,check=None):
     if not isinstance(value,Structure) or value.spec!=spec or spec!=(spec[0],) or spec[0] not in DATA_RECORD_TYPES:
         raise KarelRuntimeError('Initialization query requires matching builtin record storage',line)
     fields=dict(record_fields(spec))
     if set(value.values)!=set(fields): raise KarelRuntimeError('Initialization query found malformed record fields',line)
     missing=False
     for name,field_spec in fields.items():
+        if check is not None:check()
         member=value.values[name]
         if member is UNINITIALIZED: missing=True
         elif member is UNKNOWN_BYTE: raise KarelRuntimeError('BYTE initialization queries are not implemented',line)
-        elif field_spec[0] in DATA_RECORD_TYPES: missing|=_record_uninitialized(member,field_spec,line)
+        elif field_spec[0] in DATA_RECORD_TYPES: missing|=_record_uninitialized(member,field_spec,line,check=check)
         else:
             checked(field_spec,member,line)
             if spec[0]=='CONFIG' and field_spec==INTEGER and not -8<=member<=7:
@@ -2691,15 +2692,24 @@ def position_axis(name, value, line=None):
 
 
 def frame_from_points(arguments, line=None):
-    """Construct a frame from complete points with an explicit pose origin."""
+    """Construct a frame from complete points with supplied origin CONFIG."""
     if not _pythonic(): raise KarelRuntimeError('FRAME requires Pythonic mode', line)
     if type(arguments) not in (list, tuple) or len(arguments) not in (3, 4):
-        raise KarelRuntimeError('FRAME requires three or four POSITION/XYZWPR points', line)
+        raise KarelRuntimeError('FRAME requires three points and an optional pose origin or CONFIG', line)
+    explicit_config=(len(arguments)==4 and isinstance(arguments[3],Structure)
+                     and arguments[3].spec==('CONFIG',))
+    point_args=arguments[:3] if explicit_config else arguments
     points = [vector_value(value, line) if isinstance(value, Structure) and value.spec == ('VECTOR',)
-              else frame_value(value, line) for value in arguments]
+              else frame_value(value, line) for value in point_args]
     origin = points[3] if len(points) == 4 else points[0]
-    if origin.spec == ('VECTOR',):
-        raise KarelRuntimeError('FRAME origin requires an explicit pose with CONFIG', line)
+    if explicit_config:
+        if origin.spec!=('VECTOR',):
+            raise KarelRuntimeError('FRAME with explicit CONFIG requires a VECTOR first point',line)
+        config=positional_value(('CONFIG',),arguments[3],line)
+    else:
+        if origin.spec == ('VECTOR',):
+            raise KarelRuntimeError('FRAME VECTOR origin requires explicit CONFIG', line)
+        config=origin.values['CONFIG_DATA']
     locations = [tuple((point.values['LOCATION'].values if point.spec == ('POSITION',) else point.values)[field]
                        for field in ('X','Y','Z')) for point in points]
 
@@ -2721,7 +2731,7 @@ def frame_from_points(arguments, line=None):
     z_axis = unit(cross(x_axis, y_axis), 0.0, 'could not form a finite orthogonal Z axis')
     rotation = tuple(zip(x_axis, y_axis, z_axis))
     result_type = ('XYZWPREXT',) if any(point.spec==('XYZWPREXT',) for point in points) else ('POSITION',) if any(point.spec == ('POSITION',) for point in points) else ('XYZWPR',)
-    result=_frame_result(rotation, locations[3] if len(points) == 4 else locations[0], origin.values['CONFIG_DATA'], line, result_type=result_type)
+    result=_frame_result(rotation, locations[3] if len(points) == 4 else locations[0], config, line, result_type=result_type)
     if result_type==('XYZWPREXT',) and origin.spec==result_type:
         for key in ('EXT1','EXT2','EXT3'): result.values[key]=origin.values[key]
     return result

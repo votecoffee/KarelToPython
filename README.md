@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.194737**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.200528**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1125,7 +1125,8 @@ source. Strict mode remains a future milestone.
   VECTOR construction/signs/products and explicit-context offline conversion subsets.
 - CONFIG text parsing/formatting, with checked complete outputs and portable status.
 - Explicit XYZWPR frame composition and inversion, with independent CONFIG copies.
-- Three/four-point FRAME construction with checked geometry and an optional origin.
+- FRAME construction with three checked points and an optional pose origin.
+  A VECTOR origin accepts an explicit fourth CONFIG. See [VECTOR point frames](docs/vector-translation-frames.md#frame-point-inputs-and-metadata).
 - POSITION/XYZWPR assignment conversion with checked orientation matrices.
 - POSITION and mixed POSITION/XYZWPR geometry, preserving protected matrix columns.
 - Read-only UNINIT queries for whole builtin records and individual queues.

@@ -112,6 +112,32 @@ class VectorPointFrameTests(unittest.TestCase):
         values=execute('b=FRAME(VEC(0,0,0),VEC(0,20,0),VEC(-20,0,0),a)')
         self.assertEqual([values['B'][field] for field in ('X','Y','Z','W','P','R')],[10.,20.,30.,0.,0.,90.])
 
+    def test_three_vector_points_with_explicit_config(self):
+        call='FRAME(VEC(10,20,30),VEC(10,40,30),VEC(-10,20,30),cfg)'
+        program,result=compile_program(SETUP+f'cfg.cfg_flip=ON b={call} value={call}.x cfg.cfg_flip=OFF',decl=DECL)
+        state=program.run()
+        self.assertEqual([state['B'][field] for field in ('X','Y','Z','W','P','R')],
+                         [10.,20.,30.,0.,0.,90.])
+        self.assertEqual(state['VALUE'],10.)
+        self.assertTrue(state['B']['CONFIG_DATA']['CFG_FLIP'])
+        self.assertFalse(state['CFG']['CFG_FLIP'])
+        rows=[row for row in result.report['frame_operations'] if row['operation']=='FRAME']
+        self.assertEqual([(row['origin_argument'],row['configuration_argument']) for row in rows],[(1,4),(1,4)])
+
+    def test_explicit_config_keeps_pose_type_precedence_with_zero_external_values(self):
+        values=execute('p=POS(30,20,30,0,0,0,cfg) e=POS(10,40,30,0,0,0,cfg) e.ext1=9 '
+                       'e=FRAME(VEC(10,20,30),p,e,cfg)')
+        self.assertEqual([values['E'][field] for field in ('X','Y','Z','EXT1','EXT2','EXT3')],
+                         [10.,20.,30.,0.,0.,0.])
+        self.assertEqual(values['E']['CONFIG_DATA'],values['CFG'])
+
+    def test_explicit_config_must_be_initialized_before_frame_publication(self):
+        program,_=compile_program(SETUP+'b=a b.x=77 b=FRAME(v,VEC(22,3,4),VEC(2,23,4),bad)',
+                                  decl=DECL+' bad:CONFIG')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'):
+            program.run()
+        self.assertEqual(program.snapshot()['B']['X'],77.)
+
     def test_position_origin_keeps_position_representation(self):
         values=execute('p=FRAME(p,VEC(30,20,30),VEC(10,40,30))')
         self.assertEqual(values['P']['LOCATION'],dict(X=10.,Y=20.,Z=30.))

@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.200528 - 2026-11-06
+
+- Accept an explicit fourth CONFIG argument in Pythonic FRAME when the first
+  point is a VECTOR. The first VECTOR supplies the origin.
+- Charge VAR_INFO initialization scans to the execution budget before
+  publishing metadata outputs.
+
 ## 26.1106.194737 - 2026-11-06
 
 - Stage FIFO edits, backing slots and outputs for APPEND_QUEUE, INSERT_QUEUE,

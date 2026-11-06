@@ -2435,6 +2435,11 @@ class Emitter:
     def frame_call_result_type(self,operation,specs,token):
         if operation=='INV' and specs==[('VECTOR',)]:return ('VECTOR',)
         if operation=='FRAME':
+            if len(specs)==4 and specs[3]==('CONFIG',):
+                if specs[0]!=('VECTOR',):
+                    self.error('E_TYPE','FRAME with explicit CONFIG requires a VECTOR first point',token)
+                poses=[spec for spec in specs[:3] if spec!=('VECTOR',)]
+                return self.frame_result_type(poses or [('XYZWPR',)],token)
             if specs[0 if len(specs)==3 else 3]==('VECTOR',):
                 self.error('E_TYPE','FRAME origin requires a pose or supplied joint frame with CONFIG',token)
             return self.frame_result_type([spec for spec in specs if spec!=('VECTOR',)],token)
@@ -2868,10 +2873,15 @@ class Emitter:
             if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4)):
                 self.error('E_ARGUMENTS', 'INV requires one pose; FRAME requires three or four poses', expr.token)
             codes, frame_specs = [], []
-            for argument in expr.args:
+            for index,argument in enumerate(expr.args):
                 code, spec = self.expression(argument)
-                if spec!=('VECTOR',):self.frame_result_type([spec], argument.token)
-                codes.append(self.geometry_operand(code,spec,argument.token,expr.value)); frame_specs.append(spec)
+                if expr.value=='FRAME' and index==3 and spec==('CONFIG',):
+                    code=f'_rt.positional_value({spec!r},{code},{argument.token.line})'
+                else:
+                    if spec!=('VECTOR',):self.frame_result_type([spec], argument.token)
+                    code=self.geometry_operand(code,spec,argument.token,expr.value)
+                codes.append(code)
+                frame_specs.append(spec)
             result_type = self.frame_call_result_type(expr.value,frame_specs,expr.token)
         else:
             signature, result_type = BUILTIN_SIGNATURES[expr.value]
@@ -2901,10 +2911,13 @@ class Emitter:
                                                   line=expr.token.line, column=expr.token.column, operand_types=[spec[0] for spec in frame_specs],
                                                   result_type=result_type[0], evaluated_once=True, operands_copied=True))
         if expr.value == 'FRAME':
+            fourth_pose=len(frame_specs)==4 and frame_specs[3]!=('CONFIG',)
+            origin=4 if fourth_pose else 1
             self.frame_operation_uses.append(dict(operation='FRAME', body=self.current_routine.name if self.current_routine else self.program.name,
                                                   line=expr.token.line, column=expr.token.column, operand_types=[spec[0] for spec in frame_specs],
                                                   result_type=result_type[0], evaluated_once=True, operands_copied=True,
-                                                  origin_argument=4 if len(expr.args) == 4 else 1))
+                                                  origin_argument=origin,
+                                                  configuration_argument=4 if len(frame_specs)==4 else origin))
         if expr.value in rt.UNARY_TRIG_FUNCTIONS:
             self.trig_uses.append(dict(function=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
                                        line=expr.token.line, column=expr.token.column, evaluated_once=True,
@@ -5870,6 +5883,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lookup='Current and attached declared globals and explicit VariableStore roots. VAR_INFO accepts static fields, ARRAY elements and prefixes, PATH nodes and supplied robot frame/tool paths.',
         metadata='Canonical resolved leaf type and code, remaining logical ARRAY dimensions and STRING element capacity. Supplied robot paths are checked through detached frame/tool reads.',
         initialization='Content-based missing leaves for data aggregates; unknown BYTE is not initialization-tracked; FILE tracks open state; PATH inspects supplied header/nodes; unsupported QUEUE_TYPE code returns status 4',
+        inspection_budget='VAR_INFO charges each inspected value and aggregate member to the execution budget. Check every member before publishing any metadata output.',
         listing='Case-insensitive star and single-character question patterns, sorted program/name roots, zero-based skip and caller ARRAY capacity; four formats; clear unused slots only on success',
         scan='At most 32767 program owners, globals and bindings inspected; charge each inspected entry and prepared output slot to the step budget before publishing any output',
         status='Portable 0 success, 1 lookup/program missing, 2 invalid list options, 3 list text capacity/format overflow, 4 unsupported metadata type; failure writes status only',
@@ -6524,16 +6538,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         evaluation='Capture and validate each operand once left to right before later effects or assignment target selectors; retain earlier effects and destination on late failure',
         interfaces='Exact VECTOR result arguments, RETURN, fields and array elements; ordinary alias, read-only orientation, active-FOR and routine cleanup guards remain',
         reports='Source-located frame_operations with exact operand/result types; joint conversion retains joint_geometry and value-free service requests',
-        boundary='Explicit affine-point and translation-only conventions with rounded floats; FRAME requires a pose/joint origin supplying CONFIG; no implicit pose/vector coercion, acquired context or native/controller/strict equivalence',
+        boundary='Explicit affine points and translation-only conventions. FRAME takes CONFIG from its pose origin or an explicit fourth CONFIG after a VECTOR origin. No implicit pose/vector coercion, acquired context or native/controller/strict equivalence.',
         guide='docs/vector-frames.md',controller_validated=False)
     report['frame_policy']['operands']+='; right VECTOR local points follow vector_frame_policy'
     report['frame_policy']['result_type']+='; right VECTOR always yields VECTOR without CONFIG/external axes'
-    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR translation frames; FRAME VECTOR points require pose/joint origin; APPROACH/ORIENT/comparisons stay pose-only; exact routine/RETURN/whole-array interfaces and native equivalence boundaries remain'
+    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR translation frames. FRAME VECTOR origins require explicit CONFIG. APPROACH, ORIENT and comparisons stay pose-only.'
     report['frame_policy']['operands']+='; VECTOR translation frames, VECTOR INV and FRAME point inputs follow vector_translation_frame_policy'
     report['frame_policy']['result_type']+='; INV(VECTOR) gives VECTOR, VECTOR:pose preserves right Cartesian type, FRAME points retain existing pose-type precedence'
     report['vector_translation_frame_policy']=dict(
-        forms='VECTOR:VECTOR addition, VECTOR:left translation of complete right Cartesian/model-backed joint pose, INV(VECTOR) negation and FRAME VECTOR point inputs with a non-VECTOR pose/joint origin',
-        origin='FRAME three-argument origin is first argument; four-argument origin is fourth; require complete explicit pose CONFIG; never invent CONFIG for VECTOR origins',
+        forms='VECTOR:VECTOR addition, VECTOR:left translation of complete right Cartesian/model-backed joint pose, INV(VECTOR) negation and FRAME VECTOR point inputs with a pose/joint origin or an explicit fourth CONFIG',
+        origin='FRAME uses the first point unless a fourth pose supplies the origin. A VECTOR first point can take an explicit fourth CONFIG. All VECTOR points with CONFIG yield XYZWPR. Other point poses retain representation precedence and a VECTOR origin supplies zero external values.',
         evaluation='Capture/validate each operand once left to right; use pure operation-specific result inference for computed field/routine arguments; preserve prior effects and destination on failure',
         boundary='Portable Pythonic overloads; no broadened generic frame_value/APPROACH/ORIENT/comparison domain, automatic interface coercion, native ABI/controller or strict equivalence',
         guide='docs/vector-translation-frames.md',controller_validated=False)
@@ -6929,7 +6943,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['position_conversion_policy']['boundary']='Context-free Cartesian whole assignments and source routine conversions with complete inputs/proper matrices; joint/model assignments stay separate; whole arrays, BYNAME and declared linkage remain exact'
     report['data_record_policy']['boundary']='Cartesian arguments/RETURN can convert into private values; joint/model conversions retain assignment-only rules; no whole-array representation coercion or physical motion'
     report['positional_routine_policy']['boundary']='Private source Cartesian argument/RETURN conversions; exact same-type bare references, JOINTPOS, whole arrays, BYNAME, linked declared signatures and callback raw results; no inferred context or native ABI'
-    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR translation frames; FRAME VECTOR points require pose/joint origin; Cartesian source routine conversion is separate from exact joint/whole-array interfaces and native equivalence'
+    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR translation frames. FRAME accepts a pose origin or a VECTOR origin with explicit CONFIG. Source routine conversion follows its own interface rules.'
     report['inherited_string_array_result_policy']=dict(
         declarations='Pythonic anonymous ARRAY results may omit STRING element capacity with fixed/wildcard/mixed dimensions; concrete capacity is inherited from returned storage',
         validation='Require one concrete STRING capacity in 1..254, compatible anonymous outer shape, checked known ASCII leaves and existing missing-marker/32767-leaf/64-level limits; copy independently before frame cleanup',
@@ -7032,7 +7046,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['joint_geometry_policy']['boundary']='Portable Cartesian interpretation, no raw joint algebra, whole-array representation conversion, orientation defaults, calibration or native/controller equivalence; model-backed routine boundaries follow kinematic_interface_policy'
     report['data_record_policy']['boundary']='Source Cartesian and explicit-model joint/Cartesian arguments/RETURN use private converted values; no whole-array representation coercion, inferred robot context or physical motion'
     report['positional_routine_policy']['boundary']='Private Cartesian/model-backed joint source conversions; same-type bare refs, whole arrays, BYNAME, linked declarations and raw callback results remain exact; source joint widths follow joint_width_policy'
-    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR frames with pose/joint FRAME origin; source model-backed routine conversions are separate from exact joint-width/whole-array contracts and native equivalence'
+    report['frame_policy']['boundary']='Explicit joint/Cartesian and VECTOR frames. FRAME takes CONFIG from a pose origin or an explicit fourth CONFIG for a VECTOR origin. Source model-backed routine conversions follow their own interface rules.'
     report['positional_variable_transfer_policy']=dict(
         conversions='Non-ARRAY GET_VAR/SET_VAR data across POSITION/XYZWPR/XYZWPREXT or differing JOINTPOS widths; exact same-type copies retain existing partial-value behavior',
         validation='Changing representation requires complete finite source values, valid CONFIG and proper POSITION matrices; joint widening pads zeros, narrowing discards only zero axes',
