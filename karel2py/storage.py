@@ -1,4 +1,5 @@
 """Portable state serialization and explicitly rooted filesystem services."""
+from contextlib import closing
 from copy import deepcopy
 import errno
 import fnmatch
@@ -475,20 +476,33 @@ class DirectoryFiles:
         if not path.exists(): return 1,None
         return 0,self._disk_bytes(path)
 
-    def list_names(self,pattern='*'):
+    def list_names(self,pattern='*',*,check=None):
+        from .fileops import _listing_entries
+
         # Validate the non-wildcard path components before traversing the selected root.
         self._path(pattern.replace('*','x').replace('?','x'))
         pattern=self._relative_name(pattern)
+        def candidates():
+            pending=[self.root]
+            while pending:
+                parent=pending.pop()
+                if self._linked_path(parent) or parent.resolve()!=parent:continue
+                with os.scandir(parent) as entries:
+                    for entry in entries:
+                        path=parent/entry.name
+                        yield path,entry
+                        if entry.is_dir(follow_symlinks=False) and not self._linked_path(path):
+                            pending.append(path)
+            for handle in self.handles:
+                if handle.owner is self:yield self.root/handle.name,None
+
         names=set()
-        for folder,directories,filenames in os.walk(self.root):
-            parent=Path(folder)
-            directories[:]=[name for name in directories if not self._linked_path(parent/name)]
-            for name in filenames:
-                path=parent/name
+        with closing(candidates()) as entries:
+            for path,entry in _listing_entries(entries,check):
                 relative=path.relative_to(self.root).as_posix()
-                if fnmatch.fnmatchcase(relative,pattern) and not self._linked_path(path) and path.is_file():
-                    self._path(relative); names.add(relative)
-        names.update(name for name in self.files if self._busy(name) and fnmatch.fnmatchcase(name,pattern))
+                if not fnmatch.fnmatchcase(relative,pattern):continue
+                if entry is None or entry.is_file(follow_symlinks=False) and not self._linked_path(path):
+                    self._path(relative);names.add(relative)
         return sorted(names)
 
     def copy(self,source,target,overwrite=False):

@@ -696,19 +696,25 @@ class PortBank:
         self.values.update(prepared)
         return len(prepared)
 
-    def sample_outputs(self,*,apply_reverse=False):
+    def sample_outputs(self,*,apply_reverse=False,apply_complementary=False):
         """Return detached physical point values from active offline output mappings."""
         config=self._configuration
         if config is None:raise ValueError('Physical output sampling requires explicit port configuration')
         if type(apply_reverse) is not bool:raise ValueError('Port sampling apply_reverse requires BOOLEAN')
+        if type(apply_complementary) is not bool:raise ValueError('Port sampling apply_complementary requires BOOLEAN')
         self.poll_pulses()
         points={}
         for key,(rack,slot,code,start,width) in config.assignments.items():
             kind,number=key
-            if kind not in OUTPUT_PORTS or key in self.simulated or key not in self.values:continue
-            value=self.values[key]
-            if apply_reverse and PORT_TYPES[kind]=='BOOLEAN' and config.modes.get(key,0)&1:
+            if kind not in OUTPUT_PORTS or key in self.simulated:continue
+            previous=(kind,number-1)
+            complementary=apply_complementary and number%2==0 and bool(config.modes.get(previous,0)&2)
+            source=previous if complementary else key
+            if source in self.simulated or source not in self.values:continue
+            value=self.values[source]
+            if apply_reverse and PORT_TYPES[kind]=='BOOLEAN' and config.modes.get(source,0)&1:
                 value=not value
+            if complementary:value=not value
             if kind=='GOUT' and not 0<=value<1<<width:
                 raise ValueError('GOUT['+str(number)+'] does not fit its mapped width')
             for bit in range(width):
@@ -1381,7 +1387,9 @@ class MemoryFiles:
         if name not in self.files: return 1,None
         data=bytes(self.files[name]);self._check(name,data);return 0,data
     def flush(self,handle,line=None): handle.require_open(line)
-    def list_names(self,pattern='*'): return sorted(name for name in self.files if fnmatch.fnmatchcase(name,pattern))
+    def list_names(self,pattern='*',*,check=None):
+        from .fileops import _listing_entries
+        return sorted(name for name in _listing_entries(self.files,check) if fnmatch.fnmatchcase(name,pattern))
     def copy(self,source,target,overwrite=False):
         self._check(source,b''); self._check(target,b'')
         if self._busy(source) or self._busy(target): return 3

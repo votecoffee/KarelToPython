@@ -130,6 +130,33 @@ class FileListingNameFormatsTests(unittest.TestCase):
         data=program.snapshot()
         self.assertEqual((data['NAMES'][0],data['N'],data['S']),('saved',99,77))
 
+    def test_nonmatching_flat_entries_still_consume_step_budget(self):
+        files=rt.MemoryFiles({f'item{number}.dat':'x' for number in range(12)})
+        body="names[1]='saved' n=99 s=77 FILE_LIST('missing*',0,3,names,n,s)"
+        program,_=compile_program(body,decl=DECL,context=rt.ExecutionContext(files=files))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):program.run(max_steps=8)
+        data=program.snapshot()
+        self.assertEqual((data['NAMES'][0],data['N'],data['S']),('saved',99,77))
+
+    def test_flat_scan_entry_limit_applies_before_page_publication(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            names=('a.dat','b.dat','c.dat')
+            for name in names:(root/name).write_bytes(b'x')
+            backends=(
+                rt.MemoryFiles({name:'x' for name in names}),
+                rt.DeviceFiles({'RD:':{'capacity':100}}, {f'RD:{name}':'x' for name in names}),
+                rt.DirectoryFiles(root),
+            )
+            for files in backends:
+                with self.subTest(backend=type(files).__name__):
+                    body="names[1]='saved' n=99 s=77 FILE_LIST('missing*',0,0,names,n,s)"
+                    program,_=compile_program(body,decl=DECL,context=rt.ExecutionContext(files=files))
+                    with patch('karel2py.fileops.WILDCARD_FILE_LIMIT',2),self.assertRaisesRegex(rt.KarelRuntimeError,'FILE_LIST scan exceeds'):
+                        program.run()
+                    data=program.snapshot()
+                    self.assertEqual((data['NAMES'][0],data['N'],data['S']),('saved',99,77))
+
     def test_output_alias_protection_is_retained(self):
         program,_=compile_program("FILE_LIST('*',0,3,names,n,n)",decl=DECL,
                                   context=rt.ExecutionContext(files=self.bank()))
@@ -228,8 +255,8 @@ class FileListingMetadataTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder,'a.dat').write_bytes(b'a');missing=Path(folder,'b.dat');missing.write_bytes(b'b')
             files=rt.DirectoryFiles(folder);original=files.list_names
-            def removed(pattern):
-                result=original(pattern);missing.unlink();return result
+            def removed(pattern,*,check=None):
+                result=original(pattern,check=check);missing.unlink();return result
             with patch.object(files,'list_names',side_effect=removed):
                 data=listing(files,4,prefix="names[1]='saved' n=99")
             self.assertEqual((data['NAMES'][0],data['N'],data['S']),('saved',99,1))

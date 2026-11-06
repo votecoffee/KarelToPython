@@ -33,6 +33,11 @@ entries in this page. Increment the skip by that count to request the next page.
 Unused array slots retain their previous values, including uninitialized values.
 An empty or exhausted page returns count zero and success without clearing them.
 
+Flat scans over ordinary backends visit at most 32,767 entries. The execution
+budget counts scanned entries, including nonmatches, as well as prepared page
+rows. Rooted scans count directories and files as they are encountered, plus
+active buffered names. Limit failures preserve the previous page and outputs.
+
 Format 0 preserves complete paths/device keys exactly. Formats 1 through 4 remove
 device and directory components, preserve case, and split on the final dot. A
 leading-dot name such as `.settings` has no extension. A trailing dot such as

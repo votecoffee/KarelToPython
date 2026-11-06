@@ -116,14 +116,15 @@ class DeviceFiles(MemoryFiles):
 
     def read_named(self,name): return super().read_named(self.canonical(name))
 
-    def list_names(self,pattern='*'):
-        from .fileops import _file_name_separators
+    def list_names(self,pattern='*',*,check=None):
+        from .fileops import _file_name_separators, _listing_entries
         pattern=_file_name_separators(rt().ascii_string(pattern))
         if ':' in pattern:
             device,tail=pattern.split(':',1);key=device_name(device+':')
             if key not in self._volumes or key in TOTAL_ONLY: raise rt().KarelRuntimeError('Unknown virtual listing device')
             self.require_volume(key);pattern=key+':'+tail
-        return sorted(name for name in self.files if self._volumes[name.split(':',1)[0]]['mounted'] and fnmatch.fnmatchcase(name,pattern))
+        return sorted(name for name in _listing_entries(self.files,check)
+                      if self._volumes[name.split(':',1)[0]]['mounted'] and fnmatch.fnmatchcase(name,pattern))
 
     def copy(self,source,target,overwrite=False):
         source=self.canonical(source);target=self.canonical(target)

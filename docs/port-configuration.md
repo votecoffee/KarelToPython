@@ -151,8 +151,20 @@ Pass `apply_reverse=True` to either sampling method to invert mapped Boolean
 values whose active mode includes bit 1. Inputs are inverted before seeding
 logical values. Outputs are inverted before checking overlaps and returning
 the physical-point sample. This option covers Boolean ports. Group and
-analog values use their ordinary projections, and complementary mode is
-retained as metadata.
+analog values use their ordinary projections.
+
+### Sample complementary outputs
+
+Pass `apply_complementary=True` to `bank.sample_outputs()` to derive a mapped
+even Boolean output from the preceding odd output when the odd output's
+active mode includes bit 2. The even point receives the inverse of the odd
+source. When both options are enabled, the pair uses the odd source's reverse
+mask first. The projection uses the odd logical value even when the even
+logical value is absent or different.
+
+The odd source must be initialized. The projection skips the follower when
+either member is simulated. Ordinary physical-point overlap checks apply to
+the projected values. This is an offline sample of the existing logical state.
 
 ## Status and failure behavior
 

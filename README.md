@@ -383,7 +383,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.170832**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.172823**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -536,6 +536,7 @@ limit allows tasks to finish on the last allotted scheduler cycle.
 A context can include supplied physical input samples to seed mapped logical
 ports. Host code can also sample mapped output points from a completed run.
 Both projections can apply active Boolean reverse masks on request.
+Output sampling can also project complementary odd/even pairs.
 See the [port configuration guide](docs/port-configuration.md#sampling-configured-inputs).
 
 ```sh

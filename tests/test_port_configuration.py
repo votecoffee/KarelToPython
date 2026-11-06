@@ -178,6 +178,41 @@ class PortOutputSamplingTests(unittest.TestCase):
         self.assertTrue(ctx.ports.read('DOUT',1))
         with self.assertRaisesRegex(ValueError,'requires BOOLEAN'):ctx.ports.sample_outputs(apply_reverse=1)
 
+    def test_complementary_follower_uses_active_odd_source_and_optional_reverse(self):
+        config=topology()
+        config['assignments'].append(dict(kind='DOUT',number=2,rack=0,slot=1,type_code=20,start=10,count=1))
+        ctx=context(config,initial={('DOUT',1):True})
+        run('SET_PORT_MOD(20,1,3,s)',context=ctx)
+        odd,even=(0,1,20,9),(0,1,20,10)
+        self.assertEqual(ctx.ports.sample_outputs(apply_complementary=True),{odd:True})
+        self.assertEqual(ctx.ports.apply_configuration(),1)
+        self.assertEqual(ctx.ports.sample_outputs(apply_complementary=True),{odd:True,even:False})
+        self.assertEqual(ctx.ports.sample_outputs(apply_reverse=True,apply_complementary=True),{odd:False,even:True})
+        self.assertEqual(ctx.ports.snapshot(),{('DOUT',1):True})
+        self.assertEqual(ctx.ports.sample_outputs(),{odd:True})
+        with self.assertRaisesRegex(ValueError,'requires BOOLEAN'):ctx.ports.sample_outputs(apply_complementary=1)
+
+    def test_complementary_sample_skips_simulated_or_uninitialized_sources(self):
+        config=topology()
+        config['assignments'].append(dict(kind='DOUT',number=2,rack=0,slot=1,type_code=20,start=10,count=1))
+        config['modes']=[dict(kind='DOUT',number=1,mask=2)]
+        for initial,simulated,expected in (
+                ({('DOUT',2):True},[],{}),
+                ({('DOUT',1):True,('DOUT',2):True},[('DOUT',1)],{}),
+                ({('DOUT',1):True,('DOUT',2):True},[('DOUT',2)],{(0,1,20,9):True})):
+            with self.subTest(initial=initial,simulated=simulated):
+                ctx=context(config,initial=initial,simulated=simulated)
+                self.assertEqual(ctx.ports.sample_outputs(apply_complementary=True),expected)
+                self.assertEqual(ctx.ports.snapshot(),initial)
+
+    def test_complementary_pair_on_same_physical_point_rejects_overlap(self):
+        config=topology()
+        config['assignments'].append(dict(kind='DOUT',number=2,rack=0,slot=1,type_code=20,start=9,count=1))
+        config['modes']=[dict(kind='DOUT',number=1,mask=2)]
+        ctx=context(config,initial={('DOUT',1):True})
+        with self.assertRaisesRegex(ValueError,'Conflicting mapped output'):
+            ctx.ports.sample_outputs(apply_complementary=True)
+
 
 class PortAssignmentTests(unittest.TestCase):
     def test_read_supplied_assignment(self):

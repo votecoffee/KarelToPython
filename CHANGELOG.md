@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.172823 - 2026-11-06
+
+- Let offline output sampling derive mapped even Boolean outputs from their
+  active complementary odd source.
+- Bound flat FILE_LIST scans and charge visited entries to the execution step
+  budget before publishing a page.
+
 ## 26.1106.170832 - 2026-11-06
 
 - Let UNINIT query the initialization flag of a QUEUE_TYPE variable or

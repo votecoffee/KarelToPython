@@ -23,6 +23,13 @@ WILDCARD_FILE_LIMIT=32767
 WILDCARD_COPY_BYTES=64*1024*1024
 
 
+def _listing_entries(entries,check):
+    for index,entry in enumerate(entries,1):
+        if index>WILDCARD_FILE_LIMIT:raise ValueError('FILE_LIST scan exceeds 32767 entries')
+        if check is not None:check()
+        yield entry
+
+
 def _file_name_separators(value):
     value=value.replace('\\','/')
     device,separator,tail=value.partition(':')
@@ -770,6 +777,8 @@ def list_files(state,files,args,line=None):
     parent=normalized.rpartition('/')[0]
     if any(c in parent for c in '*?'):
         matches=_directory_listing(files,normalized,lambda:state.tick(line))
+    elif ordinary:
+        matches=files.list_names(pattern,check=lambda:state.tick(line))
     else:
         matches=files.list_names(pattern)
     selected=matches[skip:skip+capacity];prepared=[]
