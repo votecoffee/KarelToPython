@@ -505,13 +505,24 @@ class DirectoryFiles:
                     self._path(relative);names.add(relative)
         return sorted(names)
 
-    def copy(self,source,target,overwrite=False):
+    def copy(self,source,target,overwrite=False,*,check=None):
+        from .fileops import charge_copy_bytes
+
         source=self._key(source); target=self._key(target)
         if self._busy(source) or self._busy(target): return 3
         src=self._path(source); dst=self._path(target)
         if not src.is_file(): return 1
         if dst.exists() and not overwrite: return 2
-        data=self._disk_bytes(src); atomic_bytes(dst,data); self.files[target]=bytearray(data); return 0
+        data=self._disk_bytes(src)
+        charge_copy_bytes(len(data),check)
+        if check is not None:
+            if self._busy(source) or self._busy(target):return 3
+            dst=self._path(target)
+        try:atomic_bytes(dst,data,overwrite=overwrite)
+        except FileExistsError:
+            if overwrite:raise
+            return 2
+        self.files[target]=bytearray(data); return 0
 
     def delete(self,name):
         key=self._key(name)

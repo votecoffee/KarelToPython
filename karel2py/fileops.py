@@ -754,6 +754,12 @@ def pipe_file_operation(state,operation,args,line=None):
     return code
 
 
+def charge_copy_bytes(size,check):
+    if check is not None:
+        for _ in range(0,size,4096):
+            check()
+
+
 def manage_file(state,operation,args,line=None):
     """Share checked file management between source built-ins and KCL."""
     code=wildcard_file_operation(state,operation,args,line)
@@ -762,7 +768,12 @@ def manage_file(state,operation,args,line=None):
     if code is not None:return code
     files=state.execution.require('files',line)
     try:
-        if operation=='COPY_FILE':return files.copy(args[0],args[1],args[2])
+        if operation=='COPY_FILE':
+            from .devices import DeviceFiles
+            from .storage import DirectoryFiles
+            if type(files) in (rt().MemoryFiles,DeviceFiles,DirectoryFiles):
+                return files.copy(args[0],args[1],args[2],check=lambda:state.tick(line))
+            return files.copy(args[0],args[1],args[2])
         if operation=='DELETE_FILE':return files.delete(args[0])
         if operation=='RENAME_FILE':return files.rename(args[0],args[1])
         if operation=='MOVE_FILE':return files.move(args[0],check=lambda:state.tick(line))
@@ -1050,6 +1061,10 @@ def append_file(state,source_name,target_name,line=None):
         return 2
     limit=target.pipes[dst]['sectors']*1024 if type(target) is rt().FilePipes else target.limit
     if len(prefix)+len(content)>limit:return 4
+    charge_copy_bytes(len(prefix)+len(content),lambda:state.tick(line))
+    code,current=target.read_named(dst)
+    if code:return code
+    if current!=prefix:return 2
     return publish_file_bytes(target,dst,prefix+content,True,line,obsolete=0)
 
 

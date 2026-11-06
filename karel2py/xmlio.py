@@ -227,6 +227,10 @@ def set_variables(context,state,session,args,line=None):
                     if len(indices)!=rank or any(re.fullmatch(r'[0-9]+',index) is None for index in indices):
                         raise ValueError('XML ARRAY paths require every dimension')
                     reference=runtime.index_reference(node,tuple(int(index) for index in indices),line);at+=rank
+                elif isinstance(node,runtime.JointPosition):
+                    if at+1!=len(parts) or re.fullmatch(r'[0-9]+',parts[at]) is None:
+                        raise ValueError('XML JOINTPOS paths require one final axis number')
+                    reference=runtime.joint_index_reference(node,int(parts[at]),reference.spec,line);at+=1
                 else: raise ValueError('XML path must select a declared scalar leaf')
                 node=reference.raw()
             if reference is None or isinstance(reference,runtime.ReadOnlyFieldReference):

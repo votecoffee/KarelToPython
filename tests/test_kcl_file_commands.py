@@ -72,6 +72,14 @@ class KclFileCommandTests(unittest.TestCase):
         self.assertEqual(issue(ctx, 'APPEND FILE RD:in.dat TO FR:out.dat')['S'], 4)
         self.assertEqual(files.snapshot()['FR:out.dat'], b'abc123')
 
+    def test_append_budget_charges_prefix_and_reports_command_failure(self):
+        files=rt.MemoryFiles({'in.bin':b'x','out.bin':b'a'*8192})
+        task=program("s=99 KCL('APPEND FILE in.bin TO out.bin',s)",context=context(files))
+        self.assertEqual(task.run(max_steps=4)['S'],4)
+        self.assertEqual(files.snapshot()['out.bin'],b'a'*8192)
+        self.assertEqual(task.run(max_steps=5)['S'],0)
+        self.assertEqual(files.snapshot()['out.bin'],b'a'*8192+b'x')
+
     def test_pipe_commands_keep_config_and_never_truncate_appended_prefix(self):
         pipes = rt.FilePipes()
         self.assertEqual(pipes.configure('OUT.DAT', False, 1, 2, '', 0), 0)

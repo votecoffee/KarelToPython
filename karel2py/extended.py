@@ -1406,12 +1406,24 @@ class MemoryFiles:
     def list_names(self,pattern='*',*,check=None):
         from .fileops import _listing_entries
         return sorted(name for name in _listing_entries(self.files,check) if fnmatch.fnmatchcase(name,pattern))
-    def copy(self,source,target,overwrite=False):
+    def _copy_payload(self,source,check):
+        from .fileops import charge_copy_bytes
+        data=self.files[source];size=len(data)
+        self._check(source,data)
+        charge_copy_bytes(size,check)
+        if self.files.get(source) is not data or len(data)!=size:
+            fail('COPY_FILE source changed during preparation')
+        return data
+    def copy(self,source,target,overwrite=False,*,check=None):
         self._check(source,b''); self._check(target,b'')
         if self._busy(source) or self._busy(target): return 3
         if source not in self.files: return 1
         if target in self.files and not overwrite: return 2
-        self.files[target]=self.files[source].copy(); return 0
+        data=self._copy_payload(source,check)
+        if check is not None:
+            if self._busy(source) or self._busy(target):return 3
+            if target in self.files and not overwrite:return 2
+        self.files[target]=data.copy(); return 0
     def delete(self,name):
         if self._busy(name): return 3
         if name not in self.files: return 1

@@ -12,9 +12,14 @@ Dotted names are a portable extension:
 Record field components are case-insensitive KAREL identifiers. At an ARRAY
 component, decimal components supply all dimensions of that declared ARRAY,
 using one-based indices. A two-dimensional `grid` needs two components, such as
-`grid.2.1`. Named ARRAY components keep their declared boundaries. Whole arrays,
-whole records, unknown fields, expressions, arbitrary host attributes and
-out-of-range or incomplete indices are rejected.
+`grid.2.1`. Named ARRAY components keep their declared boundaries.
+
+At a JOINTPOS component, one final decimal component selects a one-based axis.
+For example, `axes.2="42.5"` sets the second axis of the `axes` field, and
+`bank.2.1="12.5"` sets the first axis of the second element of a JOINTPOS array.
+Axis values must be finite REALs and fit the declared axis count. Whole arrays,
+whole records, whole JOINTPOS values, unknown fields, expressions, arbitrary host
+attributes and out-of-range or incomplete indices are rejected.
 
 This extension interprets dotted attribute names; it does not map nested XML
 elements or interpret namespaces. The root target is a user STRUCTURE or supported built-in record,
@@ -35,7 +40,7 @@ All updates are staged in a checked independent copy. An invalid later attribute
 leaves every target leaf unchanged. Duplicate destination cells are rejected,
 including case variants and indices such as `1` versus `01`. Only after every
 attribute passes does replacement update the existing storage, preserving its
-record/ARRAY identities and retained references.
+record/ARRAY/JOINTPOS identities and retained references.
 
 Existing runtime field references enforce recursive POSITION orientation
 protection and CONFIG turn bounds (-8 through 7). Writable position/location

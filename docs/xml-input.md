@@ -86,7 +86,8 @@ the existing static variable-path rules, including supported PATH node fields.
 An empty program name selects the current program. The target must be a user
 STRUCTURE or an [explicit built-in record](xml-record-roots.md). Flat scalar attributes
 and [dotted aggregate leaf paths](xml-aggregate-paths.md)
-support INTEGER, BYTE, SHORT, REAL, BOOLEAN and bounded STRING fields.
+support INTEGER, BYTE, SHORT, REAL, BOOLEAN and bounded STRING fields. Dotted
+paths can also set a single JOINTPOS axis as a finite REAL.
 
 Attribute names match KAREL field names without case sensitivity. INTEGER values
 use signed decimal text; REAL values use finite Python float equivalents.

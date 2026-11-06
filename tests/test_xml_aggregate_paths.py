@@ -24,6 +24,34 @@ def program(xml,body=CALL,*,cooperative=False,**options):
                            context=context(xml),cooperative=cooperative,**options)[0]
 
 
+class XMLJointAxisPathTests(unittest.TestCase):
+    def build(self,attrs):
+        prefix='TYPE joint_box=STRUCTURE axes:JOINTPOS3 bank:ARRAY[2] OF JOINTPOS2 count:INTEGER ENDSTRUCTURE'
+        declarations=DECL.replace('item:item_t','item:joint_box')
+        body='item.count=99 item.axes[2]=17 '+OPEN+ADD+SCAN+CALL
+        return compile_program(body,prefix=prefix,decl=declarations,context=context(f'<item {attrs}/>'))[0]
+
+    def test_axis_and_array_joint_paths_update_original_storage(self):
+        task=self.build('axes.1="3.125" bank.2.2="-17.25"')
+        axes=task._state.values['ITEM'].values['AXES']
+        value=task.run()
+        self.assertEqual((value['S'],value['ITEM']['AXES']['axes']),
+                         (0,[3.125,17.,{'uninitialized':True}]))
+        self.assertEqual(value['ITEM']['BANK'][1]['axes'],[{'uninitialized':True},-17.25])
+        self.assertIs(task._state.values['ITEM'].values['AXES'],axes)
+
+    def test_duplicate_axis_rejects_the_complete_update(self):
+        task=self.build('count="4" axes.2="1" AXES.02="2"')
+        value=task.run()
+        self.assertEqual((value['S'],value['ITEM']['COUNT'],value['ITEM']['AXES']['axes'][1]),(2,99,17.))
+
+    def test_axis_bounds_paths_and_values_are_checked(self):
+        for attr in ('axes.0="7"','axes.4="7"','axes.2.1="7"','bank.1="7"','axes.2="NaN"'):
+            with self.subTest(attr=attr):
+                value=self.build(f'count="4" {attr}').run()
+                self.assertEqual((value['S'],value['ITEM']['COUNT'],value['ITEM']['AXES']['axes'][1]),(2,99,17.))
+
+
 class XMLAggregatePathTests(unittest.TestCase):
     def test_nested_fields_and_all_scalar_categories(self):
         p=program('<item child.speed="1.25" child.count="-7" child.label="test" bytes.1="255" small="-32768" flag="on"/>')

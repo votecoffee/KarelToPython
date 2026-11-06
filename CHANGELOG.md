@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.223519 - 2026-11-06
+
+- Apply dotted XML_SETVAR attributes to individual JOINTPOS axes inside record
+  and ARRAY fields. Validate axis bounds and finite REAL values before updating
+  the existing target.
+- Charge the execution budget before publishing exact ordinary COPY_FILE
+  destinations and complete KCL APPEND results.
+
 ## 26.1106.221243 - 2026-11-06
 
 - Accept JOINTPOS targets in Pythonic CHECK_EPOS. Convert with the selected

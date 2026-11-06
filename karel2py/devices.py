@@ -126,7 +126,7 @@ class DeviceFiles(MemoryFiles):
         return sorted(name for name in _listing_entries(self.files,check)
                       if self._volumes[name.split(':',1)[0]]['mounted'] and fnmatch.fnmatchcase(name,pattern))
 
-    def copy(self,source,target,overwrite=False):
+    def copy(self,source,target,overwrite=False,*,check=None):
         source=self.canonical(source);target=self.canonical(target)
         self._check(source,b'');self._check(target,b'')
         if self._busy(source) or self._busy(target): return 3
@@ -134,7 +134,11 @@ class DeviceFiles(MemoryFiles):
         if target in self.files and not overwrite: return 2
         self.require_volume(target.split(':',1)[0],write=True)
         if source==target: return 0
-        row,added=self.reserve(target,len(self.files[source]),len(self.files.get(target,b'')))
+        data=self._copy_payload(source,check)
+        if check is not None:
+            if self._busy(source) or self._busy(target):return 3
+            if target in self.files and not overwrite:return 2
+        row,added=self.reserve(target,len(data),len(self.files.get(target,b'')))
         code=super().copy(source,target,overwrite)
         if not code: row['garbage']+=added
         return code

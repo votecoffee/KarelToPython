@@ -1,4 +1,4 @@
-# Name checks and file movement
+# Name checks, file copying and movement
 
 Since 0.100.0, Pythonic CHECK_NAME validates simple names and MOVE_FILE transfers
 closed files between explicit RD and FR namespaces. They complement the existing
@@ -16,6 +16,13 @@ special names such as `*SYSTEM*` are excluded. Missing/non-ASCII input and an
 invalid status reference retain ordinary data-domain/output errors. This grammar
 does not establish that a name is valid in the KAREL source-program grammar or
 match every native controller name rule.
+
+## Exact COPY_FILE
+
+Exact COPY_FILE on MemoryFiles, DeviceFiles and DirectoryFiles charges one
+execution step per started 4096 bytes of source data before publishing the
+destination. Budget exhaustion raises an execution error and preserves the
+destination and prior status.
 
 ## MOVE_FILE
 

@@ -224,7 +224,10 @@ keeps its existing prefix. An open file, alias of the source, or insufficient
 capacity prevents publication. Virtual volumes charge only the additional bytes.
 A configured plain pipe retains its configuration and rejects data that would
 discard part of the existing history. A rooted append replaces the destination
-atomically within its configured root.
+atomically within its configured root. APPEND charges one execution step per
+started 4096 bytes of the combined result, including the existing prefix, and
+checks that the prefix still matches before publication. An execution budget
+failure during the command returns KCL status 4 and leaves the destination intact.
 
 DIRECTORY uses bounded component matching on ordinary backends and plain
 basename patterns on PIP. An empty match succeeds with no output. PRINT validates

@@ -49,6 +49,37 @@ class CheckNameTests(unittest.TestCase):
             with self.subTest(decl=decl),self.assertRaises(TranslationError): compile_program(body,decl=decl)
 
 
+class ExactCopyBudgetTests(unittest.TestCase):
+    def check_budget(self,files,source,target):
+        program,_=compile_program(f"s=99 COPY_FILE('{source}','{target}',TRUE,FALSE,s)",
+                                  context=rt.ExecutionContext(files=files))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            program.run(max_steps=4)
+        self.assertEqual(program.snapshot()['S'],99)
+
+    def test_memory_and_virtual_device_budget_failure_preserve_bytes_and_quota(self):
+        data=b'a'*8193
+        memory=rt.MemoryFiles({'RD:a.KL':data,'FR:b.KL':b'old'})
+        device=rt.DeviceFiles({'RD:':{'capacity':16384},'FR:':{'capacity':16384}},
+                              {'RD:a.KL':data,'FR:b.KL':b'old'})
+        for files in (memory,device):
+            with self.subTest(backend=type(files).__name__):
+                before=files.to_config() if files is device else files.snapshot()
+                self.check_budget(files,'RD:a.KL','FR:b.KL')
+                after=files.to_config() if files is device else files.snapshot()
+                self.assertEqual(after,before)
+
+    def test_rooted_budget_failure_leaves_destination_and_cache_untouched(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            files=directory(root)
+            (root/'ram/a.KL').write_bytes(b'a'*8193)
+            (root/'flash/b.KL').write_bytes(b'old')
+            self.check_budget(files,'RD:a.KL','FR:b.KL')
+            self.assertEqual((root/'flash/b.KL').read_bytes(),b'old')
+            self.assertEqual(files.snapshot(),{})
+
+
 class MemoryMoveTests(unittest.TestCase):
     def test_exact_file_moves_both_directions_and_preserves_bytes(self):
         files=rt.MemoryFiles({'RD:part.KL':b'\0\xffpayload'})
