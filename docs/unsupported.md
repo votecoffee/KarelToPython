@@ -378,12 +378,13 @@ queue-entry policies; FILE banks remain excluded.
 - Persisting live file handles, callbacks, connected clocks, queue buffer
   references, Python closures, generator/call stacks or suspended task execution.
   JSON stores values and logical collection state; it is not a task checkpoint.
-- XML writing, DTD/entity processing, Unicode, namespace interpretation and
+- XML writing, DTD/entity processing, Unicode, XML schema interpretation and
   native streaming/error equivalence. All five [XML input calls](xml-input.md)
   now support bounded ASCII FILE scanning and [checked nested scalar/ARRAY leaf updates](xml-aggregate-paths.md),
   including BYTE/SHORT and [explicit built-in record roots](xml-record-roots.md),
-  with atomic publication;
-  live scanners and registrations are omitted from saved JSON.
+  with atomic publication. An explicit qualified tag registration adds
+  URI-based scanning and expanded attribute names. Live scanners and
+  registrations are omitted from saved JSON.
 
 ## Tasks, handlers and programs
 

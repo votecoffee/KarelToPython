@@ -924,16 +924,17 @@ def move_files(files,specification,*,check=None):
             identities.add(identity)
     targets=[target.casefold() for _,target in plan]
     if len(set(targets))!=len(targets) or any(target in existing for target in targets): return 2
+    # Charge both validation and publication before starting any backend moves.
+    for _ in range(2*len(plan)):
+        check()
     preflight=getattr(files,'preflight_moves',None)
     if preflight is not None: preflight(plan)
     for source,target in plan:
-        check()
         if directory:
             path=files._path(source)
             if not path.is_file() or path.stat().st_size>files.limit: raise ValueError('MOVE_FILE source is not a bounded regular file')
         else: files._check(source,files.files[source]);files._check(target,b'')
     for source,target in plan:
-        check()
         if directory:
             code,data=files.read_named(source)
             if code: return code

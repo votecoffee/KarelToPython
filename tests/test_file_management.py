@@ -272,14 +272,28 @@ class FileManagementIntegrationTests(unittest.TestCase):
                 self.assertEqual((source.read_bytes(),program.snapshot()['S']),(b'a',99))
                 self.assertFalse((root/'flash'/'a.KL').exists())
 
-    def test_commit_budget_failure_retains_earlier_moves(self):
+    def test_publication_budget_is_charged_before_any_moves(self):
         files=rt.MemoryFiles({'RD:a.KL':b'a','RD:b.KL':b'b'});calls=0
         def check():
             nonlocal calls
             calls+=1
             if calls==6: raise rt.KarelRuntimeError('budget')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'): files.move('RD:*.KL',check=check)
-        self.assertEqual(files.snapshot(),{'FR:a.KL':b'a','RD:b.KL':b'b'})
+        self.assertEqual(files.snapshot(),{'RD:a.KL':b'a','RD:b.KL':b'b'})
+
+    def test_late_preflight_budget_leaves_rooted_files_and_status_unchanged(self):
+        with tempfile.TemporaryDirectory() as folder:
+            files=directory(folder)
+            root=Path(folder)
+            sources=[root/'ram'/name for name in ('a.KL','b.KL')]
+            for path in sources:
+                path.write_bytes(path.name.encode('ascii'))
+            program,_=compile_program("s=99 MOVE_FILE('RD:*.KL',s)",context=rt.ExecutionContext(files=files))
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):
+                program.run(max_steps=7)
+            self.assertEqual(program.snapshot()['S'],99)
+            self.assertEqual([path.read_bytes() for path in sources],[b'a.KL',b'b.KL'])
+            self.assertEqual(list((root/'flash').iterdir()),[])
 
     def test_move_results_persist_in_typed_context(self):
         files=rt.MemoryFiles({'RD:a.KL':b'\0\xffa'});ctx=rt.ExecutionContext(files=files)

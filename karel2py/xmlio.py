@@ -20,6 +20,22 @@ class RejectedXML(ValueError): pass
 def xml_name(value): return bool(re.fullmatch(r'[A-Za-z_:][A-Za-z_0-9.:-]{0,253}',value))
 
 
+NAMESPACE_SEPARATOR=chr(31)
+
+
+def namespace_uri(value):
+    return 0<len(value)<=254 and all(33<=ord(char)<=126 and char not in '{}' for char in value)
+
+
+def tag_key(value):
+    if not value.startswith('{'):
+        return ('',value) if xml_name(value) else None
+    uri,separator,local=value[1:].partition('}')
+    if separator and len(value)<=254 and namespace_uri(uri) and xml_name(local) and ':' not in local:
+        return uri,local
+    return None
+
+
 class XMLInput:
     def __init__(self,handle,line=None):
         handle.require_open(line)
@@ -27,6 +43,7 @@ class XMLInput:
             raise rt().KarelRuntimeError('XML requires ATR_XML and a text FILE opened RO',line)
         if handle.position: raise rt().KarelRuntimeError('XML input must begin at byte zero',line)
         self.handle=handle;self.raw=bytes(handle.owner.files[handle.name]);self.tags=[]
+        self.namespaces=False
         self.events=None;self.failed=5 if len(self.raw)>1024*1024 else None
         self.next=0;self.current=None;self.scan_line=1
         self.line_starts=[0] if self.failed else [0,*[m.end() for m in re.finditer(rb'\r\n|\r|\n',self.raw)]]
@@ -38,14 +55,27 @@ class XMLInput:
     def add(self,name,count,case,ident,line=None):
         runtime=rt();name=runtime.ascii_string(name,line);count=runtime.integer(count,line)
         case=runtime.boolean(case,line);ident=runtime.integer(ident,line)
-        if not xml_name(name) or not 1<=count<=254 or ident<=0 or ident in (1001,1002): return 2
-        if any(row['ident']==ident or row['name'].upper()==name.upper() for row in self.tags): return 2
+        key=tag_key(name)
+        if key is None or not 1<=count<=254 or ident<=0 or ident in (1001,1002): return 2
+        uri,local=key
+        if self.namespaces and ':' in local:return 2
+        if uri and not self.namespaces:
+            if self.events is not None or self.failed is not None:return 1
+            if any(':' in row['local'] for row in self.tags):return 2
+        if any(row['ident']==ident or (row['uri']==uri and row['local'].upper()==local.upper())
+               for row in self.tags): return 2
         if len(self.tags)>=128: return 5
-        self.tags.append(dict(name=name,count=count,case=case,ident=ident));return 0
+        self.tags.append(dict(uri=uri,local=local,count=count,case=case,ident=ident))
+        if uri:self.namespaces=True
+        return 0
 
     def remove(self,name,line=None):
         name=rt().ascii_string(name,line)
-        found=next((row for row in self.tags if (row['name']==name if row['case'] else row['name'].upper()==name.upper())),None)
+        key=tag_key(name)
+        if key is None:return 2
+        uri,local=key
+        found=next((row for row in self.tags if row['uri']==uri and
+                    (row['local']==local if row['case'] else row['local'].upper()==local.upper())),None)
         if found is None: return 2
         if self.current is not None and self.current['ident']==found['ident']: return 1
         self.tags.remove(found);return 0
@@ -53,11 +83,25 @@ class XMLInput:
     def parse(self,state,line=None):
         if self.events is not None or self.failed is not None: return
         if len(self.raw)>1024*1024: self.failed=5;return
-        events=[];stack=[];parser=expat.ParserCreate();parser.ordered_attributes=True
+        events=[];stack=[];declarations=0
+        parser=expat.ParserCreate(namespace_separator=NAMESPACE_SEPARATOR if self.namespaces else None)
+        parser.ordered_attributes=True
         def reject(*args): raise RejectedXML('DTD and entity declarations are unsupported')
         def ascii_text(text):
             if not text.isascii() or any(ord(c)<32 and c not in '\r\n\t' for c in text): raise RejectedXML('XML data requires ASCII')
             return text
+        def checked_name(name):
+            uri,separator,local=name.partition(NAMESPACE_SEPARATOR)
+            label=f'{{{uri}}}{local}' if separator else name
+            key=tag_key(label)
+            if key is None:raise RejectedXML('XML name is too large or invalid')
+            return label,key
+        def namespace_decl(prefix,uri):
+            nonlocal declarations
+            declarations+=1
+            if (declarations>32 or (prefix is not None and not xml_name(prefix))
+                    or (uri is not None and not namespace_uri(uri))):
+                raise RejectedXML('XML namespace declaration is too large or invalid')
         def tag_end(at):
             quote=None
             for i in range(at,len(self.raw)):
@@ -72,23 +116,26 @@ class XMLInput:
             if len(events)>=65536: raise RejectedXML('XML event limit exceeded')
             events.append(event)
         def start(name,attributes):
-            ascii_text(name)
-            if not xml_name(name) or len(stack)>=64 or len(attributes)>64: raise RejectedXML('XML name, depth or attribute limit exceeded')
-            attrs=tuple(zip(attributes[::2],attributes[1::2]))
-            for key,value in attrs:
-                if not xml_name(key) or len(ascii_text(value))>254: raise RejectedXML('XML attribute is too large or invalid')
+            nonlocal declarations
+            label,key=checked_name(name)
+            if len(stack)>=64 or len(attributes)//2+declarations>32: raise RejectedXML('XML depth or attribute limit exceeded')
+            declarations=0
+            attrs=tuple((checked_name(attr)[0],ascii_text(value)) for attr,value in zip(attributes[::2],attributes[1::2]))
+            if any(len(value)>254 for _,value in attrs):raise RejectedXML('XML attribute is too large')
             end=tag_end(parser.CurrentByteIndex);empty=self.raw[end-2:end]==b'/>'
             stack.append(empty)
-            append(dict(name=name,attrs=attrs,parts=[],kind=101 if empty else 100,attributes_valid=True,
+            append(dict(name=label,key=key,attrs=attrs,parts=[],kind=101 if empty else 100,attributes_valid=True,
                         end=end,line=parser.CurrentLineNumber))
         def end(name):
             if stack.pop(): return
-            append(dict(name=name,attrs=(),parts=[],kind=101,attributes_valid=False,
+            label,key=checked_name(name)
+            append(dict(name=label,key=key,attrs=(),parts=[],kind=101,attributes_valid=False,
                         end=tag_end(parser.CurrentByteIndex),line=parser.CurrentLineNumber))
         def text(value):
             ascii_text(value)
             if events: events[-1]['parts'].append(value)
         parser.StartElementHandler=start;parser.EndElementHandler=end;parser.CharacterDataHandler=text
+        parser.StartNamespaceDeclHandler=namespace_decl
         parser.StartDoctypeDeclHandler=reject;parser.EntityDeclHandler=reject;parser.ExternalEntityRefHandler=reject
         try:
             ascii_text(self.raw.decode('ascii'))
@@ -109,8 +156,10 @@ class XMLInput:
             state.tick(line);event=self.events[index]
             if event['line']>=self.scan_line+50:
                 return index,dict(name='',ident=1002,kind=0,status=1002)
+            uri,local=event['key']
             for tag in self.tags:
-                actual=event['name'][:tag['count']];pattern=tag['name'][:tag['count']]
+                if tag['uri']!=uri:continue
+                actual=local[:tag['count']];pattern=tag['local'][:tag['count']]
                 if (actual==pattern if tag['case'] else actual.upper()==pattern.upper()):
                     return index,dict(name=event['name'],ident=tag['ident'],kind=event['kind'],status=1001)
             index+=1

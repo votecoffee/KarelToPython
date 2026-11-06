@@ -109,11 +109,11 @@ left-to-right, before selection. Earlier selector/source effects remain visible.
 ## Execution and persistence
 
 Moves run synchronously in sorted source-name order using the existing backend
-rename convention. Preparation and each move consume the normal execution step
-budget. A late OS error, changed source/target or budget failure can occur after
-earlier files moved. Those completed moves remain; the runtime does not retry or
-roll back a partially completed batch. This is not a concurrent-filesystem
-transaction or a native flash/mount/erase-cycle model.
+rename convention. Preparation and every planned move are charged to the normal
+execution step budget before the first rename. Budget exhaustion preserves all
+files and the status output. A late OS error or a changed source or target can
+still leave earlier moves completed. Completed moves are retained without
+automatic retry or rollback.
 
 Moved byte contents survive context save/load using existing file snapshots.
 Directory roots/mappings are supplied again by the host; saved context file data

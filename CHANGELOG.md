@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.213713 - 2026-11-06
+
+- Match XML tags by namespace URI with an explicit `{uri}local` registration.
+  Return expanded names for matching tags and qualified attributes.
+- Charge the complete MOVE_FILE batch before its first rename. Budget
+  exhaustion preserves every source, destination and the status output.
+
 ## 26.1106.211645 - 2026-11-06
 
 - Construct XYZWPREXT with Pythonic POS and three explicit trailing external

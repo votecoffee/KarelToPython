@@ -53,10 +53,10 @@ selection returns 1. Invalid paths and backend/budget failures raise ordinary
 runtime errors and preserve the status output. Earlier expression effects stay
 visible if later preparation fails.
 
-Publication retains ordered per-file backend renames. A late OS, status or budget
-failure may leave earlier moves completed. The runtime does not retry or roll
-back completed moves, create a filesystem transaction or promise isolation from
-external host edits. These rules apply to old and newly extended forms.
+Publication uses ordered per-file backend renames after all budget charges.
+Budget exhaustion leaves the batch untouched. Late OS or status failures can
+leave earlier moves completed. Completed moves are retained without automatic
+retry or rollback.
 
 ## FILE_LIST
 

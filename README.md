@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.211645**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.213713**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -763,8 +763,9 @@ the same variable name independently. See [project ARRAY shapes](docs/project-ar
 for API and CLI examples, including validation without executing source.
 PATH helpers include portable NODE_SIZE and supplied view-line/plane intersections
 with staged append behavior; see [PATH geometry](docs/path-geometry.md).
-Five XML input calls provide registered-tag scanning, chunked text/attributes
-and checked structure updates over explicit FILE backends; see
+Five XML input calls provide registered-tag scanning, chunked text and attributes,
+and checked structure updates over explicit FILE backends. A `{uri}local` tag
+registration enables matching by namespace URI. See
 [XML input](docs/xml-input.md). GET_PORT_ATR/SET_PORT_ATR use a separate persisted
 offline serial-attribute bank; see [serial attributes](docs/serial-attributes.md).
 Six device/storage calls share explicit virtual DeviceFiles volumes, including
@@ -1091,7 +1092,7 @@ beyond the reviewed manual, which excludes whole PATH for these calls. See
 
 CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files
 through explicit memory or mapped directory backends. Source and destination scans
-are bounded, and the full batch is checked before moving.
+are bounded, and the full batch is checked and charged to the step budget before moving.
 See [file management](docs/file-management.md).
 
 I/O assignment/mode procedures stage settings against explicit physical-capacity

@@ -44,6 +44,33 @@ the complete name/value. Unused array elements retain their previous values;
 use numattr to determine valid entries. A capacity failure returns XML_CAPACITY
 and preserves all data outputs and the text offset for retry.
 
+### Match by namespace URI
+
+Register a `{uri}local` selector to opt the open FILE into namespace-aware
+parsing. Add the first qualified registration before the first SCAN and remove
+any lexical `prefix:local` registrations first. The mode lasts until CLOSE.
+Existing unqualified registrations match elements with no namespace.
+
+```karel
+XML_ADDTAG(f,'{urn:parts}item',254,TRUE,7,status)
+```
+
+The URI matches exactly. The count and case flag apply to the local name.
+This matches both `<p:item xmlns:p="urn:parts"/>` and
+`<item xmlns="urn:parts"/>`. SCAN returns `{urn:parts}item` in either case.
+GETDATA expands qualified attribute names in the same way and omits namespace
+declarations. Ordinary attributes retain their names. Namespace declarations
+count toward the per-tag attribute limit. The expanded name must fit both
+the 254-character input limit and the destination STRING.
+
+A registration that tries to switch modes after parsing returns XML_STATE.
+Lexical prefix selectors conflict with the expanded mode and return XML_INVALID.
+XML_REMTAG uses the same qualified spelling and case rules as registration.
+An invalid namespace declaration or an undeclared prefix in expanded mode
+produces XML_PARSE under the existing whole-document validation rule.
+
+### Read text
+
 Text means immediate text following the current tag, up to the next element
 boundary. Comments and processing instructions are ignored; CDATA and predefined
 XML entities are decoded. Each GETDATA reads up to the destination STRING's
@@ -66,6 +93,8 @@ use signed decimal text; REAL values use finite Python float equivalents.
 BOOLEAN accepts 0/1, TRUE/FALSE or ON/OFF, without case sensitivity. STRING values
 must fit their destination. Unknown paths, duplicate canonical destination cells,
 unsupported field types, protected leaves and invalid values reject the entire update.
+Expanded attribute names are outside the KAREL variable-path syntax and reject
+the update under the same rule.
 Complete one-based ARRAY indices follow each declared rank. BYTE/SHORT retain
 their ordinary domains and SHORT sentinel. A checked independent target is staged
 before publication, preserving existing nested storage identities on success. Unmentioned fields retain their values,

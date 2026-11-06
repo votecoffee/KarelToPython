@@ -18,6 +18,56 @@ DATA='XML_GETDATA(f,n,names,values,text,done,s) '
 def context(text): return rt.ExecutionContext(files=rt.MemoryFiles({'input.xml':text}))
 
 
+class XMLNamespaceTests(unittest.TestCase):
+    def test_qualified_names_match_across_prefix_aliases_and_return_expanded_attributes(self):
+        xml=('<root xmlns:a="urn:parts" xmlns:b="urn:parts">'
+             '<a:Item b:code="7" plain="8"/><b:item/></root>')
+        add="XML_ADDTAG(f,'{urn:parts}ite',3,FALSE,7,s) "
+        state=run(OPEN+add+SCAN+'first=tag '+DATA+SCAN,
+                  decl=DECL+' first:STRING[32]',context=context(xml))
+        self.assertEqual((state['S'],state['IDENT'],state['FIRST'],state['TAG']),
+                         (1001,7,'{urn:parts}Item','{urn:parts}item'))
+        self.assertEqual((state['N'],state['NAMES'],state['VALUES']),(2,['{urn:parts}code','plain'],['7','8']))
+
+    def test_default_namespace_and_uri_case_are_distinct(self):
+        xml='<root xmlns="urn:A"><item/><item xmlns="urn:a"/><item xmlns=""/></root>'
+        add=("XML_ADDTAG(f,'{urn:A}item',254,FALSE,7,s) "
+             "XML_ADDTAG(f,'{urn:a}item',254,FALSE,8,s) "+ADD.replace(',7,',',9,'))
+        state=run(OPEN+add+SCAN+'first=ident '+SCAN+'second=ident '+SCAN,
+                  decl=DECL+' first,second:INTEGER',context=context(xml))
+        self.assertEqual((state['FIRST'],state['SECOND'],state['IDENT'],state['TAG']),(7,8,9,'item'))
+
+    def test_legacy_prefix_registration_and_late_opt_in(self):
+        xml='<p:item xmlns:p="urn:parts" p:code="7"/>'
+        legacy="XML_ADDTAG(f,'p:item',254,TRUE,7,s) "
+        add="XML_ADDTAG(f,'{urn:parts}item',254,TRUE,8,s)"
+        state=run(OPEN+legacy+SCAN+DATA+add,decl=DECL,context=context(xml))
+        self.assertEqual((state['S'],state['TAG'],state['NAMES']), (1,'p:item',['xmlns:p','p:code']))
+
+    def test_rejected_registration_does_not_switch_namespace_mode(self):
+        xml='<p:item xmlns:p="urn:parts"/>'
+        add=("XML_ADDTAG(f,'p:item',254,TRUE,7,s) "
+             "XML_ADDTAG(f,'{urn:parts}item',254,TRUE,8,s) bad=s ")
+        state=run(OPEN+add+SCAN,decl=DECL+' bad:INTEGER',context=context(xml))
+        self.assertEqual((state['BAD'],state['IDENT'],state['TAG']),(2,7,'p:item'))
+
+    def test_namespaced_attributes_cannot_be_applied_as_variable_paths(self):
+        add="XML_ADDTAG(f,'{urn:parts}item',254,TRUE,7,s) "
+        tail="record.number=91 "+SCAN+"XML_SETVAR(f,'','record',s)"
+        prefix='TYPE row_t=STRUCTURE number:INTEGER ENDSTRUCTURE'
+        for attrs,expected in (('number="7"',(0,7)),('number="7" x:number="8"',(2,91))):
+            with self.subTest(attrs=attrs):
+                xml=f'<item xmlns="urn:parts" xmlns:x="urn:vars" {attrs}/>'
+                state=run(OPEN+add+tail,prefix=prefix,decl=DECL+' record:row_t',context=context(xml))
+                self.assertEqual((state['S'],state['RECORD']['NUMBER']),expected)
+
+    def test_invalid_namespace_later_in_document_prevents_earlier_delivery(self):
+        add="XML_ADDTAG(f,'{urn:parts}item',254,TRUE,7,s) "
+        state=run(OPEN+add+SCAN,decl=DECL,
+                  context=context('<root><item xmlns="urn:parts"/><unbound:other/></root>'))
+        self.assertEqual((state['S'],state['IDENT'],state['TAG']),(4,-1,''))
+
+
 class XMLScanningTests(unittest.TestCase):
     def test_registered_events_ignore_unregistered_tags_and_keep_order(self):
         ctx=context('<root><ignored/><item a="7">hello</item><item/></root>')
