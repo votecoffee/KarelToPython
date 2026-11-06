@@ -1,0 +1,9 @@
+{
+  "files": {"Labels.UTX": "$1 \"Ready\"\n"},
+  "dictionaries": {},
+  "variable_archives": {},
+  "variables": [{"program": "DATA", "path": "VALUE", "type": ["INTEGER"], "value": 17}],
+  "controller": {"resets": [{"completed": true, "fault": false}]},
+  "ports": {"counts": {"OPOUT": 3}, "values": {"OPOUT": {"3": true}}},
+  "kcl": {"task_commands": true, "program_commands": true, "dictionary_commands": true, "file_commands": true}
+}

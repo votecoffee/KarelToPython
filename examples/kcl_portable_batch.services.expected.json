@@ -1,0 +1,31 @@
+{
+  "files": {"Labels.UTX": {"hex": "243120225265616479220a"}},
+  "dictionaries": {
+    "sources": {}, "languages": ["ENGLISH"], "default_language": "ENGLISH", "language": "ENGLISH",
+    "loaded": {"ENGLISH": {"MENU": {"source": "LABELS.TX", "text": "$1 \"Ready\"\n"}}}
+  },
+  "variable_archives": {"limit": 16777216, "program_limit": 256, "calls": {"DATA": []}, "flash": {}},
+  "controller": {
+    "background": {}, "perch_counts": {}, "perches": {}, "resets": [], "limit": 500, "sequence": 1,
+    "history": [
+      {"sequence": 1, "program": "KCL_PORTABLE_BATCH", "operation": "RESET", "outcome": "completed", "data": {"delay_ms": 0, "completed": true, "fault": false}}
+    ],
+    "elapsed_ms": 0
+  },
+  "ports": {"OPOUT:3": false},
+  "kcl": {
+    "replies": {}, "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "SAVE ALL DATA", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "CLEAR ALL YES", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "LOAD ALL DATA.PB", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "COMPRESS DICT Labels", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "LOAD DICT Labels MENU", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "RESET", "phase": "completed", "status": 0},
+      {"sequence": 7, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "DELETE FILE DATA.*", "phase": "completed", "status": 0},
+      {"sequence": 8, "program": "KCL_PORTABLE_BATCH", "operation": "KCL", "command": "DELETE FILE Labels.TX", "phase": "completed", "status": 0}
+    ],
+    "sequence": 8, "last_status": 0, "task_commands": true, "file_commands": true,
+    "dictionary_commands": true, "program_commands": true
+  }
+}

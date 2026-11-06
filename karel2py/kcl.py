@@ -56,6 +56,7 @@ def task_admin_command(command):
     from .dynamic import IDENTIFIER
 
     command=command.upper()
+    if command=='RESET':return 'RESET',()
     setting=re.fullmatch(rf'SET +TASK +(?:\[ *({IDENTIFIER}) *\] +)?(PRIORITY|TRACELEN) *= *([+-]?[0-9]+)',command)
     if setting:
         return 'TASK_SETTING',(setting[1] or '', 'TSK_'+setting[2], int(setting[3]))
@@ -251,10 +252,11 @@ def dictionary_command(command):
     action = fields[0].upper()
     args = fields[2:]
     if action == 'LOAD' and len(args) in (2, 3):
-        from .dictionaries import DICTIONARY_CONSTANTS
         source, name = args[:2]
         language = args[2] if len(args) == 3 else 'DEFAULT'
-        return 'ADD_DICT', (source, name, language, DICTIONARY_CONSTANTS['DP_DRAM'])
+        return 'LOAD_DICT', (source, name, language)
+    if action == 'COMPRESS' and len(args)==1:
+        return 'COMPRESS_DICT',tuple(args)
     if action == 'CLEAR' and len(args) in (1, 2):
         language = args[1] if len(args) == 2 else 'DEFAULT'
         return 'REMOVE_DICT', (args[0], '' if language.upper() == 'ALL' else language)
@@ -286,6 +288,11 @@ def program_command(command):
     if translate:
         return 'TRANSLATE', (translate[1], translate[2] is not None)
     fields = command.upper().split()
+    if len(fields) in (2,3) and fields[1]=='ALL' and fields[0] in ('SAVE','LOAD','CLEAR'):
+        if fields[0]=='CLEAR':
+            return ('CLEAR_ALL',(len(fields)==3,)) if len(fields)==2 or fields[2] in ('Y','YES') else None
+        if fields==['LOAD','ALL','CONVERT']:return None
+        return fields[0]+'_ALL',(command.split()[2] if len(fields)==3 else None,)
     if fields == ['SHOW', 'BUILTINS']:
         return 'SHOW_BUILTINS', ()
     if fields == ['SHOW', 'PROGRAMS']:
@@ -402,7 +409,7 @@ def procedure_line(text):
 
 
 def procedure_plan(state,channel,args,line):
-    from .fileops import (kcl_procedure_endpoint,kcl_procedure_input,kcl_procedure_output,
+    from .fileops import (kcl_procedure_endpoint,kcl_read_bytes,kcl_procedure_output,
                           kcl_scoped_file)
 
     def resolve(value,suffix):
@@ -417,8 +424,8 @@ def procedure_plan(state,channel,args,line):
         count+=1
         if len(active)>=4 or count>32:raise ProcedureError(705)
         state.tick(line)
-        status,data,identity=kcl_procedure_input(files,key,remaining,line)
-        if status:raise ProcedureError(status)
+        status,data,identity=kcl_read_bytes(files,key,remaining,line)
+        if status:raise ProcedureError(700+status)
         if identity in active:raise ProcedureError(706)
         remaining-=len(data)
         text=data.decode('ascii')
@@ -678,6 +685,8 @@ class KclCommands:
         from .scheduling import kcl_task_admin
 
         operation,args=request
+        if operation=='RESET':
+            return self._submit_activation(state,name,command,self._run_reset)
         if operation=='SHOW_HISTORY':
             from .inspection import kcl_task_history
             selector=args[0] or self.default_program
@@ -737,11 +746,13 @@ class KclCommands:
         return self._dispatch(state,name,command,dispatch)
 
     def _submit_dictionary(self,state,name,command,request,line):
-        from .dictionaries import kcl_catalog
+        from .dictionaries import kcl_catalog,kcl_dictionary_file
 
         operation,args=request
         def dispatch(_job):
-            if operation in ('ADD_DICT','REMOVE_DICT'):
+            if operation in ('LOAD_DICT','COMPRESS_DICT'):
+                code=kcl_dictionary_file(state,operation,args,self,line)
+            elif operation=='REMOVE_DICT':
                 code=state.execution.require('dictionaries',line).manage(state,operation,args)
             else:
                 code=kcl_catalog(state,operation,args,line)
@@ -782,6 +793,12 @@ class KclCommands:
                 code=kcl_program_listing(state,operation,(selector,),line)
             elif operation in ('SHOW_PROGRAMS','SHOW_TASKS'):
                 code=kcl_program_listing(state,operation,args,line)
+            elif operation in ('SAVE_ALL','LOAD_ALL','CLEAR_ALL'):
+                from .mixed_archives import kcl_batch
+
+                operand=args[0]
+                if operation!='CLEAR_ALL' and operand is None:operand=self.default_program
+                code=kcl_batch(state,operation,operand,line)
             else:
                 code=kcl_program_archive(state,operation,args,line)
             return 500+code if code else 0
@@ -827,10 +844,24 @@ class KclCommands:
                 self.verify=args[0]
                 return 0
             return self._dispatch(state,name,command,set_verify)
+        return self._submit_activation(state,name,command,self._run_procedure,procedure=args)
+
+    def _submit_activation(self,state,name,command,runner,**data):
         if name=='KCL_NO_WAIT':return self._reject_ineligible(state,name,command)
         job=self._begin_inline(state,name,command)
-        job['procedure']=args
+        job.update(data,runner=runner)
         return 0,job
+
+    def _run_reset(self,state,job,line):
+        try:
+            controller=state.execution.require('controller',line)
+            completed=yield from controller.reset(state,None,line)
+            job['status']=0 if completed else 4
+        except rt().KarelRuntimeError:
+            pass
+        finally:
+            self.complete(job)
+        return job['status']
 
     def _debug_task(self,state,selector,line):
         from .scheduling import selected_task_root
@@ -963,7 +994,7 @@ class KclCommands:
                 state.tick(line)
                 if child.verify:write_file_text(state,command+'\n',line)
                 status,step=child.submit(state,'KCL',command,line)
-                if step is not None:status=yield from child.wait(state,step,line)
+                if step is not None:status=yield from child.wait(state,step,line,activate=True)
                 self.working_directory=child.working_directory
                 self.default_program=child.default_program
                 self.default_group=child.default_group
@@ -1035,7 +1066,7 @@ class KclCommands:
         if not reply['delay_ms']:self.complete(job)
         return 0,job
 
-    def wait(self,state,job,line=None):
+    def wait(self,state,job,line=None,*,activate=False):
         if 'task_ready' in job:
             root=rt().task_root(state)
             while not job['task_ready']():
@@ -1046,8 +1077,10 @@ class KclCommands:
                     yield from rt().checkpoint(root,line,force_pause=True)
             return job['status']
         if self._pending is job:
-            if 'procedure' in job:
-                raise rt().KarelRuntimeError('An executing KCL command procedure belongs to its calling activation',line)
+            if 'runner' in job:
+                if not activate:
+                    raise rt().KarelRuntimeError('An executing KCL command belongs to its calling activation',line)
+                return (yield from job['runner'](state,job,line))
             if job['clock'] is None:
                 raise rt().KarelRuntimeError('Cannot collect an executing inline KCL command', line)
             remaining=max(0,math.ceil((job['due']-job['clock']())/1000))
@@ -1065,8 +1098,7 @@ class KclCommands:
             return self.last_status
         code,job=self.submit(state,name,args[0],line)
         if name=='KCL' and job is not None:
-            if 'procedure' in job:code=yield from self._run_procedure(state,job,line)
-            else:code=yield from self.wait(state,job,line)
+            code=yield from self.wait(state,job,line,activate=True)
         args[1].set(code,line)
         if job is not None and 'self_action' in job:
             yield from rt().checkpoint(state,line,force_pause=job['self_action']=='PAUSE')

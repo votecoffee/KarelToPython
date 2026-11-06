@@ -1046,27 +1046,27 @@ def kcl_procedure_endpoint(state,name,suffix,line=None):
     return named_file_endpoint(state.execution,name,line)
 
 
-def kcl_procedure_input(files,key,limit,line=None):
+def kcl_read_bytes(files,key,limit,line=None):
     from .devices import DeviceFiles
     from .storage import DirectoryFiles
 
-    if files._busy(key):return 704,None,None
+    if files._busy(key):return 4,None,None
     limit=min(limit,files.limit)
     if type(files) is DirectoryFiles:
         path=files._path(key)
-        if not path.exists():return 701,None,None
-        if not path.is_file():return 704,None,None
+        if not path.exists():return 1,None,None
+        if not path.is_file():return 4,None,None
         stat=path.stat()
-        if stat.st_size>limit:return 705,None,None
+        if stat.st_size>limit:return 5,None,None
         with path.open('rb') as stream:data=stream.read(limit+1)
         identity=(stat.st_dev,stat.st_ino) if stat.st_ino else path
     else:
         if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],line=line)
         value=files.files.get(key)
-        if value is None:return 701,None,None
-        if len(value)>limit:return 705,None,None
+        if value is None:return 1,None,None
+        if len(value)>limit:return 5,None,None
         data=bytes(value);identity=key
-    if len(data)>limit:return 705,None,None
+    if len(data)>limit:return 5,None,None
     return 0,data,identity
 
 

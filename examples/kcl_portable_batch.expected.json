@@ -1,0 +1,5 @@
+{
+  "SAVED": 0, "CLEARED": 0, "RESTORED": 0, "COMPILED": 0, "LOADED": 0,
+  "RESET_STATUS": 0, "ENTRY": 1, "VALUE": 17, "COUNT": 1, "STATUS": 0,
+  "ARCHIVE_CLEANUP": 0, "TEXT_CLEANUP": 0, "LINES": ["Ready"], "FAULT": false
+}

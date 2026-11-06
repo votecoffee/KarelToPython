@@ -69,6 +69,7 @@ be bound through the host registry or supplied as linked project modules.
 | `ABORT name` or `ABORT ALL` | Request abort on eligible running, waiting or paused tasks. |
 | `HOLD name` or `HOLD ALL` | Hold owned logical motion and request a cooperative task pause. |
 | `UNHOLD name` or `UNHOLD ALL` | Release logical holds for live tasks. Use CONTINUE to resume source execution. |
+| `RESET` | Wait for one supplied logical controller reset response. |
 
 `FORCE` can follow a named or ALL PAUSE/ABORT selector to override the
 corresponding command mask. A masked request still completes successfully.
@@ -105,6 +106,22 @@ inside a blocking MOVE, issue UNHOLD before CONTINUE. UNHOLD accepts paused,
 running or waiting registered targets and changes their owned groups. Task
 scheduling and source execution continue to use their existing checkpoints.
 Both operations use the [logical motion policy](task-and-file-extensions.md#logical-motion-flags).
+
+### Scripted reset
+
+Blocking `KCL('RESET', status)` uses the next response in the explicit
+[ControllerServices](controller-services.md) reset queue. A response with
+`completed: true` returns 0. A response with `completed: false`, a missing
+plan, or an unavailable service returns 4. If the response supplies a
+fault value, it is applied to logical OPOUT[3] at completion. The existing
+source RESET built-in continues to report request acknowledgment.
+
+The channel stays busy during the captured delay. Only the invoking
+activation drives the response, including when RESET is a line in RUNCF.
+Stopping or aborting that activation releases the channel and retires the
+consumed response without publishing its fault value. KCL_NO_WAIT returns
+3 before consuming a response. Exact scripted KCL replies retain precedence.
+The command form follows MARRC75KR07091E Rev N, PDF page 728.
 
 The modeled forms follow MARRC75KR07091E Rev N, PDF pages 283–284, 450–452,
 705–706, 710, 717, 724 and 728. The offline task bank keeps explicit binding,
@@ -481,8 +498,9 @@ retain precedence.
 
 | Form | Offline effect |
 | --- | --- |
-| `LOAD DICT source name [language]` | Parse an explicit decoded catalog entry and load a snapshot under the first four characters of the dictionary name. |
+| `LOAD DICT source name [language]` | Load a decoded catalog entry or explicit offline file under the first four characters of the dictionary name. |
 | `CLEAR DICT name [language]` | Remove a loaded snapshot. ALL clears matching snapshots across languages. |
+| `COMPRESS DICT source` | Validate an ASCII UTX file and publish a new sibling portable TX file. |
 
 An omitted language selects DEFAULT. A missing source suffix becomes `.TX`
 under the existing catalog rules. CLEAR preserves supplied source text. Loaded
@@ -492,10 +510,22 @@ selectors, 402 for an existing snapshot, 403 for a missing source or snapshot,
 and 405 for capacity. The configured-language error 33003 is preserved.
 KCL_NO_WAIT and KCL_STATUS separate acceptance from inline completion.
 
-The forms follow MARRC75KR07091E Rev N, PDF pages 708–709 and 718.
-Native compressed TX decoding, COMPRESS DICT and LOAD FORM remain outside
-these forms. The [combined example](../examples/kcl_offline_services.kl)
-exercises a virtual volume, a decoded catalog and a plain pipe.
+An explicit catalog source takes precedence. If the label is missing,
+LOAD can read ASCII TX, UTX and FTX files or a portable TX stream from
+MemoryFiles, DeviceFiles or an explicit DirectoryFiles root. File operands
+respect the KCL directory and preserve spelling for case-sensitive banks.
+Loaded text is saved as a detached decoded snapshot.
+
+COMPRESS defaults to `.UTX`, accepts up to 64 KiB of checked dictionary
+text and writes the new `.TX` sibling without overwrite. Its portable
+format is the ASCII marker `K2PY-TX1`, one zero byte and one complete
+zlib stream. LOAD bounds expansion to 64 KiB and rejects incomplete or
+trailing compressed data. A busy file or unavailable backend returns 404.
+Native TX binaries and LOAD FORM's VR association remain outside these forms.
+The forms follow MARRC75KR07091E Rev N, PDF pages 708–710 and 718.
+The [file replay example](../examples/kcl_portable_batch.kl) compiles and loads
+a portable TX. The [catalog example](../examples/kcl_offline_services.kl)
+uses a supplied decoded entry.
 
 `SET LANGUAGE name` or `SET LANG name` selects a configured language.
 DEFAULT selects the authority's default. With a pendant, it is the active
@@ -523,6 +553,9 @@ with optional logical device names.
 | `SAVE TP file [= program]` | Save one logical TP record to a new portable archive. The filename stem selects the program when omitted. |
 | `LOAD TP file [OVERWRITE]` | Load the program named inside the portable archive, with optional replacement subject to the existing guards. |
 | `CLEAR PROGRAM name [YES]` | Clear one logical TP record. `CLEAR PROG` and `Y` are accepted aliases. |
+| `SAVE ALL [file]` | Save a new portable TP/VR manifest and its members. |
+| `LOAD ALL [file]` | Restore a portable manifest into logical TP and detached variable storage. |
+| `CLEAR ALL YES` | Remove logical TP records and independent detached variable namespaces after complete preflight. |
 | `TRANSLATE file [LIST]` | Translate stored KAREL source to a sibling Python artifact and optionally a listing. |
 | `SHOW PROGRAMS` | Write a sorted, deduplicated snapshot of offline program names and types. |
 | `SHOW PROGRAM [name]` | Write matching rows for one name, with source task state and active routine when available. |
@@ -563,6 +596,31 @@ The forms follow MARRC75KR07091E Rev N, PDF pages 709, 721, 730–731,
 translation switches, and controller listing formats remain outside this scope.
 The [archive example](../examples/kcl_program_commands.kl) saves to an alias,
 clears and restores the original program name, then lists the records.
+
+### Mixed archive batches
+
+SAVE ALL and LOAD ALL use the existing
+[portable mixed manifest](mixed-archives.md) with explicit VariableArchives
+and MemoryFiles or DeviceFiles. They accept a plain root file specification
+with an optional `.PB` suffix. With no operand, the saved KCL program
+default supplies the root. SAVE ALL is a Pythonic extension and refuses
+any collision among the manifest and its members.
+
+LOAD ALL requires the manifest and validates every listed hash and
+destination before publishing. It retains existing TP records, restores
+compatible detached VR values, and rejects writes into attached source
+namespaces or the SYSTEM namespace. It does not fall back to native PC,
+standalone TP or standalone VR files. LOAD ALL CONVERT is unsupported.
+
+CLEAR ALL requires YES or Y and returns 502 without it. It selects the
+logical teach-program store and ordinary unattached variable namespaces,
+excluding source-owned and system data. An open FILE, overlapping
+binding, selected TP record or other protected destination prevents
+the entire clear. Stored archive files and executable links remain
+available. These commands use the 500-series program statuses.
+The source forms for CLEAR ALL and LOAD ALL follow MARRC75KR07091E Rev N,
+PDF pages 707 and 718. The [CLI example](../examples/kcl_portable_batch.kl)
+round-trips a variable batch before loading a dictionary and running RESET.
 
 ### Program defaults
 
@@ -724,6 +782,9 @@ pauses, stops, aborts or its wait fails. This retains
 the distinction between acceptance and collection. A later KCL_STATUS can collect
 the same request without increasing the submission sequence.
 
+Built-in blocking RUNCF and RESET belong to the invoking activation.
+KCL_STATUS cannot drive either command while it is pending.
+
 `KclCommands.snapshot()` returns detached reply/history data and a pending
 descriptor when present. Context save rejects pending work; collect it first.
 Terminal configuration saves replies, bounded history, sequence and last status.
@@ -755,6 +816,8 @@ python -m karel2py examples/kcl_variable_archives.kl -o kcl_variable_archives.py
 python kcl_variable_archives.py --context examples/kcl_variable_archives.services.initial.json --state-out archive-state.json
 python -m karel2py examples/kcl_pose_record.kl -o kcl_pose_record.py
 python kcl_pose_record.py --context examples/kcl_pose_record.services.initial.json
+python -m karel2py examples/kcl_portable_batch.kl -o kcl_portable_batch.py
+python kcl_portable_batch.py --context examples/kcl_portable_batch.services.initial.json
 python -m karel2py examples/kcl_offline_services.kl -o kcl_offline_services.py
 python kcl_offline_services.py --context examples/kcl_offline_services.services.initial.json --state-out service-state.json
 python -m karel2py examples/kcl_program_commands.kl -o kcl_program_commands.py

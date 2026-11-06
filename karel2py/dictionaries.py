@@ -1,6 +1,7 @@
 """Bounded offline text dictionaries and checked static-variable formatting."""
 from copy import deepcopy
 import re
+import zlib
 
 
 DICTIONARY_CALLS={'ADD_DICT','CHECK_DICT','READ_DICT','READ_DICT_V','REMOVE_DICT','WRITE_DICT','WRITE_DICT_V'}
@@ -12,6 +13,8 @@ CONTROLS={'new_line':'newline','clear_win':'clear','clear_2_eol':'eol','clear_2_
 CODES={128:'clear',129:'eol',130:'eow',132:'cr',133:'lf',134:'up',135:'newline',136:'bs',137:'home',
        8:'bs',9:'tab',10:'lf',12:'clear',13:'cr'}
 FORMAT=re.compile(r'%([-+0]*)([0-9]*)(?:\.([0-9]+))?([doxXusfeEgG%])(?:\^([1-9][0-9]*))?')
+TEXT_LIMIT=65536
+PORTABLE_TX_HEADER=b'K2PY-TX1\0'
 
 
 def rt():
@@ -24,7 +27,7 @@ class DictionaryError(ValueError):
 
 
 def text_source(value):
-    if type(value) is not str or len(value)>65536 or any(not (32<=ord(c)<=126 or c in '\r\n\t') for c in value):
+    if type(value) is not str or len(value)>TEXT_LIMIT or any(not (32<=ord(c)<=126 or c in '\r\n\t') for c in value):
         raise ValueError('Dictionary source requires at most 65536 ASCII text bytes')
     return value
 
@@ -75,6 +78,54 @@ def kcl_catalog(state,operation,args,line=None):
             rows=[dict(language=language,active=language==authority.language,
                        default=language==authority.default_language) for language in sorted(available)]
     write_json_lines(state,rows,line)
+    return 0
+
+
+def kcl_dictionary_file(state,operation,args,channel,line):
+    """Load explicit ASCII files or portable TX streams and compile new TX files."""
+    from .fileops import kcl_read_bytes,kcl_scoped_file,named_file_endpoint,publish_file_bytes
+    from .storage import DirectoryFiles
+
+    load=operation=='LOAD_DICT'
+    source=args[0]
+    catalog=state.execution.require('dictionaries',line) if load else None
+    if load:
+        code=catalog.manage(state,'ADD_DICT',(*args,DICTIONARY_CONSTANTS['DP_DRAM']))
+        if code!=3 or state.execution.files is None:return code
+    try:
+        name=kcl_scoped_file(state,channel,source,line)
+        if name.startswith('PIP:') or any(char in name for char in '*?'):return 1
+        default='.TX' if load else '.UTX'
+        base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
+        extension=base[base.rfind('.'):].upper() if '.' in base else default
+        if extension not in (('.TX','.UTX','.FTX') if load else ('.UTX',)):return 1
+        if '.' not in base:name+=default
+        if len(name)>254:return 1
+        files,key=named_file_endpoint(state.execution,name,line)
+        limit=TEXT_LIMIT+128 if load and extension=='.TX' else TEXT_LIMIT
+        code,data,_=kcl_read_bytes(files,key,limit,line)
+        if code:return 3 if code==1 else code
+        if load and extension=='.TX' and data.startswith(PORTABLE_TX_HEADER):
+            stream=zlib.decompressobj()
+            data=stream.decompress(data[len(PORTABLE_TX_HEADER):],TEXT_LIMIT+1)
+            if len(data)>TEXT_LIMIT:return 5
+            if not stream.eof or stream.unused_data or stream.unconsumed_tail:return 1
+        if len(data)>TEXT_LIMIT:return 5
+        text=text_source(data.decode('ascii'))
+        if load:
+            _,label,selector=args
+            catalog.load_text(source_name(name),dictionary_name(label),catalog.selected_language(state,selector),text)
+        else:
+            parse(text)
+            target=key[:-4]+'.TX'
+            data=PORTABLE_TX_HEADER+zlib.compress(data)
+            if len(data)>files.limit or (type(files) is not DirectoryFiles
+                                        and target not in files.files and len(files.files)>=32767):return 5
+            result=publish_file_bytes(files,target,data,False,line)
+            if result:return 4 if result==3 else result
+    except DictionaryError as error:return error.status
+    except (ValueError,OverflowError,zlib.error):return 1
+    except (OSError,rt().KarelRuntimeError):return 4
     return 0
 
 
@@ -278,6 +329,15 @@ class TextDictionaries:
                 if size>65536:raise DictionaryError(5,'Rendered dictionary exceeds text budget')
         return output
 
+    def load_text(self,label,dict_name,language,text):
+        key=language,dict_name
+        if key in self._parsed:raise DictionaryError(2,'Dictionary already loaded')
+        parsed=parse(text)
+        if len(self._parsed)>=64 or self.loaded_bytes()+len(text)>1048576:
+            raise DictionaryError(5,'Loaded dictionary budget exceeded')
+        self.loaded.setdefault(language,{})[dict_name]=dict(source=label,text=text)
+        self._parsed[key]=parsed
+
     def manage(self,state,name,args):
         """Load or clear decoded catalog snapshots with the source service codes."""
         try:
@@ -287,9 +347,7 @@ class TextDictionaries:
                 if option!=DICTIONARY_CONSTANTS['DP_DRAM']:raise DictionaryError(1,'Only portable DP_DRAM loading is supported')
                 if (language,dict_name) in self._parsed:raise DictionaryError(2,'Dictionary already loaded')
                 if label not in self.sources:raise DictionaryError(3,'Dictionary source label is missing')
-                text=text_source(self.sources[label]);parsed=parse(text)
-                if len(self._parsed)>=64 or self.loaded_bytes()+len(text)>1048576:raise DictionaryError(5,'Loaded dictionary budget exceeded')
-                self.loaded.setdefault(language,{})[dict_name]=dict(source=label,text=text);self._parsed[(language,dict_name)]=parsed
+                self.load_text(label,dict_name,language,self.sources[label])
             else:
                 dict_name,selector=args;dict_name=dictionary_name(dict_name)
                 languages=list(self.loaded) if selector=='' else [self.selected_language(state,selector)]

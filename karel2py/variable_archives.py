@@ -437,13 +437,8 @@ def operate(state,operation,args,line=None,*,status=None,detached=False):
                 size+=len(data);row=bank.decode(data)
                 if operation=='PROG_RESTORE' and row['program']!=selected:raise Failure(6,'Variable dependency archive identity differs')
                 if detached:
-                    from .dynamic import detached_storage
-                    from .inspection import attached_programs
-                    program=row['program']
-                    if program in attached_programs(context,state):return 4
-                    targets={key:ref for key,ref in context.variables.bindings.items() if key[0]==program}
-                    if any(not re.fullmatch(IDENTIFIER,path) for _,path in targets):return 4
-                    code=detached_storage(state,targets)
+                    from .dynamic import detached_namespaces
+                    code,_=detached_namespaces(state,{row['program']})
                     if code:return code
                 rows.append(row)
                 if operation=='PROG_RESTORE':pending.extend(reversed(row['calls']))

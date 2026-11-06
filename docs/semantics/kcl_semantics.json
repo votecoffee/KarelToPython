@@ -83,6 +83,7 @@
     "tests/test_kcl_local_types.py",
     "tests/test_kcl_debug_commands.py",
     "tests/test_kcl_pose_storage_and_hold.py",
+    "tests/test_kcl_batches_reset_and_dictionaries.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_task_waits",
@@ -94,6 +95,7 @@
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
     "examples/kcl_pose_record.kl",
+    "examples/kcl_portable_batch.kl",
     "examples/kcl_offline_services.kl",
     "examples/kcl_program_commands.kl",
     "examples/kcl_environment_commands.kl",
@@ -182,5 +184,13 @@
     "forms": ["SET VAR named or positional value", "RECORD", "HOLD", "UNHOLD", "SHOW SYSTEM", "SHOW MEMORY", "SHOW BUILTINS"],
     "dispatch": "Detached checked positional or scalar writes and supplied current-state capture. Atomic owned group holds with masked pause requests and explicit logical UNHOLD. Bounded system binding, reservation and service registry listings.",
     "statuses": "Existing task, variable and program command status domains. Invalid value or storage listing 205, unavailable robot service or failed logical motion preflight 4."
+  },
+  "archive_reset_and_dictionary_files_extension": {
+    "version": "26.1106.004307",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [707, 710, 718, 728],
+    "forms": ["SAVE ALL", "LOAD ALL", "CLEAR ALL YES", "RESET", "COMPRESS DICT", "LOAD DICT file"],
+    "dispatch": "Portable manifest backup with no overwrite and detached restore and clear guards. Activation-owned reset driven by a supplied response. Bounded explicit dictionary FILE reads and portable TX publication.",
+    "statuses": "Existing program and dictionary command status domains. RESET uses 0 or 4 for completion and rejects nonblocking admission with 3."
   }
 }

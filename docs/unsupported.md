@@ -540,11 +540,15 @@ queue-entry policies; FILE banks remain excluded.
   edits and portable VR save/load. Native VR and implicit or system-variable KCL
   forms remain unavailable. [Virtual device commands](kcl-commands.md#virtual-device-commands)
   share mounted-media and open-FILE checks. [Dictionary commands](kcl-commands.md#dictionary-commands)
-  load and clear supplied decoded snapshots. Native compression and form
-  loading remain unavailable. [Program commands](kcl-commands.md#program-and-task-inspection-commands)
+  load and clear supplied decoded snapshots, load ASCII UTX/TX/FTX files and
+  build portable TX streams. Native compression and form association loading
+  remain unavailable. [Program commands](kcl-commands.md#program-and-task-inspection-commands)
   add portable TP save/load/clear, stored-source translation to Python, and
   offline program/task listings. Native TP and p-code archives and controller
-  listing formats remain unavailable. [Task settings and conditions](kcl-commands.md#task-settings-traces-and-conditions)
+  listing formats remain unavailable. [Mixed archive commands](kcl-commands.md#mixed-archive-batches)
+  save and load explicit portable manifests and clear guarded detached data.
+  [Scripted RESET](kcl-commands.md#scripted-reset) uses a supplied logical
+  response and activation-owned delay. [Task settings and conditions](kcl-commands.md#task-settings-traces-and-conditions)
   use registered task state, source trace records and live root-task handlers.
   [Environment commands](kcl-commands.md#environment-commands) use explicit
   port, calendar and robot context banks. [Inspection commands](kcl-commands.md#variable-inspection)

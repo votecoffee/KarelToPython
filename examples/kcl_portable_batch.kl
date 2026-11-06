@@ -1,0 +1,19 @@
+PROGRAM KCL_PORTABLE_BATCH
+VAR saved,cleared,restored,compiled,loaded,reset_status,entry,value,count,status:INTEGER
+    archive_cleanup,text_cleanup:INTEGER
+    lines:ARRAY[1] OF STRING[16]
+    fault:BOOLEAN
+BEGIN
+  KCL('SAVE ALL DATA',saved)
+  KCL('CLEAR ALL YES',cleared)
+  KCL('LOAD ALL DATA.PB',restored)
+  KCL('COMPRESS DICT Labels',compiled)
+  KCL('LOAD DICT Labels MENU',loaded)
+  KCL('RESET',reset_status)
+  entry=0
+  GET_VAR(entry,'DATA','VALUE',value,status)
+  READ_DICT('MENU',1,lines,1,count,status)
+  fault=OPOUT[3]
+  KCL('DELETE FILE DATA.*',archive_cleanup)
+  KCL('DELETE FILE Labels.TX',text_cleanup)
+END KCL_PORTABLE_BATCH

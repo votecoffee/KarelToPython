@@ -34,6 +34,9 @@ ignore the supplied final extension in favor of the root identity. Clear accepts
 a plain name or `.TP`/`.VR`, without a directory/device. SAVE/LOAD/CLEAR do not gain
 mixed extensionless native code operations.
 
+[KCL batch commands](kcl-commands.md#mixed-archive-batches) reuse this
+manifest with separate no-overwrite and detached-variable guards.
+
 Only exact MemoryFiles and DeviceFiles backends are accepted. DirectoryFiles and
 custom subclasses remain unsupported. All output stays in the supplied file
 bank; these calls do not read or write the host filesystem.

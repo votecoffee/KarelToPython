@@ -327,6 +327,36 @@ def detached_storage(state,targets):
     return 0
 
 
+def detached_namespaces(state,programs):
+    from .inspection import attached_programs
+
+    store=state.execution.variables
+    if programs.intersection(attached_programs(state.execution,state)):return 4,{}
+    targets={key:ref for key,ref in store.bindings.items() if key[0] in programs}
+    if any(not re.fullmatch(IDENTIFIER,path) for _,path in targets):return 4,{}
+    return detached_storage(state,targets),targets
+
+
+def check_detached_removal(targets):
+    rt=runtime()
+    for reference in targets.values():
+        if rt.file_storage_type(reference.spec):
+            try:file_storage_payload(reference.spec,reference.raw())
+            except (ValueError,TypeError,rt.KarelRuntimeError):return 4
+    return 0
+
+
+def remove_detached_bindings(context,targets,programs):
+    store=context.variables
+    for key in targets:
+        del store.bindings[key];store.metadata.pop(key,None)
+    for key in tuple(context.entries):
+        owner,path=key
+        root=re.split(r'[.\[]',path,maxsplit=1)[0]
+        if owner in programs or (owner,root) in targets:
+            del context.entries[key]
+
+
 def remove_detached(state,program,var,line):
     """Remove an independent root or a complete unattached ordinary namespace."""
     from .inspection import attached_programs
@@ -349,17 +379,9 @@ def remove_detached(state,program,var,line):
         key=(program,var);reference=store.bindings.get(key)
         targets={} if reference is None else {key:reference}
     if not targets:return 1
-    code=detached_storage(state,targets)
+    code=detached_storage(state,targets) or check_detached_removal(targets)
     if code:return code
-    for reference in targets.values():
-        if rt.file_storage_type(reference.spec):
-            try:file_storage_payload(reference.spec,reference.raw())
-            except (ValueError,TypeError,rt.KarelRuntimeError):return 4
-    for key in targets:
-        del store.bindings[key];store.metadata.pop(key,None)
-    for key in tuple(context.entries):
-        if key[0]==program and (var is None or conflict((key[1],),var)):
-            del context.entries[key]
+    remove_detached_bindings(context,targets,{program} if var is None else set())
     return 0
 
 

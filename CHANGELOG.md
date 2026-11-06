@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.004307 - 2026-11-06
+
+- Add KCL SAVE ALL and LOAD ALL for portable mixed TP/VR batches and guarded
+  CLEAR ALL YES for logical TP records and detached variable namespaces.
+- Route blocking KCL RESET through scripted ControllerServices, including
+  activation-owned waits, cancellation and RUNCF execution.
+- Load bounded ASCII UTX, TX and FTX dictionaries from offline FILE backends.
+  COMPRESS DICT writes validated portable TX streams to new files.
+
 ## 26.1106.000654 - 2026-11-06
 
 - Extend detached KCL SET VAR to checked named values and positional literals.

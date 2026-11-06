@@ -159,7 +159,9 @@ class ControllerServices:
             if ports is not None:ports.update('OPOUT',3,response['fault'])
             # The documented successful output acknowledges the request even
             # when conditions prevent a reset. The supplied fault result is separate.
-            success.set(True,line);row['outcome']='completed'
+            if success is not None:success.set(True,line)
+            row['outcome']='completed'
+            if success is None:return response['completed']
         except BaseException as error:
             row['outcome']='cancelled' if isinstance(error,(GeneratorExit,rt().KarelStop,rt().KarelAbort)) else 'failed';raise
         finally:self._pending=None
