@@ -84,6 +84,7 @@
     "tests/test_kcl_debug_commands.py",
     "tests/test_kcl_pose_storage_and_hold.py",
     "tests/test_kcl_batches_reset_and_dictionaries.py",
+    "tests/test_kcl_statement_skip_and_form_packages.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_task_waits",
@@ -96,6 +97,7 @@
     "examples/kcl_variable_archives.kl",
     "examples/kcl_pose_record.kl",
     "examples/kcl_portable_batch.kl",
+    "examples/kcl_form_package.kl",
     "examples/kcl_offline_services.kl",
     "examples/kcl_program_commands.kl",
     "examples/kcl_environment_commands.kl",
@@ -192,5 +194,13 @@
     "forms": ["SAVE ALL", "LOAD ALL", "CLEAR ALL YES", "RESET", "COMPRESS DICT", "LOAD DICT file"],
     "dispatch": "Portable manifest backup with no overwrite and detached restore and clear guards. Activation-owned reset driven by a supplied response. Bounded explicit dictionary FILE reads and portable TX publication.",
     "statuses": "Existing program and dictionary command status domains. RESET uses 0 or 4 for completion and rejects nonblocking admission with 3."
+  },
+  "statement_skip_and_form_package_extension": {
+    "version": "26.1106.010332",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [212, 213, 214, 710, 719, 746, 747],
+    "forms": ["SKIP", "SHOW CHECKPOINT", "COMPRESS FORM", "LOAD FORM"],
+    "dispatch": "One transient mark for an exact paused skippable statement before evaluation. Portable form TX and canonical VR companion batch, verified before dictionary load.",
+    "statuses": "Debugger unavailable target 801, ineligible live checkpoint 802. Form packages retain dictionary command status offsets."
   }
 }

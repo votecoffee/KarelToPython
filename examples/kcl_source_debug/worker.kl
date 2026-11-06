@@ -2,5 +2,6 @@ PROGRAM WORKER
 VAR phase:INTEGER
 BEGIN
   phase=7
-  phase=9
+  phase=100
+  phase=phase+2
 END WORKER

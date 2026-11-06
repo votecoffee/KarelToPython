@@ -19,10 +19,11 @@ It opens no desktop UI and acquires no physical keyboard input.
 
 Load the source with `ADD_DICT('settings','FORM',DP_DEFAULT,DP_DRAM,status)`.
 Select USER2 with `FORCE_SPMENU(TP_PANEL,SPI_TPUSER2,1)` before calling the form.
-Sources are explicit text catalog entries, not host paths or compressed files.
-An explicitly named `.FTX` source label also works when ADD_DICT uses that label.
-Native compression, associated VR generation/loading and Data ID discovery are
-not inferred. Ordinary dictionary elements may share the source with forms.
+ADD_DICT uses explicit decoded catalog entries and accepts an explicitly named
+`.FTX` label. The [KCL form package commands](kcl-commands.md#portable-form-packages)
+also support explicit offline FILEs and portable TX/VR pairs. Both paths retain
+the caller's explicit value paths. Native VR layouts and Data ID discovery
+remain unavailable. Ordinary dictionary elements may share the source with forms.
 
 ## Source syntax and fields
 

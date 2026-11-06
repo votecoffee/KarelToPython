@@ -81,9 +81,45 @@ def kcl_catalog(state,operation,args,line=None):
     return 0
 
 
+def dictionary_file_endpoint(state,channel,source,default,extensions,line):
+    from .fileops import kcl_scoped_file,named_file_endpoint
+
+    name=kcl_scoped_file(state,channel,source,line)
+    if name.startswith('PIP:') or any(char in name for char in '*?'):
+        raise ValueError('Dictionary files require concrete ordinary file names')
+    base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
+    extension=base[base.rfind('.'):].upper() if '.' in base else default
+    if extension not in extensions:raise ValueError('Unsupported dictionary file type')
+    if '.' not in base:name+=default
+    if len(name)>254:raise ValueError('Dictionary file name is too long')
+    files,key=named_file_endpoint(state.execution,name,line)
+    return name,files,key,extension
+
+
+def read_dictionary_file(files,key,extension,line):
+    from .fileops import kcl_read_bytes
+
+    limit=TEXT_LIMIT+128 if extension=='.TX' else TEXT_LIMIT
+    code,raw,_=kcl_read_bytes(files,key,limit,line)
+    if code:raise DictionaryError(3 if code==1 else code,'Dictionary file unavailable')
+    data=raw
+    if extension=='.TX' and raw.startswith(PORTABLE_TX_HEADER):
+        stream=zlib.decompressobj()
+        try:data=stream.decompress(raw[len(PORTABLE_TX_HEADER):],TEXT_LIMIT+1)
+        except zlib.error as error:raise ValueError('Invalid portable TX stream') from error
+        if not stream.eof or stream.unused_data or stream.unconsumed_tail:
+            if len(data)<=TEXT_LIMIT:raise ValueError('Incomplete or trailing portable TX data')
+    if len(data)>TEXT_LIMIT:raise DictionaryError(5,'Decoded dictionary exceeds byte limit')
+    return text_source(data.decode('ascii')),raw
+
+
+def portable_tx(text):
+    return PORTABLE_TX_HEADER+zlib.compress(text.encode('ascii'))
+
+
 def kcl_dictionary_file(state,operation,args,channel,line):
     """Load explicit ASCII files or portable TX streams and compile new TX files."""
-    from .fileops import kcl_read_bytes,kcl_scoped_file,named_file_endpoint,publish_file_bytes
+    from .fileops import publish_file_bytes
     from .storage import DirectoryFiles
 
     load=operation=='LOAD_DICT'
@@ -93,38 +129,23 @@ def kcl_dictionary_file(state,operation,args,channel,line):
         code=catalog.manage(state,'ADD_DICT',(*args,DICTIONARY_CONSTANTS['DP_DRAM']))
         if code!=3 or state.execution.files is None:return code
     try:
-        name=kcl_scoped_file(state,channel,source,line)
-        if name.startswith('PIP:') or any(char in name for char in '*?'):return 1
         default='.TX' if load else '.UTX'
-        base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-        extension=base[base.rfind('.'):].upper() if '.' in base else default
-        if extension not in (('.TX','.UTX','.FTX') if load else ('.UTX',)):return 1
-        if '.' not in base:name+=default
-        if len(name)>254:return 1
-        files,key=named_file_endpoint(state.execution,name,line)
-        limit=TEXT_LIMIT+128 if load and extension=='.TX' else TEXT_LIMIT
-        code,data,_=kcl_read_bytes(files,key,limit,line)
-        if code:return 3 if code==1 else code
-        if load and extension=='.TX' and data.startswith(PORTABLE_TX_HEADER):
-            stream=zlib.decompressobj()
-            data=stream.decompress(data[len(PORTABLE_TX_HEADER):],TEXT_LIMIT+1)
-            if len(data)>TEXT_LIMIT:return 5
-            if not stream.eof or stream.unused_data or stream.unconsumed_tail:return 1
-        if len(data)>TEXT_LIMIT:return 5
-        text=text_source(data.decode('ascii'))
+        extensions=('.TX','.UTX','.FTX') if load else ('.UTX',)
+        name,files,key,extension=dictionary_file_endpoint(state,channel,source,default,extensions,line)
+        text,_=read_dictionary_file(files,key,extension,line)
         if load:
             _,label,selector=args
             catalog.load_text(source_name(name),dictionary_name(label),catalog.selected_language(state,selector),text)
         else:
             parse(text)
             target=key[:-4]+'.TX'
-            data=PORTABLE_TX_HEADER+zlib.compress(data)
+            data=portable_tx(text)
             if len(data)>files.limit or (type(files) is not DirectoryFiles
                                         and target not in files.files and len(files.files)>=32767):return 5
             result=publish_file_bytes(files,target,data,False,line)
             if result:return 4 if result==3 else result
     except DictionaryError as error:return error.status
-    except (ValueError,OverflowError,zlib.error):return 1
+    except (ValueError,OverflowError):return 1
     except (OSError,rt().KarelRuntimeError):return 4
     return 0
 

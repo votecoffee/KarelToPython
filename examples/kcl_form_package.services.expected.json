@@ -1,0 +1,17 @@
+{
+  "files": {"ABBTNSEG.FTX": {"hex": "2e666f726d20756e6e756d6265720a24312c63686f6f7365720a2243686f6f73652220266e65775f6c696e6520224f7074696f6e732220266e65775f6c696e6520222d20446f6e65220a2e656e64666f726d0a"}},
+  "dictionaries": {
+    "sources": {}, "languages": ["ENGLISH"], "default_language": "ENGLISH", "language": "ENGLISH",
+    "loaded": {"ENGLISH": {"BTNS": {"source": "ABBTNSEG.TX", "text": ".form unnumber\n$1,chooser\n\"Choose\" &new_line \"Options\" &new_line \"- Done\"\n.endform\n"}}}
+  },
+  "kcl": {
+    "replies": {}, "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_FORM_PACKAGE", "operation": "KCL", "command": "COMPRESS FORM ABBTNSEG", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_FORM_PACKAGE", "operation": "KCL", "command": "LOAD FORM ABBTNSEG", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_FORM_PACKAGE", "operation": "KCL", "command": "DELETE FILE ABBTNSEG.TX", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_FORM_PACKAGE", "operation": "KCL", "command": "DELETE FILE BTNS.VR", "phase": "completed", "status": 0}
+    ],
+    "sequence": 4, "last_status": 0, "file_commands": true, "dictionary_commands": true
+  }
+}

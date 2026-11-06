@@ -1,0 +1,5 @@
+{
+  "files": {"ABBTNSEG.FTX": ".form unnumber\n$1,chooser\n\"Choose\" &new_line \"Options\" &new_line \"- Done\"\n.endform\n"},
+  "dictionaries": {},
+  "kcl": {"dictionary_commands": true, "file_commands": true}
+}

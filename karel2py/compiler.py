@@ -244,6 +244,12 @@ DATA_RECORD_TYPES = rt.DATA_RECORD_TYPES
 POSITIONAL_VALUE_TYPES = rt.POSITIONAL_VALUE_TYPES
 RECORD_TYPES = rt.RECORD_TYPES
 ARRAY_ELEMENTS = (*ARRAY_SCALARS, *RECORD_TYPES, 'JOINTPOS')
+SKIPPABLE_STATEMENTS = frozenset((
+    'assign', 'system_pose_assign', 'system_selection_assign', 'call',
+    'read', 'write', 'write_items', 'file_read', 'file_write', 'file_open',
+    'file_close', 'file_cancel', 'delay', 'wait', 'pulse',
+    'motion', 'motion_action', 'motion_control',
+))
 
 
 def blocked_controller_names(mode):
@@ -1216,6 +1222,7 @@ class Emitter:
         self.predefined_structure_uses = []
         self.lines, self.source_map, self.features = [], [], set()
         self.source_checkpoints=set()
+        self.skippable_checkpoints=set()
         self.indent, self.temporary = 0, 0
         self.current_routine = None
         self.cooperative=mode=='pythonic' and (cooperative or any(isinstance(node,Statement) and node.kind in ('file_read','file_write','write_items','file_cancel','pulse','task_control','condition','condition_control','timer_connect','timer_disconnect','signal_event','signal_semaphore','motion','motion_action','motion_control') or isinstance(node,Expr) and (node.kind in ('event','edge','semaphore') or node.kind=='call' and node.value in {'PAUSE_TASK','CONT_TASK','ABORT_TASK','RUN_TASK'}|ex.COOPERATIVE_PROCEDURES) for body in (program.body,*[r.body for r in program.routines]) for node in self.walk_nodes(body)) or any(r.external for r in program.routines))
@@ -3816,11 +3823,26 @@ class Emitter:
         return pairs
 
     def statement(self, stmt, file_code=None):
-        optional_file=self.mode=='pythonic' and file_code is None and stmt.kind in ('read','write_items')
         token, kind = stmt.token, stmt.kind
         line = token.line
         self.features.add(kind)
-        self.line(f'self._state.tick({line})', token)
+        skippable=self.cooperative and file_code is None and kind in SKIPPABLE_STATEMENTS
+        if skippable:
+            self.source_checkpoints.add(line)
+            self.skippable_checkpoints.add(line)
+            self.line(f'if not (yield from _rt.checkpoint(self._state,{line},_source=True,_skippable=True)):',token)
+            self.indent+=1
+        elif self.cooperative and file_code is not None:
+            self.line(f'yield from _rt.checkpoint(self._state,{line})',token)
+        else:
+            self.line(f'self._state.tick({line})', token)
+        self.statement_body(stmt,file_code)
+        if skippable:self.indent-=1
+
+    def statement_body(self, stmt, file_code=None):
+        optional_file=self.mode=='pythonic' and file_code is None and stmt.kind in ('read','write_items')
+        token, kind = stmt.token, stmt.kind
+        line = token.line
         if optional_file:
             file_code=self.fresh()
             self.line(f'{file_code}=self._state.default_file({("READ" if kind=="read" else "WRITE")!r},{line})',token)
@@ -4785,6 +4807,7 @@ class Emitter:
         if self.mode=='pythonic' and self.cooperative:
             self.indent=1
             self.line(f'source_checkpoints = {tuple(sorted(self.source_checkpoints))!r}')
+            self.line(f'skippable_checkpoints = {tuple(sorted(self.skippable_checkpoints))!r}')
         self.indent = 0
         self.line()
         self.line('if __name__ == "__main__":')
@@ -5030,6 +5053,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         python_sha256=hashlib.sha256(generated.encode('utf-8')).hexdigest(),
         features=sorted(emitter.features), source_map=emitter.source_map,
         source_checkpoints=sorted(emitter.source_checkpoints),
+        skippable_checkpoints=sorted(emitter.skippable_checkpoints),
         constant_dependencies=emitter.constant_dependency_uses,constant_resolution_order=emitter.constant_resolution_order,
         global_constants=[dict(name=t.value,value=emitter.constants[t.value],line=t.line,column=t.column) for t,_ in program.constants],
         local_constant_policy=dict(scope='Declaring routine only; lexical resolution, not caller inheritance',
@@ -6532,13 +6556,16 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         type_listings='SHOW TYPES reports declared source types and optional immediate record fields. SHOW with a supported type keyword filters root variables and optionally shows their values.',
         device_commands='Opt in with device_commands true. MOUNT, DISMOUNT, FORMAT and PURGE use the explicit DeviceFiles backend and its existing checks. SHOW DEVICE reads logical volume metadata, including dismounted volumes.',
         dictionary_commands='Opt in with dictionary_commands true. LOAD DICT uses supplied decoded sources or bounded offline ASCII and portable TX files. COMPRESS DICT validates UTX text and publishes a new portable TX. CLEAR DICT accepts ALL. SET LANGUAGE, SHOW LANG, SHOW LANGS and SHOW DICTS use the effective offline language.',
+        form_packages='COMPRESS FORM validates FTX and prepares a new portable TX and VR companion pair. LOAD FORM validates the matching identity and TX hash before installing the decoded dictionary. DISCTRL_FORM uses explicit value paths.',
         program_commands='Opt in with program_commands true. SAVE TP, LOAD TP and CLEAR PROGRAM use the portable logical TP store. TRANSLATE uses explicit stored-source translation. SHOW PROGRAM, SHOW PROGRAMS, SHOW TASKS and SHOW TASK write sorted JSON lines from the offline registries.',
         program_batches='SAVE ALL and LOAD ALL use the portable mixed TP/VR manifest. SAVE refuses collisions and LOAD writes only detached variable namespaces and logical TP records. CLEAR ALL requires explicit YES and preflights all selected detached and logical data.',
         session_defaults='SET DEFAULT and SHOW DEFAULT use a saved canonical program or binding name. The selection supplies omitted task and variable selectors. SET GROUP and SHOW GROUP configure a separate saved robot group for KCL SHOW CURPOS and RECORD.',
         environment_commands='Opt in with environment_commands true. SET PORT, SIMULATE and UNSIMULATE use explicit named PortBank addresses. SET CLOCK and SHOW CLOCK use the supplied CalendarClock and a 1980..2079 window for two-digit input years. SHOW CURPOS uses the KCL default group when supplied and the caller group otherwise.',
         procedure_commands='Opt in with procedure_commands true. Blocking RUNCF preflights bounded ASCII .CF inputs and relative %INCLUDE files. It runs the enabled command families in order and can atomically publish a new .LS transcript on success. SET VERIFY controls command echoes.',
         debug_commands='Opt in with debug_commands true. Program breakpoints target generated cooperative source checkpoints and support PAUSE, DISPLAY, TRACE ON and TRACE OFF. Condition breaks pause once before a live root handler action. STEP pauses one selected task at each source checkpoint.',
+        debug_skip='SHOW CHECKPOINT and SKIP act on the exact pre-statement debugger pause for an eligible leaf operation. Continue bypasses its complete body and operands once. Structural, in-flight and condition breaks do not acquire a skip mark.',
         source_checkpoints=report.pop('source_checkpoints'),
+        skippable_checkpoints=report.pop('skippable_checkpoints'),
         statuses='Configured ordinary INTEGER acceptance/completion codes. Portable unsupported=1, busy=2, unavailable or ineligible=3, inline runtime error=4. Nonzero FILE and variable results use offsets 100 and 200. Small nonzero device and dictionary results use offsets 300 and 400. Program archive and listing errors use offset 500. Environment command errors use offset 600. Procedure preflight and publication use 701..706 and preserve child completion statuses. Debugger selectors and limits use 801, 802 and 805.',
         boundary='No native KCL, shell, TP execution, physical motion or automatic replay. Shared channel status is context-wide.',
         guide='docs/kcl-commands.md',controller_validated=False)

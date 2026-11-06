@@ -1767,17 +1767,27 @@ def condition_control(state,operation,number,line=None):
     if operation=='ENABLE': state._handlers[number]['due']=None
 
 
-def debug_pause(state,line):
+def debug_pause(state,line,*,channel=None):
     root=runtime().task_root(state)
+    statement=None
+    if channel is not None:
+        statement=dict(channel=channel,program=state.program_name,line=line,skip=False)
+        root._debug_statement=statement
     root.task_state='paused'
-    yield dict(kind='pause',line=line)
+    try:
+        yield dict(kind='pause',line=line)
+    finally:
+        if statement is not None and root._debug_statement is statement:
+            root._debug_statement=None
     root.task_state='running'
     if state._abort_requested:state.abort(state._abort_request_line or line)
+    if statement is not None:return statement['skip']
 
 
-def checkpoint(state,line=None,*,force_pause=False,_defer_control=False,_source=False):
+def checkpoint(state,line=None,*,force_pause=False,_defer_control=False,_source=False,_skippable=False):
     rt=runtime(); state.tick(line,_diagnostic=not _defer_control)
     channel=state.execution.kcl
+    skip=False
     if not _defer_control:
         from .scheduling import record_task_trace
         pause=False
@@ -1786,7 +1796,7 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False,_source=
             pause=channel.source_break(state,line)
         record_task_trace(state,line)
         if pause and not state._abort_requested:
-            yield from debug_pause(state,line)
+            skip=yield from debug_pause(state,line,channel=channel if _skippable else None)
     # A library invocation owns its locals, while its caller still owns the
     # running task. Scan that task and honor its pause requests inside the call.
     parent=state._budget_parent
@@ -1834,6 +1844,7 @@ def checkpoint(state,line=None,*,force_pause=False,_defer_control=False,_source=
         # statement, rather than waiting for a following statement to scan.
         yield from checkpoint(state,line)
     if state._scheduler is not None and not _defer_control: yield dict(kind='timeslice',line=line)
+    if _skippable:return skip
 
 
 def cooperative_test(state,predicate,line=None):

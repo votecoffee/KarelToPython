@@ -3869,6 +3869,7 @@ class State:
         self.robot_group=self.execution.robot.active_group if self.execution.robot is not None else None
         self.program_name=''
         self._task_frames=[];self._task_line=0;self._has_run=False
+        self._debug_statement=None
         self._task_run = None
         self._task_launch = None
         self._task_parent = None

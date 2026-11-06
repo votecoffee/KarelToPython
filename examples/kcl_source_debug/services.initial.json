@@ -1,4 +1,4 @@
 {
-  "files": {"debug.CF": "SET VERIFY OFF\nSET BREAK PROGRAM WORKER 1 5\nRUN WORKER\nWAIT WORKER PAUSE\nSHOW BREAK WORKER\n"},
+  "files": {"debug.CF": "SET VERIFY OFF\nSET BREAK PROGRAM WORKER 1 5\nRUN WORKER\nWAIT WORKER PAUSE\nSHOW BREAK WORKER\nSKIP WORKER\nSHOW CHECKPOINT WORKER\n"},
   "kcl": {"task_commands": true, "procedure_commands": true, "debug_commands": true}
 }

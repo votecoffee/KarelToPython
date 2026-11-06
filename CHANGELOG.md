@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.010332 - 2026-11-06
+
+- Add KCL SKIP and SHOW CHECKPOINT for a retained pre-statement debugger pause,
+  including linked routines. Publish eligible lines in the translation report.
+- Add KCL COMPRESS FORM and LOAD FORM for portable TX and VR pairs. Validate
+  the full output batch and verify the TX hash and form identities before load.
+
 ## 26.1106.004307 - 2026-11-06
 
 - Add KCL SAVE ALL and LOAD ALL for portable mixed TP/VR batches and guarded

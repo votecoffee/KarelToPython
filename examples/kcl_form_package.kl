@@ -1,0 +1,9 @@
+PROGRAM KCL_FORM_PACKAGE
+VAR compressed,loaded,checked,tx_removed,vr_removed:INTEGER
+BEGIN
+  KCL('COMPRESS FORM ABBTNSEG',compressed)
+  KCL('LOAD FORM ABBTNSEG',loaded)
+  CHECK_DICT('BTNS','chooser',checked)
+  KCL('DELETE FILE ABBTNSEG.TX',tx_removed)
+  KCL('DELETE FILE BTNS.VR',vr_removed)
+END KCL_FORM_PACKAGE

@@ -541,8 +541,10 @@ queue-entry policies; FILE banks remain excluded.
   forms remain unavailable. [Virtual device commands](kcl-commands.md#virtual-device-commands)
   share mounted-media and open-FILE checks. [Dictionary commands](kcl-commands.md#dictionary-commands)
   load and clear supplied decoded snapshots, load ASCII UTX/TX/FTX files and
-  build portable TX streams. Native compression and form association loading
-  remain unavailable. [Program commands](kcl-commands.md#program-and-task-inspection-commands)
+  build portable TX streams. [Form packages](kcl-commands.md#portable-form-packages)
+  add guarded TX/VR pairs with checked hashes and form elements. Native
+  compression and binary form associations remain unavailable.
+  [Program commands](kcl-commands.md#program-and-task-inspection-commands)
   add portable TP save/load/clear, stored-source translation to Python, and
   offline program/task listings. Native TP and p-code archives and controller
   listing formats remain unavailable. [Mixed archive commands](kcl-commands.md#mixed-archive-batches)
@@ -562,7 +564,9 @@ queue-entry policies; FILE banks remain excluded.
   The portable form uses blocking KCL, stops on the first error and saves
   complete listings on success.
   [Source debugging](kcl-commands.md#source-debugging) uses cooperative
-  source checkpoints, one-shot condition breaks and per-task stepping.
+  source checkpoints, one-shot condition breaks, per-task stepping and
+  one-statement skip marks before eligible operations. In-flight and structural
+  skips remain unavailable.
   [Pose recording and checked values](kcl-commands.md#pose-recording-and-value-assignment)
   add detached pose, joint and vector edits from supplied data. System-variable
   writes and native recording remain outside these forms.

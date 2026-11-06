@@ -241,6 +241,8 @@ def device_command(command):
 def dictionary_command(command):
     fields = command.split()
     upper = [field.upper() for field in fields]
+    if len(upper) in (2,3) and upper[0] in ('LOAD','COMPRESS') and upper[1]=='FORM':
+        return upper[0]+'_FORM',(fields[2] if len(fields)==3 else 'FORM',)
     if len(upper) == 2 and upper[0] == 'SHOW' and upper[1] in ('LANG','LANGS','DICTS'):
         return 'SHOW_'+upper[1], ()
     if len(upper) == 3 and upper[:2] in (['SET','LANG'],['SET','LANGUAGE']):
@@ -369,6 +371,8 @@ def debug_command(command):
     step=re.fullmatch(rf'STEP +ON(?: +({IDENTIFIER}))?',command)
     if step:return 'STEP_ON',(step[1],)
     if re.fullmatch(r'STEP +OFF',command):return 'STEP_OFF',()
+    checkpoint=re.fullmatch(rf'(SKIP|SHOW +CHECKPOINT)(?: +({IDENTIFIER}))?',command)
+    if checkpoint:return ('SKIP' if checkpoint[1]=='SKIP' else 'SHOW_CHECKPOINT'),(checkpoint[2],)
     return None
 
 
@@ -752,6 +756,9 @@ class KclCommands:
         def dispatch(_job):
             if operation in ('LOAD_DICT','COMPRESS_DICT'):
                 code=kcl_dictionary_file(state,operation,args,self,line)
+            elif operation in ('LOAD_FORM','COMPRESS_FORM'):
+                from .form_packages import kcl_form_file
+                code=kcl_form_file(state,operation,args[0],self,line)
             elif operation=='REMOVE_DICT':
                 code=state.execution.require('dictionaries',line).manage(state,operation,args)
             else:
@@ -934,6 +941,8 @@ class KclCommands:
             if operation=='PROGRAM':return self._program_break_command(state,args,line)
             if operation=='CONDITION':return self._condition_break_command(state,args,line)
             if operation=='SHOW_BREAK':return self._show_breaks(state,args[0],line)
+            if operation in ('SKIP','SHOW_CHECKPOINT'):
+                return self._checkpoint_command(state,operation,args[0],line)
             target=None
             if operation=='STEP_ON':
                 target=self._debug_task(state,args[0],line)
@@ -945,6 +954,18 @@ class KclCommands:
             if target is not None:target._task_settings['TSK_STEP']=1
             return 0
         return self._dispatch(state,name,command,dispatch)
+
+    def _checkpoint_command(self,state,operation,selector,line):
+        from .fileops import write_json_lines
+
+        target=self._debug_task(state,selector,line)
+        if target is None:return 801
+        mark=target._debug_statement
+        if (target.task_state!='paused' or mark is None or mark['channel'] is not state.execution.kcl
+                or target.execution.kcl is not state.execution.kcl):return 802
+        if operation=='SKIP':mark['skip']=True
+        else:write_json_lines(state,[{key:mark[key] for key in ('program','line','skip')}],line)
+        return 0
 
     def source_break(self,state,line):
         from .fileops import write_json_lines

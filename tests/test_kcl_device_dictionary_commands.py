@@ -116,7 +116,7 @@ class KclDictionaryTests(unittest.TestCase):
         self.assertEqual(issue(ctx, 'LOAD DICT missing NEW')['S'], 403)
         self.assertEqual(issue(ctx, 'LOAD DICT bad NEW')['S'], 401)
         self.assertEqual(issue(ctx, 'LOAD DICT first NEW GERMAN')['S'], 33003)
-        self.assertEqual(issue(ctx, 'LOAD FORM first')['S'], 1)
+        self.assertEqual(issue(ctx, 'LOAD FORM')['S'], 404)
         self.assertEqual(ctx.dictionaries.to_config(), before)
         saved = ctx.to_config()
         restored = rt.ExecutionContext.from_config(saved)

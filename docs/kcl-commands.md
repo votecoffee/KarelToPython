@@ -501,6 +501,8 @@ retain precedence.
 | `LOAD DICT source name [language]` | Load a decoded catalog entry or explicit offline file under the first four characters of the dictionary name. |
 | `CLEAR DICT name [language]` | Remove a loaded snapshot. ALL clears matching snapshots across languages. |
 | `COMPRESS DICT source` | Validate an ASCII UTX file and publish a new sibling portable TX file. |
+| `COMPRESS FORM [file]` | Compile an FTX dictionary and publish its portable TX and form companion as one prepared batch. |
+| `LOAD FORM [file]` | Validate both members of a portable form package and install the decoded dictionary. |
 
 An omitted language selects DEFAULT. A missing source suffix becomes `.TX`
 under the existing catalog rules. CLEAR preserves supplied source text. Loaded
@@ -521,7 +523,7 @@ text and writes the new `.TX` sibling without overwrite. Its portable
 format is the ASCII marker `K2PY-TX1`, one zero byte and one complete
 zlib stream. LOAD bounds expansion to 64 KiB and rejects incomplete or
 trailing compressed data. A busy file or unavailable backend returns 404.
-Native TX binaries and LOAD FORM's VR association remain outside these forms.
+Native TX binaries remain outside these forms.
 The forms follow MARRC75KR07091E Rev N, PDF pages 708–710 and 718.
 The [file replay example](../examples/kcl_portable_batch.kl) compiles and loads
 a portable TX. The [catalog example](../examples/kcl_offline_services.kl)
@@ -540,6 +542,38 @@ names and source labels for the effective current language. It uses the
 same selection rule as READ_DICT. These forms write JSON Lines through
 the offline output callback or recorded WRITE requests. The forms follow
 MARRC75KR07091E Rev N, PDF pages 734 and 739–740.
+
+### Portable form packages
+
+With the dictionary opt-in, COMPRESS FORM defaults to `FORM.FTX` and LOAD
+FORM defaults to `FORM.TX`. Supply a four-character dictionary name, or
+prefix it with two application characters and optionally append a two-letter
+language suffix. EG, JP, FR, GR and SP select English, Japanese, French,
+German and Spanish. With no suffix, loading selects the configured default.
+File operands use the KCL directory and the exact spelling required by the
+backend.
+
+COMPRESS FORM requires at least one complete form in the checked FTX text.
+It writes a sibling portable TX stream and a companion named for the
+four-character dictionary, such as `BTNS.VR` for `ABBTNSEG.TX`.
+The companion contains canonical JSON with the source name, dictionary,
+language, element identities and SHA-256 of the TX bytes. Both files must
+be new. The command preflights both files, their combined capacity and
+busy handles before publishing in MemoryFiles or DeviceFiles.
+
+LOAD FORM accepts those banks or an explicit DirectoryFiles root.
+It requires the portable TX marker and the matching canonical companion
+before installing the decoded snapshot. A missing member returns 403,
+a malformed or stale pair returns 401, an existing dictionary returns
+402, and a busy member or unsupported backend returns 404. The loaded
+snapshot can be saved in context JSON and used by
+[DISCTRL_FORM](forms.md) with the caller's explicit value paths.
+
+The companion describes the portable form package. Native VR records,
+generated KAREL include files and inferred Data IDs remain outside
+this contract. The forms follow MARRC75KR07091E Rev N, PDF pages
+212–214, 710 and 719. The [CLI example](../examples/kcl_form_package.kl)
+compiles a named package, loads it, and checks its form element by name.
 
 ## Program and task inspection commands
 
@@ -750,6 +784,8 @@ in linked modules. Several checkpoints may share a physical source line.
 | `CLEAR BREAK CONDITION [task] number` or `CLEAR BREAK CONDITION [task] ALL` | Remove the selected condition break marks. |
 | `SHOW BREAK [name]` | Write JSON Lines for program definitions and armed root conditions. |
 | `STEP ON [task]` or `STEP OFF` | Select one task for source-checkpoint pauses, or clear the active step selection. |
+| `SHOW CHECKPOINT [task]` | Report the live skippable statement's source module, line and skip flag. |
+| `SKIP [task]` | Mark that exact paused statement to be bypassed when the task continues. |
 
 PROGRAM and CONDITION accept PROG and COND. An omitted selector uses the
 configured program default or the caller. Program names select source
@@ -766,14 +802,28 @@ its predicate succeeds and pauses before the action. Continuing executes
 the action if the same handler is still enabled. STEP pauses before each
 eligible checkpoint for the selected root and works through linked calls.
 
+SKIP applies to a breakpoint or step pause immediately before an eligible
+statement. It skips operands, implicit FILE selection and the complete
+statement body. Assignments, calls, ordinary READ/WRITE and FILE commands,
+DELAY, WAIT FOR, PULSE and whole motion requests are eligible. FOR, USING
+and other structural checkpoints, RETURN, condition breaks and already
+started operations reject SKIP with 802. The report lists candidate lines
+under `kcl_policy.skippable_checkpoints`. A line can contain more than one
+statement, and the exact retained checkpoint determines eligibility.
+
+Repeated SKIP commands mark the same statement. CONTINUE resumes the
+task and bypasses that statement once, with ordinary handler and scheduler
+checks still in force. Abort or stop discards the mark. Retranslate existing
+modules to enable this form. The live mark is transient.
+
 Context JSON saves program definitions under `program_breakpoints`.
 Condition break marks and step selection belong to live runtime state.
 Status 801 means an unavailable program, condition or slot. Status 802
 means an invalid number, unavailable checkpoint or ineligible source.
 Status 805 means the definition limit has been reached. The forms follow
-MARRC75KR07091E Rev N, PDF pages 708, 714–715, 732, 737–738 and 747.
+MARRC75KR07091E Rev N, PDF pages 708, 714–715, 732, 737–738 and 746–747.
 The [linked example](../examples/kcl_source_debug/main.kl) uses RUNCF
-to set a worker breakpoint and wait for the pause.
+to set a worker breakpoint, wait for the pause and skip the selected assignment.
 
 ## Failure and persistence
 
@@ -818,6 +868,8 @@ python -m karel2py examples/kcl_pose_record.kl -o kcl_pose_record.py
 python kcl_pose_record.py --context examples/kcl_pose_record.services.initial.json
 python -m karel2py examples/kcl_portable_batch.kl -o kcl_portable_batch.py
 python kcl_portable_batch.py --context examples/kcl_portable_batch.services.initial.json
+python -m karel2py examples/kcl_form_package.kl -o kcl_form_package.py
+python kcl_form_package.py --context examples/kcl_form_package.services.initial.json
 python -m karel2py examples/kcl_offline_services.kl -o kcl_offline_services.py
 python kcl_offline_services.py --context examples/kcl_offline_services.services.initial.json --state-out service-state.json
 python -m karel2py examples/kcl_program_commands.kl -o kcl_program_commands.py
