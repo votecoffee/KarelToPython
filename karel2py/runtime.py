@@ -3871,7 +3871,7 @@ class State:
         self._task_frames=[];self._task_line=0;self._has_run=False
         self._debug_statement=None
         self._task_run = None
-        self._task_display_services = {}
+        self._task_run_services = {}
         self._task_launch = None
         self._task_parent = None
         self._task_pendant_motion = False
@@ -4047,8 +4047,8 @@ class State:
     def finish_teach_programs(self,*,interrupted=False):
         if self._budget_parent is None:
             if self._task_run is not None and (interrupted or self.task_state in ('stopped','aborted','failed')):
-                for service in self._task_display_services:service.finish(self,self._task_run)
-            self._task_display_services.clear()
+                for service in self._task_run_services:service.finish(self,self._task_run)
+            self._task_run_services.clear()
             self._task_run = None
             self._task_parent = None
             self._task_pendant_motion = False

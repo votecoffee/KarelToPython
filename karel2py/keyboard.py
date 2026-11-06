@@ -293,11 +293,27 @@ class KeyboardInput:
             if not complete:self.record(job,'cancelled',text=text,term=0,status=6)
             self.end(job)
 
+    def _release_frame(self,frame):
+        token=frame['id'];self._frames.pop(token)
+        resumed=0
+        for number in frame['readers']:
+            job=self._active.get(number)
+            if job is not None:
+                job['suspended'].discard(token);resumed+=1
+        return resumed
+
+    def finish(self,root,run):
+        """Release suspension tokens from an interrupted task run."""
+        for frame in tuple(self._frames.values()):
+            if frame['owner'] is root and frame['run'] is run:
+                self.record(frame,'cancelled',resumed=self._release_frame(frame))
+
     def push_pop(self,state,name,args,line=None):
         status=args[-1]
         try:
             if args[0].upper()!='TPKB':status.set(1,line);return
             pane=pane_for(state)
+            root=rt().task_root(state)
             if name=='PUSH_KEY_RD':
                 mask=args[1]
                 if not 0<=mask<=255:status.set(1,line);return
@@ -305,14 +321,13 @@ class KeyboardInput:
                 self.reserve();self.request_sequence+=1;token=self.request_sequence
                 readers=[job for job in self._active.values() if job['pane']==pane and job['interest']&mask]
                 for job in readers:job['suspended'].add(token)
-                frame=dict(id=token,state=state,operation=name,pane=pane,readers=[job['id'] for job in readers],owner=rt().task_root(state))
+                frame=dict(id=token,state=root,operation=name,pane=pane,readers=[job['id'] for job in readers],owner=root,run=root._task_run)
+                if root._task_run is not None:root._task_run_services[self]=None
                 self._frames[token]=frame;args[2].set(token,line);self.record(frame,'completed',mask=mask,suspended=len(readers));status.set(0,line)
             else:
                 frame=self._frames.get(args[1])
-                if frame is None or frame['pane']!=pane or frame['owner'] is not rt().task_root(state):status.set(3,line);return
-                self._frames.pop(frame['id'])
-                for job in self._active.values():job['suspended'].discard(frame['id'])
-                row=dict(frame,operation=name);self.record(row,'completed',resumed=sum(number in self._active for number in frame['readers']));status.set(0,line)
+                if frame is None or frame['pane']!=pane or frame['owner'] is not root:status.set(3,line);return
+                row=dict(frame,operation=name);self.record(row,'completed',resumed=self._release_frame(frame));status.set(0,line)
         except ValueError:status.set(1,line)
 
     def field_for(self,state,handle,capacity):

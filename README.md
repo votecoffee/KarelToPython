@@ -381,7 +381,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.023853**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.121505**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -755,7 +755,8 @@ mount state, byte quotas, obsolete-storage reclamation, labels and supplied devi
 information. These operations affect memory-backed data only; see
 [virtual devices](docs/virtual-devices.md).
 Rooted and virtual FILE backends accept controller-style paths such as
-`RD:\jobs\part.dat` through their explicit device mappings.
+`RD:\jobs\part.dat` through their explicit device mappings. Exact rooted
+access rejects symlink and junction components.
 `FILE_LIST` supports name, extension, complete-name and portable 40-column size
 formats, with whole-page validation before outputs change. Pair
 `--filesystem-timestamps` with `--filesystem-root` to include UTC modification
@@ -827,6 +828,7 @@ editing, masks, timeouts, per-file history and PUSH/POP read suspension. Combine
 window/keyboard FILEs support echo and ordinary output. Alphanumeric entry and
 dictionary-backed subwindow/pull-up menus share that headless event model. See
 [keyboard input](docs/keyboard-input.md) for context JSON and runnable CLI examples.
+Interrupted tasks release their own keyboard suspension tokens.
 Ordinary typed FILE READ now uses the same injected keyboard service, with
 submitted lines, numeric/quoted formats, buffered suffixes and atomic outputs;
 see [keyboard FILE reads](docs/keyboard-file-read.md).
@@ -1108,6 +1110,8 @@ source. Strict mode remains a future milestone.
 - CHECK_EPOS with explicit frame/tool poses, selected robot group and a supplied
   DH model or synchronous callback. A DH model supports explicit external-axis
   row mappings. See [position checks](docs/position-checks.md).
+- Optional ordered fallback seeds for DH inverse conversion after the primary
+  seed fails. See [model-backed assignments](docs/kinematic-assignments.md).
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Error-history queries through `ERR_DATA`, with sequential/latest lookup,
   checked message outputs and optional persisted text/timestamps; see

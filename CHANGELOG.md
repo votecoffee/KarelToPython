@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.121505 - 2026-11-06
+
+- Release keyboard suspension tokens owned by a stopped, aborted or failed
+  task run. Keep other tokens and resume eligible readers.
+- Reject junction components in exact rooted FILE operations and skip linked
+  subtrees in flat listings.
+- Accept optional ordered fallback seeds for offline DH inverse kinematics
+  when the primary seed fails.
+
 ## 26.1106.023853 - 2026-11-06
 
 - Accept controller-style separators in exact rooted and virtual FILE paths.

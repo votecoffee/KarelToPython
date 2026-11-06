@@ -1,4 +1,5 @@
 """Authored model-backed Cartesian/joint assignments and retained boundaries."""
+import json
 import unittest
 
 from karel2py import translate,translate_project,runtime as rt
@@ -93,6 +94,38 @@ class AssignmentModelTests(unittest.TestCase):
         p._state.values['OUT']=joint([7.]*9)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'IK solution'): p.run()
         self.assertEqual(p.snapshot()['OUT']['axes'],[7.]*9)
+
+    def test_inverse_tries_authored_fallback_seeds_in_order(self):
+        config={'dh':[{'a':100},{'a':100},{'a':20},{'type':'prismatic'}],
+                'iterations':28,'external_axis_indices':[4],
+                'current':{'joints':{'type':['JOINTPOS',4],'value':[0.,0.,0.,0.]}}}
+        for fallback in (False,True):
+            with self.subTest(fallback=fallback):
+                model={**config,'ik_fallback_seeds':[[-35.,78.,-43.,33.],[20.,-80.,30.,0.]]} if fallback else config
+                ctx=rt.ExecutionContext.from_config({'robot':model})
+                restored=rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+                program,_=compile_program('e=j out=e',decl=DECL.replace('JOINTPOS','JOINTPOS4'),context=restored)
+                program._state.values['J']=joint([45.,-90.,45.,17.])
+                program._state.values['OUT']=joint([7.]*4)
+                if fallback:
+                    result=program.run()['OUT']['axes']
+                    for actual,expected in zip(result,[-45.,90.,-45.,17.]):
+                        self.assertAlmostEqual(actual,expected,delta=.01)
+                else:
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'IK solution'):program.run()
+                    self.assertEqual(program.snapshot()['OUT']['axes'],[7.]*4)
+
+    def test_validated_fallback_seeds_do_not_replace_the_primary_seed(self):
+        context=rt.ExecutionContext.from_config({'robot':{'dh':[{'a':100},{'a':100},{'a':20}],
+            'ik_fallback_seeds':[[-35.,78.,-43.]],
+            'current':{'joints':{'type':['JOINTPOS',3],'value':[45.,-90.,45.]}}}})
+        data=run(START+'p=j out=p',decl=DECL,context=context)
+        self.assertEqual(data['OUT']['axes'][:3],[45.,-90.,45.])
+
+    def test_bad_fallback_seed_layout_or_joint_data_is_rejected(self):
+        for seeds in (None,[[0.]]*9,[[0.,0.]],[[True]],[[float('nan')]],[[181.]]):
+            with self.subTest(seeds=seeds),self.assertRaisesRegex(ValueError,'fallback seed'):
+                rt.SerialRobotModel([{'a':100}],ik_fallback_seeds=seeds)
 
     def test_selected_frame_and_tool_are_used(self):
         ctx=model_context((0.,0.));ctx.robot.frames[2]=identity_pose();ctx.robot.frames[2].values['LOCATION'].values['X']=10.

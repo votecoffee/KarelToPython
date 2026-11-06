@@ -283,6 +283,27 @@ class DirectoryQueryBoundaries(unittest.TestCase):
                     with self.assertRaisesRegex(rt.KarelRuntimeError,'links or junctions'):operation(files)
                 self.assertEqual(snapshot(files),before)
 
+    def test_rooted_exact_operations_reject_junction_components(self):
+        with bank('directory') as files:
+            before=snapshot(files)
+            with patch.object(Path,'is_junction',lambda p:p.name=='deep',create=True):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'links or junctions'):
+                    run(files,"OPEN FILE f('RO','RD:jobs/cell1/deep/a3.KL')",'f:FILE')
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'links or junctions'):
+                    run(files,"RENAME_FILE('RD:jobs/top.KL','RD:jobs/cell1/deep/new.KL',FALSE,s)")
+            self.assertEqual(snapshot(files),before)
+
+    def test_rooted_flat_listing_does_not_scan_junction_subtrees(self):
+        with bank('directory') as files:
+            scandir=os.scandir
+            def guarded(path):
+                self.assertNotEqual(Path(path).name,'deep')
+                return scandir(path)
+            with patch.object(Path,'is_junction',lambda p:p.name=='deep',create=True),patch.object(os,'scandir',guarded):
+                _,state,_=listing(files,pattern='RD:jobs/*.KL')
+            self.assertEqual(state['NAMES'][:2],['ram/jobs/cell1/a1.KL','ram/jobs/top.KL'])
+            self.assertEqual(state['N'],2)
+
     def test_scan_bounds_apply_before_selection(self):
         for kind in ('memory','device','directory'):
             with self.subTest(kind=kind),bank(kind) as files,patch.object(fileops,'WILDCARD_FILE_LIMIT',2):

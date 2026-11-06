@@ -107,8 +107,10 @@ releases only that token; nested tokens may be popped by ID. Tokens belong to
 the pane/root task that pushed them, including calls through linked routines.
 
 Suspension does not stop timeout time. Multiple tokens must all release a reader
-before it is eligible again. Frames remain until POP even if the captured reader
-has completed. POP/close cleanup can run after history sequence exhaustion.
+before it is eligible again. Stop, abort and unhandled failure release only the
+tokens created by the interrupted run. Pause and normal completion retain tokens
+until POP or host cleanup, even if the captured reader has completed. Cleanup
+works after history sequence exhaustion.
 
 ## Alphanumeric and dictionary controls
 

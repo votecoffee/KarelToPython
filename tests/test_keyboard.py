@@ -215,6 +215,44 @@ class KeyboardSuspensionTests(unittest.TestCase):
         ctx.keyboard.sequence=2147483646;p.resume()
         self.assertEqual(p.snapshot()['S'],0);ctx.to_config()
 
+    def test_stopped_push_owners_release_only_their_reader_tokens(self):
+        ctx=context(events=[dict(key='F1',at_ms=1000)])
+        reader=OPEN+READ.replace('20,KC_DISPLAY,KC_ENTER_KEY,0','0,0,KC_FUNC_KEY,5000')+CLOSE
+        pusher="PUSH_KEY_RD('TPKB',KC_FUNC_KEY,token,s) PAUSE"
+        project=translate_project({name:source(name,body,decl=DECL) for name,body in
+            (('WORKER',reader),('FIRST',pusher),('SECOND',pusher))}).instantiate(context=ctx)
+        scheduler=project.scheduler
+        scheduler.start('WORKER')
+        for _ in range(12):
+            if ctx.keyboard._active:break
+            scheduler.step()
+        self.assertEqual(len(ctx.keyboard._active),1)
+        job=next(iter(ctx.keyboard._active.values()))
+        for name in ('FIRST','SECOND'):
+            scheduler.start(name)
+            for _ in range(12):
+                if scheduler.snapshot()[name]['state']=='paused':break
+                scheduler.step()
+            self.assertEqual(scheduler.snapshot()[name]['state'],'paused')
+        self.assertEqual(len(job['suspended']),2)
+        scheduler.stop('FIRST')
+        self.assertEqual(job['suspended'],{project.programs['SECOND'].snapshot()['TOKEN']})
+        self.assertEqual(ctx.keyboard.history[-1]['outcome'],'cancelled')
+        ctx.keyboard.sequence=2147483646
+        scheduler.stop('SECOND')
+        self.assertEqual(job['suspended'],set())
+        self.assertEqual(scheduler.run()['WORKER']['values']['KEY'],1101)
+        ctx.to_config()
+
+    def test_failing_push_run_releases_only_its_frames(self):
+        ctx=context()
+        push="PUSH_KEY_RD('TPKB',1,token,s)"
+        execute(push,ctx=ctx)
+        failed,_=compile_program(push+' s=key',decl=DECL,context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'):failed.run()
+        self.assertEqual(list(ctx.keyboard._frames),[1])
+        ctx.keyboard.close_all();ctx.to_config()
+
     def test_scheduler_suspends_old_reader_but_allows_new_one(self):
         events=[dict(key='F1',at_ms=100),dict(key='F2',at_ms=200)]
         ctx=context(events=events)

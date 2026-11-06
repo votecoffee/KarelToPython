@@ -31,7 +31,7 @@
     "endpoints": "KB:TPKB and combined WD:name/TPKB text FILEs; captured root pane, optional clipped echo, output/cursor/dictionary forwarding and no-echo intent",
     "editing": "Bounded insert/delete/cursor and per-open-file history; termination priority, partial timeout results, finite per-call event processing",
     "waiting": "Cooperative budgeted waits with captured scheduler clock or standalone logical sleeper completion; explicit-input indefinite standalone guard",
-    "suspension": "Snapshot existing matching reads only, pane/root-owned token IDs and nested POP; new reads unaffected; timeout continues during suspension",
+    "suspension": "Snapshot existing matching reads only. Release tokens by pane/root-owned POP or interruption of the issuing run. Pause and normal completion retain tokens. New reads and timeout clocks are unaffected.",
     "controls": "COMM/PROG or dictionary-alphabet entry with USER/USER2 gate; bounded subwindow/pull-up options and injected navigation",
     "persistence": "Only unconsumed input, finite IDs, logical time and terminal history; reject open handles, pending reads and unpopped frames; no implicit input replay"
   },

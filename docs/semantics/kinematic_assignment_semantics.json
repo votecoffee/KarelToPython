@@ -8,6 +8,7 @@
     "scope":"Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments, individual fields/elements and function-result RHS values",
     "context":"Calling root task group, selected configured frame/tool and existing supplied forward/inverse adapters or standard-DH model",
     "inverse":"Complete current joints as reference seed, source CONFIG and external values, config_ref zero; destination contents do not seed solving",
+    "inverse_fallback":"Optional standard-DH ik_fallback_seeds run in supplied order after the required reference fails, with external joints fixed and the configured iteration limit per attempt",
     "width":"Shared model-width or padded-nine-slot checks; model inverse output padding; custom callback output exact width",
     "ownership":"Detached inputs/results, conversion before target selector, destination preserved on failure, sticky abort retained and source-located value-free service records"
   },

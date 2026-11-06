@@ -80,7 +80,8 @@ def linear_solve(a,b):
 
 
 class SerialRobotModel:
-    def __init__(self,dh,*,external_axes=0,external_axis_indices=None,base=None,iterations=200,position_tolerance=.01,orientation_tolerance=.01):
+    def __init__(self,dh,*,external_axes=0,external_axis_indices=None,base=None,iterations=200,
+                 position_tolerance=.01,orientation_tolerance=.01,ik_fallback_seeds=()):
         if not isinstance(dh,(list,tuple)) or not 1<=len(dh)<=9: raise ValueError('DH model requires 1..9 joints')
         external_limit=min(3,len(dh)-1)
         if type(external_axes) is not int or not 0<=external_axes<=external_limit: raise ValueError('External-axis count must leave at least one main joint')
@@ -106,6 +107,15 @@ class SerialRobotModel:
             bounds=(float(original.get('min',-180 if kind=='revolute' else -1000)),float(original.get('max',180 if kind=='revolute' else 1000)))
             if not all(math.isfinite(v) for v in (*values.values(),*bounds)) or bounds[0]>bounds[1]: raise ValueError('DH parameters and limits must be finite and ordered')
             self.rows.append(dict(type=kind,**values)); self.limits.append(bounds)
+        if not isinstance(ik_fallback_seeds,(list,tuple)) or len(ik_fallback_seeds)>8:
+            raise ValueError('IK fallback seeds require a list of up to eight joint vectors')
+        seeds=[]
+        for seed in ik_fallback_seeds:
+            if (not isinstance(seed,(list,tuple)) or len(seed)!=len(dh)
+                    or any(type(value) not in (int,float) for value in seed) or not self.within_limits(seed)):
+                raise ValueError('Each IK fallback seed requires a finite joint vector within the model limits')
+            seeds.append(tuple(seed))
+        self.ik_fallback_seeds=tuple(seeds)
         self.external_axes=len(self._external_joints); self.base=matrix(base) if base is not None else IDENTITY
         self.iterations=iterations; self.position_tolerance=float(position_tolerance); self.orientation_tolerance=math.radians(orientation_tolerance)
         if not all(math.isfinite(v) and v>0 for v in (self.position_tolerance,self.orientation_tolerance)): raise ValueError('Positive finite IK tolerances required')
@@ -182,9 +192,11 @@ class SerialRobotModel:
             with rt()._numeric_scope('pythonic'): axes=[rt().real(value) for value in external.values]
             if len(axes)<self.external_axes: raise ValueError('External-axis input is shorter than the model')
             fixed=dict(zip(self._external_joints,axes))
-        result=self.solve(target,values,fixed=fixed)
-        if result is None: raise ValueError('No IK solution within the supplied limits and iteration budget')
-        joints=rt().JointPosition(('JOINTPOS',self.axes)); joints.values[:]=result; return joints
+        for seed in (values,*self.ik_fallback_seeds):
+            result=self.solve(target,seed,fixed=fixed)
+            if result is not None:
+                joints=rt().JointPosition(('JOINTPOS',self.axes)); joints.values[:]=result; return joints
+        raise ValueError('No IK solution within the supplied limits and iteration budget')
 
     def reachable(self,position,uframe=None,utool=None):
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe) if uframe is not None else IDENTITY,matrix(position)),inverse(matrix(utool)) if utool is not None else IDENTITY))
@@ -199,7 +211,7 @@ def robot_context_from_config(config):
     from .extended import RobotContext,RobotState
     from .storage import decode_typed
     if type(config) is not dict: raise ValueError('Robot context must be an object')
-    allowed={'groups','active_group','dh','external_axes','external_axis_indices','base','iterations','position_tolerance','orientation_tolerance','frames','tools','frame','tool','current','joint_limits'}
+    allowed={'groups','active_group','dh','external_axes','external_axis_indices','base','iterations','position_tolerance','orientation_tolerance','ik_fallback_seeds','frames','tools','frame','tool','current','joint_limits'}
     if set(config)-allowed: raise ValueError('Unknown robot context fields')
     if 'joint_limits' in config and type(config['joint_limits']) is not list: raise ValueError('joint_limits must be a list of explicit bounds')
     if 'groups' in config:
@@ -242,7 +254,8 @@ def robot_context_from_config(config):
     base=decode_typed(config['base'])[1] if 'base' in config else None
     model=SerialRobotModel(config['dh'],external_axes=config.get('external_axes',0),
         external_axis_indices=config.get('external_axis_indices'),base=base,iterations=config.get('iterations',200),
-        position_tolerance=config.get('position_tolerance',.01),orientation_tolerance=config.get('orientation_tolerance',.01))
+        position_tolerance=config.get('position_tolerance',.01),orientation_tolerance=config.get('orientation_tolerance',.01),
+        ik_fallback_seeds=config.get('ik_fallback_seeds',()))
     frames={int(k):decode_typed(v)[1] for k,v in config.get('frames',{}).items()}; tools={int(k):decode_typed(v)[1] for k,v in config.get('tools',{}).items()}
     frames.setdefault(0,pose()); tools.setdefault(0,pose())
     active_frame=config.get('frame',0); active_tool=config.get('tool',0)

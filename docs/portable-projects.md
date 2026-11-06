@@ -104,8 +104,8 @@ context = rt.ExecutionContext(files=files)
 Names are relative paths, optionally beginning with a mapped device, such as
 `MD:result.txt`. Either slash and one optional separator after a device are
 accepted, so `MD:\jobs\result.txt` and `MD:jobs/result.txt` resolve to the
-same file. Absolute names, `..`, unmapped devices, extra colons and symlink components
-are rejected. File parents are not created. The default per-file limit is 16 MiB,
+same file. Absolute names, `..`, unmapped devices, extra colons, symlinks and
+junctions are rejected. File parents are not created. The default per-file limit is 16 MiB,
 configurable up to 64 MiB. Each backend permits one open handle per file.
 These checks are for controlled offline directories; they do not provide a
 security boundary against another process racing filesystem changes.
@@ -263,7 +263,10 @@ Joint arrays keep DH row order. Supply all robot dimensions explicitly.
 
 The model provides real forward transformations and damped numerical inverse
 kinematics, seeded by the supplied reference joints. Limits and iteration budgets
-are enforced. JOINT2POS returns three external values, padding unused fields
+are enforced. For inverse conversion, `ik_fallback_seeds` can supply up to eight
+additional in-limit joint vectors in DH row order. The solver tries them in
+order only after the reference attempt fails, with the same iteration limit
+per attempt and the external joints fixed throughout. JOINT2POS returns three external values, padding unused fields
 with zero. POS2JOINT fixes external joints at its explicit external-array values.
 IN_RANGE fixes them at the pose's external values (zero for a plain pose), then
 tries a bounded set of seeds. Failure means no solution was found within this

@@ -351,8 +351,8 @@ class DirectoryFiles:
     """FILE backend rooted in a caller-selected directory; buffered until close.
 
     Source names are relative paths, optionally prefixed by an explicit device
-    mapping. Resolved keys use forward slashes. Symlinks and path traversal are
-    rejected on every operation.
+    mapping. Resolved keys use forward slashes. Exact paths reject links,
+    junctions and traversal.
     """
     def __init__(self,root,*,devices=None,limit=16*1024*1024,listing_timestamps=False):
         from .extended import MemoryFiles
@@ -377,12 +377,18 @@ class DirectoryFiles:
             raise ValueError('File name must stay relative to its explicit root')
         return name
 
+    @staticmethod
+    def _linked_path(path):
+        from .fileops import _wildcard_link
+        try:return _wildcard_link(path)
+        except FileNotFoundError:return False
+
     def _path(self,name,*,directory=False):
         name=self._relative_name(name)
         target=self.root
         for part in name.split('/'):
             target=target/part
-            if target.is_symlink(): raise ValueError('Symlink FILE paths are unsupported')
+            if self._linked_path(target): raise ValueError('Rooted FILE paths cannot traverse links or junctions')
         resolved=target.resolve()
         if not resolved.is_relative_to(self.root) or not directory and resolved==self.root: raise ValueError('File path escapes its root')
         return resolved
@@ -463,11 +469,14 @@ class DirectoryFiles:
         self._path(pattern.replace('*','x').replace('?','x'))
         pattern=self._relative_name(pattern)
         names=set()
-        for path in self.root.rglob('*'):
-            if path.is_symlink(): continue
-            relative=path.relative_to(self.root).as_posix()
-            if path.is_file() and fnmatch.fnmatchcase(relative,pattern):
-                self._path(relative); names.add(relative)
+        for folder,directories,filenames in os.walk(self.root):
+            parent=Path(folder)
+            directories[:]=[name for name in directories if not self._linked_path(parent/name)]
+            for name in filenames:
+                path=parent/name
+                relative=path.relative_to(self.root).as_posix()
+                if fnmatch.fnmatchcase(relative,pattern) and not self._linked_path(path) and path.is_file():
+                    self._path(relative); names.add(relative)
         names.update(name for name in self.files if self._busy(name) and fnmatch.fnmatchcase(name,pattern))
         return sorted(names)
 

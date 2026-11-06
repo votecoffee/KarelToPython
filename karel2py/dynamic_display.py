@@ -167,7 +167,7 @@ class DynamicDisplays:
             binding.update(last_text=text,last_status=code)
             if self.cancel_on_interrupt and root._task_run is not None:
                 binding.update(root=root,run=root._task_run)
-                root._task_display_services[self]=None
+                root._task_run_services[self]=None
             self.sequence+=1;self._bindings.append(binding);status.set(0,line)
         except ValueError:status.set(1,line)
 
