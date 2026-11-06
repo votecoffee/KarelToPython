@@ -523,6 +523,8 @@ text and writes the new `.TX` sibling without overwrite. Its portable
 format is the ASCII marker `K2PY-TX1`, one zero byte and one complete
 zlib stream. LOAD bounds expansion to 64 KiB and rejects incomplete or
 trailing compressed data. A busy file or unavailable backend returns 404.
+An optional [`.kl` directive](text-dictionaries.md#generated-karel-constants)
+adds a generated CONST include to the batch.
 Native TX binaries remain outside these forms.
 The forms follow MARRC75KR07091E Rev N, PDF pages 708–710 and 718.
 The [file replay example](../examples/kcl_portable_batch.kl) compiles and loads
@@ -560,6 +562,7 @@ The companion contains canonical JSON with the source name, dictionary,
 language, element identities and SHA-256 of the TX bytes. Both files must
 be new. The command preflights both files, their combined capacity and
 busy handles before publishing in MemoryFiles or DeviceFiles.
+An optional `.kl` directive adds the validated include to the same batch.
 
 LOAD FORM accepts those banks or an explicit DirectoryFiles root.
 It requires the portable TX marker and the matching canonical companion
@@ -569,11 +572,11 @@ a malformed or stale pair returns 401, an existing dictionary returns
 snapshot can be saved in context JSON and used by
 [DISCTRL_FORM](forms.md) with the caller's explicit value paths.
 
-The companion describes the portable form package. Native VR records,
-generated KAREL include files and inferred Data IDs remain outside
+The companion describes the portable form package. Native VR records and
+inferred Data IDs remain outside
 this contract. The forms follow MARRC75KR07091E Rev N, PDF pages
 212–214, 710 and 719. The [CLI example](../examples/kcl_form_package.kl)
-compiles a named package, loads it, and checks its form element by name.
+compiles a named package with a CONST include, loads it, and checks its form element by name.
 
 ## Program and task inspection commands
 

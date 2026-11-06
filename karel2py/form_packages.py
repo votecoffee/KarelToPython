@@ -2,9 +2,10 @@
 import hashlib
 import re
 
-from .archives import encode_json, write_files
-from .dictionaries import (DictionaryError, PORTABLE_TX_HEADER, dictionary_file_endpoint,
-                           dictionary_name, parse, portable_tx, read_dictionary_file, rt, source_name)
+from .archives import encode_json
+from .dictionaries import (DictionaryError, PORTABLE_TX_HEADER, dictionary_compile_input,
+                           dictionary_file_endpoint, dictionary_include, dictionary_name,
+                           parse, portable_tx, publish_dictionary_batch, read_dictionary_file, rt, source_name)
 from .fileops import kcl_read_bytes
 
 
@@ -28,10 +29,10 @@ def companion_key(key,label):
     return key[:-len(base)]+label+'.VR'
 
 
-def association(stem,label,language,text,tx):
-    entries,names=parse(text)
-    names={number:name for name,number in names.items()}
-    elements=[dict(number=number,name=names.get(number))
+def association(stem,label,language,parsed,tx):
+    entries,names=parsed
+    labels={number:name for name,number in names.items()}
+    elements=[dict(number=number,name=labels.get(number))
               for number,tokens in sorted(entries.items()) if tokens and tokens[0][0]=='form']
     if not elements:raise ValueError('Form package requires at least one complete form')
     return encode_json(dict(format=FORMAT,source=stem,dictionary=label,language=language,
@@ -50,14 +51,16 @@ def kcl_form_file(state,operation,source,channel,line):
             if not raw.startswith(PORTABLE_TX_HEADER):return 1
             code,data,_=kcl_read_bytes(files,companion,LIMIT,line)
             if code:return 3 if code==1 else code
-            if data!=association(stem,label,language,text,raw):return 1
+            if data!=association(stem,label,language,parse(text),raw):return 1
             catalog=state.execution.require('dictionaries',line)
             catalog.load_text(source_name(name),label,catalog.selected_language(state,language),text)
         else:
+            text,include=dictionary_compile_input(text)
+            parsed=parse(text)
             tx=portable_tx(text)
-            data=association(stem,label,language,text,tx)
-            code=write_files(files,[(key[:-4]+'.TX',tx),(companion,data)])
-            return 2 if code==3 else code
+            plan=[(key[:-4]+'.TX',tx),(companion,association(stem,label,language,parsed,tx))]
+            if include is not None:plan.append(dictionary_include(key,include,parsed[1]))
+            return publish_dictionary_batch(files,plan)
     except DictionaryError as error:return error.status
     except (ValueError,OverflowError):return 1
     except (OSError,rt().KarelRuntimeError):return 4

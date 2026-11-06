@@ -46,8 +46,11 @@ class FormControls(TableControls):
                 function_keys=self.function_keys(s)) for s in self._sessions.values()])
 
     def resolve(self,state,path,line):
-        match=re.fullmatch(r'(?:\[([A-Za-z_][A-Za-z_0-9]*)\])?(.+)',rt().ascii_string(path,line))
+        match=re.fullmatch(r'(?:\[([A-Za-z_][A-Za-z_0-9]*|\*SYSTEM\*)\])?(.+)',
+                           rt().ascii_string(path,line),re.I)
         if match is None:invalid('Form path requires a static global or explicit port')
+        if (match[1] or '').upper()=='*SYSTEM*' and not match[2].startswith('$'):
+            invalid('System form paths require an explicit system variable')
         return state.execution.resolve(state,match[1] or state.program_name,match[2],line,path_nodes=True)
 
     def lines(self,state,dictionary,element):return dictionary_lines(state,dictionary,element)

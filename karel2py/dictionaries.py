@@ -117,6 +117,47 @@ def portable_tx(text):
     return PORTABLE_TX_HEADER+zlib.compress(text.encode('ascii'))
 
 
+def dictionary_compile_input(text):
+    """Separate the optional leading .kl directive from the decoded dictionary."""
+    lines=text.splitlines(keepends=True)
+    for index,line in enumerate(lines):
+        content=line.split('*',1)[0].strip()
+        if not content:continue
+        if not re.match(r'\.kl\b',content,re.I):break
+        match=re.fullmatch(r'\.kl[ \t]+([A-Z_][A-Z_0-9]{0,35})(?:\.kl)?',content,re.I)
+        if not match:raise ValueError('Dictionary .kl requires a concrete include basename')
+        return ''.join(lines[:index]+lines[index+1:]),match[1]
+    return text,None
+
+
+def dictionary_include(key,basename,names):
+    """Generate a checked KAREL CONST fragment in the source file's directory."""
+    try:
+        from .compiler import translate
+        from .lexer import TranslationError
+    except ImportError as error:
+        raise DictionaryError(4,'Dictionary include generation requires the KAREL compiler') from error
+    constants={name.upper():number for name,number in names.items()}
+    if not constants or len(constants)!=len(names):
+        raise ValueError('Dictionary include requires distinct case-insensitive element names')
+    content='CONST\n'+''.join(f'  {name} = {number}\n' for name,number in constants.items())
+    sentinel=next(f'K2PY_DICT_CHECK_{index}' for index in range(len(constants)+1)
+                  if f'K2PY_DICT_CHECK_{index}' not in constants)
+    try:translate(f'PROGRAM {sentinel}\n{content}BEGIN\nEND {sentinel}')
+    except TranslationError as error:raise ValueError('Invalid generated KAREL constant name') from error
+    base=key.rsplit('/',1)[-1].rsplit(':',1)[-1]
+    target=key[:-len(base)]+basename+'.KL'
+    if len(target)>254:raise ValueError('Dictionary include file name is too long')
+    return target,content.encode('ascii')
+
+
+def publish_dictionary_batch(files,plan):
+    from .archives import write_files
+
+    code=write_files(files,plan)
+    return 2 if code==3 else code
+
+
 def kcl_dictionary_file(state,operation,args,channel,line):
     """Load explicit ASCII files or portable TX streams and compile new TX files."""
     from .fileops import publish_file_bytes
@@ -137,9 +178,12 @@ def kcl_dictionary_file(state,operation,args,channel,line):
             _,label,selector=args
             catalog.load_text(source_name(name),dictionary_name(label),catalog.selected_language(state,selector),text)
         else:
-            parse(text)
+            text,include=dictionary_compile_input(text)
+            _,names=parse(text)
             target=key[:-4]+'.TX'
             data=portable_tx(text)
+            if include is not None:
+                return publish_dictionary_batch(files,[(target,data),dictionary_include(key,include,names)])
             if len(data)>files.limit or (type(files) is not DirectoryFiles
                                         and target not in files.files and len(files.files)>=32767):return 5
             result=publish_file_bytes(files,target,data,False,line)
@@ -169,10 +213,11 @@ def parse(text):
                 entry.append((directive,));tokens+=1
                 if directive=='endform':in_form=False;entry=None
             position+=match.end();continue
-        match=re.match(r'\$([0-9]+|-)(?:\s*,\s*([A-Za-z_][A-Za-z_0-9]{0,249}))?',rest)
+        match=re.match(r'\$([0-9]+|-)(?:\s*,\s*([A-Za-z_][A-Za-z_0-9]{0,249})(?:[ \t]*,)?)?'
+                       r'|\$[ \t]*([A-Za-z_][A-Za-z_0-9]{0,249})?(?=[ \t\r\n"@&#+^?$*]|$)',rest)
         if match:
             if in_form:raise ValueError('A form contains exactly one dictionary element')
-            number=previous+1 if match[1]=='-' else int(match[1]);name=match[2]
+            number=previous+1 if match[1] in (None,'-') else int(match[1]);name=match[2] or match[3]
             if not 0<=number<=32767 or number in entries or len(entries)>=4096 or name is not None and name in names:raise ValueError('Duplicate/invalid dictionary element or name')
             entry=[];entries[number]=entry;previous=number
             if pending is not None:entry.append(('form',pending));pending=None;in_form=True;tokens+=1
@@ -207,7 +252,6 @@ def parse(text):
                     else:
                         match=re.match(r'([+^?])([0-9]+|[A-Za-z_][A-Za-z_0-9]{0,249})',rest)
                         if not match:raise ValueError('Unsupported or malformed dictionary syntax')
-                        if match[1]!='+' and not in_form:raise ValueError('Function/help markers require a form')
                         token=({'+':'include','^':'function_keys','?':'help'}[match[1]],int(match[2]) if match[2].isdigit() else match[2])
         entry.append(token);position+=match.end();tokens+=1
         if tokens>16384:raise ValueError('Dictionary token limit exceeded')
@@ -227,7 +271,13 @@ def parse(text):
         visiting.remove(number)
         if result>5:raise ValueError('Dictionary nesting exceeds five levels')
         depths[number]=result;return result
-    for number in entries:depth(number)
+    for number,tokens in entries.items():
+        depth(number)
+        if tokens and tokens[0][0]=='form':continue
+        for token in tokens:
+            if token[0] in ('function_keys','help'):
+                target=names.get(token[1]) if type(token[1]) is str else token[1]
+                if target not in entries:raise ValueError('Missing table function-key or help element')
     return entries,names
 
 
@@ -314,7 +364,7 @@ class TextDictionaries:
 
     def render(self,state,tokens,values,line=None):
         runtime=rt();output=[];size=0;next_index=0
-        if any(token[0] in ('form','endform','tree','endtree','function_keys','help','terminator') for token in tokens):raise DictionaryError(4,'Form/enum metadata requires its matching control service')
+        if any(token[0] in ('form','endform','tree','endtree','function_keys','help','terminator') for token in tokens):raise DictionaryError(4,'Dictionary metadata requires its matching control service')
         paths=None if values is None else list(values.values)
         for token in tokens:
             if token[0]=='text':

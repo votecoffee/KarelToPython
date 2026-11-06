@@ -10,7 +10,7 @@ TABLE_CONSTANTS={name:i for i,name in enumerate(('TPX_INT_ITEM','TPX_REL_ITEM','
     'TPX_SUB_ITEM','TPX_KST_ITEM','TPX_KSL_ITEM','TPX_KBL_ITEM','TPX_BYT_ITEM',
     'TPX_SHT_ITEM','TPX_PBL_ITEM','TPX_PIN_ITEM'),1)}
 TABLE_CONSTANTS.update(DC_DISP=1,DC_UP=2,DC_DN=3,DC_LF=4,DC_RT=5,
-    KY_DISP_UPDT=1009,KY_REISSUE=1010,KY_CANCEL=1011)
+    KY_DISP_UPDT=1009,KY_REISSUE=1010,KY_CANCEL=1011,KY_HELP=1019)
 MAX_SEQUENCE=2147483646
 CONVERSION=re.compile(r'%(?!%)([-+ 0]*)([0-9]*)(?:\.([0-9]+))?([doxXucfeEgGs])')
 
@@ -43,6 +43,51 @@ def dictionary_lines(state,name,element):
     text=''.join(token[1] if token[0]=='text' else '\n' if token[0]=='newline' else '' for token in tokens)
     if any(char!='\n' and not 32<=ord(char)<=126 for char in text):invalid('Table text requires printable ASCII')
     return text.split('\n')
+
+
+def table_header(state,dictionary,element,rows,cols):
+    tokens=state.execution.require('dictionaries').element(state,dictionary,element)
+    if tokens==[('terminator',)]:return [],None,[]
+    lines=[''];row=col=1
+    references={}
+    for token in tokens:
+        operation=token[0]
+        if operation=='text':
+            text=token[1]
+            if col+len(text)-1>cols:invalid('Table header exceeds window width')
+            lines[row-1]=lines[row-1].ljust(col-1)+text
+            col+=len(text)
+            continue
+        if operation in ('style','home') and (operation=='style' or (row,col)==(1,1)):
+            continue
+        if operation in ('function_keys','help'):
+            if operation in references:invalid('Duplicate table header metadata')
+            references[operation]=token[1]
+            continue
+        if operation in ('newline','lf'):
+            row,col=row+1,1
+        elif operation=='cursor':
+            if token[1:]<(row,col):invalid('Table header cursor cannot backtrack')
+            row,col=token[1:]
+        else:invalid('Unsupported table header control')
+        if row>=rows or col>cols:invalid('Table header leaves no usable body row')
+        lines.extend(['']*(row-len(lines)))
+    labels=dictionary_lines(state,dictionary,references['function_keys']) if 'function_keys' in references else None
+    help_lines=dictionary_lines(state,dictionary,references['help']) if 'help' in references else []
+    if labels is not None and (len(labels)>10 or any(len(label)>8 for label in labels)):
+        invalid('Table headers accept at most ten eight-character function labels')
+    if len(help_lines)>48 or any(len(line)>cols for line in help_lines):
+        invalid('Table help exceeds 48 lines or window width')
+    header=[] if lines==[''] else lines
+    if len(header)>=rows:invalid('Table header leaves no usable body row')
+    return header,labels,help_lines
+
+
+def table_key_enabled(session,key):
+    labels=session.get('function_labels')
+    if labels is None or not key.startswith('F') or not key[1:].isdigit():return True
+    number=int(key[1:])
+    return 1<=number<=len(labels) and bool(labels[number-1].strip())
 
 
 def format_spec(text,kind):
@@ -92,18 +137,21 @@ class TableControls:
         return cls(**config)
 
     def snapshot(self):
-        return dict(window=self.window,limit=self.limit,sequence=self.sequence,active=[dict(session=n,
-            program=rt().task_root(s['state']).program_name,row=s['row'],column=s['col']+1,
-            editing=s['edit'] is not None) for n,s in self._sessions.items()])
+        active=[]
+        for number,session in self._sessions.items():
+            row=dict(session=number,program=rt().task_root(session['state']).program_name,
+                     row=session['row'],column=session['col']+1,editing=session['edit'] is not None)
+            if session['function_labels'] is not None:row['function_keys']=list(session['function_labels'])
+            if session['help_lines']:row['help']=session['help_offset'] is not None
+            active.append(row)
+        return dict(window=self.window,limit=self.limit,sequence=self.sequence,active=active)
 
     def prepare(self,state,dictionary,element,rows,cols,descriptors,inactive,changes,paths,resources,line):
         runtime=rt();number(rows,1,32766);number(cols,1,40)
         if rows*cols>16384:invalid('Table exceeds 16384 cell budget')
         pendant=state.execution.require('pendant',line);surface=pendant.windows.get(self.window)
         if surface is None:invalid('Define the configured table window first')
-        header=dictionary_lines(state,dictionary,element)
-        if header==['']:header=[]
-        if len(header)>=surface['rows'] or any(len(text)>surface['cols'] for text in header):invalid('Table header exceeds window')
+        header,function_labels,help_lines=table_header(state,dictionary,element,surface['rows'],surface['cols'])
         if len(descriptors.raw().values)<cols or len(paths.values)<cols:invalid('Table descriptors/paths are too short')
         occupied=set()
         for ref in resources:
@@ -159,6 +207,7 @@ class TableControls:
                 format=fmt,minimum=minimum,maximum=maximum,clear=number(field(descriptor,'CLEAR_FLAG',0),0,1),
                 lower=number(field(descriptor,'LOWER_CASE',0),0,1)))
         session=dict(state=state,rows=rows,columns=columns,inactive=inactive,changes=changes,header=header,
+            function_labels=function_labels,help_lines=help_lines,help_offset=None,
             pendant=pendant,row=1,col=0,first=1,edit=None,cursor=0,attached=None,owns_attachment=False,work=None,work_value=None)
         session['col']=self.enabled(session)[0]
         if len(self._sessions)>=self.limit or self.sequence>=MAX_SEQUENCE:invalid('Table session capacity exhausted')
@@ -211,7 +260,15 @@ class TableControls:
         except (TypeError,ValueError,OverflowError):return '?'
 
     def draw(self,session,line=None):
-        surface=session['pendant'].windows[self.window];height=surface['rows']-len(session['header'])
+        surface=session['pendant'].windows[self.window]
+        if session['help_offset'] is not None:
+            offset=session['help_offset']
+            lines=session['help_lines'][offset:offset+surface['rows']]
+            fields=[(index+1,1,text.ljust(surface['cols']))
+                    for index,text in enumerate(lines+['']*(surface['rows']-len(lines)))]
+            session['pendant'].paint_fields(session['state'],self.window,fields,line)
+            return
+        height=surface['rows']-len(session['header'])
         session['first']=max(1,min(session['first'],session['row']))
         if session['row']>=session['first']+height:session['first']=session['row']-height+1
         lines=[text.ljust(surface['cols']) for text in session['header']]
@@ -265,6 +322,14 @@ class TableControls:
         if session['col'] not in enabled:session['col']=enabled[0];session['edit']=None
         column=session['columns'][session['col']];cell=column['cells'][session['row']-1];code,category=key_info(key)
         if key=='NEW_MENU':return code,category
+        if session.get('help_offset') is not None:
+            if key in ('PREV','F5'):session['help_offset']=None
+            elif key in ('UP','DOWN','PAGE_UP','PAGE_DOWN'):
+                rows=session['pendant'].windows[self.window]['rows']
+                delta=rows if key.startswith('PAGE') else 1
+                if key in ('UP','PAGE_UP'):delta=-delta
+                session['help_offset']=max(0,min(len(session['help_lines'])-rows,session['help_offset']+delta))
+            return 0,category
         text=session['edit']
         if text is not None:
             cursor=session['cursor']
@@ -293,7 +358,8 @@ class TableControls:
                 value=cell.read();initial='' if value is rt().UNINITIALIZED or value is rt().UNKNOWN_BYTE else str(value)
                 if len(key)==1 and (column['kind']!='STRING' or column['clear']):initial=''
                 session['edit']=initial+(key if len(key)==1 else '');session['cursor']=len(session['edit'])
-        elif key in ('PREV','NEXT') or key.startswith('F') and len(key)>1:return code,category
+        elif key in ('PREV','NEXT') or key.startswith('F') and len(key)>1 and table_key_enabled(session,key):
+            return code,category
         return 0,category
 
     def check_aliases(self,session,args,line):
@@ -343,6 +409,9 @@ class TableControls:
             self.check_aliases(session,args,line)
             session['row']=number(reference_value(selected),1,session['rows'])
             if code==TABLE_CONSTANTS['KY_DISP_UPDT']:self.display(session,reference_value(attach),line);terminal=0
+            elif code==TABLE_CONSTANTS['KY_HELP']:
+                if not session['help_lines'] or session['edit'] is not None:invalid('Table help requires available text and no active edit')
+                session['help_offset']=0;self.draw(session,line);terminal=0
             else:
                 if code==TABLE_CONSTANTS['KY_REISSUE']:key=yield from self.read_key(state,session,'ACT_TBL',line)
                 else:
@@ -368,7 +437,15 @@ class TableControls:
             for _ in range(4096):
                 key=yield from self.read_key(state,session,'DISCTRL_TBL',line)
                 code,category=key_info(key)
-                if mask&category and session['edit'] is None or code in (1007,1008):
+                labels=session['function_labels']
+                if session['help_offset'] is not None:
+                    terminal,category=self.step(session,key,line)
+                elif (key=='F5' and session['edit'] is None and session['help_lines']
+                      and labels is not None and len(labels)>=5 and labels[4].lstrip().upper().startswith('HELP')):
+                    session['help_offset']=0;terminal=0
+                elif not table_key_enabled(session,key):
+                    terminal=0
+                elif mask&category and session['edit'] is None or code in (1007,1008):
                     terminal=code
                 else:terminal,category=self.step(session,key,line)
                 self.draw(session,line)

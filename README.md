@@ -8,6 +8,11 @@ Translate a supported subset of FANUC KAREL into Python modules with a checked
 offline runtime and practical Python numeric equivalents. Unsupported syntax produces explicit
 diagnostics or runtime errors. The translator does not connect to a robot.
 
+[Dictionary includes](docs/text-dictionaries.md#generated-karel-constants)
+generate checked KAREL constants from named elements. [Table headers](docs/table-controls.md#header-controls)
+support positioned text, function keys and help. [Forms](docs/forms.md#source-syntax-and-fields)
+can edit explicitly supplied system bindings.
+
 [KCL statement skipping](docs/kcl-commands.md#source-debugging) marks a
 paused statement to bypass its operands and execution on continuation.
 [Portable form packages](docs/kcl-commands.md#portable-form-packages)
@@ -372,7 +377,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.010332**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.012656**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

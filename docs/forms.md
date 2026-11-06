@@ -47,11 +47,15 @@ it does not render inverse-video highlighting.
 
 Each data item consumes one entry from `value_array`, including display-only
 fields. Entries name static scalar globals, fields, array elements or PATH node
-fields; an attached `[PROGRAM]` prefix is supported. Port formats take direct
+fields. Use an attached `[PROGRAM]` prefix or `[*SYSTEM*]$path` for an
+explicitly supplied system binding. The system qualifier uses the existing
+variable lookup over supplied bindings. Native robot tables and controller
+schemas remain outside that lookup. Port formats take direct
 indexed paths such as `DIN[1]` and `GOUT[2]`. Editable references must be ordinary
 writable storage. Wrong types, missing paths and overlaps with outputs, inactivity
 flags, change flags or choice metadata fail before editing. Calls are conservatively
 blocked in active FOR scopes, including through routine effects.
+The value-path forms follow MARRC75KR07091E Rev N, PDF page 376.
 
 | Conversion | Storage and behavior |
 | --- | --- |

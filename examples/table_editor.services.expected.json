@@ -68,7 +68,7 @@
   },
   "dictionaries": {
     "sources": {
-      "HEADERS.TX": "$1 \"Counts\""
+      "HEADERS.TX": "$1 @1,3 \"Counts\" ^2 ?3\n$keys \"\" &new_line \"Done\"\n$tips \"Enter counts\""
     },
     "languages": [
       "ENGLISH"
@@ -79,7 +79,7 @@
       "ENGLISH": {
         "HEAD": {
           "source": "HEADERS.TX",
-          "text": "$1 \"Counts\""
+          "text": "$1 @1,3 \"Counts\" ^2 ?3\n$keys \"\" &new_line \"Done\"\n$tips \"Enter counts\""
         }
       }
     }
@@ -106,7 +106,7 @@
         "cols": 16,
         "options": 0,
         "lines": [
-          "Counts          ",
+          "  Counts        ",
           "7               ",
           "20              "
         ],

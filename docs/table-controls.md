@@ -15,10 +15,27 @@ They open no desktop windows and acquire no physical keyboard input.
 ```
 
 Define the configured window with `DEF_WINDOW` and load the header dictionary
-with `ADD_DICT`. Table headers support printable text, newlines, nested elements
-and ignored style intent from the [text dictionary service](text-dictionaries.md).
-Native function-key/help attributes and the form compiler grammar are unsupported.
-The header must fit the window and leave at least one data row.
+with `ADD_DICT`.
+
+## Header controls
+
+Table headers use the [text dictionary service](text-dictionaries.md).
+They support printable text, newlines, nested elements, forward `@row,column`
+positions, initial `&home`, and style intent. The header must fit the window
+and leave at least one data row.
+
+Use `^element` for up to ten function labels of eight characters each
+and `?element` for up to 48 help lines that fit the window width. Both
+references accept numbers or names and must be unique in an expanded
+header. Blank or omitted slots suppress the corresponding function key
+when labels are present. Active snapshots expose the labels and help state.
+
+`ACT_TBL(KY_HELP,...)` opens supplied help without reading an event.
+In `DISCTRL_TBL`, F5 opens help when its label begins with HELP and no
+edit is active. Arrows and page keys scroll help. PREV or F5 restores the
+table, and NEW_MENU retains its normal cancellation. Help handling preserves
+the selected row and live data. The portable forms follow
+MARRC75KR07091E Rev N, PDF pages 439–442.
 
 ## Column data and backing arrays
 
@@ -85,6 +102,7 @@ copies, foreign tasks and stale identifiers cannot operate on its session.
 - `KY_DISP_UPDT` draws and optionally attaches the configured window at (1,1).
 - `KY_REISSUE` cooperatively reads one injected key and returns its code in a
   writable action argument.
+- `KY_HELP` displays the checked table help element.
 - Other supported key codes act directly without consuming queued input.
 - `KY_CANCEL` releases the session, resets its record identifier to zero, and
   removes only the attachment created by that session. Cleanup works after
@@ -100,9 +118,10 @@ Boolean ENTER/input toggles the cell. Selecting a read-only cell returns
 are not reproduced. Selected row/column/edit state is visible in `snapshot()`;
 highlight glyphs are not rendered.
 
-`DISCTRL_TBL` combines preparation, display and an injected-key loop. SELECT and
-NEW_MENU always terminate; outside an edit, the supplied key-class mask also
-terminates before acting on that key. Commits stay within the loop. Edits which
+`DISCTRL_TBL` combines preparation, display and an injected-key loop. NEW_MENU
+always terminates, and SELECT terminates from the table body. Outside an edit
+or help, the supplied key-class mask also terminates on enabled keys. Commits
+stay within the loop. Edits which
 fail validation return status 1, preserve the rejected cell's value and release
 the internal session. Earlier successful commits remain. Nonterminal iterations
 and budgeted key waits cooperate with task scheduling; repainting observes live

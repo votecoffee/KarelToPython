@@ -1,5 +1,8 @@
 {
-  "files": {"ABBTNSEG.FTX": {"hex": "2e666f726d20756e6e756d6265720a24312c63686f6f7365720a2243686f6f73652220266e65775f6c696e6520224f7074696f6e732220266e65775f6c696e6520222d20446f6e65220a2e656e64666f726d0a"}},
+  "files": {
+    "ABBTNSEG.FTX": {"hex": "2e6b6c2053796d626f6c730a2e666f726d20756e6e756d6265720a24312c63686f6f7365720a2243686f6f73652220266e65775f6c696e6520224f7074696f6e732220266e65775f6c696e6520222d20446f6e65220a2e656e64666f726d0a"},
+    "Symbols.KL": {"hex": "434f4e53540a202043484f4f534552203d20310a"}
+  },
   "dictionaries": {
     "sources": {}, "languages": ["ENGLISH"], "default_language": "ENGLISH", "language": "ENGLISH",
     "loaded": {"ENGLISH": {"BTNS": {"source": "ABBTNSEG.TX", "text": ".form unnumber\n$1,chooser\n\"Choose\" &new_line \"Options\" &new_line \"- Done\"\n.endform\n"}}}

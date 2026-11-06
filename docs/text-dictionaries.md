@@ -17,7 +17,7 @@ host filesystem or searches controller devices. A label ending in .TX still
 refers to supplied decoded text, rather than native compressed bytes.
 
 The [opt-in KCL dictionary commands](kcl-commands.md#dictionary-commands)
-load and clear snapshots from the same catalog.
+load and clear snapshots from the same catalog and produce portable files.
 
 ## Loading and languages
 
@@ -63,6 +63,9 @@ Elements start with $number; IDs are 0..32767 and may be sparse. $- assigns the
 previous ID plus one. Optional comma-separated element names are case sensitive
 ASCII identifiers up to 250 characters. Names and IDs must be unique. Comments
 start with * outside quoted text and continue to the physical line end.
+`$Name` (or `$ Name`) combines a name with the next ID. A bare `$`
+assigns the next ID without a name. These shorthands follow the table examples
+in MARRC75KR07091E Rev N, PDF pages 435–436 and 439.
 
 Quoted text is printable ASCII and stays on one physical line. Backslash escapes
 are limited to double quote and backslash: \" and \\. Multiple strings and tokens
@@ -81,8 +84,27 @@ double_wide, standard, graphics_on, ascii_on, double_high, normal_size and
 multi_on attributes are recognized and ignored by the character-grid model.
 This is text output without native font, color, glyph or graphic behavior.
 Unsupported character codes, Unicode and unknown attributes fail loading rather
-than disappearing silently. Supported FTX metadata is retained for the separate
-[form service](forms.md), and is rejected by ordinary text rendering calls.
+than disappearing silently. Metadata is retained for the separate
+[form service](forms.md) and [table headers](table-controls.md#header-controls).
+Ordinary text rendering rejects those metadata tokens.
+
+## Generated KAREL constants
+
+Put `.kl Symbols` before the first element in a UTX or FTX input.
+Blank lines and comments can precede it. KCL COMPRESS DICT or COMPRESS FORM
+generates a sibling `Symbols.KL` fragment with one CONST declaration for
+each named element. Names must be valid KAREL identifiers and distinct
+under KAREL case folding. The KAREL compiler validates the fragment before
+publication. The directive is omitted from the portable TX text.
+
+Use the generated fragment with the explicit [include mechanism](includes.md)
+and retranslate programs after changing element numbers. Compression requires
+all output files to be new. With an include, the TX and KL, or TX, VR and KL,
+are published together in MemoryFiles or DeviceFiles after full preflight.
+Loading the portable package uses its TX or TX/VR pair. A runtime-only
+installation can load those files and requires the compiler for generating
+the include. The forms follow MARRC75KR07091E Rev N, PDF pages 193–194
+and 213–216.
 
 ## Plain and formatted reads
 

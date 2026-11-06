@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.012656 - 2026-11-06
+
+- Add dictionary `.kl` directives, checked named-element CONST fragments and
+  atomic publication with the portable dictionary or form package.
+- Accept named and bare implicit dictionary elements, positioned table headers,
+  function-key labels and help in both table execution forms.
+- Accept explicitly supplied `[*SYSTEM*]` variable paths in headless forms
+  with the existing type, writable storage and overlap checks.
+
 ## 26.1106.010332 - 2026-11-06
 
 - Add KCL SKIP and SHOW CHECKPOINT for a retained pre-statement debugger pause,

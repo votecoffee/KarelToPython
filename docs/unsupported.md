@@ -503,11 +503,14 @@ queue-entry policies; FILE banks remain excluded.
   key encodings remain unsupported. Four
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.
+  [Table headers](table-controls.md#header-controls) support positioned text,
+  function-key labels and logical help.
   [DISCTRL_FORM](forms.md) now accepts supplied FTX forms with typed scalar/port
   editing, numeric/variable/program enums, help, function labels and sequential tree
   groups, including concatenated complete fragments with explicit .tree inheritance.
-  Native binary form/VR associations, Data ID discovery, native table header syntax
-  and exact widget/layout semantics remain unsupported. Nested tree groups retain
+  Forms accept explicit `[*SYSTEM*]` value paths. Native binary form/VR
+  associations, Data ID discovery and exact widget/layout semantics remain
+  unsupported. Nested tree groups retain
   the documented language prohibition.
 - Native DAQ sampling, timing and monitor integration. The six calls now have
   an [offline pipe model](data-acquisition.md), with chosen record/view layouts
@@ -542,7 +545,8 @@ queue-entry policies; FILE banks remain excluded.
   share mounted-media and open-FILE checks. [Dictionary commands](kcl-commands.md#dictionary-commands)
   load and clear supplied decoded snapshots, load ASCII UTX/TX/FTX files and
   build portable TX streams. [Form packages](kcl-commands.md#portable-form-packages)
-  add guarded TX/VR pairs with checked hashes and form elements. Native
+  add guarded TX/VR pairs with checked hashes and form elements. [Named constants](text-dictionaries.md#generated-karel-constants)
+  add optional generated KAREL includes to portable compression batches. Native
   compression and binary form associations remain unavailable.
   [Program commands](kcl-commands.md#program-and-task-inspection-commands)
   add portable TP save/load/clear, stored-source translation to Python, and
