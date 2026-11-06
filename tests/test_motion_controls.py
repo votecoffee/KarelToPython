@@ -18,6 +18,23 @@ def banks(*, motion=None, held=None, sequence=0):
 
 
 class MotionControlTests(unittest.TestCase):
+    def test_grouped_stop_and_resume_respect_captured_group_selection(self):
+        ctx=banks(motion={1:'executing',2:'executing'})
+        body='LOCK_GROUP(7,s) STOP GROUP[2,3] RESUME GROUP[2]'
+        execute(body,ctx=ctx)
+        self.assertEqual(ctx.group_locks.motion,{1:'executing',2:'executing'})
+        stopped,resumed=ctx.motion.history
+        self.assertEqual([row['after']['motion'] for row in stopped['data']['states']],['stopped','idle'])
+        self.assertEqual(resumed['data']['states'][0]['before']['motion'],'stopped')
+
+    def test_grouped_stop_rejects_foreign_group_without_partial_mutation(self):
+        ctx=banks(motion={1:'executing',2:'executing'})
+        ctx.group_locks._grant(2,object())
+        p,_,_=program('LOCK_GROUP(1,s) STOP GROUP[1,2]',ctx=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'owned by another task'):p.run()
+        self.assertEqual(ctx.group_locks.motion,{1:'executing',2:'executing'})
+        self.assertEqual(ctx.motion.history,[])
+
     def test_idle_hold_blocks_future_move_until_unhold(self):
         p,ctx,_=program('ATTACH HOLD PAUSE MOVE TO p')
         with self.assertRaises(rt.KarelPause):p.run()

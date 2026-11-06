@@ -28,7 +28,7 @@
     "guide": "../remote-messages.md",
     "alerts": "Explicit defaults and local outbox, blank default address/URL preserved as data",
     "xml": "Bounded UTF-8 well-formed XML without DTD/entities; source deleted only after access/publication preflight; native schema opaque",
-    "attachments": "Capture paths now, read current bytes only on host collection; preflight full batch, delete ordinary files, retain MD",
+    "attachments": "Capture relative paths with normalized separators and optional device-root spelling. Check duplicates and XML self-attachments after normalization. Host collection reads current bytes, preflights the full batch, deletes ordinary files and retains MD.",
     "zdt": "Explicit types and replaceable selections; host publish snapshots attachments with opaque bytes; no implicit SET_VAR trigger",
     "backends": "Exact MemoryFiles and DeviceFiles only; busy, mount and read-only checks; preserve device garbage accounting",
     "limits": "Shared compact JSON content budget and bounded collection result; priority metadata only; monotonic bounded sequences",

@@ -53,9 +53,9 @@ and cleans the owning task, rather than leaving its wait or grant live.
 
 ## Holds, pause and lifetime
 
-HOLD freezes that group's progress. Pending or active task pause freezes all jobs
-owned by that task; resume and UNHOLD reanchor the observation so frozen intervals
-are excluded. Ordinary source and global handler execution otherwise consume
+HOLD and grouped STOP freeze that group's progress. Pending or active task pause
+freezes all jobs owned by that task. Grouped RESUME, UNHOLD and task continuation
+reanchor eligible jobs so frozen intervals are excluded. Ordinary source and global handler execution otherwise consume
 background clock time. This differs from synchronous local-handler scopes,
 whose handler action time is excluded from supplied progress steps. A NOWAIT
 job with local clauses also excludes its own callback action time; its supplied
@@ -63,15 +63,16 @@ events are observed at owner checkpoints rather than exact synchronous steps.
 
 CANCEL ends an unfinished job immediately and keeps the existing hold/stopped
 label protections. A completion already observed at the control boundary remains
-completed. RELEASE requires idle groups. Clock or grant failure releases only the
+completed. CNCL_STP_MTN discards an owned stopped scope and its queued jobs.
+RELEASE requires idle groups. Clock or grant failure releases only the
 matching active scope; another owner's grant or an externally stopped label is
 preserved. Task renaming keeps the same task and ownership identities.
 
 Normal task completion, stop, abort or later runtime failure cancels unfinished
 jobs at their last observed progress. A move cannot continue after its owning
 program finishes in this offline model. Use source waiting/delays or an explicit
-host clock/poll before completion when the job must finish. No native end-of-task
-motion, recovery trajectory or stopped-motion resume behavior is inferred.
+host clock/poll before completion when the job must finish. Grouped RESUME uses
+the original supplied completion and progress of the retained scope.
 
 ## History and replay
 

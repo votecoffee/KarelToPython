@@ -48,6 +48,23 @@ class RemoteMessageSourceTests(unittest.TestCase):
         self.assertEqual(ctx.remote_messages.snapshot(),[dict(sequence=1,kind='xml',xml_file='TD:note.xml',data=XML.hex(),
             attachments=['TD:later.bin','MD:latest.dg'],priority=1)])
 
+    def test_controller_paths_survive_message_save_and_collection(self):
+        ctx=context({'TD:jobs/note.xml':XML,'TD:jobs/data.bin':b'payload','MD:keep.dat':b'keep'})
+        body=r"paths[1]='td:\jobs\data.bin' paths[2]='MD:/keep.dat' RMCN_SEND('TD:\jobs\note.xml',paths,1,s)"
+        self.assertEqual(send(ctx,body)['S'],0)
+        self.assertNotIn('TD:jobs/note.xml',ctx.files.files)
+        restored=rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        self.assertEqual(restored.remote_messages.messages[0]['attachments'],['TD:jobs/data.bin','MD:keep.dat'])
+        status,_=restored.remote_messages.collect(1,restored.files)
+        self.assertEqual(status,0)
+        self.assertEqual(restored.files.snapshot(),{'MD:keep.dat':b'keep'})
+
+    def test_queue_attach_normalizes_controller_paths(self):
+        ctx=context(message_types=['A'])
+        body=r"paths[1]='TD:\jobs\data.bin' paths[2]='' QUEUE_ATTACH('A',paths,0,s)"
+        self.assertEqual(send(ctx,body)['S'],0)
+        self.assertEqual(ctx.remote_messages.pending['A']['attachments'],['TD:jobs/data.bin'])
+
     def test_empty_attachment_sentinel_does_not_require_an_attachment_file(self):
         ctx=context();self.assertEqual(send(ctx)['S'],0)
         code,row=ctx.remote_messages.collect(1)
@@ -74,7 +91,9 @@ class RemoteMessageSourceTests(unittest.TestCase):
             self.assertEqual(ctx.remote_messages.to_config(),before);self.assertIn('TD:note.xml',ctx.files.files)
 
     def test_invalid_attachment_names_duplicates_and_xml_self_reference_reject(self):
-        for paths in [('TD:../escape',''),('PIP:LOG',''),('S1:',''),('TD:a','td:a'),('TD:note.xml',''),('/absolute','')]:
+        for paths in [('TD:../escape',''),('PIP:LOG',''),('S1:',''),('TD:a','td:a'),('TD:note.xml',''),('/absolute',''),
+                      (r'TD:\jobs\data.bin','td:jobs/data.bin'),(r'TD:\note.xml',''),
+                      (r'TD:\\double-root',''),(r'TD:\jobs\..\escape',''),(r'\\host\share\data','')]:
             ctx=context();body=f"paths[1]='{paths[0]}' paths[2]='{paths[1]}' RMCN_SEND('TD:note.xml',paths,0,s)"
             self.assertEqual(send(ctx,body)['S'],2,paths)
             self.assertEqual(ctx.remote_messages.messages,[]);self.assertIn('TD:note.xml',ctx.files.files)

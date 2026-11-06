@@ -710,7 +710,8 @@ class Parser:
         if self.mode=='pythonic' and name=='CANCEL' and self.accept('FILE'):
             target=self.storage_selector() if self.current.kind=='NAME' and self.current.value not in RESERVED else None
             return Statement('file_cancel',token,[target])
-        if self.mode=='pythonic' and name in ('HOLD','UNHOLD','CANCEL'):
+        if self.mode=='pythonic' and (name in ('HOLD','UNHOLD','CANCEL')
+                                     or name in ('STOP','RESUME') and self.current.value=='GROUP'):
             groups=None
             if self.accept('GROUP'):
                 self.expect('[');groups=[self.expression()]
@@ -5170,7 +5171,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         motion_request_policy=dict(model='Explicit offline capture-only or supplied scripted completion responses',
             ownership='Explicit GroupLocks ownership; ATTACH and RELEASE validate atomically',
             data='Complete detached positional operands; source order captured once; bounded PATH NODE_POS snapshots',
-            controls='HOLD/UNHOLD flags are independent of active/stopped labels; CANCEL retains holds and preserves stopped work; selections use current root ownership at action time',
+            controls='HOLD and UNHOLD manage independent flags. Grouped STOP and RESUME freeze and continue owned logical scopes. CANCEL preserves stopped work, which CNCL_STP_MTN can discard.',
             settings='Checked local WITH values, including termination/orientation choices, captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
             boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or native queued motion',
             nowait='Immediate requests keep their behavior; generated delayed/scheduled jobs follow motion_nowait_policy with one pending request per group by default; opt-in queues and handlers follow motion_queue_policy and motion_queue_clause_policy',
@@ -5569,7 +5570,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         xml='RMCN_SEND validates bounded UTF-8 XML without DTD/entities, queues its bytes and deletes the XML file only after publication preflight; schema is opaque',
         attachments='One-dimensional STRING ARRAY of 1..32 entries, empty-string sentinel means none; names captured at queue time, contents deferred until explicit host collect; MD attachments retained with current contents',
         zdt='QUEUE_ATTACH replaces the explicit type selection/priority; host publish snapshots it with opaque bytes; SET_VAR does not implicitly send or infer native ZDT structures',
-        files='Exact MemoryFiles/DeviceFiles only, relative names, busy/mount/read-only guards; collect preflights all attachments and bounded output before any deletion or queue removal',
+        files='Exact MemoryFiles and DeviceFiles. Normalize slash spelling and one optional device-root separator before attachment duplicate and self checks. Collect preflights access and output bounds before deletion.',
         status='Portable 0 queued/selected, 1 missing file/type, 2 invalid values, 3 busy FILE, 4 backend/XML/access/data, 5 capacity/sequence; ordinary type/initialization/protection errors can raise first',
         persistence='Validated defaults, type names, pending selections, increasing sequences and alert/XML/opaque payloads round-trip; no automatic consumer, transport or delivery acknowledgement',
         boundary='No email/SMS/mobile/ZDT connection, native message schema/SET_VAR trigger, filesystem deletion, scheduled priority dispatch or native status parity; strict deferred',
@@ -7571,7 +7572,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         admission='Validate detached operands/settings, ownership, response and stable task clock before publishing; one pending request per group by default, opt-in FIFO follows motion_queue_policy',
         progress='Observe root monotonic/injected/scheduler microseconds at checkpoints, successful standalone DELAY return and scheduler boundaries; retain fractional milliseconds and cap at supplied delay',
         clocks='Capture adapter identity; reject negative/noninteger/backwards or replaced clocks; only scheduler-owned clocks provide inferred virtual wake deadlines',
-        controls='Owned groups progress independently; HOLD and pending/active task pause freeze progress, UNHOLD/resume reanchor; CANCEL ends pending jobs and retains held/stopped protections',
+        controls='Owned groups progress independently. HOLD, grouped STOP and task pause freeze progress. UNHOLD, grouped RESUME and task continuation reanchor eligible scopes. CNCL_STP_MTN discards stopped scopes and their queues.',
         lifetime='Caller root owns callback-free linked launches after callee return; local callbacks end with their defining frame/invocation; terminal task completion/stop/abort/failure cancel unfinished jobs; failed clock/grant checks release only the matching scope',
         scheduler='Completion progresses while owner waits; scheduler poll errors fail and clean the owning task; renaming retains task/ownership identity',
         history='Existing nowait/execution fields retain full or partial progress, supplied schedules, local metadata and terminal outcomes; pending reload remains rejected',

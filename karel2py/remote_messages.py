@@ -28,9 +28,11 @@ def message_type(value):
 
 
 def file_name(value):
+    from .fileops import _file_name_separators
     value=text(value)
-    if not value or '\\' in value or any(ord(c)<32 or ord(c)==127 for c in value):
+    if not value or any(ord(c)<32 or ord(c)==127 for c in value):
         raise ValueError('Attachment requires a relative portable file name')
+    value=_file_name_separators(value)
     device,sep,path=value.partition(':')
     if sep:
         if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,7}',device) or device.upper() in ('PIP','MF') or re.fullmatch(r'[CS][0-9]+',device.upper()):

@@ -160,6 +160,7 @@ Translation reports expose `controller_policy`; the
 manual provenance and authored verification. Native controller/servo acceptance,
 binary ABI, physical reset and strict equivalence remain future work.
 
-Separate [HOLD/UNHOLD/CANCEL controls](motion-controls.md) retain hold flags
-independently of work labels. CNCL_STP_MTN clears stopped labels without clearing
-those flags; another explicit UNHOLD is needed before a held group accepts MOVE.
+[Motion controls](motion-controls.md) track holds independently of work labels.
+CNCL_STP_MTN clears caller-owned stopped labels and discards any corresponding
+stopped scripted scope and its queue. A held group still needs UNHOLD before a
+new MOVE can start.

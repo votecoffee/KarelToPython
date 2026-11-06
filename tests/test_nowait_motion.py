@@ -39,6 +39,53 @@ def active(project,ctx):
     raise AssertionError('NOWAIT did not remain pending')
 
 class PendingMotionTests(unittest.TestCase):
+    def test_grouped_stop_resume_freezes_progress_and_preserves_independent_hold(self):
+        body=('ATTACH MOVE AWAY 1 NOWAIT DELAY 5 STOP GROUP[1] mark() '
+              'DELAY 100 mark() HOLD GROUP[1] RESUME GROUP[1] DELAY 20 mark() '
+              'UNHOLD GROUP[1] DELAY 20 mark()')
+        program,ctx,_,seen,_=build(body)
+        program.run()
+        self.assertEqual([(row['motion'],row['elapsed'],row['outcome']) for row in seen],
+                         [('stopped',5,'pending'),('stopped',5,'pending'),
+                          ('executing',5,'pending'),('idle',25,'completed')])
+        restored=rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        self.assertEqual(restored.motion.history,ctx.motion.history)
+
+    def test_grouped_stop_resume_through_global_handlers_during_blocking_move(self):
+        body=('ATTACH n=0 '
+              'CONDITION[1]: WHEN n=1 DO STOP GROUP[1] ENDCONDITION '
+              'CONDITION[2]: WHEN n=2 DO RESUME GROUP[1] ENDCONDITION '
+              'ENABLE CONDITION[1] ENABLE CONDITION[2] MOVE AWAY 1 n=7')
+        waits=[]
+        def sleeper(seconds):
+            waits.append((ctx.group_locks.motion.get(1),seconds))
+            if len(waits)<=2:program._state.set('N',len(waits))
+        program,ctx,_,_,_=build(body,sleep=sleeper)
+        self.assertEqual(program.run()['N'],7)
+        self.assertEqual(waits,[('executing',.01),('stopped',.01),('executing',.01),('executing',.005)])
+        self.assertEqual((progress(ctx),move(ctx)['outcome']),(25,'completed'))
+
+    def test_cncl_stp_mtn_cancels_frozen_fifo_without_leaking_scope(self):
+        responses=[dict(operation='MOVE AWAY',completed=True,delay_ms=25) for _ in range(2)]
+        ctx=context(capture_only=False,responses=responses,queue_limit=2)
+        ctx.controller=rt.ControllerServices()
+        body=('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 NOWAIT STOP GROUP[1] '
+              'CNCL_STP_MTN RESUME GROUP[1]')
+        program,_,_,_,_=build(body,ctx=ctx)
+        program.run()
+        self.assertEqual([row['outcome'] for row in ctx.motion.history if row['operation']=='MOVE AWAY'],
+                         ['cancelled','cancelled'])
+        self.assertEqual(ctx.controller.history[-1]['data']['groups'],[1])
+        self.assertEqual(ctx.group_locks.motion,{})
+        self.assertFalse(ctx.motion.has_pending_group(1))
+
+    def test_bare_task_stop_releases_frozen_scope(self):
+        program,ctx,_,_,_=build('ATTACH MOVE AWAY 1 NOWAIT STOP GROUP[1] STOP')
+        with self.assertRaises(rt.KarelStop):program.run()
+        self.assertEqual(move(ctx)['outcome'],'cancelled')
+        self.assertEqual(ctx.group_locks.motion,{})
+        self.assertFalse(ctx.motion.has_pending_group(1))
+
     def test_nowait_continues_before_supplied_completion(self):
         p,ctx,_,seen,_=build('ATTACH MOVE AWAY 1 NOWAIT n=7 mark() DELAY 25 mark()');self.assertEqual(p.run()['N'],7);self.assertEqual([(r['motion'],r['elapsed'],r['outcome']) for r in seen],[('executing',0,'pending'),('idle',25,'completed')])
     def test_partial_elapsed_time_is_retained(self):

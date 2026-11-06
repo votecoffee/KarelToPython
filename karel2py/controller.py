@@ -102,7 +102,10 @@ class ControllerServices:
     def cancel_stopped(self,state,line):
         bank=state.execution.require('group_locks',line);root=rt().task_root(state)
         groups=[group for group in bank.groups if bank.owners.get(group) is root and bank.motion.get(group)=='stopped']
+        motion=state.execution.motion
+        scopes=motion.stopped_scopes(bank,root,groups,line) if motion is not None else ()
         row=self.begin(state,'CNCL_STP_MTN',groups=groups)
+        for scope in scopes:motion.cancel_stopped_scope(scope)
         for group in groups:bank.set_motion(group,'idle')
         row['outcome']='completed'
 

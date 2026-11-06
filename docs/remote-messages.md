@@ -44,9 +44,11 @@ return status 2. Named arrays and compatible generic routine references work.
 Arrays are read-only inputs, and status retains ordinary writable-reference,
 type and active-FOR-counter checks. Direct source errors can raise first.
 
-Filenames use relative slash-separated paths with an optional ordinary device
-prefix. Device prefixes normalize to uppercase; relative path spelling remains
-exact. Traversal, absolute paths, backslashes, control characters, duplicate
+Filenames use relative paths with an optional ordinary device prefix. Input
+accepts either slash and one optional separator after the device. For example,
+`TD:\jobs\data.bin` and `TD:jobs/data.bin` resolve to the same virtual name.
+Device prefixes normalize to uppercase and paths retain their case. Traversal,
+unqualified absolute paths, control characters, duplicate
 attachment names, socket/PIP/MF devices and XML-file self-attachment reject.
 File names are at most 254 ASCII characters. Priority is exactly 0 or 1 and is
 retained as metadata; it does not schedule a background send.

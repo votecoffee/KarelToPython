@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.142514 - 2026-11-06
+
+- Support grouped STOP and RESUME for owned offline motion. Retain supplied
+  progress and queued work across a stop, and let CNCL_STP_MTN discard them.
+- Accept controller-style FILE paths in RMCN_SEND and QUEUE_ATTACH. Normalize
+  names before checking for duplicates and XML self-attachments.
+
 ## 26.1106.134322 - 2026-11-06
 
 - Let VAR_INFO describe selected ARRAY rows and planes, including FILE and

@@ -55,7 +55,7 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   seven basic MOVE forms, VIA, direct PATH-node destinations, forward PATH ranges,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
-  now support HOLD/UNHOLD/CANCEL, global handler actions and 21 per-group WITH
+  now support HOLD/UNHOLD/CANCEL, grouped STOP/RESUME, global handler actions and 21 per-group WITH
   settings, including [termination/orientation choices](extended-motion-settings.md)
   and [deceleration/acceleration intent](motion-deceleration-settings.md). [Local Boolean WHEN/UNTIL clauses and finite supplied response delays](motion-handlers.md)
   now use synchronous scopes with pause/resume and cleanup. [Pending NOWAIT jobs](nowait-motion.md)
@@ -389,8 +389,10 @@ queue-entry policies; FILE banks remain excluded.
   relationships. The scheduler runs deterministic cooperative checkpoints.
   [Live task inspection](task-inspection.md#live-lineage-and-group-masks) now
   reports fresh RUN_TASK lineage and portable logical group masks.
-- Native STOP/RESUME motion behavior. Offline STOP is terminal; resume/continue
-  acts on retained cooperative generators. [RUN_TASK](task-and-file-extensions.md#run_task-entry-and-continuation)
+- Native motion-set stacks and coordinated STOP/RESUME behavior. Grouped source
+  forms freeze or continue supplied offline motion scopes. Bare STOP terminates
+  the task, while task resume/continue acts on retained cooperative generators.
+  [RUN_TASK](task-and-file-extensions.md#run_task-entry-and-continuation)
   now starts fresh KAREL tasks at main entry for nonnegative hints and resumes
   paused registered targets and their paused descendants. [Pendant launch](task-and-file-extensions.md#pendant-launch-and-logical-group-handoff)
   supports atomic idle group handoff in a shared offline bank.

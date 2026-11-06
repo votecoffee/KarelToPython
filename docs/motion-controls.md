@@ -1,6 +1,7 @@
 # Logical motion controls and local settings
 
-Pythonic output supports `HOLD`, `UNHOLD` and `CANCEL` through the explicit
+Pythonic output supports `HOLD`, `UNHOLD`, `CANCEL` and grouped `STOP` and
+`RESUME` through the explicit
 [MotionRequests](motion-requests.md) and [GroupLocks](group-locks.md) services.
 Eleven temporary `WITH` settings can accompany any supported MOVE form. These are
 offline state and request models. They do not compute trajectories, operate
@@ -18,6 +19,8 @@ GroupLocks keeps two independent values for each configured group:
 | `HOLD` | Preserved, including stopped work | Set, even when idle |
 | `UNHOLD` | Preserved | Cleared |
 | `CANCEL` | Executing becomes idle; stopped and idle remain unchanged | Preserved |
+| `STOP GROUP[...]` | Executing becomes stopped | Preserved |
+| `RESUME GROUP[...]` | Stopped becomes executing | Preserved |
 | `CNCL_STP_MTN` | Caller-owned stopped labels become idle | Preserved |
 
 For example, canceling a held active group clears its active label but leaves
@@ -30,6 +33,18 @@ execution. Capture-only and immediate scripted moves retain their existing
 zero-duration default. [Local clauses and supplied delays](motion-handlers.md)
 can retain an active synchronous scope. Controls update the explicit logical state and record
 completed control requests. They consume no scripted MOVE response.
+
+Grouped STOP freezes a live MOVE at its modeled progress and retains its queued
+work. RESUME continues that same scope when its other holds or pauses allow it.
+With only a supplied work label, these controls update the label. CNCL_STP_MTN
+discards an owned stopped scope and its queued jobs. Task termination also
+discards its scopes, including ones stopped by source.
+
+The grouped source forms follow the syntax in MARRC75KR07091E Rev N, sections
+A.18.16 and A.19.49. Bare STOP and RESUME use the existing task controls.
+The offline model has one active scope per group and the supplied FIFO.
+Native motion-set stacks and coordinated physical stop behavior remain outside
+that model.
 
 ## Group selection and handlers
 
@@ -51,7 +66,7 @@ no-op. This action-time policy also applies inside global condition handlers;
 it does not freeze ownership at handler definition time. EVAL remains available
 for explicitly captured source expressions.
 
-The three controls and hand statements are accepted global and
+The motion controls and hand statements are accepted global and
 [motion-local](motion-handlers.md) handler actions.
 Logical hands may change while their owned group is active or held; hand state
 does not alter the work label or hold flag. Linked routines and called programs

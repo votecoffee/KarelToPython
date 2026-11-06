@@ -10,7 +10,7 @@ import re
 
 MOVES = ('MOVE TO', 'MOVE NEAR', 'MOVE AWAY', 'MOVE ABOUT', 'MOVE AXIS',
          'MOVE RELATIVE', 'MOVE ALONG')
-CONTROLS = ('HOLD', 'UNHOLD', 'CANCEL')
+CONTROLS = ('HOLD', 'UNHOLD', 'CANCEL', 'STOP', 'RESUME')
 OPERATIONS = (*MOVES, *CONTROLS, 'OPEN HAND', 'CLOSE HAND', 'RELAX HAND', 'ATTACH', 'RELEASE')
 POSES = ('POSITION', 'XYZWPR', 'XYZWPREXT', 'JOINTPOS')
 MAX_SEQUENCE = 2147483646
@@ -209,6 +209,10 @@ def transition(operation, before):
         after['held'] = False
     elif operation == 'CANCEL' and before['motion'] == 'executing':
         after['motion'] = 'idle'
+    elif operation == 'STOP' and before['motion'] == 'executing':
+        after['motion'] = 'stopped'
+    elif operation == 'RESUME' and before['motion'] == 'stopped':
+        after['motion'] = 'executing'
     return after
 
 
@@ -479,6 +483,8 @@ class MotionRequests:
             scope = self._active.get(group)
             if operation == 'CANCEL' and scope is not None and row['before']['motion'] != 'stopped':
                 scope['cancelled'] = True
+            if operation in ('STOP','RESUME') and scope is not None:
+                scope['stopped'] = row['after']['motion'] == 'stopped'
             locks.set_motion(group, row['after']['motion'])
             if row['after']['held']:
                 locks.held.add(group)
@@ -489,6 +495,23 @@ class MotionRequests:
                     self.finish_scope(scope, 'cancelled')
                 else:
                     scope['blocked'] = self.background_blocked(scope)
+
+    def stopped_scopes(self,locks,root,groups,line):
+        """Check stopped scopes before the controller clears their labels."""
+        scopes=[]
+        for group in groups:
+            scope=self._active.get(group)
+            if scope is None:continue
+            if scope['locks'] is not locks or scope['root'] is not root:
+                raise rt().KarelRuntimeError('Stopped motion belongs to another task or bank',line)
+            self._verify_batch(scope,line)
+            scopes.append(scope)
+        return scopes
+
+    def cancel_stopped_scope(self,scope):
+        scope['cancelled']=True
+        if scope.get('background') and not scope.get('scanning'):
+            self.finish_scope(scope,'cancelled')
 
     def prepare_task_controls(self, source, roots, operation, line):
         """Check every live task's owned motion before accepting the command batch."""
@@ -613,6 +636,11 @@ class MotionRequests:
                     raise ValueError('Motion group is owned by another task')
                 if operation not in ('ATTACH', 'RELEASE') and (owner is not root or root in self._released):
                     raise ValueError('Motion requires attached logical group ownership')
+                if operation in ('STOP','RESUME') and selected_group in self._active:
+                    scope=self._active[selected_group]
+                    if scope['locks'] is not locks or scope['root'] is not root:
+                        raise ValueError('Active motion belongs to another task or bank')
+                    self._verify_batch(scope,line)
                 if operation in (*MOVES, 'ATTACH', 'RELEASE') and (locks.motion.get(selected_group, 'idle') != ('executing' if queued else 'idle') or selected_group in locks.held):
                     raise ValueError('Motion request requires an idle logical group without a hold')
             # Other WITH groups are owned metadata references, not execution scopes.
@@ -659,7 +687,7 @@ class MotionRequests:
         if _execution is not None:
             scope = dict(group=group, root=root, state=state, locks=locks,
                 grant=locks._ownership_tokens.get(group), request=request,
-                outcome=outcome, cancelled=False, consumer=object(), events=events, breakpoints=breakpoints)
+                outcome=outcome, cancelled=False, stopped=False, consumer=object(), events=events, breakpoints=breakpoints)
             request['outcome'] = 'pending'
             if queued:
                 self._queued.setdefault(group, []).append(scope)
@@ -671,7 +699,7 @@ class MotionRequests:
     @staticmethod
     def background_blocked(scope):
         root=scope['root']
-        return (scope.get('scanning',False) or scope['group'] in scope['locks'].held or root._pause_requested or root._abort_requested
+        return (scope.get('scanning',False) or scope['stopped'] or scope['group'] in scope['locks'].held or root._pause_requested or root._abort_requested
                 or root.task_state not in ('running','waiting'))
 
     def poll(self,state=None,line=None,*,scheduler=None,_sample=None):
@@ -713,7 +741,7 @@ class MotionRequests:
                     if scope.get('scanning'):break
                     if scope['cancelled']:
                         self.finish_scope(scope,'cancelled');break
-                    if progress['elapsed_ms']!=progress['delay_ms'] or scope.get('clauses'):break
+                    if scope['stopped'] or progress['elapsed_ms']!=progress['delay_ms'] or scope.get('clauses'):break
                     # A delayed poll can cross multiple supplied completions. Carry
                     # only observed active time; held/paused intervals never enter it.
                     completed_us=now-max(0,scope['active_us']-progress['delay_ms']*1000)
@@ -746,7 +774,8 @@ class MotionRequests:
             else:
                 for queued in waiting:
                     queued['request']['outcome'] = 'failed' if outcome == 'failed' else 'cancelled'
-                if self.owns_scope(scope) and scope['locks'].motion.get(group) == 'executing':
+                owned_label='stopped' if scope['stopped'] else 'executing'
+                if self.owns_scope(scope) and scope['locks'].motion.get(group) == owned_label:
                     scope['locks'].set_motion(group, 'idle')
         else:
             waiting = self._queued.get(group, [])
@@ -762,7 +791,8 @@ class MotionRequests:
         if not self.owns_scope(scope) or self._active.get(scope['group']) is not scope:
             raise rt().KarelRuntimeError('Active motion lost its logical ownership grant', line)
         self._verify_callback_frames(scope,line)
-        if not scope['cancelled'] and scope['locks'].motion.get(scope['group'], 'idle') != 'executing':
+        owned_label='stopped' if scope['stopped'] else 'executing'
+        if not scope['cancelled'] and scope['locks'].motion.get(scope['group'], 'idle') != owned_label:
             raise rt().KarelRuntimeError('Active motion work label was changed externally', line)
 
     @staticmethod
@@ -850,7 +880,7 @@ class MotionRequests:
         runtime, state = rt(), scope['state']
         execution = scope['request']['data']['execution']
         for index, (kind, predicate, action, location) in enumerate(clauses, 1):
-            if scope['cancelled'] or scope['group'] in scope['locks'].held:
+            if scope['cancelled'] or scope['stopped'] or scope['group'] in scope['locks'].held:
                 return
             if index in execution['triggered']:
                 continue
@@ -868,7 +898,7 @@ class MotionRequests:
                 result = predicate()
                 if runtime.inspect.isgenerator(result):
                     result = yield from result
-                if scope['cancelled']:
+                if scope['cancelled'] or scope['stopped']:
                     return
                 if runtime.boolean(result, location):
                     execution['triggered'].append(index)
@@ -943,7 +973,7 @@ class MotionRequests:
                 if scope['cancelled']:
                     outcome = 'cancelled'
                     break
-                held = scope['group'] in scope['locks'].held
+                held = scope['stopped'] or scope['group'] in scope['locks'].held
                 if not held and progress['elapsed_ms'] >= delay:
                     outcome = scope['outcome']
                     break

@@ -382,7 +382,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.134322**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.142514**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -874,7 +874,7 @@ cooperative text/binary reads and scripted producers; see
 configuration-preserving rename, deletion and listing over explicit PIP names.
 RMCN_ALERT/RMCN_SEND and QUEUE_ATTACH provide bounded offline mobile-message
 outboxes and deferred ZDT attachment selection, with validated XML publication,
-MD retention, explicit host collection and saved-state replay. See
+controller-style FILE names, MD retention and explicit host collection. See
 [mobile messages and attachments](docs/remote-messages.md).
 SAVE/LOAD/CLEAR and recursive PROG_BACKUP/PROG_RESTORE/PROG_CLEAR support
 portable TP data archives, explicit dependency graphs, guarded batch operations
@@ -1166,7 +1166,7 @@ An explicit service captures detached requests or consumes supplied
 completion responses, immediate by default or with an explicit finite delay. It does not calculate trajectories or update robot feedback.
 
 [Motion controls and local settings](docs/motion-controls.md) now add independent
-HOLD/UNHOLD flags, cancellation that preserves stopped work, global handler
+HOLD/UNHOLD flags, grouped STOP/RESUME of pending scripted motion, global handler
 actions and 21 request-local WITH values per group, including checked termination/orientation
 choices, [deceleration/acceleration intent](docs/motion-deceleration-settings.md)
 [additional scalar options](docs/motion-options.md) and explicit group-qualified inputs; see [extended settings](docs/extended-motion-settings.md). Ownership and JSON history remain
