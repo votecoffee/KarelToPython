@@ -201,7 +201,9 @@ Obsolete association records and group-qualified node types are not modeled.
 Custom NODEDATA can include XYZWPREXT fields. Whole path copies are independent,
 including unknown leaves. `COPY_PATH(source,0,0,destination,status)` copies all;
 positive start/end select an inclusive range, reversed when start exceeds end.
-Header data is retained in copied paths. Invalid bounds preserve the destination.
+Header data is retained in copied paths. The call charges a step per selected
+node and clones only those nodes. Invalid bounds preserve the destination.
+Budget exhaustion preserves both the destination and prior status.
 Resource fields in ordinary STRUCTUREs and arrays of paths remain unsupported.
 
 Queue procedures are INIT_QUEUE, APPEND_QUEUE, INSERT_QUEUE, DELETE_QUEUE,

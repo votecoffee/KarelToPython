@@ -216,8 +216,9 @@ binding order; time advances once per round. See
 `stop(name)` support embedding. `run` returns when no task can proceed and no
 eligible pulse or motion deadline remains. Paused tasks and tasks waiting on
 them can still be present. A paused task needs an explicit continuation.
-Cycle and per-task step
-budgets bound WAIT loops. Use `scheduler.run(entry=name, max_cycles=...)` to
+Stopping an owned task directly with `Program.stop()` clears its deadline and
+notifies tasks waiting for it. Cycle and per-task step budgets bound WAIT loops.
+Use `scheduler.run(entry=name, max_cycles=...)` to
 validate the drive before launching an entry task, as `ProjectInstance.run()`
 does. Nested calls to `step()` or `run()` from callbacks
 raise an error during execution or service polling. Errors stop the current

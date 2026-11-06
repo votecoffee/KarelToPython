@@ -56,7 +56,12 @@ def rotation_error(a,b):
         largest=max(range(3),key=lambda i:axis[i])
         if axis[largest]>1e-8:
             for i in range(3):
-                if i!=largest: axis[i]=math.copysign(axis[i],r[largest][i]+r[i][largest])
+                if i!=largest:
+                    axis[i]=(r[largest][i]+r[i][largest])/(4*axis[largest])
+        # The symmetric terms determine the axis up to sign. The skew still
+        # selects the shortest signed rotation near, but away from, a half-turn.
+        if math.hypot(*skew)>1e-12 and sum(value*part for value,part in zip(axis,skew))<0:
+            angle=-angle
         return tuple(v*angle for v in axis)
     return tuple(v*angle/(2*math.sin(angle)) for v in skew)
 

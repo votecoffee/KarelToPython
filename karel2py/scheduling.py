@@ -492,6 +492,9 @@ class TaskScheduler:
         if owner is not self and (owner is not None or getattr(program, '_execution', None) is not None):
             raise rt().KarelRuntimeError('Only the owning TaskScheduler can stop a live task')
         program.stop()
+        self._clear_stopped_wait(program)
+
+    def _clear_stopped_wait(self,program):
         self.waiting.pop(self._primary_name(program), None)
         self._notify_task_waits(program._state)
     def step(self):

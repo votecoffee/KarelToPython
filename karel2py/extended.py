@@ -2026,12 +2026,15 @@ def resume_cooperative(program, *, powerup=False):
 def stop_cooperative(program):
     state=program._state
     if state._driving: raise KarelStop('Task stopped')
+    scheduler=state._scheduler
     if getattr(program,'_execution',None) is not None:
         program._execution.close(); program._execution=None
     state.task_state='stopped'
     state.finish_teach_programs()
     state._scheduler=None
     if state._scheduler_clock: state._clock_us=None; state._scheduler_clock=False
+    if scheduler is not None and state._budget_parent is None:
+        scheduler._clear_stopped_wait(program)
 
 
 PREDEFINED_FILE_NAMES=frozenset(('TPDISPLAY','TPPROMPT','TPSTATUS','TPFUNC','TPERROR',
@@ -2725,13 +2728,22 @@ class ExecutionContext:
         if name=='COPY_PATH':
             source,start,end,destination,status=args
             if source.spec!=destination.spec: status.set(3,line); return
-            copied=source.clone()
-            if start==end==0: pass
-            elif not 1<=start<=len(copied.nodes) or not 1<=end<=len(copied.nodes): status.set(2,line); return
+            if type(source.nodes) is not list or len(source.nodes)>32767:
+                fail('COPY_PATH requires a bounded node list',line)
+            size=len(source.nodes)
+            if start==end==0:
+                indices=range(size)
+            elif not 1<=start<=size or not 1<=end<=size:
+                status.set(2,line); return
             else:
                 direction=1 if end>=start else -1
-                copied.nodes=[copied.nodes[i-1] for i in range(start,end+direction,direction)]
-            destination.set(copied,line); status.set(0,line); return
+                indices=range(start-1,end-1+direction,direction)
+            selected=PathValue(source.spec)
+            selected.data=source.data
+            selected.nodes=[source.nodes[index] for index in indices]
+            for _ in selected.nodes:
+                state.tick(line)
+            destination.set(selected,line); status.set(0,line); return
         if name=='INTSCT_VL_PL': return intersect_view_lines(state,*args,line=line)
         if name in ('APPEND_NODE','INSERT_NODE','DELETE_NODE','PATH_LEN','NODE_SIZE'):
             path=args[0].raw() if type(args[0]) is rt.Reference else args[0]

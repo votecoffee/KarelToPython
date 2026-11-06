@@ -127,6 +127,38 @@ class ExtendedBoundaryTests(unittest.TestCase):
         state=run('APPEND_NODE(p,s) APPEND_NODE(p,s) p[1].n=7 p[2].n=9 COPY_PATH(p,2,1,q,s)',prefix='TYPE node=STRUCTURE n: INTEGER ENDSTRUCTURE',decl='p,q: PATH NODEDATA=node s: INTEGER')
         self.assertEqual([row['N'] for row in state['Q']['nodes']],[9,7])
 
+    def test_partial_path_copy_never_clones_unselected_nodes(self):
+        class UnselectedNode(rt.Structure):
+            def __deepcopy__(self,memo):
+                raise AssertionError('unselected PATH node was cloned')
+
+        program,_=compile_program('COPY_PATH(p,2,2,q,s)',
+            prefix='TYPE node=STRUCTURE n:INTEGER ENDSTRUCTURE',
+            decl='p,q:PATH NODEDATA=node s:INTEGER')
+        path=program._state.values['P']
+        path.nodes.append(UnselectedNode(path.node_spec))
+        path.append()
+        path.nodes[1].values['N']=9
+        result=program.run(max_steps=2)
+        self.assertEqual((result['Q']['nodes'],result['S']),([{'N':9}],0))
+        self.assertIsNot(program._state.values['Q'].nodes[0],path.nodes[1])
+
+    def test_path_copy_budget_failure_preserves_destination_and_status(self):
+        program,_=compile_program('COPY_PATH(p,0,0,q,s)',
+            prefix='TYPE node=STRUCTURE n:INTEGER ENDSTRUCTURE',
+            decl='p,q:PATH NODEDATA=node s:INTEGER')
+        source=program._state.values['P']
+        target=program._state.values['Q']
+        for _ in range(5):
+            source.append()
+        target.append()
+        target.nodes[0].values['N']=7
+        program._state.values['S']=99
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            program.run(max_steps=4)
+        self.assertEqual((program.snapshot()['Q']['nodes'],program.snapshot()['S']),([{'N':7}],99))
+        self.assertIs(program._state.values['Q'],target)
+
     def test_path_output_status_overlap(self):
         p,_=compile_program('p.n=7 APPEND_NODE(p,p.n)',prefix='TYPE header=STRUCTURE n: INTEGER ENDSTRUCTURE',decl='p: PATH PATHHEADER=header')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'overlap'): p.run()

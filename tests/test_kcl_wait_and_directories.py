@@ -28,6 +28,23 @@ class KclTaskWaitTests(unittest.TestCase):
         self.assertEqual([row['phase'] for row in ctx.kcl.history], ['completed'])
         self.assertEqual(scheduler._task_waits, {})
 
+    def test_direct_program_stop_clears_scheduler_deadline_and_completes_waiter(self):
+        scheduler,ctx=self.context()
+        child=worker(ctx,'CHILD','DELAY 8000000 n=7')
+        scheduler.bind('ALIAS',child)
+        scheduler.start('ALIAS')
+        for _ in range(5):
+            scheduler.step()
+            if child.task_state=='waiting':
+                break
+        self.assertIn('CHILD',scheduler.waiting)
+        observer=program("KCL_NO_WAIT('WAIT CHILD DONE',s)",context=ctx)
+        self.assertEqual(observer.run()['S'],0)
+        self.assertEqual(ctx.kcl.history[-1]['phase'],'pending')
+        child.stop()
+        self.assertEqual((child.task_state,scheduler.waiting,scheduler._task_waits),('stopped',{},{}))
+        self.assertEqual((ctx.kcl.history[-1]['phase'],ctx.kcl.history[-1]['status']),('completed',0))
+
     def test_done_can_quiesce_on_pause_and_tracks_bound_identity_through_rename(self):
         scheduler, ctx = self.context()
         worker(ctx, 'CHILD', 'PAUSE n=7')

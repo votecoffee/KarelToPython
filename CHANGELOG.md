@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.191116 - 2026-11-06
+
+- Preserve the signed rotation direction near a half-turn in numerical DH
+  inverse kinematics.
+- Charge COPY_PATH for each selected node and clone only the requested range.
+  Budget exhaustion preserves the destination and status.
+- Clear scheduler deadlines and notify KCL waiters when a scheduled Program
+  is stopped directly.
+
 ## 26.1106.185134 - 2026-11-06
 
 - Bound KCL variable, system, program and task catalog scans and charge inspected
