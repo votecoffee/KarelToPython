@@ -120,7 +120,8 @@ protection. Expanded reports add dependency hashes, physical-source spans and
 original-file diagnostics. The text API does not infer filesystem access from
 `filename`; the CLI explicitly selects the source directory and extra roots.
 
-Pythonic [POS construction](pos-construction.md) supplies checked XYZWPR values,
+Pythonic [POS construction](pos-construction.md) supplies checked XYZWPR values
+or XYZWPREXT with three explicit external axes,
 independent CONFIG data and source-located `pos_constructors` report entries.
 [CONFIG text conversions](config-text.md) expose `config_text_conversions` and
 `config_text_policy`, including portable grammar, output guards and status behavior.
@@ -590,6 +591,7 @@ wildcard or mixed dimensions follow the [result shape contract](array-result-sha
 `array_length_policy` defines Pythonic ARRAY_LEN as the first concrete dimension
 by default, with an optional one-based dimension across flat and named components.
 It reads the concrete shape without requiring scalar values.
+Selected FILE rows and planes use a checked descriptor view.
 
 `type_aliases` records transparent TYPE declarations with name, immediate target,
 resolved spec and physical source location. `user_types` and `named_array_types`

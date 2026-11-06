@@ -2956,15 +2956,18 @@ def builtin(name, arguments, line=None):
         if len(arguments) != 1: raise KarelRuntimeError('INV requires exactly one argument', line)
         return frame_inverse(arguments[0], line)
     if name == 'POS' and _pythonic():
-        if len(arguments) != 7: raise KarelRuntimeError('POS requires exactly seven arguments', line)
+        if len(arguments) not in (7,10):
+            raise KarelRuntimeError('POS requires seven arguments and optionally three external axes',line)
         components = [real(value, line) for value in arguments[:6]]
         for field, value, limit in zip(('X','Y','Z','W','P','R'), components, (10000000,)*3 + (180,)*3):
             if not -limit <= value <= limit:
                 raise KarelRuntimeError(f'POS {field} must be in {-limit}..{limit}', line)
         config = positional_value(('CONFIG',), arguments[6], line)
-        result = Structure(('XYZWPR',))
+        axes = [real(value,line) for value in arguments[7:]]
+        result = Structure(('XYZWPREXT',) if axes else ('XYZWPR',))
         result.values.update(zip(('X','Y','Z','W','P','R'), components))
         result.values['CONFIG_DATA'] = config
+        result.values.update(zip(('EXT1','EXT2','EXT3'),axes))
         return result
     if name == 'VEC' and _pythonic():
         if len(arguments) != 3: raise KarelRuntimeError('VEC requires exactly three arguments', line)

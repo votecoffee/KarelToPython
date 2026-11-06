@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.211645 - 2026-11-06
+
+- Construct XYZWPREXT with Pythonic POS and three explicit trailing external
+  axes. Capture CONFIG before evaluating the axis expressions.
+- Query the concrete dimensions of a selected FILE row or plane with ARRAY_LEN
+  through the existing checked descriptor view.
+
 ## 26.1106.205758 - 2026-11-06
 
 - Read closed plain PIP files through COMPARE_FILE and PRINT_FILE. Comparison

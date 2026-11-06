@@ -19,6 +19,37 @@ def build(body='work(items[2])',routines=WRITE,**options):
 def run(*args,**options):return build(*args,**options)[0].run()
 
 
+class FilePrefixLengthTests(unittest.TestCase):
+    def test_shape_queries_need_no_file_backend_or_new_descriptors(self):
+        program,_=build('n=ARRAY_LEN(items[2]) visits=ARRAY_LEN((items[2]),2) seq=ARRAY_LEN(items[2][1])',
+                        routines='',shape='2,3,4',context=rt.ExecutionContext())
+        original=list(cells(program))
+        with patch.object(rt.Array,'__init__',side_effect=AssertionError('Unexpected ARRAY allocation')),\
+                patch.object(rt.FileHandle,'__init__',side_effect=AssertionError('Unexpected FILE allocation')):
+            state=program.run()
+        self.assertEqual((state['N'],state['VISITS'],state['SEQ']),(3,4,4))
+        self.assertTrue(all(a is b for a,b in zip(original,cells(program))))
+        self.assertIsNone(program._state.execution.files)
+
+    def test_query_through_generic_file_formal_uses_runtime_shape(self):
+        routines='ROUTINE query(bank:ARRAY[*,*,*] OF FILE) BEGIN n=ARRAY_LEN(bank[2],2) END query'
+        state=run('query(items)',routines=routines,shape='2,3,4')
+        self.assertEqual(state['N'],4)
+
+    def test_selector_and_dimension_evaluate_once_in_order(self):
+        routines=('ROUTINE row: INTEGER BEGIN visits=visits*10+1 RETURN 1 END row '
+                  'ROUTINE dim: INTEGER BEGIN visits=visits*10+2 RETURN 2 END dim')
+        state=run('visits=0 n=ARRAY_LEN(items[row()],dim())',routines=routines,shape='2,3,4')
+        self.assertEqual((state['N'],state['VISITS']),(4,12))
+
+    def test_invalid_selector_skips_dimension_and_preserves_destination(self):
+        routines='ROUTINE dim:INTEGER BEGIN visits=99 RETURN 2 END dim'
+        program,_=build('n=7 visits=0 n=ARRAY_LEN(items[0],dim())',routines=routines,shape='2,3,4')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'Array index 0'):
+            program.run()
+        self.assertEqual((program.snapshot()['N'],program.snapshot()['VISITS']),(7,0))
+
+
 class DirectFileSelectionTests(unittest.TestCase):
     def test_row_keeps_original_descriptor(self):
         p,_=build();original=cells(p)[2];p.run();self.assertIs(cells(p)[2],original);self.assertEqual(original.name,'out');self.assertEqual(p._state.execution.files.snapshot()['out'],b' 17')

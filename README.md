@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.205758**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.211645**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -611,7 +611,8 @@ assignments, private arguments and returns. Reads and geometry still reject
 unavailable components; see [partial aggregate values](docs/partial-aggregate-values.md).
 Results also support named types and fixed or wildcard matrix/cube dimensions.
 `ARRAY_LEN(array)` returns the first dimension, like Python `len`.
-`ARRAY_LEN(array, dimension)` selects a one-based dimension. See
+`ARRAY_LEN(array, dimension)` selects a one-based dimension. Both forms accept
+selected FILE rows and planes without copying descriptors. See
 [ARRAY result shapes](docs/array-result-shapes.md).
 
 WRITE formats accept INTEGER expressions, including function calls. Quoted
@@ -648,7 +649,8 @@ and left-associated cross/dot chains support composed calculations such as
 `SQRT(v@v)`. See [Pythonic vector expressions](docs/pythonic-vectors.md).
 
 `POS(x,y,z,w,p,r,c)` constructs an independent XYZWPR with explicit CONFIG data
-and checked coordinate/angle bounds. See [POS construction](docs/pos-construction.md).
+and checked coordinate and angle bounds. Three trailing axis values produce
+XYZWPREXT. See [POS construction](docs/pos-construction.md).
 CONFIG text parsing and complete formatting use an explicit offline grammar and
 portable failure status. See [CONFIG text](docs/config-text.md).
 Explicit XYZWPR poses also support `a:b` composition and `INV(a)` inversion
@@ -1127,7 +1129,7 @@ source. Strict mode remains a future milestone.
 - Reference/value parameters, bare zero-argument function calls, checked aggregate
   copies, restricted scalar, bounded STRING, record, joint and named-component
   ARRAY functions, selected built-ins, general degree trig, SQRT, EXP and LN.
-- Positional data records, POS/XYZWPR construction, checked [joint-axis data access](docs/joint-axis-access.md),
+- Positional data records, POS construction of XYZWPR and XYZWPREXT, checked [joint-axis data access](docs/joint-axis-access.md),
   VECTOR construction/signs/products and explicit-context offline conversion subsets.
 - CONFIG text parsing/formatting, with checked complete outputs and portable status.
 - Explicit XYZWPR frame composition and inversion, with independent CONFIG copies.

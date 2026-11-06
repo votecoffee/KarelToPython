@@ -40,6 +40,53 @@ def runtime_config():
     return cfg
 
 
+class ExtendedPosValueTests(unittest.TestCase):
+    declarations=DECLARATIONS+' extended: XYZWPREXT a,b,c: REAL'
+    call='POS(1,2,3,10,20,30,cfg,-4000,.125,3600)'
+
+    def test_pose_and_config_roundtrip_through_unpos(self):
+        program,result=compile_program(
+            initialize()+f' UNPOS({self.call},x,y,z,w,p,r,other,a,b,c)',
+            declarations=self.declarations)
+        state=program.run()
+        self.assertEqual(tuple(state[field] for field in FIELDS),(1.,2.,3.,10.,20.,30.))
+        self.assertEqual((state['A'],state['B'],state['C']),(-4000.,.125,3600.))
+        self.assertEqual(state['OTHER'],state['CFG'])
+        sites=result.report['pos_constructors']
+        self.assertEqual(len(sites),1)
+        self.assertEqual(sites[0]['result_type'],'XYZWPREXT')
+        self.assertEqual(sites[0]['argument_order'][-3:],['ext1','ext2','ext3'])
+
+    def test_extended_constructor_field_is_a_typed_temporary(self):
+        state=execute(f'take({self.call}.ext2)',declarations=self.declarations,
+                      routines='ROUTINE take(value:REAL) BEGIN x=value value=99 END take')
+        self.assertEqual(state['X'],.125)
+
+    def test_config_is_detached_before_axis_arguments_run(self):
+        routines='ROUTINE first_axis: REAL BEGIN cfg.cfg_flip=ON total=total+1 RETURN 7 END first_axis'
+        state=execute('total=0 extended=POS(1,2,3,0,0,0,cfg,first_axis,0,0)',
+                      declarations=self.declarations,routines=routines)
+        self.assertEqual((state['TOTAL'],state['EXTENDED']['EXT1']),(1,7.))
+        self.assertTrue(state['CFG']['CFG_FLIP'])
+        self.assertFalse(state['EXTENDED']['CONFIG_DATA']['CFG_FLIP'])
+
+    def test_incomplete_config_skips_axis_effects_and_assignment(self):
+        routines='ROUTINE axis: REAL BEGIN total=99 RETURN 7 END axis'
+        body=initialize()+f' extended={self.call} total=0 extended=POS(1,2,3,0,0,0,other,axis,0,0)'
+        program,_=compile_program(body,declarations=self.declarations,routines=routines)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'):
+            program.run()
+        state=program.snapshot()
+        self.assertEqual((state['TOTAL'],state['EXTENDED']['EXT1']),(0,-4000.))
+
+    def test_nonfinite_axis_is_rejected_without_coercion(self):
+        with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):
+            rt.builtin('POS',[1,2,3,0,0,0,runtime_config(),1.,2.,math.inf],17)
+        with self.assertRaises(TranslationError) as error:
+            compile_program('extended=POS(1,2,3,0,0,0,cfg,0,ON,0)',declarations=self.declarations)
+        self.assertEqual(error.exception.code,'E_TYPE')
+
+
 class PosValueTests(unittest.TestCase):
     def test_all_components_and_config(self): self.assertEqual(execute('pose=POS(1,-2,.25,10,-45,30,cfg)')['POSE'],pose(1,-2,.25,10,-45,30))
     def test_nonexact_pythonic_values(self): self.assertEqual(execute('pose=POS(.1,.2,.3,1.1,2.2,3.3,cfg)')['POSE'],pose(.1,.2,.3,1.1,2.2,3.3))

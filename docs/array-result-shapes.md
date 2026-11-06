@@ -87,6 +87,10 @@ dimension across flat or named components. For a two-dimensional array,
 numbering starts at its first remaining dimension. Wildcards use the actual
 concrete storage shape.
 
+Both forms accept a selected FILE row or plane such as
+`ARRAY_LEN(streams[2],2)`. The selector uses the checked FILE view to read the
+remaining shape without copying descriptors. See [FILE prefixes](direct-file-prefixes.md).
+
 The array expression runs once, followed by the optional INTEGER expression.
 An index outside the available dimensions raises a source-located runtime error.
 Reading dimensions needs no initialized scalar leaves. Array-producing functions

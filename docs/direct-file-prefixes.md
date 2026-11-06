@@ -66,6 +66,11 @@ Existing call effects, active FOR checks, frame cleanup and backend guards remai
 | work(BYNAME('', 'FILES[2]', entry)) | Existing explicit live resource lookup. |
 | work(data[2]) | Existing independent data row value. |
 | work(paths[2]) / work(queues[2]) | Existing private collection row values. |
+| ARRAY_LEN(files[2],dimension) | Reads the selected shape through a checked view. Dimension is optional and one-based. |
+
+ARRAY_LEN uses the same index, schema and descriptor checks as borrowing a
+routine argument. The selected shape is captured before the dimension
+expression runs. The query can run with no FILE backend configured.
 
 Whole FILE bank assignment, RETURN values, READ/WRITE/UNINIT, resource fields and
 generic typed codecs remain excluded. This change does not introduce generic

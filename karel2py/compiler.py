@@ -2266,16 +2266,20 @@ class Emitter:
         container=self.access_type(argument.args[0])
         return rt.array_prefix_type(container,len(argument.args)-1) if rt.file_storage_type(container) else None
 
-    def file_prefix_argument(self,argument,routine,formal):
+    def file_prefix_reference_code(self,argument):
         base,container=self.expression(argument.args[0],raw=True)
         codes=[self.require_type(index,'INTEGER') for index in argument.args[1:]]
+        return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{argument.token.line})',container
+
+    def file_prefix_argument(self,argument,routine,formal):
+        code,container=self.file_prefix_reference_code(argument)
         selected=self.file_prefix_spec(argument);line=argument.token.line
         self.file_prefix_argument_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
             routine=routine.name,parameter=formal.value,line=line,column=argument.token.column,
             source_selector=counter_text(argument),source_type_spec=container,selected_type_spec=selected,
-            supplied_subscripts=len(codes),evaluated_once=True,original_cells=True))
+            supplied_subscripts=len(argument.args)-1,evaluated_once=True,original_cells=True))
         self.features.add('direct FILE prefix reference argument')
-        return f'_rt.resource_array_prefix_reference({base},({", ".join(codes)},),{container!r},{line})',selected
+        return code,selected
 
     def argument_is_reference(self,argument,expected):
         if argument.kind not in ('name','field','index') or self.root_name(argument) in self.visible_constants():return False
@@ -2372,6 +2376,8 @@ class Emitter:
         if expr.kind == 'call' and expr.value in self.routines and self.routines[expr.value].return_type:
             return self.routines[expr.value].return_type
         if self.mode == 'pythonic' and expr.kind == 'call' and expr.value in PYTHONIC_CONSTRUCTORS and expr.value not in self.routines:
+            if expr.value=='POS':
+                return self.pos_call_result_type(expr)
             if expr.value in ('INV','FRAME'):
                 if (expr.value == 'INV' and len(expr.args) != 1 or expr.value == 'FRAME' and len(expr.args) not in (3,4,5)):
                     self.error('E_ARGUMENTS', 'INV requires one operand; FRAME requires three points and optional origin and CONFIG', expr.token)
@@ -2396,6 +2402,11 @@ class Emitter:
             try: return rt.indexed_type(spec, len(expr.args) - 1)
             except rt.KarelRuntimeError as exc: self.error('E_ARRAY_RANK', str(exc), expr.token)
         self.error('E_TYPE', 'Expected a variable receiver path', expr.token)
+
+    def pos_call_result_type(self,expr):
+        if len(expr.args) not in (7,10):
+            self.error('E_ARGUMENTS','POS requires seven arguments and optionally three external axes',expr.token)
+        return ('XYZWPREXT',) if len(expr.args)==10 else ('XYZWPR',)
 
     def frame_result_type(self, specs, token):
         if self.mode=='pythonic': specs=[('XYZWPREXT',) if spec[0]=='JOINTPOS' else spec for spec in specs]
@@ -2864,13 +2875,29 @@ class Emitter:
             if len(expr.args)!=1 and not has_dimension:
                 message='ARRAY_LEN requires an ARRAY and optional dimension' if self.mode=='pythonic' else 'ARRAY_LEN requires exactly one argument'
                 self.error('E_ARGUMENTS',message,expr.token)
-            code, spec = self.expression(expr.args[0])
+            array=expr.args[0]
+            while array.kind=='group':
+                array=array.args[0]
+            spec=self.file_prefix_spec(array)
+            if spec is None:
+                code,spec=self.expression(expr.args[0])
+            else:
+                reference,_=self.file_prefix_reference_code(array)
+                code=reference+'.raw()'
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'ARRAY_LEN requires ARRAY', expr.token)
             if self.mode == 'strict' and len(rt.array_dimensions(spec)) != 1:
                 self.error('E_ARRAY_LEN', 'ARRAY_LEN on multidimensional arrays needs dimension-count semantics; use explicit dimensions', expr.token)
             result_type, codes = ('INTEGER',), [code]
             if has_dimension:
                 codes.append(self.require_type(expr.args[1],'INTEGER'))
+        elif expr.value=='POS':
+            result_type=self.pos_call_result_type(expr)
+            signature=BUILTIN_SIGNATURES['POS'][0]
+            if result_type==('XYZWPREXT',):
+                signature+=('REAL',)*3
+            codes=[self.require_type(argument,expected) for argument,expected in zip(expr.args,signature)]
+            if result_type==('XYZWPREXT',):
+                codes[6]=f"_rt.positional_value(('CONFIG',),{codes[6]},{expr.args[6].token.line})"
         elif expr.value in rt.POSITION_AXIS_FUNCTIONS:
             if len(expr.args) != 1: self.error('E_ARGUMENTS', f'{expr.value} requires one pose', expr.token)
             code, axis_spec = self.expression(expr.args[0])
@@ -2912,10 +2939,13 @@ class Emitter:
                                                     arguments_evaluated_once=True, argument_order=['x','y','z'],
                                                     independent_value=True))
         if expr.value == 'POS':
+            argument_order=['x','y','z','w','p','r','c']
+            if result_type==('XYZWPREXT',):
+                argument_order.extend(['ext1','ext2','ext3'])
             self.pos_constructor_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                                  line=expr.token.line, column=expr.token.column,
-                                                 arguments_evaluated_once=True, argument_order=['x','y','z','w','p','r','c'],
-                                                 result_type='XYZWPR', independent_value=True, configuration_copied=True))
+                                                 arguments_evaluated_once=True, argument_order=argument_order,
+                                                 result_type=result_type[0], independent_value=True, configuration_copied=True))
         if expr.value == 'INV':
             self.frame_operation_uses.append(dict(operation='INV', body=self.current_routine.name if self.current_routine else self.program.name,
                                                   line=expr.token.line, column=expr.token.column, operand_types=[spec[0] for spec in frame_specs],
@@ -6309,11 +6339,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         precedence='Cross/dot above multiplication/division, above unary signs and addition; same-level products associate left to right; parentheses override',
         boundary='No ordered VECTOR relations, VECTOR transform operands, kinematics or controller validation')
     report['pos_policy'] = dict(
-        constructor='POS(x,y,z,w,p,r,c) returns a fresh XYZWPR with independent CONFIG data; explicit internal POS routines keep precedence',
+        constructor='POS(x,y,z,w,p,r,c) returns fresh XYZWPR; POS(x,y,z,w,p,r,c,ext1,ext2,ext3) returns fresh XYZWPREXT; explicit internal POS routines keep precedence',
         coordinates='Six finite Python numeric values; INTEGER/BYTE/SHORT promoted to REAL; x/y/z in -10000000..10000000 mm, w/p/r in -180..180 degrees',
         configuration='Exact complete CONFIG shape, initialized checked fields and existing turn range -8..7; copied without robot-specific validity inference',
-        evaluation='Evaluate arguments once left to right before constructor-specific bounds/config checks; ordinary expression failures stop later expressions; no destination write on failure',
-        boundary='POS returns exact XYZWPR; subsequent whole assignments follow position_conversion_policy; no implicit CONFIG, group/frame/robot context, XYZWPREXT coercion, kinematics, native pause/status or controller validity claim',
+        evaluation='Evaluate arguments once left to right; capture complete CONFIG before later axis expressions; check Cartesian bounds and axis finiteness before publishing the value',
+        boundary='Explicit Cartesian construction with finite external-axis values and independent CONFIG; no inferred model/frame/group, kinematics, native pause/status or controller validity claim',
         controller_validated=False)
     report['config_text_policy'] = dict(
         procedures=sorted(CONFIG_TEXT_PROCEDURES),
@@ -6405,6 +6435,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['bare_function_policy']['arrays'] = 'ARRAY values compose in compatible value contexts, grouping, RETURN and ARRAY_LEN returning the first dimension; explicit calls or grouping allow aggregate access'
     report['array_length_policy'] = dict(result='First concrete dimension by default; optional one-based dimension across flat and named components',
                                        evaluation='Evaluate the array and optional INTEGER dimension once, left to right; no scalar-leaf initialization required',
+                                       file_prefix='Borrow a checked FILE row/plane for its concrete shape without copying descriptors',
                                        boundary='No total-element count, reshape, flattening or native dimension-overload claim', controller_validated=False)
     report['array_routine_policy']['boundary'] = 'No unspecified STRING result-element capacities, anonymous nested ARRAY components, representation/identity erasure, external routines or native ABI/runtime claim'
     report['narrow_integer_policy'].update(
@@ -6493,7 +6524,6 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['abort_policy']['source']='Bare ABORT, handler action or explicitly registered task target; sticky offline termination'
     report['abort_policy']['boundary']='NOABORT can cancel pending cooperative requests, but cannot undo sticky termination; no controller motion cancellation, native persistence or restart acceptance'
     report['data_record_policy']['boundary'] = 'Checked positional data and whole pose conversions; registers and geometry use explicit services; builtin record USING follows using_policy; no record I/O, motion or inferred group/frame context'
-    report['pos_policy']['boundary'] = 'POS returns exact XYZWPR; whole assignments can convert poses under position_conversion_policy; no implicit routine/array conversion, robot context, native configuration validity or native pause/status'
     report['frame_policy']['operands'] = 'Explicit complete POSITION/XYZWPR/XYZWPREXT; colon composition, INV and three/four-point FRAME use checked frame math and explicit external metadata'
     report['frame_policy']['result_type'] = 'INV preserves representation; colon/FRAME prefer XYZWPREXT, then POSITION, then XYZWPR; external metadata follows extended_geometry_policy'
     report['position_conversion_policy']['scope'] = 'Whole assignments among POSITION, XYZWPR and XYZWPREXT; no automatic routine/RETURN or whole-array conversion'
