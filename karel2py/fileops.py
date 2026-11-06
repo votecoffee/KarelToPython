@@ -953,14 +953,29 @@ def ascii_lines(data):
     if start<len(text): yield text[start:]
 
 
+def _snapshot_endpoint(context,name,line):
+    if name.upper().startswith('PIP:'):
+        return plain_pipe(context,name,line)
+    return context.require('files',line),name
+
+
+def _read_snapshot(files,name):
+    if type(files) is rt().FilePipes:
+        pipe=files.pipes.get(name)
+        if pipe is not None and (pipe['record_size'] or pipe['form_dict']):
+            return 2,None
+    return files.read_named(name)
+
+
 def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     runtime=rt();ascii_flag=runtime.boolean(ascii_flag,line)
     handle.require_open(line)
-    if handle.owner is not files: raise runtime.KarelRuntimeError('Comparison result FILE must belong to the input backend',line)
+    if handle.owner is not files or type(files) is runtime.FilePipes:
+        raise runtime.KarelRuntimeError('Comparison result FILE must belong to the configured ordinary input backend',line)
     if handle.mode=='R': raise runtime.KarelRuntimeError('Comparison result FILE must be writable',line)
-    left_code,left=files.read_named(left_name)
+    left_code,left=_read_snapshot(*_snapshot_endpoint(state.execution,left_name,line))
     if left_code: return left_code,None
-    right_code,right=files.read_named(right_name)
+    right_code,right=_read_snapshot(*_snapshot_endpoint(state.execution,right_name,line))
     if right_code: return right_code,None
     start=len(files.files[handle.name]) if handle.mode=='A' else handle.position
     capacity=files.limit-start;records=bytearray();eol=bytes((handle.eol,))
@@ -1012,7 +1027,7 @@ def write_json_lines(state,rows,line=None):
 
 def print_file(state,files,name,nowait,line=None):
     rt().boolean(nowait,line)
-    code,data=files.read_named(name)
+    code,data=_read_snapshot(files,name)
     if code:return code
     write_file_text(state,data.decode('ascii'),line)
     return 0
@@ -1186,9 +1201,6 @@ def kcl_file_operation(state,operation,args,line=None,*,channel):
         if operation=='PRINT_FILE':
             if any(char in first for char in '*?'):return 2
             files,name=named_file_endpoint(state.execution,first,line)
-            if type(files) is rt().FilePipes:
-                pipe=files.pipes.get(name)
-                if pipe is not None and (pipe['record_size'] or pipe['form_dict']):return 2
             return print_file(state,files,name,False,line)
         if operation=='DIRECTORY':
             if first.startswith('PIP:'):
@@ -1206,10 +1218,13 @@ def kcl_file_operation(state,operation,args,line=None,*,channel):
 
 
 def file_operation(state,name,args,line=None):
-    runtime=rt();files=state.execution.require('files',line)
+    runtime=rt()
     try:
-        if name=='PRINT_FILE': code=print_file(state,files,*args[:2],line)
+        if name=='PRINT_FILE':
+            files,filename=_snapshot_endpoint(state.execution,args[0],line)
+            code=print_file(state,files,filename,args[1],line)
         else:
+            files=state.execution.require('files',line)
             code,count=compare_files(state,files,*args[:4],line)
             if code==0: args[4].set(count,line)
     except (OSError,ValueError) as exc:

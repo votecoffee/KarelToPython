@@ -120,6 +120,79 @@ class FileComparisonTests(unittest.TestCase):
         self.assertEqual(files.snapshot()['report'],b'');self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
 
 
+class PipeSnapshotTests(unittest.TestCase):
+    def test_source_prints_a_closed_pipe_without_an_ordinary_backend(self):
+        pipes=rt.FilePipes()
+        self.assertEqual(pipes.configure('log.txt',False,1,0,'',0),0)
+        pipes.feed('log.txt',b'ready\r\nnext')
+        printed=[]
+        result=run("PRINT_FILE('pip:/log.txt',FALSE,s)",
+                   context=rt.ExecutionContext(file_pipes=pipes),write=printed.append)
+        self.assertEqual((result['S'],printed),(0,['ready\r\nnext']))
+        self.assertEqual(pipes.read_named('log.txt'),(0,b'ready\r\nnext'))
+        self.assertEqual(pipes.handles,[])
+
+    def test_compare_pipe_with_an_ordinary_file_and_another_pipe(self):
+        pipes=rt.FilePipes()
+        files=rt.MemoryFiles({'b':b'new\n'})
+        for name,data in (('left',b'old\r\n'),('right',b'old\r!')):
+            self.assertEqual(pipes.configure(name,False,1,0,'',0),0)
+            pipes.feed(name,data)
+        context=rt.ExecutionContext(files=files,file_pipes=pipes)
+        source=("OPEN FILE f ('W','mixed') COMPARE_FILE('pip:/left','b',f,TRUE,n,s) "
+                "mixed_count=n CLOSE FILE f OPEN FILE f ('W','binary') "
+                "COMPARE_FILE('PIP:left','PIP:right',f,FALSE,n,s) CLOSE FILE f")
+        state=run(source,decl=DECL+' mixed_count: INTEGER',context=context)
+        self.assertEqual((state['S'],state['MIXED_COUNT'],state['N']),(0,1,5))
+        mixed=[json.loads(line) for line in files.snapshot()['mixed'].splitlines()]
+        self.assertEqual(mixed[0]['left'],'pip:/left')
+        self.assertEqual(mixed[1],{'line':1,'left':'old','right':'new'})
+        self.assertEqual(json.loads(files.snapshot()['binary'])['right_byte'],ord('!'))
+
+    def test_busy_missing_and_structured_inputs_preserve_comparison_outputs(self):
+        for name,expected in (('busy',3),('missing',1),('record',2),('form',2)):
+            with self.subTest(name=name):
+                pipes=rt.FilePipes()
+                for configured,size,dictionary in (('busy',0,''),('record',4,''),('form',0,'DICT')):
+                    self.assertEqual(pipes.configure(configured,False,1,size,dictionary,0),0)
+                files=rt.MemoryFiles({'b':'right','report':'keep'})
+                context=rt.ExecutionContext(files=files,file_pipes=pipes)
+                source=("OPEN FILE input_file ('R','PIP:busy') n=91 OPEN FILE f ('A','report') "
+                        f"COMPARE_FILE('b','PIP:{name}',f,TRUE,n,s) status=s "
+                        f"PRINT_FILE('PIP:{name}',FALSE,s) CLOSE FILE input_file CLOSE FILE f")
+                printed=[]
+                state=run(source,decl=DECL+' input_file: FILE status: INTEGER',context=context,write=printed.append)
+                self.assertEqual((state['N'],state['STATUS'],state['S']),(91,expected,expected))
+                self.assertEqual((files.snapshot()['report'],printed),(b'keep',[]))
+
+    def test_daq_names_cannot_be_read_through_plain_pipe_lookup(self):
+        pipes=rt.FilePipes()
+        acquisition=rt.Acquisition()
+        acquisition.register(1,0,1,('INTEGER',),'sample.dat',0)
+        files=rt.MemoryFiles({'b':'right'})
+        context=rt.ExecutionContext(files=files,file_pipes=pipes,acquisition=acquisition)
+        self.assertEqual(pipes.configure('sample.dat',False,1,0,'',0),0)
+        for call in ("PRINT_FILE('PIP:sample.dat',FALSE,s)",
+                     "OPEN FILE f ('W','report') COMPARE_FILE('PIP:sample.dat','b',f,TRUE,n,s)"):
+            with self.subTest(call=call):
+                program,_=compile_program('n=91 s=92 '+call,decl=DECL,context=context)
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'DAQ PIP'):
+                    program.run()
+                self.assertEqual((program.snapshot()['N'],program.snapshot()['S']),(91,92))
+
+    def test_comparison_report_cannot_write_to_a_pipe(self):
+        pipes=rt.FilePipes()
+        self.assertEqual(pipes.configure('report',False,1,0,'',0),0)
+        pipes.feed('report',b'keep')
+        program,_=compile_program(
+            "n=91 s=92 OPEN FILE f ('A','PIP:report') COMPARE_FILE('PIP:a','PIP:b',f,TRUE,n,s)",
+            decl=DECL,context=rt.ExecutionContext(files=pipes,file_pipes=pipes))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'ordinary input backend'):
+            program.run()
+        self.assertEqual((program.snapshot()['N'],program.snapshot()['S']),(91,92))
+        self.assertEqual(pipes.files['PIP:REPORT'],b'keep')
+
+
 class FilePrintingTests(unittest.TestCase):
     def test_original_ascii_bytes_are_recorded_without_added_newline(self):
         files=rt.MemoryFiles({'message':b'ready\r\nnext\nend'})

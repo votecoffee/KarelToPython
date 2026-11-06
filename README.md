@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.204143**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.205758**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -920,8 +920,9 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 
 Registers, ports and program globals share an explicit context with typed JSON
 save/load. FILE operations can use memory or a caller-selected directory. Typed
-PATH and QUEUE_TYPE collections work offline. `COPY_PATH` budgets and copies only
-the selected nodes. Queue operations stage backing-array writes and outputs
+PATH and QUEUE_TYPE collections work offline. `COPY_PATH` charges for the header
+and selected nodes, then validates the copy before replacing the destination.
+Queue operations stage backing-array writes and outputs
 before publication. PATH declarations accept PATHHEADER
 and its PATHDATA compatibility spelling. Predefined DISP_DAT_T and portable
 STD_PTH_NODE records work in declarations, routine interfaces, CREATE_VAR and
@@ -1002,8 +1003,9 @@ See [register transfers](docs/register-transfers.md) for direction, options,
 explicit groups, checked copies and RPREG spelling aliases.
 
 COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
-report to an open FILE. PRINT_FILE sends validated ASCII to the existing output
-recorder or callback. Both use explicit memory or directory file context. See
+report to an open ordinary FILE. PRINT_FILE sends validated ASCII to the existing
+output recorder or callback. Both accept closed ordinary and plain PIP inputs
+from the supplied context. See
 [file comparison and printing](docs/file-comparison.md).
 
 Whole JOINTPOS/Cartesian assignments use supplied robot models, selected frames

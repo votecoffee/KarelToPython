@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.205758 - 2026-11-06
+
+- Read closed plain PIP files through COMPARE_FILE and PRINT_FILE. Comparison
+  supports mixed ordinary file and PIP inputs with an ordinary report FILE.
+- Charge COPY_PATH for the header and selected node data, and validate the
+  detached copy before replacing the destination.
+
 ## 26.1106.204143 - 2026-11-06
 
 - Query a selected one-based dimension with Pythonic ARRAY_LEN, including

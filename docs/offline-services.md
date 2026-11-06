@@ -49,11 +49,11 @@ source-located error. Strict mode remains a future milestone.
 | TRANSLATE | Opt-in SourceTranslations with an ordinary FILE backend | Bounded source to sibling Python and optional listing; preserved source, explicit overwrite and no product execution. See [source translations](source-translations.md). |
 | LOCKGROUP / NOLOCKGROUP directives | Opt-in GroupLocks root and nested module policies | Atomic configured-group acquisition; default metadata only, callee scopes require a second flag. See [directive locks](directive-group-locks.md) and [scoped locks](scoped-group-locks.md). |
 | CHECK_NAME / MOVE_FILE | Portable name grammar; both explicit backends for moves | Base names without extensions; RD/FR wildcard batches with collision/busy/size preflight and explicit late-failure behavior. See [file management](file-management.md). |
-| `COMPARE_FILE` | Same-numbered ASCII records or binary first difference | Closed inputs, open writable result FILE, bounded JSON report and portable statuses. |
-| `PRINT_FILE` | Existing WRITE recorder/callback | Validated ASCII in <=254-character synchronous chunks; both nowait values supported. |
+| `COMPARE_FILE` | Same-numbered ASCII records or binary first difference | Closed ordinary or plain PIP inputs, open writable ordinary result FILE, bounded JSON report and portable statuses. |
+| `PRINT_FILE` | Existing WRITE recorder/callback | Closed ordinary or plain PIP input. Validated ASCII in <=254-character synchronous chunks. Both nowait values supported. |
 | `PATH` | Typed node list with optional header | One-based nodes; `NODEDATA` and `PATHHEADER` structures; direct field references. |
 | PATH/QUEUE persistence | Typed logical collection snapshots | Partial PATH data, queue order/sequence and explicit first-use buffer rebinding; see [collection persistence](collection-persistence.md). Logical PATH roots also support [portable VR archives and explicit DRAM save/restore](path-archives.md). |
-| `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and deep copies | Empty paths have length zero; full or reversed partial copying; maximum 32767 nodes. |
+| `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and detached copies | Empty paths have length zero. Copies support full or reversed inclusive ranges. Maximum 32767 nodes. |
 | `NODE_SIZE`, `INTSCT_VL_PL` | Packed portable node-schema bytes and supplied line/plane intersections | Structural view-line/point PATH schemas, staged append, normalized projected polarity and explicit frame/group metadata; see [PATH geometry](path-geometry.md). |
 | `QUEUE_TYPE` and seven queue procedures | FIFO entries with sequence IDs and an INTEGER backing array | Explicit INIT_QUEUE; fixed capacity; retain original backing-array identity. |
 | `CONDITION`, `WHEN`, `ENABLE/DISABLE/PURGE` | Ordered predicates and generator actions | Checkpoint/interval scanning, events/edges, EVAL capture, multiple WHEN clauses and explicit rearm. |
@@ -78,6 +78,11 @@ source-located error. Strict mode remains a future milestone.
 
 See [file comparison and printing](file-comparison.md) for report format,
 source capture, budget, callback and failure behavior.
+
+`COPY_PATH` charges one step per scalar leaf in the header and selected nodes.
+It preserves missing data and validates the complete selected copy before
+publishing it. A budget or validation failure preserves the destination and
+status. Unselected source nodes are outside the copy and its budget.
 
 ## Register, port and variable context
 

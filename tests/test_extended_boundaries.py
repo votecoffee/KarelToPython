@@ -159,6 +159,48 @@ class ExtendedBoundaryTests(unittest.TestCase):
         self.assertEqual((program.snapshot()['Q']['nodes'],program.snapshot()['S']),([{'N':7}],99))
         self.assertIs(program._state.values['Q'],target)
 
+    def test_path_copy_counts_header_and_nested_scalar_leaves(self):
+        prefix='TYPE node=STRUCTURE values:ARRAY[3] OF INTEGER ENDSTRUCTURE header=STRUCTURE n:INTEGER ENDSTRUCTURE'
+        decl='p,q:PATH NODEDATA=node PATHHEADER=header s:INTEGER'
+        program,_=compile_program('COPY_PATH(p,1,1,q,s)',prefix=prefix,decl=decl)
+        path=program._state.values['P']
+        path.append()
+        path.nodes[0].values['VALUES'].values[1]=17
+        path.data.values['N']=8
+        target=program._state.values['Q']
+        program._state.values['S']=99
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            program.run(max_steps=4)
+        self.assertIs(program._state.values['Q'],target)
+        self.assertEqual(program.snapshot()['S'],99)
+        state=program.run(max_steps=5)
+        self.assertEqual(state['Q'],state['P'])
+        self.assertIsNot(program._state.values['Q'].data,path.data)
+        self.assertIsNot(program._state.values['Q'].nodes[0],path.nodes[0])
+
+    def test_path_copy_invalid_selected_record_leaves_destination_unchanged(self):
+        program,_=compile_program('COPY_PATH(p,2,1,q,s)',prefix='TYPE node=STRUCTURE n:INTEGER ENDSTRUCTURE',
+                                  decl='p,q:PATH NODEDATA=node s:INTEGER')
+        source=program._state.values['P']
+        source.append()
+        source.append()
+        source.nodes[0].values['N']='invalid'
+        source.nodes[1].values['N']=17
+        target=program._state.values['Q']
+        target.append()
+        target.nodes[0].values['N']=7
+        program._state.values['S']=99
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'INTEGER'):
+            program.run()
+        self.assertIs(program._state.values['Q'],target)
+        self.assertEqual((program.snapshot()['Q']['nodes'],program.snapshot()['S']),([{'N':7}],99))
+
+    def test_path_self_copy_can_reverse_selected_nodes(self):
+        prefix='TYPE node=STRUCTURE n:INTEGER ENDSTRUCTURE'
+        state=run('APPEND_NODE(p,s) APPEND_NODE(p,s) p[1].n=7 p[2].n=9 COPY_PATH(p,2,1,p,s)',
+                  prefix=prefix,decl='p:PATH NODEDATA=node s:INTEGER')
+        self.assertEqual((state['P']['nodes'],state['S']),([{'N':9},{'N':7}],0))
+
     def test_path_output_status_overlap(self):
         p,_=compile_program('p.n=7 APPEND_NODE(p,p.n)',prefix='TYPE header=STRUCTURE n: INTEGER ENDSTRUCTURE',decl='p: PATH PATHHEADER=header')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'overlap'): p.run()

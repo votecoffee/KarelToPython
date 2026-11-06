@@ -2750,12 +2750,22 @@ class ExecutionContext:
             else:
                 direction=1 if end>=start else -1
                 indices=range(start-1,end-1+direction,direction)
-            selected=PathValue(source.spec)
-            selected.data=source.data
-            selected.nodes=[source.nodes[index] for index in indices]
-            for _ in selected.nodes:
+            nodes=[source.nodes[index] for index in indices]
+            header=source.spec[2]
+            data=source.data
+            if header is None and data is not None:
+                fail('Headerless PATH cannot contain header data',line)
+            node_cost=rt._validate_data_schema(source.node_spec,line) if nodes else 0
+            header_cost=rt._validate_data_schema(header,line) if header is not None else 0
+            for _ in range(header_cost+len(nodes)*node_cost):
                 state.tick(line)
-            destination.set(selected,line); status.set(0,line); return
+            selected=PathValue(source.spec)
+            selected.nodes=[rt._aggregate_value(source.node_spec,node,line) for node in nodes]
+            if header is not None:
+                selected.data=rt._aggregate_value(header,data,line)
+            # The exact destination reference was checked with status before preparation.
+            destination.storage[destination.key]=selected
+            status.set(0,line); return
         if name=='INTSCT_VL_PL': return intersect_view_lines(state,*args,line=line)
         if name in ('APPEND_NODE','INSERT_NODE','DELETE_NODE','PATH_LEN','NODE_SIZE'):
             path=args[0].raw() if type(args[0]) is rt.Reference else args[0]

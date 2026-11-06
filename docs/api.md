@@ -343,8 +343,10 @@ mapping. Local limits/values/bindings persist in context JSON. Translation repor
 include `teach_register_policy`, and local banks remain separate from global
 registers, program points and call parameters.
 
-COMPARE_FILE and PRINT_FILE require the explicit files service. Both backends
-expose `read_named(name)` returning `(status, detached_bytes_or_None)`. The
+COMPARE_FILE and PRINT_FILE read closed inputs from the configured ordinary
+files service or plain FilePipes. The comparison report uses the configured
+ordinary files service. The backends expose `read_named(name)` returning
+`(status, detached_bytes_or_None)`. The
 report's `file_comparison_policy` covers ASCII records, binary offsets, bounded
 JSON reports and synchronous WRITE callbacks. See
 [file comparison and printing](file-comparison.md) for the complete contract.

@@ -1,7 +1,8 @@
 # Offline file comparison and printing
 
-Version 0.89.0 adds COMPARE_FILE and PRINT_FILE to explicit MemoryFiles and
-DirectoryFiles contexts. Inputs are named, closed files. The source forms are:
+Since version 0.89.0, COMPARE_FILE and PRINT_FILE have supported named, closed
+files in explicit MemoryFiles and DirectoryFiles contexts. They now also accept
+plain `PIP:` snapshots. The source forms are:
 
 ```karel
 COMPARE_FILE(filea,fileb,result_file,ascii_flag,diff_count,status)
@@ -10,9 +11,16 @@ PRINT_FILE(file_spec,nowait,status)
 
 Names are STRING inputs, flags are BOOLEAN inputs, result_file is an already
 open writable FILE, and diff_count/status are writable INTEGER outputs. The
-result handle must belong to the same backend that supplies the input names.
+result handle belongs to the configured ordinary files backend. Each comparison
+input is resolved separately, so an ordinary file and a plain pipe can be
+compared in the same call.
 The handle is captured as a value: assigning another FILE variable to it shares
 its cursor and contents. The call does not replace either FILE variable.
+
+A plain PIP input must be configured with no record size or form dictionary.
+It supplies the retained bytes of the closed pipe. PRINT_FILE can print such a
+pipe with only the FilePipes service configured. DAQ PIP names remain reserved
+for acquisition operations.
 
 ## Comparing files
 
@@ -104,16 +112,17 @@ Routine output-effect reporting includes direct and transitive PRINT_FILE calls.
 | --- | --- |
 | 0 | Success |
 | 1 | Missing input file |
+| 2 | Input is a record or form pipe |
 | 3 | Input is open through the selected backend |
 
-Missing/busy inputs write status only, retaining the comparison count and
-report. The result FILE is validated before input access. Invalid paths,
+A missing, busy or structured input updates only the status and retains the
+comparison count and report. The result FILE is validated before input access. Invalid paths,
 unsupported ASCII, invalid context, report overflow and host I/O failures raise
 source-located runtime errors. Output references must be disjoint and writable;
 FOR counters remain protected through routines and condition actions. Arguments
 and selectors are captured once in source order.
 
-Both backends expose read_named(name), returning (status, detached_bytes) on
+The backends expose read_named(name), returning (status, detached_bytes) on
 success or (status, None) on a missing/busy file. DirectoryFiles reads current
 disk contents rather than previously cached bytes, using its explicit root,
 device mapping, traversal restrictions and per-file limit. Named reads do not
