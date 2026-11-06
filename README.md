@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.231719**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.233654**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -766,8 +766,9 @@ PATH helpers include portable NODE_SIZE and supplied view-line/plane intersectio
 with staged append behavior; see [PATH geometry](docs/path-geometry.md).
 Five XML input calls provide registered-tag scanning, chunked text and attributes,
 and checked structure updates over explicit FILE backends. Dotted attributes can
-update individual JOINTPOS axes, including inside arrays. A `{uri}local` tag
-registration enables matching by namespace URI. See
+update individual JOINTPOS axes, including inside arrays. XML_SETVAR charges
+for the full target record before staging. A `{uri}local` tag registration
+enables matching by namespace URI. See
 [XML input](docs/xml-input.md). GET_PORT_ATR/SET_PORT_ATR use a separate persisted
 offline serial-attribute bank; see [serial attributes](docs/serial-attributes.md).
 Six device/storage calls share explicit virtual DeviceFiles volumes, including
@@ -926,9 +927,10 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 Registers, ports and program globals share an explicit context with typed JSON
 save/load. FILE operations can use memory or a caller-selected directory. Typed
 PATH and QUEUE_TYPE collections work offline. APPEND_NODE and INSERT_NODE can
-take complete node values. `COPY_PATH` charges for the header
-and selected nodes, then validates the copy before replacing the destination.
-A final `TRUE` argument enables conversion between compatible PATH schemas.
+take complete node values, with a final `TRUE` argument to convert compatible
+NODEDATA layouts. `COPY_PATH` validates and charges the header and selected
+nodes before replacing the destination. Its final `TRUE` argument also enables
+conversion between compatible PATH schemas.
 Queue operations stage backing-array writes and outputs
 before publication. PATH declarations accept PATHHEADER
 and its PATHDATA compatibility spelling. Predefined DISP_DAT_T and portable

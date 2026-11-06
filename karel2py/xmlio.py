@@ -206,6 +206,9 @@ def set_variables(context,state,session,args,line=None):
     try: target=context.resolve(state,runtime.ascii_string(args[1],line),runtime.ascii_string(args[2],line),line,path_nodes=True)
     except runtime.KarelRuntimeError: status.set(1,line);return
     if target.spec[0] not in runtime.RECORD_TYPES or type(target) is not runtime.Reference: status.set(2,line);return
+    try: cost=runtime._validate_data_schema(target.spec,line)
+    except runtime.KarelRuntimeError: status.set(2,line);return
+    for _ in range(cost):state.tick(line)
     if runtime._reference_cells(target)&runtime._reference_cells(status):
         raise runtime.KarelRuntimeError('XML_SETVAR target overlaps status output',line)
     # Stage the complete value so a late path/domain/protection failure cannot

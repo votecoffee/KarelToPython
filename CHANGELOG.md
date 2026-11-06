@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.233654 - 2026-11-06
+
+- Add an explicit conversion flag to seeded APPEND_NODE and INSERT_NODE.
+  Compatible record fields convert to the destination NODEDATA schema before
+  insertion.
+- Charge XML_SETVAR for the complete target schema before staging or checking
+  overlapping outputs. Budget exhaustion preserves the record and status.
+
 ## 26.1106.231719 - 2026-11-06
 
 - Accept complete JOINTPOS inputs that fit all configured axes in Pythonic

@@ -256,7 +256,9 @@ def signature_for(name,arity):
     """Match explicit source arguments, including omitted group/reference slots."""
     signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
     if name in OPTIONAL_REFERENCE and arity==len(signature)-1: return signature[:-1]
-    if name in OPTIONAL_PATH_NODE and arity==len(signature)-1: return (*signature[:-2],signature[-1])
+    if name in OPTIONAL_PATH_NODE:
+        if arity==len(signature)-1:return (*signature[:-2],signature[-1])
+        if arity==len(signature)+1:return (*signature,B)
     if name in OPTIONAL_GROUP and arity==len(signature)-1:
         index=OPTIONAL_GROUP[name]; return signature[:index]+signature[index+1:]
     return signature
@@ -1448,18 +1450,25 @@ class PathValue:
         index=runtime().integer(index,line)
         if not 1<=index<=len(self.nodes): fail('PATH node index out of range',line)
         return self.nodes[index-1]
-    def append(self,index=None,line=None,*,seed=None,check=None):
+    def append(self,index=None,line=None,*,seed=None,convert=None,check=None):
+        """Insert a node after seed validation and any requested layout conversion."""
+        rt=runtime();target=self.node_spec
+        changing=convert is not None and type(seed) is rt.Structure and seed.spec!=target
+        if changing and (not convert or rt.record_schema_kind(target,seed.spec)!='structure'):return 3
         if len(self.nodes)>=32767: fail('PATH node limit exceeded',line)
-        index=len(self.nodes)+1 if index is None else runtime().integer(index,line)
+        index=len(self.nodes)+1 if index is None else rt.integer(index,line)
         if not 1<=index<=len(self.nodes)+1: return 2
-        rt=runtime()
         if seed is None:
-            node=rt.Structure(self.node_spec)
+            node=rt.Structure(target)
         else:
             if check is not None:
-                for _ in range(rt._validate_data_schema(self.node_spec,line)):
-                    check()
-            node=rt._aggregate_value(self.node_spec,seed,line,allow_partial=False)
+                cost=rt._validate_data_schema(target,line)
+                if changing:cost+=rt._validate_data_schema(seed.spec,line)
+                for _ in range(cost):check()
+            if changing:
+                source=rt._aggregate_value(seed.spec,seed,line,allow_partial=False)
+                seed=rt.convert_record_schema(target,source,line)
+            node=rt._aggregate_value(target,seed,line,allow_partial=False)
         self.nodes.insert(index-1,node); return 0
     def clone(self): return deepcopy(self)
 
@@ -2813,11 +2822,13 @@ class ExecutionContext:
             if name=='NODE_SIZE': return rt.integer(path_node_size(path.node_spec,line),line)
             if name in OPTIONAL_PATH_NODE:
                 index=args[1] if name=='INSERT_NODE' else None
-                if len(args)==len(PROCEDURES[name]):
+                arity=len(PROCEDURES[name])
+                convert=rt.boolean(args.pop(),line) if len(args)>arity else None
+                if len(args)==arity:
                     seed=args[-2]
-                    if type(seed) is not rt.Structure or seed.spec!=path.node_spec:
+                    if type(seed) is not rt.Structure or (convert is None and seed.spec!=path.node_spec):
                         fail('PATH node input must match the declared NODEDATA',line)
-                    code=path.append(index,line,seed=seed,check=lambda:state.tick(line))
+                    code=path.append(index,line,seed=seed,convert=convert,check=lambda:state.tick(line))
                 else:
                     code=path.append(index,line)
             else:

@@ -68,8 +68,9 @@ alignment or binary ABI claims.
 
 ## Append or insert a complete node
 
-Pythonic APPEND_NODE and INSERT_NODE accept a node value before the status
-argument. It must match the PATH's exact declared NODEDATA type.
+Pythonic APPEND_NODE and INSERT_NODE accept a complete node value before the
+status argument. The ordinary seeded forms require the exact declared NODEDATA
+type.
 
 ```karel
 seed.value=17
@@ -78,11 +79,22 @@ seed.value=23
 INSERT_NODE(track,1,seed,status)
 ```
 
-Each operation captures a complete independent node before the status selector
-runs. It charges the execution budget for its scalar leaves before inserting
-the node. Invalid input or an exhausted budget preserves the PATH and status.
-An out-of-range insert returns status 2. The original forms without a node
-value still allocate a node with uninitialized data.
+An optional final BOOLEAN enables conversion from a compatible structure.
+
+```karel
+APPEND_NODE(track,external_seed,status,TRUE)
+INSERT_NODE(track,1,external_seed,status,TRUE)
+```
+
+The layouts must have matching field names and compatible types under the
+[context-free record conversion rules](record-schema-conversions.md).
+Conversion charges the scalar leaves of both layouts when they differ.
+An incompatible layout, or an explicit FALSE with a different layout, returns
+status 3. An out-of-range insert with a valid seed schema returns status 2.
+
+The seed is captured independently before the status selector and conversion flag
+are evaluated. Data and budget errors preserve the PATH and prior status. The
+original unseeded forms allocate a node with uninitialized data.
 
 ## Copy between compatible layouts
 

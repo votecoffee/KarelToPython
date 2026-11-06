@@ -51,7 +51,9 @@ Invalid paths, types, duplicates, domains or protected fields return XML_INVALID
 (2). A STRING capacity failure returns XML_CAPACITY (3). Success returns zero.
 These are package status conventions. Execution-budget exhaustion propagates as
 an execution error, preserving the target and prior status rather than returning
-an XML status. Each attribute consumes an execution step before staging its path.
+an XML status. Staging charges one step per declared scalar leaf before checking
+overlap or copying the target. Each attribute costs an additional step before
+staging its path.
 
 Existing document, schema, attribute-count, path-length and parser limits apply.
 XML scanning, text continuation, reopen/pause behavior and the exclusion of live

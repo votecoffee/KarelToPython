@@ -3039,7 +3039,10 @@ class Emitter:
         signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
         minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST or expr.value in ex.OPTIONAL_GROUP or expr.value in ex.OPTIONAL_PATH_NODE)
         default_masks=self.mode=='pythonic' and expr.value in ('CURPOS','CURJPOS') and not expr.args
-        if not default_masks and not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
+        node_flag=self.mode=='pythonic' and expr.value in ex.OPTIONAL_PATH_NODE
+        maximum=len(signature)+node_flag
+        explicit_node_flag=node_flag and len(expr.args)==maximum
+        if not default_masks and not minimum<=len(expr.args)<=maximum: self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{maximum} arguments',expr.token)
         signature=ex.signature_for(expr.value,len(expr.args))
         self.check_for_call(expr.token)
         if ex.variable_write_call(expr.value,expr.args) and self.named_active_counters(): self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
@@ -3092,7 +3095,7 @@ class Emitter:
             if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
             if index==0 and expr.value in ex.OPTIONAL_PATH_NODE:
                 path_node_spec=spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
-            if kind=='PATH_NODE' and spec!=path_node_spec:
+            if kind=='PATH_NODE' and spec!=path_node_spec and not explicit_node_flag:
                 self.error('E_TYPE',f'{expr.value} node input must match the declared NODEDATA',value.token)
             codes.append(code)
         self.features.add(expr.value); self.features.add('extended services')
@@ -5491,7 +5494,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit ExecutionContext with bounded banks, typed JSON persistence and attached program namespaces; optional caller-rooted DirectoryFiles and configured DH model',
         values='Checked exact output references, disjoint resources, ordered input/selector capture; prior completed effects retained on error',
         files='MemoryFiles or explicit DirectoryFiles root; ASCII text, ATR_FIELD capacity-sized STRING reads, byte-accurate EOL cursors, ATR_UF binary, selectable byte order and interactive flush; bounded copy/delete/rename/list',
-        collections='Typed one-based PATH nodes and header, full or reversed inclusive range copies, and initialized fixed-capacity FIFO queues. APPEND_NODE and INSERT_NODE accept a complete exact NODEDATA seed. COPY_PATH optionally converts context-free compatible node/header schemas. Seeded edits and copies charge for data before publication.',
+        collections='Typed one-based PATH nodes and header, full or reversed inclusive range copies, and initialized fixed-capacity FIFO queues. APPEND_NODE and INSERT_NODE accept a complete seed with an optional flag for compatible NODEDATA conversion. COPY_PATH optionally converts context-free compatible node/header schemas. Seeded edits and copies charge for data before publication.',
         queue_copy='COPY_QUEUE stages backing slots and selected view entries, charges each to the step budget, then binds and publishes. Exceptions during preparation preserve arrays, count, status and the existing binding.',
         queue_mutation='APPEND_QUEUE, INSERT_QUEUE, MODIFY_QUEUE, DELETE_QUEUE and GET_QUEUE stage the FIFO update, backing array and outputs. Each backing slot costs a step before publication.',
         robot='JOINT2POS/POS2JOINT/IN_RANGE/CHECK_EPOS use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; JOINT2POS accepts writable POSITION, XYZWPR or XYZWPREXT; bounded numerical IK is not certified reachability',
@@ -5505,7 +5508,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         events='Registered tags only, first matching registration wins; full case-sensitive or folded names/prefixes; self-closing tags report XML_END with attributes, ordinary END has no attributes; status XML_FUNCTION for delivery, zero for EOF, XML_SCANLIM after 50 skipped physical lines',
         namespaces='A registered {uri}local selector before the first SCAN opts the FILE into expanded tag and attribute names. Compare the URI exactly and apply the count/case flags to the local name. XML_SETVAR accepts ordinary attribute field paths only.',
         data='Complete attribute capacities required, unused array elements retained; text read in concrete destination-sized chunks, textdone signals exhaustion, subsequent scans return XML_TXCONT when a previously read event has more text',
-        writes='XML_SETVAR stages explicit/attached records, resolves case-insensitive dotted record fields, complete one-based ARRAY indices and a final JOINTPOS axis, and checks scalar leaves before atomic publication; duplicate canonical leaves, unknown paths, readonly fields and CONFIG turn overflow reject; unmentioned data and indirect FOR guards retained',
+        writes='XML_SETVAR stages explicit/attached records, resolves case-insensitive dotted record fields, complete one-based ARRAY indices and a final JOINTPOS axis, and checks scalar leaves before atomic publication. Charge staging for all declared leaves plus each attribute. Duplicate leaves, invalid paths and protected fields reject; unmentioned data and indirect FOR guards retained',
         lifecycle='Pause retains scanner; CLOSE/reopen releases registrations and pending data; no ordinary READ or seek on XML FILE; changed backend bytes reject; live parser state is excluded from context JSON',
         status='Portable XML constants; registration/data/SETVAR zero success, SCAN zero EOF; XML_STATE=1, XML_INVALID=2, XML_CAPACITY=3, XML_PARSE=4, XML_LIMIT=5; parse failures publish XML_ERROR identifier; capacity failures preserve outputs/cursor for retry',
         boundary='No XML writing, native parser/status equivalence, DTD/entity processing, Unicode, XML schema interpretation, asynchronous streaming or suspended parser checkpoints; strict remains future work',

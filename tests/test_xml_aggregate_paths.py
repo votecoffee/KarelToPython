@@ -127,6 +127,14 @@ class XMLAggregatePathTests(unittest.TestCase):
                 if p.snapshot()['S']==77:found=True
         self.assertTrue(found)
 
+    def test_single_attribute_charges_the_complete_target_schema(self):
+        prefix='TYPE item_t=STRUCTURE count:INTEGER stock:ARRAY[512] OF INTEGER ENDSTRUCTURE'
+        body=OPEN+ADD+SCAN+'item.count=5 item.stock[1]=23 s=77 '+CALL
+        p,_=compile_program(body,prefix=prefix,decl=DECL,context=context('<item count="7"/>'))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=64)
+        state=p.snapshot()
+        self.assertEqual((state['ITEM']['COUNT'],state['ITEM']['STOCK'][0],state['S']),(5,23,77))
+
     def test_nested_status_output_overlap_fails_before_update(self):
         p=program('<item child.count="7"/>',"item.child.count=99 XML_SETVAR(f,'','item',item.child.count)")
         with self.assertRaisesRegex(rt.KarelRuntimeError,'overlap'):p.run()

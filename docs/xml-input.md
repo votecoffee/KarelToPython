@@ -98,8 +98,10 @@ Expanded attribute names are outside the KAREL variable-path syntax and reject
 the update under the same rule.
 Complete one-based ARRAY indices follow each declared rank. BYTE/SHORT retain
 their ordinary domains and SHORT sentinel. A checked independent target is staged
-before publication, preserving existing nested storage identities on success. Unmentioned fields retain their values,
-including uninitialized markers. No variables or types are created implicitly.
+before publication, preserving existing nested storage identities on success.
+Staging charges the execution budget for every declared scalar leaf and each
+attribute. Unmentioned fields retain their values, including uninitialized
+markers. No variables or types are created implicitly.
 
 The call needs an attribute-bearing start or self-closing event; an ordinary end
 event is not eligible. Output overlap checks include the target and status cell.

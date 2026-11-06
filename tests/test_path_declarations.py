@@ -72,6 +72,35 @@ class SeededPathNodeTests(unittest.TestCase):
         self.assertEqual((program.snapshot()['TRACK']['nodes'],program.snapshot()['S']),([],99))
 
 
+    def test_conversion_flag_uses_captured_seed_and_status_selector_order(self):
+        types=TYPES+' other_t=STRUCTURE value:REAL ENDSTRUCTURE'
+        decl=DECL+' seed:other_t codes:ARRAY[1] OF INTEGER order:INTEGER'
+        routines=('ROUTINE slot:INTEGER BEGIN order=order*10+1 seed.value=99 RETURN 1 END slot '
+                  'ROUTINE allow:BOOLEAN BEGIN order=order*10+2 RETURN TRUE END allow')
+        state=run('order=0 seed.value=17.75 APPEND_NODE(track,seed,codes[slot()],allow()) '
+                  'seed.value=-23.75 INSERT_NODE(track,1,seed,s,TRUE)',
+                  types=types,decl=decl,routines=routines)
+        self.assertEqual(state['TRACK']['nodes'],[{'VALUE':-23},{'VALUE':17}])
+        self.assertEqual((state['ORDER'],state['CODES'],state['S']),(12,[0],0))
+
+    def test_disabled_conversion_and_incompatible_schemas_return_status_three(self):
+        for field,flag in (('value','FALSE'),('other','TRUE')):
+            with self.subTest(field=field,flag=flag):
+                types=TYPES+f' other_t=STRUCTURE {field}:REAL ENDSTRUCTURE'
+                state=run(f'seed.{field}=17 APPEND_NODE(track,seed,s,{flag})',
+                          types=types,decl=DECL+' seed:other_t')
+                self.assertEqual((state['TRACK']['nodes'],state['S']),([],3))
+
+    def test_converted_seed_requires_complete_data_and_charges_both_layouts(self):
+        types=TYPES+' other_t=STRUCTURE value:REAL ENDSTRUCTURE'
+        call='s=99 APPEND_NODE(track,seed,s,TRUE)'
+        for body,budget,error in ((call,100,'uninitialized'),('seed.value=17 '+call,4,'step budget')):
+            with self.subTest(error=error):
+                p,_=compile_program(body,types=types,decl=DECL+' seed:other_t')
+                with self.assertRaisesRegex(rt.KarelRuntimeError,error):p.run(max_steps=budget)
+                self.assertEqual((p.snapshot()['TRACK']['nodes'],p.snapshot()['S']),([],99))
+
+
 class PathClauseSyntaxTests(unittest.TestCase):
     def test_header_spellings_and_clause_orders_share_schema_and_storage(self):
         forms=('NODEDATA=node_t,PATHHEADER=header_t','PATHHEADER=header_t,NODEDATA=node_t',
