@@ -171,6 +171,8 @@ components with complete-batch pose validation and bounded rounding normalizatio
 - Dynamically resized/ragged arrays, unknown runtime wildcard dimensions, ranks
   above three and aggregates exceeding the 32767-leaf prototype bound. Global
   wildcard declarations require translation-time shapes; no native VR auto-discovery.
+  [ARRAY_LEN](array-result-shapes.md#array_len) queries a concrete dimension, using
+  the first by default or a supplied one-based index.
   [Explicit saved JSON schemas](array-context.md) now supply dimensions through
   API/CLI opt-in, with exact source types and separate execution-state loading.
   Linked projects now route common or [program-qualified shapes](project-array-shapes.md)
@@ -470,6 +472,8 @@ queue-entry policies; FILE banks remain excluded.
 - Native reflection/Euler singularity/configuration/default conventions and all
   robot-specific type conversions. MIRROR, framed conversions, range checks and
   CHECK_EPOS are implemented under documented portable conventions.
+  [UNPOS](pose-decomposition.md) can extract all three supplied external-axis
+  fields through explicit Pythonic output arguments.
 
 ## Option-specific systems and application milestones
 

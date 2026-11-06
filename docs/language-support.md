@@ -268,7 +268,7 @@ internally and in the historical semantic notes.
 | Kinematic assignment | Whole JOINTPOS to/from POSITION/XYZWPR/XYZWPREXT assignments and [source routine conversions](kinematic-interfaces.md) using supplied robot adapters/models | Selected frame/tool and root group; inverse needs current joints as seed; same-kind source widths use checked zero-padding/zero-only narrowing; [positional ARRAYs](positional-arrays.md) use context-free changes and [model-backed arrays](kinematic-arrays.md) and [nested record conversions](kinematic-records.md) require explicit models and stage complete receiver data; [named/component source conversions](named-array-conversions.md) preserve schemas; BYNAME and declared linkage remain exact. |
 | Joint data | JOINTPOS1..9, [checked Pythonic axis subscripts](joint-axis-access.md), exact-width copies, restricted explicit-context REAL-array conversions | One-based finite REAL cells, declared schemas and captured aliases; partial axes allowed. No direct joint fields or implicit group/unit discovery. RobotContext supplies explicit kinematics. |
 | VECTOR | VEC construction, arithmetic, cross/dot products, equality, routine values and translation-frame equivalents | Complete finite components. [Pose:VECTOR points](vector-frames.md), [VECTOR translation offsets](vector-translation-frames.md), INV negation and FRAME points with a pose origin or explicit CONFIG. |
-| Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, UNPOS pose-value and model-backed joint extraction | Bounded width/precision, caller capacities and disjoint outputs; source snapshots and chosen Pythonic formatting/pose conventions. |
+| Conversion | Python INTEGER/REAL text parsing, signed bases 2..16, rounded fixed/scientific REAL output, UNPOS pose-value and model-backed joint extraction with optional external-axis outputs | Bounded width/precision, caller capacities and disjoint outputs; source snapshots and chosen Pythonic formatting/pose conventions. |
 | CONFIG text | CNV_STR_CONF, CNV_CONF_STR and CNV_CNF_STRG with complete checked CONFIG data and portable flag/turn text | CNV_CNF_STRG uses explicit persisted per-group profiles; missing group status 1 preserves text. No native mask discovery or error mapping. |
 | Time text | CNV_STR_TIME and CNV_TIME_STR on supplied packed date/time values | Gregorian 1980..2107, fixed English text, two-second precision and signed bit patterns; complete STRING capacity required; no clock/timezone access or native equivalence. |
 | Microsecond timers | GET_USEC_TIM host monotonic sampling and GET_USEC_SUB elapsed subtraction, with optional clock injection | Portable two-minute ring, one clock and intervals shorter than two minutes; no native encoding/tick precision or calendar clock access. |
@@ -394,7 +394,8 @@ such as `build()[1]` or `(build)[1]`.
 
 Bare calls use the same type, ownership, argument-order, effect, FOR, recursion
 and cleanup rules as explicit calls. ARRAY results support grouping, compatible
-user-routine arguments, direct RETURN forwarding and ARRAY_LEN returning the first dimension.
+user-routine arguments, direct RETURN forwarding and ARRAY_LEN querying the first
+or an explicit one-based dimension.
 See the [ARRAY values guide](pythonic-arrays.md), the authored
 [bare-call example](../examples/bare_function_calls.kl) and
 [function-call contract](semantics/function_call_semantics.json).
@@ -467,7 +468,7 @@ Failure leaves the destination intact while retaining earlier independent effect
 
 Use a bare zero-argument function name or an explicit call. Results compose in
 grouping, compatible user-routine arguments, direct RETURN forwarding and
-ARRAY_LEN returning the first dimension. Explicit calls or groups support returned aggregate
+ARRAY_LEN querying the first or an explicit one-based dimension. Explicit calls or groups support returned aggregate
 subscripts and fields. Destination type and length must
 match under the generic copy contract. Separate [numeric ARRAY conversions](numeric-arrays.md)
 add checked integral narrowing and REAL promotion; resizing and nominal identity

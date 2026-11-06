@@ -2860,12 +2860,17 @@ class Emitter:
                 self.error('E_TYPE', 'ABS requires INTEGER or REAL', expr.token)
             codes = [code]
         elif expr.value == 'ARRAY_LEN':
-            if len(expr.args) != 1: self.error('E_ARGUMENTS', 'ARRAY_LEN requires exactly one argument', expr.token)
+            has_dimension=self.mode=='pythonic' and len(expr.args)==2
+            if len(expr.args)!=1 and not has_dimension:
+                message='ARRAY_LEN requires an ARRAY and optional dimension' if self.mode=='pythonic' else 'ARRAY_LEN requires exactly one argument'
+                self.error('E_ARGUMENTS',message,expr.token)
             code, spec = self.expression(expr.args[0])
             if spec[0] != 'ARRAY': self.error('E_TYPE', 'ARRAY_LEN requires ARRAY', expr.token)
             if self.mode == 'strict' and len(rt.array_dimensions(spec)) != 1:
                 self.error('E_ARRAY_LEN', 'ARRAY_LEN on multidimensional arrays needs dimension-count semantics; use explicit dimensions', expr.token)
             result_type, codes = ('INTEGER',), [code]
+            if has_dimension:
+                codes.append(self.require_type(expr.args[1],'INTEGER'))
         elif expr.value in rt.POSITION_AXIS_FUNCTIONS:
             if len(expr.args) != 1: self.error('E_ARGUMENTS', f'{expr.value} requires one pose', expr.token)
             code, axis_spec = self.expression(expr.args[0])
@@ -3153,9 +3158,12 @@ class Emitter:
         return expr.kind == 'call' and expr.value in self.routines or any(self.has_routine_call(x) for x in expr.args)
 
     def unpos_procedure(self, expr):
+        if self.mode=='pythonic':
+            if len(expr.args) not in (8,11):
+                self.error('E_ARGUMENTS','UNPOS requires a pose, six REAL outputs, CONFIG and optionally three REAL axis outputs',expr.token)
+            return self.unpos_value_procedure(expr)
         if len(expr.args) != 8:
             self.error('E_ARGUMENTS', 'UNPOS requires XYZWPR input, six REAL outputs and one CONFIG output', expr.token)
-        if self.mode=='pythonic': return self.unpos_value_procedure(expr)
         if self.mode == 'strict' and any(self.has_routine_call(argument) for argument in expr.args):
             self.error('E_EVALUATION_ORDER', 'UNPOS arguments containing routine calls need order validation', expr.token)
         self.check_for_call(expr.token)
@@ -3189,9 +3197,14 @@ class Emitter:
             self.error('E_TYPE','UNPOS input requires a pose value or model-backed JOINTPOS',expr.args[0].token)
         normalized=('XYZWPREXT',) if spec[0]=='JOINTPOS' else spec
         if spec[0]=='JOINTPOS': source=self.geometry_operand(source,spec,expr.args[0].token,'UNPOS')
-        source=f'_rt.unpos_source({source},{normalized!r},{expr.token.line})'
+        with_axes=len(expr.args)==11
+        axes_option=',with_axes=True' if with_axes else ''
+        source=f'_rt.unpos_source({source},{normalized!r},{expr.token.line}{axes_option})'
+        expected=[('REAL',)]*6+[('CONFIG',)]
+        if with_axes:
+            expected.extend([('REAL',)]*3)
         outputs=[]
-        for argument,required in zip(expr.args[1:],[*(('REAL',) for _ in range(6)),('CONFIG',)]):
+        for argument,required in zip(expr.args[1:],expected):
             if argument.kind not in ('name','index','field') or self.root_name(argument) in self.visible_constants():
                 self.error('E_UNPOS_ARGUMENT','UNPOS outputs require writable variable/field/element references',argument.token)
             if self.protection_root(argument) in self.active_counters:
@@ -3205,9 +3218,9 @@ class Emitter:
             outputs.append(reference)
         self.features.update(('UNPOS','multiple outputs by reference','pose value extraction'))
         self.unpos_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
-            line=expr.token.line,column=expr.token.column,output_parameters=list(range(2,9)),
-            source_type=spec,source_kind=expr.args[0].kind,source_snapshot=True,
-            overlap='Seven outputs checked disjoint at runtime; captured source may also be output storage'))
+            line=expr.token.line,column=expr.token.column,output_parameters=list(range(2,len(expr.args)+1)),
+            source_type=spec,source_kind=expr.args[0].kind,source_snapshot=True,external_axis_outputs=with_axes,
+            overlap='Outputs checked disjoint at runtime; captured source may also be output storage'))
         return f'_rt.unpos_value({source}, [{", ".join(outputs)}], line={expr.token.line})'
 
     def routine_call(self, expr):
@@ -6315,10 +6328,10 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['unpos_policy'].update(
         input='XYZWPR, POSITION and XYZWPREXT values, groups, constructors and typed routine/service results; JOINTPOS through explicit forward-model context',
         capture='Snapshot, validate and normalize the complete source once before evaluating output selectors; preserve source effects on failure; invalid source skips selectors and all outputs',
-        representations='XYZWPR/XYZWPREXT preserve six supplied components and CONFIG; validate but omit external axes; POSITION uses the existing proper-matrix and canonical Euler policy',
-        overlap='Seven exact writable outputs must be pairwise disjoint; source/output aliasing is allowed through the independent source snapshot',
+        representations='XYZWPR/XYZWPREXT preserve six supplied components and CONFIG; POSITION uses the proper-matrix and canonical Euler policy; optional EXT1/EXT2/EXT3 outputs use supplied axes or zero for plain poses',
+        overlap='Seven or ten exact writable outputs must be pairwise disjoint; source/output aliasing is allowed through the independent source snapshot',
         kinematics='Joint operands use JOINT_GEOMETRY records, root task group, selected frame/tool and explicit forward model; no current-joint seed required for supplied joints',
-        boundary='No inferred robot context, robot-specific CONFIG validity, external-axis outputs, native error/write-order/status/alarm mapping or controller acceptance; strict retains its storage-only guards',
+        boundary='No inferred robot context, robot-specific CONFIG validity, native error/write-order/status/alarm mapping or controller acceptance; strict retains its storage-only guards',
         guide='docs/pose-decomposition.md')
     report['conversion_policy'].update(
         parse='Python int(text, 10); invalid numeric text clears output; checked INTEGER storage',
@@ -6390,9 +6403,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Bare function names used directly as receiver roots remain storage; use an explicit call or group; chained ARRAY subscripts remain blocked',
         controller_validated=False)
     report['bare_function_policy']['arrays'] = 'ARRAY values compose in compatible value contexts, grouping, RETURN and ARRAY_LEN returning the first dimension; explicit calls or grouping allow aggregate access'
-    report['array_length_policy'] = dict(result='First concrete dimension, like Python len; flat matrices and named nested arrays supported',
-                                       evaluation='Evaluate the array once; no scalar-leaf initialization required',
-                                       boundary='No total-element count, dimension argument, reshape or flattening', controller_validated=False)
+    report['array_length_policy'] = dict(result='First concrete dimension by default; optional one-based dimension across flat and named components',
+                                       evaluation='Evaluate the array and optional INTEGER dimension once, left to right; no scalar-leaf initialization required',
+                                       boundary='No total-element count, reshape, flattening or native dimension-overload claim', controller_validated=False)
     report['array_routine_policy']['boundary'] = 'No unspecified STRING result-element capacities, anonymous nested ARRAY components, representation/identity erasure, external routines or native ABI/runtime claim'
     report['narrow_integer_policy'].update(
         storage='Pythonic globals, fresh locals, aliases, scalar formals/results, ARRAY elements and STRUCTURE fields',

@@ -177,6 +177,36 @@ class ResultCompositionTests(unittest.TestCase):
 
 
 class ArrayLengthTests(unittest.TestCase):
+    def test_explicit_dimension_counts_flat_named_and_selected_shapes(self):
+        state=execute('x=ARRAY_LEN(cube,3) y=ARRAY_LEN(cube[1],2) n=ARRAY_LEN(flat[1],2)',
+                      routines='',types='TYPE plane_t=ARRAY[3,4] OF INTEGER',
+                      declarations='cube: ARRAY[2] OF plane_t flat: ARRAY[2,3,5] OF INTEGER')
+        self.assertEqual((state['X'],state['Y'],state['N']),(4,4,5))
+
+    def test_explicit_dimension_and_array_result_each_evaluate_once_in_order(self):
+        routines=factory('ARRAY[*,*] OF INTEGER','ARRAY[2,3] OF INTEGER',MATRIX_FILL)
+        routines+='\nROUTINE dimension: INTEGER BEGIN n=n*10+2 RETURN 2 END dimension'
+        state=execute('x=ARRAY_LEN(build(),dimension())',routines=routines)
+        self.assertEqual((state['X'],state['N']),(3,12))
+
+    def test_explicit_dimension_uses_concrete_formal_shape(self):
+        routines='ROUTINE use(p: ARRAY[*,*] OF INTEGER; axis: SHORT) BEGIN x=ARRAY_LEN(p,axis) END use'
+        state=execute('dimension=2 use(grid,dimension)',routines=routines,
+                      declarations='grid: ARRAY[*,*] OF INTEGER dimension: SHORT',shapes={'GRID':[4,2]})
+        self.assertEqual(state['X'],2)
+
+    def test_dimension_errors_leave_destination_unchanged(self):
+        for dimension in (0,-1,3):
+            with self.subTest(dimension=dimension):
+                program,_=compile_program(f'x=9 x=ARRAY_LEN(grid,{dimension})',routines='',
+                                          declarations='grid: ARRAY[2,3] OF INTEGER')
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'outside 1..2'):
+                    program.run()
+                self.assertEqual(program.snapshot()['X'],9)
+        with self.assertRaises(TranslationError) as error:
+            compile_program('x=ARRAY_LEN(target,1.0)',routines='')
+        self.assertEqual(error.exception.code,'E_TYPE')
+
     def test_flat_matrix_first_dimension(self):
         self.assertEqual(execute('x=ARRAY_LEN(grid)',routines='',declarations='grid: ARRAY[2,3] OF INTEGER')['X'],2)
 

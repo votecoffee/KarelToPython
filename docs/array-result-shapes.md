@@ -80,14 +80,22 @@ an unsuccessful result does not replace its caller's destination.
 ## ARRAY_LEN
 
 Pythonic `ARRAY_LEN(array)` returns the first concrete dimension, like Python
-`len`. A flat `ARRAY[2,3]` returns 2, and an `ARRAY[3] OF row_t` returns 3. It does
-not return a total element count or an inner dimension. The array expression runs
-once. Reading this dimension does not require initialized scalar leaves, although
-a function must still produce a fully validated result before ARRAY_LEN consumes it.
+`len`. A flat `ARRAY[2,3]` returns 2, and an `ARRAY[3] OF row_t` returns 3.
+The Pythonic `ARRAY_LEN(array, dimension)` form selects any one-based logical
+dimension across flat or named components. For a two-dimensional array,
+`ARRAY_LEN(array, 2)` returns the column count. For a selected row or plane,
+numbering starts at its first remaining dimension. Wildcards use the actual
+concrete storage shape.
+
+The array expression runs once, followed by the optional INTEGER expression.
+An index outside the available dimensions raises a source-located runtime error.
+Reading dimensions needs no initialized scalar leaves. Array-producing functions
+still validate their returned values before the dimension expression runs.
 
 This extends the earlier rank-one-only policy. Existing one-dimensional values
 keep the same answer. The internal conservative implementation retains the older
-multidimensional rejection for the future strict milestone.
+multidimensional rejection for the future strict milestone. The optional
+dimension argument is a portable Pythonic extension.
 
 ## Reports and boundaries
 

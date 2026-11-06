@@ -585,8 +585,9 @@ describes subscripts/fields on explicit calls and groups. ARRAY formal
 `array_result_declarations` and `array_returns` record the complete result type,
 declared dimension mask and nominal identity. Named types and anonymous fixed,
 wildcard or mixed dimensions follow the [result shape contract](array-result-shapes.md).
-`array_length_policy` defines Pythonic ARRAY_LEN as the first concrete dimension;
-it also supports matrices and nested arrays without reading scalar leaves.
+`array_length_policy` defines Pythonic ARRAY_LEN as the first concrete dimension
+by default, with an optional one-based dimension across flat and named components.
+It reads the concrete shape without requiring scalar values.
 
 `type_aliases` records transparent TYPE declarations with name, immediate target,
 resolved spec and physical source location. `user_types` and `named_array_types`
@@ -723,7 +724,8 @@ propagates through calls. See [joint geometry](joint-geometry.md).
 
 Pythonic `UNPOS` accepts pose values and model-backed joint inputs, capturing
 the complete source before output selectors. `unpos_calls` includes source type,
-kind and snapshot policy; `unpos_policy` records representations and alias rules.
+kind, snapshot policy and whether external-axis outputs were requested.
+`unpos_policy` records representations and alias rules.
 Bare or zero-argument CURPOS/CURJPOS discard both masks using the existing explicit
 context; their source sites appear in `bare_function_calls` and `service_operations`.
 See [pose decomposition](pose-decomposition.md).

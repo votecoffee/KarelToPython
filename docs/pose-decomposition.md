@@ -25,12 +25,22 @@ six exact REAL references and one CONFIG reference; scalar promotion, output
 expressions, grouped output references and protected POSITION/CONFIG fields
 retain their ordinary guards.
 
+Pythonic mode also accepts three trailing REAL outputs after CONFIG:
+
+```karel
+UNPOS(extended_pose,x,y,z,w,p,r,result_cfg,axis1,axis2,axis3)
+```
+
+This extracts EXT1, EXT2 and EXT3 in order, using the supplied model's axis
+mapping for a joint input. POSITION and XYZWPR inputs supply three zeros.
+Supply all three axis destinations together.
+
 ## Representation choices
 
 | Input | Extraction |
 | --- | --- |
 | XYZWPR | Preserve its six supplied components and copy CONFIG. |
-| XYZWPREXT | Preserve its six supplied components and copy CONFIG; validate but omit external-axis fields. |
+| XYZWPREXT | Preserve its supplied components and copy CONFIG. Return the external axes if requested. |
 | POSITION | Validate its complete proper rotation matrix, convert using the existing Z-Y-X and canonical Euler policy, and copy CONFIG. |
 | JOINTPOS | Convert once to XYZWPREXT through supplied forward kinematics, then extract the Cartesian components and CONFIG. |
 
@@ -42,8 +52,8 @@ the [POSITION conversion guide](position-conversions.md) describes that policy.
 
 All source fields must be initialized, structurally exact and finite. CONFIG
 fields retain their existing Boolean and turn-number checks. Extended fields
-must also be valid even though UNPOS has no external-axis outputs. Query those
-fields directly when needed. The output CONFIG is independent of the source.
+must be valid even when the caller omits axis outputs. The output CONFIG is
+independent of the source.
 
 ## Source capture and output effects
 
@@ -53,7 +63,7 @@ right. A failed source skips every selector and output write. A later selector
 or output guard failure retains prior source/selector effects, with no partial
 UNPOS output batch.
 
-All seven outputs must have disjoint storage footprints. The captured source
+All outputs, including optional axes, must have disjoint storage footprints. The captured source
 may also supply output storage. For example, this swaps the source X/Y fields
 using the independently captured values:
 
@@ -63,8 +73,8 @@ UNPOS(pose,pose.y,pose.x,z,w,p,r,pose.config_data)
 
 Duplicate outputs, including dynamic indices that select the same cell, remain
 errors. Ordinary type, active FOR counter, CONFIG subfield and read-only POSITION
-guards apply. CONFIG writes preserve captured destination field aliases. All
-seven outputs participate in the existing direct and transitive effect analysis.
+guards apply. CONFIG writes preserve captured destination field aliases.
+Every output participates in the existing direct and transitive effect analysis.
 
 ## Current state and joint inputs
 

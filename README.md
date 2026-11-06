@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.202434**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.204143**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -610,7 +610,8 @@ Resource-free aggregate copies now preserve missing scalar fields across
 assignments, private arguments and returns. Reads and geometry still reject
 unavailable components; see [partial aggregate values](docs/partial-aggregate-values.md).
 Results also support named types and fixed or wildcard matrix/cube dimensions.
-`ARRAY_LEN` returns the first dimension, like Python `len`. See
+`ARRAY_LEN(array)` returns the first dimension, like Python `len`.
+`ARRAY_LEN(array, dimension)` selects a one-based dimension. See
 [ARRAY result shapes](docs/array-result-shapes.md).
 
 WRITE formats accept INTEGER expressions, including function calls. Quoted
@@ -1017,8 +1018,9 @@ and approximate comparisons through the supplied forward model. See
 conversion, selected context and external-axis rules.
 
 UNPOS extracts pose expressions, POSITION/XYZWPREXT values and model-backed
-joint values with source capture and checked outputs. Bare CURPOS/CURJPOS queries
-use supplied offline state. See [pose decomposition](docs/pose-decomposition.md).
+joint values with source capture and checked outputs. Three optional REAL outputs
+receive the external axes. Bare CURPOS/CURJPOS queries use supplied offline state.
+See [pose decomposition](docs/pose-decomposition.md).
 
 PULSE supports blocking and NOWAIT digital outputs with checked durations,
 explicit host polling and scheduler deadlines. Pause, terminal state and later

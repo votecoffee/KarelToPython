@@ -24,6 +24,60 @@ def call(value='pose',outputs='x,y,z,w,p,r,result_cfg'): return f'UNPOS({value},
 def components(snapshot): return [snapshot[name] for name in FIELDS]
 
 
+class ExternalAxisExtractionTests(unittest.TestCase):
+    declarations=DECL+' first,second,third: REAL'
+    outputs='x,y,z,w,p,r,result_cfg,first,second,third'
+
+    def test_pose_values_extract_axes_without_normalizing_euler_angles(self):
+        body=START+'e=pose e.w=360 e.r=720 e.ext1=7 e.ext2=-8 e.ext3=9 '+call('e',self.outputs)
+        program,result=compile_program(body,decl=self.declarations)
+        state=program.run()
+        self.assertEqual(components(state),[1.,2.,3.,360.,20.,720.])
+        self.assertEqual((state['FIRST'],state['SECOND'],state['THIRD']),(7.,-8.,9.))
+        self.assertEqual(state['RESULT_CFG'],state['CFG'])
+        info=result.report['unpos_calls'][0]
+        self.assertTrue(info['external_axis_outputs'])
+        self.assertEqual(info['output_parameters'],list(range(2,12)))
+
+    def test_plain_pose_axes_default_to_zero(self):
+        for value in ('pose','point'):
+            with self.subTest(value=value):
+                state=run(START+'point=pose '+call(value,self.outputs),decl=self.declarations)
+                self.assertEqual((state['FIRST'],state['SECOND'],state['THIRD']),(0.,0.,0.))
+                self.assertEqual(state['RESULT_CFG'],state['CFG'])
+
+    def test_model_backed_axes_follow_explicit_external_row_order(self):
+        context=rt.ExecutionContext.from_config({'robot':{
+            'dh':[{'type':'prismatic'},{'a':100},{'type':'prismatic'}],
+            'external_axis_indices':[3,1],
+            'current':{'joints':{'type':['JOINTPOS',3],'value':[12.,0.,34.]}}}})
+        state=run(call('CURJPOS',self.outputs),decl=self.declarations,context=context)
+        self.assertEqual((state['FIRST'],state['SECOND'],state['THIRD']),(34.,12.,0.))
+
+    def test_axis_selectors_run_after_source_capture(self):
+        body=START+'e=pose e.ext1=7 e.ext2=8 e.ext3=9 '+call('e','x,y,z,w,p,r,result_cfg,values[change()],e.ext3,e.ext2')
+        state=run(body,decl=self.declarations,
+                  routines='ROUTINE change: INTEGER BEGIN e.ext1=99 RETURN 1 END change')
+        self.assertEqual((state['VALUES'][0],state['E']['EXT1'],state['E']['EXT2'],state['E']['EXT3']),(7.,99.,9.,8.))
+
+    def test_overlapping_axis_destination_leaves_every_output_unchanged(self):
+        body=START+'e=pose x=99 first=77 '+call('e','x,y,z,w,p,r,result_cfg,first,second,x')
+        program,_=compile_program(body,decl=self.declarations)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'overlapping'):
+            program.run()
+        state=program.snapshot()
+        self.assertEqual((state['X'],state['FIRST']),(99.,77.))
+        self.assertEqual(state['SECOND'],{'uninitialized':True})
+        self.assertEqual(state['RESULT_CFG']['CFG_FLIP'],{'uninitialized':True})
+
+    def test_optional_axes_are_all_or_none_and_exact_writable_reals(self):
+        for suffix,code in ((',first','E_ARGUMENTS'),(',first,second','E_ARGUMENTS'),
+                            (',first,second,n','E_TYPE'),(',first,second,1.0','E_UNPOS_ARGUMENT')):
+            with self.subTest(suffix=suffix),self.assertRaises(TranslationError) as caught:
+                compile_program(call(outputs='x,y,z,w,p,r,result_cfg'+suffix),decl=self.declarations)
+            self.assertEqual(caught.exception.code,code)
+
+
 class PoseDecompositionValueTests(unittest.TestCase):
     def test_xyz_storage_keeps_supplied_angles(self):
         state=run(START+'pose.w=360 pose.r=-270 '+call(),decl=DECL)

@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.204143 - 2026-11-06
+
+- Query a selected one-based dimension with Pythonic ARRAY_LEN, including
+  flat matrices, named nested arrays and concrete wildcard shapes.
+- Extract EXT1 through EXT3 with Pythonic UNPOS in the same validated batch as
+  the six Cartesian components and CONFIG.
+
 ## 26.1106.202434 - 2026-11-06
 
 - Write JOINT2POS results directly into POSITION, XYZWPR or XYZWPREXT storage.

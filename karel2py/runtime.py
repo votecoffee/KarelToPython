@@ -1785,9 +1785,12 @@ def _reference_cells(reference,*,queue_buffers=False):
     return cells
 
 
-def unpos_source(value, expected, line=None):
+def unpos_source(value, expected, line=None, *, with_axes=False):
     """Snapshot and normalize a Pythonic pose before output selectors run."""
     value=frame_value(value,line,expected=expected)
+    if with_axes:
+        from .extended import pose_extended
+        return pose_extended(value,line)
     if value.spec==('POSITION',): return convert_position(('XYZWPR',),value,line)
     result=Structure(('XYZWPR',))
     result.values.update({name:value.values[name] for name in ('X','Y','Z','W','P','R')})
@@ -1798,30 +1801,37 @@ def unpos_source(value, expected, line=None):
 def unpos_value(source, outputs, line=None):
     """Extract an independent prepared pose with the existing output guards."""
     if not _pythonic(): raise KarelRuntimeError('UNPOS values require Pythonic mode',line)
-    source=positional_value(('XYZWPR',),source,line)
-    unpos(Reference(('XYZWPR',),{'source':source},'source'),outputs,line)
+    spec=('XYZWPREXT',) if isinstance(outputs,(list,tuple)) and len(outputs)==10 else ('XYZWPR',)
+    source=positional_value(spec,source,line)
+    unpos(Reference(spec,{'source':source},'source'),outputs,line)
 
 
 def unpos(source, outputs, line=None):
-    """Extract offline XYZWPR data; no inferred conversion or alias write order."""
-    if not isinstance(outputs, (list, tuple)) or len(outputs) != 7:
-        raise KarelRuntimeError('UNPOS requires seven output references', line)
+    """Extract checked Cartesian data without relying on alias write order."""
+    if not isinstance(outputs,(list,tuple)) or len(outputs) not in ((7,10) if _pythonic() else (7,)):
+        raise KarelRuntimeError('UNPOS has an invalid output reference count',line)
+    with_axes=len(outputs)==10
+    source_type=('XYZWPREXT',) if with_axes else ('XYZWPR',)
     references = [source, *outputs]
-    expected = [('XYZWPR',), *(('REAL',) for _ in range(6)), ('CONFIG',)]
+    expected=[source_type]+[('REAL',)]*6+[('CONFIG',)]
+    if with_axes:
+        expected.extend([('REAL',)]*3)
     for reference, spec in zip(references, expected):
         if type(reference) is not Reference or reference.spec != spec:
-            raise KarelRuntimeError('UNPOS requires ordinary exact-type writable output references and XYZWPR source', line)
+            raise KarelRuntimeError(f'UNPOS requires ordinary exact-type writable output references and {source_type[0]} source',line)
     pose = require(source.raw(), line)
-    if (not isinstance(pose, Structure) or pose.spec != ('XYZWPR',)
-            or set(pose.values) != set(dict(record_fields(('XYZWPR',))))):
-        raise KarelRuntimeError('UNPOS requires a complete XYZWPR record', line)
+    if (not isinstance(pose,Structure) or pose.spec!=source_type
+            or set(pose.values)!=set(dict(record_fields(source_type)))):
+        raise KarelRuntimeError(f'UNPOS requires a complete {source_type[0]} record',line)
     config = pose.values['CONFIG_DATA']
     if (not isinstance(config, Structure) or config.spec != ('CONFIG',)
             or set(config.values) != set(dict(record_fields(('CONFIG',))))):
         raise KarelRuntimeError('UNPOS requires a complete CONFIG record', line)
     values = [real(pose.values[name], line) for name in ('X', 'Y', 'Z', 'W', 'P', 'R')]
     values.append(checked(('CONFIG',), config, line))
-    current_config = outputs[-1].raw()
+    if with_axes:
+        values.extend(real(pose.values[name],line) for name in ('EXT1','EXT2','EXT3'))
+    current_config = outputs[6].raw()
     if (isinstance(current_config, Structure) and
             (current_config.spec != ('CONFIG',) or set(current_config.values) != set(config.values))):
         raise KarelRuntimeError('UNPOS CONFIG destination has malformed storage', line)
@@ -3009,6 +3019,8 @@ def builtin(name, arguments, line=None):
         return integer(-rounded if value < 0 else rounded, line)
     if name == 'STR_LEN': return len(ascii_string(arguments[0], line))
     if name == 'ARRAY_LEN':
+        if len(arguments) not in ((1,2) if _pythonic() else (1,)):
+            raise KarelRuntimeError('ARRAY_LEN has an invalid argument count',line)
         array = arguments[0]
         if not isinstance(array, Array): raise KarelRuntimeError('Expected ARRAY', line)
         if not _pythonic() and len(array_dimensions(array.spec)) != 1:
@@ -3016,7 +3028,15 @@ def builtin(name, arguments, line=None):
         if (type(array.shape) is not tuple or not 1 <= len(array.shape) <= 3 or array.shape != array_shape(array.spec)
                 or any(type(size) is not int or not 1 <= size <= 32767 for size in array.shape)):
             raise KarelRuntimeError('ARRAY_LEN requires a concrete valid shape', line)
-        return array.shape[0]
+        if len(arguments)==1:
+            return array.shape[0]
+        dimensions=array_dimensions(array.spec)
+        dimension=integer(arguments[1],line)
+        if not 1<=len(dimensions)<=3 or any(type(size) is not int or not 1<=size<=32767 for size in dimensions):
+            raise KarelRuntimeError('ARRAY_LEN requires concrete valid logical dimensions',line)
+        if not 1<=dimension<=len(dimensions):
+            raise KarelRuntimeError(f'ARRAY_LEN dimension {dimension} outside 1..{len(dimensions)}',line)
+        return dimensions[dimension-1]
     if name == 'UNINIT': return uninit(arguments[0],line)
     if name == 'SUB_STR':
         source = ascii_string(arguments[0], line)
