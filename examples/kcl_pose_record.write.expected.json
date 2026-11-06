@@ -1,0 +1,4 @@
+[
+  "{\"name\":\"$FIXTURE.$GAIN\",\"program\":\"SYSTEM\",\"type\":\"REAL\",\"value\":2.5}\n",
+  "{\"pool\":\"CREATE_VAR\",\"unit\":\"reservation\",\"total\":32767,\"used\":19,\"available\":32748}\n"
+]

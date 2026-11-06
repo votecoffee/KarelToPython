@@ -1,0 +1,11 @@
+{
+  "robot": {
+    "dh": [{"a": 100}, {"type": "prismatic", "min": 0, "max": 100}],
+    "external_axes": 1,
+    "current": {"joints": {"type": ["JOINTPOS", 2], "value": [0.0, 42.0]}}
+  },
+  "variables": [
+    {"program": "SYSTEM", "path": "$FIXTURE.$GAIN", "type": ["REAL"], "value": 2.5}
+  ],
+  "kcl": {"variable_commands": true}
+}

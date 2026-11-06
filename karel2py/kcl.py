@@ -40,7 +40,9 @@ def task_command(command,default=None):
     action, name = fields[:2]
     if action == 'CONT':
         action = 'CONTINUE'
-    if action not in ('RUN', 'CONTINUE', 'PAUSE', 'ABORT') or not re.fullmatch(r'[A-Z_][A-Z0-9_]*', name):
+    if action == 'HO':
+        action = 'HOLD'
+    if action not in ('RUN', 'CONTINUE', 'PAUSE', 'ABORT', 'HOLD', 'UNHOLD') or not re.fullmatch(r'[A-Z_][A-Z0-9_]*', name):
         return None
     force = len(fields) == 3
     if force and (action not in ('PAUSE', 'ABORT') or fields[2] != 'FORCE'):
@@ -123,7 +125,7 @@ def file_command(command):
 
 
 def variable_command(command):
-    from .dynamic import IDENTIFIER
+    from .dynamic import IDENTIFIER, VARIABLE_SELECTOR, VARIABLE_SUFFIX
 
     text = command
     command = command.upper()
@@ -150,7 +152,7 @@ def variable_command(command):
     clear = re.fullmatch(rf'CLEAR +VARS +({IDENTIFIER})(?: +Y(?:ES)?)?', command)
     if clear:
         return 'CLEAR_VARS', (clear[1], None)
-    suffix = rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
+    suffix = VARIABLE_SUFFIX
     frame = rf'(?: +IN +({IDENTIFIER}))?(?: +FROM +({IDENTIFIER}))?(?: +({IDENTIFIER}))?'
     set_local = re.fullmatch(rf'SET +LOCAL +VAR(?:IABLE)? +({IDENTIFIER}){frame} *= *(.+)',text,re.IGNORECASE)
     if set_local:
@@ -165,15 +167,28 @@ def variable_command(command):
     if locals_list:
         values, routine, module, task = locals_list.groups()
         return 'SHOW_LOCAL_VARS',(task or '',routine,module,values is not None)
-    assignment = re.fullmatch(rf'SET +VAR(?:IABLE)? +{selected}({suffix}) *= *(.+)', text, re.IGNORECASE)
+    assignment = re.fullmatch(rf'SET +VAR(?:IABLE)? +{VARIABLE_SELECTOR} *= *(.+)', text, re.IGNORECASE)
     if assignment:
         program, name, rest, literal = assignment.groups()
         return 'SET_VAR', ((program or '').upper(), (name+rest.replace(' ','')).upper(), literal)
+    record = re.fullmatch(rf'RECORD +{VARIABLE_SELECTOR}',command)
+    if record:
+        program, name, rest = record.groups()
+        return 'SET_VAR',(program or '',name+rest.replace(' ',''),None)
     show = re.fullmatch(rf'SHOW +VAR(?:IABLE)? +{selected}({suffix})(?: +(HEX(?:ADECIMAL)?|BINARY))?', command)
     if show:
         program, name, rest, radix = show.groups()
         return 'SHOW_VAR', (program or '', name+rest.replace(' ',''), radix)
     fields = command.split()
+    if len(fields)>=2 and fields[:2]==['SHOW','SYSTEM']:
+        options=fields[2:]
+        values=bool(options and options[-1]=='VALUES')
+        if values:options.pop()
+        if not options or len(options)==1 and options[0] in VARIABLE_FILTERS:
+            return 'SHOW_SYSTEM',('',values,options[0] if options else None)
+        return None
+    if fields==['SHOW','MEMORY']:
+        return 'SHOW_MEMORY',('',)
     if len(fields)>=2 and fields[0]=='SHOW' and fields[1] in VARIABLE_FILTERS|{'VARS','TYPES'}:
         kind=fields[1]
         options = fields[2:]
@@ -271,6 +286,8 @@ def program_command(command):
     if translate:
         return 'TRANSLATE', (translate[1], translate[2] is not None)
     fields = command.upper().split()
+    if fields == ['SHOW', 'BUILTINS']:
+        return 'SHOW_BUILTINS', ()
     if fields == ['SHOW', 'PROGRAMS']:
         return 'SHOW_PROGRAMS', ()
     if fields == ['SHOW', 'TASKS']:
@@ -560,7 +577,7 @@ class KclCommands:
         if program is None:
             return None
         target = task_root(program._state)
-        if action in ('PAUSE', 'ABORT'):
+        if action in ('PAUSE', 'ABORT', 'UNHOLD'):
             return (target,) if task_control_eligible(target, owner, action) else None
         if target is not program._state or target is task_root(state) or target._driving:
             return None
@@ -573,17 +590,27 @@ class KclCommands:
 
     def _submit_task(self,state,name,command,request,line):
         from .control import request_task_control, task_root
-        from .scheduling import TaskScheduler, drive_registered_task
+        from .scheduling import TaskScheduler, drive_registered_task, task_request_suppressed
 
         action, selector, force = request
         registry = state.execution.tasks
         owner = registry if isinstance(registry, TaskScheduler) else None
         driving = action in ('RUN', 'CONTINUE')
-        targets = self._task_targets(state, registry, owner, action, selector)
+        control = 'PAUSE' if action == 'HOLD' else action
+        targets = self._task_targets(state, registry, owner, control, selector)
         if targets is None or (name == 'KCL_NO_WAIT' and driving and owner is None):
             return self._reject_ineligible(state,name,command)
 
         def dispatch(job):
+            if action in ('HOLD','UNHOLD'):
+                bank=state.execution.require('motion',line)
+                state.execution.require('group_locks',line)
+                affected=targets
+                if action=='HOLD':
+                    affected=tuple(target for target in targets if not task_request_suppressed(target,'PAUSE','command'))
+                plan=bank.prepare_task_controls(state,affected,action,line)
+                bank.apply_task_controls(state,action,line,plan)
+                if action=='UNHOLD':return 0
             if driving:
                 cohort = [(target, target._task_run, target._lifecycle['CONTINUE']) for target in targets]
                 for target, run, continued in cohort:
@@ -596,9 +623,9 @@ class KclCommands:
                                           continuing=target.task_state == 'paused', line=line)
             else:
                 for target in targets:
-                    request_task_control(target, action, line, force=force)
+                    request_task_control(target, control, line, force=force)
                 if task_root(state) in targets:
-                    job['self_action'] = action
+                    job['self_action'] = control
             return 0
         return self._dispatch(state,name,command,dispatch)
 
@@ -660,7 +687,7 @@ class KclCommands:
         return self._dispatch(state,name,command,lambda _job:kcl_task_admin(state,operation,args,line))
 
     def _submit_variable(self,state,name,command,request,line):
-        from .dynamic import create, edit_detached_path, remove_detached, rename, set_detached_scalar
+        from .dynamic import create, edit_detached_path, remove_detached, rename, set_detached_value
 
         operation,args=request
         if self.default_program is not None and not args[0] and operation not in ('SAVE_VARS','LOAD_VARS'):
@@ -678,13 +705,17 @@ class KclCommands:
             elif operation in ('DELETE_VAR','CLEAR_VARS'):
                 code=remove_detached(state,*args,line)
             elif operation=='SET_VAR':
-                code=set_detached_scalar(state,*args,line)
+                group=self.default_group or rt().task_root(state).robot_group
+                code=set_detached_value(state,*args,group,line)
             elif operation in ('SAVE_VARS','LOAD_VARS'):
                 from .variable_archives import kcl_archive
                 code=kcl_archive(state,operation,*args,line)
             elif operation in ('SHOW_VAR','SHOW_VARS'):
                 from .inspection import kcl_variable_listing
                 code=kcl_variable_listing(state,operation,args,line)
+            elif operation in ('SHOW_SYSTEM','SHOW_MEMORY'):
+                from .inspection import kcl_storage_listing
+                code=kcl_storage_listing(state,operation,args[1:],line)
             elif operation in ('SHOW_LOCAL_VAR','SHOW_LOCAL_VARS','SET_LOCAL_VAR'):
                 from .inspection import kcl_local_operation
                 code=kcl_local_operation(state,operation,args,line)
@@ -738,6 +769,13 @@ class KclCommands:
                 return 0
             if operation=='SHOW_DEFAULT':
                 write_json_lines(state,[dict(program=self.default_program or state.program_name)],line)
+                return 0
+            if operation=='SHOW_BUILTINS':
+                from .extended import FUNCTIONS, PROCEDURES
+
+                rows=[dict(name=builtin,kind='FUNCTION' if builtin in FUNCTIONS else 'PROCEDURE')
+                      for builtin in sorted(FUNCTIONS.keys()|PROCEDURES.keys())]
+                write_json_lines(state,rows,line)
                 return 0
             if operation=='SHOW_PROGRAM':
                 selector=args[0] or self.default_program or state.program_name

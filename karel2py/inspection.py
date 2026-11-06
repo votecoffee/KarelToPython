@@ -265,11 +265,39 @@ def kcl_variable_listing(state,operation,args,line=None):
                if owner==program and not name.startswith('$')]
         if not names and program!=state.program_name and program not in context.variables.programs:return 1
         if kind is not None:
-            names=[(name,spec) for name,spec in names if spec[0]==kind
-                   or spec[0]=='JOINTPOS' and variable_type(spec)[0]==kind]
+            names=[(name,spec) for name,spec in names if matches_type(spec,kind)]
     def resolve(path):
         return context.resolve(state,selector,path,line,path_nodes=True)
     return _kcl_value_rows(state,program,names,values,radix,resolve,line)
+
+
+def matches_type(spec,kind):
+    return kind is None or spec[0]==kind or spec[0]=='JOINTPOS' and variable_type(spec)[0]==kind
+
+
+def kcl_storage_listing(state,operation,args,line=None):
+    from .dynamic import MAX_LEAVES, reserved
+    from .fileops import write_json_lines
+
+    store=state.execution.variables
+    if operation=='SHOW_MEMORY':
+        try:used=reserved(store)
+        except (ValueError,TypeError,KeyError):return 5
+        if used>MAX_LEAVES:return 5
+        write_json_lines(state,[dict(pool='CREATE_VAR',unit='reservation',total=MAX_LEAVES,
+                                     used=used,available=MAX_LEAVES-used)],line)
+        return 0
+    values,kind=args
+    # Explicit system namespaces only. Keep a predictable preference for duplicate names.
+    priority={'SYSTEM':0,'*SYSTEM*':1,'':2}
+    references={}
+    for (owner,path),ref in store.bindings.items():
+        if owner in priority and path.startswith('$') and path.isascii() and len(path)<=254:
+            previous=references.get(path)
+            if previous is None or priority[owner]<previous[0]:references[path]=(priority[owner],ref)
+            if len(references)>MAX_LEAVES:return 5
+    names=[(path,ref.spec) for path,(_,ref) in sorted(references.items()) if matches_type(ref.spec,kind)]
+    return _kcl_value_rows(state,'SYSTEM',names,values,None,lambda path:references[path][1],line)
 
 
 def _kcl_value_rows(state,program,names,values,radix,resolve,line,**fields):

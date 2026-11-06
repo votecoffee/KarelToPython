@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.000654 - 2026-11-06
+
+- Extend detached KCL SET VAR to checked named values and positional literals.
+  Add RECORD for current pose and joint data from the selected robot group.
+- Add KCL HOLD and UNHOLD over registered tasks and their owned logical motion
+  groups. Reuse full-batch validation and existing pause request masks.
+- Add SHOW SYSTEM, SHOW MEMORY and SHOW BUILTINS for explicit system bindings,
+  CREATE_VAR reservations and registered service calls.
+
 ## 26.1105.233428 - 2026-11-05
 
 - Add opt-in KCL source breakpoints with pause, JSON display, and trace

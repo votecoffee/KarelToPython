@@ -67,6 +67,8 @@ be bound through the host registry or supplied as linked project modules.
 | `CONTINUE ALL` or `CONT ALL` | Resume registered paused tasks once, coalescing aliases and paused parent/child paths. |
 | `PAUSE name` or `PAUSE ALL` | Request pause on eligible running or waiting tasks at their checkpoints. |
 | `ABORT name` or `ABORT ALL` | Request abort on eligible running, waiting or paused tasks. |
+| `HOLD name` or `HOLD ALL` | Hold owned logical motion and request a cooperative task pause. |
+| `UNHOLD name` or `UNHOLD ALL` | Release logical holds for live tasks. Use CONTINUE to resume source execution. |
 
 `FORCE` can follow a named or ALL PAUSE/ABORT selector to override the
 corresponding command mask. A masked request still completes successfully.
@@ -88,8 +90,24 @@ returns acceptance and KCL_STATUS returns completion. A later scheduled task
 failure belongs to that task's scheduler. Unsupported text and busy submissions
 retain statuses 1 and 2.
 
+### Logical hold and release
+
+HOLD and its HO alias use the same driver, eligibility and command masks
+as PAUSE. HOLD validates the full target batch against shared MotionRequests
+and GroupLocks before applying logical holds or requesting pauses. Only groups
+owned by eligible unmasked tasks are affected. A live target with no owned
+groups can pause without adding a motion history row. Missing services or an
+invalid group, grant or history capacity returns 4 before any target is changed.
+
+The logical hold survives task continuation. Use the Pythonic UNHOLD command
+or the source UNHOLD statement to release held motion. To resume a task paused
+inside a blocking MOVE, issue UNHOLD before CONTINUE. UNHOLD accepts paused,
+running or waiting registered targets and changes their owned groups. Task
+scheduling and source execution continue to use their existing checkpoints.
+Both operations use the [logical motion policy](task-and-file-extensions.md#logical-motion-flags).
+
 The modeled forms follow MARRC75KR07091E Rev N, PDF pages 283–284, 450–452,
-705–706, 710, 724 and 728. The offline task bank keeps explicit binding,
+705–706, 710, 717, 724 and 728. The offline task bank keeps explicit binding,
 continuation and terminal-state rules. Native default selectors, abbreviated
 verbs beyond the documented aliases, TP execution and physical motion remain
 outside this model.
@@ -249,7 +267,8 @@ currently executing source module. Exact scripted replies retain precedence.
 | `CREATE VAR [program]name IN CMOS : ARRAY[2,3] OF type` | Allocate with outer-to-inner dimensions and CMOS intent. DRAM is the default. |
 | `RENAME VAR [program]old new` | Rename an explicit root and its related bindings. VAR and VARIABLE are accepted. |
 | `RENAME VARS old new` | Move an unattached variable namespace to an unused name. |
-| `SET VAR [program]path = literal` | Assign a checked scalar literal to an independent root or field/element. VAR and VARIABLE are accepted. |
+| `SET VAR [program]path = value` | Assign a checked literal or named value to an independent root or field/element. VAR and VARIABLE are accepted. |
+| `RECORD [program]path` | Capture current Cartesian or joint data into independent pose storage. |
 | `DELETE VAR [program]name` | Remove an independent explicit root and its lookup entries. VAR and VARIABLE are accepted. |
 | `CLEAR VARS program [YES]` | Remove the complete ordinary variable namespace when it is unattached. Y is also accepted. |
 | `SAVE VARS file [= program]` | Write one portable VR archive to an unused file. The filename stem supplies the program name when omitted. |
@@ -275,10 +294,7 @@ GET_VAR and saved through the existing typed context.
 SET accepts decimal INTEGER, BYTE and SHORT literals, finite decimal REAL
 literals with optional exponents, TRUE and FALSE, and ASCII text in single or
 double quotes. Double the delimiting quote to include it in the text. STRING
-case is retained, and text beyond the declared capacity fails. The command
-updates one ordinary scalar cell. It does not emit an implicit console display.
-Variable-to-variable assignments, aggregate literals and system variables
-remain outside these forms.
+case is retained, and text beyond the declared capacity fails.
 
 Assignment and removal reject compiled roots, known borrowed frames, overlapping
 bindings and connected timers. Removal also rejects open FILE descriptors.
@@ -300,8 +316,37 @@ The portable results include 201 for missing names, 202 for invalid selectors,
 203 for collisions, 204 for protected storage, 205 for type or shape failures,
 and 206 for allocation limits. An execution error returns 4.
 
+### Pose recording and value assignment
+
+SET can copy one initialized value from a static ordinary source path. With
+no qualifier on the right, the destination namespace supplies the lookup
+scope. Use an explicit `[program]` prefix to read from another namespace.
+Supported values are scalars, VECTOR, CONFIG, JOINTPOS and Cartesian poses.
+Types must match and a copied STRING must fit. A source pose or vector is
+detached before publication. Updates retain the existing destination ownership,
+read-only field and connected-timer checks.
+
+Comma-separated literals follow the destination type. VECTOR takes three
+components. JOINTPOS takes the declared axis count. POSITION and XYZWPR
+take X, Y, Z, W, P and R. XYZWPREXT adds EXT1, EXT2 and EXT3. Supply an
+optional quoted CONFIG after the last numeric component, using the existing
+[portable CONFIG text](config-text.md) syntax. Omitted CONFIG uses `N R D B`
+with zero turns. The same quoted text can initialize a detached CONFIG field.
+Lists validate all components before publication. Generic arrays, user-record
+literals and system-variable writes remain outside these forms.
+
+RECORD uses the KCL group selection or the calling task's group with the
+supplied [current robot state](current-robot-state.md). It accepts detached
+POSITION, XYZWPR, XYZWPREXT and JOINTPOS destinations, including compatible
+selected cells. Cartesian conversion follows the source pose rules and
+XYZWPREXT retains the supplied external axes. Joint width changes use the
+existing zero-padding and zero-only narrowing checks. Missing current data
+returns 4 and a value incompatible with the destination returns 205.
+The [CLI example](../examples/kcl_pose_record.kl) records the supplied
+Cartesian pose and reads back a modeled external axis.
+
 The forms follow MARRC75KR07091E Rev N, PDF pages 706, 709, 711–713, 717,
-722, 726–727, 731 and 736. Native default programs and controller variable
+722, 726–727, 731 and 736–737. Native default programs and controller variable
 allocation remain outside this model.
 The [PATH example](../examples/kcl_variable_commands.kl) shows creation,
 node edits and a root rename with saved-context replay.
@@ -331,6 +376,24 @@ leaves and 1 MiB of output before the first write. Status 201 indicates an
 unavailable selector, 202 an invalid radix request, and 205 a value or
 listing that cannot be represented within the portable limits. The forms
 follow MARRC75KR07091E Rev N, PDF pages 744–745.
+
+### System and memory inspection
+
+`SHOW SYSTEM [type] [VALUES]` lists explicit `$` bindings from the
+`SYSTEM`, `*SYSTEM*` and empty namespaces, with that precedence for
+duplicate paths. It sorts the paths and uses the same bounded JSON Lines
+and optional type filter as ordinary variable inspection. Without VALUES
+the output describes each binding's type. Robot context tables require
+explicit bindings to appear in this view.
+
+`SHOW MEMORY` writes one JSON row with used and available reservations
+under the shared 32,767-unit CREATE_VAR limit. It counts created storage
+across both declared memory intents. Explicit host bindings and compiled
+globals are outside that budget. Units follow the portable allocation
+rules and do not estimate controller bytes.
+
+Both commands use the variable opt-in. The forms follow MARRC75KR07091E
+Rev N, PDF pages 742–743.
 
 ### Local variable inspection
 
@@ -481,6 +544,12 @@ labels as GET_TSK_INFO. Registered aliases have separate rows. Empty task
 listings succeed without output. Rows are captured before the first write,
 with a limit of 32,767 rows per listing.
 
+`SHOW BUILTINS` writes the offline service registry in name order. Each
+JSON row contains the service name and FUNCTION or PROCEDURE. The
+registry describes callable translations. Availability of a particular
+call can require a supplied backend or option. This view follows the
+intent of MARRC75KR07091E Rev N, PDF page 738.
+
 Nonzero program archive and listing results use offset 500. Results include
 501 for a missing record, 502 for an invalid archive specification, 503 for
 a conflict, 504 for a protected or active record, 505 for capacity and 506
@@ -524,7 +593,7 @@ precedence.
 | `SET CLOCK 'dd-mmm-yy hh:mm'` | Replace the supplied calendar anchor. |
 | `SHOW CLOCK` | Write the supplied calendar in `dd-MMM-yyyy hh:mm:ss` form. |
 | `SHOW CURPOS` | Write a JSON row with the active task group and the supplied or modeled current XYZWPREXT pose. |
-| `SET GROUP number` | Set the KCL group for later SHOW CURPOS calls. |
+| `SET GROUP number` | Set the KCL group for later SHOW CURPOS and RECORD calls. |
 | `SHOW GROUP` | Write the effective KCL group as a JSON row. |
 
 SET PORT accepts DIN, DOUT, RDO, OPOUT, TPOUT, GIN, GOUT, AIN and AOUT.
@@ -684,6 +753,8 @@ python -m karel2py examples/kcl_variable_commands.kl -o kcl_variable_commands.py
 python kcl_variable_commands.py --context examples/kcl_variable_commands.services.initial.json --state-out variable-state.json
 python -m karel2py examples/kcl_variable_archives.kl -o kcl_variable_archives.py
 python kcl_variable_archives.py --context examples/kcl_variable_archives.services.initial.json --state-out archive-state.json
+python -m karel2py examples/kcl_pose_record.kl -o kcl_pose_record.py
+python kcl_pose_record.py --context examples/kcl_pose_record.services.initial.json
 python -m karel2py examples/kcl_offline_services.kl -o kcl_offline_services.py
 python kcl_offline_services.py --context examples/kcl_offline_services.services.initial.json --state-out service-state.json
 python -m karel2py examples/kcl_program_commands.kl -o kcl_program_commands.py

@@ -82,6 +82,7 @@
     "tests/test_kcl_procedures.py",
     "tests/test_kcl_local_types.py",
     "tests/test_kcl_debug_commands.py",
+    "tests/test_kcl_pose_storage_and_hold.py",
     "examples/kcl_commands.kl",
     "examples/kcl_task_commands",
     "examples/kcl_task_waits",
@@ -92,6 +93,7 @@
     "examples/kcl_file_commands",
     "examples/kcl_variable_commands.kl",
     "examples/kcl_variable_archives.kl",
+    "examples/kcl_pose_record.kl",
     "examples/kcl_offline_services.kl",
     "examples/kcl_program_commands.kl",
     "examples/kcl_environment_commands.kl",
@@ -172,5 +174,13 @@
     "forms": ["SET BREAK PROGRAM", "ENABLE BREAK PROGRAM", "DISABLE BREAK PROGRAM", "CLEAR BREAK PROGRAM", "SET BREAK CONDITION", "CLEAR BREAK CONDITION", "SHOW BREAK", "STEP ON", "STEP OFF"],
     "dispatch": "Saved program slots target generated cooperative statement checkpoints. Display uses offline JSON events. Condition break marks and the selected step task are live only.",
     "statuses": "Unavailable selector 801, invalid source position or number 802, capacity 805."
+  },
+  "pose_storage_and_hold_extension": {
+    "version": "26.1106.000654",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [717, 726, 736, 737, 738, 742, 743],
+    "forms": ["SET VAR named or positional value", "RECORD", "HOLD", "UNHOLD", "SHOW SYSTEM", "SHOW MEMORY", "SHOW BUILTINS"],
+    "dispatch": "Detached checked positional or scalar writes and supplied current-state capture. Atomic owned group holds with masked pause requests and explicit logical UNHOLD. Bounded system binding, reservation and service registry listings.",
+    "statuses": "Existing task, variable and program command status domains. Invalid value or storage listing 205, unavailable robot service or failed logical motion preflight 4."
   }
 }

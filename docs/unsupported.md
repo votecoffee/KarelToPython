@@ -559,6 +559,14 @@ queue-entry policies; FILE banks remain excluded.
   complete listings on success.
   [Source debugging](kcl-commands.md#source-debugging) uses cooperative
   source checkpoints, one-shot condition breaks and per-task stepping.
+  [Pose recording and checked values](kcl-commands.md#pose-recording-and-value-assignment)
+  add detached pose, joint and vector edits from supplied data. System-variable
+  writes and native recording remain outside these forms.
+  [Logical holds](kcl-commands.md#logical-hold-and-release) use explicit owned
+  motion groups and cooperative pauses, with independent release and continuation.
+  [System and memory views](kcl-commands.md#system-and-memory-inspection) report
+  supplied bindings and portable reservations. SHOW BUILTINS lists the offline
+  service registry. Native memory inspection and system discovery remain unavailable.
   Physical I/O, controller time and native breakpoint
   controls remain outside these models. Three diagnostic calls use an
   [offline event/stack model](diagnostics.md).

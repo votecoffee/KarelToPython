@@ -231,7 +231,7 @@ def request_task_control(target,action,line=None,*,origin='command',force=False)
 
 def task_control_eligible(root, owner, action):
     eligible = {'PAUSE': ('running', 'waiting'), 'ABORT': ('running', 'waiting', 'paused'),
-                'CONTINUE': ('paused',)}[action]
+                'CONTINUE': ('paused',), 'UNHOLD': ('running', 'waiting', 'paused')}[action]
     return (root._scheduler is owner and root.task_state in eligible
             and getattr(root.program, '_execution', None) is not None
             and (action != 'CONTINUE' or not root._driving))

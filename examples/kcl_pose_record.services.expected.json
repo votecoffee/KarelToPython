@@ -1,0 +1,17 @@
+{
+  "kcl": {
+    "replies": {},
+    "limit": 500,
+    "history": [
+      {"sequence": 1, "program": "KCL_POSE_RECORD", "operation": "KCL", "command": "CREATE VAR [CELL]TARGET:XYZWPREXT", "phase": "completed", "status": 0},
+      {"sequence": 2, "program": "KCL_POSE_RECORD", "operation": "KCL", "command": "CREATE VAR [CELL]SHIFT:VECTOR", "phase": "completed", "status": 0},
+      {"sequence": 3, "program": "KCL_POSE_RECORD", "operation": "KCL", "command": "SET VAR [CELL]SHIFT=1,-2,3", "phase": "completed", "status": 0},
+      {"sequence": 4, "program": "KCL_POSE_RECORD", "operation": "KCL", "command": "RECORD [CELL]TARGET", "phase": "completed", "status": 0},
+      {"sequence": 5, "program": "KCL_POSE_RECORD", "operation": "KCL", "command": "SHOW SYSTEM REAL VALUES", "phase": "completed", "status": 0},
+      {"sequence": 6, "program": "KCL_POSE_RECORD", "operation": "KCL", "command": "SHOW MEMORY", "phase": "completed", "status": 0}
+    ],
+    "sequence": 6,
+    "last_status": 0,
+    "variable_commands": true
+  }
+}

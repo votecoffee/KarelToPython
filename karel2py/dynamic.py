@@ -5,6 +5,9 @@ from .extended import runtime, fail, outputs_checked, FUNCTIONS
 
 NAMES={'CREATE_VAR','RENAME_VAR','RENAME_VARS'}
 IDENTIFIER=r'[A-Z_][A-Z_0-9]{0,35}'
+VARIABLE_SUFFIX=rf'(?:\.{IDENTIFIER}|\[ *[0-9]+(?: *, *[0-9]+)* *\])*'
+VARIABLE_SELECTOR=rf'(?:\[({IDENTIFIER})\] *)?({IDENTIFIER})({VARIABLE_SUFFIX})'
+REAL_LITERAL=r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?'
 MAX_LEAVES=32767
 
 
@@ -360,8 +363,8 @@ def remove_detached(state,program,var,line):
     return 0
 
 
-def set_detached_scalar(state,program,path,literal,line):
-    """Assign a checked literal to a scalar cell under a detached explicit root."""
+def set_detached_value(state,program,path,literal,group,line):
+    """Assign a literal, captured source value or recorded pose to an independent cell."""
     from .inspection import attached_programs
 
     rt=runtime();context=state.execution
@@ -379,7 +382,75 @@ def set_detached_scalar(state,program,path,literal,line):
     try:
         target=context.descend(reference,path[len(var):],line,path_nodes=True)
     except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+    if type(target) is not rt.Reference:return 4
+    kind=target.spec[0]
+    poses=('POSITION','XYZWPR','XYZWPREXT')
+    records=(*poses,'JOINTPOS','VECTOR','CONFIG')
+    if kind in records and target.raw() is not rt.UNINITIALIZED:
+        try:rt.checked(target.spec,target.raw(),line)
+        except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+    if literal is None:
+        if kind not in (*poses,'JOINTPOS'):return 5
+        robot=context.require('robot',line).for_group(group,line)
+        value=robot.current_value('CURJPOS' if kind=='JOINTPOS' else 'CURPOS',line)
+        try:
+            if kind=='JOINTPOS':value=rt.convert_joint_width(target.spec,value,line)
+            elif value.spec!=target.spec:value=rt.convert_position(target.spec,value,line)
+            target.set(value,line)
+        except rt.KarelRuntimeError:return 5
+        return 0
+    source=re.fullmatch(VARIABLE_SELECTOR,literal,re.IGNORECASE)
+    try:
+        if source and literal.upper() not in ('TRUE','FALSE'):
+            source_owner,root,suffix=source.groups()
+            source_path=(root+suffix.replace(' ','')).upper()
+            source_ref=context.resolve(state,source_owner or program,source_path,line,path_nodes=True)
+            if kind not in ('INTEGER','BYTE','SHORT','REAL','BOOLEAN','STRING',*records):return 5
+            if source_ref.spec!=target.spec and (kind!='STRING' or source_ref.spec[0]!='STRING'):return 5
+            value=source_ref.raw()
+            if kind=='STRING' and len(rt.ascii_string(value,line))>target.spec[1]:return 5
+            if kind in (*poses,'JOINTPOS','CONFIG'):
+                value=rt.positional_value(target.spec,value,line)
+            elif kind=='VECTOR':value=rt.vector_value(value,line)
+            target.set(value,line)
+            return 0
+        if kind in records:
+            target.set(kcl_record_literal(rt,target.spec,literal,line),line)
+            return 0
+    except (ValueError,TypeError,rt.KarelRuntimeError):return 5
     return assign_scalar_literal(target,literal,line)
+
+
+def kcl_string_literal(literal):
+    if len(literal)<2 or literal[0] not in ('"',"'"):
+        raise ValueError('Expected a quoted KCL string')
+    quote=literal[0]
+    if not re.fullmatch(quote+r'(?:[^'+quote+r']|'+quote*2+r')*'+quote,literal):
+        raise ValueError('Malformed KCL string literal')
+    return literal[1:-1].replace(quote*2,quote)
+
+
+def kcl_record_literal(rt,spec,literal,line):
+    kind=spec[0]
+    if kind=='CONFIG':return rt._parse_config_text(kcl_string_literal(literal),line)
+    width={'VECTOR':3,'XYZWPREXT':9}.get(kind,6)
+    if kind=='JOINTPOS':width=rt.joint_width(spec)
+    fields=[field.strip() for field in literal.split(',',width)]
+    if len(fields)<width or any(not re.fullmatch(REAL_LITERAL,field) for field in fields[:width]):
+        raise ValueError('KCL record literal requires the declared number of finite components')
+    components=[rt.real(float(field),line) for field in fields[:width]]
+    if kind in ('JOINTPOS','VECTOR'):
+        if len(fields)!=width:raise ValueError('Unexpected KCL record field')
+        if kind=='VECTOR':return rt.builtin('VEC',components,line)
+        result=rt.JointPosition(spec);result.values[:]=components
+        return result
+    config=rt._parse_config_text(kcl_string_literal(fields[-1]) if len(fields)>width else 'N R D B',line)
+    pose=rt.builtin('POS',(*components[:6],config),line)
+    if kind=='POSITION':return rt.convert_position(spec,pose,line)
+    if kind=='XYZWPR':return pose
+    result=rt.Structure(spec);result.values.update(pose.values)
+    result.values.update(zip(('EXT1','EXT2','EXT3'),components[6:]))
+    return result
 
 
 def assign_scalar_literal(target,literal,line):
@@ -389,15 +460,12 @@ def assign_scalar_literal(target,literal,line):
         kind=target.spec[0]
         if kind in ('INTEGER','BYTE','SHORT') and re.fullmatch(r'[+-]?[0-9]+',literal):
             value=int(literal)
-        elif kind=='REAL' and re.fullmatch(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?',literal):
+        elif kind=='REAL' and re.fullmatch(REAL_LITERAL,literal):
             value=float(literal)
         elif kind=='BOOLEAN' and literal.upper() in ('TRUE','FALSE'):
             value=literal.upper()=='TRUE'
-        elif kind=='STRING' and len(literal)>=2 and literal[0] in ('"',"'"):
-            quote=literal[0]
-            if not re.fullmatch(re.escape(quote)+r'(?:[^'+re.escape(quote)+r']|'+re.escape(quote)*2+r')*'+re.escape(quote),literal):
-                return 5
-            value=literal[1:-1].replace(quote*2,quote)
+        elif kind=='STRING':
+            value=kcl_string_literal(literal)
             if len(value)>target.spec[1]:return 5
         else:return 5
         target.set(value,line)

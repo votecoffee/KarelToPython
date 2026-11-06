@@ -1,0 +1,17 @@
+PROGRAM KCL_POSE_RECORD
+VAR status,entry:INTEGER
+    x,external_axis,offset:REAL
+BEGIN
+  KCL('CREATE VAR [CELL]TARGET:XYZWPREXT',status)
+  KCL('CREATE VAR [CELL]SHIFT:VECTOR',status)
+  KCL('SET VAR [CELL]SHIFT=1,-2,3',status)
+  KCL('RECORD [CELL]TARGET',status)
+  KCL('SHOW SYSTEM REAL VALUES',status)
+  KCL('SHOW MEMORY',status)
+  entry=0
+  GET_VAR(entry,'CELL','TARGET.X',x,status)
+  entry=0
+  GET_VAR(entry,'CELL','TARGET.EXT1',external_axis,status)
+  entry=0
+  GET_VAR(entry,'CELL','SHIFT.Z',offset,status)
+END KCL_POSE_RECORD

@@ -11,6 +11,11 @@ diagnostics or runtime errors. The translator does not connect to a robot.
 [KCL source debugging](docs/kcl-commands.md#source-debugging) adds cooperative
 program breakpoints, one-shot condition breaks, and per-task source stepping.
 
+[KCL pose recording and assignment](docs/kcl-commands.md#pose-recording-and-value-assignment)
+use supplied robot state and checked detached values. The command channel also
+supports [logical holds](docs/kcl-commands.md#logical-hold-and-release) and
+[offline storage listings](docs/kcl-commands.md#system-and-memory-inspection).
+
 [KCL local edits and type views](docs/kcl-commands.md#local-variable-inspection)
 add checked scalar assignments in paused source routines, declared-type
 listings, and typed variable filters.
@@ -356,7 +361,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1105.233428**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.000654**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
