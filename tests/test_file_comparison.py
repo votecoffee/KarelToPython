@@ -120,6 +120,17 @@ class FileComparisonTests(unittest.TestCase):
         self.assertEqual(files.snapshot()['report'],b'');self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
 
 
+    def test_long_equal_ascii_records_charge_both_inputs_before_writing(self):
+        line=b'x'*12288
+        files=rt.MemoryFiles({'a':line,'b':line,'report':b'retained'})
+        p,_=compile_program("n=7 s=8 OPEN FILE f ('RW','report') "+COMPARE,
+                            decl=DECL,context=rt.ExecutionContext(files=files))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):p.run(max_steps=8)
+        self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
+        self.assertEqual(files.snapshot()['report'],b'retained')
+        self.assertEqual(p._state.values['F'].position,0)
+
+
 class PipeSnapshotTests(unittest.TestCase):
     def test_source_prints_a_closed_pipe_without_an_ordinary_backend(self):
         pipes=rt.FilePipes()

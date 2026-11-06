@@ -74,8 +74,9 @@ three external outputs are authoritative. Callback joint outputs must match
 the destination's declared width exactly. Inputs and results are detached.
 
 For a loaded model, joint inputs accept its exact width or JOINTPOS9 with zero
-unused slots. Inverse output accepts its exact width or nine slots, padding
-unused slots with zero. Other widths and discarded nonzero inputs raise errors.
+unused slots. Inverse output accepts any width from the modeled axis count
+through nine, padding unused slots with zero. Narrower destinations and
+discarded nonzero inputs raise errors.
 See [joint interoperability](joint-interoperability.md) for the shared rules.
 
 ```python

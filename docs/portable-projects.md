@@ -297,9 +297,11 @@ are enforced. For inverse conversion, `ik_fallback_seeds` can supply up to eight
 additional in-limit joint vectors in DH row order. The solver tries them in
 order only after the reference attempt fails, with the same iteration limit
 per attempt and the external joints fixed throughout. Model-backed JOINT2POS
-returns three external values, padding unused fields with zero. A writable
-XYZWPREXT pose output receives them directly as well as through the REAL ARRAY
-output. POS2JOINT fixes external joints at its explicit external-array values.
+provides up to three external-axis values. The REAL ARRAY output can have one
+to three slots if it fits every configured external axis. A writable XYZWPREXT
+output receives all three fields, with zeros in unused fields. POS2JOINT fixes
+external joints at its explicit external-array values and pads a joint output
+that has more slots than the model.
 IN_RANGE fixes them at the pose's external values (zero for a plain pose).
 It tries compatible supplied current joints first, then the standard seeds
 and any supplied fallback seeds. CHECK_EPOS follows the same seed order. A failed

@@ -1407,10 +1407,10 @@ class MemoryFiles:
         from .fileops import _listing_entries
         return sorted(name for name in _listing_entries(self.files,check) if fnmatch.fnmatchcase(name,pattern))
     def _copy_payload(self,source,check):
-        from .fileops import charge_copy_bytes
+        from .fileops import charge_file_bytes
         data=self.files[source];size=len(data)
         self._check(source,data)
-        charge_copy_bytes(size,check)
+        charge_file_bytes(size,check)
         if self.files.get(source) is not data or len(data)!=size:
             fail('COPY_FILE source changed during preparation')
         return data
@@ -3217,9 +3217,6 @@ class ExecutionContext:
             return rt.convert_position(target,result,line) if target!=('XYZWPREXT',) else result
         def output(spec): return rt.Reference(spec,{'value':rt.initial_value(spec)},'value')
         status=output(('INTEGER',))
-        rt.joint_width(target)
-        if robot.model is not None and target not in (('JOINTPOS',robot.model.axes),('JOINTPOS',9)):
-            fail('Inverse assignment output must match the model axes or JOINTPOS9',line)
         if robot.current is None or robot.current.joints is None: fail('Inverse assignment requires supplied current joints as its reference',line)
         reference=robot.current.joints;rt.joint_values(reference,rt.joint_width(reference.spec),line)
         point=pose_extended(value,line);axes=rt.Array(('ARRAY',3,('REAL',)))
@@ -3232,6 +3229,11 @@ class ExecutionContext:
         rt=runtime(); robot=self.require('robot',line).for_group(group)
         callback=robot.forward if name=='JOINT2POS' else robot.inverse
         if callback is None: fail(name+' requires an explicit robot model adapter',line)
+        model=robot.model
+        if name=='POS2JOINT' and model is not None:
+            width=rt.joint_width(args[7].spec)
+            if width<model.axes or (not rt._pythonic() and width not in (model.axes,9)):
+                fail('Inverse output must fit all model axes',line)
         inputs=deepcopy(tuple(args[:4] if name=='JOINT2POS' else args[:7]))
         try: result=callback(*inputs)
         except Exception as exc: raise rt.KarelRuntimeError('Robot model adapter failed: '+str(exc),line) from exc
@@ -3242,25 +3244,32 @@ class ExecutionContext:
             position=rt.convert_position(('POSITION',),result[0],line) if result[0].spec!=('POSITION',) else rt.frame_value(result[0],line)
             config=rt.positional_value(('CONFIG',),result[1],line)
             array=args[6].raw()
-            try:returned_axes=list(islice(result[2],len(array.values)+1))
+            count=len(array.values)
+            expected=count
+            if count<3 and model is not None and rt._pythonic() and getattr(callback,'__self__',None) is model:
+                if count<model.external_axes:
+                    fail('Forward external-axis output must fit all configured axes',line)
+                expected=3
+            try:returned_axes=list(islice(result[2],expected+1))
             except Exception as exc:
                 raise rt.KarelRuntimeError('Forward adapter external axes failed: '+str(exc),line) from exc
             external=[rt.real(value,line) for value in returned_axes]
-            if len(external)!=len(array.values): fail('Forward external axis result does not match output ARRAY',line)
+            if len(external)!=expected: fail('Forward external axis result does not match output ARRAY',line)
+            if any(value!=0. for value in external[count:]):
+                fail('Forward external-axis output cannot discard nonzero values',line)
             target=args[4].spec
             if target==('XYZWPREXT',):
                 position=pose_extended(position,line)
                 position.values.update((f'EXT{i}',value) for i,value in enumerate(external[:3],1))
             elif target==('XYZWPR',):
                 position=rt.convert_position(target,position,line)
-            axis_outputs=[rt.index_reference(array,i,line) for i in range(1,len(external)+1)]
+            axis_outputs=[rt.index_reference(array,i,line) for i in range(1,count+1)]
             args[4].set(position,line); args[5].set(config,line)
             for reference,value in zip(axis_outputs,external): reference.set(value,line)
         else:
-            if robot.model is not None:
-                if args[7].spec not in (('JOINTPOS',robot.model.axes),('JOINTPOS',9)): fail('Inverse output must match the model axes or JOINTPOS9',line)
-                values=rt.joint_values(result,robot.model.axes,line)
-                result=rt.JointPosition(args[7].spec);result.values[:]=values+[0.]*(len(result.values)-len(values))
+            if model is not None:
+                values=rt.joint_values(result,model.axes,line)
+                result=rt.JointPosition(args[7].spec);result.values[:]=values+[0.]*(width-model.axes)
             result=rt.positional_value(args[7].spec,result,line); args[7].set(result,line)
         args[-1].set(0,line)
 

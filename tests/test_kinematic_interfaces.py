@@ -245,7 +245,7 @@ class KinematicContextAndValidationTests(unittest.TestCase):
 
     def test_inverse_wrong_target_width_fails_before_model_callback(self):
         called = []; ctx = model_context(); ctx.robot.inverse = lambda *args: called.append(1)
-        p, _ = program('work(p)', context=ctx, routines='ROUTINE work(v:JOINTPOS3) BEGIN END work')
+        p, _ = program('work(p)', context=ctx, routines='ROUTINE work(v:JOINTPOS1) BEGIN END work')
         with self.assertRaisesRegex(rt.KarelRuntimeError, 'output'): p.run()
         self.assertEqual(called, [])
 

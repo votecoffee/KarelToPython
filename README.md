@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.223519**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.225928**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1010,7 +1010,8 @@ See [register transfers](docs/register-transfers.md) for direction, options,
 explicit groups, checked copies and RPREG spelling aliases.
 
 COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
-report to an open ordinary FILE. PRINT_FILE sends validated ASCII to the existing
+report to an open ordinary FILE. ASCII comparison charges for both input byte
+counts and the records compared. PRINT_FILE sends validated ASCII to the existing
 output recorder or callback. Both accept closed ordinary and plain PIP inputs
 from the supplied context. See
 [file comparison and printing](docs/file-comparison.md).
@@ -1018,8 +1019,10 @@ from the supplied context. See
 Whole JOINTPOS/Cartesian assignments use supplied robot models, selected frames
 and tools. Inverse assignments require supplied current joints as a seed. See
 [kinematic assignments](docs/kinematic-assignments.md) for the context and type rules.
-JOINT2POS also writes directly to POSITION, XYZWPR or XYZWPREXT. Extended pose
-fields use the returned external-axis values. See [offline robot geometry](docs/offline-services.md#geometry-and-robot-context).
+JOINT2POS writes directly to POSITION, XYZWPR or XYZWPREXT. With a supplied DH
+model, the separate REAL array can be sized to fit the configured external axes.
+Inverse conversion can write into any JOINTPOS width that fits all modeled axes,
+padding extra slots with zeros. See [joint interoperability](docs/joint-interoperability.md).
 
 JOINTPOS operands also work in frame composition, INV, FRAME, MIRROR, axis queries
 and approximate comparisons through the supplied forward model. See

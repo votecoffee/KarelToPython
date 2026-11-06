@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.225928 - 2026-11-06
+
+- Let DH-backed JOINT2POS write smaller REAL arrays that fit all configured
+  external axes, while preserving all three XYZWPREXT metadata fields.
+- Let model-backed POS2JOINT and source conversions write any JOINTPOS width
+  that fits the modeled axes. Pad additional slots with zeros.
+- Charge ASCII COMPARE_FILE for both input byte counts before decoding, in
+  addition to the per-record cost.
+
 ## 26.1106.223519 - 2026-11-06
 
 - Apply dotted XML_SETVAR attributes to individual JOINTPOS axes inside record

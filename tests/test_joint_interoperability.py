@@ -41,6 +41,25 @@ class CartesianForwardOutputsTests(unittest.TestCase):
         self.assertEqual([state['EXPANDED'][f'EXT{i}'] for i in range(1,4)],state['EXT'])
         self.assertEqual((state['EXT'],state['OUT']['axes'],state['S']),([42.,0.,0.],[30.,42.]+[0.]*7,0))
 
+    def test_model_writes_compact_external_array_and_full_pose_metadata(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{
+            'dh':[{'a':100},{'type':'prismatic','min':0,'max':100}], 'external_axes':1,
+            'current':{'joints':typed_value(joint([30.,42.]))}}})
+        decl=DECL.replace('f,p: POSITION','f: POSITION p: XYZWPREXT').replace('ARRAY[3]','ARRAY[1]')
+        state=run(FRAME+FORWARD+INVERSE,decl=decl,context=ctx)
+        self.assertEqual((state['EXT'],state['OUT']['axes'],state['S']),([42.],[30.,42.]+[0.]*7,0))
+        self.assertEqual([state['P'][f'EXT{i}'] for i in range(1,4)],[42.,0.,0.])
+
+    def test_model_cannot_drop_a_configured_external_axis(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{
+            'dh':[{'a':100},{'a':20},{'a':30}], 'external_axes':2,
+            'current':{'joints':typed_value(joint([30.,42.,0.]))}}})
+        decl=DECL.replace('ARRAY[3]','ARRAY[1]')
+        p,_=compile_program(FRAME+'p=f ext[1]=7 s=99 '+FORWARD,decl=decl,context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'fit all configured axes'):p.run()
+        state=p.snapshot()
+        self.assertEqual((state['P']['LOCATION']['X'],state['EXT'],state['S']),(0.,[7.],99))
+
     def test_callback_axes_fill_extended_fields_and_exact_array_prefix(self):
         point=pose(11,22,33)
         config=point.values['CONFIG_DATA'].clone()
@@ -85,9 +104,12 @@ class PaddedJointTests(unittest.TestCase):
         self.assertEqual(state['OUT']['axes'],[30.,45.]+[0.]*7)
         self.assertEqual(ctx.robot.current.joints.values,[30.,45.])
 
-    def test_inverse_can_write_native_model_width(self):
-        state=run(FRAME+FORWARD+INVERSE,decl=DECL.replace('j,out: JOINTPOS','j: JOINTPOS out: JOINTPOS2'),context=model_context())
-        self.assertEqual(state['OUT']['axes'],[30.,45.])
+    def test_inverse_can_write_exact_or_intermediate_model_width(self):
+        for width in (2,3,8):
+            with self.subTest(width=width):
+                decl=DECL.replace('j,out: JOINTPOS',f'j: JOINTPOS out: JOINTPOS{width}')
+                state=run(FRAME+FORWARD+INVERSE,decl=decl,context=model_context())
+                self.assertEqual((state['OUT']['axes'],state['S']),([30.,45.]+[0.]*(width-2),0))
 
     def test_inverse_can_use_native_reference_and_padded_output(self):
         p,_=compile_program(FRAME+'JOINT2POS(j,f,f,0,p,c,ext,s) '+INVERSE,decl=DECL.replace('j,out: JOINTPOS','j: JOINTPOS2 out: JOINTPOS'),context=model_context())
@@ -129,7 +151,7 @@ class PaddedJointTests(unittest.TestCase):
         self.assertEqual((p.snapshot()['EXT'],p.snapshot()['S']),([7.,8.,9.],99));self.assertEqual(p.snapshot()['P']['LOCATION']['X'],0.)
 
     def test_inverse_wrong_output_width_preserves_output(self):
-        p,_=compile_program(FRAME+FORWARD+'s=99 '+INVERSE,decl=DECL.replace('j,out: JOINTPOS','j: JOINTPOS out: JOINTPOS3'),context=model_context())
+        p,_=compile_program(FRAME+FORWARD+'s=99 '+INVERSE,decl=DECL.replace('j,out: JOINTPOS','j: JOINTPOS out: JOINTPOS1'),context=model_context())
         with self.assertRaisesRegex(rt.KarelRuntimeError,'output'): p.run()
         self.assertEqual(p.snapshot()['S'],99);self.assertTrue(all(value=={'uninitialized':True} for value in p.snapshot()['OUT']['axes']))
 

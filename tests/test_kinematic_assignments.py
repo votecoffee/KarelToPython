@@ -135,7 +135,7 @@ class AssignmentModelTests(unittest.TestCase):
 
     def test_inverse_wrong_width_fails_without_model_callback(self):
         ctx=model_context();called=[];ctx.robot.inverse=lambda *args: called.append(args)
-        p,_=compile_program('out=p',decl=DECL.replace('j,out: JOINTPOS','j: JOINTPOS out: JOINTPOS3'),context=ctx);p._state.values['P']=identity_pose()
+        p,_=compile_program('out=p',decl=DECL.replace('j,out: JOINTPOS','j: JOINTPOS out: JOINTPOS1'),context=ctx);p._state.values['P']=identity_pose()
         with self.assertRaisesRegex(rt.KarelRuntimeError,'output'): p.run()
         self.assertEqual(called,[])
 

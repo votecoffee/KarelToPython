@@ -149,7 +149,7 @@ class KinematicArrayAssignmentTests(unittest.TestCase):
             calls=[];p,_=build(first=f'JOINTPOS{width}',ctx=callback_context(forward=forward_adapter(calls)));initialized(p,width);p.run();self.assertEqual(len(calls),2);self.assertEqual(len(calls[0]),width)
 
     def test_inverse_model_target_width_remains_checked(self):
-        p,_=build(first='POSITION',second='JOINTPOS3');initialized(p,'POSITION')
+        p,_=build(first='POSITION',second='JOINTPOS1');initialized(p,'POSITION')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'model axes'):p.run()
 
 

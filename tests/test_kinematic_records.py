@@ -54,7 +54,7 @@ class ModelRecordValueTests(unittest.TestCase):
 
     def test_inverse_all_cartesian_types_native_and_padded(self):
         for kind in POSES:
-            for width in (2,9):
+            for width in (2,3,9):
                 p,_=build(first=kind,second=f'JOINTPOS{width}');seed(p,kind)
                 with self.subTest(kind=kind,width=width):self.assertEqual(p.run()['B']['VALUE']['axes'],[0.,90.]+[0.]*(width-2))
 
@@ -170,7 +170,7 @@ class ModelRecordPreflightTests(unittest.TestCase):
         self.assertEqual(p.snapshot()['B'],before)
 
     def test_inverse_model_width_guard_is_retained(self):
-        p,_=build(first='POSITION',second='JOINTPOS3');seed(p,'POSITION')
+        p,_=build(first='POSITION',second='JOINTPOS1');seed(p,'POSITION')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'model axes'):p.run()
 
     def test_model_solution_failure_keeps_destination(self):

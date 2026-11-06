@@ -344,16 +344,20 @@ or loads a standard-DH model through `from_config`.
 JOINT2POS calls `forward(joints,uframe,utool,config_ref)` and expects a tuple
 `(pose,config,external_axes)`. POS2JOINT calls
 `inverse(reference_joints,pose,uframe,utool,config_ref,config,external_axes)` and
-expects a matching JointPosition. Inputs are independent copies; outputs are
-validated before assignment, including external-array length and joint width.
-Successful calls write status zero; adapter errors raise with the source line.
+expects a matching JointPosition. Inputs are independent copies. Output
+validation checks external-array length and joint width before assignment.
+With a supplied DH model, POS2JOINT can write any width that fits all model axes
+and pads the extra slots with zeros. Success writes status zero. Adapter errors
+raise with the source line.
 
 Pythonic JOINT2POS accepts writable POSITION, XYZWPR and XYZWPREXT pose
 outputs. XYZWPR and XYZWPREXT use the same Cartesian geometry and embedded CONFIG
 as the POSITION result. The separate CONFIG output still receives the adapter's
 second tuple element. XYZWPREXT takes up to three values from the adapter's
 external-axis sequence, with zero in any unused fields. The separate REAL ARRAY
-continues to receive every returned axis and must match the sequence length.
+must match a custom callback's returned length. With the supplied DH model's
+forward method, it can have one to three slots if it fits all configured
+external axes.
 
 IN_RANGE calls `reachable(complete_pose)` and requires a Boolean result.
 J_IN_RANGE compares every axis against explicit inclusive `(minimum,maximum)`

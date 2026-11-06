@@ -18,9 +18,11 @@ the runtime does not silently drop additional axis data.
 
 CURJPOS and GET_JPOS_REG return independent nine-slot values. A narrow register
 value is padded on read without changing its stored type, width or contents.
-Model POS2JOINT can write either its exact model width or JOINTPOS9; unused result
-slots are zero. Callbacks without a configured model retain their exact output
-type contract. Ordinary source assignments, arguments and RETURN can now use
+Model POS2JOINT can write any JOINTPOS width from the configured axis count
+through nine. It pads unused result slots with zeros and rejects an output that
+would omit a modeled axis. Model-backed source conversions use the same rule.
+Callbacks without a configured model retain their exact output type contract.
+Ordinary source assignments, arguments and RETURN can also use
 [checked joint-width conversion](joint-width-conversions.md): complete finite
 values widen with zeros, and narrowing requires every discarded axis zero.
 
@@ -64,6 +66,15 @@ With those limits, a two-axis value [5,15] or a nine-slot value [5,15,0,0,0,0,0,
 passes J_IN_RANGE. A modeled active value outside its limit returns FALSE.
 Invalid nonzero padding raises rather than being interpreted as an active-axis
 range result. See the [limits-only example](../examples/joint_limits.kl).
+
+## External-axis output arrays
+
+DH-backed JOINT2POS accepts a one-dimensional REAL array with one to three
+slots, provided it fits every configured external axis. For a single external
+axis, ARRAY[1] receives EXT1. For two axes, ARRAY[2] receives EXT1 and EXT2.
+Any unused slots receive zero. The XYZWPREXT pose still receives all three
+metadata fields. A shorter array can omit only padding. Custom forward
+callbacks still return exactly as many values as the output array contains.
 
 ## Frames, tools and linked groups
 

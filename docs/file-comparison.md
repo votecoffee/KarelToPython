@@ -28,7 +28,9 @@ ASCII comparison pairs records by their line number. It normalizes CR, LF and
 CRLF separators and ignores whether the final record has a terminator. It counts
 unequal pairs and missing records, without aligning inserted or deleted lines.
 An empty file has zero records; a single newline has one blank record. Other
-ASCII controls remain part of the record. Non-ASCII data raises an error.
+ASCII controls remain part of the record. Non-ASCII data raises an error. The
+execution budget charges one step per started 4096 bytes across both inputs
+before decoding, plus one step per record pair.
 
 Binary comparison accepts arbitrary bytes and returns the one-based position
 of the first difference. A prefix-only difference returns the shorter length

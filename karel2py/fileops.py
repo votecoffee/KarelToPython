@@ -622,7 +622,7 @@ def wildcard_file_operation(state,operation,args,line=None):
                 raise runtime.KarelRuntimeError('Configured pipe snapshot exceeds its retained capacity',line)
             total+=len(data)
             if total>WILDCARD_COPY_BYTES:raise runtime.KarelRuntimeError('Wildcard COPY_FILE snapshots exceed 64 MiB',line)
-            for offset in range(0,len(data),4096):check()
+            charge_file_bytes(len(data),check)
             if target.pipe:
                 if len(data)>target.bank.pipes[destination]['sectors']*1024:return 4
             elif not target.directory:target.bank._check(destination,data)
@@ -740,7 +740,7 @@ def pipe_file_operation(state,operation,args,line=None):
             else:
                 code,data=source.read_named(source_name)
                 if not code:
-                    for offset in range(0,len(data),4096):state.tick(line)
+                    charge_file_bytes(len(data),lambda:state.tick(line))
                     code=publish_file_bytes(target,target_name,data,overwrite,line)
         elif operation=='DELETE_FILE':
             runtime.boolean(args[1],line);files,key=plain_pipe(context,args[0],line);code=files.delete(key)
@@ -754,7 +754,7 @@ def pipe_file_operation(state,operation,args,line=None):
     return code
 
 
-def charge_copy_bytes(size,check):
+def charge_file_bytes(size,check):
     if check is not None:
         for _ in range(0,size,4096):
             check()
@@ -958,8 +958,8 @@ def move_files(files,specification,*,check=None):
     return 0
 
 
-def ascii_lines(data):
-    text=data.decode('ascii');start=0
+def ascii_lines(text):
+    start=0
     for boundary in re.finditer(r'\r\n|\r|\n',text):
         yield text[start:boundary.start()];start=boundary.end()
     if start<len(text): yield text[start:]
@@ -996,9 +996,10 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
         if len(records)+len(data)>capacity: raise runtime.KarelRuntimeError('Comparison report exceeds remaining FILE capacity',line)
         return data
     if ascii_flag:
-        # Decode both inputs completely before comparing or preparing output.
-        left.decode('ascii');right.decode('ascii');count=0
-        for number,(a,b) in enumerate(zip_longest(ascii_lines(left),ascii_lines(right)),1):
+        # Charge and decode both inputs completely before preparing output.
+        charge_file_bytes(len(left)+len(right),lambda:state.tick(line))
+        left_text=left.decode('ascii');right_text=right.decode('ascii');count=0
+        for number,(a,b) in enumerate(zip_longest(ascii_lines(left_text),ascii_lines(right_text)),1):
             state.tick(line)
             if a!=b:
                 count+=1;records.extend(record(dict(line=number,left=a,right=b)))
@@ -1061,7 +1062,7 @@ def append_file(state,source_name,target_name,line=None):
         return 2
     limit=target.pipes[dst]['sectors']*1024 if type(target) is rt().FilePipes else target.limit
     if len(prefix)+len(content)>limit:return 4
-    charge_copy_bytes(len(prefix)+len(content),lambda:state.tick(line))
+    charge_file_bytes(len(prefix)+len(content),lambda:state.tick(line))
     code,current=target.read_named(dst)
     if code:return code
     if current!=prefix:return 2

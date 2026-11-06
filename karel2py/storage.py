@@ -506,7 +506,7 @@ class DirectoryFiles:
         return sorted(names)
 
     def copy(self,source,target,overwrite=False,*,check=None):
-        from .fileops import charge_copy_bytes
+        from .fileops import charge_file_bytes
 
         source=self._key(source); target=self._key(target)
         if self._busy(source) or self._busy(target): return 3
@@ -514,7 +514,7 @@ class DirectoryFiles:
         if not src.is_file(): return 1
         if dst.exists() and not overwrite: return 2
         data=self._disk_bytes(src)
-        charge_copy_bytes(len(data),check)
+        charge_file_bytes(len(data),check)
         if check is not None:
             if self._busy(source) or self._busy(target):return 3
             dst=self._path(target)

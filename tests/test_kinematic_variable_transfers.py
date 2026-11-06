@@ -97,7 +97,7 @@ class ModelVariableScalarTests(unittest.TestCase):
         ctx=callback_context(inverse=lambda *args:joint([0.,0.]));ctx.robot.current=None;p,_=build(first='POSITION',second='JOINTPOS2',ctx=ctx);failed(self,p,'current joints')
 
     def test_wrong_model_output_width_keeps_outputs(self):
-        p,_=build(first='POSITION',second='JOINTPOS3');failed(self,p,'model axes')
+        p,_=build(first='POSITION',second='JOINTPOS1');failed(self,p,'model axes')
 
     def test_invalid_forward_adapter_result_keeps_outputs(self):
         p,_=build(ctx=callback_context(forward=lambda *args:(identity_pose(),identity_pose().values['CONFIG_DATA'],[0.])));failed(self,p)
