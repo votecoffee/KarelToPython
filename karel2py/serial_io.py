@@ -188,7 +188,7 @@ class SerialStreams:
         if id(handle) in self._pending:raise runtime.KarelRuntimeError('Serial FILE already has a pending READ',line)
         request = StreamRead(handle, targets, line_breaks, formats, 'Serial', line)
         start = handle.position
-        if start + request.minimum > row['capacity']:
+        if start + request.minimum_bytes(may_finalize=True) > row['capacity']:
             raise runtime.KarelRuntimeError('Atomic serial READ exceeds retained receive capacity', line)
         registration=self._open[id(handle)];pending=(state,registration,start)
         self._pending[id(handle)]=pending

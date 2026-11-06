@@ -66,9 +66,10 @@ Missing later fields, unfinished quoted strings and short binary input fail and
 preserve that READ's original destinations and cursor. Finalization does not
 invent a line terminator or discard the incomplete prefix.
 
-A fixed-width or binary READ that cannot fit within the port's retained RX
-capacity fails before waiting. This check includes the successfully read prefix
-that remains retained until CLOSE. Variable-length input remains subject to the
+A READ whose fixed fields and required CR separators exceed retained RX
+capacity fails before waiting. The check includes the successfully read prefix
+retained until CLOSE. The last CR can consume a finalized unterminated record
+without another byte. Variable-length input remains subject to the
 ordinary combined RX/TX capacity and bank byte budget; feed and WRITE reject
 over-limit appends atomically.
 

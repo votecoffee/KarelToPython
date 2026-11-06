@@ -49,6 +49,13 @@ class AssignmentModelTests(unittest.TestCase):
         result=p.run()['OUT']['axes'];point=ctx.robot.model.forward(joint(result),ctx.robot.frame(),ctx.robot.tool())[0]
         self.assertAlmostEqual(point.values['LOCATION'].values['X'],100.,delta=.02);self.assertAlmostEqual(point.values['LOCATION'].values['Y'],100.,delta=.02)
 
+    def test_inverse_accepts_convergence_on_last_iteration(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{'dh':[{'type':'prismatic'}],'iterations':1,
+            'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+        body="CNV_STR_CONF('N',cfg,s) p=POS(0,0,0.1,0,0,0,cfg) out=p"
+        state=run(body,decl=DECL+' cfg:CONFIG',context=ctx)
+        self.assertAlmostEqual(state['OUT']['axes'][0],0.1,delta=.01)
+
     def test_missing_robot_service_retains_destination(self):
         p,_=compile_program('p=j',decl=DECL);p._state.values['J']=joint([0.]*9)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'robot'): p.run()

@@ -108,6 +108,27 @@ class SocketReadWaitTests(unittest.TestCase):
         self.assertEqual(bank._pending, {})
         bank.close(task._state.values['F'])
 
+    def test_fixed_fields_and_mandatory_record_separator_exceed_capacity(self):
+        bank, ctx = services(dict(wait=True, input='123'), limit=3)
+        calls = []
+        task = build('n=77 ' + OPEN + 'READ f(n::3,CR,CR)', ctx, sleep=calls.append)
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'receive bank limit'):
+            task.run()
+        handle = task._state.values['F']
+        self.assertEqual((task.snapshot()['N'], handle.position, calls, task.read_requests, bank._pending),
+                         (77, 0, [], (), {}))
+        bank.close(handle)
+        self.assertEqual(bank.files['S1:'], b'123')
+
+    def test_finalization_supplies_last_cr_at_exact_capacity(self):
+        bank, ctx = services(dict(wait=True, input='123'), limit=3)
+        calls = []
+        def sleeper(delay):
+            calls.append(delay)
+            bank.finish_input('S1:')
+        task = build(OPEN + 'READ f(n::3,CR)' + CLOSE, ctx, sleep=sleeper)
+        self.assertEqual((task.run()['N'], calls), (123, [.01]))
+
 
 class SocketWriteWaitTests(unittest.TestCase):
     def test_aggregate_payload_is_captured_once_across_partial_drains(self):

@@ -553,7 +553,7 @@ class TaskScheduler:
         if type(max_cycles) is not int or max_cycles<1: raise ValueError('Scheduler cycle budget must be positive')
         self._running=True
         try:
-            for _ in range(max_cycles):
+            for cycle in range(max_cycles+1):
                 for bank in self._pulse_banks(): bank.poll_pulses()
                 active = any(program._state._scheduler is self and (
                     program._state.task_state=='running' or program._state.task_state=='waiting'
@@ -561,6 +561,8 @@ class TaskScheduler:
                     for name,program in self._distinct_bindings())
                 if not active and not self._pulse_deadlines():
                     return self.snapshot()
+                if cycle==max_cycles:
+                    break
                 self.step()
             raise rt().KarelRuntimeError('Scheduler cycle budget exceeded')
         finally: self._running=False

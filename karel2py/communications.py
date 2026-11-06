@@ -77,9 +77,9 @@ class StreamRead:
                 if target.spec[0] == 'STRING' and not field:
                     field = (target.spec[1],)
                 self.widths.append(binary_format(target.spec[0], field, line))
-            self.minimum = sum(width for width, _ in self.widths)
+            self.field_bytes = sum(width for width, _ in self.widths)
         else:
-            self.minimum = sum(
+            self.field_bytes = sum(
                 (field[0] if field else 0)
                 or (target.spec[1] if handle.field and target.spec[0] == 'STRING' else 0)
                 for target, field in zip(targets, self.formats)
@@ -94,10 +94,14 @@ class StreamRead:
         self.transport = transport
         self.line = line
 
+    def minimum_bytes(self, *, may_finalize):
+        # Finite text can consume its last unterminated record with CR.
+        return self.field_bytes + max(0, len(self.line_breaks) - int(may_finalize))
+
     def probe(self, handle, raw, *, final):
         runtime = rt()
         if self.widths is not None:
-            if len(raw) < self.minimum:
+            if len(raw) < self.field_bytes:
                 return None
             values = []
             offset = 0
@@ -376,7 +380,7 @@ class Messaging(MemoryFiles):
         request = StreamRead(handle, targets, line_breaks, formats, 'Socket', line)
         record = self._start_operation(state, handle, row, 'READ', line)
         try:
-            if record.position + request.minimum > record.limit:
+            if record.position + request.minimum_bytes(may_finalize=True) > record.limit:
                 fail('Atomic socket READ exceeds receive bank limit', line)
             while True:
                 row = self.validate_pending(handle, state, 'READ', line, expected=record)
@@ -606,7 +610,7 @@ class FilePipes(MemoryFiles):
         runtime=rt();self.before_read(handle,line)
         request = StreamRead(handle, targets, line_breaks, formats, 'Pipe', line)
         waiting=getattr(handle,'pipe_wait',None)==1
-        minimum=request.minimum+(len(request.line_breaks) if waiting else 0)
+        minimum=request.minimum_bytes(may_finalize=not waiting)
         if (handle.binary or waiting) and minimum > self.pipes[handle.name]['sectors'] * 1024:
             fail('Atomic pipe READ exceeds circular capacity', line)
         if id(handle) in self._reads:fail('Pipe FILE already has an active READ',line)

@@ -172,7 +172,8 @@ The first checks translation/linkage. `--entry` explicitly starts execution.
 `--filesystem-timestamps`, `--state-out`, `--max-cycles` and `--max-steps` are
 available. Each task, including a launched child, gets the step budget.
 Linked routines consume the calling task's steps. The separate cycle budget
-limits scheduler cycles.
+limits scheduler cycles. Completion on the last allotted cycle succeeds. The
+host API can continue an unfinished run with another `scheduler.run()` call.
 The Python API additionally accepts `instantiate(options={...})` for ordinary
 Program options such as `joint_axes` and pose tolerances.
 
@@ -281,11 +282,12 @@ kinematics, seeded by the supplied reference joints. Limits and iteration budget
 are enforced. For inverse conversion, `ik_fallback_seeds` can supply up to eight
 additional in-limit joint vectors in DH row order. The solver tries them in
 order only after the reference attempt fails, with the same iteration limit
-per attempt and the external joints fixed throughout. JOINT2POS returns three external values, padding unused fields
-with zero. POS2JOINT fixes external joints at its explicit external-array values.
+per attempt and the external joints fixed throughout. JOINT2POS returns three
+external values, padding unused fields with zero. POS2JOINT fixes external
+joints at its explicit external-array values.
 IN_RANGE fixes them at the pose's external values (zero for a plain pose), then
-tries a bounded set of seeds. Failure means no solution was found within this
-algorithm's budget, not proof of geometric impossibility. No collision checking
+tries the standard seeds followed by any supplied fallback seeds. A failed
+search is inconclusive for geometric reachability. No collision checking
 or robot-specific configuration-branch selection is implemented; config_ref=0
 is the portable supported choice.
 

@@ -156,10 +156,10 @@ class SerialRobotModel:
             q[i]=value
         variables=[i for i in range(self.axes) if i not in fixed and self.limits[i][0]<self.limits[i][1]]
         damping=.1; weight=100.
-        for _ in range(self.iterations):
-            current=self.chain(q); residual=error(current,target,weight)
+        current=self.chain(q); residual=error(current,target,weight)
+        for iteration in range(self.iterations+1):
             if math.hypot(*residual[:3])<=self.position_tolerance and math.hypot(*residual[3:])/weight<=self.orientation_tolerance: return q
-            if not variables: break
+            if iteration==self.iterations or not variables: break
             columns=[]
             for axis in variables:
                 shifted=q.copy(); amount=.001
@@ -174,9 +174,12 @@ class SerialRobotModel:
             for _ in range(12):
                 trial=q.copy()
                 for axis,increment in zip(variables,delta): trial[axis]=min(self.limits[axis][1],max(self.limits[axis][0],q[axis]+scale*increment))
-                after=sum(value*value for value in error(self.chain(trial),target,weight))
+                trial_pose=self.chain(trial)
+                trial_residual=error(trial_pose,target,weight)
+                after=sum(value*value for value in trial_residual)
                 if after<before:
-                    q=trial; damping=max(1e-5,damping*.7); improved=True; break
+                    q,current,residual=trial,trial_pose,trial_residual
+                    damping=max(1e-5,damping*.7); improved=True; break
                 scale*=.5
             if not improved:
                 damping*=5
@@ -202,7 +205,8 @@ class SerialRobotModel:
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe) if uframe is not None else IDENTITY,matrix(position)),inverse(matrix(utool)) if utool is not None else IDENTITY))
         midpoint=[(lo+hi)/2 for lo,hi in self.limits]
         fixed={index:position.values.get('EXT'+str(slot),0.) for slot,index in enumerate(self._external_joints,1)}
-        for seed in ([0.]*self.axes,midpoint,[lo+(hi-lo)*.25 for lo,hi in self.limits],[lo+(hi-lo)*.75 for lo,hi in self.limits]):
+        for seed in ([0.]*self.axes,midpoint,[lo+(hi-lo)*.25 for lo,hi in self.limits],
+                     [lo+(hi-lo)*.75 for lo,hi in self.limits],*self.ik_fallback_seeds):
             if self.solve(target,seed,fixed=fixed) is not None: return True
         return False
 

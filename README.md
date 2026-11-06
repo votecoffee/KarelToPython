@@ -382,7 +382,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.144648**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.150342**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -528,7 +528,8 @@ Every generated Pythonic script accepts `--help`, `--context`, `--state-out` and
 supplies declared globals before execution. State output saves globals and
 supplied banks after successful completion. The default budget is 100,000
 steps, including linked routines in a task. The linked project CLI also accepts
-`--max-steps` and applies the limit to each task.
+`--max-steps` and applies the limit to each task. Its separate `--max-cycles`
+limit allows tasks to finish on the last allotted scheduler cycle.
 
 A context can include supplied physical input samples to seed mapped logical
 ports. See the [port configuration guide](docs/port-configuration.md#sampling-configured-inputs).
@@ -1119,8 +1120,8 @@ source. Strict mode remains a future milestone.
 - CHECK_EPOS with explicit frame/tool poses, selected robot group and a supplied
   DH model or synchronous callback. A DH model supports explicit external-axis
   row mappings. See [position checks](docs/position-checks.md).
-- Optional ordered fallback seeds for DH inverse conversion after the primary
-  seed fails. See [model-backed assignments](docs/kinematic-assignments.md).
+- Optional ordered fallback seeds for DH inverse conversion and reachability
+  after the standard seeds fail. See [model-backed assignments](docs/kinematic-assignments.md).
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Error-history queries through `ERR_DATA`, with sequential/latest lookup,
   checked message outputs and optional persisted text/timestamps; see

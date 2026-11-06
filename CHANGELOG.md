@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.150342 - 2026-11-06
+
+- Accept linked task completion on the last allowed scheduler cycle.
+- Reject waiting serial and socket reads when their fixed fields and required
+  record separators exceed receive capacity. Finalized input can still complete
+  a last unterminated record.
+- Accept DH solutions found on the last allowed iteration and use supplied
+  fallback seeds in model-backed reachability checks.
+
 ## 26.1106.144648 - 2026-11-06
 
 - Project supplied physical input samples through active digital, group and

@@ -134,8 +134,24 @@ class SerialWaitInputTests(unittest.TestCase):
         self.assertEqual((task.snapshot()['N'],task.snapshot()['M'],task.snapshot()['F']['position']),(1,88,1))
         self.assertEqual(calls,[]);bank.close(task._state.values['F']);self.assertEqual(bank.snapshot()[2]['input'],b'234')
 
+    def test_fixed_fields_and_mandatory_record_separator_exceed_capacity(self):
+        bank,ctx=streams(b'123',capacity=3);calls=[]
+        task,_=compile_program(OPEN+'n=77 READ f(n::3,CR,CR)',decl=DECL,context=ctx,sleep=calls.append)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'retained receive capacity'):task.run()
+        handle=task._state.values['F']
+        self.assertEqual((task.snapshot()['N'],handle.position,calls,task.read_requests,bank._pending),
+                         (77,0,[],(),{}))
+        bank.close(handle)
+        self.assertEqual(bank.snapshot()[2]['input'],b'123')
+
 
 class SerialWaitFinalInputTests(unittest.TestCase):
+    def test_finalization_supplies_last_cr_at_exact_capacity(self):
+        bank,ctx=streams(b'123',capacity=3);calls=[]
+        def sleeper(delay):calls.append(delay);bank.finish_input(2)
+        result=run(OPEN+'READ f(n::3,CR) CLOSE FILE f',decl=DECL,context=ctx,sleep=sleeper)
+        self.assertEqual((result['N'],calls),(123,[.01]))
+
     def test_preloaded_final_input_allows_unterminated_field(self):
         bank,ctx=streams(b'17',final=True)
         result=run(OPEN+'READ f(n) CLOSE FILE f',decl=DECL,context=ctx)

@@ -117,6 +117,9 @@ Partial input retains the RX bytes, cursor, destinations and READ observations.
 A successful operation consumes exactly the committed RX prefix, leaving the
 remaining bytes for the next read.
 
+The capacity check counts fixed field bytes and required CR separators. The
+last CR may consume a finalized unterminated record without another byte.
+
 With `wait_output: true`, WRITE renders the complete payload once. It waits
 for space in the shared Messaging bank, which can be freed by host
 `take_output` or a READ on another endpoint. The whole payload appends together.

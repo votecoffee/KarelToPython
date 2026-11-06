@@ -107,6 +107,22 @@ class SchedulerTests(unittest.TestCase):
         instance=self.programs('WAIT FOR FALSE','n=1')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'cycle budget'): instance.run('MAIN',max_cycles=5)
 
+    def test_scheduler_budget_accepts_completion_on_last_cycle(self):
+        instance=self.programs('n=1','')
+        result=instance.run('MAIN',max_cycles=2)
+        self.assertEqual(result['MAIN']['state'],'completed')
+        self.assertEqual(result['MAIN']['values']['N'],1)
+        self.assertEqual(instance.scheduler.now_us,2*instance.scheduler.quantum_us)
+
+    def test_cycle_budget_failure_can_continue_without_restarting_task(self):
+        instance=self.programs('n=1','')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'cycle budget'):
+            instance.run('MAIN',max_cycles=1)
+        self.assertEqual(instance.programs['MAIN'].task_state,'running')
+        result=instance.scheduler.run(max_cycles=1)
+        self.assertEqual(result['MAIN']['state'],'completed')
+        self.assertEqual(result['MAIN']['values']['N'],1)
+
     def test_events_in_handler_and_eval_capture(self):
         p,_=compile_program('n=1 CONDITION[1]: WHEN EVENT[1] AND EVAL(n=1) DO n=7 ENDCONDITION ENABLE CONDITION[1] n=2 SIGNAL EVENT[1] s=n')
         self.assertEqual(p.run()['S'],7)

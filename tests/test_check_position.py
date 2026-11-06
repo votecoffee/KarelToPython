@@ -33,6 +33,15 @@ def grouped_context():
 
 
 class PositionModelCheckTests(unittest.TestCase):
+    def test_reachability_uses_supplied_fallback_seeds_with_fixed_external_axes(self):
+        model={'dh':[{'type':'prismatic'},{}],'external_axes':1,'iterations':1}
+        for seeds,expected in (([],False),([[87.,-45.]],True)):
+            with self.subTest(seeds=seeds):
+                ctx=rt.ExecutionContext.from_config({'robot':{**model,'ik_fallback_seeds':seeds}})
+                body=SETUP+'p=POS(0,0,87,0,0,35,c) p.ext1=35 ready=IN_RANGE(p) '+CALL
+                state=run(body,decl=DECL+' ready:BOOLEAN',context=ctx)
+                self.assertEqual((state['READY'],state['S']),(expected,0 if expected else 1))
+
     def test_reachable_without_current_snapshot(self):
         ctx=context();state=run(SETUP+CALL,decl=DECL,context=ctx)
         self.assertEqual(state['S'],0);self.assertIsNone(ctx.robot.current)
