@@ -104,12 +104,16 @@ class PaddedJointTests(unittest.TestCase):
         self.assertEqual(state['OUT']['axes'],[30.,45.]+[0.]*7)
         self.assertEqual(ctx.robot.current.joints.values,[30.,45.])
 
-    def test_inverse_can_write_exact_or_intermediate_model_width(self):
-        for width in (2,3,8):
+    def test_pythonic_model_results_roundtrip_at_intermediate_widths(self):
+        body=FRAME+FORWARD+INVERSE+' JOINT2POS(out,f,f,0,p,c,ext,s) '
+        body+='POS2JOINT(out,p,f,f,0,c,ext,checked,s) ready=J_IN_RANGE(out)'
+        for width in (2,3,8,9):
             with self.subTest(width=width):
-                decl=DECL.replace('j,out: JOINTPOS',f'j: JOINTPOS out: JOINTPOS{width}')
-                state=run(FRAME+FORWARD+INVERSE,decl=decl,context=model_context())
-                self.assertEqual((state['OUT']['axes'],state['S']),([30.,45.]+[0.]*(width-2),0))
+                decl=DECL.replace('j,out: JOINTPOS',f'j: JOINTPOS out,checked: JOINTPOS{width}')
+                state=run(body,decl=decl+' ready: BOOLEAN',context=model_context())
+                expected=[30.,45.]+[0.]*(width-2)
+                self.assertEqual((state['OUT']['axes'],state['CHECKED']['axes']), (expected,expected))
+                self.assertEqual((state['S'],state['READY']),(0,True))
 
     def test_inverse_can_use_native_reference_and_padded_output(self):
         p,_=compile_program(FRAME+'JOINT2POS(j,f,f,0,p,c,ext,s) '+INVERSE,decl=DECL.replace('j,out: JOINTPOS','j: JOINTPOS2 out: JOINTPOS'),context=model_context())
@@ -169,7 +173,7 @@ class PaddedJointTests(unittest.TestCase):
         self.assertTrue(state['READY']);self.assertEqual(state['S'],0)
 
     def test_model_pose_can_use_padded_current_snapshot(self):
-        ctx=model_context();ctx.robot.current.update(joints=rt.padded_joints(ctx.robot.current.joints))
+        ctx=model_context();ctx.robot.current.update(joints=[30.,45.,0.,0.])
         state=run('point=CURPOS(0,0)',decl='point: XYZWPREXT',context=ctx)
         expected=ctx.robot.model.chain([30.,45.]);self.assertAlmostEqual(state['POINT']['X'],expected[0][3])
 
@@ -200,6 +204,15 @@ class PaddedRangeTests(unittest.TestCase):
         ctx=rt.ExecutionContext.from_config(config);self.assertEqual(ctx.to_config(),config)
         ctx.positions=rt.PositionRegisters(1,{1:joint([0.,4.])})
         self.assertTrue(run('j=GET_JPOS_REG(1,s) ready=J_IN_RANGE(j)',decl='j: JOINTPOS ready: BOOLEAN s: INTEGER',context=ctx)['READY'])
+
+    def test_range_with_explicit_limits_accepts_intermediate_padding(self):
+        ctx=rt.ExecutionContext(robot=rt.RobotContext(joint_limits=[(-5,5),(-10,10)]))
+        decl='j: JOINTPOS3 ready: BOOLEAN'
+        state=run('j[1]=1 j[2]=8 j[3]=0 ready=J_IN_RANGE(j)',decl=decl,context=ctx)
+        self.assertTrue(state['READY'])
+        p,_=compile_program('j[1]=1 j[2]=8 j[3]=1 ready=TRUE ready=J_IN_RANGE(j)',decl=decl,context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'Unused'):p.run()
+        self.assertTrue(p.snapshot()['READY'])
 
     def test_nonzero_padding_is_an_error_rather_than_a_range_result(self):
         ctx=rt.ExecutionContext(robot=rt.RobotContext(joint_limits=[(-5,5)]));ctx.positions=rt.PositionRegisters(1,{1:joint([0.,1.]+[0.]*7)})

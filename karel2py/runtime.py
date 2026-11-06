@@ -1303,17 +1303,18 @@ class JointPosition:
         return result
 
 
-def joint_values(value, axes, line=None):
-    """Read explicit axes or JOINTPOS9 with zero-only unused slots."""
+def joint_values(value, axes, line=None, *, pythonic_padding=False):
+    """Read complete joints with zero-only padding for an explicit axis context."""
     if type(axes) is not int or not 1<=axes<=9:
         raise KarelRuntimeError('Joint context requires an axis count in 1..9',line)
     if not isinstance(value,JointPosition) or len(value.values)!=joint_width(value.spec):
         raise KarelRuntimeError('Malformed joint data',line)
     width=joint_width(value.spec)
-    if width not in (axes,9): raise KarelRuntimeError('Joint width must match the explicit axes or use JOINTPOS9 padding',line)
+    if width not in (axes,9) and not (pythonic_padding and _pythonic() and width>axes):
+        raise KarelRuntimeError('Joint width does not fit the explicit axis context',line)
     with _numeric_scope('pythonic'): values=[real(axis,line) for axis in value.values]
     if any(axis!=0. for axis in values[axes:]):
-        raise KarelRuntimeError('Unused JOINTPOS9 slots must be zero for the explicit axis context',line)
+        raise KarelRuntimeError('Unused JOINTPOS slots must be zero for the explicit axis context',line)
     return values[:axes]
 
 

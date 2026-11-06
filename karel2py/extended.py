@@ -1639,7 +1639,7 @@ class RobotContext:
         rt=runtime()
         if isinstance(value,rt.JointPosition):
             if self.joint_limits is None:fail(name+' requires explicit limits for every joint',line)
-            values=rt.joint_values(value,len(self.joint_limits),line)
+            values=rt.joint_values(value,len(self.joint_limits),line,pythonic_padding=True)
             return all(lo<=axis<=hi for axis,(lo,hi) in zip(values,self.joint_limits))
         if self.reachable is None:fail(name+' requires an explicit reachability adapter',line)
         pose=rt.frame_value(value,line)

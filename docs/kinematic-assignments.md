@@ -73,10 +73,10 @@ formats match the existing explicit conversion procedures. Forward CONFIG and
 three external outputs are authoritative. Callback joint outputs must match
 the destination's declared width exactly. Inputs and results are detached.
 
-For a loaded model, joint inputs accept its exact width or JOINTPOS9 with zero
-unused slots. Inverse output accepts any width from the modeled axis count
-through nine, padding unused slots with zero. Narrower destinations and
-discarded nonzero inputs raise errors.
+For a loaded model, joint inputs and inverse outputs accept any width from the
+modeled axis count through nine. Every unused input slot must contain zero.
+Inverse conversion fills unused output slots with zeros. Narrower joint
+values and nonzero input padding raise errors.
 See [joint interoperability](joint-interoperability.md) for the shared rules.
 
 ```python

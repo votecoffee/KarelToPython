@@ -8,17 +8,17 @@
     {"kind":"repository_contract","source":"extended_service_semantics.json","topic":"Joint registers, model conversion signatures, explicit limits and loaded frame/tool context"}
   ],
   "implemented": {
-    "inputs":"Exact configured joint width or complete JOINTPOS9 with zero-only unused slots, normalized at model/limit boundaries",
-    "outputs":"GET_JPOS_REG pads narrow stored joints without modifying bank representation; model POS2JOINT writes its exact width or padded nine slots",
-    "validation":"Reject nonzero/uninitialized/nonfinite/Boolean padding, other widths and invalid output shapes before operation outputs; normal limit checks retained",
+    "inputs":"Complete JOINTPOS wide enough for the configured axes, with zero-only unused slots at Pythonic model and limit boundaries",
+    "outputs":"GET_JPOS_REG pads narrow stored joints to nine slots. Model POS2JOINT writes any width that fits all modeled axes, with zeros in unused slots.",
+    "validation":"Reject nonzero, uninitialized, nonfinite or Boolean padding and widths too small for the model before writing outputs. Apply configured joint limits.",
     "limits":"One-to-nine-axis explicit limits-only contexts persist with or without current state; DH limits remain in model rows",
     "frames":"Loaded-model reachability uses current frame/tool selection; valid host map changes/removals and selections survive save/load",
     "groups":"All robot queries/conversions/range checks use root caller group during linked routines"
   },
   "portable_choices": [
-    "Nine-slot padding is an authored Pythonic convention rather than a native encoding or evidence of additional physical axes",
-    "Only exact model/limit width or JOINTPOS9 is accepted; nonzero extra axes are not discarded",
-    "No global implicit JOINTPOS assignment conversion; custom callbacks without a model retain exact output width",
+    "Zero padding is an authored Pythonic storage convention. Controller encoding and physical axis count require separate evidence.",
+    "A compatible width fits every configured model or limit axis. Additional slots are checked for zero.",
+    "Source joint-width conversions follow their own rules. Custom callbacks without a model require exact output width.",
     "Frame/tool IDs are portable 0..32767 integers; stored matrices and active selections are validated before persistence",
     "Unchanged input representations and omitted default identity entries keep their original configuration shape",
     "Bounded model math and limit checks do not establish collision clearance or native reachability"

@@ -10,11 +10,11 @@ using these same model checks and explicitly supplied context.
 
 ## Joint widths and unused slots
 
-Model JOINT2POS/POS2JOINT inputs and J_IN_RANGE accept either the exact configured
-axis width or a complete JOINTPOS9 with zero in every unused slot. The number of
-active axes comes from the model or explicit limits. Other widths are rejected.
-Nonzero, uninitialized, Boolean or nonfinite unused values are rejected too;
-the runtime does not silently drop additional axis data.
+Pythonic JOINT2POS, POS2JOINT and J_IN_RANGE accept complete JOINTPOS inputs with
+at least as many slots as the configured model or explicit limits require.
+Every unused slot must contain zero. Nonzero, uninitialized, Boolean and
+nonfinite padding are rejected. Current-joint snapshots use the same rules for
+model-derived CURPOS, source inverse conversions and reachability seeds.
 
 CURJPOS and GET_JPOS_REG return independent nine-slot values. A narrow register
 value is padded on read without changing its stored type, width or contents.
@@ -62,8 +62,8 @@ the DH rows; mixing DH rows and a separate joint_limits field is rejected.
 {"robot":{"joint_limits":[[-10,10],[-20,20]]}}
 ```
 
-With those limits, a two-axis value [5,15] or a nine-slot value [5,15,0,0,0,0,0,0,0]
-passes J_IN_RANGE. A modeled active value outside its limit returns FALSE.
+With those limits, both a two-axis value [5,15] and a padded four-slot value
+[5,15,0,0] pass J_IN_RANGE. A modeled active value outside its limit returns FALSE.
 Invalid nonzero padding raises rather than being interpreted as an active-axis
 range result. See the [limits-only example](../examples/joint_limits.kl).
 

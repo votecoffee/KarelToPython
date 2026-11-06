@@ -9,14 +9,14 @@
     "context":"Calling root task group, selected configured frame/tool and existing supplied forward/inverse adapters or standard-DH model",
     "inverse":"Complete current joints as reference seed, source CONFIG and external values, config_ref zero; destination contents do not seed solving",
     "inverse_fallback":"Optional standard-DH ik_fallback_seeds run in supplied order after the required reference fails, with external joints fixed and the configured iteration limit per attempt",
-    "width":"Shared model-width or padded-nine-slot checks; model inverse output padding; custom callback output exact width",
+    "width":"Every model axis must fit. Inputs require zero padding, inverse outputs fill extra slots with zero, and custom callback outputs require exact width.",
     "ownership":"Detached inputs/results, conversion before target selector, destination preserved on failure, sticky abort retained and source-located value-free service records"
   },
   "portable_choices":[
     "Automatic assignment uses configured active frame/tool rather than discovering controller context",
     "Current-joint seed and config_ref zero are explicit portable choices, not native branch-selection claims",
     "Forward CONFIG/external outputs become Cartesian metadata; plain poses drop external values and supply zero on inverse",
-    "No source implicit conversion for routine/RETURN/whole-array/variable/register interfaces or JOINTPOS frame operators",
+    "Routines, aggregate values, variable transfers and frame operators follow their respective source conversion policies.",
     "Normal model limits and iteration bounds remain; failed numerical solving does not prove unreachable geometry",
     "Conversion does not mutate current robot state or perform motion; completed external callback effects remain on later failure"
   ],

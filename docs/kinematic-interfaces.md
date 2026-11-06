@@ -52,16 +52,16 @@ its target selectors; earlier source effects retain their usual behavior.
 ## Explicit model context
 
 Forward conversion requires complete finite joints and a configured forward
-adapter. A loaded model accepts its native joint width or JOINTPOS9 with zero
-unused slots, and checks its existing joint limits. No nonzero padding is silently
-discarded. Custom adapters retain their explicit input and exact result rules.
+adapter. A loaded model accepts any complete joint width that fits all modeled
+axes and checks its existing joint limits. Unused slots must contain zeros.
+Custom adapters retain their explicit input and exact result rules.
 
 Inverse conversion requires complete valid Cartesian data and supplied current
 joints as its reference seed. Previous destination contents and a current pose
 without joints are not seeds. It passes the source CONFIG, config_ref=0 and three
-external-axis values to the adapter. A loaded model accepts its native output
-width or JOINTPOS9 with zero padding; a custom adapter must return the declared
-joint output width exactly. Solver failure is an offline failure to find a
+external-axis values to the adapter. A loaded model accepts any joint output
+width that fits all modeled axes and zero-pads unused slots. A custom adapter
+must return the declared joint output width exactly. Solver failure is an offline failure to find a
 solution, rather than proof of geometric impossibility.
 
 Both directions use the calling root task's group and that group's selected

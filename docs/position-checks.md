@@ -60,9 +60,9 @@ before calling the checker or writing the status. A current-joint snapshot
 is optional.
 
 Reachability uses bounded multi-seed numerical search and joint limits.
-Compatible current joints, when supplied, seed the first attempt. Exact-width
-joints and JOINTPOS9 with zero-only unused slots are eligible. Without a compatible
-snapshot, the search starts with the standard seeds. After the standard seeds,
+Compatible current joints, when supplied, seed the first attempt. Any complete
+width that fits the configured axes is eligible when its unused slots contain
+zeros. Without a compatible snapshot, the search starts with the standard seeds. After the standard seeds,
 the model tries any supplied `ik_fallback_seeds` in order. Each configured external
 joint is fixed to its corresponding target EXT1..EXT3 value in every attempt.
 Use `external_axes` for trailing DH rows or

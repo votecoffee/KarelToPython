@@ -326,6 +326,39 @@ class FileManagementIntegrationTests(unittest.TestCase):
             self.assertEqual([path.read_bytes() for path in sources],[b'a.KL',b'b.KL'])
             self.assertEqual(list((root/'flash').iterdir()),[])
 
+    def test_rooted_payload_charge_preserves_the_batch_on_budget_exhaustion(self):
+        with tempfile.TemporaryDirectory() as folder:
+            files=directory(folder)
+            root=Path(folder)
+            payloads={'a.KL':b'a'*8192,'b.KL':b'b'*8192}
+            for name,data in payloads.items():
+                (root/'ram'/name).write_bytes(data)
+            p,_=compile_program("s=99 MOVE_FILE('RD:*.KL',s)",context=rt.ExecutionContext(files=files))
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=10)
+            self.assertEqual(p.snapshot()['S'],99)
+            self.assertEqual(files.snapshot(),{})
+            self.assertEqual({path.name:path.read_bytes() for path in (root/'ram').iterdir()},payloads)
+            self.assertEqual(list((root/'flash').iterdir()),[])
+
+    def test_rooted_source_change_during_payload_charge_prevents_any_moves(self):
+        with tempfile.TemporaryDirectory() as folder:
+            files=directory(folder)
+            root=Path(folder)
+            first,second=(root/'ram'/name for name in ('a.KL','b.KL'))
+            first.write_bytes(b'a'*8192)
+            second.write_bytes(b'b')
+            calls=0
+            def check():
+                nonlocal calls
+                calls+=1
+                # Two source entries and four planned operations precede byte charging.
+                if calls==7:second.write_bytes(b'grown')
+            with self.assertRaisesRegex(ValueError,'source changed during byte preflight'):
+                files.move('RD:*.KL',check=check)
+            self.assertEqual((first.read_bytes(),second.read_bytes()),(b'a'*8192,b'grown'))
+            self.assertEqual(list((root/'flash').iterdir()),[])
+            self.assertEqual(files.snapshot(),{})
+
     def test_move_results_persist_in_typed_context(self):
         files=rt.MemoryFiles({'RD:a.KL':b'\0\xffa'});ctx=rt.ExecutionContext(files=files)
         state=run("MOVE_FILE('RD:*.KL',s)",context=ctx)

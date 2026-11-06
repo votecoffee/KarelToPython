@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.225928**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.231719**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1021,8 +1021,9 @@ and tools. Inverse assignments require supplied current joints as a seed. See
 [kinematic assignments](docs/kinematic-assignments.md) for the context and type rules.
 JOINT2POS writes directly to POSITION, XYZWPR or XYZWPREXT. With a supplied DH
 model, the separate REAL array can be sized to fit the configured external axes.
-Inverse conversion can write into any JOINTPOS width that fits all modeled axes,
-padding extra slots with zeros. See [joint interoperability](docs/joint-interoperability.md).
+A JOINTPOS value wide enough for all modeled axes can round-trip through
+forward and inverse conversions. Inputs require zeros in unused slots, and
+inverse conversion fills those slots with zeros. See [joint interoperability](docs/joint-interoperability.md).
 
 JOINTPOS operands also work in frame composition, INV, FRAME, MIRROR, axis queries
 and approximate comparisons through the supplied forward model. See
@@ -1099,8 +1100,9 @@ beyond the reviewed manual, which excludes whole PATH for these calls. See
 
 CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files
 through explicit memory or mapped directory backends. Source and destination scans
-are bounded, and the full batch is checked and charged to the step budget before moving.
-Exact ordinary COPY_FILE and KCL APPEND also charge by byte count before publishing.
+are bounded. Preparation charges the full batch before moving, including the
+byte count for rooted files. Exact ordinary COPY_FILE and KCL APPEND also charge
+by byte count before publishing.
 See [file management](docs/file-management.md).
 
 I/O assignment/mode procedures stage settings against explicit physical-capacity

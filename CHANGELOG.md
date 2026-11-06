@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.231719 - 2026-11-06
+
+- Accept complete JOINTPOS inputs that fit all configured axes in Pythonic
+  model conversions, range checks and current-state queries. Extra slots must
+  contain zeros, so padded results can be reused as model inputs.
+- Charge rooted MOVE_FILE for all planned payload bytes before the first rename.
+  Reject changes to selected source metadata detected during preparation or read.
+
 ## 26.1106.225928 - 2026-11-06
 
 - Let DH-backed JOINT2POS write smaller REAL arrays that fit all configured

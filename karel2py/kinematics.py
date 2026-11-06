@@ -152,7 +152,7 @@ class SerialRobotModel:
     def forward(self,joints,uframe,utool,config_ref=0,*,check_limits=True):
         if type(check_limits) is not bool: raise TypeError('check_limits must be BOOLEAN')
         if config_ref!=0: raise ValueError('Portable DH model supports config_ref=0')
-        values=rt().joint_values(joints,self.axes)
+        values=rt().joint_values(joints,self.axes,pythonic_padding=True)
         if check_limits and not self.within_limits(values): raise ValueError('Joint values exceed model limits')
         result=multiply(inverse(matrix(uframe)),multiply(multiply(self.base,self.chain(values)),matrix(utool)))
         cfg=uframe.values['CONFIG_DATA'].clone()
@@ -213,7 +213,7 @@ class SerialRobotModel:
 
     def inverse(self,reference,position,uframe,utool,config_ref,config,external):
         if config_ref!=0: raise ValueError('Portable DH model supports config_ref=0')
-        values=rt().joint_values(reference,self.axes)
+        values=rt().joint_values(reference,self.axes,pythonic_padding=True)
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe),matrix(position)),inverse(matrix(utool))))
         fixed={}
         if self.external_axes:
@@ -234,7 +234,7 @@ class SerialRobotModel:
                [lo+(hi-lo)*.75 for lo,hi in self.limits],*self.ik_fallback_seeds)
         if reference is not None:
             try:
-                current=rt().joint_values(reference,self.axes)
+                current=rt().joint_values(reference,self.axes,pythonic_padding=True)
             except rt().KarelRuntimeError:
                 pass  # Reachability can still use the configured search seeds.
             else:

@@ -107,6 +107,7 @@ class PositionModelCheckTests(unittest.TestCase):
             'dh':[{'type':'prismatic'},{}],'external_axes':1,'iterations':1}})
         body=SETUP+'p=POS(0,0,87,0,0,35,c) p.ext1=35 ready=IN_RANGE(p) '+CALL
         for joints,expected in (([87.],False),([87.,-45.],True),
+                                ([87.,-45.,0.],True),([87.,-45.,1.],False),
                                 ([87.,-45.]+[0.]*7,True),([87.,-45.]+[1.]*7,False)):
             with self.subTest(joints=joints):
                 ctx.robot.current=rt.RobotState(joints=joints)

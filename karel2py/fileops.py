@@ -860,6 +860,7 @@ def move_files(files,specification,*,check=None):
     if recursive:
         prefix,pattern=_wildcard_source(device+':'+(parent+'/' if parent else '')+pattern)
         parent=prefix.split(':',1)[1].rstrip('/')
+    byte_check=check
     check=check or (lambda:None);directory=isinstance(files,DirectoryFiles)
     plan=[];existing=set()
     def selected(name): return _wildcard_path_match(name,pattern,check=check) if recursive else fnmatch.fnmatchcase(name.casefold(),pattern.casefold())
@@ -940,15 +941,27 @@ def move_files(files,specification,*,check=None):
         check()
     preflight=getattr(files,'preflight_moves',None)
     if preflight is not None: preflight(plan)
+    def source_signature(name):
+        info=files._path(name).stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_size>files.limit:
+            raise ValueError('MOVE_FILE source is not a bounded regular file')
+        return info.st_size,info.st_dev,info.st_ino,info.st_mtime_ns
+
+    rooted_sources={}
     for source,target in plan:
-        if directory:
-            path=files._path(source)
-            if not path.is_file() or path.stat().st_size>files.limit: raise ValueError('MOVE_FILE source is not a bounded regular file')
+        if directory: rooted_sources[source]=source_signature(source)
         else: files._check(source,files.files[source]);files._check(target,b'')
+    if rooted_sources and byte_check is not None:
+        charge_file_bytes(sum(size for size,*_ in rooted_sources.values()),byte_check)
+        if any(source_signature(source)!=signature for source,signature in rooted_sources.items()):
+            raise ValueError('MOVE_FILE source changed during byte preflight')
     for source,target in plan:
         if directory:
             code,data=files.read_named(source)
             if code: return code
+            signature=rooted_sources[source]
+            if len(data)!=signature[0] or source_signature(source)!=signature:
+                raise ValueError('MOVE_FILE source changed during read')
             code=files.rename(source,target)
             if code: return code
             files.files[target]=bytearray(data)

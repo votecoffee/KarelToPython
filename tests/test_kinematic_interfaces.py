@@ -98,15 +98,15 @@ class KinematicArgumentTests(unittest.TestCase):
                        routines='ROUTINE work(v:point):point BEGIN RETURN v END work')
         self.assertAlmostEqual(p.run()['P']['LOCATION']['Y'], 100.)
 
-    def test_native_model_width_and_zero_padded_nine_are_accepted(self):
-        for width in (2, 9):
+    def test_model_width_and_zero_padded_widths_are_accepted(self):
+        for width in (2, 3, 9):
             with self.subTest(width=width):
                 p, _ = program('work(j)', decl=DECL.replace('j,k,out:JOINTPOS', f'j,k,out:JOINTPOS{width}'),
                                routines='ROUTINE work(v:POSITION) BEGIN seen=v.location.x END work')
                 self.assertAlmostEqual(p.run()['SEEN'], 100.)
 
-    def test_other_model_input_widths_and_nonzero_padding_fail(self):
-        for values in ([0.], [0., 90., 0.], [0., 90., 1.] + [0.] * 6):
+    def test_short_model_inputs_and_nonzero_padding_fail(self):
+        for values in ([0.], [0., 90., 1.], [0., 90., 1.] + [0.] * 6):
             with self.subTest(values=values):
                 width = len(values)
                 p, _ = program('n=0 work(j)', decl=DECL.replace('j,k,out:JOINTPOS', f'j,k,out:JOINTPOS{width}'),

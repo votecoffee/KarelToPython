@@ -122,9 +122,12 @@ class AssignmentModelTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'adapter'): p.run()
 
     def test_invalid_or_partial_joint_input_is_rejected(self):
-        for value in (joint([0.]*8+[1.]),joint([0.,rt.UNINITIALIZED]+[0.]*7),joint([0.,float('nan')]+[0.]*7),joint([0.]*3)):
-            with self.subTest(value=value.values):
-                p,_=compile_program('p=j',decl=DECL if len(value.values)==9 else DECL.replace('j,out: JOINTPOS','j,out: JOINTPOS3'),context=model_context());p._state.values['J']=value
+        for axes in ([0.]*8+[1.],[0.,rt.UNINITIALIZED]+[0.]*7,[0.,float('nan')]+[0.]*7,
+                     [0.],[0.,0.,1.],[0.,0.,rt.UNINITIALIZED],[0.,0.,True],[0.,0.,float('inf')]):
+            with self.subTest(axes=axes):
+                decl=DECL.replace('j,out: JOINTPOS',f'j,out: JOINTPOS{len(axes)}')
+                p,_=compile_program('p=j',decl=decl,context=model_context())
+                p._state.values['J']=joint(axes)
                 with self.assertRaises(rt.KarelRuntimeError): p.run()
                 self.assertEqual(p.snapshot()['P']['LOCATION']['X'],{'uninitialized':True})
 

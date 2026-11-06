@@ -117,9 +117,11 @@ left-to-right, before selection. Earlier selector/source effects remain visible.
 
 Moves run synchronously in sorted source-name order using the existing backend
 rename convention. Preparation and every planned move are charged to the normal
-execution step budget before the first rename. Budget exhaustion preserves all
-files and the status output. A late OS error or a changed source or target can
-still leave earlier moves completed. Completed moves are retained without
+execution step budget before the first rename. DirectoryFiles also charges one
+step per started 4096 bytes across all selected sources, based on their file sizes.
+It rechecks source identity, size and modification time before moving and after
+each source read. Budget exhaustion preserves all files and the status output.
+A late OS error or a changed source or target can still leave earlier moves completed. Completed moves are retained without
 automatic retry or rollback.
 
 Moved byte contents survive context save/load using existing file snapshots.

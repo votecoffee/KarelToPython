@@ -64,9 +64,9 @@ class RangeOverloadTests(unittest.TestCase):
         p,_=compile_program('a=TRUE a=IN_RANGE(j)',decl='j:JOINTPOS a:BOOLEAN',context=limits());p._state.values['J']=joint([2.,3.,1.]+[0.]*6)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'Unused'):p.run()
         self.assertIs(p.snapshot()['A'],True)
-    def test_width_mismatch_is_an_error(self):
-        p,_=compile_program('a=IN_RANGE(j)',decl='j:JOINTPOS3 a:BOOLEAN',context=limits());p._state.values['J']=joint([2.,3.,0.])
-        with self.assertRaises(rt.KarelRuntimeError):p.run()
+    def test_width_shorter_than_configured_axes_is_an_error(self):
+        p,_=compile_program('a=IN_RANGE(j)',decl='j:JOINTPOS1 a:BOOLEAN',context=limits());p._state.values['J']=joint([2.])
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'Joint width'):p.run()
     def test_missing_joint_axis_is_an_error(self):
         p,_=compile_program('a=IN_RANGE(j)',decl='j:JOINTPOS2 a:BOOLEAN',context=limits());p._state.values['J']=joint([2.,rt.UNINITIALIZED])
         with self.assertRaises(rt.KarelRuntimeError):p.run()
