@@ -258,11 +258,14 @@ def main(argv=None):
     parser.add_argument('--state-out',type=Path)
     parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')
     parser.add_argument('--max-cycles',type=int,default=100000)
+    parser.add_argument('--max-steps',type=int,default=100000,help='Maximum execution steps per task run, including linked routines')
     parser.add_argument('--array-shape',type=project_array_shape_option,action='append',default=[],metavar='[PROGRAM.]NAME=DIM[,DIM]',
                         help='Explicit outer dimensions for direct global wildcard ARRAYs; qualify names when programs need different shapes')
     parser.add_argument('-I','--include-dir',type=Path,action='append',default=[])
     parser.add_argument('--include-device',type=device_option,action='append',default=[],metavar='DEVICE=DIRECTORY')
     args=parser.parse_args(argv)
+    if args.max_steps<1:parser.error('--max-steps must be positive')
+    if args.max_cycles<1:parser.error('--max-cycles must be positive')
     files=rt.directory_files_from_args(parser,args)
     array_shapes={}
     for name,shape in args.array_shape:
@@ -299,6 +302,7 @@ def main(argv=None):
         try:context.externals.update(rt.load_external_bindings(values=args.external_values,collections=args.external_collections,outputs=(args.state_out,args.trace_out)))
         except (OSError,ValueError,rt.KarelRuntimeError) as error:parser.error(('Invalid external collections: ' if args.external_values is None else 'Invalid external bindings: ')+str(error))
     if files is not None:context.files=files
+    context.tasks=rt.TaskScheduler(max_steps=args.max_steps)
     instance=project.instantiate(context=context)
     def save_trace():
         from .storage import atomic_bytes

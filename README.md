@@ -382,7 +382,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.142514**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.144648**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -523,11 +523,15 @@ snapshot = Program().run(max_steps=100_000)
 assert snapshot["TOTAL"] == 200
 ```
 
-Every generated Pythonic script accepts `--help`, `--context` and `--state-out`,
-including programs with only arithmetic or geometry. A context supplies declared
-globals before execution; normal source initializations still run. State output
-saves globals and supplied banks after successful completion. Unknown arguments
-and invalid contexts are rejected before execution.
+Every generated Pythonic script accepts `--help`, `--context`, `--state-out` and
+`--max-steps`, including programs with only arithmetic or geometry. A context
+supplies declared globals before execution. State output saves globals and
+supplied banks after successful completion. The default budget is 100,000
+steps, including linked routines in a task. The linked project CLI also accepts
+`--max-steps` and applies the limit to each task.
+
+A context can include supplied physical input samples to seed mapped logical
+ports. See the [port configuration guide](docs/port-configuration.md#sampling-configured-inputs).
 
 ```sh
 python converted.py --state-out run-state.json

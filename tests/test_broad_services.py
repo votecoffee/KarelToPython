@@ -280,6 +280,18 @@ class GroupAndComparisonTests(unittest.TestCase):
 
 
 class BroadCLITests(unittest.TestCase):
+    def test_project_max_steps_applies_to_spawned_task(self):
+        from contextlib import redirect_stderr,redirect_stdout
+        from io import StringIO
+        from karel2py.project import main
+
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/'main.kl').write_text("PROGRAM MAIN VAR s:INTEGER BEGIN RUN_TASK('CHILD',0,FALSE,FALSE,0,s) END MAIN",encoding='ascii')
+            (root/'child.kl').write_text("PROGRAM CHILD VAR n:INTEGER BEGIN n=0 WHILE TRUE DO n=n+1 ENDWHILE END CHILD",encoding='ascii')
+            with redirect_stdout(StringIO()),redirect_stderr(StringIO()),self.assertRaisesRegex(rt.KarelRuntimeError,r'step budget exceeded \(12\)'):
+                main([str(root),'--entry','MAIN','--max-steps','12'])
+
     def execute(self,module,args,folder):
         script="import sys,runpy;sys.path.insert(0,sys.argv[1]);sys.argv=sys.argv[2:];runpy.run_path(sys.argv[0],run_name='__main__')"
         return subprocess.run([sys.executable,'-I','-c',script,str(Path(__file__).resolve().parents[1]),str(module),*args],cwd=folder,capture_output=True,text=True)

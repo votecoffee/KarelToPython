@@ -68,6 +68,16 @@ class GeneratedCLIContextTests(unittest.TestCase):
     def test_plain_execution_retains_snapshot_stdout(self):
         self.compile('n=42');result=self.run_cli();self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(ast.literal_eval(result.stdout),{'N':42})
 
+    def test_max_steps_applies_to_generated_execution(self):
+        self.compile('n=0 WHILE TRUE DO n=n+1 ENDWHILE')
+        result=self.run_cli('--max-steps',7,'--state-out',self.state)
+        self.assertEqual(result.returncode,1,result.stderr)
+        self.assertIn('Execution step budget exceeded (7)',result.stderr)
+        self.assertFalse(self.state.exists())
+        invalid=self.run_cli('--max-steps',0)
+        self.assertEqual(invalid.returncode,2)
+        self.assertIn('--max-steps must be positive',invalid.stderr)
+
     def test_state_output_works_without_any_service_calls_or_initial_context(self):
         self.compile('n=42');result=self.run_cli('--state-out',self.state);self.assertEqual(result.returncode,0,result.stderr)
         saved=json.loads(self.state.read_text());self.assertEqual(saved['variables'],[{'program':'T','path':'N','type':['INTEGER'],'value':42}])

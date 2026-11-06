@@ -110,12 +110,28 @@ Masks are in 0..3. Complementary mode requires an odd BOOLEAN output with a
 following configured logical point. Group/analog/input complementary modes fail.
 Setting zero clears the active mask on the next host apply.
 
-Configuration is metadata. It does not acquire physical inputs, drive outputs,
-copy group bits, invert logical values, complement a neighbor or rescale analog
-values. It does not initialize missing values or modify comments, simulation
-flags or pulse ownership/deadlines. Existing logical values remain the inputs
-and outputs supplied by the host/program. `PortBank.snapshot()` keeps its existing
-logical-values-only format; `bank.configuration` exposes configuration separately.
+Applying configuration changes only the active metadata. `PortBank.snapshot()`
+returns logical values, and `bank.configuration` exposes configuration separately.
+
+## Sampling configured inputs
+
+Call `bank.sample_inputs({(rack, slot, type_code, point): value, ...})` to seed
+logical inputs from a supplied batch of physical point values. The call uses
+active assignments and returns the number of logical inputs updated. Digital
+points require Boolean values and analog points require finite REAL values.
+When a batch touches a mapped GIN, it must include all the group's physical
+points. The first point is the least significant bit. The packed value must fit
+the portable INTEGER range.
+
+The entire batch validates before logical values change. Simulated and
+untouched inputs keep their previous values. Sampling does not apply mode
+masks, update outputs or trigger pulses.
+
+JSON contexts accept an optional `ports.physical_inputs` list of objects with
+`rack`, `slot`, `type_code`, `point` and `value` fields. Each address may appear
+once. This sample is applied when the context loads, after the logical values
+and configuration are initialized. Saved contexts keep the resulting logical
+values. Sampling is an offline operation over supplied data.
 
 ## Status and failure behavior
 

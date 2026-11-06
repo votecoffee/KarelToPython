@@ -136,6 +136,7 @@ native alarm codes remain outside this contract.
 Generated service scripts accept `--filesystem-root data`, `--context state.json`
 and `--state-out updated.json`. A state output file is written after successful
 completion. Choose a separate output path if you want to preserve the input.
+Use `--max-steps` to set a positive execution step limit. The default is 100,000.
 
 Use repeatable `--filesystem-device DEVICE=SUBDIRECTORY` options with
 `--filesystem-root` in a generated script or linked project. For example,
@@ -168,7 +169,10 @@ python -m karel2py.project examples/linked_project --entry MAIN
 
 The first checks translation/linkage. `--entry` explicitly starts execution.
 `--context`, `--filesystem-root`, `--filesystem-device`,
-`--filesystem-timestamps`, `--state-out` and `--max-cycles` are available.
+`--filesystem-timestamps`, `--state-out`, `--max-cycles` and `--max-steps` are
+available. Each task, including a launched child, gets the step budget.
+Linked routines consume the calling task's steps. The separate cycle budget
+limits scheduler cycles.
 The Python API additionally accepts `instantiate(options={...})` for ordinary
 Program options such as `joint_axes` and pose tolerances.
 

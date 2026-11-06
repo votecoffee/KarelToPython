@@ -4837,12 +4837,14 @@ class Emitter:
             self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
             self.line('_rt.directory_files_options(_parser)')
             self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
+            self.line('_parser.add_argument("--max-steps", type=int, default=100000, help="Maximum execution steps")')
             if self.mode=='pythonic':
                 self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
                 self.line('_parser.add_argument("--external-values", help="UTF-8 JSON explicit data, procedures, argument cases and staged outputs for external routines")')
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
             self.line('_args = _parser.parse_args()')
+            self.line('if _args.max_steps < 1: _parser.error("--max-steps must be positive")')
             self.line('_files = _rt.directory_files_from_args(_parser, _args)')
             self.line('import json as _json')
             self.line('_context = None')
@@ -4922,7 +4924,7 @@ class Emitter:
             if 'operator >=<' in self.features: context.extend(('pose_tolerance=_pose_tolerance','external_tolerance=_args.external_axis_tolerances'))
             if 'read' in self.features: context.append('read=_responses')
             self.line(f'_program = Program({", ".join(context)})')
-            self.line('print(_program.run())')
+            self.line('print(_program.run(max_steps=_args.max_steps))')
             self.line('if _args.state_out is not None:')
             self.indent += 1
             self.line('if _program._state.registers is not None: _context.numeric = _program._state.registers')
@@ -5475,6 +5477,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         modes='Masks 0..3; complementary requires an odd BOOLEAN output and a following configured logical point',
         lifecycle='SET stages pending settings; GET reads active settings; host PortBank.apply_configuration applies and clears all pending settings; task POWERUP events do not apply I/O configuration',
         values='Configuration metadata does not acquire, invert, copy, complement, initialize or rescale logical/physical values, simulation flags or scheduled pulses',
+        sampling='Explicit host samples or JSON ports.physical_inputs seed unsimulated active inputs atomically. Touched GIN spans require every point, packed least significant bit first. Save persists the resulting logical values.',
         status='Portable 0 success, 1 absent assignment/module, 2 invalid logical address/module coordinate, 3 invalid assignment/mode; missing configuration raises before outputs',
         persistence='Typed contexts retain active/pending configuration; host snapshots are detached; legacy PortBank.snapshot remains logical values only',
         boundary='No physical wiring/discovery, native code tables, reboot, controller alarm mapping or native GET-before-powerup equivalence; strict remains future work',
@@ -5600,7 +5603,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit FilePipes with up to 32 canonical PIP names and bounded combined configured sector capacities; zero sectors selects default eight KiB; DAQ and plain pipe names must be distinct',
         files='Circular byte histories retain newest configured bytes; independent text/binary cursors, optional WAIT_USED complete-read waits or WAIT_NOTUSED snapshot ends; absent attrs preserve immediate EOF and cursor clamping',
         attributes=dict(rt.COMMUNICATION_CONSTANTS),
-        reading='Explicit waits use logical 10 ms cooperative polls, staged typed fields and one final publication; standalone pending reads require an explicitly injected sleeper inherited through source linkage',
+        reading='Explicit waits use logical 10 ms cooperative polls, staged typed fields and one final publication; standalone pending reads require an explicitly injected sleeper inherited through source linkage. Binary widths and waiting text fixed fields plus CR minima must fit the pipe.',
         overflow='Opt-in EOF latch or capacity-checked byte advance rounded to record_size; recover a latched handle by close/reopen; bytes queries honor snapshot/overflow state',
         metadata='CMOS intent, binary record_size and formatting dictionary/element retained; ordinary FILE field encoding controls data, no record padding/alignment or dictionary rendering applied',
         guards='Busy reconfiguration, bounded names/capacities/handles/data and shrink checks; source registration and JSON context reject cross-bank PIP collisions, OPEN rejects ambiguity after host mutation',

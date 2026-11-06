@@ -661,6 +661,36 @@ class PortBank:
         if kind in ('GIN','GOUT') and value<0: fail('Group ports require nonnegative INTEGER values')
         self.values[kind,number]=value
         self._pulses.pop((kind,number),None)
+
+    def sample_inputs(self,points):
+        """Project one complete set of supplied samples through active input mappings."""
+        rt=runtime();config=self._configuration
+        if config is None:raise ValueError('Physical input sampling requires explicit port configuration')
+        if type(points) is not dict or len(points)>32767:
+            raise ValueError('Physical input sampling requires a mapping of at most 32767 points')
+        samples={};prepared={}
+        with rt._numeric_scope('pythonic'):
+            for address,value in points.items():
+                if type(address) is not tuple or len(address)!=4 or any(type(part) is not int for part in address):
+                    raise ValueError('Physical input addresses require (rack, slot, type_code, point) INTEGERs')
+                physical=config.physical.get(address[:3])
+                if physical is None or physical[0] not in ('DIN','AIN') or not 1<=address[3]<=physical[1]:
+                    raise ValueError('Physical input point is outside its configured input module')
+                samples[address]=rt.checked((PORT_TYPES[physical[0]],),value)
+            for key,(rack,slot,code,start,width) in config.assignments.items():
+                kind,number=key
+                if kind in OUTPUT_PORTS or key in self.simulated:continue
+                span=[(rack,slot,code,point) for point in range(start,start+width)]
+                if not any(point in samples for point in span):continue
+                if kind=='GIN':
+                    if not all(point in samples for point in span):
+                        raise ValueError('Physical sample for GIN['+str(number)+'] must supply its complete span')
+                    value=sum(int(samples[point])<<bit for bit,point in enumerate(span))
+                    prepared[key]=rt.checked(('INTEGER',),value)
+                else:prepared[key]=samples[span[0]]
+        self.values.update(prepared)
+        return len(prepared)
+
     def read(self,kind,number,line=None):
         self.poll_pulses(line)
         number=runtime().integer(number,line)
@@ -2235,7 +2265,7 @@ class ExecutionContext:
     @classmethod
     def from_config(cls,config):
         if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams','motion','predefined_files'}: raise ValueError('Unknown execution context fields')
-        for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration'})):
+        for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration','physical_inputs'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
         if 'predefined_files' in config:
@@ -2298,7 +2328,18 @@ class ExecutionContext:
                 if type(numbers) is not list: raise ValueError('Simulated ports require lists of numbers')
                 simulated.extend((kind,n) for n in numbers)
             if 'configuration' in row and type(row['configuration']) is not dict: raise ValueError('Port configuration must be an object')
-            services['ports']=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()},type_codes=codes,comments=comments,simulated=simulated,configuration=row.get('configuration'))
+            ports=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()},type_codes=codes,comments=comments,simulated=simulated,configuration=row.get('configuration'))
+            if 'physical_inputs' in row:
+                rows=row['physical_inputs'];points={};fields=('rack','slot','type_code','point')
+                if type(rows) is not list or len(rows)>32767:raise ValueError('Port physical_inputs requires a list of at most 32767 points')
+                for sample in rows:
+                    if type(sample) is not dict or set(sample)!={*fields,'value'} or any(type(sample[field]) is not int for field in fields):
+                        raise ValueError('Invalid physical input sample row')
+                    address=tuple(sample[field] for field in fields)
+                    if address in points:raise ValueError('Duplicate physical input point')
+                    points[address]=sample['value']
+                ports.sample_inputs(points)
+            services['ports']=ports
         if 'files' in config:
             services['files']=MemoryFiles({name:bytes.fromhex(value['hex']) if type(value) is dict else value for name,value in config['files'].items()})
         if 'numeric' in config: services['numeric']=runtime().NumericRegisters.from_config(config['numeric'])

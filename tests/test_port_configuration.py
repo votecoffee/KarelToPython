@@ -31,6 +31,69 @@ def context(config=None,**options):
     return rt.ExecutionContext(ports=rt.PortBank(COUNTS,type_codes=CODES,configuration=topology() if config is None else config,**options))
 
 
+class PortInputSamplingTests(unittest.TestCase):
+    def topology(self):
+        config=topology()
+        config['assignments'].extend((
+            dict(kind='DIN',number=1,rack=0,slot=1,type_code=10,start=5,count=1),
+            dict(kind='GIN',number=1,rack=0,slot=1,type_code=10,start=5,count=3),
+            dict(kind='AIN',number=2,rack=2,slot=3,type_code=50,start=1,count=1)))
+        return config
+
+    def samples(self):
+        return {(0,1,10,5):True,(0,1,10,6):False,(0,1,10,7):True,(2,3,50,1):1.25}
+
+    def test_sample_projects_active_logical_inputs_seen_by_source(self):
+        ctx=context(self.topology(),initial={('DOUT',1):True})
+        self.assertEqual(ctx.ports.sample_inputs(self.samples()),3)
+        values=run('flag=DIN[1] word=GIN[1] volts=AIN[2]',decl='flag:BOOLEAN word:INTEGER volts:REAL',context=ctx)
+        self.assertEqual((values['FLAG'],values['WORD'],values['VOLTS']),(True,5,1.25))
+        self.assertTrue(ctx.ports.read('DOUT',1))
+
+    def test_incomplete_or_out_of_range_batch_keeps_all_logical_values(self):
+        ctx=context(self.topology(),initial={('DIN',1):False,('GIN',1):2})
+        before=ctx.ports.snapshot()
+        for samples in ({(0,1,10,5):True}, {**self.samples(),(0,1,20,1):True},
+                        {**self.samples(),(2,3,50,1):float('nan')}, {**self.samples(),(0,1,10,5):1}):
+            with self.subTest(samples=samples),self.assertRaises((ValueError,rt.KarelRuntimeError)):
+                ctx.ports.sample_inputs(samples)
+            self.assertEqual(ctx.ports.snapshot(),before)
+
+    def test_simulation_and_pending_assignments_use_existing_lifecycle(self):
+        ctx=context(self.topology(),initial={('DIN',1):False},simulated=[('DIN',1)])
+        run('SET_PORT_ASG(10,1,0,1,10,12,1,s)',context=ctx)
+        ctx.ports.sample_inputs({**self.samples(),(0,1,10,12):False})
+        self.assertFalse(ctx.ports.read('DIN',1))
+        run('CLR_PORT_SIM(10,1,s)',context=ctx)
+        ctx.ports.sample_inputs({**self.samples(),(0,1,10,12):False})
+        self.assertTrue(ctx.ports.read('DIN',1))
+        self.assertEqual(ctx.ports.apply_configuration(),1)
+        ctx.ports.sample_inputs({(0,1,10,12):False})
+        self.assertFalse(ctx.ports.read('DIN',1))
+
+    def test_group_word_must_fit_portable_nonnegative_integer_domain(self):
+        config=self.topology()
+        config['assignments'][2]['count']=32
+        ctx=context(config,initial={('DIN',1):False})
+        points={(0,1,10,i):i in (5,36) for i in range(5,37)}
+        with self.assertRaises(rt.KarelRuntimeError):ctx.ports.sample_inputs(points)
+        self.assertEqual(ctx.ports.snapshot(),{('DIN',1):False})
+
+    def test_json_samples_load_once_and_duplicate_points_reject(self):
+        ctx=context(self.topology())
+        config=ctx.to_config()
+        samples=[dict(rack=rack,slot=slot,type_code=code,point=point,value=value)
+                 for (rack,slot,code,point),value in self.samples().items()]
+        config['ports']['physical_inputs']=samples
+        restored=rt.ExecutionContext.from_config(json.loads(json.dumps(config)))
+        saved=restored.to_config()
+        self.assertNotIn('physical_inputs',saved['ports'])
+        self.assertEqual(saved['ports']['values'],{'AIN':{'2':1.25},'DIN':{'1':True},'GIN':{'1':5}})
+        self.assertEqual(rt.ExecutionContext.from_config(saved).to_config(),saved)
+        config['ports']['physical_inputs']=samples+[samples[0]]
+        with self.assertRaisesRegex(ValueError,'Duplicate physical input'):rt.ExecutionContext.from_config(config)
+
+
 class PortAssignmentTests(unittest.TestCase):
     def test_read_supplied_assignment(self):
         state=run(GET,decl=DECL,context=context())

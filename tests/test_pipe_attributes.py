@@ -154,6 +154,25 @@ class PipeWaitingTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'capacity'):program.run()
         self.assertEqual(files._reads,{})
 
+    def test_impossible_waiting_text_read_rejects_before_sleeper_or_publication(self):
+        for body in ('READ f(a::254,b::254,c::254,d::254,e::254)',
+                     'READ f(a::254,b::254,c::254,d::254,e::8,CR)',
+                     'READ f(a,b,c,d,e)'):
+            with self.subTest(body=body):
+                files=bank();calls=[]
+                setup='SET_FILE_ATR(f,ATR_FIELD) ' if body=='READ f(a,b,c,d,e)' else ''
+                program,_=compile_program(setup+WAIT+" a='old' "+body,decl='f:FILE a,b,c,d,e:STRING[254]',
+                    context=rt.ExecutionContext(file_pipes=files),sleep=calls.append)
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'capacity'):program.run()
+                self.assertEqual((program.snapshot()['A'],program._state.values['F'].position),('old',0))
+                self.assertEqual((calls,files._reads),([],{}))
+
+    def test_exact_capacity_text_with_cr_completes(self):
+        files=bank(b'a'*1016+b'1234567\n')
+        data=run(WAIT+' READ f(a::254,b::254,c::254,d::254,e::7,CR) CLOSE FILE f',
+                 decl='f:FILE a,b,c,d,e:STRING[254]',context=rt.ExecutionContext(file_pipes=files))
+        self.assertEqual(data['E'],'1234567')
+
     def test_target_and_format_expressions_are_captured_once(self):
         files=bank();calls=[]
         def sleeper(delay):calls.append(delay);files.feed('LOG',b'123')

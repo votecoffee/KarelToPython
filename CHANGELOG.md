@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.144648 - 2026-11-06
+
+- Project supplied physical input samples through active digital, group and
+  analog mappings. Apply each sample as one batch and save its logical values.
+- Reject waiting pipe reads whose fixed fields and record boundaries already
+  exceed the buffer capacity.
+- Set the execution step limit from generated and linked project CLIs with
+  `--max-steps`.
+
 ## 26.1106.142514 - 2026-11-06
 
 - Support grouped STOP and RESUME for owned offline motion. Retain supplied

@@ -14,6 +14,7 @@
     "assignments":"Direction-compatible bounded spans; BOOLEAN batches 1..8 normalized per point, group widths 1..32 and single analog points",
     "modes":"Masks 0..3; complementary requires an odd BOOLEAN output with a following configured logical point",
     "lifecycle":"SET stages, GET reads active; host apply_configuration applies all pending rows and clears them; task POWERUP does not apply configuration",
+    "sampling":"Explicit physical input batches project through active assignments into unsimulated logical inputs. Touched GIN mappings require complete spans packed from least significant bit. Validation precedes publication.",
     "persistence":"Independent active/pending typed context save/load and detached host snapshots; legacy logical value snapshot shape preserved",
     "failures":"Complete-batch preflight, exact disjoint outputs, once-only ordered argument evaluation and retained earlier effects"
   },
@@ -21,7 +22,7 @@
     "All logical and physical type codes are explicitly supplied; no native enum discovery",
     "GET reads active settings before host application; native read-before-power-up behavior is not claimed",
     "Coordinates 0..32767, physical capacity 1..32767, group width at most 32 and analog width 1 bound portable metadata",
-    "Mode and mapping metadata does not acquire, copy, invert, complement, initialize or rescale logical/physical values",
+    "Applying metadata alone leaves port values unchanged. Explicit sampling applies no mode masks, writes no outputs and saves only the resulting logical values.",
     "Physical span sharing is allowed as metadata; no physical ownership arbitration",
     "Portable statuses 0 success, 1 assignment/module absent, 2 address/coordinate, 3 invalid mapping/mode; no native alarm mapping"
   ],

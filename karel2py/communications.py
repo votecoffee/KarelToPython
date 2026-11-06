@@ -605,7 +605,9 @@ class FilePipes(MemoryFiles):
         """Probe complete input without publication, then commit one READ request."""
         runtime=rt();self.before_read(handle,line)
         request = StreamRead(handle, targets, line_breaks, formats, 'Pipe', line)
-        if handle.binary and request.minimum > self.pipes[handle.name]['sectors'] * 1024:
+        waiting=getattr(handle,'pipe_wait',None)==1
+        minimum=request.minimum+(len(request.line_breaks) if waiting else 0)
+        if (handle.binary or waiting) and minimum > self.pipes[handle.name]['sectors'] * 1024:
             fail('Atomic pipe READ exceeds circular capacity', line)
         if id(handle) in self._reads:fail('Pipe FILE already has an active READ',line)
         self._reads[id(handle)]=state
@@ -614,7 +616,7 @@ class FilePipes(MemoryFiles):
                 self.before_read(handle,line)
                 runtime.check_file_read(handle,line)
                 start=handle.position;available=self.bytes_ahead(handle,line)
-                raw=bytes(self.files[handle.name][start:start+available]);waiting=getattr(handle,'pipe_wait',None)==1
+                raw=bytes(self.files[handle.name][start:start+available])
                 result = request.probe(handle, raw, final=not waiting)
                 if result is not None:
                     values, offset = result

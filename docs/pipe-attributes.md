@@ -39,8 +39,10 @@ a fixed-width field. A malformed complete field fails immediately. Text follows
 the existing ASCII, width, base, quote, field-mode and custom-EOL rules.
 
 Binary reads wait for the sum of their checked field widths. The complete READ
-must fit in the circular capacity. Existing binary width, byte-order and finite
-numeric conventions apply. Text and binary probes publish no observations,
+must fit in the circular capacity. Waiting text reads are also rejected before
+waiting if the fixed fields and at least one byte per CR already exceed capacity.
+Existing binary width, byte-order and finite numeric conventions apply.
+Text and binary probes publish no observations,
 values or cursor progress until all fields validate. A completed opted-in READ
 publishes one ordinary read-request record and advances its cursor once. Target
 selectors and format expressions are captured once before the wait.
