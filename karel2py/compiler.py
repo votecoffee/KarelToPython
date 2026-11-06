@@ -4794,9 +4794,13 @@ class Emitter:
             self.line(f'@_rt._with_numeric_mode({self.mode!r})')
             self.line('def run(self, *, max_steps=100000):');self.indent=2
             self.line('self._state.begin(max_steps)');self.line('self._state._driving=True')
-            self.line('try:');self.indent=3;self.line('return self._execute_sync()')
+            self.line('_completed = False')
+            self.line('try:');self.indent=3
+            self.line('_result = self._execute_sync()')
+            self.line('_completed = True')
+            self.line('return _result')
             self.indent=2;self.line('finally:');self.indent=3
-            self.line('self._state._driving=False');self.line('self._state.finish_teach_programs()')
+            self.line('self._state._driving=False');self.line('self._state.finish_teach_programs(interrupted=not _completed)')
         if self.mode=='pythonic' and self.program.routines:
             counter_roots={routine.name:set() for routine in self.program.routines if not routine.external}
             for use in self.reference_for_uses:
@@ -4831,6 +4835,7 @@ class Emitter:
                 self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
             self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
             self.line('_parser.add_argument("--filesystem-root", help="Explicit directory for FILE operations")')
+            self.line('_parser.add_argument("--filesystem-timestamps", action="store_true", help="Include UTC host modification times in rooted FILE_LIST metadata")')
             self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
             if self.mode=='pythonic':
                 self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
@@ -4838,6 +4843,7 @@ class Emitter:
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
             self.line('_args = _parser.parse_args()')
+            self.line('if _args.filesystem_timestamps and _args.filesystem_root is None: _parser.error("--filesystem-timestamps requires --filesystem-root")')
             self.line('import json as _json')
             self.line('_context = None')
             self.line('if _args.context is not None:')
@@ -4861,7 +4867,7 @@ class Emitter:
             self.line('if _args.filesystem_root is not None or _args.state_out is not None:')
             self.indent += 1
             self.line('if _context is None: _context = _rt.ExecutionContext()')
-            self.line('if _args.filesystem_root is not None: _context.files = _rt.DirectoryFiles(_args.filesystem_root)')
+            self.line('if _args.filesystem_root is not None: _context.files = _rt.DirectoryFiles(_args.filesystem_root, listing_timestamps=_args.filesystem_timestamps)')
             self.indent -= 1
             if self.features & REGISTER_PROCEDURES:
                 self.line('_registers = _context.numeric if _context is not None else None')
@@ -5663,7 +5669,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/source-translations.md',controller_validated=False)
     report['directory_file_query_policy']=dict(
         procedures=['MOVE_FILE','FILE_LIST'],
-        selection='Explicit star/question directory components and whole-directory ** match zero or more components; case-insensitive below a backend-resolved literal prefix; ordinary flat patterns retain their prior call-specific behavior',
+        selection='Explicit star/question directory components and whole-directory ** match zero or more components; case-insensitive below a backend-resolved literal prefix; either slash and one optional device-root separator; flat selection retains its backend rules',
         context='Only explicit MemoryFiles, DeviceFiles or rooted DirectoryFiles; no discovery of devices, host roots, sockets, DAQ or pipe subdirectories',
         move='Swap RD/FR while retaining complete relative directory paths and exact bytes; existing target parents required; reject overlapping rooted scan mappings, busy files, case collisions and selected physical aliases before moving',
         listing='Sort full backend keys before skip/page/format0..4; preserve unused slots; prepare complete page before names/count publication; include busy descriptors without reading payloads or flushing',
@@ -5674,9 +5680,9 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/directory-file-queries.md',controller_validated=False)
     report['directory_glob_policy']=dict(
         procedures=['COPY_FILE','DELETE_FILE','RENAME_FILE'],
-        source='Ordinary explicit MemoryFiles/DirectoryFiles/DeviceFiles source paths accept star/question directory components and whole ** directory components; literal prefix fixes root/device',
+        source='Ordinary explicit MemoryFiles/DirectoryFiles/DeviceFiles source paths accept star/question directory components and whole ** directory components; literal prefix fixes root/device; either slash and one optional device-root separator',
         matching='Star/question consume characters within one component; directory ** consumes zero or more components; final filename ** remains an ordinary filename matcher; case-insensitive matching below the backend-resolved literal root',
-        destinations='Literal parents retain flattening; per-directory star substitutions and one optional ** follow directory_destination_policy relative to the captured source root; no implicit directory creation and duplicate targets reject the complete plan',
+        destinations='Either slash and one optional device-root separator; literal parents retain flattening; per-directory star substitutions and one optional ** follow directory_destination_policy relative to the captured source root; no implicit directory creation and duplicate targets reject the complete plan',
         pipes='Plain PIP sources stay flat; ordinary directory matches may copy/rename into existing reserved PIP targets under their original overwrite/capacity/configuration rules; no socket/DAQ discovery',
         bounds='254-character source names, 32767 scanned/matched entries and existing 64 MiB COPY snapshots; rooted scans count directories and files; execution budget charges scans and matching components',
         guards='Root containment and scoped device checks, encountered link/junction rejection, busy/alias/overlap checks and complete name/byte/quota rechecks before publication',
@@ -6623,7 +6629,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         headers='Forward cursor positioning, printable text and checked function-key/help elements. ACT_TBL KY_HELP and labeled DISCTRL_TBL F5 open a bounded headless help page.',
         binding='Capture typed static global array cells, attached-program and explicit system paths, and supplied BOOLEAN/INTEGER ports; reject protected storage, short arrays and output/resource overlap',
         editing='Numeric ranges, bounded strings/cursor edits, numeric enum indices, function-key selections, a bounded submenu chooser, Boolean keys/toggles, inactive columns and prefix change grids; indirect writes conservatively guard active FOR scopes',
-        sessions='Opaque root/record-owned XWORK_T session IDs, logical pointer-grid ordinals, explicit cancel or NEW_MENU, owned attachment cleanup and internal-loop finally release',
+        sessions='Opaque root/record-owned XWORK_T session IDs, logical pointer-grid ordinals, explicit cancel or NEW_MENU, owned attachment cleanup, internal-loop finally release and current-run cleanup on stop, abort or failure',
         lists='DISP_DAT_T resident viewport/field navigation, checked absolute item bounds, scrolling and preflighted paint/FILE cursor changes; no implicit fetch',
         persistence='Reject active sessions; retain only manager window/limit/finite sequence and ordinary closed pendant/keyboard state; no live references or edit replay',
         limits='64 sessions, 40 columns, 16384 cells, 32766 rows, 254 input characters and 4096 loop events',
@@ -6640,7 +6646,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         calls=['FILE_LIST'],formats=[0,1,2,3,4],
         selection='Explicit directory-component star/question and globstar patterns follow directory_file_query_policy; otherwise retain backend wildcard/device rules; sorted complete keys, nonnegative skip and one-dimensional STRING output capacity',
         names='0 preserves the backend key; 1 stem, 2 final extension, 3 basename; formatted names omit device/directories and preserve case',
-        metadata='Format4 has 40 columns: 8.3 name, byte count in columns21..25 and blank date/time; unrepresentable fields reject without truncation',
+        metadata='Format4 has 40 columns: 8.3 name, byte count in columns21..25 and optional UTC host modification date/time for closed rooted files; other timestamps stay blank; unrepresentable fields reject without truncation',
         publication='Validate and stage the complete page before changing names/count; preserve unused slots and all data outputs on failure',
         status='Portable 0 success, 1 disappeared selected metadata, 2 invalid format/skip/name, 3 insufficient output or metadata capacity; backend/budget/protection failures can raise',
         boundary='Explicit MemoryFiles/DirectoryFiles/DeviceFiles only; no native timestamp, directory-order, alarm or controller-equivalence claim; strict deferred',

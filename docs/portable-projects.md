@@ -122,8 +122,10 @@ Portable statuses are 0 success, 1 missing, 2 destination exists and 3 open/busy
 COPY_FILE overwrites only when its explicit overwrite Boolean is true. FILE_LIST
 accepts formats 0 through 4, nonnegative skip and the backend's name patterns.
 It validates each complete page before updating outputs and preserves unused
-elements. Metadata records use a portable 40-column size layout with blank
-timestamps; see [file listings](file-listing.md). Parent-directory creation and
+elements. Metadata records use a portable 40-column size layout. The
+`--filesystem-timestamps` flag includes UTC host modification times for
+closed files when paired with `--filesystem-root`. See
+[file listings](file-listing.md). Parent-directory creation and
 native alarm codes remain outside this contract.
 
 Generated service scripts accept `--filesystem-root data`, `--context state.json`
@@ -152,7 +154,8 @@ python -m karel2py.project examples/linked_project --entry MAIN
 ```
 
 The first checks translation/linkage. `--entry` explicitly starts execution.
-`--context`, `--filesystem-root`, `--state-out` and `--max-cycles` are available.
+`--context`, `--filesystem-root`, `--filesystem-timestamps`, `--state-out`
+and `--max-cycles` are available.
 The Python API additionally accepts `instantiate(options={...})` for ordinary
 Program options such as `joint_axes` and pose tolerances.
 

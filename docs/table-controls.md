@@ -131,8 +131,10 @@ data after keys and during waits. There is no independent background display tas
 Portable statuses are 0 success, 1 invalid layout/data/entry or capacity, 3 missing
 or foreign session, and 5 per-call event-budget exhaustion. Missing services,
 unsupplied indefinite standalone input, runtime failures and forbidden aliases
-raise runtime errors. Cancel explicit INIT/ACT sessions before saving context or
-leaving their source lifecycle; interrupted active ACT calls release the session.
+raise runtime errors. Stop, abort and unhandled failure release explicit sessions
+created by the interrupted task run, reset their SESSION IDs and release their
+owned attachments. Paused sessions remain available on resume. Cancel sessions
+retained after normal completion before saving context.
 Internal DISCTRL sessions always release on exit. Saving retains the manager's
 window, capacity and finite ID sequence plus ordinary pendant/keyboard state;
 it rejects active sessions and never serializes references or active edits.

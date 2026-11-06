@@ -162,6 +162,35 @@ class TableSessionTests(unittest.TestCase):
         session=next(iter(ctx.table_controls._sessions.values()));ctx.table_controls.close(session)
         ctx.to_config();self.assertEqual(p.snapshot()['WORK']['SESSION'],0)
 
+    def test_stopping_after_init_releases_only_that_tasks_session(self):
+        _,ctx,finished,_=execute(INIT,keys=())
+        program,_=compile_program(SETUP+' '+INIT+' '+DISPLAY+' PAUSE',decl=DECL,context=ctx)
+        with self.assertRaises(rt.KarelPause):program.run()
+        self.assertEqual(ctx.table_controls.active_count,2)
+        self.assertEqual(len(ctx.pendant.screens['SYS']['attachments']),1)
+        tables=ctx.table_controls;ctx.table_controls=rt.TableControls()
+        program.stop()
+        self.assertEqual(tables.active_count,1)
+        self.assertEqual(program.snapshot()['WORK']['SESSION'],0)
+        self.assertNotEqual(finished.snapshot()['WORK']['SESSION'],0)
+        self.assertEqual(ctx.pendant.screens['SYS']['attachments'],[])
+        tables.close(next(iter(tables._sessions.values())))
+
+    def test_synchronous_failure_releases_init_session(self):
+        ctx=context()
+        program,_=compile_program(SETUP+' '+INIT+' row=key',decl=DECL,context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'):program.run()
+        self.assertEqual(program.snapshot()['WORK']['SESSION'],0)
+        self.assertEqual(ctx.table_controls.active_count,0);ctx.to_config()
+
+    def test_abort_after_display_releases_session_and_attachment(self):
+        ctx=context()
+        program,_=compile_program(SETUP+' '+INIT+' '+DISPLAY+' ABORT',decl=DECL,context=ctx)
+        with self.assertRaises(rt.KarelAbort):program.run()
+        self.assertEqual(program.snapshot()['WORK']['SESSION'],0)
+        self.assertEqual(ctx.table_controls.active_count,0)
+        self.assertEqual(ctx.pendant.screens['SYS']['attachments'],[]);ctx.to_config()
+
     def test_cancel_after_display_sequence_exhaustion(self):
         _,ctx,_,_=execute(INIT+' '+DISPLAY,keys=());ctx.pendant.sequence=2147483646
         session=next(iter(ctx.table_controls._sessions.values()));ctx.table_controls.close(session)

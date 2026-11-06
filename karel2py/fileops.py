@@ -1,9 +1,11 @@
 """Bounded offline file comparison and printing over explicit FILE backends."""
+from datetime import datetime, timezone
 from itertools import zip_longest
 import fnmatch
 import hashlib
 import json
 import re
+import stat
 
 
 def rt():
@@ -19,6 +21,13 @@ def check_name(name,line=None):
 
 WILDCARD_FILE_LIMIT=32767
 WILDCARD_COPY_BYTES=64*1024*1024
+
+
+def _file_pattern_separators(value):
+    value=value.replace('\\','/')
+    device,separator,tail=value.partition(':')
+    if separator:return device+separator+tail.removeprefix('/')
+    return value
 
 
 def _wildcard_parts(value,*,pattern=True,directories=False):
@@ -220,6 +229,7 @@ def wildcard_file_operation(state,operation,args,line=None):
                 if name.startswith('PIP:/'):name='PIP:'+name[5:]
                 # Validate bounded plain pattern syntax without discovering a device.
                 self.bank.list_names(name)
+            else:name=_file_pattern_separators(runtime.ascii_string(name,line))
             prefix,base=(_wildcard_destination(name) if destination else _wildcard_source(name)) if (directories or destination) and not self.pipe else _wildcard_parts(name)
             if self.pipe and prefix!='PIP:':raise ValueError('Pipe wildcard requires a plain basename')
             return prefix,base
@@ -748,12 +758,20 @@ def manage_file(state,operation,args,line=None):
 
 def list_files(state,files,args,line=None):
     """Prepare a complete FILE_LIST page before changing any output storage."""
+    from .devices import DeviceFiles
+    from .storage import DirectoryFiles
+
     runtime=rt();pattern,skip,form,names,count=args
     skip=runtime.integer(skip,line);form=runtime.integer(form,line)
     if skip<0 or form not in (0,1,2,3,4): return 2
     array=names.raw();capacity=len(array.values)
-    parent=pattern.rsplit('/',1)[0] if '/' in pattern else ''
-    matches=_directory_listing(files,pattern,lambda:state.tick(line)) if any(c in parent for c in '*?') else files.list_names(pattern)
+    ordinary=type(files) in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles)
+    normalized=_file_pattern_separators(pattern) if ordinary else pattern
+    parent=normalized.rpartition('/')[0]
+    if any(c in parent for c in '*?'):
+        matches=_directory_listing(files,normalized,lambda:state.tick(line))
+    else:
+        matches=files.list_names(normalized if isinstance(files,(DirectoryFiles,DeviceFiles)) else pattern)
     selected=matches[skip:skip+capacity];prepared=[]
     for name in selected:
         state.tick(line)
@@ -765,20 +783,20 @@ def list_files(state,files,args,line=None):
             if not separator or not stem: stem,extension=base,''
             text=stem if form==1 else extension if form==2 else base
             if form==4:
-                # Portable FILE models do not expose native date/time metadata.
-                # DirectoryFiles uses buffered bytes for open files, disk sizes
-                # for closed files, and the same blank timestamp convention.
-                from .storage import DirectoryFiles
-                if isinstance(files,DirectoryFiles):
-                    if files._busy(name): size=len(files.files[name])
-                    else:
-                        path=files._path(name)
-                        if not path.is_file(): return 1
-                        size=path.stat().st_size
-                else: size=len(files.files[name])
+                timestamp=' '*15
+                if isinstance(files,DirectoryFiles) and not files._busy(name):
+                    try:metadata=files._path(name).stat()
+                    except FileNotFoundError:return 1
+                    if not stat.S_ISREG(metadata.st_mode):return 1
+                    size=metadata.st_size
+                    if files.listing_timestamps:
+                        try:modified=datetime.fromtimestamp(metadata.st_mtime,timezone.utc)
+                        except (OSError,OverflowError,ValueError):return 3
+                        timestamp=modified.date().isoformat()+modified.time().isoformat(timespec='minutes')
+                else:size=len(files.files[name])
                 if len(stem)>8 or len(extension)>3 or size>99999: return 3
                 dot='.' if extension else ' '
-                text=f'{stem:<8}{dot}{extension:<11}{size:<5}'+(' '*15)
+                text=f'{stem:<8}{dot}{extension:<11}{size:<5}'+timestamp
         if len(text)>array.spec[2][1]: return 3
         prepared.append(runtime.checked(array.spec[2],text,line))
     staged=array.clone()

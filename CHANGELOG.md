@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.021106 - 2026-11-06
+
+- Offer opt-in UTC modification times for closed rooted files in FILE_LIST
+  format 4 through the Python API, generated CLI and linked project CLI.
+- Accept controller-style separators in ordinary wildcard file batches and
+  directory-component listings while preserving flat in-memory key matching.
+- Release table sessions created by interrupted task runs and preserve
+  sessions from other tasks and normally completed runs.
+
 ## 26.1106.015246 - 2026-11-06
 
 - Add table function-key enums, Boolean function keys and submenu selection.

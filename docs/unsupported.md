@@ -338,7 +338,8 @@ queue-entry policies; FILE banks remain excluded.
   formats, device-specific parsing and controller file alarms. Text and binary
   scalar operations use the documented portable formats and bounded sizes;
   FILE_LIST supports [formats 0 through 4](file-listing.md), with portable
-  40-column size records and blank timestamps; native metadata formats remain open.
+  40-column size records and opt-in UTC host modification times on closed
+  rooted files. Native metadata formats remain open.
   [Wildcard COPY/DELETE](wildcard-file-operations.md) now support bounded final-name
   star/question source patterns and full-stem star templates.
   [Single-character FILE wildcards](question-file-wildcards.md) also apply to MOVE_FILE. [Wildcard RENAME](wildcard-rename.md)

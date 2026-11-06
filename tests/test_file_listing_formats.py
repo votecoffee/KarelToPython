@@ -1,4 +1,6 @@
 """Authored FILE_LIST pages across explicit portable file backends."""
+from datetime import datetime, timezone
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -40,6 +42,12 @@ class FileListingNameFormatsTests(unittest.TestCase):
 
     def test_backslash_paths_have_portable_base_names(self):
         self.assertEqual(listing(rt.MemoryFiles({'MD:folder\\item.dat':'x'}),1)['NAMES'][0],'item')
+
+    def test_flat_memory_pattern_preserves_literal_backslash_keys(self):
+        key=r'MD:folder\item.dat'
+        files=rt.MemoryFiles({key:'x','MD:folder/item.dat':'y'})
+        self.assertEqual(listing(files,0,r'MD:folder\*.dat')['NAMES'][0],key)
+        self.assertEqual(listing(files,0,r'MD:folder\*.dat')['N'],1)
 
     def test_final_dot_is_a_delimiter(self):
         for form,expected in ((1,'data'),(2,''),(3,'data.')):
@@ -199,6 +207,23 @@ class FileListingMetadataTests(unittest.TestCase):
             path.write_bytes(b'changed')
             self.assertEqual(listing(files,4)['NAMES'][0][20:25],'7    ')
 
+    def test_opt_in_directory_timestamp_uses_utc_modification_time(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'files').mkdir()
+            path=root/'files'/'part.dat';path.write_bytes(b'one')
+            modified=datetime(2025,2,3,4,5,59,tzinfo=timezone.utc).timestamp()
+            os.utime(path,(modified+3600,modified))
+            files=rt.DirectoryFiles(root,devices={'RD':'files'})
+            self.assertEqual(listing(files,4,r'RD:\*.dat')['NAMES'][0][25:],' '*15)
+            files=rt.DirectoryFiles(root,devices={'RD':'files'},listing_timestamps=True)
+            self.assertEqual(listing(files,4,r'RD:\*.dat')['NAMES'][0][20:],'3    2025-02-0304:05')
+            handle=rt.FileHandle();files.open(handle,'AP','RD:part.dat')
+            try:
+                files.write(handle,b'two')
+                self.assertEqual(listing(files,4,r'RD:\*.dat')['NAMES'][0][20:],'6    '+' '*15)
+                self.assertEqual(path.read_bytes(),b'one')
+            finally:files.close(handle)
+
     def test_disappearing_metadata_file_preserves_earlier_prepared_rows(self):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder,'a.dat').write_bytes(b'a');missing=Path(folder,'b.dat');missing.write_bytes(b'b')
@@ -222,6 +247,7 @@ class FileListingMetadataTests(unittest.TestCase):
         self.assertEqual(listing(files,3)['NAMES'][0],'part.dat')
         self.assertEqual(listing(files,4)['NAMES'][0][20:25],'3    ')
         self.assertEqual(listing(files,1,'rd:*')['NAMES'][0],'part')
+        self.assertEqual(listing(files,0,r'rd:\folder\*.dat')['NAMES'][0],'RD:folder/part.dat')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'mounted'):listing(files,4,'UD1:*')
 
     def test_missing_service_remains_an_error(self):

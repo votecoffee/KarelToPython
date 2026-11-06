@@ -10,7 +10,7 @@ never discovers controller devices or files outside a DirectoryFiles root.
 | 1 | Base name without the final extension |
 | 2 | Final extension without the dot; empty if absent |
 | 3 | Base name with its extension |
-| 4 | Forty-character portable name/type/size record with blank timestamps |
+| 4 | Forty-character portable name/type/size record with optional timestamps |
 
 Formats 1 through 4 follow the source forms described in MARRC75KR07091E Rev N,
 section A.6.2. Exact native formatting and native status values remain unverified.
@@ -21,6 +21,9 @@ section A.6.2. Exact native formatting and native status values remain unverifie
 bounded star/question/globstar matching below a resolved literal prefix. They
 match case-insensitively and reject encountered links/junctions during rooted
 scans. Patterns without a directory matcher retain the backend rules below.
+Directory-component patterns accept either slash and one optional separator
+after an explicit device. Flat DirectoryFiles and DeviceFiles patterns accept
+the same separator spellings. Flat MemoryFiles patterns match stored keys literally.
 
 The backend applies its ordinary wildcard and device rules, sorts its complete
 keys, skips `n_skip` matches, and selects up to the length of the one-dimensional
@@ -52,20 +55,22 @@ Format 4 is always 40 characters, including trailing spaces:
 | 10 through 12 | Extension, left aligned |
 | 13 through 20 | Spaces |
 | 21 through 25 | Decimal byte count, left aligned |
-| 26 through 35 | Spaces reserved for date |
-| 36 through 40 | Spaces reserved for time |
+| 26 through 35 | UTC date as YYYY-MM-DD, or spaces |
+| 36 through 40 | UTC time as HH:MM, or spaces |
 
 Names longer than eight stem characters or three extension characters, or sizes
 above 99999 bytes, return capacity status. No name, extension or size is silently
 truncated. This is an explicit portable 8.3 layout within the documented column
 starts; it does not claim native formatting for larger files.
 
-The portable backends do not expose controller timestamp metadata, so all date
-and time columns are blank, including for DirectoryFiles. Host modification times
-are not copied into controller-shaped data. MemoryFiles and DeviceFiles report
-current buffered sizes. DirectoryFiles reports the pending buffered size while a
-file is open and the current regular-file size on disk while it is closed.
-Listing neither reads the file payload nor flushes or advances an open FILE.
+Date and time columns are blank by default. Use
+`DirectoryFiles(root, listing_timestamps=True)` or pass
+`--filesystem-timestamps` alongside `--filesystem-root` to a generated
+script or the linked project CLI. Closed rooted files then report host
+modification time in UTC with minute precision. The byte count and time
+come from the same file metadata lookup. MemoryFiles, DeviceFiles and open
+rooted files use buffered sizes and blank timestamps. Listing neither reads
+the payload nor flushes or advances an open FILE.
 
 ## Outcomes and atomic updates
 
@@ -74,7 +79,7 @@ Listing neither reads the file payload nor flushes or advances an open FILE.
 | 0 | Page returned successfully, including no matches |
 | 1 | A selected file disappeared before metadata inspection |
 | 2 | Invalid format, negative skip or invalid formatted base name |
-| 3 | A destination STRING or format-4 field cannot hold the full result |
+| 3 | A destination STRING or format-4 field cannot represent the result |
 
 The whole selected page is validated before any names or count change. Errors
 preserve those outputs and update only status. This capacity rule also applies
@@ -85,4 +90,5 @@ These status numbers are package choices, not native alarm equivalence.
 
 There is no file-list cursor to serialize. Ordinary file contents remain covered
 by the existing context JSON facilities; DirectoryFiles retains its explicit root
-and ordinary host-lifetime behavior. Strict mode remains future work.
+and ordinary host-lifetime behavior. Timestamp opt-in is a host setting and
+does not persist in context JSON. Strict mode remains future work.

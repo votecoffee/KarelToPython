@@ -381,7 +381,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.015246**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.021106**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -755,7 +755,9 @@ mount state, byte quotas, obsolete-storage reclamation, labels and supplied devi
 information. These operations affect memory-backed data only; see
 [virtual devices](docs/virtual-devices.md).
 `FILE_LIST` supports name, extension, complete-name and portable 40-column size
-formats, with whole-page validation before outputs change. See
+formats, with whole-page validation before outputs change. Pair
+`--filesystem-timestamps` with `--filesystem-root` to include UTC modification
+times for closed files. See
 [file listings](docs/file-listing.md).
 CREATE_VAR, RENAME_VAR and RENAME_VARS manage explicit variable namespaces;
 BYNAME passes checked named aliases into typed routines, including linked calls

@@ -128,6 +128,12 @@ class RootedDirectoryMoveTests(MoveCases,unittest.TestCase):kind='directory'
 
 
 class ListingCases:
+    def test_controller_separators_match_the_same_components(self):
+        with bank(self.kind) as files:
+            _,portable,_=listing(files)
+            _,controller,_=listing(files,r'RD:\jobs\**\a?.kl')
+            self.assertEqual(controller,portable)
+
     def key(self,name):return name.replace('RD:','ram/',1) if self.kind=='directory' else name
 
     def test_globstar_sorted_complete_names(self):

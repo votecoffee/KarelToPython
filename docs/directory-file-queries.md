@@ -28,9 +28,9 @@ patterns such as *.KL. Explicit directory patterns do not infer device namespace
 from an unqualified logical root. Plain PIP listing remains flat.
 
 Explicit patterns require bounded relative ASCII names and reject traversal,
-empty/dot components, bracket classes and unsafe device syntax. MOVE_FILE retains
-its single optional device-root separator and slash/backslash normalization.
-FILE_LIST directory patterns use forward slashes. Selected paths are bounded to
+empty/dot components, bracket classes and unsafe device syntax. MOVE_FILE and
+FILE_LIST directory patterns accept forward slashes, backslashes and one
+optional separator after the device. Selected paths are bounded to
 254 characters, and scans to 32,767 entries. Rooted scans count files and
 directories; in-memory scans retain a whole-bank bound. Scanning and matcher work
 charge the ordinary execution budget. Encountered links/junctions under a
@@ -61,9 +61,9 @@ external host edits. These rules apply to old and newly extended forms.
 ## FILE_LIST
 
 Selection sorts complete backend keys before skip, page length and formatting.
-Formats 0 through 4 retain their [existing definitions](file-listing.md), including
-blank timestamp fields. Format 0 preserves full keys; formatted results remove
-device/directory prefixes. Duplicate stems stay separate; no formatting reorder
+Formats 0 through 4 follow the [listing definitions](file-listing.md), including
+opt-in modification timestamps for closed rooted files. Format 0 preserves full
+keys; formatted results remove device/directory prefixes. Duplicate stems stay separate; no formatting reorder
 occurs. Unused slots retain initialized or unknown contents, and exhausted pages
 return zero count without clearing names.
 

@@ -353,11 +353,12 @@ class DirectoryFiles:
     Source names are relative POSIX paths, optionally prefixed by an explicit
     device mapping. Symlinks and path traversal are rejected on every operation.
     """
-    def __init__(self,root,*,devices=None,limit=16*1024*1024):
+    def __init__(self,root,*,devices=None,limit=16*1024*1024,listing_timestamps=False):
         from .extended import MemoryFiles
         self.root=Path(root).resolve(strict=True)
         if not self.root.is_dir(): raise ValueError('Filesystem root must be a directory')
         self.devices={str(key).upper():str(value) for key,value in (devices or {}).items()}
+        self.listing_timestamps=listing_timestamps
         self.memory=MemoryFiles(limit=limit); self.files=self.memory.files; self.limit=limit
         self.handles=[]
         for value in self.devices.values(): self._path(value or '.',directory=True)

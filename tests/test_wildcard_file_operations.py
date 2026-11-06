@@ -44,6 +44,13 @@ def directory(root):
 
 
 class WildcardMemoryTests(unittest.TestCase):
+    def test_controller_separators_work_for_copy_rename_and_delete(self):
+        files=rt.MemoryFiles({'RD:sub/a.kl':b'a','RD:sub/deep/b.kl':b'b'})
+        self.assertEqual(copy(files,r'RD:\sub\**\*.kl',r'FR:\backup\**\*.py'),0)
+        self.assertEqual(invoke(files,'RENAME_FILE',r'FR:\backup\**\*.py',r'FR:\moved\**\*.txt'),0)
+        self.assertEqual(delete(files,r'RD:\sub\**\*.kl'),0)
+        self.assertEqual(files.snapshot(),{'FR:moved/a.txt':b'a','FR:moved/deep/b.txt':b'b'})
+
     def test_copy_extension_template_and_binary_payloads(self):
         files=rt.MemoryFiles({'src/a.kl':b'\xff\0a','src/b.kl':b'b','src/c.txt':b'c'})
         self.assertEqual(copy(files),0)
@@ -165,7 +172,8 @@ class WildcardPreflightTests(unittest.TestCase):
 
     def test_pattern_syntax_and_paths_fail_closed(self):
         for source,target in [('src/*/../*.kl','dst/*.py'),('../*.kl','dst/*.py'),('src/[ab]*.kl','dst/*.py'),
-            ('/src/*.kl','dst/*.py'),('src/*.kl','../*.py'),('src/*.kl','dst/*.'),('src/*.kl',r'dst\*.py')]:
+            ('/src/*.kl','dst/*.py'),('src/*.kl','../*.py'),('src/*.kl','dst/*.'),('src/*.kl',r'dst\..\*.py'),
+            (r'RD:\\src\*.kl','dst/*.py'),(r'\\host\share\*.kl','dst/*.py')]:
             with self.subTest(source=source,target=target):
                 files=memory();before=files.snapshot()
                 with self.assertRaises(rt.KarelRuntimeError):copy(files,source,target)

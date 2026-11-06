@@ -232,6 +232,9 @@ class TableControls:
     def register(self,session,work=None,pointers=None,line=None):
         self.sequence+=1;identity=self.sequence;session['id']=identity
         if work is not None:
+            root=rt().task_root(session['state'])
+            session['root']=root;session['run']=root._task_run
+            if root._task_run is not None:root._task_table_controls.add(self)
             session['work']=work;session['work_value']=work.raw()
             rt().field_reference(work.raw(),'SESSION',line).set(identity,line)
         self._sessions[identity]=session
@@ -250,6 +253,11 @@ class TableControls:
         session['attached']=None
         if session['work_value'] is not None:
             rt().field_reference(session['work_value'],'SESSION',line).set(0,line)
+
+    def finish(self,root,run):
+        """Release explicit sessions from one interrupted task run."""
+        for session in tuple(self._sessions.values()):
+            if session.get('root') is root and session['run'] is run:self.close(session)
 
     def value_text(self,column,row):
         value=column['cells'][row-1].read()
@@ -468,7 +476,7 @@ class TableControls:
         action,selected,work,term,attach,status=args;session=None
         try:
             session=self._sessions.get(field(work.raw(),'SESSION',0))
-            if session is None or rt().task_root(session['state']) is not rt().task_root(state) or session['work_value'] is not work.raw():status.set(3,line);return
+            if session is None or session.get('root') is not rt().task_root(state) or session['work_value'] is not work.raw():status.set(3,line);return
             code=reference_value(action) if type(action) is rt().Reference else action
             if code==TABLE_CONSTANTS['KY_CANCEL']:self.close(session,line);term.set(0,line);status.set(0,line);return
             self.check_aliases(session,args,line)

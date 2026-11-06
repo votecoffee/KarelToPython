@@ -27,7 +27,8 @@ root/device. Plain PIP sources remain flat. Bracket patterns, absolute host path
 and traversal remain excluded. Destination parents stay literal unless an explicit
 whole-directory ** [placeholder](directory-destinations.md) preserves source-relative
 directories; it does not search for a destination or create directories.
-Paths use forward slashes and stay relative to their explicit backend/root.
+Ordinary source and target patterns accept slash or backslash and one optional
+separator after a device. Resolved names stay relative to their explicit backend/root.
 Unmapped devices, symlinks, control characters, trailing-dot/space components and
 reserved device basenames fail closed.
 
