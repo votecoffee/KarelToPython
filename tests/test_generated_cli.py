@@ -36,6 +36,32 @@ class GeneratedCLIContextTests(unittest.TestCase):
     def test_help_exposes_context_and_state_flags_without_running(self):
         self.compile('n=n+1');result=self.run_cli('--help');self.assertEqual(result.returncode,0,result.stderr);self.assertIn('--context',result.stdout);self.assertIn('--state-out',result.stdout)
 
+    def test_explicit_file_device_maps_rooted_source_names(self):
+        body=r"OPEN FILE f('RO','RD:\part.dat') READ f(n) CLOSE FILE f FILE_LIST('RD:\*.dat',0,0,names,count,s)"
+        self.compile(body,decl='f:FILE n,count,s:INTEGER names:ARRAY[1] OF STRING[80]')
+        data=self.folder/'files';data.mkdir()
+        (data/'part.dat').write_bytes(b'42\n')
+        result=self.run_cli('--filesystem-root',self.folder,'--filesystem-device','rd:=files/.')
+        self.assertEqual(result.returncode,0,result.stderr)
+        values=ast.literal_eval(result.stdout)
+        self.assertEqual((values['N'],values['COUNT'],values['NAMES']),(42,1,['files/part.dat']))
+
+    def test_invalid_file_device_options_fail_before_execution(self):
+        self.compile('n=42')
+        for args,message in (
+            (('--filesystem-device','RD=.'),'requires --filesystem-root'),
+            (('--filesystem-device','1BAD=.'),'DEVICE=SUBDIRECTORY'),
+            (('--filesystem-device','RD=','--filesystem-device','rd=.'),'Duplicate --filesystem-device'),
+            (('--filesystem-device','RD=missing'),'does not exist'),
+            (('--filesystem-device','RD=../outside'),'relative to its explicit root'),
+        ):
+            with self.subTest(args=args):
+                root=() if 'requires' in message else ('--filesystem-root',self.folder)
+                result=self.run_cli(*root,*args,'--state-out',self.state)
+                self.assertEqual(result.returncode,2,result.stderr)
+                self.assertIn(message,result.stderr)
+                self.assertFalse(self.state.exists())
+
     def test_unknown_flags_are_rejected_instead_of_ignored(self):
         self.compile('n=42');result=self.run_cli('--unknown-flag');self.assertEqual(result.returncode,2);self.assertEqual(result.stdout,'');self.assertIn('unrecognized arguments',result.stderr)
 

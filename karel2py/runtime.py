@@ -3871,6 +3871,7 @@ class State:
         self._task_frames=[];self._task_line=0;self._has_run=False
         self._debug_statement=None
         self._task_run = None
+        self._last_task_run = None
         self._task_run_services = {}
         self._task_launch = None
         self._task_parent = None
@@ -4036,7 +4037,7 @@ class State:
         self._handlers.clear(); self.finish_timers()
         self._event_seen.clear(); self._edge_history.clear(); self._abort_requested=False; self._abort_request_line=None; self._current_error=None; self._lifecycle={'CONTINUE':0,'POWERUP':0}
         if self.execution.diagnostics is not None:self.execution.diagnostics.begin(self)
-        self._task_run = object()
+        self._task_run = self._last_task_run = object()
         self._task_parent = lineage
         self._task_pendant_motion = transferred is not None
         self._task_launch = None
@@ -4689,7 +4690,7 @@ from .extended import (ExecutionContext, StringRegisters, PositionRegisters, Por
                         TaskRegistry, KarelPause, KarelStop, update_timers, timer_clock, connect_timer, disconnect_timer, release_frame_timers, finish_timers,
                         define_condition, condition_control, checkpoint, cooperative_test, pause_execution,abort_execution,
                        run_cooperative, resume_cooperative, stop_cooperative)
-from .storage import DirectoryFiles
+from .storage import DirectoryFiles,directory_files_options,directory_files_from_args
 from .devices import DeviceFiles,DEVICE_CONSTANTS,DEVICE_INFO
 from .programs import GroupLocks
 from .acquisition import Acquisition,DAQ_CONSTANTS

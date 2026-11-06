@@ -1,10 +1,12 @@
 """Authored persistence, filesystem and explicit robot-model integration checks."""
+from io import BytesIO
 import json
 import subprocess
 import sys
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import translate,runtime as rt
 from karel2py.kinematics import SerialRobotModel,matrix,pose as identity_pose
@@ -84,6 +86,59 @@ class StatePersistenceTests(unittest.TestCase):
 
 
 class FileBackendTests(unittest.TestCase):
+    def test_failed_rooted_open_preserves_existing_cache_and_descriptor(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder,'data.txt')
+            path.write_bytes(b'first')
+            files=rt.DirectoryFiles(folder)
+            handle=rt.FileHandle();files.open(handle,'RO','data.txt');files.close(handle)
+            path.write_bytes(b'changed')
+            for name in ('data.txt','new.txt'):
+                Path(folder,name).write_bytes(b'changed')
+                with self.subTest(name=name),self.assertRaisesRegex(rt.KarelRuntimeError,'Unsupported memory file access mode'):
+                    files.open(handle,'invalid',name)
+                self.assertIsNone(handle.owner)
+                self.assertEqual(files.snapshot(),{'data.txt':b'first'})
+            path.unlink()
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'does not exist'):
+                files.open(handle,'RO','data.txt')
+            self.assertEqual(files.snapshot(),{'data.txt':b'first'})
+            self.assertEqual(files.handles,[])
+
+    def test_rooted_open_and_copy_bound_the_actual_read(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source=Path(folder,'a').resolve()
+            source.write_bytes(b'a')
+            files=rt.DirectoryFiles(folder,limit=2)
+            open_path=Path.open
+            def growing(path,mode='r',*args,**kwargs):
+                if path==source and mode=='rb':return BytesIO(b'abc')
+                return open_path(path,mode,*args,**kwargs)
+            handle=rt.FileHandle()
+            with patch.object(Path,'open',growing):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'size limit'):
+                    files.open(handle,'RO','a')
+                with self.assertRaisesRegex(ValueError,'size limit'):
+                    files.copy('a','b')
+            self.assertEqual(files.snapshot(),{})
+            self.assertIsNone(handle.owner)
+            self.assertFalse(Path(folder,'b').exists())
+
+    def test_interactive_flush_failure_rolls_back_bytes_cursor_and_status(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder,'a')
+            path.write_bytes(b'abc')
+            files=rt.DirectoryFiles(folder)
+            handle=rt.FileHandle();files.open(handle,'RW','a')
+            handle.interactive=True;handle.position=1;handle.status=7
+            with patch('karel2py.storage.atomic_bytes',side_effect=OSError('authored failure')):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'authored failure'):
+                    files.write(handle,b'Z')
+            self.assertEqual((files.snapshot()['a'],path.read_bytes()),(b'abc',b'abc'))
+            self.assertEqual((handle.position,handle.status),(1,7))
+            files.write(handle,b'Z');files.close(handle)
+            self.assertEqual(path.read_bytes(),b'aZc')
+
     def test_disk_write_close_and_reopen(self):
         with tempfile.TemporaryDirectory() as folder:
             files=rt.DirectoryFiles(folder);ctx=rt.ExecutionContext(files=files)
@@ -253,3 +308,19 @@ class BroadCLITests(unittest.TestCase):
             self.assertEqual(output.returncode,0,output.stderr)
             result=json.loads(output.stdout)
             self.assertEqual(result['MAIN']['values']['TOTAL'],13) if flags else self.assertTrue(result['linked'])
+
+    def test_project_cli_uses_explicit_file_devices(self):
+        from contextlib import redirect_stderr,redirect_stdout
+        from io import StringIO
+        from karel2py.project import main
+
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'flash').mkdir()
+            (root/'part.txt').write_bytes(b'authored')
+            (root/'main.kl').write_text(r"PROGRAM MAIN VAR s:INTEGER BEGIN COPY_FILE('RD:\part.txt','FR:\part.txt',FALSE,FALSE,s) END MAIN",encoding='ascii')
+            stdout=StringIO()
+            with redirect_stdout(stdout),redirect_stderr(StringIO()):
+                self.assertEqual(main([str(root),'--entry','MAIN','--filesystem-root',str(root),
+                                      '--filesystem-device','rd=','--filesystem-device','FR=flash']),0)
+            self.assertEqual(json.loads(stdout.getvalue())['MAIN']['values']['S'],0)
+            self.assertEqual((root/'flash'/'part.txt').read_bytes(),b'authored')

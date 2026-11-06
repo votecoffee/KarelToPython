@@ -12,6 +12,7 @@ def rt():
 class Pulse:
     key: tuple
     owner: object
+    run: object
     clock: object
     scheduler: object
     deadline: int
@@ -25,8 +26,9 @@ def sample(clock,line=None):
     return value
 
 
-def terminal(owner):
-    return owner._aborted or owner.task_state in ('aborted','stopped','failed')
+def terminal(pulse):
+    owner=pulse.owner
+    return pulse.run is owner._last_task_run and (owner._aborted or owner.task_state in ('aborted','stopped','failed'))
 
 
 def poll(bank,line=None):
@@ -36,14 +38,14 @@ def poll(bank,line=None):
     try:
         pending=[]
         for key,pulse in tuple(bank._pulses.items()):
-            if terminal(pulse.owner): pending.append((key,pulse,None));continue
+            if terminal(pulse): pending.append((key,pulse,None));continue
             now=sample(pulse.clock,line)
             if now<pulse.previous: raise rt().KarelRuntimeError('Pulse clock moved backwards',line)
             pending.append((key,pulse,now))
         expired=0
         for key,pulse,now in pending:
             if bank._pulses.get(key) is not pulse: continue
-            if now is None or terminal(pulse.owner): del bank._pulses[key]
+            if now is None or terminal(pulse): del bank._pulses[key]
             elif now>=pulse.deadline:
                 bank.values[key]=False;del bank._pulses[key];expired+=1
             else: pulse.previous=now
@@ -53,7 +55,7 @@ def poll(bank,line=None):
 
 def finish(bank,pulse):
     if pulse is not None and bank._pulses.get(pulse.key) is pulse:
-        if not terminal(pulse.owner): bank.values[pulse.key]=False
+        if not terminal(pulse): bank.values[pulse.key]=False
         del bank._pulses[pulse.key]
 
 
@@ -73,8 +75,9 @@ def pulse_execution(state,number,milliseconds,nowait=False,line=None):
         if state._aborted: raise runtime.KarelAbort(state._abort_line)
         if key in bank._pulses: raise runtime.KarelRuntimeError('PULSE output already has a pending pulse',line)
         duration=((milliseconds+7)//8)*8
-        pulse=Pulse(key,owner,clock,scheduler,now+duration*1000,now)
+        pulse=Pulse(key,owner,owner._task_run,clock,scheduler,now+duration*1000,now)
         bank.values[key]=True;bank._pulses[key]=pulse
+        if pulse.run is not None:owner._task_run_services[bank]=None
         if not nowait:
             yield from runtime.delay_execution(state,duration,line)
             if owner._aborted: raise runtime.KarelAbort(owner._abort_line)

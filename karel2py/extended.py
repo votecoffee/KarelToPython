@@ -676,6 +676,10 @@ class PortBank:
     @property
     def pending_pulses(self): return len(self._pulses)
 
+    def finish(self,root,run):
+        for key,pulse in tuple(self._pulses.items()):
+            if pulse.owner is root and pulse.run is run:del self._pulses[key]
+
     def _set_scalar(self,kind,number,value,*,simulate,line=None):
         rt=runtime()
         key=kind,number

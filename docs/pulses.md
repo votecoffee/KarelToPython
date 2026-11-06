@@ -92,14 +92,15 @@ python -m karel2py.project examples/pulse_project --entry MAIN --context example
 | --- | --- |
 | Normal owner completion | Pending NOWAIT pulse remains until polled or drained |
 | Pause | Pulse can expire while the owner remains paused |
-| Abort, terminal STOP or runtime failure | Preserve last modeled output value; discard the owner's pending record on polling |
+| Abort, terminal STOP or runtime failure | Discard pending records created by the interrupted run and preserve their last modeled output values |
 | Successful direct/indirect/host write | Cancel that output's pending expiration and keep the new supplied value |
 | Failed write | Preserve the existing value and pending pulse |
 | Another pulse on a busy output | Reject before replacing the existing pulse |
 | Context JSON save/load | Save observed values and existing metadata; pending clocks/owners/deadlines are omitted |
 
-A linked routine's pulse belongs to its calling root task. An unrelated task's
-failure does not cancel the owner's pulse. A blocking callback failure retains
+A linked routine's pulse belongs to the run of its calling root task. A pulse
+from a completed run can still expire after a later run of the same program
+stops or fails. A blocking callback failure retains
 completed host effects and the last output value; it is not retried. A sticky
 ABORT prevents a new pulse from starting or completing after termination.
 

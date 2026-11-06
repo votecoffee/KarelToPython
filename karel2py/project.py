@@ -254,8 +254,7 @@ def main(argv=None):
     parser.add_argument('--array-context',type=Path,help='Specialize global wildcard ARRAYs using root schemas from an explicit saved JSON context')
     parser.add_argument('--external-collections',type=Path,help='Fixed logical results for explicitly named external collection functions')
     parser.add_argument('--external-values',type=Path,help='Explicit data, procedures, argument cases and staged outputs for external routines')
-    parser.add_argument('--filesystem-root',type=Path)
-    parser.add_argument('--filesystem-timestamps',action='store_true',help='Include UTC host modification times in rooted FILE_LIST metadata')
+    rt.directory_files_options(parser)
     parser.add_argument('--state-out',type=Path)
     parser.add_argument('--trace-out',type=Path,help='Atomically save task settings and bounded checkpoint traces, including partial traces on failure')
     parser.add_argument('--max-cycles',type=int,default=100000)
@@ -264,7 +263,7 @@ def main(argv=None):
     parser.add_argument('-I','--include-dir',type=Path,action='append',default=[])
     parser.add_argument('--include-device',type=device_option,action='append',default=[],metavar='DEVICE=DIRECTORY')
     args=parser.parse_args(argv)
-    if args.filesystem_timestamps and args.filesystem_root is None:parser.error('--filesystem-timestamps requires --filesystem-root')
+    files=rt.directory_files_from_args(parser,args)
     array_shapes={}
     for name,shape in args.array_shape:
         if name in array_shapes: parser.error('Duplicate case-insensitive --array-shape name '+name)
@@ -299,7 +298,7 @@ def main(argv=None):
     if args.external_collections or args.external_values:
         try:context.externals.update(rt.load_external_bindings(values=args.external_values,collections=args.external_collections,outputs=(args.state_out,args.trace_out)))
         except (OSError,ValueError,rt.KarelRuntimeError) as error:parser.error(('Invalid external collections: ' if args.external_values is None else 'Invalid external bindings: ')+str(error))
-    if args.filesystem_root: context.files=rt.DirectoryFiles(args.filesystem_root,listing_timestamps=args.filesystem_timestamps)
+    if files is not None:context.files=files
     instance=project.instantiate(context=context)
     def save_trace():
         from .storage import atomic_bytes

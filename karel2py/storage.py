@@ -421,11 +421,16 @@ class DirectoryFiles:
         try:
             key=self._key(name); path=self._path(key)
             if self._busy(key): raise ValueError('File is already open through this backend')
+            previous=self.files.get(key)
             if path.exists():
-                if not path.is_file() or path.stat().st_size>self.limit: raise ValueError('Invalid file or file size limit exceeded')
-                self.files[key]=bytearray(path.read_bytes())
-            elif key in self.files: del self.files[key]
-            self.memory.open(handle,mode,key,line); handle.owner=self; self.handles.append(handle)
+                self.files[key]=bytearray(self._disk_bytes(path))
+            else:self.files.pop(key,None)
+            try:self.memory.open(handle,mode,key,line)
+            except Exception:
+                if previous is None:self.files.pop(key,None)
+                else:self.files[key]=previous
+                raise
+            handle.owner=self; self.handles.append(handle)
         except (OSError,ValueError) as exc: raise rt().KarelRuntimeError('Filesystem OPEN failed: '+str(exc),line) from exc
 
     def flush(self,handle,line=None):
@@ -443,26 +448,32 @@ class DirectoryFiles:
         self.memory.handles=[item for item in self.memory.handles if item is not handle]
 
     def write(self,handle,data,line=None):
-        old=bytes(self.files.get(handle.name,b'')); position=handle.position
+        if not handle.interactive:
+            self.memory.write(handle,data,line)
+            return
+        old=bytes(self.files.get(handle.name,b''));position,status=handle.position,handle.status
         self.memory.write(handle,data,line)
-        if handle.interactive:
-            try: self.flush(handle,line)
-            except Exception:
-                self.files[handle.name]=bytearray(old); handle.position=position; raise
+        try:self.flush(handle,line)
+        except Exception:
+            self.files[handle.name]=bytearray(old);handle.position=position;handle.status=status
+            raise
 
     def read_bytes(self,handle,count,line=None): return self.memory.read_bytes(handle,count,line)
 
     def snapshot(self): return self.memory.snapshot()
+
+    def _disk_bytes(self,path):
+        if not path.is_file() or path.stat().st_size>self.limit: raise ValueError('Invalid file or file size limit exceeded')
+        with path.open('rb') as stream: data=stream.read(self.limit+1)
+        if len(data)>self.limit: raise ValueError('File size limit exceeded')
+        return data
 
     def read_named(self,name):
         key=self._key(name)
         if self._busy(key): return 3,None
         path=self._path(key)
         if not path.exists(): return 1,None
-        if not path.is_file() or path.stat().st_size>self.limit: raise ValueError('Invalid file or file size limit exceeded')
-        with path.open('rb') as stream: data=stream.read(self.limit+1)
-        if len(data)>self.limit: raise ValueError('File size limit exceeded')
-        return 0,data
+        return 0,self._disk_bytes(path)
 
     def list_names(self,pattern='*'):
         # Validate the non-wildcard path components before traversing the selected root.
@@ -486,8 +497,7 @@ class DirectoryFiles:
         src=self._path(source); dst=self._path(target)
         if not src.is_file(): return 1
         if dst.exists() and not overwrite: return 2
-        if src.stat().st_size>self.limit: raise ValueError('File size limit exceeded')
-        data=src.read_bytes(); atomic_bytes(dst,data); self.files[target]=bytearray(data); return 0
+        data=self._disk_bytes(src); atomic_bytes(dst,data); self.files[target]=bytearray(data); return 0
 
     def delete(self,name):
         key=self._key(name)
@@ -509,6 +519,40 @@ class DirectoryFiles:
     def move(self,specification,*,check=None):
         from .fileops import move_files
         return move_files(self,specification,check=check)
+
+
+def directory_files_options(parser):
+    parser.add_argument('--filesystem-root',type=Path,help='Explicit directory for FILE operations')
+    parser.add_argument('--filesystem-device',action='append',default=[],metavar='DEVICE=SUBDIRECTORY',
+                        help='Map a FILE device to an existing directory within the filesystem root (repeatable)')
+    parser.add_argument('--filesystem-timestamps',action='store_true',
+                        help='Include UTC host modification times in rooted FILE_LIST metadata')
+
+
+def directory_files_from_args(parser,args):
+    if args.filesystem_root is None:
+        if args.filesystem_device:parser.error('--filesystem-device requires --filesystem-root')
+        if args.filesystem_timestamps:parser.error('--filesystem-timestamps requires --filesystem-root')
+        return None
+    devices={}
+    for mapping in args.filesystem_device:
+        name,separator,location=mapping.partition('=')
+        name=name.removesuffix(':')
+        if not separator or re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,7}',name) is None:
+            parser.error('--filesystem-device requires DEVICE=SUBDIRECTORY')
+        name=name.upper()
+        if name in devices:parser.error('Duplicate --filesystem-device '+name)
+        devices[name]=location
+    try:
+        files=DirectoryFiles(args.filesystem_root,devices=devices,listing_timestamps=args.filesystem_timestamps)
+        for name,location in devices.items():
+            directory=files._path(location or '.',directory=True)
+            if not directory.is_dir():
+                raise ValueError('Mapped FILE directory does not exist for '+name)
+            files.devices[name]='' if directory==files.root else directory.relative_to(files.root).as_posix()
+        return files
+    except (OSError,ValueError,rt().KarelRuntimeError) as error:
+        parser.error('Invalid filesystem configuration: '+str(error))
 
 
 def context_config(context):

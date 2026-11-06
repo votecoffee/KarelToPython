@@ -41,8 +41,10 @@ inside the resulting base name are rejected for formats 1 through 4. Their
 strings have no padding except in format 4.
 
 DirectoryFiles keeps its existing case-sensitive pattern matching and explicit
-device mapping. Flat rooted listings skip symlinks and junctions and do not
-scan their subtrees. DeviceFiles honors its explicit volume names and mount flags.
+device mapping. Use `--filesystem-device` to map devices to existing subdirectories
+under the selected root in either execution CLI. Flat rooted listings skip
+symlinks and junctions and do not scan their subtrees. DeviceFiles honors its
+explicit volume names and mount flags.
 No implicit controller or host drive mapping is added.
 
 ## Metadata columns

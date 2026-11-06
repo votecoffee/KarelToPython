@@ -111,7 +111,10 @@ These checks are for controlled offline directories; they do not provide a
 security boundary against another process racing filesystem changes.
 
 Writes buffer until CLOSE FILE, then replace the file atomically. `ATR_IA`
-enables interactive flush after each WRITE. `ATR_UF` selects unformatted/binary
+enables interactive flush after each WRITE. A failed flush restores the previous
+buffer, cursor and status. A failed OPEN preserves the previous cache and leaves
+the FILE closed. OPEN and exact COPY_FILE bound the number of bytes read from
+disk. `ATR_UF` selects unformatted/binary
 fields; `ATR_REVERSE` selects big-endian fields instead of the default little
 endian. `ATR_EOL` supplies the ASCII record terminator emitted by CR and used on
 input. `ATR_FIELD` makes unformatted STRING reads consume the declared capacity;
@@ -133,6 +136,14 @@ native alarm codes remain outside this contract.
 Generated service scripts accept `--filesystem-root data`, `--context state.json`
 and `--state-out updated.json`. A state output file is written after successful
 completion. Choose a separate output path if you want to preserve the input.
+
+Use repeatable `--filesystem-device DEVICE=SUBDIRECTORY` options with
+`--filesystem-root` in a generated script or linked project. For example,
+`--filesystem-root data --filesystem-device RD=ram --filesystem-device FR=flash`
+maps RD and FR to existing subdirectories of `data`. An empty value such as
+`RD=` maps to the root itself. Device names are case-insensitive. The CLI rejects
+duplicates and paths that traverse a symlink, junction or parent directory.
+Pass the mappings again on later runs that need them.
 
 ## Linked source projects
 
@@ -156,8 +167,8 @@ python -m karel2py.project examples/linked_project --entry MAIN
 ```
 
 The first checks translation/linkage. `--entry` explicitly starts execution.
-`--context`, `--filesystem-root`, `--filesystem-timestamps`, `--state-out`
-and `--max-cycles` are available.
+`--context`, `--filesystem-root`, `--filesystem-device`,
+`--filesystem-timestamps`, `--state-out` and `--max-cycles` are available.
 The Python API additionally accepts `instantiate(options={...})` for ordinary
 Program options such as `joint_axes` and pose tolerances.
 

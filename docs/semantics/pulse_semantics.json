@@ -8,7 +8,7 @@
     "syntax":"INTEGER DOUT port and duration expressions, optional NOWAIT on statements only; automatic cooperative generation and transitive blocking delay effects",
     "duration":"Zero no-op, positive duration rounded upward to eight milliseconds, maximum 86400000; deterministic rounded expiry rather than native scan jitter",
     "execution":"Existing blocking DELAY driver or pending NOWAIT output; explicit captured host clock or scheduler virtual time",
-    "ownership":"Root-caller ownership through linked routines, independent output deadlines, pause/completion expiry, terminal freeze and successful-write cancellation",
+    "ownership":"Calling root run owns the deadline, including through linked routines. Stop, abort and failure release only the interrupted run's pulses. Completed runs retain independent deadlines. A successful output write cancels its deadline.",
     "observation":"Source-located value-free records, explicit polling, port read/snapshot and checkpoint servicing; pending work excluded from JSON restore"
   },
   "portable_choices":[

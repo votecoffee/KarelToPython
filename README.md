@@ -381,7 +381,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.121505**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.132341**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -756,7 +756,9 @@ information. These operations affect memory-backed data only; see
 [virtual devices](docs/virtual-devices.md).
 Rooted and virtual FILE backends accept controller-style paths such as
 `RD:\jobs\part.dat` through their explicit device mappings. Exact rooted
-access rejects symlink and junction components.
+access rejects symlink and junction components. Generated scripts and linked
+projects accept repeatable `--filesystem-device RD=ram` mappings under
+`--filesystem-root`.
 `FILE_LIST` supports name, extension, complete-name and portable 40-column size
 formats, with whole-page validation before outputs change. Pair
 `--filesystem-timestamps` with `--filesystem-root` to include UTC modification
@@ -1002,7 +1004,8 @@ use supplied offline state. See [pose decomposition](docs/pose-decomposition.md)
 
 PULSE supports blocking and NOWAIT digital outputs with checked durations,
 explicit host polling and scheduler deadlines. Pause, terminal state and later
-writes have documented ownership rules. See [output pulses](docs/pulses.md).
+writes have documented ownership rules. Interruptions discard only the owning
+run's pending deadlines. See [output pulses](docs/pulses.md).
 
 VAR_INFO inspects canonical types, dimensions, capacities and initialization.
 VAR_LIST filters and pages explicit global names with checked output formats.

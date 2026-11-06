@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.132341 - 2026-11-06
+
+- Add explicit `--filesystem-device` mappings to generated and linked CLIs.
+- Preserve cached bytes after a failed rooted OPEN and restore bytes, cursor
+  and status after a failed interactive WRITE. Bound disk reads for OPEN and
+  exact COPY_FILE.
+- Keep NOWAIT pulses tied to their owning run so a later failed run cannot
+  cancel an earlier completed run's deadline.
+
 ## 26.1106.121505 - 2026-11-06
 
 - Release keyboard suspension tokens owned by a stopped, aborted or failed

@@ -126,6 +126,19 @@ class PulseOwnershipTests(unittest.TestCase):
                 with self.assertRaises((rt.KarelStop,rt.KarelRuntimeError)): p.run()
                 clock['us']=16000;ports.poll_pulses();self.assertTrue(ports.read('DOUT',1));self.assertEqual(ports.pending_pulses,0)
 
+    def test_interrupted_rerun_preserves_pulse_from_completed_run(self):
+        for ending,error in (('ABORT',rt.KarelAbort),('STOP',rt.KarelStop),('n=1 DIV 0',rt.KarelRuntimeError)):
+            with self.subTest(ending=ending):
+                body='IF UNINIT(n) THEN n=1 PULSE DOUT[1] FOR 9 NOWAIT ELSE PULSE DOUT[2] FOR 9 NOWAIT '+ending+' ENDIF'
+                program,ports,clock,_=setup(body)
+                program.run()
+                original=ports._pulses['DOUT',1]
+                with self.assertRaises(error):program.run()
+                self.assertEqual(ports._pulses,{('DOUT',1):original})
+                clock['us']=16000
+                self.assertEqual(ports.poll_pulses(),1)
+                self.assertEqual(ports.snapshot(),{('DOUT',1):False,('DOUT',2):True})
+
     def test_paused_pulse_expires_without_resume(self):
         p,ports,clock,_=setup('PULSE DOUT[1] FOR 9 NOWAIT PAUSE n=1')
         with self.assertRaises(rt.KarelPause): p.run()

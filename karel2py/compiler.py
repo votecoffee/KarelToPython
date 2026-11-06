@@ -4834,8 +4834,7 @@ class Emitter:
                 self.line('_input.add_argument("--read-values", help="UTF-8 JSON list of typed response batches, one per READ")')
                 self.line('_input.add_argument("--read-text", help="UTF-8 ASCII text input for Pythonic READ")')
             self.line('_parser.add_argument("--context", help="Explicit offline service configuration JSON")')
-            self.line('_parser.add_argument("--filesystem-root", help="Explicit directory for FILE operations")')
-            self.line('_parser.add_argument("--filesystem-timestamps", action="store_true", help="Include UTC host modification times in rooted FILE_LIST metadata")')
+            self.line('_rt.directory_files_options(_parser)')
             self.line('_parser.add_argument("--state-out", help="Save offline banks and global values as JSON")')
             if self.mode=='pythonic':
                 self.line('_parser.add_argument("--external-collections", help="UTF-8 JSON fixed logical values for explicitly named external collection functions")')
@@ -4843,7 +4842,7 @@ class Emitter:
             if 'operator >=<' in self.features:
                 self.line('_parser.add_argument("--external-axis-tolerances", type=float, nargs=3, help="Explicit tolerances for EXT1, EXT2, EXT3")')
             self.line('_args = _parser.parse_args()')
-            self.line('if _args.filesystem_timestamps and _args.filesystem_root is None: _parser.error("--filesystem-timestamps requires --filesystem-root")')
+            self.line('_files = _rt.directory_files_from_args(_parser, _args)')
             self.line('import json as _json')
             self.line('_context = None')
             self.line('if _args.context is not None:')
@@ -4864,10 +4863,10 @@ class Emitter:
                 self.line('_context.externals.update(_bindings)')
                 self.indent-=1;self.line('except (OSError, ValueError, _rt.KarelRuntimeError) as _error:')
                 self.indent+=1;self.line('_parser.error(("Invalid external collections: " if _args.external_values is None else "Invalid external bindings: ")+str(_error))');self.indent-=2
-            self.line('if _args.filesystem_root is not None or _args.state_out is not None:')
+            self.line('if _files is not None or _args.state_out is not None:')
             self.indent += 1
             self.line('if _context is None: _context = _rt.ExecutionContext()')
-            self.line('if _args.filesystem_root is not None: _context.files = _rt.DirectoryFiles(_args.filesystem_root, listing_timestamps=_args.filesystem_timestamps)')
+            self.line('if _files is not None: _context.files = _files')
             self.indent -= 1
             if self.features & REGISTER_PROCEDURES:
                 self.line('_registers = _context.numeric if _context is not None else None')
@@ -5483,6 +5482,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         procedures=['CHECK_NAME','MOVE_FILE'],
         names='CHECK_NAME accepts 1..36 ASCII letters/digits/underscores without extension/device; portable 0 valid and 2 invalid; no file backend or existence lookup; not a source-program grammar check',
         ordinary_paths='Exact and wildcard names on rooted DirectoryFiles and virtual DeviceFiles accept either slash and one optional device-root separator; resolve within the configured backend; exact MemoryFiles keys retain their spelling',
+        rooted_cli='Generated scripts and linked projects can map repeatable --filesystem-device DEVICE=SUBDIRECTORY entries under --filesystem-root; existing relative directories only; duplicate device names reject',
+        rooted_failures='A failed OPEN preserves cached bytes and the unopened descriptor. OPEN and exact COPY bound disk reads. A failed interactive flush restores buffered bytes, cursor and status.',
         rooted_links='Exact rooted operations reject links and junction components. Flat listings skip link entries and prune their subtrees before traversal; explicit directory patterns reject encountered links and junctions.',
         context='MOVE_FILE requires explicit MemoryFiles/DeviceFiles device-prefixed names or DirectoryFiles with RD/FR mappings; swap RD and FR only; preserve filename case, suffix, relative subdirectories and exact bytes',
         patterns='Case-insensitive star/question filename or directory components and whole-directory globstar follow directory_file_query_policy; optional single slash/backslash after colon; no traversal, bracket patterns or automatic directory creation',
@@ -6444,7 +6445,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit PortBank DOUT address; no physical output adapter; overlapping pulses reject; successful direct/indirect/host writes cancel the previous deadline',
         waiting='Blocking uses existing DELAY driver; synchronous sleep callback completion completes the logical pulse; scheduler parks the task and uses virtual time regardless of injected program clock',
         nowait='Nonblocking start; standalone clocks use captured clock_us or monotonic microseconds; checkpoints, port reads/snapshots and explicit poll_pulses service expirations without background threads',
-        lifecycle='Pause permits expiration; normal completion retains pending pulse; abort/stop/failure freeze last modeled value and discard pending work on polling; linked calls belong to root caller',
+        lifecycle='Pause permits expiration and normal completion retains pending pulses. Stop, abort and failure discard the interrupted run\'s pulses and preserve their last values. Earlier completed runs retain their deadlines. Linked calls belong to the calling root run.',
         scheduler='Polls shared banks and drains its pending pulses even when owners complete or pause; idle jumps to waiting/pulse deadlines; cycle limits remain',
         persistence='JSON stores observed values and existing port metadata only; pending clocks/owners/deadlines are not serialized; service records are value-free PULSE start/wait outcomes',
         boundary='No controller scan jitter, polarity/complement modes, physical timing, automatic background expiry or native acceptance; strict remains future work',
