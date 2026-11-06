@@ -504,11 +504,13 @@ queue-entry policies; FILE banks remain excluded.
   [list/table controls](table-controls.md) now support resident lists and typed
   array-backed editors with injected keys, port cells and explicit session guards.
   [Table headers](table-controls.md#header-controls) support positioned text,
-  function-key labels and logical help.
+  function-key labels and logical help. [Table enumeration keys](table-controls.md#enumeration-keys)
+  support field-specific choices and a bounded scrollable submenu.
   [DISCTRL_FORM](forms.md) now accepts supplied FTX forms with typed scalar/port
   editing, numeric/variable/program enums, help, function labels and sequential tree
   groups, including concatenated complete fragments with explicit .tree inheritance.
-  Forms accept explicit `[*SYSTEM*]` value paths. Native binary form/VR
+  Forms, tables and formatted dictionary operations accept explicit
+  `[*SYSTEM*]` value paths. Native binary form/VR
   associations, Data ID discovery and exact widget/layout semantics remain
   unsupported. Nested tree groups retain
   the documented language prohibition.

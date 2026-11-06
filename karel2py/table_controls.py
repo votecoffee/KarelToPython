@@ -143,10 +143,15 @@ class TableControls:
                      row=session['row'],column=session['col']+1,editing=session['edit'] is not None)
             if session['function_labels'] is not None:row['function_keys']=list(session['function_labels'])
             if session['help_lines']:row['help']=session['help_offset'] is not None
+            choice=session['choice']
+            if choice is not None:
+                row['choice']=dict(index=choice['index']+1,labels=list(session['columns'][choice['col']]['labels']))
             active.append(row)
         return dict(window=self.window,limit=self.limit,sequence=self.sequence,active=active)
 
     def prepare(self,state,dictionary,element,rows,cols,descriptors,inactive,changes,paths,resources,line):
+        from .dictionaries import static_value_reference
+
         runtime=rt();number(rows,1,32766);number(cols,1,40)
         if rows*cols>16384:invalid('Table exceeds 16384 cell budget')
         pendant=state.execution.require('pendant',line);surface=pendant.windows.get(self.window)
@@ -168,9 +173,7 @@ class TableControls:
             kind={1:'INTEGER',2:'REAL',3:'INTEGER',4:'INTEGER',5:'STRING',6:'STRING',
                   7:'BOOLEAN',8:'BYTE',9:'SHORT',10:'STRING',11:'STRING'}[item]
             name=runtime.ascii_string(runtime.require(paths.values[index]),line)
-            match=re.fullmatch(r'(?:\[([A-Za-z_][A-Za-z_0-9]*)\])?(.+)',name)
-            if match is None:invalid('Invalid table array path')
-            target=state.execution.resolve(state,match[1] or state.program_name,match[2],line,path_nodes=True)
+            target=static_value_reference(state,name,line,default_owner=state.program_name)
             if type(target) is not runtime.Reference or target.spec[0]!='ARRAY' or len(runtime.array_dimensions(target.spec))!=1 or runtime.array_leaf_spec(target.spec)[0]!=kind:invalid('Table requires a static global array matching its column type')
             if len(target.raw().values)<rows:invalid('Table backing array is too short')
             if occupied&runtime._reference_cells(target):invalid('Table backing data overlaps output/resource storage')
@@ -191,13 +194,14 @@ class TableControls:
                 if not enum_dict and item in (7,10):labels=['FALSE','TRUE']
                 elif item==4:
                     labels=[]
-                    for offset in range(29):
+                    for offset in range(36):
                         lines=dictionary_lines(state,enum_dict,enum_ele+offset)
                         if lines==['']:break
-                        if len(lines)!=1 or offset==28:invalid('Table submenu requires at most 28 single-line labels')
+                        if len(lines)!=1 or offset==35:invalid('Table submenu requires at most 35 single-line labels')
                         labels.extend(lines)
                 else:labels=dictionary_lines(state,enum_dict,enum_ele)
-                if not labels or len(labels)>(10 if item==3 else 2 if item in (7,10) else 28) or item in (7,10) and len(labels)!=2:invalid('Invalid table enumeration labels')
+                if not labels or item==3 and len(labels)>10 or item in (7,10) and len(labels)!=2:
+                    invalid('Invalid table enumeration labels')
             fmt=format_spec(field(descriptor,'FORMAT_SPEC',''),'STRING' if labels is not None else display_kind)
             if CONVERSION.search(fmt.replace('%%',''))[4]=='c' and item!=8:invalid('Character format requires a BYTE column')
             minimum=field(descriptor,'MIN_REAL' if item==2 else 'MIN_INTEGER')
@@ -207,7 +211,7 @@ class TableControls:
                 format=fmt,minimum=minimum,maximum=maximum,clear=number(field(descriptor,'CLEAR_FLAG',0),0,1),
                 lower=number(field(descriptor,'LOWER_CASE',0),0,1)))
         session=dict(state=state,rows=rows,columns=columns,inactive=inactive,changes=changes,header=header,
-            function_labels=function_labels,help_lines=help_lines,help_offset=None,
+            function_labels=function_labels,help_lines=help_lines,help_offset=None,choice=None,
             pendant=pendant,row=1,col=0,first=1,edit=None,cursor=0,attached=None,owns_attachment=False,work=None,work_value=None)
         session['col']=self.enabled(session)[0]
         if len(self._sessions)>=self.limit or self.sequence>=MAX_SEQUENCE:invalid('Table session capacity exhausted')
@@ -261,13 +265,26 @@ class TableControls:
 
     def draw(self,session,line=None):
         surface=session['pendant'].windows[self.window]
+        rows,cols=surface['rows'],surface['cols']
+        choice=session['choice']
         if session['help_offset'] is not None:
             offset=session['help_offset']
-            lines=session['help_lines'][offset:offset+surface['rows']]
-            fields=[(index+1,1,text.ljust(surface['cols']))
-                    for index,text in enumerate(lines+['']*(surface['rows']-len(lines)))]
-            session['pendant'].paint_fields(session['state'],self.window,fields,line)
+            lines=session['help_lines'][offset:offset+rows]
+        elif choice is not None:
+            labels=session['columns'][choice['col']]['labels']
+            height=max(1,rows-1)
+            first=max(0,choice['index']-height+1)
+            lines=['Choose value'] if rows>1 else []
+            lines.extend(('>' if index==choice['index'] else ' ')+labels[index]
+                         for index in range(first,min(len(labels),first+height)))
+        else:
+            self.draw_body(session,surface,line)
             return
+        fields=[(index+1,1,text[:cols].ljust(cols))
+                for index,text in enumerate(lines+['']*(rows-len(lines)))]
+        session['pendant'].paint_fields(session['state'],self.window,fields,line)
+
+    def draw_body(self,session,surface,line):
         height=surface['rows']-len(session['header'])
         session['first']=max(1,min(session['first'],session['row']))
         if session['row']>=session['first']+height:session['first']=session['row']-height+1
@@ -317,11 +334,35 @@ class TableControls:
         if cell.bank is None and cell.reference.spec[0]=='STRING' and len(value)>cell.reference.spec[1]:invalid('Table string exceeds destination capacity')
         cell.write(value,line);self.grid(session['changes'],session['row'],session['col']+1,True,line)
 
-    def step(self,session,key,line=None):
+    def step_choice(self,session,column,key,line):
+        choice=session['choice']
+        if (choice['row'],choice['col'])!=(session['row'],session['col']) or key=='PREV':
+            session['choice']=None
+            return
+        labels=column['labels']
+        index=choice['index']
+        if key in ('ENTER','SELECT'):
+            self.commit(session,column,self.parsed(column,str(index+1)),line)
+            session['choice']=None
+        elif key in ('HOME','END'):
+            choice['index']=0 if key=='HOME' else len(labels)-1
+        elif key in ('UP','DOWN','PAGE_UP','PAGE_DOWN'):
+            rows=session['pendant'].windows[self.window]['rows']
+            delta=max(1,rows-1) if key.startswith('PAGE') else 1
+            if key in ('UP','PAGE_UP'):delta=-delta
+            choice['index']=max(0,min(len(labels)-1,index+delta))
+
+    def step(self,session,key,line=None,*,mask=None):
+        code,category=key_info(key)
+        if key=='NEW_MENU':return code,category
+        if mask is not None and key=='SELECT' and session['choice'] is None and session['help_offset'] is None:
+            return code,category
         enabled=self.enabled(session)
         if session['col'] not in enabled:session['col']=enabled[0];session['edit']=None
-        column=session['columns'][session['col']];cell=column['cells'][session['row']-1];code,category=key_info(key)
-        if key=='NEW_MENU':return code,category
+        column=session['columns'][session['col']];cell=column['cells'][session['row']-1]
+        if session.get('choice') is not None:
+            self.step_choice(session,column,key,line)
+            return 0,category
         if session.get('help_offset') is not None:
             if key in ('PREV','F5'):session['help_offset']=None
             elif key in ('UP','DOWN','PAGE_UP','PAGE_DOWN'):
@@ -331,6 +372,30 @@ class TableControls:
                 session['help_offset']=max(0,min(len(session['help_lines'])-rows,session['help_offset']+delta))
             return 0,category
         text=session['edit']
+        if text is None and key.startswith('F') and key[1:].isdigit():
+            function=int(key[1:])
+            if column['item']==3:
+                labels=column['labels']
+                if function<=len(labels) and labels[function-1].strip():
+                    self.commit(session,column,self.parsed(column,str(function)),line)
+                return 0,category
+            if function in (4,5) and column['item'] in (7,10):
+                if not cell.writable():return 1008,128
+                self.commit(session,column,function==4,line)
+                return 0,category
+            if function==4 and column['item']==4:
+                value=cell.read()
+                index=value-1 if type(value) is int and 1<=value<=len(column['labels']) else 0
+                session['choice']=dict(row=session['row'],col=session['col'],index=index)
+                return 0,category
+            labels=session.get('function_labels')
+            if (mask is not None and key=='F5' and session['help_lines']
+                    and labels is not None and len(labels)>=5 and labels[4].lstrip().upper().startswith('HELP')):
+                session['help_offset']=0
+                return 0,category
+            if not table_key_enabled(session,key):return 0,category
+        if mask is not None and text is None and mask&category:
+            return code,category
         if text is not None:
             cursor=session['cursor']
             if key in ('ENTER','SELECT'):
@@ -358,7 +423,7 @@ class TableControls:
                 value=cell.read();initial='' if value is rt().UNINITIALIZED or value is rt().UNKNOWN_BYTE else str(value)
                 if len(key)==1 and (column['kind']!='STRING' or column['clear']):initial=''
                 session['edit']=initial+(key if len(key)==1 else '');session['cursor']=len(session['edit'])
-        elif key in ('PREV','NEXT') or key.startswith('F') and len(key)>1 and table_key_enabled(session,key):
+        elif key in ('PREV','NEXT') or key.startswith('F') and len(key)>1:
             return code,category
         return 0,category
 
@@ -408,9 +473,12 @@ class TableControls:
             if code==TABLE_CONSTANTS['KY_CANCEL']:self.close(session,line);term.set(0,line);status.set(0,line);return
             self.check_aliases(session,args,line)
             session['row']=number(reference_value(selected),1,session['rows'])
+            if session['choice'] is not None and session['choice']['row']!=session['row']:
+                session['choice']=None
             if code==TABLE_CONSTANTS['KY_DISP_UPDT']:self.display(session,reference_value(attach),line);terminal=0
             elif code==TABLE_CONSTANTS['KY_HELP']:
-                if not session['help_lines'] or session['edit'] is not None:invalid('Table help requires available text and no active edit')
+                if not session['help_lines'] or session['edit'] is not None or session['choice'] is not None:
+                    invalid('Table help requires available text and no active edit or choice')
                 session['help_offset']=0;self.draw(session,line);terminal=0
             else:
                 if code==TABLE_CONSTANTS['KY_REISSUE']:key=yield from self.read_key(state,session,'ACT_TBL',line)
@@ -436,18 +504,7 @@ class TableControls:
             self.display(session,attach,line)
             for _ in range(4096):
                 key=yield from self.read_key(state,session,'DISCTRL_TBL',line)
-                code,category=key_info(key)
-                labels=session['function_labels']
-                if session['help_offset'] is not None:
-                    terminal,category=self.step(session,key,line)
-                elif (key=='F5' and session['edit'] is None and session['help_lines']
-                      and labels is not None and len(labels)>=5 and labels[4].lstrip().upper().startswith('HELP')):
-                    session['help_offset']=0;terminal=0
-                elif not table_key_enabled(session,key):
-                    terminal=0
-                elif mask&category and session['edit'] is None or code in (1007,1008):
-                    terminal=code
-                else:terminal,category=self.step(session,key,line)
+                terminal,category=self.step(session,key,line,mask=mask)
                 self.draw(session,line)
                 # Committing an edit remains inside the table. Non-edit keys
                 # follow the explicit termination mask; SELECT/new menu always end.

@@ -1,0 +1,7 @@
+{
+  "dictionaries": {"sources": {"settings": "$ \"Limit %d / %s\""}},
+  "variables": [
+    {"program": "SYSTEM", "path": "$FIXTURE.$LIMIT", "type": ["INTEGER"], "value": 37},
+    {"program": "*SYSTEM*", "path": "$FIXTURE.$MODE", "type": ["STRING", 8], "value": "Ready"}
+  ]
+}

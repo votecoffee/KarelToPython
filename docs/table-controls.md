@@ -55,7 +55,9 @@ no native record-size, memory-layout or pointer compatibility claim.
 
 Each `value_array` entry names one static global one-dimensional array. Its
 elements supply the table rows. Names can use an attached `[PROGRAM]` prefix,
-structure fields and subscripts leading to a named array. Local/computed paths,
+structure fields and subscripts leading to a named array. The shared
+`[*SYSTEM*].$path` qualifier can select an explicitly supplied system array.
+Local/computed paths,
 protected storage, incorrect element types and short backing arrays are rejected.
 Cells are captured once at initialization; subsequent edits update that storage.
 Columns can share backing data, but data cannot overlap the call's output/resource
@@ -66,8 +68,8 @@ including through routine effects.
 | --- | --- | --- |
 | `TPX_INT_ITEM` | INTEGER | Decimal integer |
 | `TPX_REL_ITEM` | REAL | Finite decimal/exponent float |
-| `TPX_FKY_ITEM` | INTEGER | One-based numeric index into up to 10 newline-separated labels in one dictionary element |
-| `TPX_SUB_ITEM` | INTEGER | One-based numeric index into up to 28 consecutive single-line elements ending with an empty element |
+| `TPX_FKY_ITEM` | INTEGER | F1–F10 or a one-based numeric index into newline-separated labels in one dictionary element |
+| `TPX_SUB_ITEM` | INTEGER | Submenu selection or a one-based numeric index into up to 35 consecutive single-line elements |
 | `TPX_KST_ITEM` | STRING | Editable string |
 | `TPX_KSL_ITEM` | STRING | Read-only selectable string |
 | `TPX_KBL_ITEM` | BOOLEAN | Toggle; two dictionary labels or default FALSE/TRUE |
@@ -114,8 +116,7 @@ the old value. ENTER opens an existing edit or commits checked input. During an
 edit, cursor, home/end and delete keys work, and PREV discards the edit. A string
 commit exceeding its destination capacity fails without truncating live data.
 Boolean ENTER/input toggles the cell. Selecting a read-only cell returns
-`KY_SELECT`. Enum entry uses numeric indices; native soft-key/submenu widgets
-are not reproduced. Selected row/column/edit state is visible in `snapshot()`;
+`KY_SELECT`. Selected row/column/edit state is visible in `snapshot()`;
 highlight glyphs are not rendered.
 
 `DISCTRL_TBL` combines preparation, display and an injected-key loop. NEW_MENU
@@ -135,6 +136,25 @@ leaving their source lifecycle; interrupted active ACT calls release the session
 Internal DISCTRL sessions always release on exit. Saving retains the manager's
 window, capacity and finite ID sequence plus ordinary pendant/keyboard state;
 it rejects active sessions and never serializes references or active edits.
+
+### Enumeration keys
+
+In both table execution forms, F1–F10 select the corresponding nonblank
+`TPX_FKY_ITEM` labels. F4 and F5 set TRUE and FALSE for Boolean cells,
+including writable logical ports. Field-specific keys take precedence
+over header function keys and the termination mask outside text editing.
+The existing numeric entry remains available for integer enums.
+
+F4 opens the portable `TPX_SUB_ITEM` chooser at the current value. Use
+arrows, page keys, HOME and END to move. ENTER or SELECT commits through
+the same range and writability checks as numeric entry. PREV closes the
+chooser without editing, and NEW_MENU ends the table. A row or column
+change retires the chooser before a different cell can be written.
+The active snapshot includes the choice labels and one-based index.
+
+Submenu labels use consecutive elements ending in an empty element or
+`"\a"`. The offline limit is 35 labels. The field and label forms follow
+MARRC75KR07091E Rev N, PDF pages 435–436.
 
 Limits are 64 sessions, 40 columns, 16384 cells per table, 32766 rows, 254 editing
 characters and 4096 processed events per DISCTRL call. The window/array limits

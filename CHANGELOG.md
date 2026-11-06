@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.015246 - 2026-11-06
+
+- Add table function-key enums, Boolean function keys and submenu selection.
+  Preserve numeric entry and enforce existing writable-cell and range checks.
+- Accept explicit system value paths with or without a separator dot in
+  formatted dictionary reads and writes, forms, and table backing arrays.
+- Include the live condition breakpoint flag in SHOW CONDITION with debugging enabled.
+
 ## 26.1106.012656 - 2026-11-06
 
 - Add dictionary `.kl` directives, checked named-element CONST fragments and

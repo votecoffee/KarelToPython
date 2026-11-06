@@ -1,0 +1,6 @@
+{
+  "LOADED": 0,
+  "STATUS": 0,
+  "VALUES": ["[*SYSTEM*].$FIXTURE.$LIMIT", "[*SYSTEM*]$FIXTURE.$MODE"],
+  "LINES": ["Limit 37 / Ready"]
+}

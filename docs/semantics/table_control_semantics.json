@@ -23,8 +23,8 @@
       "DISCTRL_TBL"
     ],
     "service": "Explicit TableControls, PendantDisplay, plain TextDictionaries and injected KeyboardInput; no native UI",
-    "binding": "Captured ordinary typed static global array cells, attached-program paths and supplied BOOLEAN/INTEGER ports; output/resource overlap rejected",
-    "editing": "Typed finite/range checked commits; bounded insertion/cursors, enums by numeric index, BOOL toggles, inactive columns and prefix change grids",
+    "binding": "Captured ordinary typed static global array cells, attached-program and explicit system paths, and supplied BOOLEAN/INTEGER ports; output/resource overlap rejected",
+    "editing": "Typed finite/range checked commits; bounded insertion/cursors, numeric and function-key enums, submenu choices, BOOL keys/toggles, inactive columns and prefix change grids",
     "lifetime": "Root and record-owned sessions, explicit cancellation and NEW_MENU release; internal loop finally cleanup and active-session save guard",
     "lists": "Resident absolute item numbers, validated selected viewport and zero-based field columns; atomic preflight for paint plus FILE cursor",
     "limits": "64 sessions, 40 columns, 16384 cells, 32766 rows, 254 input characters and 4096 loop events",
@@ -32,14 +32,21 @@
   },
   "boundaries": [
     "Portable constants/statuses, COL_DESC_T schema, opaque XWORK_T ID and logical vptr ordinals; no native ABI or controller validation",
-    "Plain headers and numeric enum selection; no native help/function-key/form grammar, DISCTRL_FORM or glyph/highlight rendering",
+    "Logical headers, help and enum selection; no native soft-key paging layout, DISCTRL_FORM or glyph/highlight rendering",
     "No background display task or resident list fetching; logical repaint at keys and budgeted waits",
     "Strict mode remains deferred"
   ],
   "validation": [
     "tests/test_table_controls.py",
+    "tests/test_table_choices_and_system_paths.py",
     "examples/table_editor.kl",
     "examples/resident_list.kl",
     "examples/project_table"
-  ]
+  ],
+  "enumeration_extension": {
+    "version": "26.1106.015246",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [435, 436],
+    "contract": "Field-local F1 through F10 and Boolean F4/F5 keys. Portable F4 submenu with up to 35 entries, guarded row/column identity and the existing validated commits. Numeric entry remains supported."
+  }
 }

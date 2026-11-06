@@ -169,7 +169,7 @@ The same `task_commands` opt-in enables these forms.
 | `SHOW HISTORY [name]` | Write the current source call stack as JSON Lines, from the root through the innermost frame. |
 | `ENABLE CONDITION [name] number` | Enable a live global handler and reset its scan deadline. |
 | `DISABLE CONDITION [name] number` | Disable a live global handler. |
-| `SHOW CONDITION [name] [number]` | Write enabled state, priority and scan interval as JSON Lines in condition-number order. |
+| `SHOW CONDITION [name] [number]` | Write enabled state, priority and scan interval as JSON Lines in condition-number order. With debug commands enabled, include the live `breakpoint` flag. |
 
 For SET TASK and SET TRACE, an explicit name goes inside literal brackets,
 as in `SET TASK [WORKER] PRIORITY = 9`. SHOW TRACE and condition commands

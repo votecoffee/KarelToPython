@@ -238,6 +238,10 @@ def kcl_task_admin(state,operation,args,line=None):
         keys=sorted(handlers) if number is None else [number]
         rows=[dict(number=key,enabled=handlers[key]['enabled'],priority=handlers[key]['priority'],
                    scan_ms=handlers[key]['scan_ms']) for key in keys]
+        channel=state.execution.kcl
+        if getattr(channel,'debug_commands',False):
+            for row in rows:
+                row['breakpoint']=handlers[row['number']].get('kcl_break') is channel
         write_json_lines(state,rows,line)
     else:
         condition_control(root,operation,number,line)

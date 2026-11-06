@@ -1,0 +1,7 @@
+{
+  "dictionaries": {
+    "sources": {"SETTINGS.TX": "$ \"Limit %d / %s\""},
+    "languages": ["ENGLISH"], "default_language": "ENGLISH", "language": "ENGLISH",
+    "loaded": {"ENGLISH": {"VIEW": {"source": "SETTINGS.TX", "text": "$ \"Limit %d / %s\""}}}
+  }
+}

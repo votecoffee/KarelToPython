@@ -132,6 +132,13 @@ names, arbitrary Python attributes and expressions are unavailable. Only used
 argument slots need initialized paths. Values are fully rendered before output
 mutation, including when the input and output ARRAY share storage.
 
+Use `[*SYSTEM*].$path` or `[*SYSTEM*]$path` to read an explicitly supplied
+system binding. READ_DICT_V and WRITE_DICT_V share this lookup. The qualifier
+selects the supplied system scope and keeps the existing output preflight
+when a path is missing or malformed. The dotted form appears in MARRC75KR07091E
+Rev N, PDF page 499. The [example](../examples/system_dictionary_paths.kl)
+formats one value from each system namespace.
+
 Formats use `%[-][+][0][width][.precision]conversion[^argument]`. Width and
 precision are bounded at 254. Supported conversions are d/o/x/X/u for integral
 scalars, s for STRING and f/e/E/g/G for REAL. BOOLEAN displays 0/1. Unsigned

@@ -32,7 +32,7 @@
     "service": "Explicit supplied ASCII text catalogs and per-language/name loaded snapshots; no native TX decoding or filesystem discovery",
     "syntax": "Unique numbered/named elements, automatic numbering, comments, escapes, five-level acyclic nesting, bounded text/control/style tokens",
     "check": "INTEGER IDs and STRING decimal/name compatibility forms; manual STRING versus historical accepted INTEGER compiler-case discrepancy retained",
-    "formatting": "Checked static scalar variable paths, explicit attached owners, fields/ARRAY/PATH nodes; bounded Python percent formatting, 32-bit unsigned conversions and argument reordering",
+    "formatting": "Checked static scalar variable paths, explicit attached and supplied system owners, fields/ARRAY/PATH nodes; bounded Python percent formatting, 32-bit unsigned conversions and argument reordering",
     "reads": "One-based STRING ARRAY row ranges, untouched prefix/tail, last row, right truncation 33008 and complete-render preflight",
     "writes": "Open logical window FILE only; complete request stages grid/cursor/position and one accepted WINDOW_WRITE event before commit",
     "languages": "Exact current pendant or dictionary-model language, explicit default and remove-all behavior; no fallback or implicit packs",
@@ -49,6 +49,13 @@
     "tests/test_pendant_display.py",
     "examples/dictionary_text.kl",
     "examples/dictionary_window.kl",
+    "examples/system_dictionary_paths.kl",
     "examples/dictionary_project"
-  ]
+  ],
+  "system_path_extension": {
+    "version": "26.1106.015246",
+    "manual": "MARRC75KR07091E Rev N",
+    "pdf_pages": [376, 498, 499],
+    "contract": "READ_DICT_V and WRITE_DICT_V share explicit [*SYSTEM*] paths with forms and tables. An optional separator dot precedes the system variable. No implicit lookup in controller state."
+  }
 }

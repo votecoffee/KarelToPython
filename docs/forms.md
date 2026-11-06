@@ -48,7 +48,8 @@ it does not render inverse-video highlighting.
 Each data item consumes one entry from `value_array`, including display-only
 fields. Entries name static scalar globals, fields, array elements or PATH node
 fields. Use an attached `[PROGRAM]` prefix or `[*SYSTEM*]$path` for an
-explicitly supplied system binding. The system qualifier uses the existing
+explicitly supplied system binding. An optional dot after the system
+qualifier is accepted. The system qualifier uses the existing
 variable lookup over supplied bindings. Native robot tables and controller
 schemas remain outside that lookup. Port formats take direct
 indexed paths such as `DIN[1]` and `GOUT[2]`. Editable references must be ordinary

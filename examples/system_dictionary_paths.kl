@@ -1,0 +1,10 @@
+PROGRAM SYSTEM_DICTIONARY_PATHS
+VAR loaded,status:INTEGER
+    values:ARRAY[2] OF STRING[32]
+    lines:ARRAY[1] OF STRING[40]
+BEGIN
+  ADD_DICT('settings','VIEW',DP_DEFAULT,DP_DRAM,loaded)
+  values[1]='[*SYSTEM*].$FIXTURE.$LIMIT'
+  values[2]='[*SYSTEM*]$FIXTURE.$MODE'
+  READ_DICT_V('VIEW',0,values,lines,status)
+END SYSTEM_DICTIONARY_PATHS

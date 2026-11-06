@@ -319,6 +319,20 @@ def format_value(match,reference,line=None):
     return spec%value
 
 
+def static_value_reference(state,path,line=None,*,default_owner=''):
+    """Resolve an ordinary dictionary/form value path through the supplied store."""
+    if not path:raise DictionaryError(4,'Value path is empty')
+    program=default_owner
+    if path.startswith('['):
+        owner=re.fullmatch(r'\[([A-Z_][A-Z_0-9]*|\*SYSTEM\*)\](.+)',path,re.I)
+        if owner is None:raise DictionaryError(4,'Invalid value path owner')
+        program,path=owner.groups()
+        if program.upper()=='*SYSTEM*':
+            path=path.removeprefix('.')
+            if not path.startswith('$'):raise DictionaryError(4,'System value paths require a system variable')
+    return state.execution.resolve(state,program,path,line,path_nodes=True)
+
+
 class TextDictionaries:
     """Supplied text catalogs and loaded language snapshots; no native TX decoding."""
     def __init__(self,*,sources=None,languages=None,default_language='ENGLISH',language=None,loaded=None):
@@ -382,12 +396,7 @@ class TextDictionaries:
                         else:
                             at=int(match[5])-1 if match[5] is not None else next_index;next_index+=1
                             if not 0<=at<len(paths) or type(paths[at]) is not str or not 1<=len(paths[at])<=254:raise DictionaryError(4,'Dictionary argument path is missing')
-                            path=paths[at];program=''
-                            if path.startswith('['):
-                                owner=re.fullmatch(r'\[([A-Za-z_][A-Za-z_0-9]*)\](.+)',path)
-                                if owner is None:raise DictionaryError(4,'Invalid dictionary variable owner')
-                                program,path=owner.groups()
-                            reference=state.execution.resolve(state,program,path,line,path_nodes=True)
+                            reference=static_value_reference(state,paths[at],line)
                             parts.append(format_value(match,reference,line))
                         position=match.end()
                     content=''.join(parts)
