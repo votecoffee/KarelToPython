@@ -190,7 +190,8 @@ captured destinations validate before any response write; borrowed/private sourc
 argument rules and retained data aliases remain intact.
 
 [Explicit external data](docs/external-values.md) now accepts typed callback results and
-CLI JSON bindings for fixed data, no-op procedures and exact argument cases.
+CLI JSON bindings for fixed data, no-op procedures and exact argument cases
+with optional explicit fallback responses.
 Scalars, records, ARRAYs and pose/joint data retain checked independent values;
 legacy collection bindings can be supplied alongside disjoint data bindings.
 
@@ -381,7 +382,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.132341**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.134322**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1007,7 +1008,8 @@ explicit host polling and scheduler deadlines. Pause, terminal state and later
 writes have documented ownership rules. Interruptions discard only the owning
 run's pending deadlines. See [output pulses](docs/pulses.md).
 
-VAR_INFO inspects canonical types, dimensions, capacities and initialization.
+VAR_INFO inspects types, dimensions, capacities and initialization, including
+selected ARRAY rows and planes and supplied robot frame/tool paths.
 VAR_LIST filters and pages explicit global names with checked output formats.
 See [variable inspection](docs/variable-inspection.md) for static paths, supplied
 namespaces and portable resource/initialization choices.

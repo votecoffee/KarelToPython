@@ -5,14 +5,14 @@
   "evidence": "Authored typed callback results, explicit fixed/case adapters, source/linked ownership and CLI saved-context replay; no native compiler or controller execution",
   "implemented": {
     "data": "Concrete ordinary scalar/record/ARRAY/Cartesian/joint metadata, partial aggregate leaves and exact external result interfaces",
-    "adapters": "Fixed data, explicit no-op procedures and canonical typed argument/result tables without argument writes or executable host code",
-    "matching": "Exact concrete schemas and logical data; REAL zero sign normalized; duplicate selectors and unmatched calls reject",
-    "bounds": "128 bindings/response rows, 64 case arguments, 32767 stored/incoming scalar leaves, depth64 and strict JSON within4MiB",
+    "adapters": "Fixed data, explicit no-op procedures, canonical typed case tables and staged result/output replies",
+    "matching": "Exact concrete schemas and logical data with normalized REAL zero sign. Validated exact cases take precedence over an explicit default. An unmatched call without a default rejects.",
+    "bounds": "128 bindings including up to 128 total fixed, case and default rows, 64 case arguments, 32767 stored or incoming units, depth 64 and bounded UTF-8 JSON reads within 4 MiB",
     "persistence": "Copied global data only; input bindings must be supplied again on replay",
     "cli": "Generated and project --external-values; disjoint legacy --external-collections composition with alias protection"
   },
   "remaining": [
-    "Algorithmic external behavior and writable outputs require supplied source or explicit Python callbacks",
+    "Algorithmic external behavior requires supplied source or explicit Python callbacks",
     "Resource result data uses the separate logical collection contract; FILE remains excluded",
     "Implicit libraries, native ABI/controller execution and public strict mode"
   ],

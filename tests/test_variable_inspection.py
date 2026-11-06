@@ -54,6 +54,31 @@ class VariableInfoTests(unittest.TestCase):
         state=info('value: ARRAY[2] OF row_t',prefix='TYPE row_t=ARRAY[3,4] OF INTEGER')
         self.assertEqual((state['DIMS'],state['CODE']),([2,3,4],16))
 
+    def test_selected_data_prefix_reports_only_the_remaining_dimensions_and_cells(self):
+        decl='value:ARRAY[2,3,4] OF STRING[7] k:INTEGER '+OUTPUTS
+        body="FOR k=1 TO 4 DO value[2,3,k]='ok' ENDFOR "
+        for path,shape,empty in (('value[2][3]',[4,0,0],False),('value[2]',[3,4,0],True)):
+            with self.subTest(path=path):
+                state=run(body+INFO.replace("'value'",repr(path)),decl=decl)
+                self.assertEqual((state['DIMS'],state['LABEL'],state['LENGTH'],state['EMPTY'],state['STATUS']),
+                                 (shape,'STRING',7,empty,0))
+
+    def test_selected_file_prefix_observes_open_state_without_copying_descriptors(self):
+        ctx=rt.ExecutionContext(files=rt.MemoryFiles())
+        body="OPEN FILE value[2,1]('WO','a') OPEN FILE value[2,2]('WO','b') "
+        state=run(body+INFO.replace("'value'","'value[2]'")+' CLOSE FILE value[2,1] CLOSE FILE value[2,2]',
+                  decl='value:ARRAY[2,2] OF FILE '+OUTPUTS,context=ctx)
+        self.assertEqual((state['DIMS'],state['CODE'],state['EMPTY'],state['STATUS']),([2,0,0],29,False,0))
+
+    def test_selected_path_prefix_and_existing_node_selector(self):
+        decl='value:ARRAY[2,2] OF route '+OUTPUTS
+        prefix='TYPE node=STRUCTURE n:INTEGER ENDSTRUCTURE route=PATH NODEDATA=node'
+        body='APPEND_NODE(value[2,1],status) '
+        for path,name,shape in (('value[2]','PATH',[2,0,0]),('value[2,1][1].n','INTEGER',[0,0,0])):
+            with self.subTest(path=path):
+                state=run(body+INFO.replace("'value'",repr(path)),decl=decl,prefix=prefix)
+                self.assertEqual((state['LABEL'],state['DIMS'],state['EMPTY'],state['STATUS']),(name,shape,True,0))
+
     def test_array_of_named_records(self):
         state=info('value: ARRAY[2] OF packet',prefix='TYPE packet=STRUCTURE id: INTEGER ENDSTRUCTURE')
         self.assertEqual((state['DIMS'],state['LABEL'],state['CODE']),([2,0,0],'PACKET',210))

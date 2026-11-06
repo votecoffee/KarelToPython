@@ -5,8 +5,8 @@
   "evidence":"Reviewed VAR_INFO/VAR_LIST signatures, type-code tables, dimensions, pagination and formats plus authored offline tests; no native variable-table execution",
   "sources":[{"manual":"MARRC75KR07091E Rev N","pdf_pages":[596,597,598,599],"printed_pages":[546,547,548,549],"topic":"VAR_INFO and VAR_LIST, static variable paths, type codes, dimensions, STRING capacity, filters and output formats"}],
   "implemented":{
-    "lookup":"Current/attached global declarations and explicit VariableStore roots; static fields, ARRAY subscripts and read-only PATH node/header access; no local-frame discovery",
-    "metadata":"Canonical resolved leaf type/name/code, three logical ARRAY dimensions, STRING leaf capacity and content-based initialization",
+    "lookup":"Current and attached global declarations, explicit VariableStore roots and supplied frame/tool paths. Static fields, ARRAY elements and prefixes, and PATH node/header access.",
+    "metadata":"Canonical resolved leaf type/name/code, remaining logical ARRAY dimensions, STRING leaf capacity and content-based initialization",
     "listing":"Case-insensitive star patterns, canonical type filter, sorted program/name roots, zero-based skip, caller capacity and four text formats",
     "outputs":"Capture all inputs/selectors once in source order; disjoint exact writable outputs; prepare complete result before writes; status-only portable failures",
     "observations":"Source-located service_operations, variable_inspection_policy and existing value-free service_requests"

@@ -20,7 +20,8 @@ values, null no-ops and cases without outputs retain the rules below.
          "result": {"type": ["INTEGER"], "value": 17}},
         {"arguments": [{"type": ["INTEGER"], "value": 2}],
          "result": {"type": ["INTEGER"], "value": 42}}
-      ]
+      ],
+      "default": {"type": ["INTEGER"], "value": 99}
     },
     "LABEL": {"type": ["STRING", 4], "value": "seed"},
     "NOTIFY": null
@@ -28,7 +29,8 @@ values, null no-ops and cases without outputs retain the rules below.
 }
 ```
 
-FETCH selects a supplied response; LABEL always returns fresh supplied data.
+FETCH returns 17 or 42 for its exact cases and 99 for other valid arguments.
+LABEL always returns fresh supplied data.
 NOTIFY explicitly returns None and changes no arguments or services. It is useful
 only where that no-op is the intended offline response. No missing binding is
 silently replaced with a no-op or an invented result.
@@ -97,12 +99,17 @@ Matching uses canonical typed snapshots. Payload object key order is ignored;
 schema lists and nominal layouts remain exact. REAL JSON integers normalize to
 floats, and negative zero matches positive zero.
 BOOLEAN and numeric categories remain distinct. Every case for one binding has
-the same argument count; zero-argument cases are allowed. Duplicate normalized
-selectors reject during loading. There are no wildcard cases, expressions,
-implicit fallbacks, partial argument matches or executable snippets.
+the same argument count. Zero-argument cases are allowed. Duplicate normalized
+selectors reject during loading.
 
-An unmatched call raises a source-line runtime error without echoing argument
-payloads or writing arguments. A selected null result must be used by a procedure;
+An optional `default` accompanies a nonempty `cases` list. It can be a typed
+value, a null procedure response, or a `result`/`outputs` object. Every call
+must pass argument count and snapshot checks before matching. The exact case
+takes precedence, including a case with a null result. With no match, the
+supplied default uses the same result and output validation as any case.
+A call without a match or a default raises a source-line runtime error.
+
+A selected null result must be used by a procedure;
 a function still requires its declared data result. A procedure still rejects a
 non-None result. Case matching calls no host services and adds no checkpoints,
 clock reads or pauses. Ordinary handlers, FOR guards, pause/resume, stop,
@@ -111,7 +118,7 @@ sticky abort and frame cleanup retain their existing contracts.
 ## Bounds, saved state and evidence
 
 The data file permits 128 case-insensitive program/routine bindings and at most
-128 total fixed/case rows. Names are ASCII identifiers within 254 characters.
+128 total fixed, case and default rows. Names are ASCII identifiers within 254 characters.
 Each case has at most 64 arguments. The complete data configuration is limited
 to 32767 stored snapshot units; each case call's incoming arguments share that
 same bound, checked before copying. Ordinary leaves cost one unit; logical

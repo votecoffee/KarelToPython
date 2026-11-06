@@ -3,7 +3,8 @@ import fnmatch
 import math
 import re
 from .extended import (PROGRAM_TYPES, PROGRAM_ATTRIBUTES, PROGRAM_KINDS,
-                       PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES)
+                       PROGRAM_TEXT_ATTRIBUTES, PROGRAM_WRITABLE_ATTRIBUTES,
+                       _SystemVariableTarget)
 
 
 TYPE_CODES={'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'INTEGER':16,'REAL':17,
@@ -198,14 +199,22 @@ def variable_info(context,state,args,line=None):
     rt=runtime(); program,path,uninit,type_name,type_code,dims,slen,status=args
     if rt.array_dimensions(dims.spec)!=(3,) or dims.spec[2]!=('INTEGER',):
         raise rt.KarelRuntimeError('VAR_INFO dimensions require ARRAY[3] OF INTEGER',line)
-    try: target=context.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,path_nodes=True)
+    try:
+        target=context.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,
+                               path_nodes=True,prefixes=True,resources=True,system_transfer='VAR_INFO')
     except rt.KarelRuntimeError: status.set(1,line);return
+    outputs=(uninit,type_name,type_code,dims,slen,status)
+    if type(target) is _SystemVariableTarget:
+        target.guard(outputs,line)
+        try:target=target.capture(line)
+        except rt.KarelRuntimeError:status.set(1,line);return
     try: name,code,shape,length=describe(target.spec)
     except NotImplementedError: status.set(4,line);return
-    flag=missing(target.raw(),target.spec,line)
+    value=target._current(line) if type(target) is rt._ArrayPrefixTarget else target.raw()
+    flag=missing(value,target.spec,line)
     dimensions=rt.Array(dims.spec)
     for index,size in enumerate(shape,1): dimensions.set(index,size,line)
-    assign((uninit,type_name,type_code,dims,slen,status),(flag,name,code,dimensions,length,0),line)
+    assign(outputs,(flag,name,code,dimensions,length,0),line)
 
 
 def declarations(context,state):

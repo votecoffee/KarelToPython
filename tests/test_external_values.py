@@ -1,5 +1,6 @@
 """Authored typed external data, explicit case adapters and CLI replay contracts."""
 from copy import deepcopy
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -140,6 +141,28 @@ class ExternalValueCaseTests(unittest.TestCase):
         callback=prepare(self.binding())['HOST','FETCH'];a=callback(reference(rt.INTEGER,1));a['value']=99;self.assertEqual(callback(reference(rt.INTEGER,1)),integer(17))
     def test_cases_are_detached_from_config(self):
         binding=self.binding();callback=prepare(binding)['HOST','FETCH'];binding['cases'][0]['result']['value']=99;self.assertEqual(callback(reference(rt.INTEGER,1)),integer(17))
+
+    def test_default_response_runs_only_after_no_case_matches(self):
+        binding={**self.binding(),'default':{'result':integer(81),'outputs':[{'argument':1,'value':integer(12)}]}}
+        values,_,_=execute(binding,params='(v:INTEGER)',body='n=1 s=fetch(n) n=9 target=fetch(n)')
+        self.assertEqual((values['S'],values['TARGET'],values['N']),(17,81,12))
+
+    def test_explicit_null_is_a_noop_and_null_case_keeps_precedence(self):
+        binding={**cases(([integer(1)],None)),'default':{'result':None,'outputs':[{'argument':1,'value':integer(12)}]}}
+        callback=prepare(binding)['HOST','FETCH']
+        self.assertIsNone(callback(reference(rt.INTEGER,1)))
+        self.assertIsNone(prepare({**self.binding(),'default':None})['HOST','FETCH'](reference(rt.INTEGER,9)))
+
+    def test_default_response_output_failure_keeps_original_arguments_and_result(self):
+        binding={**self.binding(),'default':{'result':integer(81),'outputs':[{'argument':1,'value':row(['REAL'],12.)}]}}
+        program,_=build(binding,params='(v:INTEGER)',body='n=9 target=42 target=fetch(n)')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'differs from its captured argument schema'):program.run()
+        self.assertEqual((program.snapshot()['N'],program.snapshot()['TARGET']),(9,42))
+
+    def test_default_does_not_bypass_case_capture_validation(self):
+        callback=prepare({**self.binding(),'default':integer(99)})['HOST','FETCH']
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'argument count differs'):callback()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'ordinary typed data'):callback(9)
     def test_arguments_evaluate_once_before_matching(self):
         v,_,_=execute(self.binding(),params='(v:INTEGER)',body='n=0 target=fetch(pick())',routines='ROUTINE pick:INTEGER BEGIN n=n+1 RETURN 2 END pick');self.assertEqual((v['N'],v['TARGET']),(1,42))
     def test_all_arguments_are_matched(self):
@@ -235,6 +258,11 @@ class ExternalValueValidationTests(unittest.TestCase):
     def test_inconsistent_case_arities_reject(self):self.reject(cases(([],integer(17)),([integer(1)],integer(42))))
     def test_duplicate_normalized_cases_reject(self):self.reject(cases(([row(['REAL'],1)],integer(17)),([row(['REAL'],1.0)],integer(42))))
     def test_too_many_case_arguments_reject(self):self.reject(cases(([integer(1)]*65,integer(17))))
+    def test_default_counts_against_case_budget_and_output_arity(self):
+        binding=cases(*[([integer(i)],integer(i)) for i in range(128)])
+        self.reject({**binding,'default':integer(128)})
+        self.reject({**cases(([integer(1)],integer(17))),
+                     'default':{'result':integer(42),'outputs':[{'argument':2,'value':integer(1)}]}})
     def test_fixed_and_case_row_budget_is_shared(self):
         config={'HOST':{'FETCH':cases(*[([integer(i)],integer(i)) for i in range(128)]),'OTHER':integer(1)}}
         with self.assertRaisesRegex(ValueError,'128'):rt.external_value_callbacks(config)
@@ -260,6 +288,13 @@ class ExternalValueFileTests(unittest.TestCase):
     def setUp(self):
         temp=tempfile.TemporaryDirectory(prefix='external_values_');self.addCleanup(temp.cleanup);self.folder=Path(temp.name);self.path=self.folder/'values.json';self.path.write_bytes(json.dumps({'HOST':{'FETCH':integer(17)}}).encode())
     def test_strict_file_load(self):self.assertEqual(rt.load_external_values(self.path)['HOST','FETCH'](),integer(17))
+    def test_file_growth_after_stat_is_bounded_before_decode(self):
+        limit=4*1024*1024
+        stream=BytesIO(b' '*(limit+1))
+        with patch.object(Path,'open',return_value=stream),patch.object(stream,'read',wraps=stream.read) as read:
+            with patch('json.loads',side_effect=AssertionError('decoded')),self.assertRaisesRegex(ValueError,'exceeds 4 MiB'):
+                rt.load_external_values(self.path)
+        read.assert_called_once_with(limit+1)
     def test_utf8_bom(self):self.path.write_bytes(b'\xef\xbb\xbf'+self.path.read_bytes());self.test_strict_file_load()
     def test_duplicate_keys(self):
         self.path.write_bytes(b'{"HOST":{},"HOST":{}}')

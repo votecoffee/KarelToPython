@@ -4,8 +4,8 @@ Pythonic `VAR_INFO` and `VAR_LIST` inspect the same explicit global namespaces
 used by [GET_VAR/SET_VAR](offline-services.md). The current program, attached
 project modules and caller-supplied VariableStore roots are available. Routine
 locals, Python attributes and controller discovery are outside this interface.
-Queries do not initialize or copy source values, allocate cache entries, or
-require a register bank or robot model.
+Queries leave the transfer cache alone. Robot system paths use the same
+checked, detached reads as GET_VAR.
 
 ## VAR_INFO
 
@@ -29,8 +29,15 @@ buffer must be a writable one-dimensional ARRAY of exactly three INTEGERs.
 An empty program string selects current globals even when a routine has a local
 with the same name. Lookup is case-insensitive. Static fields, numeric subscripts
 and PATH nodes are supported, for example `PARTS[2].LABEL`, `ROUTE[1].POINT` and
-a PATH header field `ROUTE.ID`. Explicit system roots such as `$LIMIT` must be
-supplied by the host. Read-only POSITION orientation fields can be inspected.
+a PATH header field `ROUTE.ID`. A selected ARRAY row or plane reports its
+remaining dimensions and the initialization of its selected cells. This
+includes FILE and PATH banks. Read-only POSITION orientation fields can be inspected.
+
+Explicit system bindings such as `$LIMIT` retain their usual precedence.
+The [supplied robot paths](system-variable-transfers.md) accept the empty,
+`SYSTEM` and `*SYSTEM*` namespaces. For example,
+`$MNUFRAME[1,2].LOCATION` reports VECTOR and `$MNUFRAMENUM[1]` reports INTEGER.
+A missing or invalid configured row returns status 1.
 
 Metadata uses canonical resolved types: transparent aliases report their base
 type, named structures report their name, and JOINTPOS reports its explicit width
@@ -105,7 +112,9 @@ malformed supplied storage raise runtime errors before operation outputs change.
 Arguments and selectors evaluate once from left to right; their earlier effects
 remain after a later failure. Outputs must be ordinary writable references and
 disjoint, including aggregate descendants. An inspected variable can itself be
-an output: its metadata is captured before writing.
+an output when it is ordinary variable storage. Metadata is captured before
+writing. Robot system queries reject outputs that alias the configured row
+or its selection storage.
 
 ```python
 from karel2py import translate

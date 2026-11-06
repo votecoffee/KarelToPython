@@ -20,6 +20,10 @@ lookup. Case is ignored. Existing explicit full-path and root bindings retain
 precedence, including their existing schemas and protection. Other namespaces,
 BYNAME and the default resolver do not discover these endpoints.
 
+[VAR_INFO](variable-inspection.md) can inspect these same readable paths for
+type and initialization metadata. It preserves the table, active selection
+and transfer cache.
+
 | Quoted path | GET_VAR | SET_VAR |
 | --- | --- | --- |
 | `$MNUFRAME[g,n]`, `$MNUTOOL[g,n]` | Complete detached configured Cartesian representation | Complete Cartesian replacement; may populate a numbered row |

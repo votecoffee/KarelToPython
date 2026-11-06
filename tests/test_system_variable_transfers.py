@@ -19,6 +19,38 @@ def ext_context():
 
 
 class SystemVariableReadTests(unittest.TestCase):
+    def test_var_info_describes_supplied_robot_paths_without_creating_transfer_entries(self):
+        decl='empty:BOOLEAN label:STRING[16] code,length,s:INTEGER dims:ARRAY[3] OF INTEGER'
+        for path,label,code in (('$MNUFRAME[1,2]','XYZWPREXT',6),('$GROUP[1].$UFRAME.EXT2','REAL',17),
+                                ('$MNUTOOL[1,3].APPROACH','VECTOR',19),('$MNUTOOLNUM[1]','INTEGER',16)):
+            with self.subTest(path=path):
+                ctx=ext_context()
+                before=ctx.robot.to_config()
+                state,_,_=execute(f"VAR_INFO('*SYSTEM*','{path}',empty,label,code,dims,length,s)",decl=decl,context=ctx)
+                self.assertEqual((state['LABEL'],state['CODE'],state['EMPTY'],state['DIMS'],state['S']),
+                                 (label,code,False,[0,0,0],0))
+                self.assertEqual(ctx.robot.to_config(),before)
+                self.assertEqual(ctx.entries,{})
+
+    def test_var_info_preserves_explicit_binding_precedence_and_missing_metadata(self):
+        decl='empty:BOOLEAN label:STRING[16] code,length,s:INTEGER dims:ARRAY[3] OF INTEGER'
+        ctx=ext_context()
+        ctx.variables.define('SYSTEM','$MNUFRAME[1,2]',('BOOLEAN',),True)
+        body="VAR_INFO('SYSTEM','$MNUFRAME[1,2]',empty,label,code,dims,length,s)"
+        state,_,_=execute(body,decl=decl,context=ctx)
+        self.assertEqual((state['LABEL'],state['CODE'],state['S']),('BOOLEAN',18,0))
+        state,_,_=execute(body+" VAR_INFO('SYSTEM','$MNUFRAME[1,99]',empty,label,code,dims,length,s)",
+                          decl=decl,context=ctx)
+        self.assertEqual((state['LABEL'],state['CODE'],state['S']),('BOOLEAN',18,1))
+
+    def test_var_info_rejects_output_alias_into_robot_selection(self):
+        ctx=ext_context()
+        decl='empty:BOOLEAN label:STRING[16] code,length,s:INTEGER dims:ARRAY[3] OF INTEGER'
+        p,_=program("VAR_INFO('SYSTEM','$MNUFRAMENUM[1]',empty,label,code,dims,length,s)",decl=decl,context=ctx)
+        p._state.values['S']=rt.Reference(('INTEGER',),ctx.robot.__dict__,'active_frame')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'overlaps configured row or selection'):p.run()
+        self.assertEqual(ctx.robot.active_frame,2)
+
     def test_numbered_frame(self):
         v,_,_=execute("GET_VAR(entry,'','$MNUFRAME[1,2]',p,s)");self.assertEqual((v['P']['LOCATION']['X'],v['S'],v['ENTRY']),(12.,0,1))
     def test_numbered_tool(self):

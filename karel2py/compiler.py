@@ -5835,12 +5835,12 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/queue-transfers.md',controller_validated=False)
     report['variable_inspection_policy']=dict(
         procedures=['VAR_INFO','VAR_LIST'],type_codes=dict(VARIABLE_TYPE_CODES),
-        lookup='Current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',
-        metadata='Canonical resolved leaf type and code, three logical ARRAY dimensions and STRING element capacity; no source-value copies or initialization',
+        lookup='Current and attached declared globals and explicit VariableStore roots. VAR_INFO accepts static fields, ARRAY elements and prefixes, PATH nodes and supplied robot frame/tool paths.',
+        metadata='Canonical resolved leaf type and code, remaining logical ARRAY dimensions and STRING element capacity. Supplied robot paths are checked through detached frame/tool reads.',
         initialization='Content-based missing leaves for data aggregates; unknown BYTE is not initialization-tracked; FILE tracks open state; PATH inspects supplied header/nodes; unsupported QUEUE_TYPE code returns status 4',
         listing='Case-insensitive star patterns, sorted program/name roots, zero-based skip and caller ARRAY capacity; four formats; clear unused slots only on success',
         status='Portable 0 success, 1 lookup/program missing, 2 invalid list options, 3 list text capacity/format overflow, 4 unsupported metadata type; failure writes status only',
-        outputs='Capture arguments once left-to-right; disjoint exact writable references; validate complete output batches before writes; inspected source may also be an output',
+        outputs='Capture arguments once left-to-right and validate disjoint exact writable outputs. Ordinary inspected storage may also be an output. Robot system rows and selection storage are protected from output aliasing.',
         boundary='No native variable-table order, cache IDs, system discovery, controller initialization flags or native status mapping; strict remains future work',
         guide='docs/variable-inspection.md',controller_validated=False)
     report['io_parameter_policy']=dict(
@@ -7598,11 +7598,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='Authored offline logical data protocol; no FILE, resource fields, inferred algorithms, native ABI/controller execution or strict equivalence',
         guide='docs/external-logical-values.md',controller_validated=False)
     report['external_value_policy']=dict(
-        source='Pythonic typed JSON callback data results plus explicit --external-values for fixed data, no-op procedures and exact argument/result cases',
+        source='Pythonic typed JSON callback data results plus explicit --external-values for fixed data, no-op procedures and exact argument/result cases with optional default replies',
         interfaces='Complete concrete metadata, exact declared scalar/record/joint schemas and existing ARRAY wildcard/inherited-capacity result rules; ordinary raw callbacks and source links retain their contracts',
         capture='Validate supplied bindings before installation; fresh detached results; case arguments snapshot once after normal source evaluation, including partial data and concrete caller schemas',
-        matching='Canonical typed snapshots, field order independent and REAL zero sign normalized; no Boolean/numeric coercion, wildcard cases, implicit fallback or executable host code; explicit output batches follow external_output_policy',
-        bounds='128 bindings and fixed/case rows, 64 arguments per case, 32767 stored/incoming data or logical snapshot units, existing 64-level schema limit and strict UTF-8 JSON files within 4 MiB',
+        matching='Canonical typed snapshots use exact schemas, independent field order and normalized REAL zero sign. Validated exact cases take precedence over an explicit default. Default output batches follow external_output_policy.',
+        bounds='128 bindings and fixed/case/default rows, 64 arguments per case, 32767 stored/incoming data or logical snapshot units, existing 64-level schema limit and bounded UTF-8 JSON reads within 4 MiB',
         persistence='Global result data only; callbacks/case tables are not persisted, supply the binding file again for saved-context replay',
         cli='Standalone and project CLI share input/trace/state alias protection; legacy --external-collections may be supplied alongside disjoint data bindings',
         boundary='Explicit offline responses only; no inferred library algorithms, native external ABI/controller execution, FILE results or public strict mode',

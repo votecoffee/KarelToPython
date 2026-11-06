@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.134322 - 2026-11-06
+
+- Let VAR_INFO describe selected ARRAY rows and planes, including FILE and
+  PATH banks.
+- Add metadata inspection for explicitly supplied robot frame and tool paths.
+- Allow an explicit default result or output batch for unmatched external
+  cases. Bound the read of external-value JSON before decoding.
+
 ## 26.1106.132341 - 2026-11-06
 
 - Add explicit `--filesystem-device` mappings to generated and linked CLIs.

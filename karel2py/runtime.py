@@ -1059,12 +1059,12 @@ def external_reply_result(spec,reply,arguments,line=None):
 
 
 def external_value_callbacks(config):
-    """Prepare fixed data/logical values, no-op procedures or exact argument cases."""
+    """Prepare fixed replies or exact argument cases with an optional default."""
     import json
     from .storage import tuple_spec,typed_value
     if type(config) is not dict or not config or len(config)>128:
         raise ValueError('External values require a nonempty program/routine object within 128 bindings')
-    prepared={};units=0;rows=0
+    prepared={};units=0;rows=0;unmatched=object()
     def capture(row,*,selector=False):
         nonlocal units
         if row is None and not selector:
@@ -1080,13 +1080,17 @@ def external_value_callbacks(config):
     def response(result,outputs,arity=None):
         rows=_external_reply_outputs(outputs,arity)
         return dict(result=capture(result),outputs=[dict(argument=row['argument'],value=capture(row['value'],selector=True)) for row in rows])
+    def fixed_response(row,arity=None):
+        if type(row) is dict and set(row)=={'result','outputs'}:
+            return response(row['result'],row['outputs'],arity)
+        return capture(row)
     def key(arguments):
         def normalize(value):
             if type(value) is dict:return {name:normalize(item) for name,item in value.items()}
             if type(value) is list:return [normalize(item) for item in value]
             return 0.0 if type(value) is float and value==0.0 else value
         return json.dumps(normalize(arguments),sort_keys=True,separators=(',',':'),allow_nan=False)
-    def cases_callback(table,arity):
+    def cases_callback(table,arity,default):
         @_with_numeric_mode('pythonic')
         def callback(*arguments):
             from .variable_archives import ordinary
@@ -1099,9 +1103,9 @@ def external_value_callbacks(config):
             for reference in arguments:
                 copied=_external_value_snapshot(reference.spec,reference.raw())
                 snapshots.append(typed_value(copied,reference.spec))
-            selected=key(snapshots)
-            if selected not in table:raise KarelRuntimeError('No external value case matches the captured arguments')
-            return deepcopy(table[selected])
+            selected=table.get(key(snapshots),default)
+            if selected is unmatched:raise KarelRuntimeError('No external value case matches the captured arguments')
+            return deepcopy(selected)
         return callback
     with _numeric_scope('pythonic'):
         try:
@@ -1114,10 +1118,10 @@ def external_value_callbacks(config):
                         raise ValueError('External value routine requires an ASCII identifier within 254 characters')
                     pair=program.upper(),name.upper()
                     if pair in prepared or len(prepared)>=128:raise ValueError('External value bindings must be distinct and limited to 128')
-                    if type(row) is dict and set(row)=={'cases'}:
+                    if type(row) is dict and set(row) in ({'cases'},{'cases','default'}):
                         cases=row['cases']
                         if type(cases) is not list or not cases:raise ValueError('External value cases require a nonempty list')
-                        rows+=len(cases)
+                        rows+=len(cases)+('default' in row)
                         if rows>128:raise ValueError('External values are limited to 128 fixed/case rows')
                         table={};arity=None
                         for case in cases:
@@ -1128,11 +1132,12 @@ def external_value_callbacks(config):
                             selected=key([capture(argument,selector=True) for argument in case['arguments']])
                             if selected in table:raise ValueError('Duplicate normalized external value case arguments')
                             table[selected]=response(case['result'],case['outputs'],arity) if 'outputs' in case else capture(case['result'])
-                        prepared[pair]=cases_callback(table,arity)
+                        default=fixed_response(row['default'],arity) if 'default' in row else unmatched
+                        prepared[pair]=cases_callback(table,arity,default)
                     else:
                         rows+=1
                         if rows>128:raise ValueError('External values are limited to 128 fixed/case rows')
-                        saved=response(row['result'],row['outputs']) if type(row) is dict and set(row)=={'result','outputs'} else capture(row)
+                        saved=fixed_response(row)
                         prepared[pair]=lambda *arguments,_saved=saved:deepcopy(_saved)
         except (KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
             raise ValueError('Invalid external value data: '+str(error)) from error
@@ -1147,10 +1152,11 @@ def load_external_values(path,*,outputs=()):
     source=Path(path)
     if any(output is not None and same_file(source,output) for output in outputs):
         raise ValueError('External value input must differ from state/trace outputs, including aliases')
-    if not source.is_file() or source.stat().st_size>4*1024*1024:
+    limit=4*1024*1024
+    if not source.is_file() or source.stat().st_size>limit:
         raise ValueError('External value input requires a regular file of at most 4 MiB')
-    data=source.read_bytes()
-    if len(data)>4*1024*1024:raise ValueError('External value input exceeds 4 MiB')
+    with source.open('rb') as stream:data=stream.read(limit+1)
+    if len(data)>limit:raise ValueError('External value input exceeds 4 MiB')
     def unique(pairs):
         result={}
         for key,value in pairs:
