@@ -87,6 +87,9 @@ with blank date/time columns. Format 4 keeps its existing 8.3-name/five-digit-si
 limits. Listing can inspect an open pipe's current retained size and does not
 advance FILE cursors. Filtering and pagination precede formatting; the complete
 page must fit before names/count change. Unused destination slots are retained.
+The execution budget counts every pipe scanned, including nonmatches, and each
+row prepared for the page. Budget exhaustion preserves the prior names, count
+and status.
 
 ## Status, scope and persistence
 

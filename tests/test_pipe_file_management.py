@@ -319,6 +319,15 @@ class PipeListingAndScopeTests(unittest.TestCase):
         values=execute("FILE_LIST('PIP:NONE*',0,0,names,n,s)")
         self.assertEqual((values['N'],values['S']),(0,0))
 
+    def test_nonmatching_pipes_count_against_listing_budget(self):
+        ctx=context()
+        body="names[1]='old' n=99 s=98 FILE_LIST('PIP:NONE*',0,0,names,n,s)"
+        program,_=compile_program(body,decl=DECL,context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            program.run(max_steps=5)
+        values=program.snapshot()
+        self.assertEqual((values['NAMES'][0],values['N'],values['S']),('old',99,98))
+
     def test_listing_capacity_and_format_failures_preserve_outputs(self):
         ctx=context();program,_=compile_program("names[1]='old' n=99 FILE_LIST('PIP:*',0,0,names,n,s)",
             decl='names:ARRAY[2] OF STRING[3] n,s:INTEGER',context=ctx)

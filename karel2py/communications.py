@@ -552,14 +552,16 @@ class FilePipes(MemoryFiles):
         if len(data)>self.pipes[key]['sectors']*1024:return 4
         self.files[key]=bytearray(data);return 0
 
-    def list_names(self,pattern='*'):
+    def list_names(self,pattern='*',*,check=None):
+        from .fileops import _listing_entries
+
         pattern=rt().ascii_string(pattern).upper()
         if pattern.startswith('PIP:'):pattern=pattern[4:]
         if pattern.startswith('/'):pattern=pattern[1:]
         if (not pattern or len(pattern)>72 or '..' in pattern
                 or re.fullmatch(r'[A-Z0-9_.*?\-]+',pattern) is None):
             raise ValueError('Pipe listing requires a plain basename pattern with star/question wildcards')
-        return sorted(key for key in self.pipes if fnmatch.fnmatchcase(key,'PIP:'+pattern))
+        return sorted(key for key in _listing_entries(self.pipes,check) if fnmatch.fnmatchcase(key,'PIP:'+pattern))
 
     def copy(self,source,target,overwrite=False):
         source=pipe_name(source);target=pipe_name(target)

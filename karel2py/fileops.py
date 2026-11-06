@@ -765,6 +765,7 @@ def manage_file(state,operation,args,line=None):
 
 def list_files(state,files,args,line=None):
     """Prepare a complete FILE_LIST page before changing any output storage."""
+    from .communications import FilePipes
     from .devices import DeviceFiles
     from .storage import DirectoryFiles
 
@@ -777,7 +778,7 @@ def list_files(state,files,args,line=None):
     parent=normalized.rpartition('/')[0]
     if any(c in parent for c in '*?'):
         matches=_directory_listing(files,normalized,lambda:state.tick(line))
-    elif ordinary:
+    elif ordinary or type(files) is FilePipes:
         matches=files.list_names(pattern,check=lambda:state.tick(line))
     else:
         matches=files.list_names(pattern)

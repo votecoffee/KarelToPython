@@ -1,5 +1,14 @@
 # Changelog
 
+## 26.1106.180113 - 2026-11-06
+
+- Seed model-backed IN_RANGE and CHECK_EPOS with compatible current joints when
+  supplied. Keep target external axes fixed in each search attempt.
+- Reject duplicate logical port counts, initial values and comments after
+  normalization.
+- Count each configured pipe scanned by FILE_LIST against the execution budget,
+  including nonmatching names.
+
 ## 26.1106.174426 - 2026-11-06
 
 - Accept single-character `?` wildcards in Pythonic `PROG_LIST` name patterns

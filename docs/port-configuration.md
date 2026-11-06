@@ -60,6 +60,10 @@ GET-before-power-up equivalence claim. A task's `Program.powerup()` or scheduler
 POWERUP notification does not apply shared I/O settings. The host application
 decides when to apply configuration; there is no operating-system/controller reboot.
 
+Each logical port kind has one count definition. Each logical address may have
+one initial value and one comment. Context loading rejects duplicate definitions
+after normalizing kind names and integer addresses.
+
 ```python
 from karel2py import translate, runtime as rt
 

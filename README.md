@@ -383,7 +383,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.174426**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.180113**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -537,6 +537,7 @@ A context can include supplied physical input samples to seed mapped logical
 ports. Host code can also sample mapped output points from a completed run.
 Both projections can apply active Boolean reverse masks on request.
 Output sampling can also project complementary odd/even pairs.
+Context loading rejects duplicate logical port definitions after normalization.
 See the [port configuration guide](docs/port-configuration.md#sampling-configured-inputs).
 
 ```sh
@@ -1128,8 +1129,9 @@ source. Strict mode remains a future milestone.
 - CHECK_EPOS with explicit frame/tool poses, selected robot group and a supplied
   DH model or synchronous callback. A DH model supports explicit external-axis
   row mappings. See [position checks](docs/position-checks.md).
-- Optional ordered fallback seeds for DH inverse conversion and reachability
-  after the standard seeds fail. See [model-backed assignments](docs/kinematic-assignments.md).
+- DH reachability tries compatible supplied current joints before its standard
+  seeds. Inverse conversion and reachability both accept optional ordered
+  fallback seeds. See [position checks](docs/position-checks.md).
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Error-history queries through `ERR_DATA`, with sequential/latest lookup,
   checked message outputs and optional persisted text/timestamps; see
@@ -1248,9 +1250,9 @@ workflows. To run hosted checks, open the repository's **Actions** tab, select
 **Tests (manual)** or **GUI checks (manual)**, then choose **Run workflow**.
 Routine development validation uses the local CLI commands above.
 
-The example runner translates 528 authored runnable examples, checks complete
+The example runner translates 573 authored runnable examples, checks complete
 expected snapshots and validates their output, delay, context and termination
-fixtures, plus 196 complete linked source projects. It also checks that nested
+fixtures, plus 233 complete linked source projects. It also checks that nested
 MOVE actions inside local handlers are rejected.
 It uses an injected sleeper, so the delay fixture does not wait in real time.
 

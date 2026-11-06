@@ -207,12 +207,20 @@ class SerialRobotModel:
                 joints=rt().JointPosition(('JOINTPOS',self.axes)); joints.values[:]=result; return joints
         raise ValueError('No IK solution within the supplied limits and iteration budget')
 
-    def reachable(self,position,uframe=None,utool=None):
+    def reachable(self,position,uframe=None,utool=None,*,reference=None):
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe) if uframe is not None else IDENTITY,matrix(position)),inverse(matrix(utool)) if utool is not None else IDENTITY))
         midpoint=[(lo+hi)/2 for lo,hi in self.limits]
         fixed={index:position.values.get('EXT'+str(slot),0.) for slot,index in enumerate(self._external_joints,1)}
-        for seed in ([0.]*self.axes,midpoint,[lo+(hi-lo)*.25 for lo,hi in self.limits],
-                     [lo+(hi-lo)*.75 for lo,hi in self.limits],*self.ik_fallback_seeds):
+        seeds=([0.]*self.axes,midpoint,[lo+(hi-lo)*.25 for lo,hi in self.limits],
+               [lo+(hi-lo)*.75 for lo,hi in self.limits],*self.ik_fallback_seeds)
+        if reference is not None:
+            try:
+                current=rt().joint_values(reference,self.axes)
+            except rt().KarelRuntimeError:
+                pass  # Reachability can still use the configured search seeds.
+            else:
+                seeds=(current,*seeds)
+        for seed in seeds:
             if self.solve(target,seed,fixed=fixed) is not None: return True
         return False
 
@@ -288,9 +296,14 @@ def robot_context_from_config(config):
     active_frame=config.get('frame',0); active_tool=config.get('tool',0)
     if active_frame not in frames or active_tool not in tools: raise ValueError('Active frame/tool must be supplied')
     for value in (*frames.values(),*tools.values()): matrix(value)
-    context=RobotContext(forward=model.forward,inverse=model.inverse,check_position=model.reachable,joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
+    def check_position(position,frame,tool):
+        snapshot=context.current
+        reference=snapshot.joints if snapshot is not None else None
+        return model.reachable(position,frame,tool,reference=reference)
+
+    context=RobotContext(forward=model.forward,inverse=model.inverse,check_position=check_position,joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
     context.model=model; context.model_config=deepcopy(config)
-    context.reachable=lambda p:model.reachable(p,context.frame(context.active_frame),context.tool(context.active_tool))
+    context.reachable=lambda p:check_position(p,context.frame(context.active_frame),context.tool(context.active_tool))
     for number in context.frames: context.frame(number)
     for number in context.tools: context.tool(number)
     context.frame(active_frame);context.tool(active_tool)

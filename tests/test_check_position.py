@@ -46,6 +46,18 @@ class PositionModelCheckTests(unittest.TestCase):
         ctx=context();state=run(SETUP+CALL,decl=DECL,context=ctx)
         self.assertEqual(state['S'],0);self.assertIsNone(ctx.robot.current)
 
+    def test_reachability_uses_latest_compatible_current_seed(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{
+            'dh':[{'type':'prismatic'},{}],'external_axes':1,'iterations':1}})
+        body=SETUP+'p=POS(0,0,87,0,0,35,c) p.ext1=35 ready=IN_RANGE(p) '+CALL
+        for joints,expected in (([87.],False),([87.,-45.],True),
+                                ([87.,-45.]+[0.]*7,True),([87.,-45.]+[1.]*7,False)):
+            with self.subTest(joints=joints):
+                ctx.robot.current=rt.RobotState(joints=joints)
+                state=run(body,decl=DECL+' ready:BOOLEAN',context=ctx)
+                self.assertEqual((state['READY'],state['S']),(expected,0 if expected else 1))
+                self.assertEqual(ctx.robot.current.joints.values,joints)
+
     def test_unreachable_returns_portable_failure_status(self):
         state=run(SETUP+'p.x=250 '+CALL,decl=DECL,context=context())
         self.assertEqual(state['S'],1)

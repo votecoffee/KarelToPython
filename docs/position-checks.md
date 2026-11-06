@@ -50,9 +50,12 @@ It does not use active frame/tool selections or require corresponding entries
 in the frame/tool maps. For example, frame X=10 mm, target X=95 mm and tool
 X=5 mm produce a flange target at X=100 mm.
 
-Reachability uses bounded multi-seed numerical search and joint limits. The
-model tries `ik_fallback_seeds` in order after its standard seeds. Each
-configured external joint is fixed to its corresponding EXT1..EXT3 value.
+Reachability uses bounded multi-seed numerical search and joint limits.
+Compatible current joints, when supplied, seed the first attempt. Exact-width
+joints and JOINTPOS9 with zero-only unused slots are eligible. Without a compatible
+snapshot, the search starts with the standard seeds. After the standard seeds,
+the model tries any supplied `ik_fallback_seeds` in order. Each configured external
+joint is fixed to its corresponding target EXT1..EXT3 value in every attempt.
 Use `external_axes` for trailing DH rows or
 `external_axis_indices` for an explicit row order. CONFIG fields are checked
 as data and do not select calibrated configuration branches.

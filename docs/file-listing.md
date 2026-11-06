@@ -36,7 +36,8 @@ An empty or exhausted page returns count zero and success without clearing them.
 Flat scans over ordinary backends visit at most 32,767 entries. The execution
 budget counts scanned entries, including nonmatches, as well as prepared page
 rows. Rooted scans count directories and files as they are encountered, plus
-active buffered names. Limit failures preserve the previous page and outputs.
+active buffered names. [Plain PIP scans](pipe-file-management.md#listings) count
+each configured pipe. Limit failures preserve the previous page and outputs.
 
 Format 0 preserves complete paths/device keys exactly. Formats 1 through 4 remove
 device and directory components, preserve case, and split on the final dot. A

@@ -626,6 +626,7 @@ class PortBank:
         if comments is not None and type(comments) is not dict: raise ValueError('Port comments must be an address mapping')
         if type(simulated) not in (list,tuple,set): raise ValueError('Simulated ports must be a collection of addresses')
         self.counts={str(k).upper():v for k,v in counts.items()}; self.values={}
+        if len(self.counts)!=len(counts): raise ValueError('Duplicate port kind in counts')
         self._pulses={};self._polling_pulses=False
         if any(k not in PORT_TYPES or type(v) is not int or not 1<=v<=32767 for k,v in self.counts.items()): raise ValueError('Explicit valid port kinds/counts required')
         if type_codes is not None and type(type_codes) is not dict: raise ValueError('Port type codes must be an INTEGER-to-kind mapping')
@@ -633,9 +634,14 @@ class PortBank:
         for code,kind in (type_codes or {}).items():
             if type(code) is not int or not 0<=code<=2147483646 or type(kind) is not str or kind.upper() not in self.counts: raise ValueError('Port type codes must identify configured port kinds')
             self.type_codes[code]=kind.upper()
-        for (kind,number),value in (initial or {}).items(): self.update(kind,number,value)
+        for (kind,number),value in (initial or {}).items():
+            kind,number=self._key(kind,number)
+            if (kind,number) in self.values: raise ValueError('Duplicate port value address')
+            self.update(kind,number,value)
         for key,value in (comments or {}).items():
-            kind,number=key; self._key(kind,number); self.comments[kind.upper(),number]=runtime().ascii_string(value)[:16]
+            address=self._key(*key)
+            if address in self.comments: raise ValueError('Duplicate port comment address')
+            self.comments[address]=runtime().ascii_string(value)[:16]
         for kind,number in simulated:
             self._key(kind,number); self.simulated.add((kind.upper(),number))
         self._configuration=None if configuration is None else _PortConfiguration(self,configuration)
@@ -2367,7 +2373,7 @@ class ExecutionContext:
             services['positions']=PositionRegisters(row['count'],values,groups=row.get('groups',(1,)),comments=RegisterComments.decode(row.get('comments',{})))
         if 'ports' in config:
             row=config['ports']; codes={}
-            for field in ('comments','simulated'):
+            for field in ('values','comments','simulated'):
                 if type(row.get(field,{})) is not dict: raise ValueError('Port '+field+' must be an object')
             if type(row.get('type_codes',{})) is not dict: raise ValueError('Port type_codes must be an object')
             for code,kind in row.get('type_codes',{}).items():
@@ -2385,7 +2391,17 @@ class ExecutionContext:
             if 'configuration' in row and type(row['configuration']) is not dict: raise ValueError('Port configuration must be an object')
             if 'physical_input_reverse' in row and 'physical_inputs' not in row:
                 raise ValueError('Port physical_input_reverse requires physical_inputs')
-            ports=PortBank(row['counts'],{(kind,int(n)):v for kind,values in row.get('values',{}).items() for n,v in values.items()},type_codes=codes,comments=comments,simulated=simulated,configuration=row.get('configuration'))
+            initial={}
+            for kind,values in row.get('values',{}).items():
+                if type(kind) is not str or type(values) is not dict:
+                    raise ValueError('Port values require a kind-to-address mapping')
+                for number,value in values.items():
+                    if type(number) not in (str,int):
+                        raise ValueError('Port value addresses require integers')
+                    address=(kind.upper(),int(number))
+                    if address in initial: raise ValueError('Duplicate port value address')
+                    initial[address]=value
+            ports=PortBank(row['counts'],initial,type_codes=codes,comments=comments,simulated=simulated,configuration=row.get('configuration'))
             if 'physical_inputs' in row:
                 rows=row['physical_inputs'];points={};fields=('rack','slot','type_code','point')
                 if type(rows) is not list or len(rows)>32767:raise ValueError('Port physical_inputs requires a list of at most 32767 points')

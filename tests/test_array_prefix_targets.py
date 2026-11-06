@@ -199,7 +199,16 @@ class PrefixReadTransportTests(unittest.TestCase):
 
     def test_serial_cancellation_preserves_all_prefix_outputs(self):
         bank,ctx=serial(b'07');body="OPEN FILE f('RO','P2:') m[1,1]=42 CONDITION[1]: WHEN elapsed>=10 DO CANCEL FILE f ENDCONDITION CONNECT TIMER TO elapsed ENABLE CONDITION[1] READ f(m[1]::2,CR) status=IO_STATUS(f) CLOSE FILE f"
-        p,_=build(body,decl='f:FILE m:ARRAY[2,2]OF INTEGER elapsed,status:INTEGER',context=ctx,sleep=lambda _:None);v=p.run();self.assertEqual((v['M'][0],v['STATUS']),([42,U],6));self.assertEqual(bank.to_config()['ports']['2']['input']['hex'],'3037')
+        now=0
+        def sleep(seconds):
+            nonlocal now
+            now+=round(seconds*1_000_000)
+
+        p,_=build(body,decl='f:FILE m:ARRAY[2,2]OF INTEGER elapsed,status:INTEGER',
+                  context=ctx,sleep=sleep,clock_us=lambda:now)
+        v=p.run(max_steps=300)
+        self.assertEqual((v['M'][0],v['STATUS']),([42,U],6))
+        self.assertEqual(bank.to_config()['ports']['2']['input']['hex'],'3037')
 
     def test_waiting_pipe_uses_existing_scalar_contract(self):
         pipes=pipe_bank(b'0709\n');ctx=rt.ExecutionContext(file_pipes=pipes)

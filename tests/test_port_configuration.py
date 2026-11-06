@@ -508,6 +508,23 @@ class PortConfigurationPersistenceTests(unittest.TestCase):
     def test_context_null_configuration_is_invalid(self):
         with self.assertRaises(ValueError): rt.ExecutionContext.from_config({'ports':{'counts':{},'configuration':None}})
 
+    def test_rejects_duplicate_logical_port_definitions_after_normalization(self):
+        for row,error in (
+            ({'counts':{'DIN':1,'din':2}},'Duplicate port kind'),
+            ({'values':{'DIN':{'1':True},'din':{'1':False}}},'Duplicate port value'),
+            ({'values':{'DIN':{'1':True,'01':False}}},'Duplicate port value'),
+            ({'comments':{'DIN':{'1':'first'},'din':{'1':'second'}}},'Duplicate port comment'),
+        ):
+            with self.subTest(row=row),self.assertRaisesRegex(ValueError,error):
+                rt.ExecutionContext.from_config({'ports':{'counts':{'DIN':1},**row}})
+        with self.assertRaisesRegex(ValueError,'Duplicate port value'):
+            rt.PortBank({'DIN':1},{('DIN',1):True,('din',1):False})
+
+    def test_single_legacy_port_spelling_roundtrips_canonically(self):
+        ctx=rt.ExecutionContext.from_config({'ports':{'counts':{'din':1},'values':{'Din':{'01':True}}}})
+        self.assertEqual(ctx.ports.snapshot(),{('DIN',1):True})
+        self.assertEqual(ctx.to_config()['ports'],{'counts':{'DIN':1},'values':{'DIN':{'1':True}}})
+
     def test_catalog_numeric_domains_are_exact(self):
         for field,value in (('rack',True),('rack',-1),('rack',32768),('slot',-1),('type_code',-1),('type_code',2147483647),('count',0),('count',32768),('count',1.0)):
             with self.subTest(field=field,value=value):
