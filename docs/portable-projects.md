@@ -210,8 +210,10 @@ binding order; time advances once per round. See
 `scheduler.start(name)`, `step()`, `run(max_cycles=...)`, `continue_task(name)` and
 `stop(name)` support embedding. `run` returns when tasks have completed, stopped
 or paused; a paused task needs an explicit continuation. Cycle and per-task step
-budgets bound WAIT loops. Errors stop the current drive and preserve prior writes;
-other active tasks remain available for the caller to inspect or stop. No host
+budgets bound WAIT loops. Nested calls to `step()` or `run()` from callbacks
+raise an error during execution or service polling. Errors stop the current
+drive and preserve prior writes. Other active tasks remain available for the
+caller to inspect or stop. No host
 thread or process is launched. Caller handlers and pause requests are checked
 at checkpoints inside linked routines, retaining their independent local stacks.
 
@@ -296,6 +298,9 @@ explicit model context. Identity frame/tool index zero is supplied by default.
 Reachability uses the active entries; JOINT2POS/POS2JOINT use their explicit frame
 and tool operands. `context.robot.frame(index)` and `.tool(index)` return copies.
 Grouped configuration uses `{"groups":{"1":{...},"2":{...}},"active_group":2}`.
+Group IDs are positive portable INTEGERs. Frame and tool IDs are in 0..32767.
+Each model table requires unique numeric IDs. For example, `"2"` and `"02"`
+refer to the same ID. Saved model tables use decimal string keys.
 An `IN GROUP[n]` qualifier on a positional/joint declaration or interface is
 retained in reports and `Program.source_groups`. A unique source group selects
 that model; otherwise the explicit active group applies. Qualifiers are source

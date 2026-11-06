@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.151804 - 2026-11-06
+
+- Sample active mapped outputs as detached digital and analog point values.
+  Expand group words into bits and reject conflicting overlaps.
+- Reject duplicate numeric IDs in supplied robot group, frame and tool tables.
+- Guard scheduler entry during task execution and service polling.
+
 ## 26.1106.150342 - 2026-11-06
 
 - Accept linked task completion on the last allowed scheduler cycle.

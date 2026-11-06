@@ -94,6 +94,51 @@ class PortInputSamplingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Duplicate physical input'):rt.ExecutionContext.from_config(config)
 
 
+class PortOutputSamplingTests(unittest.TestCase):
+    def topology(self):
+        config=topology()
+        config['assignments'].extend((
+            dict(kind='GOUT',number=1,rack=0,slot=1,type_code=20,start=9,count=3),
+            dict(kind='AOUT',number=2,rack=2,slot=3,type_code=60,start=1,count=1),
+            dict(kind='DOUT',number=2,rack=0,slot=1,type_code=20,start=14,count=1)))
+        return config
+
+    def test_sample_projects_source_output_writes_and_deduplicates_equal_bits(self):
+        ctx=context(self.topology(),initial={('DIN',1):True,('DOUT',3):True})
+        run('DOUT[1]=TRUE GOUT[1]=5 AOUT[2]=1.25',context=ctx)
+        expected={(0,1,20,9):True,(0,1,20,10):False,(0,1,20,11):True,(2,3,60,1):1.25}
+        observed=ctx.ports.sample_outputs()
+        self.assertEqual(observed,expected)
+        observed.clear()
+        self.assertEqual(ctx.ports.sample_outputs(),expected)
+        restored=rt.ExecutionContext.from_config(ctx.to_config())
+        self.assertEqual(restored.ports.sample_outputs(),expected)
+
+    def test_conflicting_points_and_overwide_group_values_fail_without_changes(self):
+        for value,message in ((4,'Conflicting mapped output'),(8,'mapped width')):
+            with self.subTest(value=value):
+                ctx=context(self.topology(),initial={('DOUT',1):True,('GOUT',1):value})
+                before=ctx.ports.snapshot()
+                with self.assertRaisesRegex(ValueError,message):ctx.ports.sample_outputs()
+                self.assertEqual(ctx.ports.snapshot(),before)
+
+    def test_samples_use_active_unsimulated_points_and_keep_modes_as_metadata(self):
+        ctx=context(initial={('DOUT',1):True},simulated=[('DOUT',1)])
+        run('SET_PORT_ASG(20,1,0,1,20,13,1,s) SET_PORT_MOD(20,1,1,s)',context=ctx)
+        self.assertEqual(ctx.ports.sample_outputs(),{})
+        run('CLR_PORT_SIM(20,1,s)',context=ctx)
+        self.assertEqual(ctx.ports.sample_outputs(),{(0,1,20,9):True})
+        self.assertEqual(ctx.ports.apply_configuration(),2)
+        self.assertEqual(ctx.ports.sample_outputs(),{(0,1,20,13):True})
+
+    def test_sample_observes_pulse_before_and_after_its_deadline(self):
+        ctx=context();clock={'now':0}
+        run('PULSE DOUT[1] FOR 8 NOWAIT',context=ctx,clock_us=lambda:clock['now'])
+        self.assertEqual(ctx.ports.sample_outputs(),{(0,1,20,9):True})
+        clock['now']=8000
+        self.assertEqual(ctx.ports.sample_outputs(),{(0,1,20,9):False})
+
+
 class PortAssignmentTests(unittest.TestCase):
     def test_read_supplied_assignment(self):
         state=run(GET,decl=DECL,context=context())

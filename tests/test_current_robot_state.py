@@ -178,6 +178,31 @@ class CurrentGroupPersistenceTests(unittest.TestCase):
         config={'robot':{'groups':{'1':{'dh':[{'a':100}]},'2':{'dh':[{'a':200}]}},'active_group':2}}
         self.assertEqual(rt.ExecutionContext.from_config(config).to_config(),config)
 
+    def test_model_tables_reject_identifiers_that_collapse_to_same_number(self):
+        model={'dh':[{'a':100}]}
+        row=rt.RobotContext(frames={2:pose(10)}).to_config()['frames']['2']
+        for config,table in (({'groups':{'2':model,'02':model}},'group'),
+                             ({**model,'frames':{'2':row,'02':row}},'frame'),
+                             ({**model,'tools':{'2':row,2:row}},'tool')):
+            with self.subTest(table=table),self.assertRaisesRegex(ValueError,table+' table contains duplicate'):
+                rt.RobotContext.from_config(config)
+
+    def test_model_rejects_noninteger_and_out_of_range_table_addresses(self):
+        model={'dh':[{}]}
+        cases=({'groups':{True:model}}, {'groups':{'0':model}}, {'groups':{'2147483647':model}},
+               {**model,'frames':{1.5:None}}, {**model,'tools':{False:None}},
+               {**model,'active_group':True})
+        for config in cases:
+            with self.subTest(config=config),self.assertRaises(ValueError):
+                rt.RobotContext.from_config(config)
+
+    def test_unique_legacy_model_identifiers_round_trip_as_decimal_keys(self):
+        row=rt.RobotContext(frames={2:pose(10)}).to_config()['frames']['2']
+        cfg={'groups':{'02':{'dh':[{'a':100}],'frames':{'02':row},'frame':2}},'active_group':2}
+        saved=rt.RobotContext.from_config(cfg).to_config()
+        self.assertEqual(saved['groups']['2']['frames']['2'],row)
+        self.assertEqual(rt.RobotContext.from_config(saved).to_config(),saved)
+
     def test_callback_only_context_is_not_serialized_as_an_empty_model(self):
         child=rt.RobotContext(forward=lambda *args:None,active_group=2)
         self.assertEqual(rt.ExecutionContext(robot=child).to_config(),{})

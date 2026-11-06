@@ -123,6 +123,29 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(result['MAIN']['state'],'completed')
         self.assertEqual(result['MAIN']['values']['N'],1)
 
+    def test_service_poll_cannot_reenter_step_or_run(self):
+        ctx=rt.ExecutionContext(ports=rt.PortBank({'DOUT':1}))
+        instance=translate_project({'a':source('MAIN','n=1')}).instantiate(context=ctx)
+        scheduler=instance.scheduler
+        attempts=[]
+        armed=False
+
+        def clock():
+            if armed:
+                for drive in (scheduler.step,scheduler.run):
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'recursively'):drive()
+                attempts.append(scheduler.now_us)
+            return 0
+
+        pulse,_=compile_program('PULSE DOUT[1] FOR 8 NOWAIT',context=ctx,clock_us=clock)
+        pulse.run()
+        scheduler.start('MAIN')
+        armed=True
+        self.assertTrue(scheduler.step())
+        self.assertEqual(set(attempts),{0,scheduler.quantum_us})
+        self.assertEqual(scheduler.run(max_cycles=1)['MAIN']['values']['N'],1)
+        self.assertEqual(scheduler.now_us,2*scheduler.quantum_us)
+
     def test_events_in_handler_and_eval_capture(self):
         p,_=compile_program('n=1 CONDITION[1]: WHEN EVENT[1] AND EVAL(n=1) DO n=7 ENDCONDITION ENABLE CONDITION[1] n=2 SIGNAL EVENT[1] s=n')
         self.assertEqual(p.run()['S'],7)

@@ -211,17 +211,33 @@ class SerialRobotModel:
         return False
 
 
+def _indexed_rows(rows,label):
+    if type(rows) is not dict: raise ValueError(label+' requires an object')
+    result={}
+    for key,row in rows.items():
+        if type(key) not in (str,int): raise ValueError(label+' requires INTEGER identifiers')
+        try: number=int(key)
+        except ValueError as error: raise ValueError(label+' requires INTEGER identifiers') from error
+        if number in result: raise ValueError(label+' contains duplicate identifiers')
+        result[number]=row
+    return result
+
+
 def robot_context_from_config(config):
     from .extended import RobotContext,RobotState
     from .storage import decode_typed
     if type(config) is not dict: raise ValueError('Robot context must be an object')
     allowed={'groups','active_group','dh','external_axes','external_axis_indices','base','iterations','position_tolerance','orientation_tolerance','ik_fallback_seeds','frames','tools','frame','tool','current','joint_limits'}
     if set(config)-allowed: raise ValueError('Unknown robot context fields')
+    if 'active_group' in config and (type(config['active_group']) is not int or not 1<=config['active_group']<=2147483646):
+        raise ValueError('Active robot group requires a positive portable INTEGER')
     if 'joint_limits' in config and type(config['joint_limits']) is not list: raise ValueError('joint_limits must be a list of explicit bounds')
     if 'groups' in config:
         if set(config)-{'groups','active_group'}: raise ValueError('Grouped model configuration cannot mix flat model fields')
-        groups={int(k):robot_context_from_config(v) for k,v in config['groups'].items()}
-        if not groups or any(g<1 for g in groups): raise ValueError('Positive explicit robot groups required')
+        rows=_indexed_rows(config['groups'],'Robot group table')
+        if not rows or any(not 1<=number<=2147483646 for number in rows):
+            raise ValueError('Positive explicit robot groups required')
+        groups={number:robot_context_from_config(row) for number,row in rows.items()}
         active=config.get('active_group',min(groups))
         if active not in groups: raise ValueError('Active robot group is not configured')
         context=RobotContext(groups=groups,active_group=active); context.model_config=deepcopy(config); return context
@@ -260,7 +276,8 @@ def robot_context_from_config(config):
         external_axis_indices=config.get('external_axis_indices'),base=base,iterations=config.get('iterations',200),
         position_tolerance=config.get('position_tolerance',.01),orientation_tolerance=config.get('orientation_tolerance',.01),
         ik_fallback_seeds=config.get('ik_fallback_seeds',()))
-    frames={int(k):decode_typed(v)[1] for k,v in config.get('frames',{}).items()}; tools={int(k):decode_typed(v)[1] for k,v in config.get('tools',{}).items()}
+    frames={number:decode_typed(row)[1] for number,row in _indexed_rows(config.get('frames',{}),'Robot frame table').items()}
+    tools={number:decode_typed(row)[1] for number,row in _indexed_rows(config.get('tools',{}),'Robot tool table').items()}
     frames.setdefault(0,pose()); tools.setdefault(0,pose())
     active_frame=config.get('frame',0); active_tool=config.get('tool',0)
     if active_frame not in frames or active_tool not in tools: raise ValueError('Active frame/tool must be supplied')

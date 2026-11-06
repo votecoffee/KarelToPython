@@ -691,6 +691,28 @@ class PortBank:
         self.values.update(prepared)
         return len(prepared)
 
+    def sample_outputs(self):
+        """Return detached physical point values from active offline output mappings."""
+        config=self._configuration
+        if config is None:raise ValueError('Physical output sampling requires explicit port configuration')
+        self.poll_pulses()
+        points={}
+        for key,(rack,slot,code,start,width) in config.assignments.items():
+            kind,number=key
+            if kind not in OUTPUT_PORTS or key in self.simulated or key not in self.values:continue
+            value=self.values[key]
+            if kind=='GOUT' and not 0<=value<1<<width:
+                raise ValueError('GOUT['+str(number)+'] does not fit its mapped width')
+            for bit in range(width):
+                address=(rack,slot,code,start+bit)
+                sample=bool(value & (1<<bit)) if kind=='GOUT' else value
+                if address in points and points[address]!=sample:
+                    raise ValueError('Conflicting mapped output values at physical point '+str(address))
+                points[address]=sample
+                if len(points)>32767:
+                    raise ValueError('Physical output sample exceeds 32767 points')
+        return points
+
     def read(self,kind,number,line=None):
         self.poll_pulses(line)
         number=runtime().integer(number,line)

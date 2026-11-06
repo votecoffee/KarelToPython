@@ -393,7 +393,7 @@ class TaskScheduler:
         if type(quantum_ms) is not int or not 1<=quantum_ms<=1000: raise ValueError('Scheduler quantum must be in 1..1000 ms')
         if type(max_steps) is not int or max_steps<1: raise ValueError('Task step budget must be positive')
         self.tasks={}; self.attributes={}; self.quantum_us=quantum_ms*1000; self.max_steps=max_steps
-        self.now_us=0; self.waiting={}; self.errors={}; self._running=False; self._step_names=None
+        self.now_us=0; self.waiting={}; self.errors={}; self._running=False; self._stepping=False; self._step_names=None
         self._task_waits={}
     def bind(self, name, program, *, attributes=None):
         key = rt().ascii_string(name).upper()
@@ -495,8 +495,13 @@ class TaskScheduler:
         self.waiting.pop(self._primary_name(program), None)
         self._notify_task_waits(program._state)
     def step(self):
+        if self._running or self._stepping: raise rt().KarelRuntimeError('Scheduler cannot be stepped recursively')
+        self._stepping=True
+        try: return self._step()
+        finally: self._stepping=False
+
+    def _step(self):
         runtime=rt(); progressed=False
-        if self._step_names is not None: raise runtime.KarelRuntimeError('Scheduler cannot be stepped recursively')
         self._poll_motion()
         for bank in self._pulse_banks(): bank.poll_pulses()
         names = sorted((name for name, _ in self._distinct_bindings()),
@@ -549,7 +554,7 @@ class TaskScheduler:
         self._poll_motion()
         return progressed
     def run(self,*,max_cycles=100000):
-        if self._running: raise rt().KarelRuntimeError('Scheduler cannot be driven recursively')
+        if self._running or self._stepping: raise rt().KarelRuntimeError('Scheduler cannot be driven recursively')
         if type(max_cycles) is not int or max_cycles<1: raise ValueError('Scheduler cycle budget must be positive')
         self._running=True
         try:
@@ -563,7 +568,7 @@ class TaskScheduler:
                     return self.snapshot()
                 if cycle==max_cycles:
                     break
-                self.step()
+                self._step()
             raise rt().KarelRuntimeError('Scheduler cycle budget exceeded')
         finally: self._running=False
     def snapshot(self):

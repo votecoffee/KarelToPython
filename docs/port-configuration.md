@@ -133,6 +133,19 @@ once. This sample is applied when the context loads, after the logical values
 and configuration are initialized. Saved contexts keep the resulting logical
 values. Sampling is an offline operation over supplied data.
 
+## Sampling configured outputs
+
+`bank.sample_outputs()` returns a detached dictionary keyed by
+`(rack, slot, type_code, point)`. It polls due pulses, then projects initialized,
+unsimulated logical outputs through their active assignments. Digital and
+analog values map directly. GOUT expands into Boolean points with the least
+significant bit at the first point. The word must fit the assigned width.
+
+Overlapping assignments may agree on a point. A disagreement rejects the
+sample. A sample can contain up to 32,767 points. The projection uses raw
+logical values and treats reverse and complementary settings as metadata.
+Saved contexts keep the logical output values.
+
 ## Status and failure behavior
 
 | Status | Portable meaning |
