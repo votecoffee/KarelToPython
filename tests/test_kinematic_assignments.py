@@ -56,6 +56,27 @@ class AssignmentModelTests(unittest.TestCase):
         state=run(body,decl=DECL+' cfg:CONFIG',context=ctx)
         self.assertAlmostEqual(state['OUT']['axes'][0],0.1,delta=.01)
 
+    def test_inverse_keeps_derivative_probes_inside_narrow_joint_limits(self):
+        for start in (-.0002,.0002):
+            with self.subTest(start=start):
+                ctx=rt.ExecutionContext.from_config({'robot':{
+                    'dh':[{'type':'prismatic','min':-.0002,'max':.0002}], 'position_tolerance':1e-7,
+                    'current':{'joints':{'type':['JOINTPOS',1],'value':[start]}}}})
+                model=ctx.robot.model
+                chain=model.chain
+                probes=[]
+
+                def checked_chain(values):
+                    self.assertTrue(model.within_limits(values),values)
+                    probes.append(tuple(values))
+                    return chain(values)
+
+                model.chain=checked_chain
+                body="CNV_STR_CONF('N',cfg,s) p=POS(0,0,0.00015,0,0,0,cfg) out=p"
+                state=run(body,decl=DECL+' cfg:CONFIG',context=ctx)
+                self.assertAlmostEqual(state['OUT']['axes'][0],.00015,delta=1e-7)
+                self.assertGreater(len(set(probes)),1)
+
     def test_missing_robot_service_retains_destination(self):
         p,_=compile_program('p=j',decl=DECL);p._state.values['J']=joint([0.]*9)
         with self.assertRaisesRegex(rt.KarelRuntimeError,'robot'): p.run()

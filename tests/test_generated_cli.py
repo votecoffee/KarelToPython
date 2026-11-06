@@ -97,6 +97,30 @@ class GeneratedCLIContextTests(unittest.TestCase):
             with self.subTest(raw=raw):self.assertEqual(result.returncode,2);self.assertIn('Invalid service context',result.stderr);self.assertFalse(self.state.exists());self.assertEqual(result.stdout,'')
         self.config.unlink();self.assertEqual(self.run_cli('--context',self.config).returncode,2)
 
+    def test_context_rejects_duplicate_nonfinite_and_deeply_nested_json(self):
+        self.compile('n=42')
+        cases=(
+            ('{"numeric":{"count":1,"count":2,"values":{}}}','Duplicate'),
+            ('{"numeric":{"count":1,"values":{"1":NaN}}}','Nonfinite'),
+            ('{"numeric":{"count":1,"values":{"1":1e400}}}','Nonfinite'),
+            ('{"numeric":'+'['*2000+'0'+']'*2000+'}','Invalid service context'),
+        )
+        for raw,message in cases:
+            with self.subTest(message=message):
+                self.config.write_bytes(raw.encode('utf-8-sig'))
+                result=self.run_cli('--context',self.config,'--state-out',self.state)
+                self.assertEqual(result.returncode,2,result.stderr)
+                self.assertIn(message,result.stderr)
+                self.assertEqual(result.stdout,'')
+                self.assertFalse(self.state.exists())
+
+    def test_context_accepts_utf8_bom_and_finite_exponent_values(self):
+        self.compile('n=x',decl='n,x:REAL')
+        self.config.write_bytes('{"variables":[{"program":"T","path":"X","type":["REAL"],"value":1.25e1}]}'.encode('utf-8-sig'))
+        result=self.run_cli('--context',self.config)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(ast.literal_eval(result.stdout),{'N':12.5,'X':12.5})
+
     def test_unused_context_banks_are_preserved_on_state_output(self):
         self.compile('n=42');config={'numeric':{'count':1,'values':{'1':7}}};result=self.run_cli('--context',self.save_config(config),'--state-out',self.state)
         self.assertEqual(result.returncode,0,result.stderr);self.assertEqual(json.loads(self.state.read_text())['numeric'],config['numeric'])

@@ -162,10 +162,16 @@ class SerialRobotModel:
             if iteration==self.iterations or not variables: break
             columns=[]
             for axis in variables:
-                shifted=q.copy(); amount=.001
-                if q[axis]+amount>self.limits[axis][1]: amount=-amount
-                shifted[axis]+=amount
-                columns.append([v/amount for v in error(current,self.chain(shifted),weight)])
+                shifted=q.copy()
+                joint=q[axis]; lower,upper=self.limits[axis]
+                forward,backward=upper-joint,joint-lower
+                bound=upper if forward>=.001 or forward>=backward else lower
+                offset=math.copysign(min(.001,abs(bound-joint)),bound-joint)
+                neighbor=min(upper,max(lower,joint+offset))
+                # A nominal step can round to zero for a large joint value.
+                if neighbor==joint: neighbor=math.nextafter(joint,bound)
+                shifted[axis]=neighbor
+                columns.append([v/(neighbor-joint) for v in error(current,self.chain(shifted),weight)])
             normal=[[sum(x*y for x,y in zip(left,right))+(damping*damping if i==j else 0.) for j,right in enumerate(columns)] for i,left in enumerate(columns)]
             delta=linear_solve(normal,[sum(x*y for x,y in zip(column,residual)) for column in columns])
             if delta is None: break

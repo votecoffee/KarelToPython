@@ -553,11 +553,13 @@ class TaskScheduler:
         for bank in self._pulse_banks(): bank.poll_pulses()
         self._poll_motion()
         return progressed
-    def run(self,*,max_cycles=100000):
+    def run(self,*,max_cycles=100000,entry=None):
         if self._running or self._stepping: raise rt().KarelRuntimeError('Scheduler cannot be driven recursively')
         if type(max_cycles) is not int or max_cycles<1: raise ValueError('Scheduler cycle budget must be positive')
         self._running=True
         try:
+            if entry is not None:
+                self.start(entry)
             for cycle in range(max_cycles+1):
                 for bank in self._pulse_banks(): bank.poll_pulses()
                 active = any(program._state._scheduler is self and (

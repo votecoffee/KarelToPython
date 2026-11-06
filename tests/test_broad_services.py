@@ -280,6 +280,28 @@ class GroupAndComparisonTests(unittest.TestCase):
 
 
 class BroadCLITests(unittest.TestCase):
+    def test_project_cli_rejects_duplicate_json_without_launch_or_publication(self):
+        from contextlib import redirect_stderr,redirect_stdout
+        from io import StringIO
+        from karel2py.project import main
+
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/'main.kl').write_text('PROGRAM MAIN BEGIN END MAIN',encoding='ascii')
+            config=root/'input.json'
+            config.write_bytes(b'{"numeric":{},"numeric":{"count":1,"values":{}}}')
+            state=root/'state.json'
+            trace=root/'trace.json'
+            state.write_bytes(b'previous')
+            stdout,stderr=StringIO(),StringIO()
+            with redirect_stdout(stdout),redirect_stderr(stderr),self.assertRaises(SystemExit) as caught:
+                main([str(root),'--entry','MAIN','--context',str(config),'--state-out',str(state),'--trace-out',str(trace)])
+            self.assertEqual(caught.exception.code,2)
+            self.assertIn('Invalid service context: Duplicate',stderr.getvalue())
+            self.assertEqual(stdout.getvalue(),'')
+            self.assertEqual(state.read_bytes(),b'previous')
+            self.assertFalse(trace.exists())
+
     def test_project_max_steps_applies_to_spawned_task(self):
         from contextlib import redirect_stderr,redirect_stdout
         from io import StringIO

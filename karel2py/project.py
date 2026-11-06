@@ -211,8 +211,8 @@ class ProjectInstance:
                 self.context.externals[key]=LinkedRoutine(target,name,self.options)
 
     def run(self,entry,*,max_cycles=100000):
-        self.scheduler.start(entry)
-        return self.scheduler.run(max_cycles=max_cycles)
+        if not isinstance(entry,str):raise TypeError('Project entry must be a task name')
+        return self.scheduler.run(max_cycles=max_cycles,entry=entry)
 
     def snapshot(self): return self.scheduler.snapshot()
 
@@ -297,7 +297,8 @@ def main(argv=None):
             parser.error('State/trace output must differ from all program and included source files, including aliases')
     if args.trace_out and any(same_file(args.trace_out,path) for path in (args.context,args.state_out) if path is not None):
         parser.error('--trace-out must differ from context and state paths, including aliases')
-    context=rt.ExecutionContext.load(args.context) if args.context else rt.ExecutionContext()
+    try:context=rt.ExecutionContext.load(args.context) if args.context else rt.ExecutionContext()
+    except (OSError,KeyError,TypeError,ValueError,rt.KarelRuntimeError) as error:parser.error('Invalid service context: '+str(error))
     if args.external_collections or args.external_values:
         try:context.externals.update(rt.load_external_bindings(values=args.external_values,collections=args.external_collections,outputs=(args.state_out,args.trace_out)))
         except (OSError,ValueError,rt.KarelRuntimeError) as error:parser.error(('Invalid external collections: ' if args.external_values is None else 'Invalid external bindings: ')+str(error))

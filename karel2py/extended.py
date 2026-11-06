@@ -2279,7 +2279,22 @@ class ExecutionContext:
     def load(cls,path):
         import json
         from pathlib import Path
-        return cls.from_config(json.loads(Path(path).read_text(encoding='utf-8-sig')))
+        def unique(pairs):
+            values={}
+            for key,value in pairs:
+                if key in values:raise ValueError('Duplicate execution context JSON key')
+                values[key]=value
+            return values
+        def finite(text):
+            value=float(text)
+            if not math.isfinite(value):raise ValueError('Nonfinite execution context JSON number')
+            return value
+        try:
+            config=json.loads(Path(path).read_text(encoding='utf-8-sig'),
+                object_pairs_hook=unique,parse_float=finite,parse_constant=finite)
+            return cls.from_config(config)
+        except RecursionError as error:
+            raise ValueError('Execution context JSON nesting is too deep') from error
     def require(self,name,line=None):
         value=getattr(self,name)
         if value is None: fail('Operation requires explicit ExecutionContext '+name+' service',line)

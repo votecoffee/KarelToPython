@@ -75,6 +75,11 @@ exist. `to_config` and `from_config` offer the same representation without disk
 access. Save only between execution steps; this API does not lock a concurrently
 modified context.
 
+`ExecutionContext.load()` and both Pythonic CLIs accept UTF-8 context files
+with or without a BOM. Duplicate object keys at any level and nonfinite
+numbers are rejected, including exponents that overflow the portable REAL
+range.
+
 The JSON preserves type specs, numeric kind, partial ARRAY/record initialization,
 unknown BYTE leaves, joint widths, position-register group keys, file bytes,
 event generations and configured robot models. Attached programs contribute
@@ -210,7 +215,9 @@ binding order; time advances once per round. See
 `scheduler.start(name)`, `step()`, `run(max_cycles=...)`, `continue_task(name)` and
 `stop(name)` support embedding. `run` returns when tasks have completed, stopped
 or paused; a paused task needs an explicit continuation. Cycle and per-task step
-budgets bound WAIT loops. Nested calls to `step()` or `run()` from callbacks
+budgets bound WAIT loops. Use `scheduler.run(entry=name, max_cycles=...)` to
+validate the drive before launching an entry task, as `ProjectInstance.run()`
+does. Nested calls to `step()` or `run()` from callbacks
 raise an error during execution or service polling. Errors stop the current
 drive and preserve prior writes. Other active tasks remain available for the
 caller to inspect or stop. No host

@@ -30,8 +30,9 @@ optionally try `ik_fallback_seeds` if the reference attempt fails. Supply up
 to eight complete in-limit vectors in DH row order. The solver returns the
 first solution it finds and keeps the specified external joints fixed on every
 attempt. Each seed gets the configured iteration budget, and a solution reached
-on its last iteration is accepted. Failure is inconclusive for geometric
-reachability.
+on its last iteration is accepted. Finite-difference probes adapt to the
+remaining joint travel, including at an endpoint. Failure is inconclusive
+for geometric reachability.
 
 ```python
 from karel2py import translate, runtime as rt

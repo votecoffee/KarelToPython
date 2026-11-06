@@ -4852,7 +4852,10 @@ class Emitter:
             self.indent += 1
             self.line('try:')
             self.indent += 1
-            self.line('with open(_args.context, encoding="utf-8-sig") as _stream: _context = _rt.ExecutionContext.from_config(_json.load(_stream))')
+            if self.mode=='pythonic':
+                self.line('_context = _rt.ExecutionContext.load(_args.context)')
+            else:
+                self.line('with open(_args.context, encoding="utf-8-sig") as _stream: _context = _rt.ExecutionContext.from_config(_json.load(_stream))')
             self.indent -= 1
             self.line('except (OSError, KeyError, TypeError, ValueError, _rt.KarelRuntimeError) as _error:')
             self.indent += 1

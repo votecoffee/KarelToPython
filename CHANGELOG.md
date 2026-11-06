@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.153241 - 2026-11-06
+
+- Reject duplicate JSON keys and nonfinite numbers when loading an execution
+  context. Both Pythonic CLIs report invalid contexts before execution.
+- Validate project run limits and scheduler ownership before starting the
+  selected entry task.
+- Keep finite-difference IK probes inside the supplied joint limits.
+
 ## 26.1106.151804 - 2026-11-06
 
 - Sample active mapped outputs as detached digital and analog point values.

@@ -107,6 +107,23 @@ class SchedulerTests(unittest.TestCase):
         instance=self.programs('WAIT FOR FALSE','n=1')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'cycle budget'): instance.run('MAIN',max_cycles=5)
 
+    def test_invalid_project_cycle_budget_leaves_entry_ready(self):
+        instance=self.programs('n=1','')
+        before=instance.snapshot()
+        with self.assertRaisesRegex(ValueError,'cycle budget'):
+            instance.run('MAIN',max_cycles=0)
+        self.assertEqual(instance.snapshot(),before)
+        self.assertEqual(instance.run('MAIN')['MAIN']['values']['N'],1)
+
+    def test_nested_project_run_leaves_other_entry_ready(self):
+        def writer(_):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'recursively'):
+                instance.run('CHILD')
+        instance=translate_project({'a':source('MAIN','WRITE(1)'), 'b':source('CHILD','n=7')}).instantiate(options={'write':writer})
+        result=instance.run('MAIN')
+        self.assertEqual(result['CHILD']['state'],'ready')
+        self.assertEqual(instance.run('CHILD')['CHILD']['values']['N'],7)
+
     def test_scheduler_budget_accepts_completion_on_last_cycle(self):
         instance=self.programs('n=1','')
         result=instance.run('MAIN',max_cycles=2)
