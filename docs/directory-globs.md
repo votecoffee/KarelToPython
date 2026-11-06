@@ -47,10 +47,11 @@ and reserved basenames remain rejected. Rooted recursive scans reject encountere
 links and junctions and recheck containment as they traverse. They never remove
 directories; DELETE removes matched regular files only.
 
-At most 32,767 entries are scanned/matched under existing backend limits. Rooted
-scans count directory and file entries; explicit in-memory banks retain their
-existing whole-bank count bounds. Scans and matcher-component work charge the
-execution budget. COPY retains the 64 MiB total payload snapshot limit and
+At most 32,767 entries are scanned or matched under existing backend limits.
+Rooted scans stream directory and file entries and stop when they detect
+overflow. Explicit in-memory banks retain their whole-bank count bounds.
+Scans and matcher-component work charge the execution budget.
+COPY retains the 64 MiB total payload snapshot limit and
 per-backend byte/capacity rules. DELETE does not decode or read file payloads.
 
 The existing engine validates sorted selection, duplicate/case/physical aliases,

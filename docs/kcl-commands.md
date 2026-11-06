@@ -389,7 +389,9 @@ when values are requested. System-variable paths require their separate
 source services.
 
 The command preflights the complete listing against 32,767 rows and data
-leaves and 1 MiB of output before the first write. Status 201 indicates an
+leaves and 1 MiB of output before the first write. `SHOW VARS` also charges each
+inspected program owner, global and binding to the step budget, with a scan
+limit of 32,767 entries before filtering. Status 201 indicates an
 unavailable selector, 202 an invalid radix request, and 205 a value or
 listing that cannot be represented within the portable limits. The forms
 follow MARRC75KR07091E Rev N, PDF pages 744–745.
@@ -402,6 +404,8 @@ duplicate paths. It sorts the paths and uses the same bounded JSON Lines
 and optional type filter as ordinary variable inspection. Without VALUES
 the output describes each binding's type. Robot context tables require
 explicit bindings to appear in this view.
+The scan counts every explicit binding, including those outside the system
+namespaces. A scan that exceeds the limit returns 205 before writing rows.
 
 `SHOW MEMORY` writes one JSON row with used and available reservations
 under the shared 32,767-unit CREATE_VAR limit. It counts created storage
@@ -611,8 +615,12 @@ Program rows carry `name` and `type`, including `PC` for attached Python
 programs, explicit catalog and teach-program types, and `VR` for named
 variable namespaces. Task rows carry `name` and `status` using the same PG
 labels as GET_TSK_INFO. Registered aliases have separate rows. Empty task
-listings succeed without output. Rows are captured before the first write,
-with a limit of 32,767 rows per listing.
+listings succeed without output. Rows are captured before the first write.
+Each scan inspects up to 32,767 catalog entries or task registrations and
+charges each entry to the step budget, including entries filtered out or
+deduplicated. `SET DEFAULT` uses the bounded program scan when looking up a
+catalog name. Exceeding the catalog limit returns 505 before any rows are
+written or the default selection changes.
 
 `SHOW BUILTINS` writes the offline service registry in name order. Each
 JSON row contains the service name and FUNCTION or PROCEDURE. The

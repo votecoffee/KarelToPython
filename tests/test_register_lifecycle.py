@@ -18,6 +18,27 @@ class PositionLifecycleTests(unittest.TestCase):
     def context(self,initial=None,**options):
         return rt.ExecutionContext(positions=rt.PositionRegisters(3,initial,**options))
 
+    def test_position_group_and_address_aliases_cannot_overwrite(self):
+        stored=joint(2)
+        row=self.context({1:stored}).to_config()['positions']['values']['1:1']
+        with self.assertRaisesRegex(ValueError,'Duplicate position register address'):
+            rt.PositionRegisters(3,{1:stored,(1,1):stored})
+        for values in ({'1':row,'2:1':row},{'02:01':row,'2:1':row}):
+            with self.subTest(values=values),self.assertRaisesRegex(ValueError,'Duplicate position register address'):
+                rt.ExecutionContext.from_config({'positions':{'count':3,'groups':[2,3],'values':values}})
+        with self.assertRaisesRegex(ValueError,'Duplicate position register group'):
+            rt.ExecutionContext.from_config({'positions':{'count':3,'groups':[2,2]}})
+
+    def test_single_legacy_register_address_round_trips_with_canonical_identity(self):
+        row=self.context({1:joint(2)}).to_config()['positions']['values']['1:1']
+        ctx=rt.ExecutionContext.from_config({'positions':{'count':3,'groups':[2,1],'values':{'01':row}},
+                                             'strings':{'count':3,'values':{'01':'ready'}}})
+        saved=ctx.to_config()
+        self.assertEqual(saved['positions']['values'],{'2:1':row})
+        self.assertEqual(saved['strings']['values'],{'1':'ready'})
+        with self.assertRaisesRegex(ValueError,'Duplicate string register address'):
+            rt.ExecutionContext.from_config({'strings':{'count':3,'values':{'1':'old','01':'new'}}})
+
     def test_representation_codes_and_axes(self):
         cartesian=pose(10)
         for spec,expected in ((('POSITION',),(1,0)),(('XYZWPR',),(2,0)),(('XYZWPREXT',),(6,3))):

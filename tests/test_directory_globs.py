@@ -167,6 +167,27 @@ class DirectoryGlobDeviceTests(unittest.TestCase):
 class DirectoryGlobRootedTests(unittest.TestCase):
     def test_rooted_recursive_copy(self):
         with directory() as (root,bank):self.assertEqual(copy(bank),0);self.assertEqual({k:v for k,v in disk(root).items() if k.startswith('dst/')},MATCHES)
+
+    def test_rooted_scan_stops_consuming_directory_at_limit(self):
+        data={f'src/ignored{index}.txt':b'data' for index in range(8)}
+        for pattern in ('src/*.kl',PATTERN):
+            with self.subTest(pattern=pattern),directory(data) as (root,bank):
+                original=os.scandir
+                visited=[]
+                @contextmanager
+                def scan(folder):
+                    with original(folder) as entries:
+                        def track():
+                            for entry in entries:
+                                visited.append(entry.name)
+                                yield entry
+                        yield track()
+                with patch.object(os,'scandir',scan),patch.object(fileops,'WILDCARD_FILE_LIMIT',2):
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'scan exceeds'):
+                        copy(bank,pattern)
+                self.assertEqual(len(visited),3)
+                self.assertEqual(disk(root),data)
+
     def test_rooted_single_level_matching_excludes_deeper_file(self):
         with directory() as (root,bank):self.assertEqual(copy(bank,'src/*/*.kl'),0);self.assertEqual({k:v for k,v in disk(root).items() if k.startswith('dst/')},{'dst/a.py':b'a','dst/b.py':b'b'})
     def test_rooted_delete_keeps_directories(self):

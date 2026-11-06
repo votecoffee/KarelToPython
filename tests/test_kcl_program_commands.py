@@ -2,6 +2,7 @@
 import ast
 import json
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt
 from tests.test_directive_group_locks import program
@@ -112,6 +113,18 @@ class KclProgramListingTests(unittest.TestCase):
             {'name': 'PART', 'type': 'TP'}, {'name': 'PART', 'type': 'VR'},
         ])
         self.assertEqual(ctx.tasks.tasks, {})
+
+    def test_program_catalog_limit_counts_deduplicated_inputs_and_preserves_default(self):
+        ctx=rt.ExecutionContext(kcl=channel(default_program='KEEP'))
+        for index in range(12):
+            ctx.variables.define('PART',f'VALUE{index}',('INTEGER',),index)
+        output=[]
+        with patch('karel2py.inspection.CATALOG_SCAN_LIMIT',6):
+            for command in ('SHOW PROGRAMS','SHOW PROGRAM PART','SET DEFAULT PART'):
+                with self.subTest(command=command):
+                    self.assertEqual(issue(ctx,command,write=output.append)['S'],505)
+            self.assertEqual(output,[])
+            self.assertEqual(ctx.kcl.default_program,'KEEP')
 
     def test_show_task_names_and_statuses_are_a_snapshot(self):
         ctx = rt.ExecutionContext(kcl=channel())

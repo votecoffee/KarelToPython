@@ -142,6 +142,13 @@ def _wildcard_link(path):
     return junction is None and bool(getattr(path.lstat(),'st_file_attributes',0)&0x400)
 
 
+def _directory_paths(folders):
+    for folder in folders:
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                yield folder / entry.name
+
+
 def _wildcard_tree(files,root,check):
     """Collect bounded contained entries, rejecting encountered links/junctions."""
     result=set();pending=[root]
@@ -149,14 +156,15 @@ def _wildcard_tree(files,root,check):
         parent=pending.pop()
         if _wildcard_link(parent):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
         files._path(parent.relative_to(files.root).as_posix() or '.',directory=True)
-        for path in parent.iterdir():
-            check()
-            if len(result)>=WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
-            name=path.relative_to(files.root).as_posix()
-            if _wildcard_link(path):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
-            if len(name)>254:raise ValueError('Wildcard source paths exceed 254 characters')
-            directory=path.is_dir();files._path(name,directory=directory);result.add(name)
-            if directory:pending.append(path)
+        with closing(_directory_paths((parent,))) as paths:
+            for path in paths:
+                check()
+                if len(result)>=WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
+                name=path.relative_to(files.root).as_posix()
+                if _wildcard_link(path):raise ValueError('Recursive wildcard FILE paths cannot traverse links or junctions')
+                if len(name)>254:raise ValueError('Wildcard source paths exceed 254 characters')
+                directory=path.is_dir();files._path(name,directory=directory);result.add(name)
+                if directory:pending.append(path)
     return result
 
 
@@ -264,7 +272,7 @@ def wildcard_file_operation(state,operation,args,line=None):
             if self.directory:return name.rsplit('/',1)[0] if '/' in name else ''
             return _wildcard_parts(name,pattern=False)[0]
         def entries(self,folder,*,destination=False,charge=True,recursive=False):
-            result=set();scanned=0;files=self.bank
+            result=set();files=self.bank
             if self.pipe:
                 if set(files.files)!=set(files.pipes):raise runtime.KarelRuntimeError('Pipe bytes/configuration identity mismatch',line)
                 if len(files.pipes)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
@@ -278,11 +286,9 @@ def wildcard_file_operation(state,operation,args,line=None):
                     return []
                 if recursive:result=_wildcard_tree(files,root,check if charge else lambda:None)
                 else:
-                    for path in root.iterdir():
-                        scanned+=1
-                        if scanned>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE scan exceeds 32767 entries')
-                        if charge:check()
-                        result.add(path.relative_to(files.root).as_posix())
+                    with closing(_directory_paths((root,))) as paths:
+                        for path in _listing_entries(paths,check if charge else None,operation='Wildcard FILE'):
+                            result.add(path.relative_to(files.root).as_posix())
                 for handle in files.handles:
                     if handle.owner is files and (_wildcard_relative(handle.name,folder) is not None if recursive else self.scope(handle.name).casefold()==folder.casefold()):result.add(handle.name)
             else:
@@ -831,13 +837,6 @@ def move_specification(value,*,pattern=True,directories=False):
             or any(ord(char)<32 or ord(char)==127 for char in relative)):
         raise ValueError('MOVE_FILE requires a relative star/question file pattern without traversal or bracket classes')
     return device,'/'.join(parts[:-1]),parts[-1]
-
-
-def _directory_paths(folders):
-    for folder in folders:
-        with os.scandir(folder) as entries:
-            for entry in entries:
-                yield folder / entry.name
 
 
 def move_files(files,specification,*,check=None):

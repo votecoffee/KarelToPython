@@ -471,11 +471,17 @@ def pose_extended(value,line=None):
 class PositionRegisters:
     def __init__(self,count,initial=None,*,groups=(1,),comments=None):
         if type(count) is not int or not 1<=count<=32767: raise ValueError('Position register count must be in 1..32767')
-        if not groups or any(type(g) is not int or g<1 for g in groups): raise ValueError('Explicit positive position groups required')
-        self.count,self.groups,self.values=count,tuple(groups),{}
+        try:
+            groups=tuple(groups)
+        except TypeError as error:
+            raise ValueError('Explicit positive position groups required') from error
+        if not groups or any(type(g) is not int or not 1<=g<=2147483646 for g in groups): raise ValueError('Explicit positive position groups required')
+        if len(set(groups))!=len(groups): raise ValueError('Duplicate position register group')
+        self.count,self.groups,self.values=count,groups,{}
         self.comments=RegisterComments(count,comments)
         for key,value in (initial or {}).items():
             group,number=key if type(key) is tuple else (self.groups[0],key)
+            if (group,number) in self.values: raise ValueError('Duplicate position register address')
             if self.write(number,value,group): raise ValueError('Initial position register is outside its bank')
     def read(self,number,group=1):
         if group not in self.groups or not 1<=number<=self.count: return 2,None
@@ -2361,16 +2367,32 @@ class ExecutionContext:
             services['calendar']=CalendarClock.from_config(config['calendar'])
         if 'local_handlers' in config: services['local_handlers']=config['local_handlers']
         if 'strings' in config:
-            row=config['strings']; services['strings']=StringRegisters(row['count'],{int(k):v for k,v in row.get('values',{}).items()},capacity=row.get('capacity',254),comments=RegisterComments.decode(row.get('comments',{})))
+            row=config['strings']
+            saved=row.get('values',{})
+            if type(saved) is not dict: raise ValueError('String register values must be an object')
+            values={}
+            for key,value in saved.items():
+                if type(key) not in (str,int): raise ValueError('String register keys require integer addresses')
+                number=int(key)
+                if number in values: raise ValueError('Duplicate string register address')
+                values[number]=value
+            services['strings']=StringRegisters(row['count'],values,capacity=row.get('capacity',254),comments=RegisterComments.decode(row.get('comments',{})))
         if 'positions' in config:
             from .storage import decode_typed
-            row=config['positions']; values={}
-            for key,value in row.get('values',{}).items():
+            row=config['positions']
+            saved=row.get('values',{})
+            if type(saved) is not dict: raise ValueError('Position register values must be an object')
+            positions=PositionRegisters(row['count'],groups=row.get('groups',(1,)),comments=RegisterComments.decode(row.get('comments',{})))
+            for key,value in saved.items():
+                if type(key) is not str: raise ValueError('Position keys require group:number')
                 pair=tuple(int(x) for x in key.split(':'))
-                if len(pair)==1: pair=(row.get('groups',[1])[0],pair[0])
+                if len(pair)==1: pair=(positions.groups[0],pair[0])
                 if len(pair)!=2: raise ValueError('Position keys require group:number')
-                values[pair]=decode_typed(value)[1]
-            services['positions']=PositionRegisters(row['count'],values,groups=row.get('groups',(1,)),comments=RegisterComments.decode(row.get('comments',{})))
+                if pair in positions.values: raise ValueError('Duplicate position register address')
+                group,number=pair
+                if positions.write(number,decode_typed(value)[1],group):
+                    raise ValueError('Initial position register is outside its bank')
+            services['positions']=positions
         if 'ports' in config:
             row=config['ports']; codes={}
             for field in ('values','comments','simulated'):

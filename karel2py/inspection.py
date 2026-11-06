@@ -83,13 +83,17 @@ def assign(outputs,values,line):
     prepared=[rt.checked(target.spec,value,line) for target,value in zip(outputs,values)]
     for target,value in zip(outputs,prepared): target.set(value,line)
 
+class _CatalogScanLimit(ValueError):
+    pass
+
+
 def _catalog_check(state,operation,line):
     scanned=0
     def check():
         nonlocal scanned
         scanned+=1
         if scanned>CATALOG_SCAN_LIMIT:
-            raise runtime().KarelRuntimeError(operation+' scan exceeds 32767 entries',line)
+            raise _CatalogScanLimit(operation+' scan exceeds 32767 entries')
         state.tick(line)
     return check
 
@@ -263,7 +267,10 @@ def variable_list(context,state,args,line=None):
     if kind not in (0,*TYPE_CODES.values()) or skip<0 or form not in (1,2,3,4): status.set(2,line);return
     if not pattern or any(symbol in program+pattern for symbol in '[]'):
         status.set(2,line);return
-    roots=declarations(context,state,check=_catalog_check(state,'VAR_LIST',line))
+    try:
+        roots=declarations(context,state,check=_catalog_check(state,'VAR_LIST',line))
+    except _CatalogScanLimit as error:
+        raise rt.KarelRuntimeError(str(error),line) from error
     if (not any(symbol in program for symbol in '*?') and program!=state.program_name
             and program not in context.variables.programs and not any(key[0]==program for key,_ in roots)):
         status.set(1,line);return
@@ -296,7 +303,11 @@ def kcl_variable_listing(state,operation,args,line=None):
     else:
         values,kind=args[1:]
         radix=None
-        names=[(name,spec) for (owner,name),spec in declarations(context,state)
+        try:
+            roots=declarations(context,state,check=_catalog_check(state,operation,line))
+        except _CatalogScanLimit:
+            return 5
+        names=[(name,spec) for (owner,name),spec in roots
                if owner==program and not name.startswith('$')]
         if not names and program!=state.program_name and program not in context.variables.programs:return 1
         if kind is not None:
@@ -326,11 +337,16 @@ def kcl_storage_listing(state,operation,args,line=None):
     # Explicit system namespaces only. Keep a predictable preference for duplicate names.
     priority={'SYSTEM':0,'*SYSTEM*':1,'':2}
     references={}
-    for (owner,path),ref in store.bindings.items():
-        if owner in priority and path.startswith('$') and path.isascii() and len(path)<=254:
-            previous=references.get(path)
-            if previous is None or priority[owner]<previous[0]:references[path]=(priority[owner],ref)
-            if len(references)>MAX_LEAVES:return 5
+    check=_catalog_check(state,operation,line)
+    try:
+        for (owner,path),ref in store.bindings.items():
+            check()
+            if owner in priority and path.startswith('$') and path.isascii() and len(path)<=254:
+                previous=references.get(path)
+                if previous is None or priority[owner]<previous[0]:
+                    references[path]=(priority[owner],ref)
+    except _CatalogScanLimit:
+        return 5
     names=[(path,ref.spec) for path,(_,ref) in sorted(references.items()) if matches_type(ref.spec,kind)]
     return _kcl_value_rows(state,'SYSTEM',names,values,None,lambda path:references[path][1],line)
 
@@ -508,11 +524,19 @@ def program_rows(context,state,*,check=None):
     return rows
 
 
-def kcl_program_entries(context,state):
+def kcl_program_entries(context,state,line=None):
+    """Collect program metadata, returning None on a portable catalog limit."""
     from .dynamic import IDENTIFIER
 
-    entries=program_rows(context,state)
-    entries.update((owner,'VR') for owner,_ in context.variables.bindings if re.fullmatch(IDENTIFIER,owner))
+    check=_catalog_check(state,'KCL program catalog',line)
+    try:
+        entries=program_rows(context,state,check=check)
+        for owner,_ in context.variables.bindings:
+            check()
+            if re.fullmatch(IDENTIFIER,owner):
+                entries.add((owner,'VR'))
+    except _CatalogScanLimit:
+        return None
     return entries
 
 
@@ -522,7 +546,8 @@ def kcl_program_listing(state,operation,args,line=None):
 
     context=state.execution
     if operation in ('SHOW_PROGRAMS','SHOW_PROGRAM'):
-        entries=kcl_program_entries(context,state)
+        entries=kcl_program_entries(context,state,line)
+        if entries is None:return 5
         target=None
         if operation=='SHOW_PROGRAM':
             selector=args[0]
@@ -534,7 +559,7 @@ def kcl_program_listing(state,operation,args,line=None):
             elif selector==state.program_name:
                 target=runtime().task_root(state)
             if not entries:return 1
-        if len(entries)>32767:return 5
+        if len(entries)>CATALOG_SCAN_LIMIT:return 5
         rows=[dict(name=name,type=kind) for name,kind in sorted(entries)]
         if target is not None:
             for row in rows:
@@ -549,10 +574,13 @@ def kcl_program_listing(state,operation,args,line=None):
             if selector not in tasks:return 1
             names=[selector]
         else:
-            if len(tasks)>32767:return 5
+            if len(tasks)>CATALOG_SCAN_LIMIT:return 5
             names=sorted(tasks)
         root=runtime().task_root
-        rows=[dict(name=name,status=task_status_name(root(tasks[name]._state))) for name in names]
+        rows=[]
+        for name in names:
+            state.tick(line)
+            rows.append(dict(name=name,status=task_status_name(root(tasks[name]._state))))
     # Capture rows before the first output callback or execution checkpoint.
     write_json_lines(state,rows,line)
     return 0
@@ -568,8 +596,11 @@ def program_list(context,state,args,line=None):
             or not pattern or any(symbol in pattern for symbol in '[]')
             or (skip and (pattern!='*' or kind!=7))):
         status.set(2,line);return
-    rows=sorted(row for row in program_rows(context,state,check=_catalog_check(state,'PROG_LIST',line))
-                if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
+    try:
+        catalog=program_rows(context,state,check=_catalog_check(state,'PROG_LIST',line))
+    except _CatalogScanLimit as error:
+        raise rt.KarelRuntimeError(str(error),line) from error
+    rows=sorted(row for row in catalog if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
     capacity=rt.array_dimensions(names.spec)[0]
     selected=rows[skip+offset:skip+offset+capacity];text=[]
     for name,program_type in selected:

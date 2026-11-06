@@ -780,9 +780,11 @@ class KclCommands:
                 program=args[0]
                 if program=='ALL':return 502
                 context=state.execution
-                if program not in context.tasks.tasks and not any(
-                        candidate==program for candidate,_ in kcl_program_entries(context,state)):
-                    return 501
+                if program not in context.tasks.tasks:
+                    entries=kcl_program_entries(context,state,line)
+                    if entries is None:return 505
+                    if not any(candidate==program for candidate,_ in entries):
+                        return 501
                 self.default_program=program
                 return 0
             if operation=='SHOW_DEFAULT':

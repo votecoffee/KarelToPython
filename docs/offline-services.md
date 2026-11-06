@@ -111,6 +111,10 @@ raise, preserving the assignment target. They never fabricate a pose.
 `(group,number)` and checked Structure/JointPosition values. Reads and snapshots
 are detached. String and port banks expose copied snapshots too. Shared context
 objects retain writes across runs and programs.
+Saved string and position register addresses must be unique after normalization.
+A position key without a group selects the first configured group. Position
+groups must also have distinct positive INTEGER IDs. Saving writes canonical
+addresses.
 See [I/O and CALL parameters](io-and-call-parameters.md) for indirect procedures,
 simulation flags, comment persistence and supplied teach-pendant arguments.
 See [register lifecycle](register-lifecycle.md) for stored representation codes,

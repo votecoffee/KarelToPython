@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.1106.185134 - 2026-11-06
+
+- Bound KCL variable, system, program and task catalog scans and charge inspected
+  entries to the execution budget before output. Catalog-backed SET DEFAULT
+  keeps its previous selection if the scan exceeds the limit.
+- Stream rooted wildcard directory scans so an oversized directory cannot be
+  fully enumerated before the scan limit is checked.
+- Reject duplicate string and position register addresses and duplicate position
+  group IDs in offline contexts.
+
 ## 26.1106.182847 - 2026-11-06
 
 - Keep the cooperative scheduler active for eligible NOWAIT motion deadlines

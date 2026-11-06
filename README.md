@@ -63,6 +63,8 @@ and inspection of source traces and live condition handlers.
 [KCL program commands](docs/kcl-commands.md#program-and-task-inspection-commands)
 add portable TP save, load and clear, stored-source translation to Python,
 and JSON-line program and task listings.
+Program, task, variable and system listings bound catalog scans and charge
+inspected entries to the execution budget.
 
 [KCL volume and dictionary commands](docs/kcl-commands.md#virtual-device-commands)
 add opt-in mount, dismount, format, purge, and catalog load/clear. KCL PRINT
@@ -383,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.182847**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.185134**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

@@ -1,6 +1,7 @@
 """Authored KCL coverage for offline variable, device, language and pose views."""
 import json
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt
 from tests.test_directive_group_locks import program
@@ -84,6 +85,23 @@ class KclVariableListingTests(unittest.TestCase):
         self.assertEqual(issue(self.ctx, 'SHOW VARS FIXTURE VALUES', write=write)['S'], 0)
         self.assertEqual([json.loads(row)['value'] for row in output], [1,2])
         self.assertEqual(later.raw(), 3)
+
+    def test_scan_limits_include_filtered_out_bindings(self):
+        self.ctx.variables.define('FIXTURE','TARGET',('INTEGER',),7)
+        for index in range(12):
+            self.ctx.variables.define('OTHER',f'VALUE{index}',('INTEGER',),index)
+        with patch('karel2py.inspection.CATALOG_SCAN_LIMIT',6):
+            self.assertEqual(listing(self.ctx,'SHOW VARS FIXTURE'),(205,[]))
+            self.assertEqual(listing(self.ctx,'SHOW SYSTEM'),(205,[]))
+            self.assertEqual(listing(self.ctx,'SHOW VAR [FIXTURE]TARGET')[0],0)
+
+    def test_scan_exhausts_step_budget_before_output(self):
+        for index in range(12):
+            self.ctx.variables.define('OTHER',f'VALUE{index}',('INTEGER',),index)
+        output=[]
+        task,_=compile_program("KCL('SHOW VARS',s)",context=self.ctx,write=output.append)
+        self.assertEqual(task.run(max_steps=5)['S'],4)
+        self.assertEqual(output,[])
 
 
 class KclDeviceListingTests(unittest.TestCase):
