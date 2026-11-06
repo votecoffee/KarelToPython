@@ -23,7 +23,7 @@ WILDCARD_FILE_LIMIT=32767
 WILDCARD_COPY_BYTES=64*1024*1024
 
 
-def _file_pattern_separators(value):
+def _file_name_separators(value):
     value=value.replace('\\','/')
     device,separator,tail=value.partition(':')
     if separator:return device+separator+tail.removeprefix('/')
@@ -229,7 +229,7 @@ def wildcard_file_operation(state,operation,args,line=None):
                 if name.startswith('PIP:/'):name='PIP:'+name[5:]
                 # Validate bounded plain pattern syntax without discovering a device.
                 self.bank.list_names(name)
-            else:name=_file_pattern_separators(runtime.ascii_string(name,line))
+            else:name=_file_name_separators(runtime.ascii_string(name,line))
             prefix,base=(_wildcard_destination(name) if destination else _wildcard_source(name)) if (directories or destination) and not self.pipe else _wildcard_parts(name)
             if self.pipe and prefix!='PIP:':raise ValueError('Pipe wildcard requires a plain basename')
             return prefix,base
@@ -766,12 +766,12 @@ def list_files(state,files,args,line=None):
     if skip<0 or form not in (0,1,2,3,4): return 2
     array=names.raw();capacity=len(array.values)
     ordinary=type(files) in (runtime.MemoryFiles,DirectoryFiles,DeviceFiles)
-    normalized=_file_pattern_separators(pattern) if ordinary else pattern
+    normalized=_file_name_separators(pattern) if ordinary else pattern
     parent=normalized.rpartition('/')[0]
     if any(c in parent for c in '*?'):
         matches=_directory_listing(files,normalized,lambda:state.tick(line))
     else:
-        matches=files.list_names(normalized if isinstance(files,(DirectoryFiles,DeviceFiles)) else pattern)
+        matches=files.list_names(pattern)
     selected=matches[skip:skip+capacity];prepared=[]
     for name in selected:
         state.tick(line)

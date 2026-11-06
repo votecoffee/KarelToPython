@@ -350,30 +350,37 @@ def atomic_bytes(target, data, *, overwrite=True):
 class DirectoryFiles:
     """FILE backend rooted in a caller-selected directory; buffered until close.
 
-    Source names are relative POSIX paths, optionally prefixed by an explicit
-    device mapping. Symlinks and path traversal are rejected on every operation.
+    Source names are relative paths, optionally prefixed by an explicit device
+    mapping. Resolved keys use forward slashes. Symlinks and path traversal are
+    rejected on every operation.
     """
     def __init__(self,root,*,devices=None,limit=16*1024*1024,listing_timestamps=False):
         from .extended import MemoryFiles
         self.root=Path(root).resolve(strict=True)
         if not self.root.is_dir(): raise ValueError('Filesystem root must be a directory')
-        self.devices={str(key).upper():str(value) for key,value in (devices or {}).items()}
+        self.devices={str(key).upper():str(value).replace('\\','/') for key,value in (devices or {}).items()}
         self.listing_timestamps=listing_timestamps
         self.memory=MemoryFiles(limit=limit); self.files=self.memory.files; self.limit=limit
         self.handles=[]
-        for value in self.devices.values(): self._path(value or '.',directory=True)
+        for value in self.devices.values():
+            if ':' in value:raise ValueError('Mapped FILE directories must stay relative to their explicit root')
+            self._path(value or '.',directory=True)
 
-    def _path(self,name,*,directory=False):
-        runtime=rt(); name=runtime.ascii_string(name).replace('\\','/')
+    def _relative_name(self,name):
+        from .fileops import _file_name_separators
+        name=_file_name_separators(rt().ascii_string(name))
         if ':' in name:
             device,tail=name.split(':',1)
             if device.upper() not in self.devices: raise ValueError('Unmapped file device')
             name='/'.join(part for part in (self.devices[device.upper()],tail) if part)
-        parts=name.split('/')
-        if not name or name.startswith('/') or any(part in ('..','') for part in parts) or '\0' in name:
+        if any(part in ('..','') for part in name.split('/')) or ':' in name or '\0' in name:
             raise ValueError('File name must stay relative to its explicit root')
+        return name
+
+    def _path(self,name,*,directory=False):
+        name=self._relative_name(name)
         target=self.root
-        for part in parts:
+        for part in name.split('/'):
             target=target/part
             if target.is_symlink(): raise ValueError('Symlink FILE paths are unsupported')
         resolved=target.resolve()
@@ -454,8 +461,7 @@ class DirectoryFiles:
     def list_names(self,pattern='*'):
         # Validate the non-wildcard path components before traversing the selected root.
         self._path(pattern.replace('*','x').replace('?','x'))
-        if ':' in pattern:
-            device,tail=pattern.split(':',1); pattern='/'.join(part for part in (self.devices[device.upper()],tail) if part)
+        pattern=self._relative_name(pattern)
         names=set()
         for path in self.root.rglob('*'):
             if path.is_symlink(): continue

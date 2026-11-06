@@ -38,9 +38,11 @@ assert files.mount("RD:", False) == 0
 Device names are case-insensitive letter-starting ASCII identifiers of up to
 eight characters with a final colon. MF: is reserved as the combined RD:/FR:
 purge selector. Source FILE names require a configured device prefix; only that
-prefix is folded to uppercase. Paths remain case-sensitive relative POSIX names.
-Empty components, traversal, absolute paths, extra colons, backslashes and control
-characters are rejected. No physical path is derived from a virtual filename.
+prefix is folded to uppercase. Paths are case-sensitive and stored with forward
+slashes. Input accepts either slash and one optional separator after the device.
+`RD:\jobs\part.dat` and `RD:jobs/part.dat` resolve to the same virtual key.
+Empty components, traversal, absolute paths, extra colons and control characters
+are rejected. No physical path is derived from a virtual filename.
 
 The required volume field is `capacity`. Optional fields are `mounted` (default
 true), `label` (empty), `read_only` (false), `retain_deleted` (true for FR:, false

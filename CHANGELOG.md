@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.023853 - 2026-11-06
+
+- Accept controller-style separators in exact rooted and virtual FILE paths.
+  Use the resolved key for access and busy checks.
+- Map external position slots to explicit one-based DH rows for forward,
+  inverse and reachability calculations.
+- Add opt-in dynamic display watch cleanup on task stop, abort or failure.
+
 ## 26.1106.021106 - 2026-11-06
 
 - Offer opt-in UTC modification times for closed rooted files in FILE_LIST

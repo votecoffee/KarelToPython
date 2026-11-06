@@ -462,7 +462,7 @@ queue-entry policies; FILE banks remain excluded.
   checks and certified/native reachability. Standard-DH models use bounded
   numerical IK; failure to find a solution is not proof of impossibility.
 - Unconfigured groups/axes, coupled mechanisms and external axes beyond the
-  supplied model's supported width and trailing-axis mapping. Three XYZWPREXT
+  supplied model's supported width and explicitly mapped DH rows. Three XYZWPREXT
   metadata slots do not model arbitrary physical external-axis behavior.
 - Native reflection/Euler singularity/configuration/default conventions and all
   robot-specific type conversions. MIRROR, framed conversions, range checks and
@@ -491,8 +491,9 @@ queue-entry policies; FILE banks remain excluded.
   encodings remain blocked.
   Twelve [dynamic display calls](dynamic-displays.md) now watch static globals and
   explicit ports, with bounded logical checkpoint intervals, atomic field updates
-  and typed cancellation. Native background timing, implicit task cleanup, live
-  binding persistence and native form widgets remain unsupported. Six
+  and typed cancellation. Opt-in cleanup releases watches on stop, abort or
+  failure. Native background timing, live binding persistence and native form
+  widgets remain unsupported. Six
   [keyboard/menu calls](keyboard-input.md) now use injected key events, editable
   buffers, masks, pane capture, cooperative waits and PUSH/POP suspension; combined
   WD/TPKB echo and dictionary-backed entry/subwindow/pull-up controls are modeled.

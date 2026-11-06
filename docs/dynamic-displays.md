@@ -107,10 +107,14 @@ metadata = context.dynamic_display.snapshot()      # detached, JSON-safe
 context.dynamic_display.close_all()                 # explicit cleanup
 ```
 
-Host values/ports can change between polls. There is no automatic wall-clock
-polling. Registrations remain live through pause and program termination until
-explicit cancellation or host cleanup; this is not an implicit native lifecycle
-policy. Linked routines and scheduled programs can observe shared globals.
+Host values/ports can change between polls. Registrations remain live through
+pause and program termination by default. Set `cancel_on_interrupt: true` in
+the `dynamic_display` context or pass `DynamicDisplays(cancel_on_interrupt=True)`
+to release bindings created during a run that stops, aborts or fails. A pause
+or normal completion retains bindings. Cleanup clears owned fixed-width
+fields and restores surviving fields using the existing cancellation rules.
+An invalid surface can prevent repainting, but the interrupted run's bindings
+are still removed. Linked routines and scheduled programs can observe shared globals.
 Snapshots include IDs, type/window/layout, owner, source key, next due time,
 last text and last_status; they contain no executable references.
 

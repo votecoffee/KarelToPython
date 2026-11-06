@@ -1,6 +1,7 @@
 """Authored static-variable monitors, logical polling and field cancellation."""
 import json
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
@@ -116,6 +117,42 @@ class DynamicValueTests(unittest.TestCase):
 
 
 class DynamicClockAndCancellationTests(unittest.TestCase):
+    def test_opt_in_cleanup_keeps_other_runs_and_restores_overlapping_text(self):
+        ctx=context(cancel_on_interrupt=True)
+        execute(SETUP+'n=123 '+call(col=3,width=4),ctx=ctx)
+        task,_=compile_program('n=8 '+call()+'PAUSE',decl=DECL,context=ctx)
+        with self.assertRaises(rt.KarelPause):task.run()
+        self.assertEqual(ctx.dynamic_display.active_count,2)
+        self.assertEqual(line(ctx)[:6],'8     ')
+        task.stop()
+        self.assertEqual(ctx.dynamic_display.active_count,1)
+        self.assertEqual(line(ctx)[:6],'  123 ')
+
+    def test_default_keeps_watch_on_stop(self):
+        ctx=context()
+        task,_=compile_program(SETUP+'n=1 '+call()+'PAUSE',decl=DECL,context=ctx)
+        with self.assertRaises(rt.KarelPause):task.run()
+        task.stop()
+        self.assertEqual(ctx.dynamic_display.active_count,1)
+        self.assertEqual(ctx.dynamic_display.close_all(),0)
+
+    def test_failure_releases_watch_and_closed_policy_survives_config(self):
+        ctx=context(cancel_on_interrupt=True)
+        task,_=compile_program(SETUP+'n=1 '+call()+'s=e',decl=DECL,context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'):task.run()
+        self.assertEqual(ctx.dynamic_display.active_count,0)
+        self.assertEqual(line(ctx)[:6],' '*6)
+        restored=rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        self.assertTrue(restored.dynamic_display.cancel_on_interrupt)
+
+    def test_stop_releases_binding_even_when_cleanup_cannot_paint(self):
+        ctx=context(cancel_on_interrupt=True)
+        task,_=compile_program(SETUP+'n=1 '+call()+'PAUSE',decl=DECL,context=ctx)
+        with self.assertRaises(rt.KarelPause):task.run()
+        with patch.object(ctx.pendant,'paint_fields',side_effect=rt.KarelRuntimeError('invalid surface')):
+            task.stop()
+        self.assertEqual(ctx.dynamic_display.active_count,0)
+
     def test_minimum_interval_uses_explicit_logical_time(self):
         _,ctx,p,_=execute(SETUP+'n=1 '+call(interval=10))
         p._state.set('N',7);self.assertEqual(ctx.dynamic_display.advance(9),0)

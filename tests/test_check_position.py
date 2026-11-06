@@ -76,6 +76,30 @@ class PositionModelCheckTests(unittest.TestCase):
                 state=run(SETUP+f'p.z=42 p.ext1={value} '+CALL,decl=DECL,context=ctx)
                 self.assertEqual(state['S'],expected)
 
+    def test_mapped_external_rows_fix_axes_in_slot_order(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{
+            'dh':[{'type':'prismatic','min':0,'max':50},{'a':100,'alpha':90,'min':0,'max':0},
+                  {'type':'prismatic','min':0,'max':50}],
+            'external_axis_indices':[3,1]}})
+        # Row 1 moves world Z; row 3 moves along the rotated local Z.
+        body=SETUP+"a[1]=17 a[2]=0 a[3]=31 CNV_REL_JPOS(a,j,s) "
+        body+="JOINT2POS(j,f,t,0,q,c,e,s) p=q p.ext1=e[1] p.ext2=e[2] "
+        body+=CALL+" hit=s p.ext1=32 "+CALL
+        body+=" miss=s POS2JOINT(j,q,f,t,0,c,e,out,s) CNV_JPOS_REL(out,a,s)"
+        restored=rt.ExecutionContext.from_config(json.loads(json.dumps(ctx.to_config())))
+        decl=DECL+' q:POSITION j,out:JOINTPOS3 a,e:ARRAY[3] OF REAL hit,miss:INTEGER'
+        state=run(body,decl=decl,context=restored,joint_axes=3)
+        self.assertEqual((state['HIT'],state['MISS'],state['S']),(0,1,0))
+        self.assertEqual(state['E'],[31.,17.,0.])
+        self.assertEqual(state['A'],[17.,0.,31.])
+
+    def test_mapped_external_rows_require_distinct_valid_indices(self):
+        for indices in ([1,1],[0],[4],[True],[1,2,3],'1',1):
+            with self.subTest(indices=indices),self.assertRaisesRegex(ValueError,'External-axis indices'):
+                rt.SerialRobotModel([{}, {}, {}],external_axis_indices=indices)
+        with self.assertRaisesRegex(ValueError,'Choose'):
+            rt.SerialRobotModel([{}, {}, {}],external_axes=1,external_axis_indices=[2])
+
     def test_model_limits_can_reject_cartesian_orientation(self):
         self.assertEqual(run(SETUP+'p.r=90 '+CALL,decl=DECL,context=context())['S'],1)
 

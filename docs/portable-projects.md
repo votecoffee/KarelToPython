@@ -102,7 +102,9 @@ context = rt.ExecutionContext(files=files)
 ```
 
 Names are relative paths, optionally beginning with a mapped device, such as
-`MD:result.txt`. Absolute names, `..`, unmapped devices and symlink components
+`MD:result.txt`. Either slash and one optional separator after a device are
+accepted, so `MD:\jobs\result.txt` and `MD:jobs/result.txt` resolve to the
+same file. Absolute names, `..`, unmapped devices, extra colons and symlink components
 are rejected. File parents are not created. The default per-file limit is 16 MiB,
 configurable up to 64 MiB. Each backend permits one open handle per file.
 These checks are for controlled offline directories; they do not provide a
@@ -252,9 +254,12 @@ assert context.robot.model.chain([0, 90])[0][3] == 100.0
 Supply standard DH rows with `a`, `alpha`, `d`, `theta`, `offset`, `type`, `min`
 and `max`. Lengths use mm; angles use degrees. Types are revolute or prismatic.
 Omitted geometry/offset fields are zero; default limits are -180..180 degrees
-or -1000..1000 mm. There are 1..9 joints and up to three external joints, which
-occupy the tail of the serial chain. `external_axes` leaves at least one main
-joint. This is a generic model; no robot's dimensions are bundled or inferred.
+or -1000..1000 mm. There are 1..9 joints and up to three external joints.
+Supply `external_axes` for a count of trailing DH rows, or use
+`external_axis_indices` for distinct one-based DH row numbers. The list order
+matches EXT1 through EXT3. For example, `"external_axis_indices": [3, 1]`
+maps EXT1 to row 3 and EXT2 to row 1. At least one main joint must remain.
+Joint arrays keep DH row order. Supply all robot dimensions explicitly.
 
 The model provides real forward transformations and damped numerical inverse
 kinematics, seeded by the supplied reference joints. Limits and iteration budgets

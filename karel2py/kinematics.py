@@ -80,9 +80,19 @@ def linear_solve(a,b):
 
 
 class SerialRobotModel:
-    def __init__(self,dh,*,external_axes=0,base=None,iterations=200,position_tolerance=.01,orientation_tolerance=.01):
+    def __init__(self,dh,*,external_axes=0,external_axis_indices=None,base=None,iterations=200,position_tolerance=.01,orientation_tolerance=.01):
         if not isinstance(dh,(list,tuple)) or not 1<=len(dh)<=9: raise ValueError('DH model requires 1..9 joints')
-        if type(external_axes) is not int or not 0<=external_axes<=min(3,len(dh)-1): raise ValueError('External-axis count must leave at least one main joint')
+        external_limit=min(3,len(dh)-1)
+        if type(external_axes) is not int or not 0<=external_axes<=external_limit: raise ValueError('External-axis count must leave at least one main joint')
+        if external_axis_indices is None:
+            self._external_joints=tuple(range(len(dh)-external_axes,len(dh)))
+        else:
+            if external_axes:raise ValueError('Choose external_axes or external_axis_indices')
+            if (not isinstance(external_axis_indices,(list,tuple)) or len(external_axis_indices)>external_limit
+                    or any(type(index) is not int or not 1<=index<=len(dh) for index in external_axis_indices)
+                    or len(set(external_axis_indices))!=len(external_axis_indices)):
+                raise ValueError('External-axis indices require up to three distinct one-based DH rows and at least one main joint')
+            self._external_joints=tuple(index-1 for index in external_axis_indices)
         if type(iterations) is not int or not 1<=iterations<=2000: raise ValueError('IK iterations must be in 1..2000')
         self.rows=[]; self.limits=[]
         for row in dh:
@@ -96,7 +106,7 @@ class SerialRobotModel:
             bounds=(float(original.get('min',-180 if kind=='revolute' else -1000)),float(original.get('max',180 if kind=='revolute' else 1000)))
             if not all(math.isfinite(v) for v in (*values.values(),*bounds)) or bounds[0]>bounds[1]: raise ValueError('DH parameters and limits must be finite and ordered')
             self.rows.append(dict(type=kind,**values)); self.limits.append(bounds)
-        self.external_axes=external_axes; self.base=matrix(base) if base is not None else IDENTITY
+        self.external_axes=len(self._external_joints); self.base=matrix(base) if base is not None else IDENTITY
         self.iterations=iterations; self.position_tolerance=float(position_tolerance); self.orientation_tolerance=math.radians(orientation_tolerance)
         if not all(math.isfinite(v) and v>0 for v in (self.position_tolerance,self.orientation_tolerance)): raise ValueError('Positive finite IK tolerances required')
 
@@ -124,7 +134,7 @@ class SerialRobotModel:
         if check_limits and not self.within_limits(values): raise ValueError('Joint values exceed model limits')
         result=multiply(inverse(matrix(uframe)),multiply(multiply(self.base,self.chain(values)),matrix(utool)))
         cfg=uframe.values['CONFIG_DATA'].clone()
-        axes=values[-self.external_axes:] if self.external_axes else []
+        axes=[values[index] for index in self._external_joints]
         return pose(result,cfg,extended=axes),cfg,axes+[0.]*(3-len(axes))
 
     def solve(self,target,seed,*,fixed=None):
@@ -171,7 +181,7 @@ class SerialRobotModel:
         if self.external_axes:
             with rt()._numeric_scope('pythonic'): axes=[rt().real(value) for value in external.values]
             if len(axes)<self.external_axes: raise ValueError('External-axis input is shorter than the model')
-            fixed={self.axes-self.external_axes+i:axes[i] for i in range(self.external_axes)}
+            fixed=dict(zip(self._external_joints,axes))
         result=self.solve(target,values,fixed=fixed)
         if result is None: raise ValueError('No IK solution within the supplied limits and iteration budget')
         joints=rt().JointPosition(('JOINTPOS',self.axes)); joints.values[:]=result; return joints
@@ -179,7 +189,7 @@ class SerialRobotModel:
     def reachable(self,position,uframe=None,utool=None):
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe) if uframe is not None else IDENTITY,matrix(position)),inverse(matrix(utool)) if utool is not None else IDENTITY))
         midpoint=[(lo+hi)/2 for lo,hi in self.limits]
-        fixed={self.axes-self.external_axes+i:position.values.get('EXT'+str(i+1),0.) for i in range(self.external_axes)}
+        fixed={index:position.values.get('EXT'+str(slot),0.) for slot,index in enumerate(self._external_joints,1)}
         for seed in ([0.]*self.axes,midpoint,[lo+(hi-lo)*.25 for lo,hi in self.limits],[lo+(hi-lo)*.75 for lo,hi in self.limits]):
             if self.solve(target,seed,fixed=fixed) is not None: return True
         return False
@@ -189,7 +199,7 @@ def robot_context_from_config(config):
     from .extended import RobotContext,RobotState
     from .storage import decode_typed
     if type(config) is not dict: raise ValueError('Robot context must be an object')
-    allowed={'groups','active_group','dh','external_axes','base','iterations','position_tolerance','orientation_tolerance','frames','tools','frame','tool','current','joint_limits'}
+    allowed={'groups','active_group','dh','external_axes','external_axis_indices','base','iterations','position_tolerance','orientation_tolerance','frames','tools','frame','tool','current','joint_limits'}
     if set(config)-allowed: raise ValueError('Unknown robot context fields')
     if 'joint_limits' in config and type(config['joint_limits']) is not list: raise ValueError('joint_limits must be a list of explicit bounds')
     if 'groups' in config:
@@ -230,7 +240,9 @@ def robot_context_from_config(config):
         context.model_config=deepcopy(config);return context
     if 'joint_limits' in config: raise ValueError('DH joint limits belong in the DH rows, not joint_limits')
     base=decode_typed(config['base'])[1] if 'base' in config else None
-    model=SerialRobotModel(config['dh'],external_axes=config.get('external_axes',0),base=base,iterations=config.get('iterations',200),position_tolerance=config.get('position_tolerance',.01),orientation_tolerance=config.get('orientation_tolerance',.01))
+    model=SerialRobotModel(config['dh'],external_axes=config.get('external_axes',0),
+        external_axis_indices=config.get('external_axis_indices'),base=base,iterations=config.get('iterations',200),
+        position_tolerance=config.get('position_tolerance',.01),orientation_tolerance=config.get('orientation_tolerance',.01))
     frames={int(k):decode_typed(v)[1] for k,v in config.get('frames',{}).items()}; tools={int(k):decode_typed(v)[1] for k,v in config.get('tools',{}).items()}
     frames.setdefault(0,pose()); tools.setdefault(0,pose())
     active_frame=config.get('frame',0); active_tool=config.get('tool',0)

@@ -210,6 +210,31 @@ class RootedDirectoryListingTests(ListingCases,unittest.TestCase):kind='director
 
 
 class DirectoryQueryBoundaries(unittest.TestCase):
+    def test_exact_file_paths_use_the_same_key_for_both_separators(self):
+        body=r"""OPEN FILE f('RO','rd:\jobs\top.KL')
+            COPY_FILE('RD:jobs/top.KL','FR:\jobs\saved.PY',FALSE,FALSE,busy)
+            CLOSE FILE f
+            COPY_FILE('RD:/jobs/top.KL','FR:\jobs\saved.PY',FALSE,FALSE,s)
+            RENAME_FILE('FR:jobs/saved.PY','FR:/jobs/renamed.PY',FALSE,s)
+            DELETE_FILE('RD:\jobs/top.KL',FALSE,s)"""
+        for kind in ('directory','device'):
+            with self.subTest(kind=kind),bank(kind) as files:
+                _,data,_=run(files,body,'f:FILE busy,s:INTEGER')
+                self.assertEqual((data['BUSY'],data['S']),(3,0))
+                self.assertEqual(snapshot(files)['FR:jobs/renamed.PY'],b't')
+                self.assertNotIn('RD:jobs/top.KL',snapshot(files))
+                self.assertEqual(len(files.list_names(r'FR:\jobs\renamed.PY')),1)
+
+    def test_exact_file_paths_cannot_smuggle_an_extra_root_or_stream(self):
+        for kind in ('directory','device'):
+            with self.subTest(kind=kind),bank(kind) as files:
+                before=snapshot(files)
+                for name in (r'RD:\\jobs\a.KL',r'RD:\jobs\..\a.KL',r'RD:\jobs\top.KL:stream',
+                             r'\\host\share\a.KL',r'ZZ:\jobs\a.KL'):
+                    with self.subTest(name=name),self.assertRaises(rt.KarelRuntimeError):
+                        run(files,f"OPEN FILE f('WO','{name}') CLOSE FILE f",'f:FILE')
+                self.assertEqual(snapshot(files),before)
+
     def test_device_complete_capacity_preflight(self):
         with bank('device') as files:
             files._volumes['FR']['capacity']=3;before=deepcopy(files.to_config())

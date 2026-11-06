@@ -1,5 +1,5 @@
 {
-  "version": "26.1028.133057",
+  "version": "26.1106.023853",
   "mode": "pythonic",
   "controller_validated": false,
   "sources": [
@@ -39,11 +39,12 @@
     "fields": "Bounded one-row fields, fixed-width truncation/padding or width-zero partial text, atomic batches without FILE cursor changes; style intent recognized without native glyph effects",
     "clock": "Logical quantum per leaf checkpoint while active, explicit host advance/force, positive minimum intervals and one sample without catch-up; finite saturating clock",
     "cancellation": "Family/storage-or-port/window identity; all matching locations; clear positive width, retain zero width, restore surviving last samples; cleanup at exhausted history sequence",
+    "interruption": "Optional cancel_on_interrupt unbinds only watches created by the stopped, aborted or failed run. Pause and normal completion retain watches.",
     "persistence": "Reject active-binding save; keep closed settings, elapsed time and registration sequence plus pendant grids/history; no automatic subscriptions or execution restoration"
   },
   "boundaries": [
     "Portable statuses and checkpoint clock rather than controller scheduling/native background execution",
-    "No routine-local/formal bindings, implicit task-end cancellation, font/color/size rendering or native port-type discovery",
+    "No routine-local/formal bindings, default task-end cancellation, font/color/size rendering or native port-type discovery",
     "No form/list/table managers, keyboard input, active-reference serialization, strict/controller equivalence"
   ],
   "validation": [

@@ -234,7 +234,7 @@ class TableControls:
         if work is not None:
             root=rt().task_root(session['state'])
             session['root']=root;session['run']=root._task_run
-            if root._task_run is not None:root._task_table_controls.add(self)
+            if root._task_run is not None:root._task_display_services[self]=None
             session['work']=work;session['work_value']=work.raw()
             rt().field_reference(work.raw(),'SESSION',line).set(identity,line)
         self._sessions[identity]=session

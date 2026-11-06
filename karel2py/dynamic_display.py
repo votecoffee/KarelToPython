@@ -30,12 +30,14 @@ def checked_format(text,kind):
 
 class DynamicDisplays:
     """Explicit checkpoint clock; active references are never serialized."""
-    def __init__(self,*,quantum_ms=1,elapsed_ms=0,limit=256,sequence=0):
+    def __init__(self,*,quantum_ms=1,elapsed_ms=0,limit=256,sequence=0,cancel_on_interrupt=False):
         if type(quantum_ms) is not int or not 1<=quantum_ms<=86400000:raise ValueError('Display quantum requires 1..86400000 ms')
         if type(elapsed_ms) is not int or not 0<=elapsed_ms<=MAX_SEQUENCE:raise ValueError('Invalid display elapsed milliseconds')
         if type(limit) is not int or not 1<=limit<=256:raise ValueError('Display binding limit requires 1..256')
         if type(sequence) is not int or not 0<=sequence<=MAX_SEQUENCE:raise ValueError('Invalid display binding sequence')
+        if type(cancel_on_interrupt) is not bool:raise ValueError('cancel_on_interrupt requires BOOLEAN')
         self.quantum_ms=quantum_ms;self.elapsed_ms=elapsed_ms;self.limit=limit;self.sequence=sequence;self._bindings=[]
+        self.cancel_on_interrupt=cancel_on_interrupt
 
     @property
     def active_count(self):return len(self._bindings)
@@ -102,7 +104,7 @@ class DynamicDisplays:
             binding.update(last_text=text,last_status=status,next_due=moment+binding['interval'])
         return len(prepared)
 
-    def cancel(self,selected,state=None,line=None):
+    def cancel(self,selected,state=None,line=None,*,interrupted=False):
         if not selected:return 3
         selected_ids={binding['id'] for binding in selected};groups={}
         for binding in selected:
@@ -113,11 +115,17 @@ class DynamicDisplays:
             fields.extend((binding['row'],binding['col'],binding['last_text']) for binding in self._bindings
                 if binding['id'] not in selected_ids and binding['pendant'] is pendant and binding['window']==window)
             owner=state or next(binding['state'] for binding in selected if binding['pendant'] is pendant and binding['window']==window)
-            pendant.paint_fields(owner,window,fields,line,cleanup=True)
+            try:pendant.paint_fields(owner,window,fields,line,cleanup=True)
+            except rt().KarelRuntimeError:
+                if not interrupted:raise
         self._bindings[:]=[binding for binding in self._bindings if binding['id'] not in selected_ids]
         return 0
 
     def close_all(self):return self.cancel(list(self._bindings))
+
+    def finish(self,root,run):
+        selected=[binding for binding in self._bindings if binding.get('root') is root and binding['run'] is run]
+        self.cancel(selected,root,interrupted=True)
 
     def invoke(self,state,name,args,line=None):
         from .extended import PORT_TYPES
@@ -140,9 +148,10 @@ class DynamicDisplays:
             if not 0<=width<=256 or not 0<=attributes<=15 or size not in (0,2) or not 1<=row<=surface['rows'] or not 1<=col<=surface['cols'] or width>surface['cols']-col+1 or not 1<=interval<=86400000:
                 status.set(1,line);return
             if len(self._bindings)>=self.limit or self.sequence>=MAX_SEQUENCE:status.set(5,line);return
+            root=runtime.task_root(state)
             binding=dict(id=self.sequence+1,kind=kind,window=window,width=width,attributes=attributes,char_size=size,row=row,col=col,
                 interval=interval,reference=None if port else args[0],identity=identity,state=state,pendant=pendant,
-                program=state.program_name,owner=runtime.task_root(state).program_name,line=line or 0,
+                program=state.program_name,owner=root.program_name,line=line or 0,
                 buffer_size=None,format=None,labels=None,match=None,next_due=self.elapsed_ms+interval)
             if kind in 'BEP':
                 labels=args[8+offset]
@@ -156,6 +165,9 @@ class DynamicDisplays:
             text,code=self.sample(binding,line);text=self.field(binding,text)
             pendant.paint_fields(state,window,[(row,col,text)],line)
             binding.update(last_text=text,last_status=code)
+            if self.cancel_on_interrupt and root._task_run is not None:
+                binding.update(root=root,run=root._task_run)
+                root._task_display_services[self]=None
             self.sequence+=1;self._bindings.append(binding);status.set(0,line)
         except ValueError:status.set(1,line)
 
@@ -166,7 +178,9 @@ class DynamicDisplays:
             data['source_key']=None if binding['reference'] is None else str(binding['reference'].key)
             if binding['kind']=='P':data['port']=list(binding['port'])
             bindings.append(data)
-        return dict(quantum_ms=self.quantum_ms,elapsed_ms=self.elapsed_ms,limit=self.limit,sequence=self.sequence,bindings=deepcopy(bindings))
+        result=dict(quantum_ms=self.quantum_ms,elapsed_ms=self.elapsed_ms,limit=self.limit,sequence=self.sequence,bindings=deepcopy(bindings))
+        if self.cancel_on_interrupt:result['cancel_on_interrupt']=True
+        return result
 
     def to_config(self):
         if self._bindings:raise ValueError('Cancel dynamic display bindings before saving context')
@@ -174,5 +188,5 @@ class DynamicDisplays:
 
     @classmethod
     def from_config(cls,config):
-        if type(config) is not dict or set(config)-{'quantum_ms','elapsed_ms','limit','sequence'}:raise ValueError('Unknown dynamic display configuration fields')
+        if type(config) is not dict or set(config)-{'quantum_ms','elapsed_ms','limit','sequence','cancel_on_interrupt'}:raise ValueError('Unknown dynamic display configuration fields')
         return cls(**config)

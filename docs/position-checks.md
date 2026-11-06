@@ -50,10 +50,11 @@ It does not use active frame/tool selections or require corresponding entries
 in the frame/tool maps. For example, frame X=10 mm, target X=95 mm and tool
 X=5 mm produce a flange target at X=100 mm.
 
-Reachability uses the existing bounded multi-seed numerical search, joint limits
-and configured external joints. Only the configured trailing external axes are
-constrained by EXT1..EXT3; unmodeled external metadata is not validated. CONFIG
-fields are checked as data but do not select calibrated configuration branches.
+Reachability uses bounded multi-seed numerical search and joint limits. Each
+configured external joint is fixed to its corresponding EXT1..EXT3 value.
+Use `external_axes` for trailing DH rows or
+`external_axis_indices` for an explicit row order. CONFIG fields are checked
+as data and do not select calibrated configuration branches.
 A failed search does not prove geometric impossibility. JSON save/load preserves
 the model and recreates the check adapter.
 

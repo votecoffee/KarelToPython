@@ -381,7 +381,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.021106**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.023853**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -754,6 +754,8 @@ Six device/storage calls share explicit virtual DeviceFiles volumes, including
 mount state, byte quotas, obsolete-storage reclamation, labels and supplied device
 information. These operations affect memory-backed data only; see
 [virtual devices](docs/virtual-devices.md).
+Rooted and virtual FILE backends accept controller-style paths such as
+`RD:\jobs\part.dat` through their explicit device mappings.
 `FILE_LIST` supports name, extension, complete-name and portable 40-column size
 formats, with whole-page validation before outputs change. Pair
 `--filesystem-timestamps` with `--filesystem-root` to include UTC modification
@@ -834,7 +836,8 @@ and printable delimiters, using the same injected events and lifetime guards.
 Twelve dynamic-display calls watch static scalar/enum variables and supplied
 ports, updating logical window fields at deterministic checkpoint intervals.
 Cancellation matches storage identity and clears fixed-width fields while
-preserving ordinary FILE cursors. Cancel active bindings before saving context.
+preserving ordinary FILE cursors. Set `cancel_on_interrupt` to release a task's
+watches when it stops, aborts or fails. Cancel retained bindings before saving context.
 See [dynamic displays](docs/dynamic-displays.md).
 
 Seven dictionary calls now load supplied text catalogs, read numbered/named
@@ -1103,7 +1106,8 @@ source. Strict mode remains a future milestone.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
 - Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
 - CHECK_EPOS with explicit frame/tool poses, selected robot group and a supplied
-  DH model or synchronous callback; see [position checks](docs/position-checks.md).
+  DH model or synchronous callback. A DH model supports explicit external-axis
+  row mappings. See [position checks](docs/position-checks.md).
 - Boolean WAIT FOR with repeated checks, host yields and bounded execution.
 - Error-history queries through `ERR_DATA`, with sequential/latest lookup,
   checked message outputs and optional persisted text/timestamps; see

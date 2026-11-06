@@ -67,10 +67,11 @@ class DeviceFiles(MemoryFiles):
             if self.used(key)>row['capacity']: raise ValueError('Initial virtual files and garbage exceed capacity')
 
     def canonical(self,name):
-        name=rt().ascii_string(name)
+        from .fileops import _file_name_separators
+        name=_file_name_separators(rt().ascii_string(name))
         device,sep,path=name.partition(':');key=device_name(device+':') if sep else None
         if key not in self._volumes or key in TOTAL_ONLY: raise rt().KarelRuntimeError('File requires an explicitly configured virtual file device')
-        if not path or ':' in path or '\\' in path or path.startswith('/') or any(part in ('','.','..') for part in path.split('/')) or any(ord(c)<32 or ord(c)==127 for c in path):
+        if ':' in path or any(part in ('','.','..') for part in path.split('/')) or any(ord(c)<32 or ord(c)==127 for c in path):
             raise rt().KarelRuntimeError('Virtual file path must remain relative to its device')
         return key+':'+path
 
@@ -116,7 +117,8 @@ class DeviceFiles(MemoryFiles):
     def read_named(self,name): return super().read_named(self.canonical(name))
 
     def list_names(self,pattern='*'):
-        pattern=rt().ascii_string(pattern)
+        from .fileops import _file_name_separators
+        pattern=_file_name_separators(rt().ascii_string(pattern))
         if ':' in pattern:
             device,tail=pattern.split(':',1);key=device_name(device+':')
             if key not in self._volumes or key in TOTAL_ONLY: raise rt().KarelRuntimeError('Unknown virtual listing device')

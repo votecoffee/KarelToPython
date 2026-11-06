@@ -175,7 +175,9 @@ class VirtualCapacityTests(unittest.TestCase):
     def test_device_names_fold_case_paths_preserve_case_and_reject_traversal(self):
         bank=rt.DeviceFiles({'RD:':{'capacity':10}}, {'rd:Dir/a':b'data'})
         self.assertEqual(bank.read_named('rD:Dir/a'),(0,b'data'))
-        for name in ('RD:/a','RD:../a','RD:Dir/../a','RD:Dir\\a','RD:a:b','unknown:a','RD:'):
+        self.assertEqual(bank.read_named(r'rD:\Dir\a'),(0,b'data'))
+        self.assertEqual(bank.read_named(r'rD:\dir\a'),(1,None))
+        for name in ('RD://a','RD:../a','RD:Dir/../a',r'RD:Dir\..\a','RD:a:b','unknown:a','RD:'):
             with self.subTest(name=name),self.assertRaises(rt.KarelRuntimeError):bank.open(rt.FileHandle(),'RW',name)
 
     def test_xml_and_text_operations_share_the_same_virtual_mount(self):
