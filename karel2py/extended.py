@@ -171,7 +171,7 @@ PROCEDURES = {
     'MOUNT_DEV': (S,OI), 'DISMOUNT_DEV': (S,OI), 'FORMAT_DEV': (S,S,B,OI),
     'PURGE_DEV': (S,OI), 'VOL_SPACE': (S,OI,OI,OS), 'DOSFILE_INF': (S,I,OS,OI),
     'CHECK_EPOS': (arg('POSE'),arg('POSE'),arg('POSE'),OI,I),
-    'JOINT2POS': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),I,arg('POSITION','o'),arg('CONFIG','o'),arg('REAL_ARRAY','r'),OI),
+    'JOINT2POS': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),I,arg('POSE','o'),arg('CONFIG','o'),arg('REAL_ARRAY','r'),OI),
     'POS2JOINT': (arg('JOINTPOS'),arg('POSE'),arg('POSE'),arg('POSE'),I,arg('CONFIG'),arg('REAL_ARRAY'),arg('JOINTPOS','o'),OI),
 }
 FUNCTIONS = {
@@ -3175,8 +3175,15 @@ class ExecutionContext:
             config=rt.positional_value(('CONFIG',),result[1],line); external=[rt.real(v,line) for v in result[2]]
             array=args[6].raw()
             if len(external)!=len(array.values): fail('Forward external axis result does not match output ARRAY',line)
+            target=args[4].spec
+            if target==('XYZWPREXT',):
+                position=pose_extended(position,line)
+                position.values.update((f'EXT{i}',value) for i,value in enumerate(external[:3],1))
+            elif target==('XYZWPR',):
+                position=rt.convert_position(target,position,line)
+            axis_outputs=[rt.index_reference(array,i,line) for i in range(1,len(external)+1)]
             args[4].set(position,line); args[5].set(config,line)
-            for i,value in enumerate(external): array.set(i+1,value,line)
+            for reference,value in zip(axis_outputs,external): reference.set(value,line)
         else:
             if robot.model is not None:
                 if args[7].spec not in (('JOINTPOS',robot.model.axes),('JOINTPOS',9)): fail('Inverse output must match the model axes or JOINTPOS9',line)

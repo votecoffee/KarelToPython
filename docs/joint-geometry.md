@@ -75,7 +75,7 @@ also accepts joint inputs through this forward conversion. POSITION orientation 
 protected. A [right VECTOR point](vector-frames.md) now produces a VECTOR after
 forward conversion and affine transformation. [VECTOR translation frames](vector-translation-frames.md)
 also accept left offsets and FRAME point locations, using the existing explicit
-joint conversion for pose origins. A VECTOR origin uses an explicit fourth CONFIG.
+joint conversion for pose origins. A VECTOR origin uses an explicit final CONFIG.
 
 ## External axes and comparisons
 

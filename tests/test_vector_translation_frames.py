@@ -131,6 +131,34 @@ class VectorPointFrameTests(unittest.TestCase):
                          [10.,20.,30.,0.,0.,0.])
         self.assertEqual(values['E']['CONFIG_DATA'],values['CFG'])
 
+    def test_separate_vector_origin_has_independent_coordinates_and_config(self):
+        call='FRAME(VEC(10,20,30),VEC(10,40,30),VEC(-10,20,30),v,cfg)'
+        program,result=compile_program(SETUP+f'cfg.cfg_flip=ON b={call} value={call}.x cfg.cfg_flip=OFF',
+                                       decl=DECL)
+        state=program.run()
+        self.assertEqual([state['B'][field] for field in ('X','Y','Z','W','P','R')],
+                         [2.,3.,4.,0.,0.,90.])
+        self.assertEqual(state['VALUE'],2.)
+        self.assertTrue(state['B']['CONFIG_DATA']['CFG_FLIP'])
+        self.assertFalse(state['CFG']['CFG_FLIP'])
+        rows=[row for row in result.report['frame_operations'] if row['operation']=='FRAME']
+        self.assertEqual([(row['origin_argument'],row['configuration_argument']) for row in rows],[(4,5),(4,5)])
+        self.assertEqual(rows[0]['operand_types'],['VECTOR']*4+['CONFIG'])
+
+    def test_config_expression_cannot_modify_captured_separate_origin(self):
+        values=execute('e.ext1=9 p=POS(30,20,30,0,0,0,cfg) '
+                       'e=FRAME(e,p,VEC(10,40,30),v,select_cfg())',
+                       routines='ROUTINE select_cfg:CONFIG BEGIN v.x=99 RETURN cfg END select_cfg')
+        self.assertEqual([values['E'][field] for field in ('X','Y','Z','EXT1','EXT2','EXT3')],
+                         [2.,3.,4.,0.,0.,0.])
+        self.assertEqual(values['V']['X'],99.)
+
+    def test_separate_origin_and_config_types_are_checked(self):
+        for args,code in (('a,p,e,a,cfg','E_TYPE'),('a,p,e,v,a','E_ARGUMENTS')):
+            with self.subTest(args=args),self.assertRaises(TranslationError) as caught:
+                compile_program(SETUP+f'value=FRAME({args}).x',decl=DECL)
+            self.assertEqual(caught.exception.code,code)
+
     def test_explicit_config_must_be_initialized_before_frame_publication(self):
         program,_=compile_program(SETUP+'b=a b.x=77 b=FRAME(v,VEC(22,3,4),VEC(2,23,4),bad)',
                                   decl=DECL+' bad:CONFIG')

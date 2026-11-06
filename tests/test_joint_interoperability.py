@@ -25,6 +25,59 @@ FORWARD='j=CURJPOS(0,0) JOINT2POS(j,f,f,0,p,c,ext,s) '
 INVERSE='POS2JOINT(j,p,f,f,0,c,ext,out,s)'
 
 
+class CartesianForwardOutputsTests(unittest.TestCase):
+    def test_model_outputs_all_three_representations_and_roundtrips(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{
+            'dh':[{'a':100},{'type':'prismatic','min':0,'max':100}], 'external_axes':1,
+            'current':{'joints':typed_value(joint([30.,42.]))}}})
+        state=run(FRAME+FORWARD+
+                  'JOINT2POS(j,f,f,0,euler,c,ext,s) JOINT2POS(j,f,f,0,expanded,c,ext,s) '+
+                  'POS2JOINT(j,expanded,f,f,0,c,ext,out,s)',
+                  decl=DECL+' euler: XYZWPR expanded: XYZWPREXT',context=ctx)
+        for field in ('X','Y','Z'):
+            self.assertAlmostEqual(state['EULER'][field],state['P']['LOCATION'][field])
+            self.assertEqual(state['EXPANDED'][field],state['EULER'][field])
+        self.assertAlmostEqual(state['EXPANDED']['R'],30.)
+        self.assertEqual([state['EXPANDED'][f'EXT{i}'] for i in range(1,4)],state['EXT'])
+        self.assertEqual((state['EXT'],state['OUT']['axes'],state['S']),([42.,0.,0.],[30.,42.]+[0.]*7,0))
+
+    def test_callback_axes_fill_extended_fields_and_exact_array_prefix(self):
+        point=pose(11,22,33)
+        config=point.values['CONFIG_DATA'].clone()
+        config.values['CFG_FLIP']=True
+        for axes in ([2.5],[2.5,-3.,4.,5.]):
+            with self.subTest(axes=axes):
+                ctx=rt.ExecutionContext(robot=rt.RobotContext(
+                    forward=lambda *_:(point,config,axes)))
+                program,_=compile_program(FRAME+'JOINT2POS(j,f,f,0,p,c,ext[2],s)',
+                    decl=f'j:JOINTPOS f:POSITION p:XYZWPREXT c:CONFIG ext:ARRAY[2,{len(axes)}] OF REAL s:INTEGER',
+                    context=ctx)
+                program._state.values['J']=joint([0.]*9)
+                state=program.run()
+                self.assertEqual(state['EXT'],[[{'uninitialized':True}]*len(axes),axes])
+                self.assertEqual([state['P'][f'EXT{i}'] for i in range(1,4)],(axes+[0.]*3)[:3])
+                self.assertFalse(state['P']['CONFIG_DATA']['CFG_FLIP'])
+                self.assertTrue(state['C']['CFG_FLIP'])
+
+    def test_invalid_late_axis_preserves_pose_config_array_and_status(self):
+        point=pose(11,22,33)
+        config=point.values['CONFIG_DATA'].clone()
+        config.values['CFG_FLIP']=True
+        setup=FRAME+'p=f p.x=9 p.ext1=8 ext[1]=7 ext[2]=6 ext[3]=5 s=99 '
+        for axes in ([1.,2.],[1.,2.,float('nan')]):
+            with self.subTest(axes=axes):
+                ctx=rt.ExecutionContext(robot=rt.RobotContext(
+                    forward=lambda *_:(point,config,axes)))
+                program,_=compile_program(setup+'JOINT2POS(j,f,f,0,p,c,ext,s)',
+                    decl=DECL.replace('f,p: POSITION','f: POSITION p: XYZWPREXT'),context=ctx)
+                program._state.values['J']=joint([0.]*9)
+                with self.assertRaises(rt.KarelRuntimeError):program.run()
+                state=program.snapshot()
+                self.assertEqual((state['P']['X'],state['P']['EXT1'],state['EXT'],state['S']),
+                                 (9.,8.,[7.,6.,5.],99))
+                self.assertFalse(state['C']['CFG_FLIP'])
+
+
 class PaddedJointTests(unittest.TestCase):
     def test_current_joint_value_runs_forward_and_inverse(self):
         ctx=model_context();state=run(FRAME+FORWARD+INVERSE,decl=DECL,context=ctx)

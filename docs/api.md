@@ -220,8 +220,8 @@ PNG/BMP exports without image processing or native acquisition.
 [Frame transforms](frame-transforms.md) expose `frame_operations` for explicit
 POSITION/XYZWPR composition/inversion and `frame_policy` for matrix/Euler conventions,
 configuration handling, capture order and retained controller boundaries.
-FRAME construction also records one-based `origin_argument` and three/four operand
-types in those entries. See [frame construction](frame-construction.md).
+FRAME construction also records one-based `origin_argument` and
+`configuration_argument` and the types of all operands. See [frame construction](frame-construction.md).
 [POSITION conversions](position-conversions.md) add `position_conversions` entries
 and `position_conversion_policy` for whole assignments, matrix tolerance and
 read-only orientation protection. [Cartesian routine conversions](cartesian-interfaces.md)

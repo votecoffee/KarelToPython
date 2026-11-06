@@ -341,6 +341,13 @@ expects a matching JointPosition. Inputs are independent copies; outputs are
 validated before assignment, including external-array length and joint width.
 Successful calls write status zero; adapter errors raise with the source line.
 
+Pythonic JOINT2POS accepts writable POSITION, XYZWPR and XYZWPREXT pose
+outputs. XYZWPR and XYZWPREXT use the same Cartesian geometry and embedded CONFIG
+as the POSITION result. The separate CONFIG output still receives the adapter's
+second tuple element. XYZWPREXT takes up to three values from the adapter's
+external-axis sequence, with zero in any unused fields. The separate REAL ARRAY
+continues to receive every returned axis and must match the sequence length.
+
 IN_RANGE calls `reachable(complete_pose)` and requires a Boolean result.
 J_IN_RANGE compares every axis against explicit inclusive `(minimum,maximum)`
 limits, one pair per declared joint. Missing models/limits raise. These checks

@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.200528**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.202434**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -716,7 +716,7 @@ FOR counters can also capture writable INTEGER record fields, ARRAY elements or
 USING fields once per entry, with conservative aggregate-write protection; see
 [reference counters](docs/reference-for-counters.md).
 VECTOR values can act as translation offsets, with negation through INV and
-checked FRAME point inputs using an explicit pose origin; see
+checked FRAME point inputs with a pose origin or explicit CONFIG. See
 [VECTOR translation frames](docs/vector-translation-frames.md).
 Finite `P1:` through `P5:` FILE endpoints use explicitly supplied RX/TX data,
 including text and binary transfers; see [serial streams](docs/serial-streams.md).
@@ -1008,6 +1008,8 @@ recorder or callback. Both use explicit memory or directory file context. See
 Whole JOINTPOS/Cartesian assignments use supplied robot models, selected frames
 and tools. Inverse assignments require supplied current joints as a seed. See
 [kinematic assignments](docs/kinematic-assignments.md) for the context and type rules.
+JOINT2POS also writes directly to POSITION, XYZWPR or XYZWPREXT. Extended pose
+fields use the returned external-axis values. See [offline robot geometry](docs/offline-services.md#geometry-and-robot-context).
 
 JOINTPOS operands also work in frame composition, INV, FRAME, MIRROR, axis queries
 and approximate comparisons through the supplied forward model. See
@@ -1125,8 +1127,8 @@ source. Strict mode remains a future milestone.
   VECTOR construction/signs/products and explicit-context offline conversion subsets.
 - CONFIG text parsing/formatting, with checked complete outputs and portable status.
 - Explicit XYZWPR frame composition and inversion, with independent CONFIG copies.
-- FRAME construction with three checked points and an optional pose origin.
-  A VECTOR origin accepts an explicit fourth CONFIG. See [VECTOR point frames](docs/vector-translation-frames.md#frame-point-inputs-and-metadata).
+- FRAME construction with three checked points and an optional separate origin.
+  A VECTOR origin requires explicit CONFIG. See [VECTOR point frames](docs/vector-translation-frames.md#frame-point-inputs-and-metadata).
 - POSITION/XYZWPR assignment conversion with checked orientation matrices.
 - POSITION and mixed POSITION/XYZWPR geometry, preserving protected matrix columns.
 - Read-only UNINIT queries for whole builtin records and individual queues.

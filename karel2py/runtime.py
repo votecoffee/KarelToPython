@@ -2694,18 +2694,20 @@ def position_axis(name, value, line=None):
 def frame_from_points(arguments, line=None):
     """Construct a frame from complete points with supplied origin CONFIG."""
     if not _pythonic(): raise KarelRuntimeError('FRAME requires Pythonic mode', line)
-    if type(arguments) not in (list, tuple) or len(arguments) not in (3, 4):
-        raise KarelRuntimeError('FRAME requires three points and an optional pose origin or CONFIG', line)
-    explicit_config=(len(arguments)==4 and isinstance(arguments[3],Structure)
-                     and arguments[3].spec==('CONFIG',))
-    point_args=arguments[:3] if explicit_config else arguments
+    if type(arguments) not in (list, tuple) or len(arguments) not in (3,4,5):
+        raise KarelRuntimeError('FRAME requires three points and optional origin and CONFIG', line)
+    explicit_config=(len(arguments)>3 and isinstance(arguments[-1],Structure)
+                     and arguments[-1].spec==('CONFIG',))
+    if len(arguments)==5 and not explicit_config:
+        raise KarelRuntimeError('Five-argument FRAME requires CONFIG as the fifth argument',line)
+    point_args=arguments[:-1] if explicit_config else arguments
     points = [vector_value(value, line) if isinstance(value, Structure) and value.spec == ('VECTOR',)
               else frame_value(value, line) for value in point_args]
     origin = points[3] if len(points) == 4 else points[0]
     if explicit_config:
         if origin.spec!=('VECTOR',):
-            raise KarelRuntimeError('FRAME with explicit CONFIG requires a VECTOR first point',line)
-        config=positional_value(('CONFIG',),arguments[3],line)
+            raise KarelRuntimeError('FRAME with explicit CONFIG requires a VECTOR origin',line)
+        config=positional_value(('CONFIG',),arguments[-1],line)
     else:
         if origin.spec == ('VECTOR',):
             raise KarelRuntimeError('FRAME VECTOR origin requires explicit CONFIG', line)

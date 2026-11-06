@@ -53,7 +53,7 @@ or units/frame metadata is attached to VECTOR storage.
 | `(a:b):v` or `a:(b:v)` | VECTOR, using ordinary colon precedence and rounding. |
 | `(a:v).x` | REAL component of the temporary VECTOR result. |
 | VECTOR `: pose` or VECTOR `: VECTOR` | Translation offset under the [expanded contract](vector-translation-frames.md). |
-| `INV(vector)` or FRAME VECTOR points | Independent negative offset. FRAME uses CONFIG from a pose origin or an explicit fourth argument. |
+| `INV(vector)` or FRAME VECTOR points | Independent negative offset. FRAME uses CONFIG from a pose origin or an explicit final argument. |
 
 VECTOR results contain only X/Y/Z. They do not acquire CONFIG, external axes,
 robot group, frame or tool fields. Extended pose metadata is still validated on

@@ -4,9 +4,10 @@ Version 0.79.0 extends the base contract below with XYZWPREXT operands and
 explicit external-axis metadata. The [offline service guide](offline-services.md)
 defines the added conversions, propagation rules and remaining boundaries.
 
-[VECTOR point inputs](vector-translation-frames.md) now supply point locations
-while a pose origin supplies CONFIG. Three VECTOR points can also use
-`FRAME(v1,v2,v3,cfg)` with an explicit fourth CONFIG and origin at `v1`.
+[VECTOR point inputs](vector-translation-frames.md) can supply basis points and
+the origin. `FRAME(v1,v2,v3,cfg)` uses `v1` as the origin, while
+`FRAME(v1,v2,v3,origin_vector,cfg)` sets a separate VECTOR origin. Both use
+the supplied CONFIG.
 
 Since 0.70.0, `FRAME(a,b,c)` and `FRAME(a,b,c,origin)` construct independent
 XYZWPR frames from explicit XYZWPR points. The result can be composed or inverted
@@ -50,7 +51,7 @@ The first three locations define the orientation:
 | Z axis | Normalize the cross product of X and `c.xyz - a.xyz`. |
 | Y axis | Normalize `Z cross X`; reconstruct normalized Z as `X cross Y`. |
 | Origin | Copy `a.xyz`, or the optional fourth location. |
-| CONFIG | Copy the first CONFIG, or the optional fourth CONFIG. |
+| CONFIG | Copy CONFIG from the pose origin or explicit final argument. |
 
 The third point selects the positive half of the XY plane. Its projection along
 X does not affect the perpendicular Y direction. The basis is right-handed.
@@ -78,7 +79,7 @@ finite orientation and valid CONFIG fields even when those values do not determi
 the result. POSITION matrices must pass the [proper-matrix checks](position-geometry.md).
 This complete-value guard is an explicit offline choice. JOINTPOS arguments use
 supplied forward context under [joint geometry](joint-geometry.md); their presence
-makes the result XYZWPREXT. VECTOR points remain blocked.
+makes the result XYZWPREXT. VECTOR points require a pose origin or explicit CONFIG.
 
 Arguments evaluate once from left to right. Each pose is validated and copied
 before the next expression runs, so later functions cannot change earlier
@@ -93,7 +94,8 @@ Explicit internal routines named FRAME keep their own signatures and effects;
 ordinary variables named FRAME remain usable.
 
 Reports include FRAME entries in `frame_operations`, with source line/column,
-operand types and one-based `origin_argument` (1 or 4). `frame_policy` records
+operand types and one-based `origin_argument` (1 or 4) and
+`configuration_argument` (1, 4 or 5). `frame_policy` records
 the chosen construction, capture and configuration behavior. Looking up a
 result field does not duplicate the operation entry.
 

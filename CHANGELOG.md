@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.202434 - 2026-11-06
+
+- Write JOINT2POS results directly into POSITION, XYZWPR or XYZWPREXT storage.
+  Extended pose fields take the first three returned external-axis values.
+- Accept a separate VECTOR origin in Pythonic FRAME with explicit CONFIG
+  as the fifth argument.
+
 ## 26.1106.200528 - 2026-11-06
 
 - Accept an explicit fourth CONFIG argument in Pythonic FRAME when the first

@@ -1,7 +1,7 @@
 # VECTOR translation frames
 
 Pythonic mode accepts VECTOR values as translation-only left frames and as point
-inputs to FRAME when a pose origin or a fourth argument supplies CONFIG. These are
+inputs to FRAME when a pose origin or an explicit argument supplies CONFIG. These are
 portable extensions. The existing [pose-to-VECTOR point transform](vector-frames.md)
 continues to include rotation and translation.
 
@@ -14,6 +14,7 @@ continues to include rotation and translation.
 | `FRAME(pose,vector,vector)` | Cartesian frame | Pose is origin and CONFIG source; points define the axes |
 | `FRAME(vector,vector,vector,pose)` | Cartesian frame | Fourth pose supplies origin and CONFIG; first three points define the axes |
 | `FRAME(vector,vector,vector,cfg)` | XYZWPR | First vector supplies origin. Fourth CONFIG supplies metadata. |
+| `FRAME(vector,vector,vector,origin,cfg)` | XYZWPR | Fourth VECTOR supplies origin. Fifth CONFIG supplies metadata. |
 
 A VECTOR has exactly three finite initialized components. Treating it as a
 translation frame means identity rotation by definition; no POSITION, CONFIG or
@@ -56,11 +57,14 @@ and 10 mm from the third point to that line.
 The origin is the first point in a three-argument call. An explicit fourth pose
 can replace the origin and supply CONFIG. When the first point is a VECTOR, a
 fourth CONFIG can supply metadata while keeping that first point as the origin.
+To place the origin independently of the three basis points, pass a fourth
+VECTOR and a fifth CONFIG.
 The CONFIG must be complete and is copied independently.
 
 ```karel
 basis=FRAME(VEC(0,0,0),VEC(20,0,0),VEC(0,20,0),pose)
 vector_basis=FRAME(VEC(0,0,0),VEC(20,0,0),VEC(0,20,0),cfg)
+relocated=FRAME(VEC(0,0,0),VEC(20,0,0),VEC(0,20,0),VEC(7,8,9),cfg)
 ```
 
 This basis has the supplied pose's location and CONFIG, with orientation computed
@@ -68,7 +72,8 @@ from the three VECTOR points. The input pose's orientation remains fully checked
 even though FRAME derives a new basis. Non-VECTOR axis points retain their full
 pose validation too.
 
-The second call builds an XYZWPR at the first VECTOR using the supplied CONFIG.
+The second and third calls build XYZWPR frames at `(0,0,0)` and `(7,8,9)`
+using the supplied CONFIG.
 When point operands also include poses, representation precedence remains
 XYZWPREXT, POSITION, then XYZWPR, after any explicit joint forward conversion.
 A VECTOR origin contributes zero external values to an XYZWPREXT result.
