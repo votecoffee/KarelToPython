@@ -15,7 +15,7 @@ perform reachability checks or map hands to physical signals.
 | `MOVE AXIS axis BY distance [NOWAIT]` | One-based INTEGER axis within the explicit group width and finite distance. |
 | `MOVE RELATIVE offset [NOWAIT]` | Complete VECTOR or Cartesian pose offset; no implicit kinematics. |
 | `MOVE ALONG path [NOWAIT]` | Complete positional NODE_POS values for all selected nodes. |
-| `MOVE ALONG path[start]` / `path[start..end]` | Inclusive forward range, ending at the final node when end is omitted. NOWAIT is also accepted. |
+| `MOVE ALONG path[start]` / `path[start..end]` | Inclusive range in travel order. An explicit lower end visits nodes in descending order. An omitted end selects the final node. NOWAIT is accepted. |
 | `OPEN HAND number`, `CLOSE HAND number`, `RELAX HAND number` | Update an explicitly configured logical hand, numbered 1 or 2. These are also accepted global handler actions. |
 | `ATTACH`, `RELEASE` | Acquire or release checked logical group ownership. |
 | `HOLD`, `UNHOLD`, `CANCEL` with optional GROUP selectors | Update owned logical labels/hold flags; see [motion controls](motion-controls.md). |
@@ -27,6 +27,10 @@ only selected NODE_POS values must be initialized. Other node/header data does
 not participate. Distances and angles remain request data: the service does not
 derive destinations, infer units for unknown axes or apply native interpolation
 and motion-environment settings.
+
+For example, `MOVE ALONG route[3..1]` captures nodes 3, 2 and 1 in that order.
+Descending ranges are a Pythonic offline extension. The history keeps the
+original endpoints and stores the snapshots in travel order.
 
 ## Configure execution explicitly
 

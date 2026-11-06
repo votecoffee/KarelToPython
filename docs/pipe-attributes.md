@@ -54,6 +54,9 @@ so an empty standalone pipe never causes an indefinite real-clock sleep. Ordinar
 execution budgets still bound explicit callback loops. This callback provenance
 is retained through linked routines and same-task program calls.
 
+Condition handlers can read ready input. A handler read that would wait
+fails before sleeping, including when it runs in a called routine.
+
 ## Snapshot mode
 
 `ATR_PIPWAIT,WAIT_NOTUSED` captures the current end of the pipe when the FILE

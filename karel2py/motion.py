@@ -61,7 +61,12 @@ def selector(kind, offset_ms, node, line=None):
     return dict(kind=kind, node=node, offset_ms=offset_ms)
 
 
-def node_times(values, duration):
+def path_indices(start, end):
+    step = 1 if start <= end else -1
+    return range(start, end + step, step)
+
+
+def node_times(values, duration, *, along=False):
     """Validate caller-supplied arrivals; no path geometry or feedback inference."""
     if type(values) is not dict or not 2 <= len(values) <= 257:
         raise ValueError('Motion node_times requires start and 1..256 destination arrivals')
@@ -74,6 +79,9 @@ def node_times(values, duration):
     if result.get(0) != 0:
         raise ValueError('Motion node_times must explicitly place NODE[0] at zero')
     ordered = sorted(result)
+    # Response loading precedes range selection. Either travel direction is valid here.
+    if along and result[ordered[1]] == duration:
+        ordered[1:] = reversed(ordered[1:])
     if any(result[left] > result[right] for left, right in zip(ordered, ordered[1:])):
         raise ValueError('Motion arrivals must be nondecreasing in node order')
     if result[ordered[-1]] != duration:
@@ -88,10 +96,13 @@ def temporal_events(data, execution, operation):
         if conditions:
             raise ValueError('AT NODE/TIME conditions require explicit scripted node_times')
         return {}, ()
-    times = node_times(execution['node_times'], execution['delay_ms'])
-    expected = [0, *range(data['start'], data['end'] + 1)] if operation == 'MOVE ALONG' else [0, 1]
-    if sorted(times) != expected:
+    along = operation == 'MOVE ALONG'
+    times = node_times(execution['node_times'], execution['delay_ms'], along=along)
+    expected = [0, *path_indices(data['start'], data['end'])] if along else [0, 1]
+    if times.keys() != set(expected):
         raise ValueError('Motion node_times must match the complete selected move range')
+    if any(times[left] > times[right] for left, right in zip(expected, expected[1:])):
+        raise ValueError('Motion arrivals must be nondecreasing in selected travel order')
     last = expected[-1]
     previous = {node: expected[index-1] for index, node in enumerate(expected) if index}
     events, breakpoints = {}, set(times.values())
@@ -258,7 +269,7 @@ class MotionRequests:
             if 'node_times' in row:
                 if 'delay_ms' not in row:
                     raise ValueError('Motion node_times requires an explicit delay_ms')
-                node_times(row['node_times'], row['delay_ms'])
+                node_times(row['node_times'], row['delay_ms'], along=row['operation']=='MOVE ALONG')
         if capture_only and responses:
             raise ValueError('Choose capture-only or scripted motion responses')
         self.responses = deepcopy(responses)
@@ -431,8 +442,8 @@ class MotionRequests:
             if type(nodes) is not list or not 1 <= len(nodes) <= 256:
                 raise ValueError('MOVE ALONG requires 1..256 selected nodes')
             start = bounded(data['start'], 1, 32767, 'Invalid PATH start')
-            end = bounded(data['end'], start, 32767, 'Invalid PATH end')
-            if end - start + 1 != len(nodes):
+            end = bounded(data['end'], 1, 32767, 'Invalid PATH end')
+            if len(path_indices(start, end)) != len(nodes):
                 raise ValueError('Motion PATH range disagrees with nodes')
             for node in nodes:
                 typed(node, POSES, self.groups[group])
@@ -598,15 +609,16 @@ class MotionRequests:
                 start = 1 if start is None else start
                 end = len(path.nodes) if end is None else end
                 bounded(start, 1, len(path.nodes), 'PATH start outside available nodes')
-                bounded(end, start, len(path.nodes), 'PATH end outside available nodes')
-                if end - start + 1 > 256:
+                bounded(end, 1, len(path.nodes), 'PATH end outside available nodes')
+                indices = path_indices(start, end)
+                if len(indices) > 256:
                     raise ValueError('MOVE ALONG exceeds 256 selected nodes')
                 fields = dict(runtime.record_fields(path.node_spec))
                 spec = fields.get('NODE_POS')
                 if spec is None or spec[0] not in POSES:
                     raise ValueError('MOVE ALONG nodes require positional NODE_POS')
-                data = dict(start=start, end=end, nodes=[operand(node.values['NODE_POS'], spec, line)
-                            for node in path.nodes[start - 1:end]])
+                data = dict(start=start, end=end, nodes=[operand(path.nodes[index - 1].values['NODE_POS'], spec, line)
+                            for index in indices])
             if settings:
                 data = dict(data, settings=[dict(row, group=group if row['group'] is None else row['group']) for row in settings])
             if operation in CONTROLS:
@@ -934,7 +946,8 @@ class MotionRequests:
         execution = dict(delay_ms=delay, elapsed_ms=0,
             handlers=[dict(kind=kind, line=location) for kind, _, _, location in clauses], triggered=[])
         if plan is not None:
-            execution['node_times'] = {str(key): value for key, value in sorted(node_times(plan, delay).items())}
+            times = node_times(plan, delay, along=operation=='MOVE ALONG')
+            execution['node_times'] = {str(key): value for key, value in sorted(times.items())}
         if conditions:
             execution['conditions'] = list(conditions)
         if nowait or queue_wait:

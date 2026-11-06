@@ -639,7 +639,10 @@ class FilePipes(MemoryFiles):
                     return
                 if not waiting:
                     handle.status=1;fail('End of pipe FILE',line)
-                if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):
+                root=runtime.task_root(state)
+                if state._in_handler or root._in_handler:
+                    fail('Pending pipe READ cannot wait inside a handler action',line)
+                if state._scheduler is None and not getattr(root,'_sleep_injected',False):
                     fail('Indefinite standalone pipe wait requires an explicit sleeper callback',line)
                 yield from runtime.delay_execution(state,10,line)
                 yield from runtime.checkpoint(state,line)

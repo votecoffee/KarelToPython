@@ -35,6 +35,23 @@ def waiting_project(files,body=WAIT+' n=77 READ f(n,CR) CLOSE FILE f',decl=DECL)
 
 
 class PipeWaitingTests(unittest.TestCase):
+    def test_handler_can_read_ready_data_but_cannot_wait(self):
+        routines='ROUTINE collect BEGIN READ f(n,CR) END collect'
+        body=WAIT+' n=77 CONDITION[1]: WHEN TRUE DO collect ENDCONDITION ENABLE CONDITION[1] m=1 CLOSE FILE f'
+        for ready in (True,False):
+            with self.subTest(ready=ready):
+                files=bank(b'17\n' if ready else b'')
+                calls=[]
+                task,_=compile_program(body,decl=DECL,routines=routines,context=rt.ExecutionContext(file_pipes=files),sleep=calls.append)
+                if ready:
+                    self.assertEqual(task.run()['N'],17)
+                else:
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'Pending pipe READ.*handler'):task.run()
+                    handle=task._state.values['F']
+                    self.assertEqual((task.snapshot()['N'],handle.position,task.read_requests),(77,0,()))
+                    files.close(handle)
+                self.assertEqual((calls,files._reads),([],{}))
+
     def test_complete_data_uses_no_sleeper(self):
         files=bank(b'42\n');calls=[]
         data=run(WAIT+' READ f(n,CR) CLOSE FILE f',decl=DECL,

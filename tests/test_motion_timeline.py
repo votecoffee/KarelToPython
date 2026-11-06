@@ -6,7 +6,7 @@ import unittest
 from karel2py import runtime as rt, translate, translate_project
 from karel2py.lexer import TranslationError
 from tests.test_motion_handlers import program, execute, move
-from tests.test_motion_requests import context, DECL
+from tests.test_motion_requests import context, DECL, SETUP
 from tests.test_project_scheduler import source
 
 
@@ -98,6 +98,39 @@ ENDMOVE''',ctx=planned(delay=7))
             ctx=planned(operation='MOVE ALONG',nodes={'0':0,'2':5,'3':23}))
         self.assertEqual(values['N'],5)
         self.assertEqual(move(ctx)['data']['start'],2)
+
+    def test_descending_arrivals_use_travel_order_for_before_and_after(self):
+        values,ctx,_,_,pauses=execute(PATH_SETUP+'''n=0 ATTACH MOVE ALONG route[2..1],
+WHEN TIME 3 BEFORE NODE[2] DO n=n*10+1
+WHEN AT NODE[2] DO n=n*10+2
+WHEN TIME 3 AFTER NODE[2] DO n=n*10+3
+WHEN AT NODE[1] DO n=n*10+4
+WHEN TIME 0 AFTER NODE[1] DO n=99
+ENDMOVE''',ctx=planned(operation='MOVE ALONG',delay=13,nodes={'0':0,'1':13,'2':7}))
+        self.assertEqual(values['N'],1234)
+        self.assertEqual(pauses,[.004,.003,.003,.003])
+        self.assertEqual(move(ctx)['data']['execution']['triggered'],[1,2,3,4])
+        saved=ctx.to_config()
+        self.assertEqual(rt.ExecutionContext.from_config(saved).to_config(),saved)
+
+    def test_schedule_for_opposite_travel_order_is_not_consumed(self):
+        for source_range,nodes in (('2..1',{'0':0,'1':7,'2':23}),('1..2',{'0':0,'1':23,'2':7})):
+            with self.subTest(source_range=source_range):
+                ctx=planned(operation='MOVE ALONG',nodes=nodes)
+                task,_,_,pauses=program(PATH_SETUP+'ATTACH MOVE ALONG route['+source_range+']',ctx=ctx)
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'travel order'):task.run()
+                self.assertEqual((len(ctx.motion.responses),len(ctx.motion.history),pauses),(1,1,[]))
+
+    def test_descending_nowait_schedule_fires_original_node_indexes(self):
+        ctx=planned(operation='MOVE ALONG',delay=13,nodes={'0':0,'1':13,'2':7})
+        body=SETUP+PATH_SETUP+'''n=0 ATTACH MOVE ALONG route[2..1] NOWAIT,
+WHEN AT NODE[1] DO n=n*10+1
+WHEN AT NODE[2] DO n=n*10+2
+ENDMOVE DELAY 8 n=n DELAY 17 n=n'''
+        project=translate_project({'main':source('MAIN',body,decl=DECL)}).instantiate(
+            context=ctx,options={'joint_axes':2})
+        self.assertEqual(project.run('MAIN')['MAIN']['values']['N'],21)
+        self.assertEqual(move(ctx)['outcome'],'completed')
 
     def test_equal_and_zero_duration_arrivals_are_explicit(self):
         values,ctx,_,_,pauses=execute(PATH_SETUP+'n=0 ATTACH MOVE ALONG route, WHEN AT NODE[0] DO n=n+1 WHEN AT NODE[1] DO n=n+10 WHEN AT NODE[2] DO n=n+100 ENDMOVE',

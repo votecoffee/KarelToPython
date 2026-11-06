@@ -383,7 +383,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.154934**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.164647**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1189,9 +1189,10 @@ supplied durations and [queued NOWAIT handlers](docs/queued-motion-clauses.md).
 Blocking local clauses now follow the [queued blocking policy](docs/blocking-motion-clauses.md);
 inferred arrivals remain unavailable.
 
-[Explicit motion timelines](docs/motion-timeline.md) now support local AT NODE and
-TIME BEFORE/AFTER predicates, including wildcard destinations, using complete
-supplied node schedules. Captured selectors and exact progress breakpoints persist
+[Explicit motion timelines](docs/motion-timeline.md) support ascending and
+descending PATH ranges. Local AT NODE and TIME BEFORE/AFTER predicates,
+including wildcard destinations, use complete supplied node schedules.
+Captured selectors and exact progress breakpoints persist
 in validated history; no arrival times are inferred from robot geometry.
 
 [Cooperative FILE cancellation](docs/file-cancellation.md) now interrupts modeled

@@ -212,7 +212,10 @@ class SerialStreams:
                     raise runtime.KarelRuntimeError('End of finalized serial input before complete READ',line)
                 if len(retained) >= row['capacity'] and not request.can_finalize(handle,raw):
                     raise runtime.KarelRuntimeError('Atomic serial READ cannot complete within retained receive capacity',line)
-                if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):
+                root=runtime.task_root(state)
+                if state._in_handler or root._in_handler:
+                    raise runtime.KarelRuntimeError('Pending serial READ cannot wait inside a handler action',line)
+                if state._scheduler is None and not getattr(root,'_sleep_injected',False):
                     raise runtime.KarelRuntimeError('Indefinite standalone serial wait requires an explicit sleeper callback',line)
                 yield from runtime.delay_execution(state,10,line)
                 yield from runtime.checkpoint(state,line)

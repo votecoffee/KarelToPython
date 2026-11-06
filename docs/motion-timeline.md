@@ -25,7 +25,8 @@ ENDMOVE
 
 NODE[0] is the explicit start boundary. For non-path moves, NODE[1] is the
 destination. A selected MOVE ALONG range retains its original path indexes:
-`track[2..3]` uses nodes 0, 2 and 3. The first selected segment starts at node zero.
+`track[2..3]` uses nodes 0, 2 and 3, and `track[3..2]` uses 0, 3 and 2.
+The first selected segment starts at node zero.
 TIME BEFORE node zero never fires. TIME AFTER the final node never fires,
 including a zero offset. An AFTER event for an earlier node may occur at the
 completion boundary; events beyond completion do not fire.
@@ -63,14 +64,16 @@ MOVE, independently of the 32-clause limit.
 
 `node_times` maps canonical decimal node strings to integer progress milliseconds.
 It requires an explicit `delay_ms`, start node `"0": 0`, and 1..256 destination
-entries. Times must be nonnegative, nondecreasing by node number and within the
-delay. The final arrival must equal delay_ms. Equal times and an explicitly
+entries. Times must be nonnegative, nondecreasing in travel order and within
+the delay. The final arrival must equal delay_ms. For example, `track[3..2]`
+can use `{"0":0,"2":23,"3":7}` with a 23 ms delay. Equal times and an explicitly
 zero-duration schedule are accepted.
 
-Admission checks the complete selected range: non-path moves require exactly
-nodes 0 and 1; path moves require zero plus every selected destination. Extra,
-missing or out-of-range nodes reject before consuming the response or creating
-an active request. Every named temporal reference must occur in that schedule.
+Admission checks the complete selected range. Non-path moves require exactly
+nodes 0 and 1, and path moves require zero plus every selected destination.
+Extra or missing nodes and arrivals in the opposite direction reject before
+consuming the response or creating an active request. Every named temporal
+reference must occur in that schedule.
 
 Capture-only mode and a delay without node_times cannot supply arrivals, even
 for NODE[0] or an unreachable Boolean branch. No schedule is inferred from

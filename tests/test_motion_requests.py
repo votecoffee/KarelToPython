@@ -308,6 +308,16 @@ BEGIN APPEND_NODE(route,s) ATTACH MOVE ALONG route END NO_NODE_POSITION''')
         _,ctx,_,_=execute('ATTACH MOVE ALONG route[2]',setup=SETUP+'APPEND_NODE(route,s) APPEND_NODE(route,s) route[2].node_pos=q ')
         self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],40.)
 
+    def test_descending_range_preserves_selected_node_order_in_saved_history(self):
+        setup=SETUP+'APPEND_NODE(route,s) APPEND_NODE(route,s) route[2].node_pos=p APPEND_NODE(route,s) route[3].node_pos=q '
+        _,ctx,_,_=execute('ATTACH MOVE ALONG route[3..2]',setup=setup)
+        saved=ctx.to_config()
+        restored=rt.ExecutionContext.from_config(saved)
+        row=restored.motion.history[-1]['data']
+        self.assertEqual((row['start'],row['end']),(3,2))
+        self.assertEqual([node['value']['LOCATION']['X'] for node in row['nodes']],[40.,10.])
+        self.assertEqual(restored.to_config(),saved)
+
     def test_range_bounds_empty_or_partial_nodes_fail_without_request(self):
         setup=SETUP+'APPEND_NODE(route,s) '
         for selection in ('route[0]','route[2]','route[1..0]','route','route[1..2]'):

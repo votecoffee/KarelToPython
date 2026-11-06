@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.164647 - 2026-11-06
+
+- Capture descending MOVE ALONG ranges and validate supplied arrivals in
+  travel order for blocking and NOWAIT requests.
+- Reject serial and pipe READs that would block inside a condition handler.
+  Ready input remains available to handler routines.
+
 ## 26.1106.154934 - 2026-11-06
 
 - Translate direct EXT1 through EXT3 reads and assignments on numbered and

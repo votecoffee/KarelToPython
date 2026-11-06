@@ -86,6 +86,9 @@ injected sleeper callback before it may wait indefinitely. Merely using the
 runtime's default host sleeper does not authorize an indefinite standalone wait.
 The callback provenance follows same-task CALL_PROG and linked FROM routines.
 
+Condition handlers can read ready input. If input would require waiting, the
+READ fails before sleeping, including in a called routine.
+
 Pause retains the pending READ, its captured references and its receive cursor.
 Resume continues that operation. Stop, abort, budget failure, parser failure or
 generator close removes the owned pending registration. These operations retain

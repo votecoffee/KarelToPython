@@ -29,6 +29,35 @@ def pending_project(bank,body=OPEN+'n=77 READ f(n,CR) CLOSE FILE f',decl=DECL):
 
 
 class SerialWaitInputTests(unittest.TestCase):
+    def test_handler_can_read_ready_data_but_cannot_wait(self):
+        routines='ROUTINE collect BEGIN READ f(n,CR) END collect'
+        body=OPEN+'n=77 CONDITION[1]: WHEN TRUE DO collect ENDCONDITION ENABLE CONDITION[1] m=1 CLOSE FILE f'
+        for ready in (True,False):
+            with self.subTest(ready=ready):
+                bank,ctx=streams(b'17\n' if ready else b'')
+                calls=[]
+                task,_=compile_program(body,decl=DECL,routines=routines,context=ctx,sleep=calls.append)
+                if ready:
+                    self.assertEqual(task.run()['N'],17)
+                else:
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'Pending serial READ.*handler'):task.run()
+                    handle=task._state.values['F']
+                    self.assertEqual((task.snapshot()['N'],handle.position,task.read_requests),(77,0,()))
+                    bank.close(handle)
+                self.assertEqual((calls,bank._pending),([],{}))
+
+    def test_linked_read_checks_the_calling_handlers_scope(self):
+        bank,ctx=streams()
+        main=source('MAIN',OPEN+'n=77 CONDITION[1]: WHEN TRUE DO collect(f,n) ENDCONDITION ENABLE CONDITION[1] m=1',
+                    decl=DECL,routines='ROUTINE collect(stream:FILE;out:INTEGER) FROM LIB')
+        lib=source('LIB','',routines='ROUTINE collect(stream:FILE;out:INTEGER) BEGIN READ stream(out,CR) END collect')
+        project=translate_project({'main':main,'lib':lib}).instantiate(context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'Pending serial READ.*handler'):project.run('MAIN')
+        task=project.programs['MAIN']
+        handle=task._state.values['F']
+        self.assertEqual((task.snapshot()['N'],handle.position,bank._pending),(77,0,{}))
+        bank.close(handle)
+
     def test_fragmented_numeric_token_waits_for_delimiter(self):
         bank,ctx=streams();chunks=[b'1',b'7',b'\n'];calls=[]
         def sleeper(delay):
