@@ -88,9 +88,10 @@ queue initialization, entries and last sequence, omitting buffer links, input
 captures, pending operations and suspended frames. Reopened streams and supplied
 inputs make the authored examples replay with identical saved contexts.
 
-FILE values/banks, resource fields in STRUCTUREs, whole collection UNINIT, generic
-queue checked/value/result helpers keep their guards. [Explicit callback
-collection results](external-collection-results.md) now detach bounded values or
+Use [UNINIT](initialization-queries.md#queue-initialization) to check whether
+an individual queue has been initialized. FILE values/banks, resource fields
+in STRUCTUREs and generic queue checked/value/result helpers keep their guards.
+[Explicit callback collection results](external-collection-results.md) now detach bounded values or
 typed JSON. Linked signatures and ordinary source-root FOR proofs stay exact.
 
 Reports expose `queue_io_policy` and each queue item's scalar order. See the

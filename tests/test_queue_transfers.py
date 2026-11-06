@@ -171,8 +171,10 @@ class QueueTransferGuardTests(unittest.TestCase):
         program,_=compile_program('target=source',decl=DECL);program.run();value=program._state.values['TARGET']
         with rt._numeric_scope('pythonic'),self.assertRaisesRegex(rt.KarelRuntimeError,'cannot be copied'):rt.checked(value.spec,value)
 
-    def test_queue_uninit_query_remains_rejected(self):
-        with self.assertRaises(TranslationError): compile_program('flag=UNINIT(source)',decl=DECL+' flag: BOOLEAN')
+    def test_queue_query_observes_the_flag_copied_by_get_var(self):
+        body='before=UNINIT(target) INIT_QUEUE(source) '+call()+' after=UNINIT(target)'
+        result=run(body,decl=DECL+' before,after:BOOLEAN')
+        self.assertEqual((result['BEFORE'],result['AFTER'],result['STATUS']),(True,False,0))
 
     def test_active_for_counter_indirect_write_guard_remains(self):
         with self.assertRaises(TranslationError): compile_program('FOR n=1 TO 2 DO '+call('SET_VAR')+' ENDFOR',decl=DECL)

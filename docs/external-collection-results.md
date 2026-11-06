@@ -51,7 +51,7 @@ shared owned runtime cells and inconsistent JSON markers reject.
 Generator callbacks retain the normal pause/resume/stop/abort and routine-frame
 cleanup contracts. Callback results are captured before frame cleanup, and
 private values never copy back to the callback. Generic queue checked/value/
-result helpers, whole collection UNINIT and FILE results retain their guards.
+result helpers, whole ARRAY/PATH UNINIT and FILE results retain their guards.
 [Typed ordinary data results](external-values.md) now have a separate explicit
 contract; logical collection schemas keep the rules documented here.
 

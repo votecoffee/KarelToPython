@@ -124,14 +124,14 @@ points. The first point is the least significant bit. The packed value must fit
 the portable INTEGER range.
 
 The entire batch validates before logical values change. Simulated and
-untouched inputs keep their previous values. Sampling does not apply mode
-masks, update outputs or trigger pulses.
+untouched inputs keep their previous values. Raw sampling is the default.
 
 JSON contexts accept an optional `ports.physical_inputs` list of objects with
 `rack`, `slot`, `type_code`, `point` and `value` fields. Each address may appear
 once. This sample is applied when the context loads, after the logical values
 and configuration are initialized. Saved contexts keep the resulting logical
-values. Sampling is an offline operation over supplied data.
+values. Set `ports.physical_input_reverse` to true alongside the sample list
+to apply the active Boolean reverse masks when loading.
 
 ## Sampling configured outputs
 
@@ -143,8 +143,16 @@ significant bit at the first point. The word must fit the assigned width.
 
 Overlapping assignments may agree on a point. A disagreement rejects the
 sample. A sample can contain up to 32,767 points. The projection uses raw
-logical values and treats reverse and complementary settings as metadata.
-Saved contexts keep the logical output values.
+logical values by default. Saved contexts keep the logical output values.
+
+### Apply Boolean reverse masks
+
+Pass `apply_reverse=True` to either sampling method to invert mapped Boolean
+values whose active mode includes bit 1. Inputs are inverted before seeding
+logical values. Outputs are inverted before checking overlaps and returning
+the physical-point sample. This option covers Boolean ports. Group and
+analog values use their ordinary projections, and complementary mode is
+retained as metadata.
 
 ## Status and failure behavior
 

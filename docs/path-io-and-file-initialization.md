@@ -107,7 +107,7 @@ FILE aliases and borrowed routine parameters observe the same descriptor.
 Parenthesized queries remain storage queries. Exact descriptor type and Pythonic
 mode are required; malformed host substitutions and subclasses are rejected.
 The native initialization-bit representation is not claimed. Whole ARRAY, PATH,
-user STRUCTURE and QUEUE_TYPE UNINIT exclusions remain, and BYTE queries remain
+and user STRUCTURE UNINIT exclusions remain, and BYTE queries remain
 excluded even after a write.
 
 ## Reports and executable coverage

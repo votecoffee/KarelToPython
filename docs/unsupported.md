@@ -215,7 +215,7 @@ components with complete-batch pose validation and bounded rounding normalizatio
   unavailable. [CONFIG scalar-field READ](config-field-input.md) now supports
   bounded turn integers and BOOLEAN flags through callbacks and
   explicit FILE transports; no compact native CONFIG binary layout is inferred.
-- Whole ARRAY, PATH, user STRUCTURE and QUEUE_TYPE UNINIT queries;
+- Whole ARRAY, PATH and user STRUCTURE UNINIT queries;
   dimension flattening, field-set changes/renaming and resource fields. Context-free
   [STRUCTURE source conversion](record-schema-conversions.md) now maps identical
   field-name sets recursively, including record ARRAY terminals.
@@ -427,7 +427,7 @@ queue-entry policies; FILE banks remain excluded.
   now support static/dynamic owned logical PATH/QUEUE_TYPE storage and typed JSON.
   [Logical collection source values](collection-source-values.md) now add owned
   ARRAY assignments, private interfaces/results and independent selected prefixes;
-  FILE-bank READ/WRITE, generic codecs and whole collection UNINIT retain
+  FILE-bank READ/WRITE, generic codecs and whole ARRAY/PATH UNINIT retain
   guards. [PATH-bank I/O](path-array-io.md) and [queue entry I/O](queue-io.md)
   add whole-bank and selected row/plane scalar streams. Queue input replaces
   existing values and detaches buffer links without writing the old ARRAY cells;

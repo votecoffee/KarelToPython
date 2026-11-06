@@ -39,12 +39,28 @@ query result. Initialized records need not describe a proper rotation, reachable
 pose or valid robot configuration: geometry operations perform their own checks.
 
 Whole ARRAY, PATH and user STRUCTURE queries remain rejected, following the
-manual's explicit exclusions. QUEUE_TYPE queries remain blocked.
+manual's explicit exclusions.
 [FILE queries](path-io-and-file-initialization.md) now report the descriptor
 open-state convention, without backend I/O or a native initialization-bit claim. Constants, literals and direct constructor/function results are rejected.
 Existing field/element selectors on aggregate temporaries retain their ordinary
 behavior, including `UNINIT(make()[1])`. BYTE remains distinct: unknown BYTE contents are not an
 uninitialized value, and BYTE queries remain rejected even after a write.
+
+## Queue initialization
+
+`UNINIT(q)` reads the initialization flag of a scalar QUEUE_TYPE variable or
+selected queue cell, including a borrowed parameter. A fresh queue returns TRUE.
+After INIT_QUEUE, even an empty queue returns FALSE. A copied or restored queue
+reports its supplied flag. The query leaves entries, sequence and the backing
+ARRAY association untouched.
+
+```karel
+IF UNINIT(q) THEN
+  INIT_QUEUE(q)
+ENDIF
+```
+
+This is an offline Pythonic query over existing logical queue state.
 
 Existing scalar and JOINTPOS behavior is retained. Whole copies still require
 complete values. Internal strict-mode record queries remain blocked; public strict

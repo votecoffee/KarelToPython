@@ -16,6 +16,22 @@ POSE=CONFIG+'q=POS(1,2,3,0,0,0,cfg) '
 
 
 class InitializationValueTests(unittest.TestCase):
+    def test_queue_bank_cells_have_independent_initialization_flags(self):
+        declaration='items:ARRAY[2]OF QUEUE_TYPE first,second:BOOLEAN visits:INTEGER'
+        routines='ROUTINE indexer:INTEGER BEGIN visits=visits+1 RETURN 1 END indexer'
+        body='visits=0 INIT_QUEUE(items[2]) first=UNINIT((items[indexer()])) second=UNINIT(items[2])'
+        p,result=compile_program(body,decl=declaration,routines=routines)
+        values=p.run()
+        self.assertEqual((values['FIRST'],values['SECOND'],values['VISITS']),(True,False,1))
+        self.assertEqual(result.report['initialization_queries'][0]['operand_type'],('QUEUE_TYPE',))
+
+    def test_linked_borrowed_queue_query_can_guard_initialization(self):
+        main=source('MAIN','before=UNINIT(q) ensure(q) after=UNINIT(q)',decl='q:QUEUE_TYPE before,after:BOOLEAN',
+                    routines='ROUTINE ensure(item:QUEUE_TYPE) FROM LIB')
+        lib=source('LIB','',routines='ROUTINE ensure(item:QUEUE_TYPE) BEGIN IF UNINIT(item) THEN INIT_QUEUE(item) ENDIF END ensure')
+        result=translate_project({'main':main,'lib':lib}).instantiate().run('MAIN')['MAIN']['values']
+        self.assertEqual((result['BEFORE'],result['AFTER']),(True,False))
+
     def test_fresh_builtin_records_are_uninitialized(self):
         for kind in KINDS:
             with self.subTest(kind=kind): self.assertTrue(run('flag=UNINIT(value)',decl=f'value: {kind} flag: BOOLEAN')['FLAG'])
@@ -165,7 +181,7 @@ class InitializationValidationTests(unittest.TestCase):
         with self.assertRaises(TranslationError): legacy_translate('PROGRAM T VAR v: VECTOR flag: BOOLEAN BEGIN flag=UNINIT(v) END T')
 
     def test_arrays_paths_structures_and_resources_remain_blocked(self):
-        declarations=('items: ARRAY[2] OF INTEGER','items: PATH','items: QUEUE_TYPE','items: packet')
+        declarations=('items: ARRAY[2] OF INTEGER','items: PATH','items: ARRAY[2] OF QUEUE_TYPE','items: packet')
         for declaration in declarations:
             with self.subTest(declaration=declaration),self.assertRaises(TranslationError):
                 compile_program('flag=UNINIT(items)',decl=declaration+' flag: BOOLEAN',prefix='TYPE packet=STRUCTURE n: INTEGER ENDSTRUCTURE')
@@ -185,6 +201,14 @@ class InitializationValidationTests(unittest.TestCase):
         p,_=compile_program('flag=FALSE flag=UNINIT(v)',decl=DECL);value=p._state.values['V'];value.values['Z']=True;before=dict(value.values)
         with self.assertRaises(rt.KarelRuntimeError): p.run()
         self.assertFalse(p.snapshot()['FLAG']);self.assertEqual(value.values,before)
+
+    def test_malformed_queue_storage_and_nonboolean_flags_reject(self):
+        p,_=compile_program('flag=FALSE flag=UNINIT(q)',decl='q:QUEUE_TYPE flag:BOOLEAN')
+        p._state.values['Q'].initialized=1
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'ordinary Pythonic queue storage'):p.run()
+        self.assertFalse(p.snapshot()['FLAG'])
+        with rt._numeric_scope('pythonic'),self.assertRaisesRegex(rt.KarelRuntimeError,'queue storage'):
+            rt.queue_uninit(7)
 
     def test_report_records_source_locations_and_exact_operand_type(self):
         p,result=compile_program('flag=UNINIT((p.normal))',decl=DECL);p.run();rows=result.report['initialization_queries']

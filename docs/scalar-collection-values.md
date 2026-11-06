@@ -67,7 +67,7 @@ accept bounded runtime values or typed JSON and detach their logical data.
 ## Boundaries and saved state
 
 FILE descriptors/arrays, resource fields, generic QUEUE_TYPE checked/value helpers,
-whole collection UNINIT and ordinary resource-root FOR protections remain guarded.
+whole PATH UNINIT and ordinary resource-root FOR protections remain guarded.
 Whole-PATH I/O and [queue entry I/O](queue-io.md) remain separate scalar transport
 features; queue input retains IDs/order and detaches the old buffer link.
 Source copying does not publish GET_VAR/SET_VAR cache entries or status outputs.

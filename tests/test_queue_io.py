@@ -223,8 +223,11 @@ class QueueCaptureTests(unittest.TestCase):
     def test_generic_queue_copy_helpers_stay_closed(self):
         _,q,_=capture()
         with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):rt.checked(('QUEUE_TYPE',),q)
-    def test_whole_queue_uninit_stays_closed(self):
-        with self.assertRaises(TranslationError):build('IF UNINIT(q) THEN ENDIF')
+    def test_queue_query_preserves_entries_sequence_and_backing_buffer(self):
+        p,_=build('flag=UNINIT(q)',decl=DECL+' flag:BOOLEAN')
+        self.assertFalse(p.run()['FLAG'])
+        self.assertEqual((entries(p),queue(p).sequence),([(1,17),(2,9)],2))
+        self.assertIs(queue(p).buffer,p._state.values['B'])
 
 class QueueTransportTests(unittest.TestCase):
     def test_serial_input_and_output(self):

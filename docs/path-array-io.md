@@ -63,7 +63,7 @@ created and compiled linked storage share these contracts; linked signatures sta
 exact. Input does not create nodes, resize banks or discover robot context.
 
 [Queue entry I/O](queue-io.md) now adds initialized scalar queues and banks.
-FILE banks, embedded resource fields, whole collection UNINIT and
+FILE banks, embedded resource fields, whole ARRAY/PATH UNINIT and
 generic collection copy codecs retain their guards. Existing resource-root FOR
 protection also remains. Typed JSON and logical VR/DRAM storage retain ordinary
 collection data; input captures, live FILE handles and pending/suspended operations

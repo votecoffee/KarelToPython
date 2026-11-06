@@ -2836,7 +2836,7 @@ class Emitter:
             code, spec = self.expression(argument, raw=True)
             if spec[0] == 'BYTE':
                 self.error('E_BYTE_UNINIT', 'BYTE initialization queries are not implemented; the manual specifies no uninitialized checking for BYTE', argument.token)
-            supported=('INTEGER','SHORT','BOOLEAN','REAL','STRING','JOINTPOS')+((*DATA_RECORD_TYPES,'FILE') if self.mode=='pythonic' else ())
+            supported=('INTEGER','SHORT','BOOLEAN','REAL','STRING','JOINTPOS')+((*DATA_RECORD_TYPES,'FILE','QUEUE_TYPE') if self.mode=='pythonic' else ())
             if spec[0] not in supported:
                 self.error('E_TYPE', 'Invalid UNINIT argument type', expr.token)
             if self.root_name(argument) in self.visible_constants():
@@ -2915,6 +2915,8 @@ class Emitter:
                                        arguments_evaluated_once=True, runtime_exact_subset_guard=self.mode == 'strict', result_type='REAL'))
         if expr.value=='UNINIT' and spec==('FILE',):
             return f'_rt.file_uninit({codes[0]},{expr.token.line})',result_type
+        if expr.value=='UNINIT' and spec==('QUEUE_TYPE',):
+            return f'_rt.queue_uninit({codes[0]},{expr.token.line})',result_type
         return f'_rt.builtin({expr.value!r}, [{", ".join(codes)}], {expr.token.line})', result_type
 
     def conversion_procedure(self, expr):
@@ -5496,6 +5498,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         values='Configuration metadata does not acquire, invert, copy, complement, initialize or rescale logical/physical values, simulation flags or scheduled pulses',
         sampling='Explicit host samples or JSON ports.physical_inputs seed unsimulated active inputs atomically. Touched GIN spans require every point, packed least significant bit first. Save persists the resulting logical values.',
         output_sampling='Host PortBank.sample_outputs polls pulses and projects initialized unsimulated active outputs. Group words must fit their width and expand least significant bit first. Agreeing points merge; conflicts fail.',
+        reverse_sampling='Opt-in apply_reverse for both host sampling methods, or ports.physical_input_reverse for one-shot JSON input, uses active Boolean bit 1 before publication or overlap checks',
         status='Portable 0 success, 1 absent assignment/module, 2 invalid logical address/module coordinate, 3 invalid assignment/mode; missing configuration raises before outputs',
         persistence='Typed contexts retain active/pending configuration; host snapshots are detached; legacy PortBank.snapshot remains logical values only',
         boundary='No physical wiring/discovery, native code tables, reboot, controller alarm mapping or native GET-before-powerup equivalence; strict remains future work',
@@ -6480,7 +6483,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         meaning='Whole builtin record is uninitialized when any nested leaf or complete nested record is uninitialized; inspect without initializing, copying or changing source storage',
         validation='Validate record schema and known scalar types/domains; inspect all fields even when another is uninitialized; no proper-rotation or robot/configuration validity query',
         operands='Variable, field or individual ARRAY-element storage; Pythonic parentheses unwrap storage; computed selectors evaluate once; constants and direct function/literal/constructor results rejected; existing temporary-field/element selectors retained',
-        exclusions='Whole ARRAY, PATH, user STRUCTURE and QUEUE_TYPE remain blocked; FILE uses Pythonic open-state queries; BYTE unknown contents remain distinct from uninitialized state',
+        queue='Scalar QUEUE_TYPE variables and selected cells query the exact Boolean initialization flag, preserving entries, sequence and backing buffer',
+        exclusions='Whole ARRAY, PATH and user STRUCTURE remain blocked; FILE uses Pythonic open-state queries; BYTE unknown contents remain distinct from uninitialized state',
         boundary='Portable partial-record rule rather than native allocation flags; existing scalar/joint behavior and exact interfaces retained; strict remains future work',
         guide='docs/initialization-queries.md',controller_validated=False)
     report['data_record_policy']['initialization']='Scalar leaves start uninitialized; whole builtin-record UNINIT follows initialization_query_policy; copies still require complete values'
@@ -7451,7 +7455,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         arguments='Exact bare arrays retain borrowed references; grouped/computed and ordinary incomplete-prefix arguments own private values; retained handlers, pause, stop and failure never copy them back',
         results='Capture independent concrete results before routine cleanup; canonicalize declared outer result schema; compiled linked calls use the same checked logical result path; explicit callbacks also accept detached runtime/typed-JSON values under external_collection_result_policy',
         bounds='One through three dimensions, 32767 descriptor/header/node/queue-entry snapshot units and 64 data-schema levels; prefix captures validate containing storage; malformed/missing ARRAY containers reject',
-        exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, FILE-bank READ/WRITE and whole collection UNINIT retain their guards; scalar source values follow scalar_collection_source_policy, PATH-bank I/O follows path_array_io_policy and queue I/O follows queue_io_policy',
+        exact='FILE descriptors/arrays, generic checked/clone/value/result helpers, BYNAME borrowing, linked declared signatures, resource fields, FILE-bank READ/WRITE and whole ARRAY/PATH UNINIT retain their guards; scalar source values follow scalar_collection_source_policy, PATH-bank I/O follows path_array_io_policy and queue I/O follows queue_io_policy',
         persistence='Existing typed logical JSON/VR data only; no queue buffer links, private references, retained handlers, live row windows or suspended frames',
         boundary='Authored offline Pythonic extension; no native source/compiler/controller/ABI/strict equivalence or implicit allocation/discovery',
         guide='docs/collection-source-values.md',controller_validated=False)
@@ -7469,7 +7473,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         protection='Reject stale descriptor/entry/buffer mappings, incomplete/reordered cohorts, duplicate queues and overlapping entry destinations; no implicit buffer writes; normal FOR/source-root protections retained',
         transports='Existing callback/JSON/TextInput, text/binary FILE byte order and cooperative cancellation/wait/pause/stop contracts; complete POSITION cohorts still validate before queue publication',
         persistence='Existing logical queue JSON/archives retain entries and last sequence; buffers, input cohorts, pending operations and suspended frames are omitted',
-        exact='FILE descriptors/arrays, resource record fields, generic queue value helpers/UNINIT, callback result guards and linked signatures unchanged',
+        exact='FILE descriptors/arrays, resource record fields, generic queue value helpers, callback result guards and linked signatures unchanged; individual queue UNINIT follows initialization_query_policy',
         boundary='Authored offline Pythonic extension; no native queue I/O/compiler/controller/packed layout/strict equivalence',
         guide='docs/queue-io.md',controller_validated=False)
     report['path_for_policy']=dict(
@@ -7642,7 +7646,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lifetime='Synchronous and generator callback returns follow existing checkpoints/pause/stop/abort/frame cleanup; earlier callback effects survive invalid-result failure',
         bounds='Existing 32767 PATH scalar leaves, queue entries and collection-bank snapshot units; JSON PATH totals checked before node allocation; data schemas bounded to 64 levels',
         persistence='Copied logical data uses existing JSON/VR/DRAM codecs; callables, generators, private frames and buffer links are omitted',
-        exact='No FILE values/arrays, embedded resources, generic queue codecs/UNINIT, JSON coercion for ordinary scalar/data callbacks, inferred kinematics or implicit external library discovery',
+        exact='No FILE values/arrays, embedded resources, generic queue codecs, whole ARRAY/PATH UNINIT, JSON coercion for ordinary scalar/data callbacks, inferred kinematics or implicit external library discovery',
         boundary='Authored offline Pythonic adapter contract; no native routine ABI/compiler/controller/strict equivalence',
         cli='Generated Python and project --external-collections load fixed values from strict UTF-8 JSON; 128 case-insensitive program/routine bindings, 4 MiB file limit and state/trace alias protection; callbacks are not persisted',
         guide='docs/external-collection-results.md',controller_validated=False)

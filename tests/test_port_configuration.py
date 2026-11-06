@@ -93,6 +93,37 @@ class PortInputSamplingTests(unittest.TestCase):
         config['ports']['physical_inputs']=samples+[samples[0]]
         with self.assertRaisesRegex(ValueError,'Duplicate physical input'):rt.ExecutionContext.from_config(config)
 
+    def test_reverse_sampling_uses_active_boolean_masks_only(self):
+        config=self.topology()
+        config['modes']=[dict(kind='GIN',number=1,mask=1),dict(kind='AIN',number=2,mask=1)]
+        ctx=context(config)
+        run('SET_PORT_MOD(10,1,1,s)',context=ctx)
+        ctx.ports.sample_inputs(self.samples(),apply_reverse=True)
+        self.assertTrue(ctx.ports.read('DIN',1))
+        self.assertEqual(ctx.ports.apply_configuration(),1)
+        ctx.ports.sample_inputs(self.samples(),apply_reverse=True)
+        self.assertEqual(ctx.ports.snapshot(),{('DIN',1):False,('GIN',1):5,('AIN',2):1.25})
+        ctx.ports.sample_inputs(self.samples())
+        self.assertTrue(ctx.ports.read('DIN',1))
+
+    def test_json_reverse_option_applies_once_and_requires_boolean(self):
+        config=self.topology()
+        config['modes']=[dict(kind='DIN',number=1,mask=1)]
+        row=context(config).to_config()['ports']
+        row['physical_input_reverse']=True
+        with self.assertRaisesRegex(ValueError,'requires physical_inputs'):
+            rt.ExecutionContext.from_config({'ports':row})
+        row['physical_inputs']=[dict(rack=rack,slot=slot,type_code=code,point=point,value=value)
+                                for (rack,slot,code,point),value in self.samples().items()]
+        ctx=rt.ExecutionContext.from_config({'ports':row})
+        self.assertFalse(ctx.ports.read('DIN',1))
+        saved=ctx.to_config()['ports']
+        self.assertNotIn('physical_input_reverse',saved)
+        self.assertIs(saved['values']['DIN']['1'],False)
+        row['physical_input_reverse']=1
+        with self.assertRaisesRegex(ValueError,'requires BOOLEAN'):
+            rt.ExecutionContext.from_config({'ports':row})
+
 
 class PortOutputSamplingTests(unittest.TestCase):
     def topology(self):
@@ -137,6 +168,15 @@ class PortOutputSamplingTests(unittest.TestCase):
         self.assertEqual(ctx.ports.sample_outputs(),{(0,1,20,9):True})
         clock['now']=8000
         self.assertEqual(ctx.ports.sample_outputs(),{(0,1,20,9):False})
+
+    def test_reverse_mask_is_applied_before_overlap_check_and_keeps_logical_values(self):
+        config=self.topology()
+        config['modes']=[dict(kind='DOUT',number=1,mask=1)]
+        ctx=context(config,initial={('DOUT',1):True,('GOUT',1):4})
+        with self.assertRaisesRegex(ValueError,'Conflicting mapped output'):ctx.ports.sample_outputs()
+        self.assertEqual(ctx.ports.sample_outputs(apply_reverse=True),{(0,1,20,9):False,(0,1,20,10):False,(0,1,20,11):True})
+        self.assertTrue(ctx.ports.read('DOUT',1))
+        with self.assertRaisesRegex(ValueError,'requires BOOLEAN'):ctx.ports.sample_outputs(apply_reverse=1)
 
 
 class PortAssignmentTests(unittest.TestCase):

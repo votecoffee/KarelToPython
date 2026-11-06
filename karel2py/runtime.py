@@ -2254,8 +2254,16 @@ def file_uninit(value,line=None):
     return value.owner is None
 
 
+def queue_uninit(value,line=None):
+    if (not _pythonic() or type(value) is not QueueValue or getattr(value,'spec',None)!=('QUEUE_TYPE',)
+            or type(getattr(value,'initialized',None)) is not bool):
+        raise KarelRuntimeError('QUEUE_TYPE initialization queries require ordinary Pythonic queue storage',line)
+    return not value.initialized
+
+
 def uninit(value,line=None):
     if isinstance(value,FileHandle):return file_uninit(value,line)
+    if isinstance(value,QueueValue):return queue_uninit(value,line)
     if isinstance(value, JointPosition): return not fully_initialized(value)
     if isinstance(value,Structure) and value.spec[0] in DATA_RECORD_TYPES:
         if not _pythonic(): raise KarelRuntimeError('Whole record initialization queries require Pythonic mode',line)

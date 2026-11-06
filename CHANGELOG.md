@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.170832 - 2026-11-06
+
+- Let UNINIT query the initialization flag of a QUEUE_TYPE variable or
+  selected queue cell, including borrowed queues.
+- Apply active Boolean reverse masks on request when sampling mapped
+  inputs or outputs. Context JSON can opt in for one-shot input samples.
+
 ## 26.1106.164647 - 2026-11-06
 
 - Capture descending MOVE ALONG ranges and validate supplied arrivals in

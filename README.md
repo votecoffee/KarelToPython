@@ -383,7 +383,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.164647**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.170832**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -535,6 +535,7 @@ limit allows tasks to finish on the last allotted scheduler cycle.
 
 A context can include supplied physical input samples to seed mapped logical
 ports. Host code can also sample mapped output points from a completed run.
+Both projections can apply active Boolean reverse masks on request.
 See the [port configuration guide](docs/port-configuration.md#sampling-configured-inputs).
 
 ```sh
@@ -1117,7 +1118,7 @@ source. Strict mode remains a future milestone.
 - Three/four-point FRAME construction with checked geometry and an optional origin.
 - POSITION/XYZWPR assignment conversion with checked orientation matrices.
 - POSITION and mixed POSITION/XYZWPR geometry, preserving protected matrix columns.
-- Read-only whole builtin-record UNINIT queries, including nested and partial values.
+- Read-only UNINIT queries for whole builtin records and individual queues.
 - APPROACH/ORIENT axis queries on POSITION and XYZWPR, with writable VECTOR results.
 - Approximate POSITION/XYZWPR/XYZWPREXT comparison with explicit per-instance tolerances.
 - CHECK_EPOS with explicit frame/tool poses, selected robot group and a supplied

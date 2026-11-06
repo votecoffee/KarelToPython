@@ -75,7 +75,7 @@ Generic result helpers remain closed; there is no native external ABI.
 ## Boundaries and persistence
 
 FILE descriptors/arrays, resource STRUCTURE fields and generic checked/clone/value/
-result helpers keep their guards. Whole collection UNINIT and FILE-bank I/O
+result helpers keep their guards. Whole ARRAY/PATH UNINIT and FILE-bank I/O
 remain unavailable; [PATH-bank I/O](path-array-io.md) and [queue entry I/O](queue-io.md)
 have explicit scalar transport contracts. Scalar assignments, private arguments and results now follow the
 [scalar collection policy](scalar-collection-values.md). Existing resource-root FOR and POSITION
