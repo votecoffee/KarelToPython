@@ -147,7 +147,7 @@ PROCEDURES = {
     'VAR_INFO': (S,S,arg('BOOLEAN','o'),OS,OI,arg('INT_ARRAY','r'),OI,OI),
     'VAR_LIST': (S,S,I,I,I,arg('STRING_ARRAY','r'),OI,OI),
     'PROG_LIST': (S,I,I,I,arg('STRING_ARRAY','r'),OI,OI,arg('INTEGER','r')),
-    'APPEND_NODE': (arg('PATH','r'),OI), 'INSERT_NODE': (arg('PATH','r'),I,OI),
+    'APPEND_NODE': (arg('PATH','r'),arg('PATH_NODE'),OI), 'INSERT_NODE': (arg('PATH','r'),I,arg('PATH_NODE'),OI),
     'DELETE_NODE': (arg('PATH','r'),I,OI),
     'COPY_PATH': (arg('PATH'),I,I,arg('PATH','r'),OI),
     'INTSCT_VL_PL': (arg('VIEW_LINES'),arg('POSE'),arg('POINT_PATH','r'),OI),
@@ -228,6 +228,7 @@ POSITION_OPTIONAL_GROUP={'SET_POS_REG','SET_EPOS_REG','SET_JPOS_REG','GET_POS_RE
 OPTIONAL_LAST.update(TPE_OPTIONAL_GROUP)
 OPTIONAL_LAST.add('CREATE_VAR')
 OPTIONAL_REFERENCE = {'PROG_LIST'}
+OPTIONAL_PATH_NODE = {'APPEND_NODE','INSERT_NODE'}
 OPTIONAL_GROUP = {'POS_REG_TYPE':1,'TPE_POS_REG_FRM':1,'TPE_POS_REG_TYPE':1}
 PORT_TYPES = {**{name:'BOOLEAN' for name in ('DIN','DOUT','RDI','RDO','RDIN','RDOUT','OPIN','OPOUT','TPIN','TPOUT')},
               **{name:'INTEGER' for name in ('GIN','GOUT')}, **{name:'REAL' for name in ('AIN','AOUT')}}
@@ -254,6 +255,7 @@ def signature_for(name,arity):
     """Match explicit source arguments, including omitted group/reference slots."""
     signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
     if name in OPTIONAL_REFERENCE and arity==len(signature)-1: return signature[:-1]
+    if name in OPTIONAL_PATH_NODE and arity==len(signature)-1: return (*signature[:-2],signature[-1])
     if name in OPTIONAL_GROUP and arity==len(signature)-1:
         index=OPTIONAL_GROUP[name]; return signature[:index]+signature[index+1:]
     return signature
@@ -276,6 +278,7 @@ def matches(spec, kind):
     if kind=='VARIABLE': return spec==('QUEUE_TYPE',) or spec[0]=='PATH' and len(spec)==3 or matches(spec,'ANY')
     if kind=='ANY': return spec[0] not in ('FILE','PATH','QUEUE_TYPE') and not rt.file_storage_type(spec)
     if kind=='POSE': return spec[0] in ('POSITION','XYZWPR','XYZWPREXT')
+    if kind=='PATH_NODE': return spec[0]=='STRUCTURE'
     if kind in ('GEOMETRY_POSE','RANGE_POSITION'): return spec[0] in ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
     if kind=='PORT_VALUE': return spec[0] in ('INTEGER','REAL','BOOLEAN','STRING')
     if kind=='PORT_SIM':return spec in (('BOOLEAN',),('INTEGER',))
@@ -1432,11 +1435,19 @@ class PathValue:
         index=runtime().integer(index,line)
         if not 1<=index<=len(self.nodes): fail('PATH node index out of range',line)
         return self.nodes[index-1]
-    def append(self,index=None,line=None):
+    def append(self,index=None,line=None,*,seed=None,check=None):
         if len(self.nodes)>=32767: fail('PATH node limit exceeded',line)
         index=len(self.nodes)+1 if index is None else runtime().integer(index,line)
         if not 1<=index<=len(self.nodes)+1: return 2
-        self.nodes.insert(index-1,runtime().Structure(self.node_spec)); return 0
+        rt=runtime()
+        if seed is None:
+            node=rt.Structure(self.node_spec)
+        else:
+            if check is not None:
+                for _ in range(rt._validate_data_schema(self.node_spec,line)):
+                    check()
+            node=rt._aggregate_value(self.node_spec,seed,line,allow_partial=False)
+        self.nodes.insert(index-1,node); return 0
     def clone(self): return deepcopy(self)
 
 
@@ -2542,6 +2553,7 @@ class ExecutionContext:
         rt=runtime(); args=list(arguments)
         if name in ('CURPOS','CURJPOS') and not args: args=[0,0]
         signature=PROCEDURES.get(name,FUNCTIONS.get(name,((),None))[0])
+        if name in OPTIONAL_PATH_NODE:signature=signature_for(name,len(args))
         if name in OPTIONAL_REFERENCE and len(args)==len(signature)-1: signature=signature[:-1]
         elif name in OPTIONAL_LAST and len(args)==len(signature)-1: args.append(None if name in {'MOTION_CTL','CURPOS','CURJPOS','CNV_CNF_STRG','CHECK_EPOS'}|TPE_OPTIONAL_GROUP|POSITION_OPTIONAL_GROUP else 0 if name in ('SET_FILE_ATR','CREATE_VAR') else 1)
         if name in OPTIONAL_GROUP and len(args)==len(signature)-1:
@@ -2771,8 +2783,15 @@ class ExecutionContext:
             path=args[0].raw() if type(args[0]) is rt.Reference else args[0]
             if name=='PATH_LEN': return len(path.nodes)
             if name=='NODE_SIZE': return rt.integer(path_node_size(path.node_spec,line),line)
-            if name=='APPEND_NODE': code=path.append(line=line)
-            elif name=='INSERT_NODE': code=path.append(args[1],line)
+            if name in OPTIONAL_PATH_NODE:
+                index=args[1] if name=='INSERT_NODE' else None
+                if len(args)==len(PROCEDURES[name]):
+                    seed=args[-2]
+                    if type(seed) is not rt.Structure or seed.spec!=path.node_spec:
+                        fail('PATH node input must match the declared NODEDATA',line)
+                    code=path.append(index,line,seed=seed,check=lambda:state.tick(line))
+                else:
+                    code=path.append(index,line)
             else:
                 code=0 if 1<=args[1]<=len(path.nodes) else 2
                 if not code: del path.nodes[args[1]-1]

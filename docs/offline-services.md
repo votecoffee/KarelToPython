@@ -15,7 +15,7 @@ source-located error. Strict mode remains a future milestone.
 | --- | --- | --- |
 | `CHECK_EPOS` | Explicit-frame RobotContext check | Supplied DH model or synchronous three-operand callback, selected group, portable 0/1 result and protected status; see [position checks](position-checks.md). |
 | `ERR_DATA` | Shared bounded ErrorHistory | Oldest/next/latest lookup, disjoint outputs, message capacities 40..254 and optional text/time metadata; see [error history](error-history.md). |
-| `CNV_CNF_STRG` | Explicit ConfigTextFormats group profiles | Selected flags/turns, optional caller-rooted group, portable missing-group status and persisted JSON; see [group CONFIG text](group-config-text.md). |
+| `CNV_CNF_STRG` and grouped `CNV_STR_CONF` | Explicit ConfigTextFormats group profiles | Format or parse selected flags and turns. Parsing uses an explicit group and neutral defaults. See [group CONFIG text](group-config-text.md). |
 | `GET_STR_REG`, `SET_STR_REG` | `StringRegisters` dictionary | Explicit count and ASCII capacity; reads copy and truncate to destination capacity. |
 | `GET_POS_REG`, `SET_POS_REG`, `SET_EPOS_REG` | `PositionRegisters` keyed by group and number | Complete independent Cartesian values; getter returns XYZWPREXT. |
 | `GET_JPOS_REG`, `SET_JPOS_REG` | Same bank with typed joint values | Getter pads complete narrow joints to nine slots; stored width is retained. No implicit pose/joint conversion. |
@@ -53,7 +53,7 @@ source-located error. Strict mode remains a future milestone.
 | `PRINT_FILE` | Existing WRITE recorder/callback | Closed ordinary or plain PIP input. Validated ASCII in <=254-character synchronous chunks. Both nowait values supported. |
 | `PATH` | Typed node list with optional header | One-based nodes; `NODEDATA` and `PATHHEADER` structures; direct field references. |
 | PATH/QUEUE persistence | Typed logical collection snapshots | Partial PATH data, queue order/sequence and explicit first-use buffer rebinding; see [collection persistence](collection-persistence.md). Logical PATH roots also support [portable VR archives and explicit DRAM save/restore](path-archives.md). |
-| `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and detached copies | Empty paths have length zero. Copies support full or reversed inclusive ranges. Maximum 32767 nodes. |
+| `APPEND_NODE`, `INSERT_NODE`, `DELETE_NODE`, `PATH_LEN`, `COPY_PATH` | Checked list operations and detached copies | Append and insert accept complete typed nodes. Copies support full or reversed inclusive ranges. Maximum 32767 nodes. |
 | `NODE_SIZE`, `INTSCT_VL_PL` | Packed portable node-schema bytes and supplied line/plane intersections | Structural view-line/point PATH schemas, staged append, normalized projected polarity and explicit frame/group metadata; see [PATH geometry](path-geometry.md). |
 | `QUEUE_TYPE` and seven queue procedures | FIFO entries with sequence IDs and an INTEGER backing array | Explicit INIT_QUEUE; fixed capacity; retain original backing-array identity. |
 | `CONDITION`, `WHEN`, `ENABLE/DISABLE/PURGE` | Ordered predicates and generator actions | Checkpoint/interval scanning, events/edges, EVAL capture, multiple WHEN clauses and explicit rearm. |

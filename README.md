@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.213713**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.215414**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -569,9 +569,10 @@ is a future milestone**; its previous exactness work is preserved internally.
 See the [equivalence matrix and mode roadmap](docs/numeric-modes.md).
 
 `CNV_CNF_STRG` formats CONFIG values using explicitly supplied per-group field
-profiles, with a status output and optional group argument. Profiles persist in
-service-context JSON and work with generated-script `--context` input. See
-[group CONFIG formatting](docs/group-config-text.md).
+profiles. `CNV_STR_CONF` with an explicit group reads the selected fields and
+fills omitted fields with FALSE or zero. Profiles persist in service-context
+JSON and work with generated-script `--context` input. See
+[group CONFIG text](docs/group-config-text.md).
 
 Pythonic `WRITE` supports mixed text, signed numbers, REAL formatting and `CR`
 newlines, for example `WRITE('value=',value::0::3,CR)`. Requests are recorded or
@@ -923,7 +924,8 @@ scripts can use JSON response batches with `--read-values` or ASCII text with
 
 Registers, ports and program globals share an explicit context with typed JSON
 save/load. FILE operations can use memory or a caller-selected directory. Typed
-PATH and QUEUE_TYPE collections work offline. `COPY_PATH` charges for the header
+PATH and QUEUE_TYPE collections work offline. APPEND_NODE and INSERT_NODE can
+take complete node values. `COPY_PATH` charges for the header
 and selected nodes, then validates the copy before replacing the destination.
 Queue operations stage backing-array writes and outputs
 before publication. PATH declarations accept PATHHEADER

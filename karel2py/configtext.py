@@ -1,4 +1,4 @@
-"""Explicit group-specific CONFIG formatting without controller mask discovery."""
+"""Explicit group-specific CONFIG text without controller mask discovery."""
 import re
 from types import MappingProxyType
 
@@ -8,7 +8,7 @@ CONFIG_TEXT_GROUP_MISSING = 1
 
 
 class ConfigTextFormats:
-    """Immutable formatting profiles; field selection is supplied by the host."""
+    """Immutable text profiles; field selection is supplied by the host."""
     def __init__(self, groups):
         if type(groups) is not dict: raise ValueError('CONFIG formats require a group mapping')
         profiles = {}
@@ -55,3 +55,10 @@ class ConfigTextFormats:
         if turns:
             text += (', ' if text else '') + ', '.join(str(config.values[f'CFG_TURN_NO{turn}']) for turn in turns)
         return 0, text
+
+    def parse(self, source, group, line=None):
+        from . import runtime as rt
+        profile=self._profiles.get(rt.integer(group,line))
+        if profile is None:return CONFIG_TEXT_GROUP_MISSING,None
+        result=rt._parse_config_text(source,line,profile=profile)
+        return (rt.CONFIG_TEXT_INVALID,None) if result is None else (0,result)

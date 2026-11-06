@@ -25,6 +25,44 @@ def context(groups=None):
     return rt.ExecutionContext(config_text=rt.ConfigTextFormats(PROFILES if groups is None else groups))
 
 
+class GroupConfigParsingTests(unittest.TestCase):
+    def test_formatter_roundtrip_uses_selected_fields_and_neutral_defaults(self):
+        body=INIT+'CNV_CNF_STRG(cfg,text,s,2) CNV_STR_CONF(text,result,s,2)'
+        program,report=compile_program(body,decl=DECL+' result:CONFIG',context=context())
+        state=program.run()
+        expected=dict(state['CFG'],CFG_LEFT=False,CFG_TURN_NO2=0)
+        self.assertEqual((state['TEXT'],state['RESULT'],state['S']),('F U T, -1, 3',expected,0))
+        self.assertEqual(report.report['config_text_conversions'][-1]['argument_order'],
+                         ['source','target','status','group'])
+
+    def test_turn_only_flag_only_and_empty_profiles(self):
+        profiles={1:dict(flags=[],turns=[2,3]),2:dict(flags=['left'],turns=[]),
+                  3:dict(flags=[],turns=[])}
+        for group,source,field,value in ((1,'-8,7','CFG_TURN_NO2',-8),(2,'L','CFG_LEFT',True),(3,'','CFG_FLIP',False)):
+            with self.subTest(group=group):
+                state=run(f"CNV_STR_CONF('{source}',cfg,s,{group})",decl=DECL,context=context(profiles))
+                self.assertEqual((state['S'],state['CFG'][field]),(0,value))
+
+    def test_missing_group_and_invalid_selected_fields_preserve_previous_config(self):
+        for source,group in (('F U T,-1,3',7),('F T,-1,3',2),('F L U T,-1,3',2),
+                             ('F U T,-1',2),('F U T,-1,8',2)):
+            with self.subTest(source=source,group=group):
+                state=run(INIT+f"CNV_STR_CONF('{source}',cfg,s,{group})",decl=DECL,context=context())
+                self.assertEqual((state['S'],state['CFG']['CFG_TURN_NO2'],state['CFG']['CFG_LEFT']),
+                                 (1,2,True))
+
+    def test_group_expression_is_input_and_evaluates_after_output_selectors(self):
+        routines=('ROUTINE slot:INTEGER BEGIN total=total*10+1 RETURN 1 END slot '
+                  'ROUTINE pick:INTEGER BEGIN total=total*10+2 RETURN 2 END pick')
+        state=run("total=0 CNV_STR_CONF('F U T,-1,3',rows[slot()],s,pick())",
+                  decl=DECL+' rows:ARRAY[1] OF CONFIG',routines=routines,context=context())
+        self.assertEqual((state['TOTAL'],state['ROWS'][0]['CFG_TURN_NO3']),(12,3))
+        state=run('FOR i=1 TO 2 DO decode(cfg,s,i) ENDFOR',decl=DECL,
+                  routines="ROUTINE decode(value:CONFIG; code,group_no:INTEGER) BEGIN CNV_STR_CONF('F U T,-1,3',value,code,group_no) END decode",
+                  context=context())
+        self.assertEqual((state['S'],state['CFG']['CFG_TURN_NO3']),(0,3))
+
+
 class ConfigProfileTests(unittest.TestCase):
     def config(self):
         p,_=compile_program(INIT,decl=DECL)

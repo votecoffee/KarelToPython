@@ -29,9 +29,8 @@ context.save("context.json")
 Group 2 formats the example as `F U T, -1, 2`. Flags always appear in
 flip/left/up/front order, with the corresponding N/F, R/L, D/U and B/T choices.
 Selected turns follow in numeric order, separated by comma-space. A profile with
-no flags emits only its selected turns; a profile with both lists empty emits an
-empty STRING. Formatting can omit data, so masked text need not round-trip
-through `CNV_STR_CONF`.
+no flags emits only its selected turns. A profile with both lists empty emits an
+empty STRING.
 
 Group numbers are explicit INTEGER values in 1..32767. Flags and turns must be
 unique known names/numbers. Constructor inputs and exported JSON are detached
@@ -45,6 +44,24 @@ The optional fourth argument selects that group's profile. When omitted, the
 calling root task's group is used; an unqualified root uses group 1. This includes
 calls through linked source routines. The selected group still requires a
 supplied profile. A lone profile for group 2 does not become a default for group 1.
+
+## Parse group text
+
+`CNV_STR_CONF(text,config,status,group)` uses the same explicit profile.
+Supply each selected flag exactly once and the selected turn values in numeric
+axis order. Profiles with only turns accept comma-separated turn values.
+An empty profile accepts empty text. Unselected flags become FALSE and
+unselected turns become zero in the result.
+
+```karel
+CNV_CNF_STRG(cfg,text,code,2)
+CNV_STR_CONF(text,decoded,code,2)
+```
+
+This round-trips the selected fields of the profile. An unconfigured group or
+invalid profile text returns status 1 and preserves the previous CONFIG. The
+group expression runs after the output selectors. The three-argument
+CNV_STR_CONF retains its context-free grammar.
 
 ## Outputs and failure behavior
 

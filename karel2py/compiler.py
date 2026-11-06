@@ -2086,7 +2086,8 @@ class Emitter:
                             if name in parameter_names: routine.parameter_writes.add(name)
                             if name in self.types and name not in local_names | parameter_names: routine.global_writes.add(name)
                     if self.mode == 'pythonic' and call.value in CONFIG_TEXT_PROCEDURES | TIME_TEXT_PROCEDURES and call.value not in self.routines:
-                        for output in call.args[1:]:
+                        outputs=call.args[1:3] if call.value=='CNV_STR_CONF' else call.args[1:]
+                        for output in outputs:
                             name = self.root_name(output)
                             if name is not None and name not in local_names: routine.side_effecting = True
                             if name in parameter_names: routine.parameter_writes.add(name)
@@ -3001,7 +3002,10 @@ class Emitter:
     def config_text_conversion(self, expr):
         parsing = expr.value == 'CNV_STR_CONF'
         count = 3 if parsing else 2
-        if len(expr.args) != count: self.error('E_ARGUMENTS', f'{expr.value} requires {count} arguments', expr.token)
+        grouped=parsing and len(expr.args)==4
+        if len(expr.args)!=count and not grouped:
+            message='CNV_STR_CONF requires three arguments and an optional group' if parsing else f'{expr.value} requires {count} arguments'
+            self.error('E_ARGUMENTS',message,expr.token)
         self.check_for_call(expr.token)
         source = self.require_type(expr.args[0], 'STRING' if parsing else 'CONFIG')
         if not parsing: source = f'_rt.positional_value(("CONFIG",), {source}, {expr.args[0].token.line})'
@@ -3018,22 +3022,29 @@ class Emitter:
             if spec[0] != expected: self.error('E_TYPE', f'{expr.value} output requires {expected}', argument.token)
             outputs.append(code)
         self.features.add(expr.value)
+        order=['source','target','status'] if parsing else ['source','target']
+        options=''
+        if grouped:
+            group=self.require_type(expr.args[3],'INTEGER')
+            options=f", group={group}, formats=self._state.execution.require('config_text',{expr.token.line})"
+            order.append('group')
         self.config_text_uses.append(dict(name=expr.value, body=self.current_routine.name if self.current_routine else self.program.name,
                                          line=expr.token.line, column=expr.token.column, arguments_evaluated_once=True,
-                                         argument_order=['source','target','status'] if parsing else ['source','target'],
+                                         argument_order=order,
                                          outputs=2 if parsing else 1, source_copied=not parsing))
-        return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line})'
+        return f'_rt.config_text_conversion({expr.value!r}, {source}, {", ".join(outputs)}, line={expr.token.line}{options})'
 
     def service_call(self,expr):
         if expr.value=='BYNAME': self.error('E_BYNAME_CONTEXT','BYNAME is permitted only as a direct user routine argument',expr.token)
         signature=ex.PROCEDURES.get(expr.value,ex.FUNCTIONS.get(expr.value,((),None))[0])
-        minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST or expr.value in ex.OPTIONAL_GROUP)
+        minimum=len(signature)-(expr.value in ex.OPTIONAL_LAST or expr.value in ex.OPTIONAL_GROUP or expr.value in ex.OPTIONAL_PATH_NODE)
         default_masks=self.mode=='pythonic' and expr.value in ('CURPOS','CURJPOS') and not expr.args
         if not default_masks and not minimum<=len(expr.args)<=len(signature): self.error('E_ARGUMENTS',f'{expr.value} requires {minimum}..{len(signature)} arguments',expr.token)
         signature=ex.signature_for(expr.value,len(expr.args))
         self.check_for_call(expr.token)
         if ex.variable_write_call(expr.value,expr.args) and self.named_active_counters(): self.error('E_FOR_COUNTER',expr.value+' cannot indirectly write an active FOR counter',expr.token)
         codes=[]
+        path_node_spec=None
         for index,(value,(mode,kind)) in enumerate(zip(expr.args,signature)):
             discarded=value
             while discarded.kind=='group': discarded=discarded.args[0]
@@ -3079,6 +3090,10 @@ class Emitter:
                 elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line})'
                 elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.service_value({code},{value.token.line})'
             if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
+            if index==0 and expr.value in ex.OPTIONAL_PATH_NODE:
+                path_node_spec=spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+            if kind=='PATH_NODE' and spec!=path_node_spec:
+                self.error('E_TYPE',f'{expr.value} node input must match the declared NODEDATA',value.token)
             codes.append(code)
         self.features.add(expr.value); self.features.add('extended services')
         self.service_uses.append(dict(operation=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,line=expr.token.line,column=expr.token.column))
@@ -3858,6 +3873,7 @@ class Emitter:
                     if routine is None:
                         outputs=[]
                         if action.value in BUILTIN_PROCEDURES:outputs=action.args[-1:]
+                        elif action.value=='CNV_STR_CONF':outputs=action.args[1:3]
                         elif action.value in MULTI_OUTPUT_PROCEDURES|CONFIG_TEXT_PROCEDURES|TIME_TEXT_PROCEDURES:outputs=action.args[1:]
                         elif action.value in REGISTER_PROCEDURES:outputs=action.args[1:] if action.value=='GET_REG' else action.args[2:]
                         if any(self.protection_root(value)==name for value in outputs):return True
@@ -5475,7 +5491,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit ExecutionContext with bounded banks, typed JSON persistence and attached program namespaces; optional caller-rooted DirectoryFiles and configured DH model',
         values='Checked exact output references, disjoint resources, ordered input/selector capture; prior completed effects retained on error',
         files='MemoryFiles or explicit DirectoryFiles root; ASCII text, ATR_FIELD capacity-sized STRING reads, byte-accurate EOL cursors, ATR_UF binary, selectable byte order and interactive flush; bounded copy/delete/rename/list',
-        collections='Typed one-based PATH nodes and header, full or reversed inclusive range copies, and initialized fixed-capacity FIFO queues. COPY_PATH charges per scalar leaf in the header and selected nodes before validated copy and publication.',
+        collections='Typed one-based PATH nodes and header, full or reversed inclusive range copies, and initialized fixed-capacity FIFO queues. APPEND_NODE and INSERT_NODE accept a complete exact NODEDATA seed. Seeded edits and COPY_PATH charge for copied leaves before publication.',
         queue_copy='COPY_QUEUE stages backing slots and selected view entries, charges each to the step budget, then binds and publishes. Exceptions during preparation preserve arrays, count, status and the existing binding.',
         queue_mutation='APPEND_QUEUE, INSERT_QUEUE, MODIFY_QUEUE, DELETE_QUEUE and GET_QUEUE stage the FIFO update, backing array and outputs. Each backing slot costs a step before publication.',
         robot='JOINT2POS/POS2JOINT/IN_RANGE/CHECK_EPOS use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; JOINT2POS accepts writable POSITION, XYZWPR or XYZWPREXT; bounded numerical IK is not certified reachability',
@@ -5547,6 +5563,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/program-metadata.md',controller_validated=False)
     report['group_config_text_policy']=dict(
         procedure='CNV_CNF_STRG',
+        parsing='CNV_STR_CONF(text,config,status,group) reads exactly the supplied profile flags and turns. Omitted CONFIG fields become FALSE or zero. Invalid text or an unconfigured group writes status 1 and retains the destination.',
         context='Explicit ExecutionContext.config_text ConfigTextFormats profiles; per-group selected flags and turn numbers, never native mask discovery',
         group='Explicit fourth INTEGER argument or calling root task group; unqualified root uses group 1, which still requires an explicit profile',
         format='Complete checked CONFIG captured before output selectors; selected flags in flip/left/up/front order and selected turns in numeric order; omit unselected fields',

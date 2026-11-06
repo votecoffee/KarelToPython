@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.215414 - 2026-11-06
+
+- Accept complete typed node values in Pythonic APPEND_NODE and INSERT_NODE.
+  Capture the node before later argument effects and charge the copy before
+  publishing it.
+- Decode group-profile CONFIG text with the explicit fourth argument to
+  CNV_STR_CONF. Omitted flags and turns receive neutral defaults.
+
 ## 26.1106.213713 - 2026-11-06
 
 - Match XML tags by namespace URI with an explicit `{uri}local` registration.

@@ -36,6 +36,42 @@ def initialize_display(name='display'):
 def roundtrip(value):return decode_typed(json.loads(json.dumps(typed_value(value))))[1]
 
 
+class SeededPathNodeTests(unittest.TestCase):
+    declarations=DECL+' seed:node_t'
+
+    def test_append_and_insert_copy_complete_nodes_in_order(self):
+        state=run('track.count=8 seed.value=17 APPEND_NODE(track,seed,s) '
+                  'seed.value=23 INSERT_NODE(track,1,seed,s) seed.value=99',
+                  decl=self.declarations)
+        self.assertEqual(state['TRACK'],{'nodes':[{'VALUE':23},{'VALUE':17}],'data':{'COUNT':8}})
+        self.assertEqual((state['SEED']['VALUE'],state['S']),(99,0))
+
+    def test_seed_snapshot_precedes_later_status_selector(self):
+        routines='ROUTINE slot:INTEGER BEGIN seed.value=99 RETURN 1 END slot'
+        state=run('seed.value=17 APPEND_NODE(track,seed,codes[slot()])',
+                  decl=self.declarations+' codes:ARRAY[1] OF INTEGER',routines=routines)
+        self.assertEqual((state['TRACK']['nodes'],state['SEED']['VALUE'],state['CODES']),
+                         ([{'VALUE':17}],99,[0]))
+
+    def test_wrong_nominal_schema_and_incomplete_seed_fail_closed(self):
+        with self.assertRaises(TranslationError) as error:
+            compile_program('APPEND_NODE(track,seed,s)',decl=DECL+' seed:other_t',
+                            types=TYPES+' other_t=STRUCTURE value:INTEGER ENDSTRUCTURE')
+        self.assertEqual(error.exception.code,'E_TYPE')
+        program,_=compile_program('s=99 APPEND_NODE(track,seed,s)',decl=self.declarations)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'uninitialized'):
+            program.run()
+        self.assertEqual((program.snapshot()['TRACK']['nodes'],program.snapshot()['S']),([],99))
+
+    def test_invalid_index_and_budget_preserve_nodes(self):
+        state=run('seed.value=17 INSERT_NODE(track,2,seed,s)',decl=self.declarations)
+        self.assertEqual((state['TRACK']['nodes'],state['S']),([],2))
+        program,_=compile_program('seed.value=17 s=99 APPEND_NODE(track,seed,s)',decl=self.declarations)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):
+            program.run(max_steps=3)
+        self.assertEqual((program.snapshot()['TRACK']['nodes'],program.snapshot()['S']),([],99))
+
+
 class PathClauseSyntaxTests(unittest.TestCase):
     def test_header_spellings_and_clause_orders_share_schema_and_storage(self):
         forms=('NODEDATA=node_t,PATHHEADER=header_t','PATHHEADER=header_t,NODEDATA=node_t',

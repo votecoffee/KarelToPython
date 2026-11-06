@@ -1990,13 +1990,24 @@ CONFIG_TEXT_FLAGS = (('CFG_FLIP', 'N', 'F'), ('CFG_LEFT', 'R', 'L'),
 CONFIG_TEXT_INVALID = 1  # Portable parse failure, not a native controller code.
 
 
-def _parse_config_text(source, line=None):
+def _parse_config_text(source, line=None, *, profile=None):
     text = ascii_string(source, line)
     if len(text) > 254: raise KarelRuntimeError('CONFIG text input is limited to 254 characters', line)
     parts = text.upper().split(',')
-    if len(parts) not in (1, 4): return None
-    flags = re.sub(r'\s+', '', parts[0])
-    if not flags: return None
+    expected=None
+    if profile is None:
+        if len(parts) not in (1,4):return None
+        positions=(1,2,3) if len(parts)==4 else ()
+        flag_text=parts.pop(0)
+    else:
+        selected,positions=profile
+        expected={f'CFG_{flag.upper()}' for flag in selected}
+        flag_text=parts.pop(0) if selected else ''
+        if not selected and not positions and not text.strip():
+            parts=[]
+        if len(parts)!=len(positions):return None
+    flags=re.sub(r'\s+','',flag_text)
+    if expected is None and not flags:return None
     values = {field: False for field, _, _ in CONFIG_TEXT_FLAGS}
     choices = {letter: (field, enabled) for field, off, on in CONFIG_TEXT_FLAGS
                for letter, enabled in ((off, False), (on, True))}
@@ -2006,10 +2017,12 @@ def _parse_config_text(source, line=None):
         field, value = choices[letter]
         if field in seen: return None
         seen.add(field); values[field] = value
-    try: turns = [int(part, 10) for part in parts[1:]] if len(parts) == 4 else [0, 0, 0]
+    if expected is not None and seen!=expected:return None
+    try: turns = [int(part, 10) for part in parts]
     except ValueError: return None
     if any(not -8 <= value <= 7 for value in turns): return None
-    values.update(zip(('CFG_TURN_NO1','CFG_TURN_NO2','CFG_TURN_NO3'), turns))
+    values.update(CFG_TURN_NO1=0,CFG_TURN_NO2=0,CFG_TURN_NO3=0)
+    values.update((f'CFG_TURN_NO{position}',turn) for position,turn in zip(positions,turns))
     result = Structure(('CONFIG',)); result.values.update(values)
     return positional_value(('CONFIG',), result, line)
 
@@ -2060,7 +2073,7 @@ def _config_word_data(target,source,value,line=None):
     return converted if target==('CONFIG',) else checked(target,converted,line)
 
 
-def config_text_conversion(name, source, target, status=None, *, line=None):
+def config_text_conversion(name, source, target, status=None, *, line=None, group=None, formats=None):
     """Portable CONFIG text conversions; no robot mask or native error mapping."""
     if not _pythonic() or name not in ('CNV_CONF_STR', 'CNV_STR_CONF'):
         raise KarelRuntimeError('Unsupported CONFIG text conversion', line)
@@ -2084,12 +2097,14 @@ def config_text_conversion(name, source, target, status=None, *, line=None):
         raise KarelRuntimeError('CNV_STR_CONF CONFIG destination has malformed storage', line)
     if _reference_cells(target) & _reference_cells(status):
         raise KarelRuntimeError('CNV_STR_CONF outputs must not overlap', line)
-    value = _parse_config_text(source, line)
-    if value is None:
-        status.set(CONFIG_TEXT_INVALID, line)
-        return
-    target.set(value, line)
-    status.set(0, line)
+    if group is None:
+        value=_parse_config_text(source,line)
+        code=CONFIG_TEXT_INVALID if value is None else 0
+    else:
+        if formats is None:raise KarelRuntimeError('Grouped CONFIG parsing requires ConfigTextFormats',line)
+        code,value=formats.parse(source,group,line)
+    if code==0:target.set(value,line)
+    status.set(code,line)
 
 
 TIME_MONTHS = ('JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC')

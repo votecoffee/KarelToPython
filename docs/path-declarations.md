@@ -66,6 +66,24 @@ NODE_SIZE reports the existing portable packed sizes: 76 bytes for DISP_DAT_T
 and 64 for the modeled STD_PTH_NODE. These are prototype sizes rather than native
 alignment or binary ABI claims.
 
+## Append or insert a complete node
+
+Pythonic APPEND_NODE and INSERT_NODE accept a node value before the status
+argument. It must match the PATH's exact declared NODEDATA type.
+
+```karel
+seed.value=17
+APPEND_NODE(track,seed,status)
+seed.value=23
+INSERT_NODE(track,1,seed,status)
+```
+
+Each operation captures a complete independent node before the status selector
+runs. It charges the execution budget for its scalar leaves before inserting
+the node. Invalid input or an exhausted budget preserves the PATH and status.
+An out-of-range insert returns status 2. The original forms without a node
+value still allocate a node with uninitialized data.
+
 ## Interfaces, creation and persistence
 
 `PATH NODEDATA=STD_PTH_NODE` and aliases of that predefined type normalize to the
