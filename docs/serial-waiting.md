@@ -73,6 +73,10 @@ without another byte. Variable-length input remains subject to the
 ordinary combined RX/TX capacity and bank byte budget; feed and WRITE reject
 over-limit appends atomically.
 
+When retained RX alone fills the port, an incomplete READ checks whether those
+bytes could complete the request at EOF. If they could, it can wait for
+finalization. Otherwise it fails and retains the cursor and buffered bytes.
+
 ## Scheduling and cancellation
 
 An incomplete waiting READ uses 10 ms logical delay intervals and normal runtime

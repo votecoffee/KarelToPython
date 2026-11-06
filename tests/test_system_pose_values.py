@@ -38,6 +38,22 @@ class SystemPoseValueTests(unittest.TestCase):
         v,_,_=run('p=$mnuframe[1,2] q=$group[1].$utool');self.assertEqual((v['P']['LOCATION']['X'],v['Q']['LOCATION']['X']),(12.,23.))
     def test_pose_fields_are_ordinary_read_values(self):
         v,_,_=run('n=$MNUFRAME[1,2].location.x m=$GROUP[1].$UTOOL.location.x');self.assertEqual((v['N'],v['M']),(12.,23.))
+    def test_extended_axis_reads_capture_selectors_once_and_keep_whole_position_view(self):
+        ctx=context()
+        ctx.robot.frames[2]=cartesian_value('XYZWPREXT',(12.,0.,0.),(0.,0.,0.),(7.,8.,9.))
+        ctx.robot.tools[3]=cartesian_value('XYZWPREXT',(23.,0.,0.),(0.,0.,0.),(4.,5.,6.))
+        routines="ROUTINE grp:INTEGER BEGIN trace=trace+'G' RETURN 1 END grp ROUTINE slot:INTEGER BEGIN trace=trace+'N' RETURN 2 END slot"
+        body="trace='' n=($MNUFRAME[grp(),slot()]).ext1 m=$GROUP[1].$UTOOL.ext3 p=$MNUFRAME[1,2]"
+        values,_,result=run(body,context=ctx,routines=routines)
+        self.assertEqual((values['N'],values['M'],values['TRACE']),(7.,6.,'GN'))
+        self.assertEqual(values['P']['LOCATION']['X'],12.)
+        self.assertEqual([row['result_type'] for row in result.report['system_pose_values']],['REAL','REAL','POSITION'])
+
+    def test_axis_reads_require_an_extended_row_and_keep_existing_destination(self):
+        p,_=program('n=42 n=$MNUFRAME[1,2].ext1')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'XYZWPREXT row'):p.run()
+        self.assertEqual(p.snapshot()['N'],42.)
+
     def test_orientation_fields_are_readable(self):
         v,_,_=run('n=$MNUFRAME[1,2].normal.x m=$MNUFRAME[1,2].approach.z');self.assertEqual((v['N'],v['M']),(1.,1.))
     def test_cartesian_assignment_conversions_still_apply(self):
@@ -114,7 +130,7 @@ class SystemPoseValueTests(unittest.TestCase):
             with self.subTest(target=target),self.assertRaises(TranslationError) as caught:program(target+'=p')
             self.assertEqual(caught.exception.code,'E_SYSTEM_POSE_TARGET')
     def test_read_and_service_output_aliases_are_rejected(self):
-        for body in ('READ($MNUFRAME[1,2].location.x)',"GET_VAR(entry,'','n',$MNUFRAME[1,2].location.x,s)"):
+        for body in ('READ($MNUFRAME[1,2].location.x)','READ($MNUFRAME[1,2].ext1)',"GET_VAR(entry,'','n',$MNUFRAME[1,2].location.x,s)"):
             with self.subTest(body=body),self.assertRaises(TranslationError) as caught:program(body)
             self.assertIn(caught.exception.code,('E_READ_ITEM','E_SYSTEM_POSE_READ_ONLY'))
     def test_unknown_dollar_roots_remain_lexical_errors(self):

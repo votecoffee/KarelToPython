@@ -119,6 +119,9 @@ remaining bytes for the next read.
 
 The capacity check counts fixed field bytes and required CR separators. The
 last CR may consume a finalized unterminated record without another byte.
+When one endpoint's retained RX fills the bank, an incomplete READ fails if
+the same bytes cannot complete it at EOF. If EOF would complete it, the
+operation can wait for explicit finalization.
 
 With `wait_output: true`, WRITE renders the complete payload once. It waits
 for space in the shared Messaging bank, which can be freed by host

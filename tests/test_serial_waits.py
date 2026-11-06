@@ -144,6 +144,17 @@ class SerialWaitInputTests(unittest.TestCase):
         bank.close(handle)
         self.assertEqual(bank.snapshot()[2]['input'],b'123')
 
+    def test_full_retained_prefix_and_incomplete_record_cannot_wait(self):
+        bank,ctx=streams(b'117 ',capacity=4);calls=[]
+        task,_=compile_program(OPEN+'READ f(n::1) m=88 count=99 READ f(m,count)',decl=DECL,context=ctx,sleep=calls.append)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'cannot complete within retained receive capacity'):task.run()
+        handle=task._state.values['F']
+        result=task.snapshot()
+        self.assertEqual((result['N'],result['M'],result['COUNT'],handle.position),(1,88,99,1))
+        self.assertEqual((len(task.read_requests),calls,bank._pending),(1,[],{}))
+        bank.close(handle)
+        self.assertEqual(bank.snapshot()[2]['input'],b'17 ')
+
 
 class SerialWaitFinalInputTests(unittest.TestCase):
     def test_finalization_supplies_last_cr_at_exact_capacity(self):

@@ -274,8 +274,9 @@ closed descriptors. Text/binary I/O, renaming and timed cancellation use the sam
 explicit backends.
 
 [Offline frame/tool writes](docs/system-pose-writes.md) now accept whole Cartesian
-rows and staged location/configuration edits. Writes preserve supplied external
-axes, use explicit configured groups, and retain independent read snapshots.
+rows and staged location/configuration edits. Direct EXT1 through EXT3 reads
+and assignments use the configured XYZWPREXT row. Whole reads return independent
+POSITION snapshots.
 Linked routines, handlers and saved-context replay share the same table policy.
 
 [Active frame/tool selection](docs/frame-tool-selection.md) now translates
@@ -382,7 +383,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.153241**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.154934**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

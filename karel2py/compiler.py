@@ -2364,6 +2364,7 @@ class Emitter:
         """Inspect receiver types without emitting calls or duplicate call-site reports."""
         if expr.kind=='system_selection':return ('INTEGER',)
         if expr.kind=='system_pose':return ('POSITION',)
+        if self.system_axis_root(expr) is not None:return ('REAL',)
         if expr.kind == 'group': return self.access_type(expr.args[0])
         if expr.kind == 'using_ref': return expr.value[1]
         if self.mode=='pythonic' and expr.kind=='call' and expr.value in ex.FUNCTIONS and expr.value not in self.routines:
@@ -2465,6 +2466,13 @@ class Emitter:
     def is_system_pose_path(expr):
         while expr.kind in ('field','index','group'):expr=expr.args[0]
         return expr.kind=='system_pose'
+
+    @staticmethod
+    def system_axis_root(expr):
+        if expr.kind!='field' or expr.value not in ex.SYSTEM_POSE_AXES:return None
+        root=expr.args[0]
+        while root.kind=='group':root=root.args[0]
+        return root if root.kind=='system_pose' else None
 
     def reference(self, expr, *, config_read=False, allow_prefix=False, collection_prefix=False):
         line = expr.token.line
@@ -2613,15 +2621,20 @@ class Emitter:
                 line=expr.token.line,column=expr.token.column,evaluated_once=True,private_value=True,result_type='INTEGER'))
             self.features.update(('robot frame/tool selection','extended services'))
             return f'self._state.system_selection({expr.value!r},_rt.integer({group},{expr.args[0].token.line}),{expr.token.line})',('INTEGER',)
-        if expr.kind=='system_pose':
-            codes=[self.require_type(argument,'INTEGER') for argument in expr.args]
-            codes=[f'_rt.integer({code},{argument.token.line})' for code,argument in zip(codes,expr.args)]
-            row=dict(operation=expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
-                line=expr.token.line,column=expr.token.column,evaluated_once=True,independent_value=True,result_type='POSITION')
+        pose=expr if expr.kind=='system_pose' else self.system_axis_root(expr)
+        if pose is not None:
+            axis=None if pose is expr else expr.value
+            result_type='POSITION' if axis is None else 'REAL'
+            codes=[self.require_type(argument,'INTEGER') for argument in pose.args]
+            codes=[f'_rt.integer({code},{argument.token.line})' for code,argument in zip(codes,pose.args)]
+            row=dict(operation=pose.value,body=self.current_routine.name if self.current_routine else self.program.name,
+                line=expr.token.line,column=expr.token.column,evaluated_once=True,independent_value=True,result_type=result_type)
+            if axis is not None:row['path']=(axis,)
             if row not in self.system_pose_uses:self.system_pose_uses.append(row)
             self.features.update(('robot system pose value','extended services'))
             number=codes[1] if len(codes)>1 else 'None'
-            return f'self._state.system_pose({expr.value!r},{codes[0]},{number},{expr.token.line})',('POSITION',)
+            selector='' if axis is None else f',axis={axis!r}'
+            return f'self._state.system_pose({pose.value!r},{codes[0]},{number},{expr.token.line}{selector})',(result_type,)
         if expr.kind=='motion_event':
             return f'self._state.execution.require("motion",{expr.token.line}).condition(self._state,{expr.value},{expr.token.line})',('BOOLEAN',)
         if expr.kind=='captured': return expr.value
@@ -4029,9 +4042,10 @@ class Emitter:
                 if root.kind=='field':path.insert(0,root.value)
                 root=root.args[0]
             allowed={(),('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),
-                ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',)))}
+                ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',))),
+                *((axis,) for axis in ex.SYSTEM_POSE_AXES)}
             if root.kind!='system_pose' or tuple(path) not in allowed:
-                self.error('E_SYSTEM_POSE_TARGET','System pose writes require whole poses, LOCATION or CONFIG_DATA fields; orientation and writable aliases remain blocked',target.token)
+                self.error('E_SYSTEM_POSE_TARGET','System pose writes require a whole pose or a LOCATION, CONFIG_DATA or external-axis field',target.token)
             value,actual=self.expression(expr)
             expected=self.access_type(target)
             if not path:
@@ -5597,7 +5611,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['socket_wait_policy']=dict(
         configuration='Exact BOOLEAN wait/final and independent wait_output per Messaging endpoint; default immediate RX/TX behavior is retained',
         input='Explicit host feed and finish_input; validate a complete typed text/binary READ before consuming its RX prefix or publishing destinations',
-        input_capacity='Fixed fields and required CR bytes must fit the receive bank; EOF can satisfy the final CR on an unterminated record',
+        input_capacity='Fixed fields and required CR bytes must fit the bank. A full RX queue can wait only if EOF could complete the retained request.',
         output='Capture complete rendered WRITE bytes once; wait for bank space from explicit host drains or another endpoint consuming RX, then append atomically',
         lifetime='Explicit standalone sleeper or scheduler; ten-millisecond delays and checkpoints; one pending operation per FILE with exact connection and buffer identity checks',
         cancellation='CANCEL FILE unwinds the exact pending READ/WRITE with portable status 6; disconnect fails pending operations even after reconnect; close/reposition require unwind',
@@ -6016,7 +6030,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         source='$MNUFRAME[group,number], $MNUTOOL[group,number], $GROUP[group].$UFRAME and .$UTOOL',
         context='Only explicitly supplied RobotContext groups, frame/tool tables and active selections; no VariableStore discovery or controller access',
         persistence='Standalone frame/tool tables may roundtrip without a DH model; preserve explicit identity entries and selections without inventing absent tables or robot callbacks',
-        values='Independent complete POSITION snapshots; checked INTEGER selectors once left-to-right; ordinary fields, conversions, private routine values and computed USING copies',
+        values='Independent complete POSITION snapshots and direct EXT1/EXT2/EXT3 REAL values from configured XYZWPREXT rows; checked INTEGER selectors once left-to-right',
         boundary='Dedicated assignments follow system_pose_write_policy; writable service/READ references remain rejected; no native writes, aliases, unknown dollar roots or implicit frames from reads',
         guide='docs/handler-priority-and-system-poses.md',controller_validated=False)
     report['connected_timer_policy']=dict(
@@ -6857,7 +6871,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         transfer='Finite ASCII or portable binary scalar READ/WRITE, explicit FILE attributes, exclusive validated handles and separate input/output buffers; RO/WO/RW/UD/AP plus portable AO and binary suffix intent',
         input='Read cursor advances only after complete typed input validation; CLOSE consumes its RX prefix; finite defaults remain, wait=True permits explicit host-fed cooperative input with final/finish_input EOF and no loopback',
         waiting='Capture destinations/formats once, distinguish incomplete from invalid input, retain prefix on EOF/failure; explicit standalone sleeper or scheduler, bounded checkpoints, pending direct-read/close guards and generator cleanup',
-        input_capacity='Retained RX prefix, fixed fields and required CR bytes must fit the port; EOF can satisfy the final CR on an unterminated record',
+        input_capacity='Retained RX prefix, fixed fields and required CR bytes must fit the port. A full RX queue can wait only if EOF could complete the retained request.',
         output='Append retained TX after complete byte-budget checks, preserving RX; optional wait_output follows serial_output_wait_policy; no device call is performed',
         queries='GET_FILE_POS is the RX cursor; BYTES_LEFT/BYTES_AHEAD report supplied remaining RX; SET_FILE_POS returns unsupported status 2 with cursor unchanged; ordinary IO_STATUS retains portable behavior',
         persistence='Canonical bounded port configuration, optional wait/final and wait_output flags plus remaining RX/TX hex round-trip only after close; no handles, pending I/O, native connections or suspended calls restored',
@@ -7395,7 +7409,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         boundary='No BYNAME system aliases, direct READ/service output aliases, unknown dollar discovery, native layouts, controller writes or strict equivalence',
         guide='docs/system-variable-transfers.md',controller_validated=False)
     report['system_pose_write_policy']=dict(
-        targets='Whole numbered frame/tool poses or active selected rows; LOCATION vectors/scalars and CONFIG_DATA whole/scalar fields only',
+        targets='Whole numbered frame/tool poses or active selected rows; LOCATION and CONFIG_DATA fields; EXT1/EXT2/EXT3 on configured XYZWPREXT rows',
         values='Complete Cartesian records, private snapshots and staged geometry/config validation; preserve supplied representation and external axes on field edits',
         capture='RHS snapshot before group/number selectors, selectors once left-to-right; no writable system aliases; active rows selected after selector effects',
         publication='Existing explicit RobotContext/group required; numbered whole writes may populate a row, active and field writes require existing rows; publish one independent validated table entry',

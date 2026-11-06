@@ -142,7 +142,8 @@ They preserve existing binding precedence and publish checked offline values;
 live system aliases and native discovery remain excluded.
 
 [Offline frame/tool writes](system-pose-writes.md) now accept whole Cartesian
-poses and staged location/configuration edits, including retained external axes.
+poses and staged location/configuration edits. Direct external-axis fields use
+existing XYZWPREXT rows.
 [Active selection IDs](frame-tool-selection.md) now support checked source reads
 and assignments using supplied rows. Writable aliases, direct orientation-column
 writes, automatic joint conversion, native special-ID interpretation and

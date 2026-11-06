@@ -37,6 +37,11 @@ external-axis values not selected by the edit are preserved. POSITION NORMAL,
 ORIENT and APPROACH remain read-only source fields; whole proper-pose replacement
 is available when orientation must change.
 
+An existing XYZWPREXT row also supports direct EXT1, EXT2 and EXT3 reads and
+assignments. For example, `$MNUFRAME[1,2].ext1=42` stages one REAL field
+update and preserves the row's other values. The active frame and tool forms
+use the same rule. Whole reads return the ordinary POSITION view.
+
 ## Capture and publication
 
 The right-hand value is captured before group and number expressions. Selectors
@@ -64,8 +69,8 @@ This extension creates no live system-variable aliases. Generic GET_VAR/SET_VAR
 and BYNAME discovery is unchanged. READ/service outputs, direct orientation-column
 writes, unknown dollar roots and automatic joint conversion remain unavailable.
 [Active ID assignments](frame-tool-selection.md) use a separate checked selection
-operation. The existing POSITION read view does not expose external-axis
-metadata; supplied XYZWPREXT whole values and the saved table retain those axes.
+operation. Supplied XYZWPREXT whole writes and saved table entries retain all
+three axes.
 Native table storage, controller writes, physical robot behavior and strict-mode
 equivalence are outside this offline contract.
 

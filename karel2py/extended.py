@@ -1492,6 +1492,9 @@ class QueueValue:
 _KEEP_CURRENT=object()
 
 
+SYSTEM_POSE_AXES=('EXT1','EXT2','EXT3')
+
+
 class RobotState:
     """Caller-supplied current pose/joints; updates validate before replacing data."""
     def __init__(self,*,position=None,joints=None,axis_limit_mask=0,overtravel_mask=0):
@@ -2073,8 +2076,7 @@ class _SystemVariableTarget:
             if self.number not in self.table or type(row) is not rt.Structure:fail('Requested ordinary frame/tool is not configured',line)
             value=rt.frame_value(row,line)
             if path:
-                axes={('EXT1',),('EXT2',),('EXT3',)}
-                if path in axes:
+                if len(path)==1 and path[0] in SYSTEM_POSE_AXES:
                     if value.spec!=('XYZWPREXT',):fail('External-axis fields require an XYZWPREXT row',line)
                 else:
                     writable={('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',)))}
@@ -2916,7 +2918,7 @@ class ExecutionContext:
             output[index]=converted
         return result
 
-    def system_pose(self,kind,group,number=None,line=None):
+    def system_pose(self,kind,group,number=None,line=None,*,axis=None):
         rt=runtime()
         if kind not in ('FRAME','TOOL','ACTIVE_FRAME','ACTIVE_TOOL'):
             fail('Unsupported robot system pose',line)
@@ -2926,6 +2928,10 @@ class ExecutionContext:
             number=robot.active_frame if kind=='ACTIVE_FRAME' else robot.active_tool
         else:number=rt.integer(number,line)
         value=robot.frame(number) if kind in ('FRAME','ACTIVE_FRAME') else robot.tool(number)
+        if axis is not None:
+            if axis not in SYSTEM_POSE_AXES:fail('Unsupported robot system pose axis',line)
+            if value.spec!=('XYZWPREXT',):fail('External-axis fields require an XYZWPREXT row',line)
+            return value.values[axis]
         return value if value.spec==('POSITION',) else rt.convert_position(('POSITION',),value,line)
 
     def _system_selection_context(self,kind,group,line):
@@ -2961,7 +2967,7 @@ class ExecutionContext:
         if kind not in ('FRAME','TOOL','ACTIVE_FRAME','ACTIVE_TOOL'):fail('Unsupported robot system pose write',line)
         allowed={(),('LOCATION',),*(('LOCATION',axis) for axis in ('X','Y','Z')),
             ('CONFIG_DATA',),*(('CONFIG_DATA',name) for name,_ in rt.record_fields(('CONFIG',))),
-            ('EXT1',),('EXT2',),('EXT3',)}
+            *((axis,) for axis in SYSTEM_POSE_AXES)}
         if type(path) is not tuple or any(type(part) is not str for part in path) or path not in allowed:fail('Unsupported robot system pose write field',line)
         robot=self.require('robot',line).for_group(rt.integer(group,line),line)
         table=robot.frames if kind in ('FRAME','ACTIVE_FRAME') else robot.tools
@@ -2979,7 +2985,7 @@ class ExecutionContext:
             if number not in table:fail('Requested frame/tool is not configured',line)
             if type(table[number]) is not rt.Structure:fail('System pose table requires ordinary Cartesian records',line)
             prepared=rt.frame_value(table[number],line)
-            if path[0] in ('EXT1','EXT2','EXT3'):
+            if path[0] in SYSTEM_POSE_AXES:
                 if prepared.spec!=('XYZWPREXT',):fail('External-axis fields require an XYZWPREXT row',line)
                 rt.field_reference(prepared,path[0],line).set(value,line)
             elif path[0]=='LOCATION':

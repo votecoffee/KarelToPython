@@ -59,19 +59,21 @@ lookup. Groups must be explicitly configured; frame/tool IDs are 0..32767 and mu
 have supplied entries. No missing identity, active selection or robot model is
 inferred by these source expressions.
 
-Each read returns a complete, independent POSITION value. Supplied POSITION,
-XYZWPR and XYZWPREXT table entries use existing checked Cartesian conversions;
-external-axis frame metadata is not part of the POSITION result. Location,
-configuration and orientation fields can be read normally. Existing assignments,
-geometry and private routine argument/result conversions continue to apply.
+Each whole read returns a complete, independent POSITION value. Supplied
+POSITION, XYZWPR and XYZWPREXT table entries use checked Cartesian conversions.
+Direct `.EXT1`, `.EXT2` and `.EXT3` reads return REAL values from an existing
+XYZWPREXT row. Location, configuration and orientation fields can be read
+normally. Existing assignments, geometry and private routine argument/result
+conversions continue to apply.
 Bare fields of these computed values are private routine arguments. Computed
 USING also captures a private copy, so editing it leaves the configured table
 unchanged.
 
 [Dedicated table assignments](system-pose-writes.md) now accept whole poses and
-staged LOCATION/CONFIG_DATA edits. Writable READ/service references remain rejected,
-and these expressions create no live system alias. Generic GET_VAR/SET_VAR/BYNAME discovery is unchanged;
-explicit VariableStore bindings remain separate. Other dollar roots and members,
+staged LOCATION, CONFIG_DATA and external-axis edits. Writable READ/service
+references remain rejected, and these expressions create no live system alias.
+Generic GET_VAR/SET_VAR/BYNAME discovery is unchanged. Explicit VariableStore
+bindings remain separate. Other dollar roots and members,
 whole `$GROUP` objects, bare `$UFRAME`/`$UTOOL` values and chained table index
 syntax remain unsupported.
 

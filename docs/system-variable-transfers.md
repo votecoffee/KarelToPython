@@ -42,8 +42,8 @@ Whole GET retains the row's actual POSITION, XYZWPR or XYZWPREXT representation
 before ordinary context-free transfer conversions. Whole SET retains its complete
 supplied Cartesian representation, including external axes. Field edits preserve
 the existing representation and every unselected value. EXT fields require an
-existing XYZWPREXT row; no axes or conversion model is inferred. Ordinary direct
-source system reads still use their documented POSITION view.
+existing XYZWPREXT row. Direct source axis fields use the same table, and whole
+direct reads return POSITION. See [source assignments](system-pose-writes.md).
 
 The existing numeric narrowing, CONFIG-word and Cartesian data rules apply.
 Joint/Cartesian model conversions are excluded at these endpoints: explicitly

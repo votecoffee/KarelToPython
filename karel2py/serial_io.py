@@ -199,7 +199,8 @@ class SerialStreams:
                 if (self._pending.get(id(handle)) is not pending or self._open.get(id(handle)) is not registration
                         or handle.position!=start or not row['wait']):
                     raise runtime.KarelRuntimeError('Serial pending READ registration or cursor changed',line)
-                raw = bytes(self.files[handle.name][start:])
+                retained=self.files[handle.name]
+                raw = bytes(retained[start:])
                 result = request.probe(handle, raw, final=row['final'])
                 if result is not None:
                     values, offset = result
@@ -209,6 +210,8 @@ class SerialStreams:
                     return
                 if row['final']:
                     raise runtime.KarelRuntimeError('End of finalized serial input before complete READ',line)
+                if len(retained) >= row['capacity'] and not request.can_finalize(handle,raw):
+                    raise runtime.KarelRuntimeError('Atomic serial READ cannot complete within retained receive capacity',line)
                 if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):
                     raise runtime.KarelRuntimeError('Indefinite standalone serial wait requires an explicit sleeper callback',line)
                 yield from runtime.delay_execution(state,10,line)

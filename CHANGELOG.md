@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.154934 - 2026-11-06
+
+- Translate direct EXT1 through EXT3 reads and assignments on numbered and
+  active frame/tool rows configured as XYZWPREXT.
+- Fail a waiting serial or socket READ when retained input fills the receive
+  capacity and even finalization cannot complete the request.
+
 ## 26.1106.153241 - 2026-11-06
 
 - Reject duplicate JSON keys and nonfinite numbers when loading an execution

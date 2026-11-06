@@ -98,6 +98,12 @@ class StreamRead:
         # Finite text can consume its last unterminated record with CR.
         return self.field_bytes + max(0, len(self.line_breaks) - int(may_finalize))
 
+    def can_finalize(self, handle, raw):
+        try:
+            return self.probe(handle, raw, final=True) is not None
+        except rt().KarelRuntimeError:
+            return False
+
     def probe(self, handle, raw, *, final):
         runtime = rt()
         if self.widths is not None:
@@ -385,7 +391,8 @@ class Messaging(MemoryFiles):
             while True:
                 row = self.validate_pending(handle, state, 'READ', line, expected=record)
                 rt().check_file_read(handle, line)
-                result = request.probe(handle, bytes(record.rx[record.position:]), final=row['final'])
+                raw = bytes(record.rx[record.position:])
+                result = request.probe(handle, raw, final=row['final'])
                 if result is not None:
                     values, offset = result
                     request.publish(state, values)
@@ -395,6 +402,8 @@ class Messaging(MemoryFiles):
                     return
                 if row['final']:
                     fail('End of finalized socket input before complete READ', line)
+                if len(record.rx) >= record.limit and not request.can_finalize(handle, raw):
+                    fail('Atomic socket READ cannot complete within receive bank limit', line)
                 yield from self._wait(state, 'READ', line)
         except GeneratorExit:
             raise

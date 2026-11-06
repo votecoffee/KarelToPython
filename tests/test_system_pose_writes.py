@@ -73,6 +73,31 @@ class SystemPoseFieldWriteTests(unittest.TestCase):
         _,p,_=execute('$MNUTOOL[1,3].config_data.cfg_flip=TRUE');self.assertIs(p._state.execution.robot.tools[3].values['CONFIG_DATA'].values['CFG_FLIP'],True)
     def test_field_edit_preserves_extended_axes(self):
         ctx=context();ctx.robot.frames[2]=cartesian_value('XYZWPREXT',(12.,0.,0.),(10.,20.,30.),(7.,8.,9.));_,p,_=execute('$MNUFRAME[1,2].location.x=30',context=ctx);h=frame(p);self.assertEqual((h.values['EXT1'],h.values['EXT2'],h.values['EXT3'],h.values['W']),(7.,8.,9.,10.))
+    def test_source_axis_updates_use_staged_table_replacement(self):
+        ctx=context()
+        previous=cartesian_value('XYZWPREXT',(12.,0.,0.),(10.,20.,30.),(7.,8.,9.))
+        ctx.robot.frames[2]=previous
+        values,p,result=execute('$MNUFRAME[1,2].ext1=42 $GROUP[1].$UFRAME.ext2=-2.5 n=$GROUP[1].$UFRAME.ext1',context=ctx)
+        self.assertEqual(values['N'],42.)
+        row=frame(p)
+        self.assertIsNot(row,previous)
+        self.assertEqual([row.values[name] for name in ('EXT1','EXT2','EXT3','W')],[42.,-2.5,9.,10.])
+        self.assertEqual(previous.values['EXT1'],7.)
+        self.assertEqual([item['path'] for item in result.report['system_pose_writes']],[('EXT1',),('EXT2',)])
+
+    def test_axis_write_to_plain_row_preserves_table(self):
+        ctx=context();before=ctx.robot.frames[2]
+        p,_=program('$GROUP[1].$UFRAME.ext3=7',context=ctx)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'XYZWPREXT row'):p.run()
+        self.assertIs(ctx.robot.frames[2],before)
+
+    def test_handler_reads_axis_and_updates_active_tool(self):
+        ctx=context()
+        ctx.robot.tools[3]=cartesian_value('XYZWPREXT',(23.,0.,0.),(0.,0.,0.),(4.,5.,6.))
+        body='CONDITION[1]: WHEN $MNUTOOL[1,3].ext1=4 DO $GROUP[1].$UTOOL.ext3=22 ENDCONDITION ENABLE CONDITION[1] i=0'
+        execute(body,context=ctx)
+        self.assertEqual(ctx.robot.tools[3].values['EXT3'],22.)
+
     def test_field_edit_preserves_position_basis(self):
         ctx=context();ctx.robot.frames[2]=cartesian_value('POSITION',(12.,0.,0.),(10.,20.,30.));before=rt.snapshot_value(ctx.robot.frames[2])
         _,p,_=execute('$MNUFRAME[1,2].location.x=30',context=ctx);after=rt.snapshot_value(frame(p));self.assertEqual([after[k] for k in ('NORMAL','ORIENT','APPROACH')],[before[k] for k in ('NORMAL','ORIENT','APPROACH')])

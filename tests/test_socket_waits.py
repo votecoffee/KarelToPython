@@ -129,6 +129,21 @@ class SocketReadWaitTests(unittest.TestCase):
         task = build(OPEN + 'READ f(n::3,CR)' + CLOSE, ctx, sleep=sleeper)
         self.assertEqual((task.run()['N'], calls), (123, [.01]))
 
+    def test_fragment_that_fills_receive_bank_fails_when_eof_cannot_complete(self):
+        bank, ctx = services(dict(wait=True, input='1'), limit=3)
+        calls = []
+        def sleeper(delay):
+            calls.append(delay)
+            bank.feed('S1:', '7 ')
+        task = build('n=77 m=88 ' + OPEN + 'READ f(n,m)', ctx, sleep=sleeper)
+        with self.assertRaisesRegex(rt.KarelRuntimeError, 'cannot complete within receive bank limit'):
+            task.run()
+        handle = task._state.values['F']
+        self.assertEqual((task.snapshot()['N'], task.snapshot()['M'], handle.position), (77, 88, 0))
+        self.assertEqual((calls, task.read_requests, bank._pending), ([.01], (), {}))
+        bank.close(handle)
+        self.assertEqual(bank.files['S1:'], b'17 ')
+
 
 class SocketWriteWaitTests(unittest.TestCase):
     def test_aggregate_payload_is_captured_once_across_partial_drains(self):

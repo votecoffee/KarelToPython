@@ -4077,10 +4077,12 @@ class State:
             raise
         row['outcome']='completed'; return result
 
-    def system_pose(self,kind,group,number=None,line=None):
+    def system_pose(self,kind,group,number=None,line=None,*,axis=None):
         if not _pythonic():raise KarelRuntimeError('Robot system poses require Pythonic mode',line)
         row=dict(operation='SYSTEM_POSE',line=line,outcome='requested');self.service_requests.append(row)
-        try:result=self.execution.system_pose(kind,group,number,line)
+        try:
+            if axis is None:result=self.execution.system_pose(kind,group,number,line)
+            else:result=self.execution.system_pose(kind,group,number,line,axis=axis)
         except Exception as exc:
             row['outcome']='failed'
             if isinstance(exc,KarelRuntimeError) and exc.line is None:raise KarelRuntimeError(str(exc),line) from exc

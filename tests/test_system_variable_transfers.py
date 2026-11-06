@@ -254,8 +254,9 @@ class SystemVariableAdditionalGuardTests(unittest.TestCase):
     def test_missing_context_is_lookup_failure(self):
         from tests.test_extended_services import compile_program
         p,_=compile_program("entry=77 GET_VAR(entry,'','$MNUFRAME[1,2]',p,s)",decl='p:POSITION entry,s:INTEGER');v=p.run();self.assertEqual((v['ENTRY'],v['S']),(77,1));self.assertEqual(p._state.execution.entries,{})
-    def test_source_external_fields_remain_position_view(self):
-        with self.assertRaises(TranslationError):program('n=$MNUFRAME[1,2].ext1')
+    def test_source_external_fields_and_quoted_transfers_share_the_same_row(self):
+        values,_,_=execute("$MNUFRAME[1,2].ext1=42 GET_VAR(entry,'','$MNUFRAME[1,2].EXT1',n,s) m=$GROUP[1].$UFRAME.ext1",context=ext_context())
+        self.assertEqual((values['N'],values['M'],values['S']),(42.,42.,0))
     def test_context_serialization_contains_no_endpoint(self):
         ctx=ext_context();execute("GET_VAR(entry,'','$MNUFRAME[1,2]',e,s) SET_VAR(entry,'','$MNUFRAME[1,2].EXT2',42,s)",context=ctx);payload=json.dumps(ctx.to_config());self.assertNotIn('_SystemVariableTarget',payload);self.assertNotIn('entries',payload);self.assertEqual(rt.ExecutionContext.from_config(json.loads(payload)).robot.frames[2].values['EXT2'],42.)
 
