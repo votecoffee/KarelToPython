@@ -12,6 +12,21 @@ def source(name,body,decl='n,s: INTEGER',routines=''):
 
 
 class ProjectTests(unittest.TestCase):
+    def test_scheduler_requires_boolean_paused_start_before_launch(self):
+        instance=translate_project({'main':source('MAIN','n=7')}).instantiate()
+        program=instance.programs['MAIN']
+        scheduler=instance.scheduler
+        for flag in (1,0,None,'false'):
+            with self.subTest(flag=flag),self.assertRaisesRegex(TypeError,'paused must be BOOLEAN'):
+                scheduler.start('MAIN',paused=flag)
+        self.assertIsNone(getattr(program,'_execution',None))
+        self.assertIsNone(program._state._scheduler)
+        self.assertEqual(scheduler.waiting,{})
+        scheduler.start('MAIN',paused=True)
+        self.assertEqual(scheduler.run()['MAIN']['state'],'paused')
+        scheduler.continue_task('MAIN')
+        self.assertEqual(scheduler.run()['MAIN']['values']['N'],7)
+
     def test_automatic_routine_and_variable_links(self):
         project=translate_project({'lib.kl':source('LIB','n=10',routines='ROUTINE add(x: INTEGER): INTEGER BEGIN n=n+x RETURN n END add'),
             'main.kl':source('MAIN','n=3 s=add(4)',decl='n FROM LIB: INTEGER s: INTEGER',routines='ROUTINE add(x: INTEGER): INTEGER FROM LIB')})

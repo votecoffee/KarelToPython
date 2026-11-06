@@ -1508,10 +1508,13 @@ def intersect_view_lines(state,source,frame,destination,status,line=None):
 
 class QueueValue:
     def __init__(self): self.spec=('QUEUE_TYPE',); self.initialized=False; self.entries=[]; self.sequence=0; self.buffer=None
-    def bind(self,buffer,line=None):
+    def _check_buffer(self,buffer,line=None):
         if not self.initialized: fail('QUEUE_TYPE requires INIT_QUEUE before use',line)
         if self.buffer is not None and not runtime().same_array_storage(self.buffer,buffer): fail('Queue must keep its original backing ARRAY',line)
         if len(self.entries)>len(buffer.values): fail('Queue backing ARRAY is too small for restored entries',line)
+
+    def bind(self,buffer,line=None):
+        self._check_buffer(buffer,line)
         self.buffer=buffer
     def sync(self,line=None):
         for index in range(len(self.buffer.values)): self.buffer.set(index+1,self.entries[index][1] if index<len(self.entries) else 0,line)
@@ -2755,6 +2758,7 @@ class ExecutionContext:
                 code=0 if 1<=args[1]<=len(path.nodes) else 2
                 if not code: del path.nodes[args[1]-1]
             args[-1].set(code,line); return
+        if name=='COPY_QUEUE': return self.copy_queue(state,args,line)
         if 'QUEUE' in name: return self.queue(name,args,line)
         if name in ('GET_FILE_POS','BYTES_LEFT','IO_STATUS','SET_FILE_POS','BYTES_AHEAD','SET_FILE_ATR','CLR_IO_STAT'):
             handle=args[0]
@@ -2929,7 +2933,7 @@ class ExecutionContext:
         rt=runtime()
         if name=='INIT_QUEUE':
             q=args[0].raw(); q.initialized=True; q.entries=[]; q.sequence=0; q.buffer=None; return
-        offset=0 if name in ('GET_QUEUE','COPY_QUEUE') else 1 if name in ('APPEND_QUEUE','DELETE_QUEUE','MODIFY_QUEUE') else 2
+        offset=0 if name=='GET_QUEUE' else 1 if name in ('APPEND_QUEUE','DELETE_QUEUE','MODIFY_QUEUE') else 2
         if name=='MODIFY_QUEUE': offset=2
         q=args[offset].raw(); buffer=args[offset+1].raw(); q.bind(buffer,line); code=0
         if name in ('APPEND_QUEUE','INSERT_QUEUE'):
@@ -2944,14 +2948,6 @@ class ExecutionContext:
             if not q.entries: code=61002
             else:
                 sequence,value=q.entries.pop(0); args[2].set(value,line); args[3].set(sequence,line)
-        elif name=='COPY_QUEUE':
-            if args[2]<0 or args[3]<0: fail('Queue copy sequence and skip must be nonnegative',line)
-            at=0 if args[2]==0 else next((i for i,pair in enumerate(q.entries) if pair[0]==args[2]),None)
-            if at is None: code=1
-            selected=[] if at is None else q.entries[at+args[3]:]
-            output=args[4].raw(); selected=selected[:len(output.values)]
-            for i,(_,value) in enumerate(selected): output.set(i+1,value,line)
-            args[5].set(len(selected),line)
         else:
             sequence=args[1] if name=='MODIFY_QUEUE' else args[0]
             at=next((i for i,pair in enumerate(q.entries) if pair[0]==sequence),None)
@@ -2959,6 +2955,45 @@ class ExecutionContext:
             elif name=='DELETE_QUEUE': del q.entries[at]
             else: q.entries[at]=(sequence,rt.integer(args[0],line))
         q.sync(line); args[-1].set(code,line)
+
+    def copy_queue(self,state,args,line):
+        rt=runtime()
+        source,backing,sequence,skip,output,count,status=args
+        if sequence<0 or skip<0: fail('Queue copy sequence and skip must be nonnegative',line)
+        queue,buffer,view=source.raw(),backing.raw(),output.raw()
+        queue._check_buffer(buffer,line)
+        entries=list(queue.entries)
+        staged=rt.checked(backing.spec,buffer,line)
+        first=0 if sequence==0 else None
+        for index in range(len(staged.values)):
+            state.tick(line)
+            value=0
+            if index<len(entries):
+                entry_id,value=entries[index]
+                if first is None and entry_id==sequence:
+                    first=index
+            staged.set(index+1,value,line)
+
+        page=[]
+        if first is not None:
+            start=first+skip
+            page=staged.values[start:min(len(entries),start+len(view.values))]
+        if page:
+            staged_view=rt.checked(output.spec,view,line)
+            for index,value in enumerate(page,1):
+                state.tick(line)
+                staged_view.set(index,value,line)
+
+        if (source.raw() is not queue or backing.raw() is not buffer or output.raw() is not view
+                or queue.entries!=entries):
+            fail('COPY_QUEUE storage changed during preparation',line)
+        queue._check_buffer(buffer,line)
+        rt.replace_value(buffer,staged)
+        if page:
+            rt.replace_value(view,staged_view)
+        queue.buffer=buffer
+        count.set(len(page),line)
+        status.set(1 if first is None else 0,line)
     def kinematic_record(self,state,target,value,line=None,*,source_spec=None):
         """Preflight a full record tree, then apply sequential scalar model calls."""
         rt=runtime();result,pending=rt.prepare_kinematic_record(target,value,line,source_spec=source_spec)

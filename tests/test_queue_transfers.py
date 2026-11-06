@@ -123,6 +123,43 @@ class QueueLogicalCopyTests(unittest.TestCase):
         program,_=prepared(call()+' COPY_QUEUE(target,b,0,0,view,count,status)')
         state=program.run();self.assertEqual((state['COUNT'],state['VIEW']),(2,[70,50,{'uninitialized':True}]))
 
+    def test_copy_queue_uses_sequence_and_skip_and_preserves_unused_view(self):
+        program,_=prepared('view[2]=91 view[3]=92 COPY_QUEUE(source,a,2,1,view,count,status)')
+        state=program.run()
+        self.assertEqual((state['A'],state['VIEW'],state['COUNT'],state['STATUS']),
+                         ([70,50,0],[50,91,92],1,0))
+        self.assertEqual(state['SOURCE']['entries'],[[2,70],[1,50]])
+
+    def test_copy_queue_rejects_bad_input_before_binding_or_writing(self):
+        for sequence,skip,malformed,message in ((0,-1,False,'nonnegative'),(0,0,True,'Expected INTEGER')):
+            with self.subTest(message=message):
+                program,_=prepared(f'COPY_QUEUE(source,a,{sequence},{skip},view,count,status)')
+                values=program._state.values
+                if malformed:
+                    values['SOURCE'].entries.append((3,'bad'))
+                values['A'].set(1,11)
+                values['VIEW'].set(1,12)
+                values['COUNT']=98
+                values['STATUS']=99
+                before=program.snapshot()
+                with self.assertRaisesRegex(rt.KarelRuntimeError,message):
+                    program.run()
+                self.assertEqual(program.snapshot(),before)
+                self.assertIsNone(values['SOURCE'].buffer)
+
+    def test_copy_queue_budget_preserves_backing_view_and_status(self):
+        program,_=prepared('COPY_QUEUE(source,a,0,0,view,count,status)')
+        values=program._state.values
+        values['A'].set(1,11)
+        values['VIEW'].set(1,12)
+        values['COUNT']=98
+        values['STATUS']=99
+        before=program.snapshot()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            program.run(max_steps=5)
+        self.assertEqual(program.snapshot(),before)
+        self.assertIsNone(values['SOURCE'].buffer)
+
 
 class QueueTransferGuardTests(unittest.TestCase):
     def test_queue_to_scalar_mismatch_writes_status_only(self):

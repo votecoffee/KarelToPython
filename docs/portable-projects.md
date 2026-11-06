@@ -213,7 +213,9 @@ binding order; time advances once per round. See
 [task policies and trace export](task-attributes.md).
 
 `scheduler.start(name)`, `step()`, `run(max_cycles=...)`, `continue_task(name)` and
-`stop(name)` support embedding. `run` returns when no task can proceed and no
+`stop(name)` support embedding. Pass `paused=True` to start a task paused.
+The flag must be a Boolean and is checked before launch.
+`run` returns when no task can proceed and no
 eligible pulse or motion deadline remains. Paused tasks and tasks waiting on
 them can still be present. A paused task needs an explicit continuation.
 Stopping an owned task directly with `Program.stop()` clears its deadline and

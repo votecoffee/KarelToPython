@@ -434,6 +434,7 @@ class TaskScheduler:
         condition=self.waiting.get(name,0)
         return condition() if callable(condition) else self.now_us>=condition
     def start(self,name,*,paused=False):
+        if type(paused) is not bool: raise TypeError('paused must be BOOLEAN')
         name=name.upper()
         if name not in self.tasks: raise KeyError(name)
         program=self.tasks[name]; state=program._state

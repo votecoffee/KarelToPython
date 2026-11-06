@@ -66,6 +66,16 @@ class AssignmentModelTests(unittest.TestCase):
                 result=run(body,decl=DECL+' cfg:CONFIG',context=ctx)
                 self.assertAlmostEqual(result['OUT']['axes'][0],angle,delta=1e-5)
 
+    def test_exact_half_turn_can_take_the_opposite_feasible_direction(self):
+        for lower,upper,expected in ((-180,0,-180),(0,180,180)):
+            with self.subTest(expected=expected):
+                ctx=rt.ExecutionContext.from_config({'robot':{
+                    'dh':[{'min':lower,'max':upper}], 'orientation_tolerance':1e-5,
+                    'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+                body="CNV_STR_CONF('N',cfg,s) p=POS(0,0,0,0,0,180,cfg) out=p"
+                result=run(body,decl=DECL+' cfg:CONFIG',context=ctx)
+                self.assertAlmostEqual(result['OUT']['axes'][0],expected,delta=1e-5)
+
     def test_inverse_keeps_derivative_probes_inside_narrow_joint_limits(self):
         for start in (-.0002,.0002):
             with self.subTest(start=start):

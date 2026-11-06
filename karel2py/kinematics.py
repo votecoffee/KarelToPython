@@ -163,7 +163,8 @@ class SerialRobotModel:
         damping=.1; weight=100.
         current=self.chain(q); residual=error(current,target,weight)
         for iteration in range(self.iterations+1):
-            if math.hypot(*residual[:3])<=self.position_tolerance and math.hypot(*residual[3:])/weight<=self.orientation_tolerance: return q
+            angle=math.hypot(*residual[3:])/weight
+            if math.hypot(*residual[:3])<=self.position_tolerance and angle<=self.orientation_tolerance: return q
             if iteration==self.iterations or not variables: break
             columns=[]
             for axis in variables:
@@ -178,20 +179,26 @@ class SerialRobotModel:
                 shifted[axis]=neighbor
                 columns.append([v/(neighbor-joint) for v in error(current,self.chain(shifted),weight)])
             normal=[[sum(x*y for x,y in zip(left,right))+(damping*damping if i==j else 0.) for j,right in enumerate(columns)] for i,left in enumerate(columns)]
-            delta=linear_solve(normal,[sum(x*y for x,y in zip(column,residual)) for column in columns])
-            if delta is None: break
-            scale=min(1.,10./max(10.,max(abs(value) for value in delta)))
             before=sum(value*value for value in residual); improved=False
-            for _ in range(12):
-                trial=q.copy()
-                for axis,increment in zip(variables,delta): trial[axis]=min(self.limits[axis][1],max(self.limits[axis][0],q[axis]+scale*increment))
-                trial_pose=self.chain(trial)
-                trial_residual=error(trial_pose,target,weight)
-                after=sum(value*value for value in trial_residual)
-                if after<before:
-                    q,current,residual=trial,trial_pose,trial_residual
-                    damping=max(1e-5,damping*.7); improved=True; break
-                scale*=.5
+            goals=[residual]
+            if math.isclose(angle,math.pi,rel_tol=0.,abs_tol=1e-12):
+                # At a half-turn either signed rotation reaches the same pose.
+                goals.append(residual[:3]+tuple(-part for part in residual[3:]))
+            for goal in goals:
+                delta=linear_solve(normal,[sum(x*y for x,y in zip(column,goal)) for column in columns])
+                if delta is None: return None
+                scale=min(1.,10./max(10.,max(abs(value) for value in delta)))
+                for _ in range(12):
+                    trial=q.copy()
+                    for axis,increment in zip(variables,delta): trial[axis]=min(self.limits[axis][1],max(self.limits[axis][0],q[axis]+scale*increment))
+                    trial_pose=self.chain(trial)
+                    trial_residual=error(trial_pose,target,weight)
+                    after=sum(value*value for value in trial_residual)
+                    if after<before:
+                        q,current,residual=trial,trial_pose,trial_residual
+                        damping=max(1e-5,damping*.7); improved=True; break
+                    scale*=.5
+                if improved: break
             if not improved:
                 damping*=5
                 if damping>1e6: break

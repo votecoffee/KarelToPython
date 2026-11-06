@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.192915 - 2026-11-06
+
+- At a numerical half-turn, try the opposite IK rotation direction if the first
+  cannot improve within the joint limits.
+- Stage COPY_QUEUE backing and output writes before binding or publishing.
+  Charge preparation to the step budget and preserve outputs on exceptions.
+- Validate the scheduler's paused-start flag before launching the task.
+
 ## 26.1106.191116 - 2026-11-06
 
 - Preserve the signed rotation direction near a half-turn in numerical DH

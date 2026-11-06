@@ -33,7 +33,10 @@ attempt. Each seed gets the configured iteration budget, and a solution reached
 on its last iteration is accepted. Finite-difference probes adapt to the
 remaining joint travel, including at an endpoint. Near a half-turn, the
 orientation residual retains the signed direction when the rotation matrix
-distinguishes it. Failure is inconclusive for geometric reachability.
+distinguishes it. At a numerical half-turn either sign represents the same
+target orientation. The solver tries the opposite sign if the first direction
+makes no progress within the limits. Failure is inconclusive for geometric
+reachability.
 
 ```python
 from karel2py import translate, runtime as rt
