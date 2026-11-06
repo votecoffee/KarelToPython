@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1106.174426 - 2026-11-06
+
+- Accept single-character `?` wildcards in Pythonic `PROG_LIST` name patterns
+  and `VAR_LIST` program and variable patterns.
+- Bound catalog scans and charge inspected entries and prepared output slots
+  to the execution step budget. Preserve listing outputs if either limit fails.
+
 ## 26.1106.172823 - 2026-11-06
 
 - Let offline output sampling derive mapped even Boolean outputs from their

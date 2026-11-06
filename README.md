@@ -383,7 +383,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.172823**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.174426**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1085,9 +1085,12 @@ metadata; module lookup uses a supplied catalog. The host applies pending settin
 at an explicit configuration boundary. Logical port values remain independent.
 See [I/O configuration](docs/port-configuration.md).
 
-PROG_LIST filters and pages attached programs and explicit catalog metadata,
-including program types, checked names and optional cursor pagination. See
-[program listing](docs/program-listing.md) for context setup and portable formats.
+`PROG_LIST` filters and pages attached programs and explicit catalog metadata
+with an optional cursor. `VAR_LIST` pages declared globals and supplied root
+bindings. Both accept `?` for single-character matching in Pythonic mode and
+count catalog scans and output preparation against the execution step budget.
+See [program listing](docs/program-listing.md) and
+[variable inspection](docs/variable-inspection.md) for setup and formats.
 
 PATH and QUEUE_TYPE globals now survive typed context save/load, including partial
 PATH data and queue sequence IDs. Restored queues bind to the next explicitly

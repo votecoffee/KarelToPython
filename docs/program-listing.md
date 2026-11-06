@@ -2,7 +2,7 @@
 
 Pythonic `PROG_LIST` lists the current program, attached KAREL programs, registered
 task Programs and optional explicit program metadata. It supports type filters,
-star patterns, bounded result arrays and pagination. Listing needs no controller
+wildcard patterns, bounded result arrays and pagination. Listing needs no controller
 or filesystem adapter.
 Explicit [TeachPrograms records](teach-programs.md) also contribute their current
 TP/JB/PR/MR names and types as logical data, without native program discovery.
@@ -95,9 +95,9 @@ choice, without a native acceptance claim for that optional form.
 | 7 | All six types |
 | 8 | All except VR |
 
-Patterns match names case-insensitively. `*` matches zero or more characters;
-`?` and bracket patterns are rejected. Empty patterns are invalid. A pattern
-with no matches succeeds with count zero.
+Patterns match names case-insensitively. `*` matches zero or more characters.
+In Pythonic mode, `?` matches exactly one character. Empty patterns and bracket
+patterns are invalid. A pattern with no matches succeeds with count zero.
 
 Results are distinct name/type pairs sorted by name and then type. Format 1
 returns just the name. Format 2 pads names of up to 12 characters to 12 columns,
@@ -131,6 +131,12 @@ incorrect types, overlapping outputs and invalid references raise checked
 errors. All inputs and output selectors capture once in source order; ordinary
 active FOR counter and protected storage rules apply. The complete successful
 output batch is validated before writes.
+
+Each catalog entry inspected counts toward the execution step budget, including
+duplicates and entries that fail the filters. A call can inspect up to 32,767
+entries. Preparing each output ARRAY slot also uses a step, including unused
+slots cleared to empty STRINGs. Exceeding either limit raises a runtime error
+and preserves the previous ARRAY, count, status and cursor.
 
 `program_listing_policy` records the contract. `service_operations` and
 `Program.service_requests` record operation, source location and outcome without

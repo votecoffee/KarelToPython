@@ -76,9 +76,12 @@ configuration or reachability. Those operations retain their own checks.
 
 `VAR_LIST(program,pattern,type_code,skip,format,names,count,status)` lists static
 root names into a one-dimensional ARRAY of STRING. Empty program means current
-globals; `*` can appear in program/name patterns. Matching is case-insensitive.
-Bracket patterns and `?` are rejected. Type code 0 includes all declarations;
-other codes filter by canonical terminal type, including ARRAY elements.
+globals. Program and name patterns are case-insensitive. `*` matches zero or
+more characters, and Pythonic mode accepts `?` for exactly one character.
+Bracket patterns are invalid. A wildcard program pattern with no matches
+succeeds with an empty page. An unavailable exact program returns status 1.
+Type code 0 includes all declarations. Other codes filter by canonical
+terminal type, including ARRAY elements.
 
 Results sort by program and variable name. `skip` is a nonnegative zero-based
 offset into that ordered result. A call returns at most the names ARRAY capacity;
@@ -96,6 +99,12 @@ its own output globals; names are captured before any output changes.
 Format 4 rejects identifiers that do not fit those fields. Every returned text
 must fit its STRING element capacity; listing does not silently truncate names.
 Explicit full-path bindings such as `VALUE[1]` do not become root declarations.
+
+The scan charges a step for each program owner, declared global and explicit
+binding inspected, including entries filtered out of the result. It can inspect
+up to 32,767 entries per call. Preparing each output ARRAY slot also uses a step.
+Exceeding either limit raises a runtime error and preserves the previous ARRAY,
+count and status.
 
 ## Failures, observations and embedding
 

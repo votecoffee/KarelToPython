@@ -1,5 +1,6 @@
 """Bounded variable inspection and explicit offline program metadata."""
 import fnmatch
+from itertools import chain
 import math
 import re
 from .extended import (PROGRAM_TYPES, PROGRAM_ATTRIBUTES, PROGRAM_KINDS,
@@ -11,6 +12,7 @@ TYPE_CODES={'POSITION':1,'XYZWPR':2,'XYZWPREXT':6,'INTEGER':16,'REAL':17,
             'BOOLEAN':18,'VECTOR':19,'COMMON_ASSOC':20,'SHORT':23,'BYTE':24,'CONFIG':28,'GROUP_ASSOC':30,
             'FILE':29,'PATH':31,'STRING':209,'STRUCTURE':210,
             **{f'JOINTPOS{width}':25+16*(width-1) for width in range(1,10)}}
+CATALOG_SCAN_LIMIT=32767
 
 
 def runtime():
@@ -80,6 +82,24 @@ def assign(outputs,values,line):
     rt=runtime()
     prepared=[rt.checked(target.spec,value,line) for target,value in zip(outputs,values)]
     for target,value in zip(outputs,prepared): target.set(value,line)
+
+def _catalog_check(state,operation,line):
+    scanned=0
+    def check():
+        nonlocal scanned
+        scanned+=1
+        if scanned>CATALOG_SCAN_LIMIT:
+            raise runtime().KarelRuntimeError(operation+' scan exceeds 32767 entries',line)
+        state.tick(line)
+    return check
+
+
+def _listing_buffer(state,names,text,line):
+    array=runtime().Array(names.spec)
+    for index in range(1,len(array.values)+1):
+        state.tick(line)
+        array.set(index,text[index-1] if index<=len(text) else '',line)
+    return array
 
 
 def any_initialized(value,spec,line=None,trail=()):
@@ -217,11 +237,18 @@ def variable_info(context,state,args,line=None):
     assign(outputs,(flag,name,code,dimensions,length,0),line)
 
 
-def declarations(context,state):
+def declarations(context,state,*,check=None):
     """Canonical roots only; declarations override bindings just as resolve does."""
-    owners=dict(context.variables.programs);owners[state.program_name]=state
-    result={(program,name):spec for program,owner in owners.items() for name,spec in owner.types.items()}
+    other_owners=((program,owner) for program,owner in context.variables.programs.items() if program!=state.program_name)
+    owners=chain(((state.program_name,state),),other_owners)
+    result={}
+    for program,owner in owners:
+        if check is not None:check()
+        for name,spec in owner.types.items():
+            if check is not None:check()
+            result[program,name]=spec
     for (program,path),reference in context.variables.bindings.items():
+        if check is not None:check()
         program=program or state.program_name
         if re.fullmatch(r'[A-Z_][A-Z_0-9]*',program) and re.fullmatch(r'\$?[A-Z_][A-Z_0-9]*',path):
             result.setdefault((program,path),reference.spec)
@@ -234,11 +261,11 @@ def variable_list(context,state,args,line=None):
     pattern=rt.ascii_string(pattern,line).upper()
     kind,skip,form=(rt.integer(value,line) for value in (kind,skip,form))
     if kind not in (0,*TYPE_CODES.values()) or skip<0 or form not in (1,2,3,4): status.set(2,line);return
-    if not pattern or any(symbol in program+pattern for symbol in '[]?'):
+    if not pattern or any(symbol in program+pattern for symbol in '[]'):
         status.set(2,line);return
-    roots=declarations(context,state)
-    known=set(context.variables.programs)|{state.program_name}|{owner for (owner,name),spec in roots}
-    if '*' not in program and program not in known:
+    roots=declarations(context,state,check=_catalog_check(state,'VAR_LIST',line))
+    if (not any(symbol in program for symbol in '*?') and program!=state.program_name
+            and program not in context.variables.programs and not any(key[0]==program for key,_ in roots)):
         status.set(1,line);return
     rows=[]
     for (owner,name),spec in roots:
@@ -254,8 +281,7 @@ def variable_list(context,state,args,line=None):
         if form==4 and (len(owner)>15 or len(name)>12): status.set(3,line);return
         text.append(owner if form==1 else name if form==2 else f'[{owner}]{name}' if form==3 else f'{owner:<15}{name:<12}')
     if any(len(value)>names.spec[2][1] for value in text): status.set(3,line);return
-    array=rt.Array(names.spec)
-    for index in range(1,capacity+1): array.set(index,text[index-1] if index<=len(text) else '',line)
+    array=_listing_buffer(state,names,text,line)
     assign((names,count,status),(array,len(rows),0),line)
 
 
@@ -471,12 +497,14 @@ def kcl_task_history(state,selector,line=None):
     return 0
 
 
-def program_rows(context,state):
-    owners=list(context.variables.programs.values())+[state]
-    owners.extend(program._state for program in context.tasks.tasks.values())
-    rows={(owner.program_name,'PC') for owner in owners}
-    if context.programs is not None: rows.update(context.programs.entries)
-    if context.teach_programs is not None: rows.update(context.teach_programs.entries)
+def program_rows(context,state,*,check=None):
+    owners=chain((state,),context.variables.programs.values(),(program._state for program in context.tasks.tasks.values()))
+    catalog=context.programs.entries if context.programs is not None else ()
+    teach=context.teach_programs.entries if context.teach_programs is not None else ()
+    rows=set()
+    for row in chain(((owner.program_name,'PC') for owner in owners),catalog,teach):
+        if check is not None:check()
+        rows.add(row)
     return rows
 
 
@@ -537,10 +565,10 @@ def program_list(context,state,args,line=None):
     kind,skip,form=(rt.integer(value,line) for value in (kind,skip,form))
     offset=rt.integer(cursor.raw(),line) if cursor is not None else 0
     if (kind not in PROGRAM_TYPES or skip<0 or offset<0 or form not in (1,2)
-            or not pattern or any(symbol in pattern for symbol in '[]?')
+            or not pattern or any(symbol in pattern for symbol in '[]')
             or (skip and (pattern!='*' or kind!=7))):
         status.set(2,line);return
-    rows=sorted(row for row in program_rows(context,state)
+    rows=sorted(row for row in program_rows(context,state,check=_catalog_check(state,'PROG_LIST',line))
                 if row[1] in PROGRAM_TYPES[kind] and fnmatch.fnmatchcase(row[0],pattern))
     capacity=rt.array_dimensions(names.spec)[0]
     selected=rows[skip+offset:skip+offset+capacity];text=[]
@@ -549,8 +577,7 @@ def program_list(context,state,args,line=None):
         width=12 if len(name)<=12 else 36
         text.append(name if form==1 else f'{name:<{width}} {program_type}')
     if any(len(value)>names.spec[2][1] for value in text): status.set(3,line);return
-    array=rt.Array(names.spec)
-    for index in range(1,capacity+1): array.set(index,text[index-1] if index<=len(text) else '',line)
+    array=_listing_buffer(state,names,text,line)
     outputs=(names,count,status);values=(array,len(selected),0)
     if cursor is not None: outputs+=cursor,;values+=offset+len(selected),
     assign(outputs,values,line)

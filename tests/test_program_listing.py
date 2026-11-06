@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
@@ -94,6 +95,33 @@ class ProgramListTests(unittest.TestCase):
         state=run(CALL.replace("'*'","'*o*'"),decl=DECL,context=context())
         self.assertEqual(state['NAMES'][:4],['JOB','MACRO','PROCESS','STORED'])
 
+    def test_question_pattern_matches_exactly_one_character_and_pages_by_cursor(self):
+        entries=[{'name':name,'type':'PC'} for name in ('WLD','WALD','WELD','WORLD')]
+        call="PROG_LIST('w?ld',7,0,1,names,count,status,cursor_no)"
+        body='cursor_no=0 '+call+' first=names[1] '+call
+        result=run(body,decl=DECL.replace('ARRAY[8]','ARRAY[1]')+' first:STRING[39]',context=context(entries))
+        self.assertEqual((result['FIRST'],result['NAMES'],result['COUNT'],result['CURSOR_NO']),('WALD',['WELD'],1,2))
+
+    def test_catalog_limit_and_step_budget_preserve_program_page_and_cursor(self):
+        body="names[1]='old' count=9 status=8 cursor_no=2 "+CALL.replace("'*'","'missing?'")[:-1]+',cursor_no)'
+        for cap,steps,message in ((32767,8,'step budget'),(4,100000,'PROG_LIST scan exceeds')):
+            with self.subTest(cap=cap):
+                entries=[{'name':f'PROG{index}','type':'PC'} for index in range(12)]
+                p,_=compile_program(body,decl=DECL,context=context(entries))
+                with patch('karel2py.inspection.CATALOG_SCAN_LIMIT',cap),self.assertRaisesRegex(rt.KarelRuntimeError,message):
+                    p.run(max_steps=steps)
+                result=p.snapshot()
+                self.assertEqual((result['NAMES'][0],result['COUNT'],result['STATUS'],result['CURSOR_NO']),('old',9,8,2))
+
+    def test_output_slot_budget_preserves_page_and_cursor(self):
+        body="names[1]='old' names[8]='last' count=9 status=8 cursor_no=2 "+CALL.replace("'*'","'missing?'")[:-1]+',cursor_no)'
+        p,_=compile_program(body,decl=DECL)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            p.run(max_steps=12)
+        result=p.snapshot()
+        self.assertEqual((result['NAMES'][0],result['NAMES'][-1]),('old','last'))
+        self.assertEqual((result['COUNT'],result['STATUS'],result['CURSOR_NO']),(9,8,2))
+
     def test_exact_name_and_same_name_multiple_types(self):
         ctx=context([{'name':'shared','type':'PC'},{'name':'shared','type':'VR'}])
         state=run(CALL.replace("'*'","'shared'").replace(',1,names',',2,names'),decl=DECL,context=ctx)
@@ -131,7 +159,7 @@ class ProgramListTests(unittest.TestCase):
         self.assertEqual((program.snapshot()['NAMES'][0],program.snapshot()['COUNT'],program.snapshot()['STATUS']),('old',9,8))
 
     def test_invalid_options_preserve_outputs_and_cursor(self):
-        for old,new in (("'*'","''"),("'*'","'a?'"),("'*'","'[A]'"),(',7,',',0,'),(',7,',',9,'),
+        for old,new in (("'*'","''"),("'*'","'[A]'"),(',7,',',0,'),(',7,',',9,'),
                         (',0,1,',',-1,1,'),(',0,1,',',0,3,')):
             with self.subTest(new=new):
                 state=run("names[1]='old' count=9 cursor_no=0 "+CALL.replace(old,new)[:-1]+',cursor_no)',decl=DECL)

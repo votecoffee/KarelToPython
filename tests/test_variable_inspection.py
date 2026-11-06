@@ -1,6 +1,7 @@
 """Authored static-variable inspection, pagination and guarded output fixtures."""
 import json
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
@@ -237,6 +238,30 @@ class VariableListTests(unittest.TestCase):
         state=run(self.CALL,decl=self.DECL)
         self.assertEqual((state['NAMES'],state['COUNT'],state['STATUS']),(['APPLE','APRICOT']+['']*6,2,0))
 
+    def test_single_character_wildcard_matches_program_and_variable_names(self):
+        ctx=rt.ExecutionContext()
+        for owner,name in (('LIB','ALPHA'),('LIX','ALPHB'),('LIBX','ALPHA'),('LIB','ALPH')):
+            ctx.variables.define(owner,name,('INTEGER',),1)
+        call="VAR_LIST('li?','alph?',0,0,3,names,count,status)"
+        result=run(call,decl=self.DECL,context=ctx)
+        self.assertEqual((result['NAMES'][:3],result['COUNT'],result['STATUS']),(['[LIB]ALPHA','[LIX]ALPHB',''],2,0))
+
+    def test_unmatched_wildcard_program_is_an_empty_page(self):
+        state=run(self.CALL.replace("'','a*'","'X?','a*'"),decl=self.DECL)
+        self.assertEqual((state['COUNT'],state['STATUS']),(0,0))
+
+    def test_catalog_limit_and_step_budget_preserve_variable_page(self):
+        body="names[1]='old' count=7 status=8 "+self.CALL.replace("'a*'","'missing?'")
+        for cap,steps,message in ((32767,8,'step budget'),(4,100000,'VAR_LIST scan exceeds')):
+            with self.subTest(cap=cap):
+                ctx=rt.ExecutionContext()
+                for index in range(10):ctx.variables.define('OTHER',f'VALUE{index}',('INTEGER',),index)
+                p,_=compile_program(body,decl=self.DECL,context=ctx)
+                with patch('karel2py.inspection.CATALOG_SCAN_LIMIT',cap),self.assertRaisesRegex(rt.KarelRuntimeError,message):
+                    p.run(max_steps=steps)
+                result=p.snapshot()
+                self.assertEqual((result['NAMES'][0],result['COUNT'],result['STATUS']),('old',7,8))
+
     def test_scalar_type_filter(self):
         state=run(self.CALL.replace("'a*',0","'*',17"),decl=self.DECL)
         self.assertEqual((state['NAMES'][0],state['COUNT']),('APRICOT',1))
@@ -264,7 +289,7 @@ class VariableListTests(unittest.TestCase):
         self.assertEqual((state['NAMES'][0],state['COUNT'],state['STATUS']),('old',7,1))
 
     def test_invalid_filter_skip_and_format_preserve_outputs(self):
-        for old,new in (("'a*',0","'a*',999"),(',0,2,names',',-1,2,names'),(',2,names',',0,names'),("'a*'","'a?'")):
+        for old,new in (("'a*',0","'a*',999"),(',0,2,names',',-1,2,names'),(',2,names',',0,names'),("'a*'","'[A]*'")):
             with self.subTest(new=new):
                 state=run("names[1]='old' count=7 "+self.CALL.replace(old,new),decl=self.DECL)
                 self.assertEqual((state['NAMES'][0],state['COUNT'],state['STATUS']),('old',7,2))
