@@ -45,8 +45,9 @@ Keep sub-millisecond remainders and cap recorded `elapsed_ms` at `delay_ms`.
 Completion becomes observable at a poll; it does not run in an operating-system
 background thread. Explicit `context.motion.poll()` offers the same observation.
 
-The scheduler observes jobs even while their owner sleeps. Its own clock adapters
-provide virtual completion deadlines for fast-forwarding. A custom injected clock
+The scheduler observes jobs while their owner sleeps or waits for another task.
+Its own clock adapters provide virtual completion deadlines for fast-forwarding,
+even when no task is ready to execute. A custom injected clock
 must be advanced explicitly; no relation to scheduler time is inferred. Invalid,
 backwards or replaced adapters fail the job. A scheduler poll failure also fails
 and cleans the owning task, rather than leaving its wait or grant live.

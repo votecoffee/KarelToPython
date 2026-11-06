@@ -213,8 +213,10 @@ binding order; time advances once per round. See
 [task policies and trace export](task-attributes.md).
 
 `scheduler.start(name)`, `step()`, `run(max_cycles=...)`, `continue_task(name)` and
-`stop(name)` support embedding. `run` returns when tasks have completed, stopped
-or paused; a paused task needs an explicit continuation. Cycle and per-task step
+`stop(name)` support embedding. `run` returns when no task can proceed and no
+eligible pulse or motion deadline remains. Paused tasks and tasks waiting on
+them can still be present. A paused task needs an explicit continuation.
+Cycle and per-task step
 budgets bound WAIT loops. Use `scheduler.run(entry=name, max_cycles=...)` to
 validate the drive before launching an entry task, as `ProjectInstance.run()`
 does. Nested calls to `step()` or `run()` from callbacks
@@ -307,6 +309,7 @@ Reachability uses the active entries; JOINT2POS/POS2JOINT use their explicit fra
 and tool operands. `context.robot.frame(index)` and `.tool(index)` return copies.
 Grouped configuration uses `{"groups":{"1":{...},"2":{...}},"active_group":2}`.
 Group IDs are positive portable INTEGERs. Frame and tool IDs are in 0..32767.
+Active `frame` and `tool` selections require exact INTEGER values in that range.
 Each model table requires unique numeric IDs. For example, `"2"` and `"02"`
 refer to the same ID. Saved model tables use decimal string keys.
 An `IN GROUP[n]` qualifier on a positional/joint declaration or interface is

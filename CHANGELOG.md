@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.182847 - 2026-11-06
+
+- Keep the cooperative scheduler active for eligible NOWAIT motion deadlines
+  when the owner is parked waiting for another task.
+- Bound flat MOVE_FILE source and destination scans, including nonmatching
+  entries, before publishing any move.
+- Require exact INTEGER active frame and tool selections in DH model contexts.
+
 ## 26.1106.180113 - 2026-11-06
 
 - Seed model-backed IN_RANGE and CHECK_EPOS with compatible current joints when

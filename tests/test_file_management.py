@@ -249,6 +249,29 @@ class FileManagementIntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'): files.move('RD:*.KL',check=check)
         self.assertEqual(files.snapshot(),before)
 
+    def test_move_limits_nonmatching_memory_entries_before_publication(self):
+        files=rt.MemoryFiles({'RD:a.KL':b'a','RD:b.DAT':b'b','FR:c.DAT':b'c'})
+        program,_=compile_program("s=99 MOVE_FILE('RD:*.KL',s)",context=rt.ExecutionContext(files=files))
+        before=files.snapshot()
+        with patch('karel2py.fileops.WILDCARD_FILE_LIMIT',2),self.assertRaisesRegex(rt.KarelRuntimeError,'MOVE_FILE scan exceeds'):
+            program.run()
+        self.assertEqual((files.snapshot(),program.snapshot()['S']),(before,99))
+
+    def test_move_limits_flat_source_and_target_directory_scans(self):
+        for side,folder in (('source','ram'),('target','flash')):
+            with self.subTest(side=side),tempfile.TemporaryDirectory() as temp:
+                root=Path(temp)
+                files=directory(root)
+                source=root/'ram'/'a.KL'
+                source.write_bytes(b'a')
+                for index in range(3):
+                    (root/folder/f'ignored{index}.DAT').write_bytes(b'untouched')
+                program,_=compile_program("s=99 MOVE_FILE('RD:*.KL',s)",context=rt.ExecutionContext(files=files))
+                with patch('karel2py.fileops.WILDCARD_FILE_LIMIT',2),self.assertRaisesRegex(rt.KarelRuntimeError,f'MOVE_FILE {side} scan exceeds'):
+                    program.run()
+                self.assertEqual((source.read_bytes(),program.snapshot()['S']),(b'a',99))
+                self.assertFalse((root/'flash'/'a.KL').exists())
+
     def test_commit_budget_failure_retains_earlier_moves(self):
         files=rt.MemoryFiles({'RD:a.KL':b'a','RD:b.KL':b'b'});calls=0
         def check():

@@ -566,7 +566,7 @@ class TaskScheduler:
                     program._state.task_state=='running' or program._state.task_state=='waiting'
                     and (not callable(self.waiting.get(name)) or self._wait_ready(name,program._state)))
                     for name,program in self._distinct_bindings())
-                if not active and not self._pulse_deadlines():
+                if not (active or self._pulse_deadlines() or self._motion_deadlines()):
                     return self.snapshot()
                 if cycle==max_cycles:
                     break

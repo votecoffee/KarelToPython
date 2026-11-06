@@ -84,7 +84,9 @@ Parents must already exist; the operation creates no directories. Traversal,
 empty/dot components and bracket patterns fail
 before file changes. Directory paths retain the backend's root/symlink guards.
 
-Preparation selects and sorts at most 32767 matching files. It checks the whole
+Preparation inspects up to 32,767 entries in each rooted source and target
+directory scan, or across the entire in-memory bank. Nonmatching entries count
+toward the scan limit and execution step budget. It checks the whole
 batch for open source/target handles, destination collisions, duplicate target
 names and the per-file size limit before the first move. Case-only collisions
 are rejected on every host. MemoryFiles also detects aliases formed by device

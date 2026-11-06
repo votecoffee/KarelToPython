@@ -383,7 +383,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1106.180113**. It is a
+tool are named **karel2py**. The current implementation is **26.1106.182847**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1078,8 +1078,9 @@ beyond the reviewed manual, which excludes whole PATH for these calls. See
 [PATH transfers](docs/path-transfers.md) for limits and native evidence boundaries.
 
 CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files
-through explicit memory or mapped directory backends, with batch preflight and
-documented late-failure behavior. See [file management](docs/file-management.md).
+through explicit memory or mapped directory backends. Source and destination scans
+are bounded, and the full batch is checked before moving.
+See [file management](docs/file-management.md).
 
 I/O assignment/mode procedures stage settings against explicit physical-capacity
 metadata; module lookup uses a supplied catalog. The host applies pending settings
@@ -1191,8 +1192,9 @@ explicit; controls do not create trajectories or change robot feedback.
 one-shot WHEN actions, UNTIL/THEN cancellation and finite supplied response delays.
 They retain caller-owned local frames across pause/resume, validate completion
 history and clean up on cancellation or failure. [Pending NOWAIT jobs](docs/nowait-motion.md)
-now progress from task clocks; opt-in [FIFO batches](docs/queued-motion.md) retain
-supplied durations and [queued NOWAIT handlers](docs/queued-motion-clauses.md).
+progress from task clocks while owners sleep or wait for another task. Opt-in
+[FIFO batches](docs/queued-motion.md) retain supplied durations and
+[queued NOWAIT handlers](docs/queued-motion-clauses.md).
 Blocking local clauses now follow the [queued blocking policy](docs/blocking-motion-clauses.md);
 inferred arrivals remain unavailable.
 

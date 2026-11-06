@@ -1,9 +1,11 @@
 """Bounded offline file comparison and printing over explicit FILE backends."""
+from contextlib import closing
 from datetime import datetime, timezone
 from itertools import zip_longest
 import fnmatch
 import hashlib
 import json
+import os
 import re
 import stat
 
@@ -23,9 +25,9 @@ WILDCARD_FILE_LIMIT=32767
 WILDCARD_COPY_BYTES=64*1024*1024
 
 
-def _listing_entries(entries,check):
+def _listing_entries(entries,check,*,operation='FILE_LIST'):
     for index,entry in enumerate(entries,1):
-        if index>WILDCARD_FILE_LIMIT:raise ValueError('FILE_LIST scan exceeds 32767 entries')
+        if index>WILDCARD_FILE_LIMIT:raise ValueError(operation+' scan exceeds 32767 entries')
         if check is not None:check()
         yield entry
 
@@ -831,6 +833,13 @@ def move_specification(value,*,pattern=True,directories=False):
     return device,'/'.join(parts[:-1]),parts[-1]
 
 
+def _directory_paths(folders):
+    for folder in folders:
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                yield folder / entry.name
+
+
 def move_files(files,specification,*,check=None):
     """Preflight a bounded RD/FR batch, then perform ordered per-file moves."""
     from .storage import DirectoryFiles
@@ -852,12 +861,14 @@ def move_files(files,specification,*,check=None):
         if not source_root.is_dir(): return 1
         if not target_root.is_dir(): raise ValueError('MOVE_FILE target parent directory must already exist')
         candidates=set()
-        entries=(files.root/name for name in _wildcard_tree(files,source_root,check)) if recursive else source_root.iterdir()
-        for path in entries:
-            check()
-            if selected(path.relative_to(source_root).as_posix() if recursive else path.name) and (path.is_file() or path.is_symlink()):
-                candidates.add(path.relative_to(files.root).as_posix())
-                if len(candidates)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
+        if recursive:
+            entries=(files.root/name for name in _wildcard_tree(files,source_root,check))
+        else:
+            entries=_directory_paths((source_root,))
+        with closing(entries):
+            for path in _listing_entries(entries,check,operation='MOVE_FILE source'):
+                if selected(path.relative_to(source_root).as_posix() if recursive else path.name) and (path.is_file() or path.is_symlink()):
+                    candidates.add(path.relative_to(files.root).as_posix())
         for handle in files.handles:
             if handle.owner is files:
                 path=files._path(handle.name)
@@ -876,16 +887,14 @@ def move_files(files,specification,*,check=None):
             target=files._path(target.relative_to(files.root).as_posix())
             plan.append((name,target.relative_to(files.root).as_posix()))
             if len(plan)>32767: raise ValueError('MOVE_FILE batch exceeds 32767 files')
-        wanted={target.casefold() for _,target in plan};scanned=0
+        wanted={target.casefold() for _,target in plan}
         parents={files._path(target).parent for _,target in plan}
-        for folder in sorted(parents):
-            for path in folder.iterdir():
-                check();scanned+=1
-                if recursive and scanned>WILDCARD_FILE_LIMIT:raise ValueError('MOVE_FILE target scan exceeds 32767 entries')
+        with closing(_directory_paths(sorted(parents))) as entries:
+            for path in _listing_entries(entries,check,operation='MOVE_FILE target'):
                 key=path.relative_to(files.root).as_posix().casefold()
                 if key in wanted:existing.add(key)
     else:
-        if recursive and len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('MOVE_FILE scan exceeds 32767 entries')
+        if len(files.files)>WILDCARD_FILE_LIMIT:raise ValueError('MOVE_FILE scan exceeds 32767 entries')
         for name in sorted(files.files):
             check()
             try: candidate=move_specification(name,pattern=False)

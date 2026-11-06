@@ -231,6 +231,21 @@ class PendingSchedulerTests(unittest.TestCase):
             project.scheduler.step()
             if move(ctx)['outcome']=='completed':break
         self.assertEqual(move(ctx)['outcome'],'completed');self.assertEqual(p.task_state,'waiting');project.scheduler.run()
+
+    def test_pending_motion_completes_while_owner_waits_for_paused_task(self):
+        child=source('CHILD','PAUSE n=7',decl='n:INTEGER')
+        body="ATTACH MOVE AWAY 1 NOWAIT KCL('WAIT CHILD DONE',s) n=9"
+        project,program,ctx=scheduled(body,delay=25_000,extra={'child':child})
+        ctx.kcl=rt.KclCommands(task_commands=True)
+        scheduler=project.scheduler
+        scheduler.start('CHILD')
+        state=scheduler.run(entry='MAIN',max_cycles=30)
+        self.assertEqual((state['MAIN']['state'],state['CHILD']['state']),('waiting','paused'))
+        self.assertEqual((move(ctx)['outcome'],progress(ctx)),('completed',25_000))
+        scheduler.continue_task('CHILD')
+        scheduler.run(max_cycles=30)
+        self.assertEqual((program.snapshot()['S'],program.snapshot()['N']),(0,9))
+
     def test_another_task_observes_completion_before_owner_wakes(self):
         watcher=source('WATCH','DELAY 30 n=probe()',decl='n:INTEGER',routines='ROUTINE probe:INTEGER FROM HOST')
         ctx=context(capture_only=False,responses=[dict(operation='MOVE AWAY',completed=True,delay_ms=25)]);ctx.externals['HOST','PROBE']=lambda:int(ctx.group_locks.motion.get(1,'idle')=='executing')

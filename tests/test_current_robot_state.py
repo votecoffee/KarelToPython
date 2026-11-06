@@ -196,6 +196,16 @@ class CurrentGroupPersistenceTests(unittest.TestCase):
             with self.subTest(config=config),self.assertRaises(ValueError):
                 rt.RobotContext.from_config(config)
 
+    def test_model_requires_exact_active_frame_and_tool_ids(self):
+        row=rt.RobotContext(frames={1:pose(10)}).to_config()['frames']['1']
+        model={'dh':[{}],'frames':{'1':row},'tools':{'1':row}}
+        for selection in ('frame','tool'):
+            for bad in (True,False,0.0,1.0,'1',-1,32768):
+                with self.subTest(selection=selection,bad=bad),self.assertRaisesRegex(ValueError,'Active robot table ID'):
+                    rt.RobotContext.from_config({**model,selection:bad})
+        context=rt.RobotContext.from_config({**model,'frame':1,'tool':1})
+        self.assertEqual((context.active_frame,context.active_tool),(1,1))
+
     def test_unique_legacy_model_identifiers_round_trip_as_decimal_keys(self):
         row=rt.RobotContext(frames={2:pose(10)}).to_config()['frames']['2']
         cfg={'groups':{'02':{'dh':[{'a':100}],'frames':{'02':row},'frame':2}},'active_group':2}

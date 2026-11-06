@@ -255,12 +255,16 @@ def robot_context_from_config(config):
         active=config.get('active_group',min(groups))
         if active not in groups: raise ValueError('Active robot group is not configured')
         context=RobotContext(groups=groups,active_group=active); context.model_config=deepcopy(config); return context
+    active_frame=config.get('frame',0)
+    active_tool=config.get('tool',0)
+    if any(type(number) is not int or not 0<=number<=32767 for number in (active_frame,active_tool)):
+        raise ValueError('Active robot table ID must be an INTEGER in 0..32767')
     current=RobotState.from_config(config['current']) if 'current' in config else None
     if 'dh' not in config:
         if set(config)-{'current','active_group','joint_limits','frames','tools','frame','tool'}:
             raise ValueError('Model settings require explicit DH parameters')
         tables=[]
-        for key,selection in (('frames','frame'),('tools','tool')):
+        for key,selection,number in (('frames','frame',active_frame),('tools','tool',active_tool)):
             rows=config.get(key,{})
             if type(rows) is not dict:raise ValueError('Robot frame/tool tables require objects')
             values={}
@@ -273,16 +277,13 @@ def robot_context_from_config(config):
                     raise ValueError('Robot tables require Cartesian poses')
                 with rt()._numeric_scope('pythonic'):value=rt().frame_value(value,expected=spec)
                 values[int(name)]=value
-            number=config.get(selection,0)
-            if type(number) is not int or not 0<=number<=32767:
-                raise ValueError('Active robot table ID must be an INTEGER in 0..32767')
             if selection in config and number not in values:
                 raise ValueError('Active frame/tool must be supplied')
-            tables.append((values,number))
-        if current is None and 'joint_limits' not in config and not any(table for table,_ in tables):
+            tables.append(values)
+        if current is None and 'joint_limits' not in config and not any(tables):
             raise ValueError('Robot context requires DH parameters, explicit tables, joint limits or current state')
         context=RobotContext(current=current,joint_limits=config.get('joint_limits'),active_group=config.get('active_group',1),
-            frames=tables[0][0],tools=tables[1][0],active_frame=tables[0][1],active_tool=tables[1][1])
+            frames=tables[0],tools=tables[1],active_frame=active_frame,active_tool=active_tool)
         context.model_config=deepcopy(config);return context
     if 'joint_limits' in config: raise ValueError('DH joint limits belong in the DH rows, not joint_limits')
     base=decode_typed(config['base'])[1] if 'base' in config else None
@@ -293,7 +294,6 @@ def robot_context_from_config(config):
     frames={number:decode_typed(row)[1] for number,row in _indexed_rows(config.get('frames',{}),'Robot frame table').items()}
     tools={number:decode_typed(row)[1] for number,row in _indexed_rows(config.get('tools',{}),'Robot tool table').items()}
     frames.setdefault(0,pose()); tools.setdefault(0,pose())
-    active_frame=config.get('frame',0); active_tool=config.get('tool',0)
     if active_frame not in frames or active_tool not in tools: raise ValueError('Active frame/tool must be supplied')
     for value in (*frames.values(),*tools.values()): matrix(value)
     def check_position(position,frame,tool):
