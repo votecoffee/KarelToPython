@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1107.185504 - 2026-11-07
+
+- Stage every queue READ replacement pair before publishing any destination.
+  Reuse captured entry IDs and verify the original queue reference and values
+  without re-encoding payloads during response preparation or publication.
+
 ## 26.1107.184316 - 2026-11-07
 
 - Charge queue entry IDs, values and backing slots before copying or staging

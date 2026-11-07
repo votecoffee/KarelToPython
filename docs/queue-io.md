@@ -67,8 +67,11 @@ in the same READ because queue input does not write them. Their explicit scalar
 inputs follow normal alias and active-counter rules.
 
 All scalar values and complete POSITION geometry validate before any destination
-publication. Invalid values, a stale later queue or invalid geometry leave the
-other staged inputs unchanged. TextInput and FILEs retain their existing cursor,
+publication. READ stages every replacement pair with its original entry ID,
+then publishes the prepared entries without re-encoding the queue. It checks
+the original destination reference and entry contents against the capture.
+Invalid values, a stale later queue or invalid geometry leave the other
+staged inputs unchanged. TextInput and FILEs retain their existing cursor,
 status and rollback contracts. Cancellation and stop discard pending queue
 publication; pause/resume retains its captured request. Earlier completed reads
 remain visible.

@@ -82,9 +82,11 @@ def validate_targets(targets,line=None):
     return cohorts
 
 
-def prepare_values(targets,values,line=None):
+def prepare_values(targets,values,line=None,*,cohorts=None):
     """Validate every incoming pose before any scalar destination publication."""
-    runtime=rt();cohorts=validate_targets(targets,line);result=list(values)
+    runtime=rt()
+    if cohorts is None:cohorts=validate_targets(targets,line)
+    result=list(values)
     if len(result)!=len(targets):raise runtime.KarelRuntimeError('READ requires one value per captured field',line)
     for cohort,entries in cohorts.items():
         staged=runtime.Structure(('POSITION',))

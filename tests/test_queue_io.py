@@ -279,6 +279,84 @@ class QueueCaptureTests(unittest.TestCase):
                 prepared=rt._prepare_read_values(targets,values,41)
                 for target,value in zip(targets,prepared):target.set(value,41)
         self.assertEqual(q.entries,[(1,52),(2,53)])
+    def test_callback_read_publishes_without_reencoding_queues(self):
+        started=False
+
+        def read(_):
+            nonlocal started
+            started=True
+            return [7,42,43,52]
+
+        original=rt._queue_io_payload
+
+        def validate(queue,line=None):
+            self.assertFalse(started,'encoded a queue after input began')
+            return original(queue,line)
+
+        p,_=build('INIT_QUEUE(r) APPEND_QUEUE(11,r,c,n,s) READ(n,q,r)',read=read)
+        with patch.object(rt,'_queue_io_payload',side_effect=validate):
+            result=p.run()
+        self.assertEqual(result['N'],7)
+        self.assertEqual((entries(p),entries(p,'R')),([(1,42),(2,43)],[(1,52)]))
+        self.assertEqual((result['B'],result['C']),([17,9,0],[11,0,0]))
+        self.assertIsNone(queue(p).buffer)
+        self.assertIsNone(queue(p,'R').buffer)
+
+    def test_binary_read_publishes_without_reencoding_after_transport(self):
+        files=rt.MemoryFiles({'in':struct.pack('<ii',42,43)})
+        p,_=build("OPEN FILE f('RB','in') READ f(q)",context=rt.ExecutionContext(files=files))
+        started=False
+        read_bytes=files.read_bytes
+        encode=rt._queue_io_payload
+
+        def read(*args,**kwargs):
+            nonlocal started
+            started=True
+            return read_bytes(*args,**kwargs)
+
+        def validate(queue,line=None):
+            self.assertFalse(started,'encoded a queue after binary transport began')
+            return encode(queue,line)
+
+        with (patch.object(files,'read_bytes',side_effect=read),
+              patch.object(rt,'_queue_io_payload',side_effect=validate)):
+            result=p.run()
+        self.assertEqual((result['F']['position'],result['F']['status']),(8,0))
+        self.assertEqual(entries(p),[(1,42),(2,43)])
+        self.assertIsNone(queue(p).buffer)
+
+    def test_invalid_later_queue_does_not_install_any_new_plans(self):
+        p,q,first=capture()
+        r=queue(p,'R')
+        r.initialized=True
+        r.entries=[(1,29)]
+        r.sequence=1
+        with rt._numeric_scope('pythonic'):
+            second=[field for field,_ in rt.capture_aggregate_read_target(p._state.reference('R'),[],41)]
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'Expected INTEGER'):
+                rt._prepare_read_values(first+second,[42,43,'bad'],41)
+        self.assertIsNone(first[0].cohort.plan)
+        self.assertIsNone(second[0].cohort.plan)
+        self.assertEqual((q.entries,r.entries),([(1,17),(2,18)],[(1,29)]))
+
+    def test_relocated_queue_reference_is_rejected_even_if_it_names_same_queue(self):
+        _,q,targets=capture()
+        source=targets[0].cohort.source
+        source.storage={source.key:q}
+        with (rt._numeric_scope('pythonic'),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'capture changed')):
+            rt._prepare_read_values(targets,[42,43],41)
+        self.assertEqual(q.entries,[(1,17),(2,18)])
+
+    def test_boolean_metadata_or_entry_values_cannot_match_integer_snapshot(self):
+        for member in ('sequence','entry'):
+            with self.subTest(member=member):
+                _,q,targets=capture(1)
+                if member=='sequence':q.sequence=True
+                else:q.entries[0]=(True,17)
+                with rt._numeric_scope('pythonic'),self.assertRaises(rt.KarelRuntimeError):
+                    rt._prepare_read_values(targets,[42],41)
+
     def test_direct_unprepared_field_write_rejects(self):
         _,q,targets=capture()
         with rt._numeric_scope('pythonic'),self.assertRaisesRegex(rt.KarelRuntimeError,'prepared'):targets[0].set(42,41)

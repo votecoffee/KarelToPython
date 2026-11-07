@@ -3536,30 +3536,36 @@ class _QueueReadField:
     def raw(self):return self.cohort.queue.entries[self.index][1]
     def set(self,value,line=None):
         _validate_queue_field(self,line);cohort=self.cohort
-        if (cohort.plan is None or self.index!=cohort.cursor or type(value) is not int
-                or value!=cohort.plan[self.index]):raise KarelRuntimeError('Queue READ requires a complete prepared input cohort',line)
+        if (type(cohort.plan) is not tuple or len(cohort.plan)!=len(cohort.members)
+                or self.index!=cohort.cursor or type(value) is not int or value!=cohort.plan[self.index][1]):
+            raise KarelRuntimeError('Queue READ requires a complete prepared input cohort',line)
         if self.index==0:
-            cohort.queue.entries[:]=[(pair[0],item) for pair,item in zip(cohort.snapshot['entries'],cohort.plan)]
+            cohort.entries[:]=cohort.plan
             cohort.queue.buffer=None;cohort.buffer=None;cohort.witness=None
-            cohort.snapshot=_queue_io_payload(cohort.queue,line)
+            cohort.snapshot=cohort.plan
         cohort.cursor+=1
 
 
 class _QueueReadCohort:
-    __slots__=('queue','source','entries','snapshot','buffer','witness','members','plan','cursor')
+    __slots__=('queue','source','location','entries','snapshot','sequence','buffer','witness','members','plan','cursor')
     def __init__(self,source,line=None):
         self.source=source;self.queue=source.raw();self.entries=self.queue.entries
-        self.snapshot=_queue_io_payload(self.queue,line);self.buffer=self.queue.buffer
+        self.location=(source.storage,source.key)
+        self.snapshot=tuple(tuple(pair) for pair in self.entries)
+        self.sequence=self.queue.sequence;self.buffer=self.queue.buffer
         self.witness=_queue_buffer_witness(self.buffer,line)
         self.members=tuple(_QueueReadField(self,index) for index in range(len(self.entries)))
         self.plan=None;self.cursor=0
     def validate(self,line=None):
         from .variable_archives import ordinary
         if (not _pythonic() or not ordinary(self.source) or self.source.spec!=('QUEUE_TYPE',)
+                or self.source.storage is not self.location[0] or self.source.key!=self.location[1]
                 or self.source.raw() is not self.queue or type(self.queue) is not QueueValue
-                or self.queue.entries is not self.entries or type(self.entries) is not list
-                or self.queue.initialized is not True or self.queue.sequence!=self.snapshot['sequence']
-                or type(self.members) is not tuple or len(self.entries)!=len(self.members)
+                or self.queue.spec!=('QUEUE_TYPE',) or self.queue.entries is not self.entries
+                or type(self.entries) is not list or self.queue.initialized is not True
+                or type(self.queue.sequence) is not int or self.queue.sequence!=self.sequence
+                or type(self.members) is not tuple or type(self.snapshot) is not tuple
+                or len(self.entries)!=len(self.members) or len(self.entries)!=len(self.snapshot)
                 or _queue_buffer_witness(self.queue.buffer,line)!=self.witness
                 or _queue_buffer_witness(self.buffer,line)!=self.witness):
             raise KarelRuntimeError('Queue READ capture changed before input publication',line)
@@ -3571,7 +3577,8 @@ def _validate_queue_field(field,line=None):
             or cohort.members[index] is not field):raise KarelRuntimeError('Malformed queue READ capture',line)
     cohort.validate(line)
     pair=cohort.entries[index]
-    if type(pair) not in (tuple,list) or list(pair)!=cohort.snapshot['entries'][index]:
+    if (type(pair) not in (tuple,list) or len(pair)!=2 or type(pair[0]) is not int
+            or type(pair[1]) is not int or (pair[0],pair[1])!=cohort.snapshot[index]):
         raise KarelRuntimeError('Queue READ entry changed before input publication',line)
 
 
@@ -3597,11 +3604,11 @@ def _queue_read_cohorts(targets,line=None):
     cohorts={}
     for offset,target in enumerate(targets):
         if type(target) is _QueueReadField:cohorts.setdefault(target.cohort,[]).append((offset,target.index))
+    if not cohorts:return cohorts
     occupied=set()
     for cohort,entries in cohorts.items():
-        cohort.validate(line)
         if (len(entries)!=len(cohort.members) or [index for _,index in entries]!=list(range(len(entries)))
-                or entries[-1][0]-entries[0][0]!=len(entries)-1 or _queue_io_payload(cohort.queue,line)!=cohort.snapshot):
+                or entries[-1][0]-entries[0][0]!=len(entries)-1):
             raise KarelRuntimeError('Queue READ requires every unchanged entry field in order',line)
         cells={(id(cohort.queue),'queue'),(id(cohort.entries),'entries'),(id(cohort.source.storage),cohort.source.key)}
         cells.update((id(cohort.entries),index) for index in range(len(cohort.entries)))
@@ -3623,10 +3630,17 @@ def _validate_read_targets(targets,line=None):
 
 
 def _prepare_read_values(targets,values,line=None):
-    _validate_read_targets(targets,line)
-    result=_prepare_position_read_values(targets,values,line)
-    for cohort,entries in _queue_read_cohorts(targets,line).items():
-        cohort.plan=tuple(checked(INTEGER,result[offset],line) for offset,_ in entries);cohort.cursor=0
+    cohorts=_validate_read_targets(targets,line)
+    positions={cohort:entries for cohort,entries in cohorts.items() if type(cohort) is not _QueueReadCohort}
+    result=_prepare_position_read_values(targets,values,line,cohorts=positions)
+    plans=[]
+    for cohort,entries in cohorts.items():
+        if type(cohort) is _QueueReadCohort:
+            plan=tuple((entry_id,checked(INTEGER,result[offset],line))
+                       for (entry_id,_),(offset,_) in zip(cohort.snapshot,entries))
+            plans.append((cohort,plan))
+    for cohort,plan in plans:
+        cohort.plan=plan;cohort.cursor=0
     return result
 
 
