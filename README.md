@@ -257,6 +257,7 @@ copies remain independent and queue buffers detach.
 
 [Queue entry I/O](docs/queue-io.md) now expands initialized scalar queues and
 queue banks through READ/WRITE, including selected rows/planes and linked routines.
+Queue I/O charges before payload validation and captures WRITE values before formats.
 Input retains existing entry IDs/order, detaches the old buffer link and leaves
 its ARRAY cells unchanged until an explicit queue operation rebinds a buffer.
 
@@ -399,7 +400,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.180931**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.182721**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

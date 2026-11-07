@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.182721 - 2026-11-07
+
+- Charge queue READ and WRITE for descriptors, entry IDs and values before
+  payload validation, including containing banks for flat rows or planes.
+- Capture queue WRITE rows from checked views and reject a READ destination
+  or queue storage that changes during budget preparation.
+
 ## 26.1107.180931 - 2026-11-07
 
 - Charge PATH READ and WRITE capture before validating payloads, including

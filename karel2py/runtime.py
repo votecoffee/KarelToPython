@@ -1613,8 +1613,8 @@ def resource_array_prefix_reference(array,index,expected,line=None,*,check=None)
         if not resource_array_type(array.spec) or not parameter_accepts(expected,array.spec):
             raise ValueError('Resource ARRAY prefix storage does not match its declared schema')
     except (ValueError,KarelRuntimeError) as exc:raise KarelRuntimeError('Resource ARRAY prefix schema: '+str(exc),line) from exc
-    if check is not None and path_array_io_type(array.spec):
-        _path_bank_io_preflight(array,line,check)
+    if check is not None and collection_array_type(array.spec):
+        _collection_bank_io_preflight(array,line,check)
     units=0;seen=set();pending=[(array.spec,array)]
     while pending:
         schema,current=pending.pop()
@@ -3400,27 +3400,44 @@ def path_array_io_type(spec):
     return False
 
 
-def _path_bank_io_preflight(value,line,check,*,field_limit=None):
+def _collection_io_stamp(value):
+    if type(value) is QueueValue:
+        buffer=getattr(value,'buffer',None)
+        mapping=getattr(buffer,'values',None) if type(buffer) is Array else None
+        return (value,value.entries,buffer,mapping),(len(value.entries),getattr(value,'sequence',None),
+                                                     getattr(value,'initialized',None))
+    return (value,value.nodes,getattr(value,'data',None)),(len(value.nodes),)
+
+
+def _collection_io_unchanged(value,stamp):
+    storage,metadata=_collection_io_stamp(value)
+    original,expected=stamp
+    return metadata==expected and all(item is prior for item,prior in zip(storage,original))
+
+
+def _collection_bank_io_preflight(value,line,check,*,field_limit=None):
     from .storage import _collection_array_rows
 
     spec=value.spec
+    queue_bank=queue_io_type(spec)
+    label='Queue ARRAY I/O' if queue_bank else 'PATH ARRAY I/O'
+    units_per_field=2 if queue_bank else 1
     try:
         rows,units=_collection_array_rows(spec,value,False,allow_windows=True)
-    except (ValueError,KarelRuntimeError) as error:
-        raise KarelRuntimeError('PATH ARRAY I/O: '+str(error),line) from error
-    if field_limit is not None and units-len(rows)>field_limit:
-        raise KarelRuntimeError('PATH ARRAY I/O is limited to 1024 scalar fields including CR',line)
+    except (ValueError,KarelRuntimeError,TypeError,IndexError,AttributeError,RecursionError) as error:
+        raise KarelRuntimeError(label+': '+str(error),line) from error
+    if field_limit is not None and units-len(rows)>field_limit*units_per_field:
+        raise KarelRuntimeError(f'{label} is limited to {field_limit} scalar fields including CR',line)
     if check is None:return
-    cells=[(path,path.nodes,len(path.nodes),path.data) for _,path in rows]
+    cells=[_collection_io_stamp(item) for _,item in rows]
     for _ in range(units):check(line)
     try:
         current,current_units=_collection_array_rows(spec,value,False,allow_windows=True)
-    except (ValueError,KarelRuntimeError) as error:
-        raise KarelRuntimeError('PATH ARRAY I/O storage changed during preparation',line) from error
+    except (ValueError,KarelRuntimeError,TypeError,IndexError,AttributeError,RecursionError) as error:
+        raise KarelRuntimeError(label+' storage changed during preparation',line) from error
     if (current_units!=units or len(current)!=len(cells)
-            or any(path is not original or path.nodes is not nodes or len(nodes)!=length or path.data is not data
-                   for (_,path),(original,nodes,length,data) in zip(current,cells))):
-        raise KarelRuntimeError('PATH ARRAY I/O storage changed during preparation',line)
+            or any(not _collection_io_unchanged(item,stamp) for (_,item),stamp in zip(current,cells))):
+        raise KarelRuntimeError(label+' storage changed during preparation',line)
 
 
 def path_array_io_values(spec,value,line=None,*,check=None):
@@ -3431,7 +3448,7 @@ def path_array_io_values(spec,value,line=None,*,check=None):
         try:matches=parameter_accepts(spec,value.spec)
         except (KarelRuntimeError,TypeError,IndexError,RecursionError):pass
     if not matches:raise KarelRuntimeError('PATH ARRAY I/O requires matching Pythonic storage',line)
-    _path_bank_io_preflight(value,line,check,field_limit=1024)
+    _collection_bank_io_preflight(value,line,check,field_limit=1024)
     captured=collection_array_storage(value.spec,value,line);result=[]
     def visit(item):
         if type(item) is Array:
@@ -3459,29 +3476,40 @@ def _queue_io_payload(value,line=None):
     return payload
 
 
-def queue_io_values(spec,value,line=None):
+def queue_io_values(spec,value,line=None,*,check=None):
     from .extended import collection_array_storage
+    from .storage import _collection_array_units
+
     if not _pythonic() or not queue_io_type(spec):raise KarelRuntimeError('Queue I/O requires a Pythonic queue schema',line)
-    if spec==('QUEUE_TYPE',):values=[value]
-    else:
-        matches=False
-        if type(value) is Array:
-            try:matches=parameter_accepts(spec,value.spec)
-            except (KarelRuntimeError,TypeError,IndexError,RecursionError):pass
-        if not matches:raise KarelRuntimeError('Queue ARRAY I/O requires matching concrete storage',line)
-        try:captured=collection_array_storage(value.spec,value,line)
+    if spec==('QUEUE_TYPE',):
+        try:units=_collection_array_units(spec,value,False)
         except (ValueError,KarelRuntimeError,TypeError,IndexError,AttributeError,RecursionError) as error:
-            raise KarelRuntimeError('Queue ARRAY I/O: '+str(error),line) from error
-        values=[]
-        def visit(item):
-            if type(item) is Array:
-                for child in item.values:visit(child)
-            else:values.append(item)
-        visit(captured)
-    count=0
-    for item in values:
-        count+=len(_queue_io_payload(item,line)['entries'])
-        if count>1024:raise KarelRuntimeError('Queue I/O is limited to 1024 entry values including CR',line)
+            raise KarelRuntimeError('Queue I/O: '+str(error),line) from error
+        if len(value.entries)>1024:raise KarelRuntimeError('Queue I/O is limited to 1024 entry values including CR',line)
+        if check is not None:
+            stamp=_collection_io_stamp(value)
+            for _ in range(units):check(line)
+            if value.spec!=spec or type(getattr(value,'entries',None)) is not list or not _collection_io_unchanged(value,stamp):
+                raise KarelRuntimeError('Queue I/O storage changed during preparation',line)
+        _queue_io_payload(value,line)
+        return [value]
+    matches=False
+    if type(value) is Array:
+        try:matches=parameter_accepts(spec,value.spec)
+        except (KarelRuntimeError,TypeError,IndexError,RecursionError):pass
+    if not matches:raise KarelRuntimeError('Queue ARRAY I/O requires matching concrete storage',line)
+    _collection_bank_io_preflight(value,line,check,field_limit=1024)
+    try:captured=collection_array_storage(value.spec,value,line)
+    except (ValueError,KarelRuntimeError,TypeError,IndexError,AttributeError,RecursionError) as error:
+        raise KarelRuntimeError('Queue ARRAY I/O: '+str(error),line) from error
+    values=[]
+    def visit(item):
+        if type(item) is Array:
+            for child in item.values:visit(child)
+        else:values.append(item)
+    visit(captured)
+    if any(item.initialized is not True for item in values):
+        raise KarelRuntimeError('Queue I/O requires INIT_QUEUE before use',line)
     return values
 
 
@@ -3547,10 +3575,14 @@ def _validate_queue_field(field,line=None):
         raise KarelRuntimeError('Queue READ entry changed before input publication',line)
 
 
-def _capture_queue_read(target,line=None):
+def _capture_queue_read(target,line=None,*,check=None):
     from .variable_archives import ordinary
     if not ordinary(target):raise KarelRuntimeError('Queue READ requires ordinary writable queue storage',line)
-    value=target.raw();queue_io_values(target.spec,value,line);references=[]
+    value=target.raw()
+    queue_io_values(target.spec,value,line,check=check)
+    if not ordinary(target) or target.raw() is not value:
+        raise KarelRuntimeError('Queue READ destination changed during preparation',line)
+    references=[]
     def visit(item,reference):
         if type(item) is Array:
             for index,child in enumerate(item.values):visit(child,Reference(item.spec[2],item.values,index))
@@ -3645,7 +3677,7 @@ def capture_aggregate_write(spec,value,line=None,*,check=None):
     """Validate and detach complete immutable scalar leaves before format calls."""
     if not _pythonic():raise KarelRuntimeError('Aggregate WRITE requires Pythonic mode',line)
     if queue_io_type(spec):
-        fields=[(INTEGER,pair[1]) for item in queue_io_values(spec,value,line) for pair in item.entries]
+        fields=[(INTEGER,pair[1]) for item in queue_io_values(spec,value,line,check=check) for pair in item.entries]
         return _AggregateWriteValue(spec,fields)
     if path_array_io_type(spec):
         fields=[]
@@ -3723,7 +3755,7 @@ def capture_aggregate_read_target(target,formats,line=None,*,check=None):
         raise KarelRuntimeError('Aggregate READ requires writable resource-free data',line)
     if type(formats) not in (list,tuple) or formats:
         raise KarelRuntimeError('Aggregate READ formats require selecting scalar fields',line)
-    if queue_io_type(target.spec):return _capture_queue_read(target,line)
+    if queue_io_type(target.spec):return _capture_queue_read(target,line,check=check)
     if path_array_io_type(target.spec):
         result=[]
         for item in path_array_io_values(target.spec,target.raw(),line,check=check):

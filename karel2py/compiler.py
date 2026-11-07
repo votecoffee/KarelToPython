@@ -2506,7 +2506,7 @@ class Emitter:
         while root.kind=='group':root=root.args[0]
         return root if root.kind=='system_pose' else None
 
-    def reference(self, expr, *, config_read=False, allow_prefix=False, collection_prefix=False, path_io=False):
+    def reference(self, expr, *, config_read=False, allow_prefix=False, collection_prefix=False, collection_io=False):
         line = expr.token.line
         selection_root=expr
         while selection_root.kind in ('field','index','group'):selection_root=selection_root.args[0]
@@ -2515,7 +2515,7 @@ class Emitter:
         if self.is_system_pose_path(expr):
             self.error('E_SYSTEM_POSE_READ_ONLY','Robot system poses cannot supply writable references',expr.token)
         if expr.kind == 'using_ref': return expr.value[0],expr.value[1]
-        if expr.kind == 'group': return self.reference(expr.args[0],config_read=config_read,allow_prefix=allow_prefix,collection_prefix=collection_prefix,path_io=path_io)
+        if expr.kind == 'group': return self.reference(expr.args[0],config_read=config_read,allow_prefix=allow_prefix,collection_prefix=collection_prefix,collection_io=collection_io)
         if expr.kind == 'name':
             if self.is_predefined_file(expr):return f'self._state.predefined_file_reference({expr.value!r},{line})',('FILE',)
             return f'self._state.reference({expr.value!r}, {line})', self.symbol_type(expr)
@@ -2533,7 +2533,7 @@ class Emitter:
         index, selected = self.index_code(expr, spec, allow_prefix=prefix, prefix_target=prefix, collection_prefix=collection_prefix)
         if prefix:
             helper='resource_array_prefix_reference' if collection_prefix and rt.collection_array_type(spec) else 'array_prefix_target'
-            check=',check=self._state.tick' if path_io and rt.path_array_io_type(spec) else ''
+            check=',check=self._state.tick' if collection_io and rt.collection_array_type(spec) else ''
             return f'_rt.{helper}({base},{index},{spec!r},{line}{check})',selected
         if self.mode=='pythonic' and rt.collection_array_node_type(spec,len(expr.args)-1) is not None:return f'_rt.collection_path_reference({base},{index},{spec!r},{line})',selected
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
@@ -2669,7 +2669,7 @@ class Emitter:
         return (elements_match and len(target_shape) == len(source_shape) and
                 all(a == b or a is None or b is None for a, b in zip(target_shape, source_shape)))
 
-    def expression(self, expr, raw=False, *, allow_array_result=False, path_io=False):
+    def expression(self, expr, raw=False, *, allow_array_result=False, collection_io=False):
         if expr.kind=='system_selection':
             group=self.require_type(expr.args[0],'INTEGER')
             self.system_selection_uses.append(dict(operation='READ_'+expr.value,body=self.current_routine.name if self.current_routine else self.program.name,
@@ -2715,7 +2715,7 @@ class Emitter:
             return f'_rt.lifecycle_condition(self._state,{expr.value!r},{(expr.token.line,expr.token.column)!r})',('BOOLEAN',)
         line = expr.token.line
         if expr.kind == 'group':
-            return self.expression(expr.args[0], raw=raw, path_io=path_io)
+            return self.expression(expr.args[0], raw=raw, collection_io=collection_io)
         if expr.kind == 'real_literal':
             try: rt.real_literal(expr.value, line)
             except rt.KarelRuntimeError as exc: self.error('E_REAL_LITERAL', str(exc), expr.token)
@@ -2763,7 +2763,7 @@ class Emitter:
                 reference=f'_rt.collection_path_reference({base},{index},{spec!r},{line})'
                 return reference+'.raw()' if raw else f'_rt.require({reference}.raw(),{line})',selected
             if self.mode=='pythonic' and rt.array_prefix_type(spec,len(expr.args)-1) is not None:
-                if path_io and rt.path_array_io_type(spec):
+                if collection_io and rt.collection_array_type(spec):
                     return f'_rt.resource_array_prefix_reference({base},{index},{spec!r},{line},check=self._state.tick).raw()',selected
                 helper='collection_array_prefix_value' if rt.collection_array_type(spec) else 'array_prefix_value'
                 return f'_rt.{helper}({base},{index},{spec!r},{line})',selected
@@ -4411,7 +4411,7 @@ class Emitter:
                     items.append(dict(data_type='CR', line=item.token.line, column=item.token.column,
                                       format_specifiers=[]))
                     continue
-                value, spec = self.expression(item.args[0],path_io=True)
+                value, spec = self.expression(item.args[0],collection_io=True)
                 data_type = spec[0]
                 aggregate=data_type not in ('STRING','BOOLEAN','INTEGER','REAL',*NARROW_TYPES)
                 if aggregate and (self.mode!='pythonic' or not rt.aggregate_write_type(spec)):
@@ -4436,7 +4436,7 @@ class Emitter:
                         self.error('E_WRITE_FORMAT', f'Invalid {data_type} WRITE second format specifier', format_exprs[1].token)
                 if aggregate:
                     options=f',file={file_code}' if file_code else ''
-                    check=',check=self._state.tick' if spec[0]=='PATH' or rt.path_array_io_type(spec) else ''
+                    check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
                     rendered=(f'_rt.format_aggregate_write(_rt.capture_aggregate_write({spec!r},{value},{item.token.line}{check}),[{", ".join(format_codes)}],{item.token.line}{options})'
                               if format_exprs else f'_rt.aggregate_write_pieces({spec!r},{value},{item.token.line}{options}{check})')
                     write_groups.append(rendered);pieces.append(rendered)
@@ -4529,7 +4529,7 @@ class Emitter:
                     self.error('E_POSITION_READ_ONLY', 'READ cannot write POSITION orientation fields', target.token)
                 if self.is_value_only_subfield(target) and self.mode!='pythonic':
                     self.error('E_CONFIG_OUTPUT', 'READ into CONFIG subfields needs a separate bounded output policy', target.token)
-                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic',collection_prefix=self.mode=='pythonic' and rt.collection_array_type(self.access_type(target)),path_io=True)
+                reference, spec = self.reference(target,config_read=self.mode=='pythonic' and self.is_config_subfield(target),allow_prefix=self.mode=='pythonic',collection_prefix=self.mode=='pythonic' and rt.collection_array_type(self.access_type(target)),collection_io=True)
                 aggregate=spec[0] not in (*INTEGRAL_TYPES,'BOOLEAN','REAL','STRING')
                 if aggregate and (self.mode!='pythonic' or not rt.aggregate_read_type(spec)):
                     self.error('E_READ_TYPE','READ requires scalar or Pythonic resource-free aggregate data',target.token)
@@ -4545,7 +4545,7 @@ class Emitter:
                                 or kind in INTEGRAL_TYPES and second in (0,*range(2,17)) for kind in format_kinds)
                     if not valid: self.error('E_READ_FORMAT', f'Invalid {spec[0]} READ second format specifier', format_exprs[1].token)
                 if aggregate:
-                    check=',check=self._state.tick' if spec[0]=='PATH' or rt.path_array_io_type(spec) else ''
+                    check=',check=self._state.tick' if rt.collection_type(spec) or rt.collection_array_type(spec) else ''
                     captured_group=f'_rt.capture_aggregate_read_target({reference}, [], {line}{check})'
                     read_groups.append(f'_rt.format_aggregate_read_group({captured_group},[{", ".join(format_codes)}],{line})' if format_exprs else captured_group)
                 else:read_groups.append(f'[_rt.capture_read_target({reference}, [{", ".join(format_codes)}], {line})]')
@@ -7665,7 +7665,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['queue_io_policy']=dict(
         source='Pythonic scalar QUEUE_TYPE and queue ARRAY READ/WRITE, selected rows/planes, declared/created/borrowed/compiled linked storage and computed output values',
         order='ARRAY row-major queues and existing FIFO entry order; INTEGER values only, without sequence IDs, counters, lengths or initialization flags in the payload',
-        capture='WRITE detaches initialized logical values before formats; READ captures complete stable entry cohorts and original buffer mappings, validates every response and all overlaps before publication',
+        capture='Charge each queue descriptor and its entry IDs and values before validation, including the containing bank for flat prefixes; WRITE detaches values and READ captures original entry cohorts and backing mappings',
         publication='Replace existing entry values together while retaining initialized flag, sequence IDs/order/counter and entry-list identity; detach prior buffer links without changing ARRAY cells; later queue operations rebind explicitly',
         empty='Require initialized queues; skip empty cells in banks; all-empty unformatted WRITE emits one empty item, all-empty READ and formatted all-empty output reject; no allocation of entries or buffers',
         bounds='1024 scalar entry values including CR per operation and existing 32767 logical entry/collection snapshot units; ordinary backing ARRAY schemas remain checked',

@@ -50,7 +50,10 @@ the normal uniform scalar width/base formats, evaluated once per source item.
 
 ## Capture and publication
 
-WRITE validates and detaches complete values before format expressions. READ
+Queue I/O charges one step per queue descriptor and one each for every entry
+ID and value before validating the payload. It verifies the queue and entry
+containers, entry count, sequence and backing storage after charging.
+WRITE then detaches complete values before format expressions. READ
 captures original queue/entry storage and backing-buffer mappings before formats
 or waiting. Each entry must remain present and unchanged until publication.
 Reinitialization, queue replacement, entry-list replacement, changed IDs/order/
@@ -74,8 +77,10 @@ remain visible.
 
 Bare matching queue/bank formals and explicit BYNAME borrow live storage. Grouped
 or computed arguments and ordinary prefix arguments make private logical copies;
-READ directly on a selected row/plane captures its original cells. Computed
-values can be written, while input requires ordinary writable references.
+READ directly on a selected row or plane captures its original cells. A flat
+selection also charges and validates the containing bank. WRITE snapshots
+selected scalars from the checked view. Computed values can be written, while
+input requires ordinary writable references.
 
 Existing limits apply: one through three logical ARRAY dimensions, 32,767 logical
 entry/collection snapshot units and at most 1,024 expanded scalar fields including

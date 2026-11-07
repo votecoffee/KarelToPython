@@ -2,6 +2,7 @@
 import json
 import struct
 import unittest
+from unittest.mock import patch
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program
@@ -162,6 +163,113 @@ class QueueBankTests(unittest.TestCase):
         p,_=bank('READ(bank)',read=read)
         with self.assertRaises(rt.KarelRuntimeError):p.run()
         self.assertEqual(p.snapshot()['BANK'][1][0]['entries'],[[1,9]])
+
+class QueueIOBudgetTests(unittest.TestCase):
+    def test_scalar_capture_charges_before_payload_formats_or_transport(self):
+        routine='ROUTINE width:INTEGER BEGIN visits=visits+1 RETURN 4 END width'
+        for operation in ('READ','WRITE'):
+            with self.subTest(operation=operation):
+                seen=[]
+                p,_=build('visits=0 '+operation+'(q::width())',seed=False,
+                          routines=routine,read=seen.append)
+                q=queue(p)
+                q.initialized=True
+                q.sequence=2
+                q.entries=[(1,17),(2,9)]
+                q.buffer=p._state.values['B']
+                entries_before,buffer=q.entries,q.buffer
+                with (patch('karel2py.storage.collection_payload',
+                            side_effect=AssertionError('encoded uncharged queue')),
+                      self.assertRaisesRegex(rt.KarelRuntimeError,'step budget')):
+                    p.run(max_steps=2)
+                self.assertEqual((p.snapshot()['VISITS'],seen,texts(p)),(0,[],[]))
+                self.assertIs(q.entries,entries_before)
+                self.assertIs(q.buffer,buffer)
+                self.assertEqual((q.entries,q.sequence),([(1,17),(2,9)],2))
+
+    def test_bank_and_flat_row_preflight_charge_before_payload_or_formats(self):
+        routine='ROUTINE width:INTEGER BEGIN n=n+1 RETURN 4 END width'
+        for operation in ('READ','WRITE'):
+            for selector in ('bank','bank[2]'):
+                with self.subTest(operation=operation,selector=selector):
+                    seen=[]
+                    p,_=compile_program(f'n=0 {operation}({selector}::width())',
+                                        decl=BANK_DECL,routines=routine,read=seen.append)
+                    for q in p._state.values['BANK'].values:q.initialized=True
+                    q=p._state.values['BANK'].values[3]
+                    q.sequence=1
+                    q.entries=[(1,17)]
+                    with (patch('karel2py.storage.collection_payload',
+                                side_effect=AssertionError('encoded uncharged bank')),
+                          self.assertRaisesRegex(rt.KarelRuntimeError,'step budget')):
+                        p.run(max_steps=2)
+                    self.assertEqual((p.snapshot()['N'],seen,texts(p)),(0,[],[]))
+                    self.assertEqual(q.entries,[(1,17)])
+
+    def test_grouped_write_row_captures_values_without_cloning(self):
+        p,_=bank('WRITE((bank[1])::width())',
+                 routines='ROUTINE width:INTEGER BEGIN INIT_QUEUE(bank[1,2]) RETURN 3 END width')
+        with patch.object(rt,'collection_array_source_value',side_effect=AssertionError('cloned queue row')):
+            p.run()
+        self.assertEqual(texts(p),[' 17'])
+        self.assertEqual(p.snapshot()['BANK'][0][1]['entries'],[])
+
+    def test_read_declines_rebound_root_after_charge(self):
+        seen=[]
+        p,_=build('READ(q)',seed=False,read=seen.append)
+        state=p._state
+        original=queue(p)
+        original.initialized=True
+        original.sequence=1
+        original.entries=[(1,17)]
+        replacement=rt.QueueValue()
+        replacement.initialized=True
+        replacement.sequence=1
+        replacement.entries=[(1,9)]
+        tick=state.tick
+
+        def replace(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==2:state.values['Q']=replacement
+
+        with (patch.object(state,'tick',side_effect=replace),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'Queue READ destination changed')):
+            p.run()
+        self.assertIs(queue(p),replacement)
+        self.assertEqual((original.entries,replacement.entries,seen),([(1,17)],[(1,9)],[]))
+
+    def test_bank_rejects_backing_mapping_change_during_charge(self):
+        seen=[]
+        p,_=compile_program('READ(bank)',decl=BANK_DECL,read=seen.append)
+        state=p._state
+        for q in state.values['BANK'].values:q.initialized=True
+        q=state.values['BANK'].values[1]
+        q.sequence=1
+        q.entries=[(1,17)]
+        q.buffer=state.values['B']
+        tick=state.tick
+
+        def replace(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==2:q.buffer.values=q.buffer.values[:]
+
+        with (patch.object(state,'tick',side_effect=replace),
+              patch('karel2py.storage.collection_payload',side_effect=AssertionError('encoded stale bank')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'Queue ARRAY I/O storage changed')):
+            p.run()
+        self.assertEqual((q.entries,seen),([(1,17)],[]))
+
+    def test_combined_queue_field_limit_precedes_payload_validation(self):
+        p,_=compile_program('WRITE(bank)',decl='bank:ARRAY[2]OF QUEUE_TYPE')
+        for q in p._state.values['BANK'].values:
+            q.initialized=True
+            q.sequence=513
+            q.entries=[(i,i) for i in range(1,514)]
+        with (patch('karel2py.storage.collection_payload',side_effect=AssertionError('encoded oversized bank')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'1024 scalar fields')):
+            p.run()
+        self.assertEqual(texts(p),[])
+
 
 class QueueCaptureTests(unittest.TestCase):
     def test_complete_capture_can_publish_repeated_inputs(self):
