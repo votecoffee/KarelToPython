@@ -7,7 +7,7 @@ from karel2py import runtime as rt
 from tests.test_directive_group_locks import program
 from tests.test_extended_services import compile_program
 from tests.test_kcl_task_commands import issue
-from tests.test_task_control_broadcasts import worker
+from tests.test_task_control_broadcasts import advance_until, worker
 
 
 def clock_command(text):
@@ -154,6 +154,30 @@ class KclTaskAdminTests(unittest.TestCase):
         self.assertEqual(issue(ctx, 'DISABLE COND WORKER 9')['S'], 3)
         self.assertEqual(task.resume()['S'], 41)
         self.assertEqual(issue(ctx, 'SHOW CONDITION WORKER 1')['S'], 3)
+
+    def test_enable_condition_wakes_an_already_parked_source_delay(self):
+        scheduler=rt.TaskScheduler()
+        ctx=self.context(tasks=scheduler)
+        task=worker(ctx,'WORKER','n=0 CONDITION[1]: WITH $SCAN_TIME=10 WHEN TRUE DO n=7 '
+                                 'ENDCONDITION DELAY 100 n=n+1')
+        scheduler.start('WORKER')
+        advance_until(scheduler,lambda:task.task_state=='waiting')
+        self.assertEqual(issue(ctx,'ENABLE CONDITION WORKER 1')['S'],0)
+        advance_until(scheduler,lambda:task.snapshot()['N']==7)
+        self.assertLess(scheduler.now_us,100000)
+        self.assertEqual(scheduler.run()['WORKER']['values']['N'],8)
+
+    def test_disable_condition_removes_its_earlier_parked_wake(self):
+        scheduler=rt.TaskScheduler()
+        ctx=self.context(tasks=scheduler)
+        task=worker(ctx,'WORKER','n=0 CONNECT TIMER TO s CONDITION[1]: WITH $SCAN_TIME=10 '
+                                 'WHEN s>=10 DO n=7 ENDCONDITION ENABLE CONDITION[1] DELAY 100 n=n+1')
+        scheduler.start('WORKER')
+        advance_until(scheduler,lambda:task.task_state=='waiting')
+        self.assertEqual(issue(ctx,'DISABLE CONDITION WORKER 1')['S'],0)
+        self.assertFalse(scheduler.step())
+        self.assertGreaterEqual(scheduler.now_us,100000)
+        self.assertEqual(scheduler.run()['WORKER']['values']['N'],1)
 
     def test_default_condition_selector_targets_the_calling_root(self):
         ctx = self.context()

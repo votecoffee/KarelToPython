@@ -36,9 +36,11 @@ receiver requires ordinary writable data storage. Output references must be
 disjoint, including aggregate descendants. A dynamic SET target cannot overlap
 entry/status. GET_VAR reads named POSITION orientation vectors, their scalar
 components and CONFIG fields as independent values. These fields can also be
-read as SET_VAR input expressions. Writable destinations require ordinary data
-references. Missing fields follow the usual missing-data rule, and CONFIG turn
-numbers are checked before publishing a read.
+read as SET_VAR input expressions. A named CONFIG scalar is also a valid
+SET_VAR target. Turns must fit -8 through 7 after ordinary numeric conversion,
+and flags require BOOLEAN data. A compatible missing value clears the selected
+field and returns status 12311. These writes retain the ordinary entry/status
+overlap checks.
 
 Completed transfers publish a positive context-local cache ID for the normalized
 program/path pair. Repeated successful calls reuse it. Caller entry contents do

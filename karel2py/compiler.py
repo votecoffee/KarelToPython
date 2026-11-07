@@ -5637,7 +5637,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='SET_VAR captures a typed independent input once before later selectors, including missing reference data; GET_VAR resolves and snapshots its source after output selectors; data structure checked at capture and transferred known data after lookup; whole queues validate complete logical source at capture',
         missing='Whole missing source clears a compatible receiver; partial missing leaves propagate in the transferred prefix; status 12311 reflects copied missing data only; unknown BYTE retained distinctly without inventing readable contents',
         status='Portable 0 success, 1 lookup missing, 3 incompatible type/rank, 12311 transferred missing data; type guard precedes missing propagation; failed lookup/type writes status only; cache IDs published only after complete data validation',
-        outputs='Exact disjoint writable entry/status/GET destinations, dynamic SET target overlap guards; complete replacement prepared before writes; earlier argument effects retained on late validation failure',
+        outputs='Exact disjoint writable entry/status/GET destinations and dynamic SET target overlap guards. Named CONFIG scalar writes use checked field publication. Earlier argument effects survive later validation failures.',
         boundary='Resource-free data, whole logical QUEUE_TYPE snapshots and exact whole PATH Pythonic copies; whole FILE and embedded resources excluded; ordinary assignment/routine/RETURN rules unchanged; no native storage/order/cache encoding/status mapping, remote/controller execution or strict-mode claim',
         guide='docs/variable-transfers.md',controller_validated=False)
     report['variable_archive_policy']=dict(
@@ -6124,7 +6124,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         syntax='CONDITION[n]: WITH $PRIORITY=INTEGER, $SCAN_TIME=INTEGER; comma-separated options or repeated WITH, no duplicates',
         capture='Number then option expressions once in source order; complete validation before registration; priority 1..99, lower first, default 50',
         scan='Stable per-namespace priority order at checkpoint entry; ties retain definition order, skip disabled/not-due handlers, one-shot clauses and existing caller-before-callee scans',
-        delays='Scheduled source DELAY can wake at positive scan deadlines inside the delay for handlers using the scheduler clock. Ordinary checkpoints and task budgets apply.',
+        delays='Scheduled source DELAY follows live positive scan deadlines across the caller chain. KCL enable and disable can change a parked wake time. Ordinary checkpoints and task budgets apply.',
         boundary='No preemption, global cross-task priority merge, live priority mutation, saved continuations or native interrupt timing; strict remains future work',
         guide='docs/handler-priority-and-system-poses.md',controller_validated=False)
     report['system_pose_policy']=dict(

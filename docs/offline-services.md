@@ -139,8 +139,9 @@ Foreign storage is supplied with `VariableStore.define(program,path,spec,value)`
 or `bind(program,path,reference)`. Whole QUEUE_TYPE values copy logical state
 and release receiver buffer binding; an uninitialized queue copies with status
 12311. [PATH transfers](path-transfers.md) cover logical copies and named nodes.
-GET_VAR reads protected POSITION orientation and CONFIG fields as data. Writable
-outputs use ordinary data references. See [queue transfers](queue-transfers.md).
+GET_VAR reads POSITION orientation and CONFIG fields as data. SET_VAR can write
+named CONFIG scalar fields through their domain checks. See
+[queue transfers](queue-transfers.md).
 
 Output/resource references must be ordinary writable exact types and disjoint,
 including aggregate descendants. Inputs and reference selectors are captured once

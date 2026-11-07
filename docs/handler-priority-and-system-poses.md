@@ -41,11 +41,14 @@ abort requested inside an action retains existing deferred delivery after the
 current scan, including other eligible actions. There is no new terminal scan:
 a final ordinary assignment alone does not create another checkpoint.
 
-When a scheduled source DELAY parks, enabled handlers with positive scan
-intervals can contribute an earlier wake deadline. This uses the scheduler
-clock and considers the live caller chain, including a caller waiting inside a
-linked routine. Each wake before the delay's original deadline runs the normal
-checkpoint, including timer updates, handler priority and step/cycle limits.
+During a parked source DELAY, enabled handlers with positive scan intervals
+can contribute an earlier wake deadline. This uses the scheduler clock and
+considers the live caller chain, including a caller waiting inside a linked
+routine. The scheduler reevaluates the wake time after KCL condition controls.
+Enabling a timed condition makes it eligible for an immediate scan, and
+disabling it removes its deadline. Each wake before the delay's original
+deadline runs the normal checkpoint, including timer updates, handler priority
+and step/cycle limits.
 Zero-interval handlers participate when a checkpoint runs. Standalone execution
 and injected clocks scan at their ordinary checkpoints.
 

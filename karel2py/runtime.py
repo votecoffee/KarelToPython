@@ -1727,6 +1727,12 @@ class AssociationFieldReference(Reference):
 
 class ConfigFieldReference(Reference):
     """Compact CONFIG fields have a bounded turn-number storage policy."""
+    def validate_storage(self,line=None):
+        fields=dict(record_fields(('CONFIG',)))
+        if (type(self.storage) is not dict or set(self.storage)!=set(fields)
+                or type(self.key) is not str or self.key not in fields or self.spec!=fields[self.key]):
+            raise KarelRuntimeError('Expected declared CONFIG scalar field storage',line)
+
     def validate(self, value, line=None):
         if self.spec == INTEGER and not -8 <= integer(value, line) <= 7:
             raise KarelRuntimeError('CONFIG turn numbers are limited to -8..7 by the prototype', line)
@@ -3240,10 +3246,7 @@ def config_read_reference(value,name,line=None):
 def _validate_read_target(target,line=None):
     """Accept ordinary scalar cells and explicit bounded Pythonic CONFIG fields."""
     if type(target) is ConfigFieldReference and _pythonic():
-        fields=dict(record_fields(('CONFIG',)))
-        if (type(target.storage) is not dict or set(target.storage)!=set(fields)
-                or type(target.key) is not str or target.key not in fields or target.spec!=fields[target.key]):
-            raise KarelRuntimeError('READ requires a declared CONFIG scalar field',line)
+        target.validate_storage(line)
     elif type(target) is AssociationFieldReference and _pythonic():
         target.validate_storage(line)
     elif type(target) is _QueueReadField and _pythonic():

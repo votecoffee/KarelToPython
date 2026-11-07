@@ -236,9 +236,34 @@ class DynamicTransferOrderAndGuardTests(unittest.TestCase):
         program,_=compile_program("GET_VAR(b[1],'','A',b,s)",decl=BASE+' a,b: ARRAY[2] OF INTEGER')
         with self.assertRaisesRegex(rt.KarelRuntimeError,'overlap'): program.run()
 
-    def test_dynamic_config_scalar_target_remains_protected(self):
-        program,_=compile_program(transfer('SET_VAR','A.CFG_TURN_NO1','7'),decl=BASE+' a: CONFIG')
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'Protected'): program.run()
+    def test_named_set_updates_config_turns_and_flags_with_checked_types(self):
+        body=transfer('SET_VAR','A.CFG_TURN_NO1','7.9')+' '+transfer('SET_VAR','A.CFG_FLIP','TRUE')
+        state=run(body,decl=BASE+' a: CONFIG')
+        self.assertEqual((state['A']['CFG_TURN_NO1'],state['A']['CFG_FLIP'],state['S']),(7,True,0))
+
+    def test_named_set_bad_turn_number_preserves_field_entry_and_status(self):
+        for invalid in ('-9','8'):
+            with self.subTest(invalid=invalid):
+                p,_=compile_program('a.cfg_turn_no1=3 e=77 s=88 '+
+                                    transfer('SET_VAR','A.CFG_TURN_NO1',invalid),decl=BASE+' a: CONFIG')
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'CONFIG turn'):p.run()
+                state=p.snapshot()
+                self.assertEqual((state['A']['CFG_TURN_NO1'],state['E'],state['S']),(3,77,88))
+                self.assertEqual(p._state.execution.entries,{})
+
+    def test_named_set_config_field_accepts_missing_typed_data(self):
+        state=run('a.cfg_turn_no1=3 '+transfer('SET_VAR','A.CFG_TURN_NO1','n'),decl=BASE+' a: CONFIG')
+        self.assertEqual((state['A']['CFG_TURN_NO1'],state['S']),(MISSING,12311))
+
+    def test_named_set_config_field_rejects_overlap_with_status_storage(self):
+        p,_=compile_program(transfer('SET_VAR','A.CFG_TURN_NO1','7'),decl=BASE+' a: CONFIG')
+        values=p._state.values
+        config=values['A'].values
+        config['CFG_TURN_NO1']=3
+        values['S']=rt.Reference(('INTEGER',),config,'CFG_TURN_NO1')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'overlaps'):p.run()
+        self.assertEqual(config['CFG_TURN_NO1'],3)
+        self.assertEqual(p._state.execution.entries,{})
 
     def test_readonly_position_source_can_be_copied_as_a_value(self):
         state=run("CNV_STR_CONF('N',cfg,s) point=POS(0,0,0,0,0,0,cfg) "+transfer('SET_VAR','B','point.normal'),decl=BASE+' cfg: CONFIG point: POSITION b: VECTOR')

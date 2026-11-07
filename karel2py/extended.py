@@ -2984,10 +2984,12 @@ class ExecutionContext:
         if rt._pythonic() and type(target) is rt.AssociationFieldReference:
             # An explicit named data transfer; never expose a borrowed field alias.
             target.validate_storage(line);target=rt.Reference(target.spec,target.storage,target.key)
-        readable=(rt.ReadOnlyFieldReference,rt.ConfigFieldReference) if pythonic and name=='GET_VAR' else ()
-        allowed=(rt.Reference,rt._ArrayPrefixTarget) if pythonic else (rt.Reference,)
+        readable=(rt.ReadOnlyFieldReference,) if pythonic and name=='GET_VAR' else ()
+        allowed=(rt.Reference,rt._ArrayPrefixTarget,rt.ConfigFieldReference) if pythonic else (rt.Reference,)
         if type(target) not in allowed+readable:
             fail('Protected variable storage cannot be a GET_VAR/SET_VAR alias',line)
+        if type(target) is rt.ConfigFieldReference:
+            target.validate_storage(line)
         if name=='GET_VAR':
             captured=target.raw()
             if type(target) is rt.ConfigFieldReference and captured is not rt.UNINITIALIZED:
@@ -3016,6 +3018,9 @@ class ExecutionContext:
         current=destination.raw()
         if system_target is not None and name=='SET_VAR':system_target.publish(copied,line)
         elif prefix:destination.set(copied,line)
+        elif type(destination) is rt.ConfigFieldReference:
+            if copied is rt.UNINITIALIZED:destination.clear()
+            else:destination.set(copied,line)
         elif rt._pythonic() and rt.collection_array_type(destination.spec):
             from .variable_archives import replace_collections
             destination.storage[destination.key]=replace_collections(current,copied)

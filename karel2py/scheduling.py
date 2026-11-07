@@ -367,16 +367,31 @@ def lifecycle_condition(state,name,key):
     return generation>previous
 
 
-def _delay_handler_wake(state,now,deadline):
-    """Find the next periodic scan across the live caller chain."""
+class _PeriodicDelay:
+    """A parked source DELAY with live condition deadlines and a fixed end."""
+
+    def __init__(self,scopes,deadline):
+        self.scopes=scopes
+        self.deadline=deadline
+
+    def wake_at(self,now):
+        wake=self.deadline
+        for state in self.scopes:
+            if not state._in_handler:
+                for handler in state._handlers.values():
+                    if handler['enabled'] and handler['scan_ms']:
+                        due=handler['due']
+                        wake=min(wake,now if due is None else due)
+        return wake
+
+
+def _periodic_delay(state,deadline):
+    scopes=[]
     while state is not None:
-        if not state._in_handler:
-            for handler in state._handlers.values():
-                if handler['enabled'] and handler['scan_ms']:
-                    due=handler['due']
-                    deadline=min(deadline,now if due is None else max(now,due))
+        if any(handler['scan_ms'] for handler in state._handlers.values()):
+            scopes.append(state)
         state=state._budget_parent
-    return deadline
+    return _PeriodicDelay(tuple(scopes),deadline) if scopes else None
 
 
 def delay_execution(state,milliseconds,line=None,*,scan_handlers=False):
@@ -386,13 +401,16 @@ def delay_execution(state,milliseconds,line=None,*,scan_handlers=False):
     if scheduler is None:
         state.delay(milliseconds,line); return
     if milliseconds:
-        periodic=scan_handlers and runtime.task_root(state)._scheduler_clock
         deadline=scheduler.now_us+milliseconds*1000
+        periodic=None
+        if scan_handlers and runtime.task_root(state)._scheduler_clock:
+            periodic=_periodic_delay(state,deadline)
         while scheduler.now_us<deadline:
-            wake=_delay_handler_wake(state,scheduler.now_us,deadline) if periodic else deadline
-            yield {'kind':'sleep','until':wake,'line':line}
+            yield {'kind':'sleep','until':periodic if periodic is not None else deadline,'line':line}
             control=state._pause_requested or state._abort_requested
-            if control or (wake<deadline and scheduler.now_us>=wake):
+            now=scheduler.now_us
+            wake=periodic.wake_at(now) if periodic is not None else deadline
+            if control or (wake<deadline and now>=wake):
                 yield from runtime.checkpoint(state,line,force_pause=control)
 
 
@@ -447,10 +465,13 @@ class TaskScheduler:
         if not checks:del self._task_waits[state]
     def _notify_task_waits(self,state):
         for ready in tuple(self._task_waits.get(state,())):ready()
+    def _wait_deadline(self,wait):
+        return wait.wake_at(self.now_us) if type(wait) is _PeriodicDelay else wait
+
     def _wait_ready(self,name,state):
         if state._pause_requested or state._abort_requested:return True
         condition=self.waiting.get(name,0)
-        return condition() if callable(condition) else self.now_us>=condition
+        return condition() if callable(condition) else self.now_us>=self._wait_deadline(condition)
     def start(self,name,*,paused=False):
         if type(paused) is not bool: raise TypeError('paused must be BOOLEAN')
         name=name.upper()
@@ -573,7 +594,7 @@ class TaskScheduler:
                     if state.task_state!='running' or program._execution is None: break
         finally: self._step_names=None
         self.now_us+=self.quantum_us
-        deadlines=[value for value in self.waiting.values() if not callable(value)]
+        deadlines=[self._wait_deadline(value) for value in self.waiting.values() if not callable(value)]
         deadlines.extend(self._pulse_deadlines());deadlines.extend(self._motion_deadlines())
         if not progressed and deadlines: self.now_us=max(self.now_us,min(deadlines))
         for bank in self._pulse_banks(): bank.poll_pulses()

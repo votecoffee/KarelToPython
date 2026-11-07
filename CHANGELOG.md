@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.005351 - 2026-11-07
+
+- Refresh scheduled DELAY wake times when KCL enables or disables a timed
+  condition on a parked task.
+- Let SET_VAR write named CONFIG fields through checked scalar storage.
+  Turn bounds, missing markers and output overlap checks apply.
+
 ## 26.1107.003555 - 2026-11-07
 
 - Let scheduled source DELAY wake at positive condition scan deadlines inside
