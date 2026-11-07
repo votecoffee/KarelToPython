@@ -79,7 +79,9 @@ before changing detached storage.
 
 [KCL variable commands](docs/kcl-commands.md#variable-and-path-commands)
 add opt-in typed creation, root and namespace renaming, and bounded edits to
-detached PATH nodes. The offline store preserves names, values and allocation
+detached PATH nodes. KCL charges detached edits before validating or allocating
+node data and verifies that the target is still current. The offline store
+preserves names, values and allocation
 metadata through the existing saved-context format.
 
 [KCL file commands](docs/kcl-commands.md#file-commands) add opt-in COPY, RENAME,
@@ -395,7 +397,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.170638**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.172006**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -947,9 +949,9 @@ save/load. FILE operations can use memory or a caller-selected directory. Typed
 PATH and QUEUE_TYPE collections work offline. APPEND_NODE and INSERT_NODE can
 take complete node values, with a final `TRUE` argument to convert compatible
 NODEDATA layouts. Node edits charge seed capture and node allocation before
-copying or allocating the corresponding data. `COPY_PATH` validates and charges
-the header and selected
-nodes before replacing the destination. Its final `TRUE` argument also enables
+copying or allocating the corresponding data. Node insertion rechecks the
+destination before publishing. `COPY_PATH` validates and charges the header and
+selected nodes before replacing the destination. Its final `TRUE` argument also enables
 conversion between compatible PATH schemas. These opted-in edits and copies can
 convert joint and Cartesian fields using the calling task's supplied robot model.
 [Scalar PATH values](docs/scalar-collection-values.md) also convert compatible

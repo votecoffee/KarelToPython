@@ -515,22 +515,38 @@ def edit_detached_path(state,operation,program,var,index,line):
     value=reference.raw()
     if type(value) is not rt.PathValue or value.spec!=reference.spec or type(value.nodes) is not list:
         return 5
+    spec=reference.spec
+    storage,member=reference.storage,reference.key
+    nodes,header=value.nodes,value.data
+    count=len(nodes)
     try:
         node_size=rt._validate_data_schema(value.node_spec)
-        header_size=rt._validate_data_schema(value.spec[2]) if value.spec[2] is not None else 0
-        count=len(value.nodes)
-        if count>MAX_LEAVES or header_size+count*node_size>MAX_LEAVES:return 6
-        if operation!='APPEND_NODE' and not 1<=index<=count:return 2
-        if operation!='DELETE_NODE' and (count>=MAX_LEAVES or header_size+(count+1)*node_size>MAX_LEAVES):
-            return 6
-        collection_payload(reference.spec,value)
+        header_size=rt._validate_data_schema(spec[2]) if spec[2] is not None else 0
+    except (ValueError,TypeError,rt.KarelRuntimeError):return 5
+    current_size=header_size+count*node_size
+    if count>MAX_LEAVES or current_size>MAX_LEAVES:return 6
+    if operation!='APPEND_NODE' and not 1<=index<=count:return 2
+    growing=operation!='DELETE_NODE'
+    cost=current_size+node_size if growing else current_size
+    if growing and (count>=MAX_LEAVES or cost>MAX_LEAVES):return 6
+    anchor=nodes[index-1] if operation!='APPEND_NODE' else None
+
+    for _ in range(cost):variable_checkpoint(state,line)
+    if (context.variables is not store or store.bindings.get(key) is not reference
+            or reference.storage is not storage or reference.key!=member or reference.spec!=spec
+            or not ordinary(reference) or reference.raw() is not value or value.spec!=spec
+            or value.nodes is not nodes or value.data is not header or len(nodes)!=count
+            or operation!='APPEND_NODE' and nodes[index-1] is not anchor):
+        fail('Detached PATH changed during node edit preparation',line)
+    try:
+        collection_payload(spec,value)
     except (ValueError,TypeError,rt.KarelRuntimeError):return 5
     code=detached_storage(state,{key:reference})
     if code:return code
-    if operation=='DELETE_NODE':
-        del value.nodes[index-1]
+    if not growing:
+        del nodes[index-1]
         return 0
-    return value.append(index,line)
+    return value.append(index,line,reference=reference)
 
 
 def byname(state,expected,program,path,entry,line=None):

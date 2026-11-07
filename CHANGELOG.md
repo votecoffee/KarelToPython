@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1107.172006 - 2026-11-07
+
+- Charge detached KCL PATH edits for existing data and any new node before
+  validating the payload. Reject changes to the binding or selected node
+  made during preparation.
+- Recheck the PATH receiver and insertion anchor before a source append or
+  insert publishes a node, including after an explicit model conversion.
+
 ## 26.1107.170638 - 2026-11-07
 
 - Charge PATH node seed capture before copying the seed and evaluating the

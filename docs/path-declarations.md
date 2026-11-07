@@ -97,7 +97,9 @@ The seed capture charges one step per source leaf before copying data or
 evaluating the status selector and conversion flag. Node preparation then
 charges the target layout and, for a conversion, the source layout it reads.
 The unseeded forms charge the target layout before allocating a node with
-uninitialized data. Data and budget errors preserve the PATH and prior status.
+uninitialized data. Before publication, the edit verifies the original receiver,
+node list and insertion anchor, including after a model callback. Data and
+budget errors preserve the PATH and prior status.
 
 ## Copy between compatible layouts
 

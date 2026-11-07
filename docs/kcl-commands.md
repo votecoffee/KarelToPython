@@ -312,8 +312,12 @@ without overwriting the competing changes.
 PATH edits apply to explicit detached root bindings. Compiled storage, known
 borrowed frames, overlapping bindings and connected timers prevent an edit.
 Valid edits preserve header and surviving node identities and keep the PATH
-within the portable 32767-leaf limit. The detached PATH can be inspected with
-GET_VAR and saved through the existing typed context.
+within the portable 32767-leaf limit. The command charges one step per existing
+header or node leaf and per new node leaf before validating the payload or
+allocating a node. It verifies the binding, header, node list and selected
+index again after charging. Budget exhaustion or a target change completes
+with status 4 and leaves the command's edit unapplied. The detached PATH can
+be inspected with GET_VAR and saved through the existing typed context.
 
 SET accepts decimal INTEGER, BYTE and SHORT literals, finite decimal REAL
 literals with optional exponents, TRUE and FALSE, and ASCII text in single or

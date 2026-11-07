@@ -105,6 +105,25 @@ class SeededPathNodeTests(unittest.TestCase):
         state=program.run(max_steps=1)
         self.assertEqual((state['S'],state['TRACK']['nodes']),(2,[]))
 
+    def test_source_append_declines_rebound_destination_before_allocation(self):
+        program,_=compile_program('s=99 APPEND_NODE(track,s)')
+        state=program._state
+        path=state.values['TRACK']
+        replacement=rt.PathValue(path.spec)
+        tick=state.tick
+
+        def rebind(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==3:
+                state.values['TRACK']=replacement
+
+        with (patch.object(state,'tick',side_effect=rebind),
+              patch.object(rt.Structure,'__init__',side_effect=AssertionError('allocated after rebind')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'PATH destination changed')):
+            program.run()
+        self.assertEqual((path.nodes,replacement.nodes,state.values['S']),([],[],99))
+        self.assertIs(state.values['TRACK'],replacement)
+
     def test_conversion_flag_uses_captured_seed_and_status_selector_order(self):
         types=TYPES+' other_t=STRUCTURE value:REAL ENDSTRUCTURE'
         decl=DECL+' seed:other_t codes:ARRAY[1] OF INTEGER order:INTEGER'
@@ -152,6 +171,27 @@ class ModelPathConversionTests(unittest.TestCase):
         self.assertAlmostEqual(second['X'],100.)
         self.assertAlmostEqual(second['Y'],100.)
         self.assertEqual(values['SEED']['POINT']['axes'],[0.,30.])
+
+    def test_model_callback_cannot_publish_into_rebound_node_destination(self):
+        ctx=model_context((0.,90.))
+        program,_=compile_program('seed.point[1]=0 seed.point[2]=90 s=99 APPEND_NODE(track,seed,s,TRUE)',
+                                  types=self.types,decl='track:PATH NODEDATA=pose_node seed:joint_node s:INTEGER',
+                                  context=ctx)
+        state=program._state
+        path=state.values['TRACK']
+        replacement=rt.PathValue(path.spec)
+        forward=ctx.robot.forward
+
+        def rebind(*args,**kwargs):
+            state.values['TRACK']=replacement
+            return forward(*args,**kwargs)
+
+        with (patch.object(ctx.robot,'forward',side_effect=rebind) as adapter,
+              self.assertRaisesRegex(rt.KarelRuntimeError,'PATH destination changed')):
+            program.run()
+        adapter.assert_called_once()
+        self.assertEqual((path.nodes,replacement.nodes,state.values['S']),([],[],99))
+        self.assertIs(state.values['TRACK'],replacement)
 
     def test_copy_uses_models_for_reverse_order_nodes_and_header(self):
         body=("APPEND_NODE(p,s) APPEND_NODE(p,s) "

@@ -129,6 +129,80 @@ class KclVariableCommandTests(unittest.TestCase):
             self.assertEqual(issue(ctx, 'APPEND NODE [T]ROUTE')['S'], 206)
         self.assertEqual(path.nodes, before)
 
+    def test_node_edit_budget_precedes_payload_validation_and_allocation(self):
+        for command in ('APPEND NODE ROUTE','INSERT NODE ROUTE[1]','DELETE NODE ROUTE[1]'):
+            for operation,expected in (('KCL',4),('KCL_NO_WAIT',0)):
+                with self.subTest(command=command,operation=operation):
+                    ctx=context()
+                    setup=authored(ctx,"KCL('CREATE VAR ROUTE:route_t',s) KCL('APPEND NODE ROUTE',s)")
+                    self.assertEqual(setup.run()['S'],0)
+                    path=ctx.variables.bindings['T','ROUTE'].raw()
+                    nodes,header=path.nodes,path.data
+                    node=nodes[0]
+                    task=authored(ctx,f"{operation}('{command}',s)")
+                    # Two steps enter the command. A growing edit must charge the
+                    # new leaf even when the two existing leaves fit the budget.
+                    budget=3 if command.startswith('DELETE') else 4
+                    with (patch('karel2py.storage.collection_payload',
+                                side_effect=AssertionError('validated PATH before budget')),
+                          patch.object(rt.PathValue,'append',
+                                       side_effect=AssertionError('allocated PATH node before budget'))):
+                        self.assertEqual(task.run(max_steps=budget)['S'],expected)
+                    self.assertIs(path.nodes,nodes)
+                    self.assertIs(path.data,header)
+                    self.assertEqual(nodes,[node])
+                    self.assertIsNone(ctx.kcl._pending)
+                    self.assertEqual((ctx.kcl.history[-1]['phase'],ctx.kcl.last_status),('completed',4))
+                    self.assertEqual(authored(ctx,'s=KCL_STATUS').run()['S'],4)
+
+    def test_node_edit_declines_root_rebinding_during_budget(self):
+        ctx=context()
+        self.assertEqual(authored(ctx,"KCL('CREATE VAR ROUTE:route_t',s)").run()['S'],0)
+        ref=ctx.variables.bindings['T','ROUTE']
+        path=ref.raw()
+        replacement=rt.PathValue(path.spec)
+        task=authored(ctx,"KCL('APPEND NODE ROUTE',s)")
+        tick=task._state.tick
+        checkpoints=0
+
+        def rebind(*args,**kwargs):
+            nonlocal checkpoints
+            tick(*args,**kwargs)
+            if ctx.kcl._pending is not None:
+                checkpoints+=1
+                if checkpoints==2:
+                    ref.storage[ref.key]=replacement
+
+        with patch.object(task._state,'tick',side_effect=rebind):
+            self.assertEqual(task.run()['S'],4)
+        self.assertEqual((path.nodes,replacement.nodes),([],[]))
+        self.assertIs(ref.raw(),replacement)
+
+    def test_indexed_edit_declines_same_length_replacement_during_budget(self):
+        for command in ('INSERT NODE ROUTE[1]','DELETE NODE ROUTE[1]'):
+            with self.subTest(command=command):
+                ctx=context()
+                setup=authored(ctx,"KCL('CREATE VAR ROUTE:route_t',s) KCL('APPEND NODE ROUTE',s)")
+                self.assertEqual(setup.run()['S'],0)
+                path=ctx.variables.bindings['T','ROUTE'].raw()
+                replacement=rt.Structure(path.node_spec)
+                replacement.values['VALUE']=17
+                task=authored(ctx,f"KCL('{command}',s)")
+                tick=task._state.tick
+                checkpoints=0
+
+                def replace(*args,**kwargs):
+                    nonlocal checkpoints
+                    tick(*args,**kwargs)
+                    if ctx.kcl._pending is not None:
+                        checkpoints+=1
+                        if checkpoints==2:
+                            path.nodes[0]=replacement
+
+                with patch.object(task._state,'tick',side_effect=replace):
+                    self.assertEqual(task.run()['S'],4)
+                self.assertEqual(path.nodes,[replacement])
+
     def test_malformed_or_missing_commands_keep_existing_storage(self):
         ctx = context()
         ctx.variables.define('CACHE', 'COUNT', ('INTEGER',), 7)

@@ -1517,7 +1517,7 @@ class PathValue:
         index=runtime().integer(index,line)
         if not 1<=index<=len(self.nodes): fail('PATH node index out of range',line)
         return self.nodes[index-1]
-    def append(self,index=None,line=None,*,seed=None,convert=None,check=None,state=None):
+    def append(self,index=None,line=None,*,seed=None,convert=None,check=None,state=None,reference=None):
         """Insert a node after seed validation and any requested layout conversion."""
         rt=runtime();target=self.node_spec
         changing=convert is not None and type(seed) is rt.Structure and seed.spec!=target
@@ -1529,10 +1529,19 @@ class PathValue:
         if count>=32767: fail('PATH node limit exceeded',line)
         index=count+1 if index is None else rt.integer(index,line)
         if not 1<=index<=count+1: return 2
+        anchor=nodes[index-1] if index<=count else None
+
+        def check_destination():
+            if (self.nodes is not nodes or len(nodes)!=count
+                    or index<=count and nodes[index-1] is not anchor
+                    or reference is not None and reference.raw() is not self):
+                fail('PATH destination changed during insertion preparation',line)
+
         if check is not None:
             cost=rt._validate_data_schema(target,line)
             if changing:cost+=rt._validate_data_schema(seed.spec,line)
             for _ in range(cost):check()
+            check_destination()
         if seed is None:
             node=rt.Structure(target)
         else:
@@ -1542,7 +1551,7 @@ class PathValue:
                     seed=state.execution.kinematic_record(state,target,source,line,source_spec=source.spec)
                 else:seed=rt.convert_record_schema(target,source,line)
             node=rt._aggregate_value(target,seed,line,allow_partial=False)
-        if self.nodes is not nodes or len(nodes)!=count:fail('PATH nodes changed during insertion preparation',line)
+        check_destination()
         nodes.insert(index-1,node); return 0
     def clone(self): return deepcopy(self)
 
@@ -2905,14 +2914,13 @@ class ExecutionContext:
                 index=args[1] if name=='INSERT_NODE' else None
                 arity=len(PROCEDURES[name])
                 convert=rt.boolean(args.pop(),line) if len(args)>arity else None
+                seed=None
                 if len(args)==arity:
                     seed=args[-2]
                     if type(seed) is not rt.Structure or (convert is None and seed.spec!=path.node_spec):
                         fail('PATH node input must match the declared NODEDATA',line)
-                    code=path.append(index,line,seed=seed,convert=convert,check=lambda:state.tick(line),state=state)
-                else:
-                    check=(lambda:state.tick(line)) if rt._pythonic() else None
-                    code=path.append(index,line,check=check)
+                check=(lambda:state.tick(line)) if rt._pythonic() or seed is not None else None
+                code=path.append(index,line,seed=seed,convert=convert,check=check,state=state,reference=args[0])
             else:
                 code=0 if 1<=args[1]<=len(path.nodes) else 2
                 if not code: del path.nodes[args[1]-1]
