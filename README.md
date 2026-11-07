@@ -28,7 +28,8 @@ program breakpoints, one-shot condition breaks, and per-task source stepping.
 [KCL portable batches](docs/kcl-commands.md#mixed-archive-batches) save and
 restore logical TP and variable data through checked manifests.
 [Dictionary files](docs/kcl-commands.md#dictionary-commands) support explicit
-ASCII inputs and portable TX streams. [KCL RESET](docs/kcl-commands.md#scripted-reset)
+ASCII inputs and portable TX streams. File reads and expanded TX text count
+against the execution step budget. [KCL RESET](docs/kcl-commands.md#scripted-reset)
 uses the supplied logical controller response.
 
 [KCL pose recording and assignment](docs/kcl-commands.md#pose-recording-and-value-assignment)
@@ -187,7 +188,8 @@ load separately through the existing execution context.
 [External logical responses](docs/external-logical-values.md) now carry PATH/QUEUE_TYPE
 values and collection ARRAYs through fixed results, argument cases and atomic
 output batches. Retained roots/headers, detached nodes and omitted queue buffer
-links follow the existing logical-copy rules.
+links follow the existing logical-copy rules. Plain logical callback results
+charge for descriptors and contents before copying.
 
 [Explicit external outputs](docs/external-outputs.md) now let JSON responses update selected
 ordinary data arguments as well as returning data. Results, values and disjoint
@@ -195,7 +197,7 @@ captured destinations count against the step budget before decoding. The
 complete batch validates before any response write, with the existing borrowed
 and private argument rules.
 
-[Explicit external data](docs/external-values.md) now accepts typed callback results and
+[Explicit external data](docs/external-values.md) accepts budgeted typed callback results and
 CLI JSON bindings for fixed data, no-op procedures and exact argument cases
 with optional explicit fallback responses.
 Scalars, records, ARRAYs and pose/joint data retain checked independent values;
@@ -390,7 +392,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.031659**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.033429**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

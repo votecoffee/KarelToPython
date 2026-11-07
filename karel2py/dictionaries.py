@@ -96,20 +96,22 @@ def dictionary_file_endpoint(state,channel,source,default,extensions,line):
     return name,files,key,extension
 
 
-def read_dictionary_file(files,key,extension,line):
-    from .fileops import kcl_read_bytes
+def read_dictionary_file(files,key,extension,line,*,check=None):
+    from .fileops import charge_file_bytes,kcl_read_bytes
 
     limit=TEXT_LIMIT+128 if extension=='.TX' else TEXT_LIMIT
-    code,raw,_=kcl_read_bytes(files,key,limit,line)
+    code,raw,_=kcl_read_bytes(files,key,limit,line,check=check)
     if code:raise DictionaryError(3 if code==1 else code,'Dictionary file unavailable')
     data=raw
-    if extension=='.TX' and raw.startswith(PORTABLE_TX_HEADER):
+    compressed=extension=='.TX' and raw.startswith(PORTABLE_TX_HEADER)
+    if compressed:
         stream=zlib.decompressobj()
         try:data=stream.decompress(raw[len(PORTABLE_TX_HEADER):],TEXT_LIMIT+1)
         except zlib.error as error:raise ValueError('Invalid portable TX stream') from error
         if not stream.eof or stream.unused_data or stream.unconsumed_tail:
             if len(data)<=TEXT_LIMIT:raise ValueError('Incomplete or trailing portable TX data')
     if len(data)>TEXT_LIMIT:raise DictionaryError(5,'Decoded dictionary exceeds byte limit')
+    if compressed:charge_file_bytes(len(data),check)
     return text_source(data.decode('ascii')),raw
 
 
@@ -173,7 +175,7 @@ def kcl_dictionary_file(state,operation,args,channel,line):
         default='.TX' if load else '.UTX'
         extensions=('.TX','.UTX','.FTX') if load else ('.UTX',)
         name,files,key,extension=dictionary_file_endpoint(state,channel,source,default,extensions,line)
-        text,_=read_dictionary_file(files,key,extension,line)
+        text,_=read_dictionary_file(files,key,extension,line,check=lambda:state.tick(line))
         if load:
             _,label,selector=args
             catalog.load_text(source_name(name),dictionary_name(label),catalog.selected_language(state,selector),text)

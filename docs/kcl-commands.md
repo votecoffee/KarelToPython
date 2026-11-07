@@ -523,6 +523,10 @@ and 405 for capacity. The configured-language error 33003 is preserved.
 KCL_NO_WAIT and KCL_STATUS separate acceptance from inline completion.
 
 An explicit catalog source takes precedence. If the label is missing,
+File-backed dictionary and form commands charge one execution step per
+started 4096 bytes before reading each input, including a form companion.
+Portable TX expansion also charges the decoded text before parsing.
+
 LOAD can read ASCII TX, UTX and FTX files or a portable TX stream from
 MemoryFiles, DeviceFiles or an explicit DirectoryFiles root. File operands
 respect the KCL directory and preserve spelling for case-sensitive banks.

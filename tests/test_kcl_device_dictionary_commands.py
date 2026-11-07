@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from karel2py import runtime as rt
+from karel2py.dictionaries import portable_tx
 from tests.test_extended_services import compile_program
 from tests.test_kcl_task_commands import issue
 
@@ -91,6 +92,17 @@ class KclDictionaryTests(unittest.TestCase):
         disabled = self.context(enabled=False)
         self.assertEqual(issue(disabled, 'LOAD DICT first menu')['S'], 1)
         self.assertEqual(disabled.dictionaries.loaded, {})
+
+    def test_expanded_tx_text_counts_before_catalog_publication(self):
+        ctx=self.context()
+        compressed=portable_tx('$1 "ready"\n*'+' '*16384+'\n')
+        self.assertLess(len(compressed),4096)
+        ctx.files=rt.MemoryFiles({'large.TX':compressed})
+        task,_=compile_program("KCL('LOAD DICT large NEW',s)",context=ctx)
+        self.assertEqual(task.run(max_steps=4)['S'],404)
+        self.assertEqual(ctx.dictionaries.loaded,{})
+        self.assertEqual(issue(ctx,'LOAD DICT large NEW')['S'],0)
+        self.assertIn('NEW',ctx.dictionaries.loaded['ENGLISH'])
 
     def test_default_language_clear_leaves_explicit_current_language(self):
         ctx = self.context()

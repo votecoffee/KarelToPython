@@ -37,6 +37,16 @@ def reference(spec,value):return rt.Reference(spec,{'value':value},'value')
 
 
 class ExternalDataResultTests(unittest.TestCase):
+    def test_typed_result_budget_precedes_decoder(self):
+        binding=row(['ARRAY',16,['INTEGER']],[17]*16)
+        p,_=build(binding,kind='ARRAY[16] OF INTEGER',direct=True)
+        target=p._state.values['TARGET']
+        target.values[0]=7
+        with patch('karel2py.storage.decode_typed',side_effect=AssertionError('decoded before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertIs(p._state.values['TARGET'],target)
+        self.assertEqual(target.values[0],7)
+
     def test_integer(self):self.assertEqual(execute(integer(17))[0]['TARGET'],17)
     def test_real(self):self.assertEqual(execute(row(['REAL'],1.25),kind='REAL')[0]['TARGET'],1.25)
     def test_boolean(self):self.assertIs(execute(row(['BOOLEAN'],True),kind='BOOLEAN')[0]['TARGET'],True)

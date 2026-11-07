@@ -44,8 +44,9 @@ remain visible if result validation later fails.
 
 Existing bounds apply: 32,767 PATH scalar leaves, queue entries or collection-bank
 snapshot units, one through three logical ARRAY dimensions and 64 data-schema
-levels. JSON PATH totals are checked before node allocation; bank totals are
-checked before cell allocation. Malformed known values, missing shaped containers,
+levels. JSON PATH totals are checked before node allocation, and bank totals are
+checked before cell allocation. Plain callback results charge one step per
+collection descriptor and PATH leaf, plus two steps per queue entry. Malformed known values, missing shaped containers,
 shared owned runtime cells and inconsistent JSON markers reject.
 
 Generator callbacks retain the normal pause/resume/stop/abort and routine-frame

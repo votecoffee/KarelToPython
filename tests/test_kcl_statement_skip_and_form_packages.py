@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt, translate_project
 from karel2py.dictionaries import portable_tx
@@ -117,6 +118,26 @@ class KclFormPackageTests(unittest.TestCase):
         values = task.run()
         self.assertEqual((values['N'],values['STATUS'],values['CHANGED'][0]), (7,0,True))
         self.assertEqual(ctx.forms.active_count, 0)
+
+    def test_companion_budget_is_checked_before_rooted_payload_read(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            built=self.context(rt.MemoryFiles({'FORM.FTX':ftx()}))
+            self.assertEqual(issue(built,'COMPRESS FORM')['S'],0)
+            for name,data in built.files.snapshot().items():
+                (root/name).write_bytes(data)
+            ctx=self.context(rt.DirectoryFiles(root))
+            companion=root/'FORM.VR'
+            self.assertTrue(companion.is_file())
+            original_open=Path.open
+            def reject_companion_open(path,*args,**kwargs):
+                if path==companion:self.fail('LOAD FORM opened its companion before charging')
+                return original_open(path,*args,**kwargs)
+            task,_=compile_program("KCL('LOAD FORM',s)",context=ctx)
+            with patch.object(Path,'open',new=reject_companion_open):
+                self.assertEqual(task.run(max_steps=3)['S'],404)
+            self.assertEqual(ctx.dictionaries.loaded,{})
+            self.assertEqual(issue(ctx,'LOAD FORM')['S'],0)
 
     def test_incomplete_or_mismatched_pair_cannot_load_a_dictionary(self):
         ctx = self.context(rt.MemoryFiles({'ABMENUFR.FTX': ftx()}), languages=['ENGLISH','FRENCH'])

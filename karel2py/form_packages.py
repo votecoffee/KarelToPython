@@ -46,10 +46,11 @@ def kcl_form_file(state,operation,source,channel,line):
         name,files,key,_=dictionary_file_endpoint(state,channel,source,extension,(extension,),line)
         stem,label,language=form_identity(name)
         companion=companion_key(key,label)
-        text,raw=read_dictionary_file(files,key,extension,line)
+        check=lambda:state.tick(line)
+        text,raw=read_dictionary_file(files,key,extension,line,check=check)
         if load:
             if not raw.startswith(PORTABLE_TX_HEADER):return 1
-            code,data,_=kcl_read_bytes(files,companion,LIMIT,line)
+            code,data,_=kcl_read_bytes(files,companion,LIMIT,line,check=check)
             if code:return 3 if code==1 else code
             if data!=association(stem,label,language,parse(text),raw):return 1
             catalog=state.execution.require('dictionaries',line)

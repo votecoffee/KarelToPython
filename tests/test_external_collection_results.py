@@ -38,6 +38,24 @@ class ScalarCases:
         p,_=self.build(encoded=True);expected=payload(raw(p));p.run();self.assertEqual(payload(raw(p,'TARGET')),expected)
     def test_result_mutation_leaves_callback_owned_value(self):
         p,_=self.build('target=make() '+self.change());expected=payload(raw(p));p.run();self.assertEqual(payload(raw(p)),expected)
+    def test_plain_callback_budget_precedes_logical_publication(self):
+        for encoded in (False,True):
+            with self.subTest(encoded=encoded):
+                p,_=self.build()
+                source=raw(p)
+                if type(source) is rt.PathValue:
+                    for _ in range(10):source.append()
+                else:
+                    source.sequence=12
+                    source.entries=[(index,index) for index in range(1,13)]
+                value=payload(source) if encoded else source
+                p._state.execution.externals['HOST','MAKE']=lambda:value
+                target=raw(p,'TARGET')
+                original=payload(target)
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=8)
+                self.assertIs(raw(p,'TARGET'),target)
+                self.assertEqual(payload(target),original)
+
     def test_each_call_returns_an_independent_copy(self):
         p,_=self.build('bank[1]=make() bank[2]=make() '+self.change('bank[1]'));expected=payload(raw(p));p.run();self.assertEqual(payload(raw(p,'BANK').values[1]),expected)
     def test_partial_or_uninitialized_collection_is_data(self):
@@ -115,6 +133,16 @@ class ScalarCases:
 
 class PathCallbackTests(ScalarCases,unittest.TestCase):kind='path'
 class QueueCallbackTests(ScalarCases,unittest.TestCase):
+    def test_plain_result_keeps_existing_queue_entry_capacity(self):
+        p,_=self.build()
+        source=raw(p)
+        source.sequence=16384
+        source.entries=[(index,index) for index in range(1,16385)]
+        p.run(max_steps=40000)
+        target=raw(p,'TARGET')
+        self.assertEqual((len(target.entries),target.sequence),(16384,16384))
+        self.assertEqual((target.entries[0],target.entries[-1]),((1,1),(16384,16384)))
+
     kind='queue'
     def test_buffer_links_are_never_copied(self):
         p,_=self.build();source=raw(p)

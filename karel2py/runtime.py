@@ -873,7 +873,7 @@ def collection_array_result(spec,value,line=None,*,source_spec=None):
     return copied
 
 
-def external_collection_result(spec,value,line=None):
+def external_collection_result(spec,value,line=None,*,check=None):
     """Detach an explicitly linked callback's exact logical value or typed JSON."""
     if not _pythonic():raise KarelRuntimeError('External collection results require Pythonic mode',line)
     from .storage import tuple_spec,decode_typed,collection_array_cost
@@ -893,7 +893,13 @@ def external_collection_result(spec,value,line=None):
                         or len(payload['nodes'])>32767):raise ValueError('PATH result requires bounded nodes and data')
                 width=_validate_data_schema(node,line);header=_validate_data_schema(spec[2],line) if spec[2] else 0
                 if header+len(payload['nodes'])*width>32767:raise ValueError('PATH result exceeds 32767 scalar leaves')
+            _charge_external_result(actual,value,line,check)
             _,value=decode_typed(value)
+        elif check is not None:
+            if not collection_type(spec) and (type(value) is not Array or not collection_array_source_accepts(spec,value.spec)):
+                raise ValueError('Logical collection ARRAY result differs from its declared schema')
+            actual=spec if collection_type(spec) else value.spec
+            _charge_external_result(actual,value,line,check)
         if not collection_type(spec) and type(value) is Array:collection_array_cost(value.spec)
         return collection_source_value(spec,value,line) if collection_type(spec) else collection_array_result(spec,value,line)
     except (ValueError,KarelRuntimeError,TypeError,KeyError,IndexError,AttributeError,RecursionError,OverflowError) as error:
@@ -928,22 +934,23 @@ def _external_data_payload(spec,payload,line=None):
         raise ValueError('External STRING payload exceeds its declared capacity')
 
 
-def _external_data_decode(row,line=None,*,selector=False):
+def _external_data_decode(row,line=None,*,selector=False,check=None):
     from .storage import tuple_spec,decode_typed
     if type(row) is not dict or set(row)!={'type','value'} or type(row['type']) is not list:
         raise ValueError('Typed external data requires exactly type and value, with a type list')
     spec=tuple_spec(row['type']);_validate_data_schema(spec,line)
+    _charge_external_result(spec,row,line,check)
     _external_data_payload(spec,row['value'],line)
     _,value=decode_typed(row);value=_aggregate_value(spec,value,line)
     if not selector and spec[0] not in ('ARRAY','JOINTPOS',*RECORD_TYPES):value=require(checked(spec,value,line),line)
     return spec,value
 
 
-def external_data_result(spec,value,line=None):
+def external_data_result(spec,value,line=None,*,check=None):
     """Decode only explicitly typed callback data; preserve exact result interfaces."""
     if not _pythonic():raise KarelRuntimeError('Typed external data results require Pythonic mode',line)
     try:
-        actual,copied=_external_data_decode(value,line)
+        actual,copied=_external_data_decode(value,line,check=check)
         if spec[0]=='ARRAY':return array_result(spec,copied,line)
         if not parameter_accepts(spec,actual):raise ValueError('Typed external data differs from its declared schema')
         return checked(spec,copied,line)
@@ -975,6 +982,29 @@ def _external_value_units(spec,value,line=None):
         visit(spec,value)
         return units
     return _validate_data_schema(spec,line)
+
+
+def _charge_external_result(spec,value,line,check):
+    if check is None:return
+    from .storage import tuple_spec,_collection_array_units
+
+    encoded=type(value) is dict
+    payload=value['value'] if encoded else value
+
+    def footprint():
+        if collection_type(spec):
+            # Plain scalar collection results keep their existing separate limits.
+            units=_collection_array_units(spec,payload,encoded)
+            if spec[0]=='PATH' and units>32768:raise ValueError('PATH result exceeds 32767 scalar leaves')
+            return units
+        return _external_value_units(spec,payload,line)
+
+    units=footprint()
+    for _ in range(units):check()
+    if encoded and (set(value)!={'type','value'} or type(value['type']) is not list
+                    or tuple_spec(value['type'])!=spec or value['value'] is not payload):
+        raise ValueError('External result changed during preparation')
+    if footprint()!=units:raise ValueError('External result size changed during preparation')
 
 
 def _external_value_snapshot(spec,value,line=None):
@@ -4574,21 +4604,23 @@ class State:
         callback=self.execution.externals.get((program.upper(),name.upper()))
         if callback is None: raise KarelRuntimeError('External routine is not explicitly linked: '+program+'.'+name,line)
         try:
-            result=callback.invoke(self,arguments,line) if getattr(callback,'_karel_link',False) else callback(*arguments)
+            linked=getattr(callback,'_karel_link',False)
+            result=callback.invoke(self,arguments,line) if linked else callback(*arguments)
             if inspect.isgenerator(result): result=yield from result
         except KarelAbort as exc:
             self._aborted=True; self._abort_line=exc.line; raise
         except (KarelPause,KarelStop): raise
         except Exception as exc: raise KarelRuntimeError('External routine failed: '+str(exc),line) from exc
         if self._aborted: raise KarelAbort(self._abort_line)
+        check=None if linked else lambda:self.tick(line)
         if _pythonic() and type(result) is dict and set(result)=={'result','outputs'}:
-            return external_reply_result(result_spec,result,arguments,line,check=lambda:self.tick(line))
+            return external_reply_result(result_spec,result,arguments,line,check=check)
         if result_spec is None:
             if result is not None: raise KarelRuntimeError('External procedure must return None',line)
             return
         if _pythonic() and (collection_type(result_spec) or collection_array_type(result_spec)):
-            return external_collection_result(result_spec,result,line)
-        if _pythonic() and type(result) is dict:return external_data_result(result_spec,result,line)
+            return external_collection_result(result_spec,result,line,check=check)
+        if _pythonic() and type(result) is dict:return external_data_result(result_spec,result,line,check=check)
         return array_result(result_spec,result,line) if result_spec[0]=='ARRAY' else checked(result_spec,result,line)
 
 

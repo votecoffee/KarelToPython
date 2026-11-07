@@ -79,8 +79,9 @@ representation is not an implicit conversion. Explicitly convert data at the
 existing source boundaries when needed. Raw Python callback results retain their
 existing behavior; typed JSON is an additional explicit result form.
 
-For an API callback, return the same typed row directly. Generator callbacks may
-also return it after their normal yields. Result decoding finishes before later
+Typed callback results charge one execution step per declared scalar leaf
+before decoding. For an API callback, return the same typed row directly.
+Generator callbacks may also return it after their normal yields. Result decoding finishes before later
 destination selectors or source arguments. Failed results leave an unassigned
 receiver intact; earlier explicit callback/source effects remain visible.
 

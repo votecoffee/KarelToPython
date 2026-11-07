@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.033429 - 2026-11-07
+
+- Charge standalone typed data and logical external callback results before
+  decoding or copying them.
+- Charge KCL dictionary and form inputs before reading. Portable TX text
+  also counts against the budget after expansion and before parsing.
+
 ## 26.1107.031659 - 2026-11-07
 
 - Charge RUNCF and its includes by source bytes before reading and verify
