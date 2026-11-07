@@ -55,8 +55,9 @@ normal FILE overwrite rules. Binary FILE attributes do not change JSON encoding.
 
 The complete report must fit in the remaining per-file capacity. Validation,
 comparison, report construction and budget checks precede its single write.
-On those failures, the comparison leaves report bytes, cursor, diff_count and
-status unchanged. Earlier OPEN FILE effects still apply, including truncation
+Before writing, the comparison rechecks the captured FILE binding, cursor,
+buffer identity, buffer size and capacity. A failure during preparation publishes
+no report, cursor, diff_count or status changes. Earlier OPEN FILE effects still apply, including truncation
 in W mode. Directory writes retain normal buffering until CLOSE FILE; ATR_IA
 flushes immediately, with buffer/cursor rollback if that flush fails.
 
@@ -84,7 +85,8 @@ assert records[2] == {"line": 3, "left": None, "right": "extra"}
 
 ## Printing files
 
-PRINT_FILE validates the entire input as ASCII before emitting output. It
+PRINT_FILE charges for the full captured input and validates it as ASCII before
+emitting output. It
 preserves the exact text and newline bytes in chunks of at most 254 characters
 through the existing WRITE recorder or supplied write callback. An empty file
 produces no request. Both nowait values run synchronously in Pythonic mode.
@@ -132,8 +134,10 @@ device mapping, traversal restrictions and per-file limit. Named reads do not
 populate its buffered-file snapshot. Re-select a directory root after restoring
 context JSON; restored file bytes use MemoryFiles.
 
-Each ASCII record, each 4096-byte binary comparison block and each print chunk
-charges one execution step. These operations are synchronous and do not scan
+Comparison and printing first charge one execution step per 4096 bytes of
+captured input, rounded up. Comparison counts both inputs even if the first byte
+differs. Each ASCII record, each 4096-byte binary comparison block and each print
+chunk charges an additional step. These operations are synchronous and do not scan
 handlers or yield to another task internally. Callback latency has no wall-time
 bound. Existing partial output remains observable if a later chunk exhausts the
 budget. No operating-system printer or default device is selected implicitly.

@@ -387,7 +387,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.020313**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.022706**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -827,6 +827,7 @@ display/LED state. [Legacy tracking](docs/vision-tracking.md) adds timed queues,
 allocation receipts, VT results/lookups, supplied point maps and a local
 notification outbox. [VT line queues](docs/vt-queues.md) add put/get/acknowledge,
 partial PATH reads/edits, flags, weighted routing and explicit time/flow estimates.
+Scheduled waits in both queue models honor timed condition scans between polls.
 An optional [VT tray-cell bank](docs/vt-trays.md) expands supplied local poses into
 independent workpieces, with per-cell models, routing and allocation receipts.
 These services perform no image processing, hardware I/O or network delivery.
@@ -1021,9 +1022,9 @@ See [register transfers](docs/register-transfers.md) for direction, options,
 explicit groups, checked copies and RPREG spelling aliases.
 
 COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
-report to an open ordinary FILE. ASCII comparison charges for both input byte
-counts and the records compared. PRINT_FILE sends validated ASCII to the existing
-output recorder or callback. Both accept closed ordinary and plain PIP inputs
+report to an open ordinary FILE. Both comparison modes charge for the full
+captured inputs and recheck the report FILE before writing. PRINT_FILE charges
+for the input and sends validated ASCII to the existing output recorder or callback. Both accept closed ordinary and plain PIP inputs
 from the supplied context. See
 [file comparison and printing](docs/file-comparison.md).
 

@@ -71,6 +71,29 @@ class LegacyQueueTests(unittest.TestCase):
 
 
 class QueueWaitTests(unittest.TestCase):
+    def test_timed_condition_runs_during_first_queue_wait_interval(self):
+        ctx=context(queues={'1':dict(capacity=1,arrivals=[arrival(25)])})
+        p,_=compile_program('n=0 s=77 CONDITION[1]: WITH $SCAN_TIME=1 WHEN s=78 DO n=7 '
+                            'ENDCONDITION ENABLE CONDITION[1] V_GET_QUEUE(1,1,25,s)',
+                            decl='s,n:INTEGER',context=ctx)
+        scheduler=rt.TaskScheduler()
+        scheduler.bind('OWNER',p)
+        scheduler.start('OWNER')
+        for _ in range(25):
+            scheduler.step()
+            if 'OWNER' in scheduler.waiting:break
+        else:self.fail('Tracking queue GET did not park')
+        p._state.set('S',78)
+        for _ in range(25):
+            scheduler.step()
+            if p.snapshot()['N']==7:break
+        self.assertEqual(p.snapshot(),{'N':7,'S':78})
+        tracking=ctx.vision.tracking
+        self.assertEqual(tracking.queues[1]['elapsed_ms'],0)
+        self.assertNotIn(1,ctx.vision.registers)
+        self.assertEqual(scheduler.run()['OWNER']['values']['S'],0)
+        self.assertEqual(tracking.queues[1]['elapsed_ms'],25)
+
     def test_wait_uses_bounded_steps_and_inclusive_arrival_deadline(self):
         ctx=context(queues={'1':dict(capacity=1,arrivals=[arrival(25)])});delays=[]
         values,_,_=execute('V_GET_QUEUE(1,1,25,s)',ctx,sleep=delays.append)

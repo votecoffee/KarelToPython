@@ -185,7 +185,9 @@ class VisionTracking:
                 step=10 if deadline is None else min(10,deadline-queue['elapsed_ms'])
                 if queue['arrivals']:step=min(step,queue['arrivals'][0]['at_ms']-queue['elapsed_ms'])
                 if queue['elapsed_ms']+step>MAX_SEQUENCE:raise rt().KarelRuntimeError('Tracking queue clock exhausted',line)
-                yield from rt().delay_execution(state,step,line);queue['elapsed_ms']+=step;yield from rt().checkpoint(state,line)
+                yield from rt().delay_execution(state,step,line,scan_handlers=True)
+                queue['elapsed_ms']+=step
+                yield from rt().checkpoint(state,line)
         except BaseException as error:
             row['status']=8 if isinstance(error,(GeneratorExit,rt().KarelStop,rt().KarelAbort)) else 9;raise
         finally:self.pending.pop(number,None)

@@ -243,7 +243,9 @@ class VTQueues:
                 step=10 if deadline is None else min(10,deadline-settings['elapsed_ms'])
                 if candidates:step=min(step,min(v['ready'][area]-settings['elapsed_ms'] for v in candidates))
                 if settings['elapsed_ms']+step>MAX_SEQUENCE:raise rt().KarelRuntimeError('VT area clock exhausted',line_no)
-                yield from rt().delay_execution(state,step,line_no);settings['elapsed_ms']+=step;yield from rt().checkpoint(state,line_no)
+                yield from rt().delay_execution(state,step,line_no,scan_handlers=True)
+                settings['elapsed_ms']+=step
+                yield from rt().checkpoint(state,line_no)
         except BaseException as error:row['status']=8 if isinstance(error,(GeneratorExit,rt().KarelStop,rt().KarelAbort)) else 9;raise
         finally:self.pending.pop(area,None)
 

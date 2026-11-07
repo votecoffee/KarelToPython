@@ -57,7 +57,8 @@ The name maps describe supplied setup metadata; they do not discover native
 line, area or tray configuration.
 
 Each queue has an independent logical millisecond clock. GET advances it in
-cooperative steps of at most 10 ms while waiting. Arrival times use that queue's
+cooperative steps of at most 10 ms while waiting. Eligible timed conditions on
+scheduled tasks can run between polls. Arrival times use that queue's
 clock; passage of unrelated host time does not advance it. Timeout zero polls,
 a positive timeout waits up to that many milliseconds, and a negative timeout
 waits until input arrives or normal execution limits/control interrupt it.

@@ -1000,19 +1000,23 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     if handle.owner is not files or type(files) is runtime.FilePipes:
         raise runtime.KarelRuntimeError('Comparison result FILE must belong to the configured ordinary input backend',line)
     if handle.mode=='R': raise runtime.KarelRuntimeError('Comparison result FILE must be writable',line)
+    identity=runtime._file_identity(handle)
+    position=handle.position
+    buffer=files.files[handle.name]
+    size=len(buffer)
+    limit=files.limit
     left_code,left=_read_snapshot(*_snapshot_endpoint(state.execution,left_name,line))
     if left_code: return left_code,None
     right_code,right=_read_snapshot(*_snapshot_endpoint(state.execution,right_name,line))
     if right_code: return right_code,None
-    start=len(files.files[handle.name]) if handle.mode=='A' else handle.position
-    capacity=files.limit-start;records=bytearray();eol=bytes((handle.eol,))
+    start=size if handle.mode=='A' else position
+    capacity=limit-start;records=bytearray();eol=bytes((handle.eol,))
     def record(value):
         data=json.dumps(value,ensure_ascii=True,separators=(',',':')).encode('ascii')+eol
         if len(records)+len(data)>capacity: raise runtime.KarelRuntimeError('Comparison report exceeds remaining FILE capacity',line)
         return data
+    charge_file_bytes(len(left)+len(right),lambda:state.tick(line))
     if ascii_flag:
-        # Charge and decode both inputs completely before preparing output.
-        charge_file_bytes(len(left)+len(right),lambda:state.tick(line))
         left_text=left.decode('ascii');right_text=right.decode('ascii');count=0
         for number,(a,b) in enumerate(zip_longest(ascii_lines(left_text),ascii_lines(right_text)),1):
             state.tick(line)
@@ -1031,6 +1035,10 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
         summary=dict(mode='binary',left=left_name,right=right_name,first_difference=count,left_byte=a,right_byte=b)
     header=record(summary)
     count=runtime.checked(('INTEGER',),count,line)
+    if (state.execution.files is not files or runtime._file_identity(handle)!=identity
+            or handle.position!=position or files.files.get(handle.name) is not buffer
+            or len(buffer)!=size or files.limit!=limit):
+        raise runtime.KarelRuntimeError('Comparison result FILE changed during preparation',line)
     files.write(handle,header+records,line)
     return 0,count
 
@@ -1057,6 +1065,7 @@ def print_file(state,files,name,nowait,line=None):
     rt().boolean(nowait,line)
     code,data=_read_snapshot(files,name)
     if code:return code
+    charge_file_bytes(len(data),lambda:state.tick(line))
     write_file_text(state,data.decode('ascii'),line)
     return 0
 

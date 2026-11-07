@@ -111,7 +111,8 @@ last value. Upstream areas cannot reacquire a part returned downstream.
 PUT sets each arrival to that area's current clock plus `travel_ms`. Each area
 has an independent logical millisecond clock; only its GET waits advance it.
 GET polls at most every 10 ms, with zero-time poll, inclusive positive timeout,
-or negative indefinite wait. Pause/resume retains the pending request. Stop,
+or negative indefinite wait. Eligible timed conditions on scheduled tasks can
+run between polls. Pause/resume retains the pending request. Stop,
 abort and budget failure release reservations; no history ID is required for
 cleanup. A pending request blocks relevant edits/register reuse and saving.
 This is a cooperative logical-clock model, without native scheduler timing.

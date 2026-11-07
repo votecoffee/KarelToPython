@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.022706 - 2026-11-07
+
+- Charge the complete captured input size for binary FILE comparison and
+  printing. Recheck the comparison report FILE before publishing it.
+- Run eligible timed conditions during scheduled legacy and VT vision queue
+  waits.
+
 ## 26.1107.020313 - 2026-11-07
 
 - Charge resource-free aggregate GET_VAR and SET_VAR preparation by declared

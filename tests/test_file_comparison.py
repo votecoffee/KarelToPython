@@ -56,6 +56,16 @@ class FileComparisonTests(unittest.TestCase):
                 state,_,report=compare(a,b,ascii_flag=False);self.assertEqual(state['N'],expected)
                 if not expected: self.assertIsNone(report[0]['left_byte']);self.assertIsNone(report[0]['right_byte'])
 
+    def test_binary_budget_charges_both_inputs_even_at_first_difference(self):
+        files=rt.MemoryFiles({'a':b'x'*12288,'b':b'y'*12288,'report':b'original'})
+        p,_=compile_program("OPEN FILE f ('RW','report') "+COMPARE.replace('TRUE','FALSE'),
+                            decl=DECL,context=rt.ExecutionContext(files=files))
+        p._state.values.update(N=7,S=8)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):p.run(max_steps=4)
+        self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
+        self.assertEqual(files.snapshot()['report'],b'original')
+        self.assertEqual(p._state.values['F'].position,0)
+
     def test_binary_boundary_across_work_blocks(self):
         state,_,report=compare(b'a'*4096+b'x',b'a'*4096+b'y',ascii_flag=False)
         self.assertEqual(state['N'],4097);self.assertEqual(report[0]['left_byte'],ord('x'))
@@ -106,6 +116,22 @@ class FileComparisonTests(unittest.TestCase):
                 p,_=compile_program('n=7 s=8 '+body,decl=DECL,context=rt.ExecutionContext(files=rt.MemoryFiles({'report':'retained'})))
                 with self.assertRaises(rt.KarelRuntimeError): p.run()
                 self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
+
+    def test_result_cursor_change_during_preparation_prevents_publication(self):
+        files=rt.MemoryFiles({'a':b'one','b':b'two','report':b'original'})
+        p,_=compile_program(COMPARE,decl=DECL,context=rt.ExecutionContext(files=files))
+        handle=p._state.values['F']
+        files.open(handle,'RW','report')
+        p._state.values.update(N=7,S=8)
+        tick=p._state.tick
+        def move_cursor(line=None,**options):
+            tick(line,**options)
+            if p._state.steps==2:handle.position=2
+        with patch.object(p._state,'tick',side_effect=move_cursor):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'result FILE changed'):p.run()
+        self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
+        self.assertEqual(files.snapshot()['report'],b'original')
+        self.assertEqual(handle.position,2)
 
     def test_foreign_result_backend_is_rejected(self):
         files=rt.MemoryFiles({'a':'x','b':'y'});other=rt.MemoryFiles();handle=rt.FileHandle();other.open(handle,'W','report')
@@ -242,9 +268,16 @@ class FilePrintingTests(unittest.TestCase):
         with self.assertRaisesRegex(rt.KarelRuntimeError,'sink failure'): p.run()
         self.assertEqual((p.snapshot()['S'],len(output)),(7,1));self.assertEqual([row['adapter_outcome'] for row in p.write_requests],['callback_completed','callback_failed'])
 
+    def test_print_budget_checks_full_input_before_first_output(self):
+        p,_=compile_program("s=7 PRINT_FILE('message',FALSE,s)",
+                            context=rt.ExecutionContext(files=rt.MemoryFiles({'message':'x'*16384})))
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):p.run(max_steps=3)
+        self.assertEqual(p.write_requests,())
+        self.assertEqual(p.snapshot()['S'],7)
+
     def test_print_budget_retains_only_completed_chunks(self):
         p,_=compile_program("s=7 PRINT_FILE('message',FALSE,s)",context=rt.ExecutionContext(files=rt.MemoryFiles({'message':'x'*300})))
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'): p.run(max_steps=3)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'): p.run(max_steps=4)
         self.assertEqual([row['text'] for row in p.write_requests],['x'*254]);self.assertEqual(p.snapshot()['S'],7)
 
     def test_sticky_abort_stops_printing_without_writing_success_status(self):
