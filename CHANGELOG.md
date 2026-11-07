@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.164938 - 2026-11-07
+
+- Normalize chained and mixed MOVE ALONG array subscripts before separating
+  PATH coordinates and node ranges. Keep original node IDs in motion timelines.
+- Read only NODE_POS for direct PATH node destinations and via points while
+  preserving array shape, node bounds and position validation.
+
 ## 26.1107.163341 - 2026-11-07
 
 - Accept selected PATH array cells and PATH-valued routine results in MOVE

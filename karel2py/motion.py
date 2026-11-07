@@ -140,6 +140,24 @@ class _PathOperand:
         self.nodes=nodes
 
 
+def _node_position(node,layout,line=None):
+    runtime=rt()
+    if (type(node) is not runtime.Structure or node.spec!=layout
+            or type(node.values) is not dict or 'NODE_POS' not in node.values):
+        raise runtime.KarelRuntimeError('PATH node does not match its declared NODE_POS storage',line)
+    return node.values['NODE_POS']
+
+
+def path_node_operand(value,index,spec,line=None):
+    """Load only NODE_POS from a direct PATH node used by a MOVE."""
+    runtime=rt()
+    if spec[0]=='ARRAY':
+        value,index=runtime._collection_path_slot(value,index,spec,line)
+    elif type(value) is not runtime.PathValue or value.spec!=spec or type(value.nodes) is not list:
+        raise runtime.KarelRuntimeError('Motion node operand requires exact PATH storage',line)
+    return _node_position(value.node(index,line),value.node_spec,line)
+
+
 def path_operand(state,value,spec,line=None):
     """Capture only positional fields before later range expressions run."""
     runtime=rt()
@@ -160,11 +178,8 @@ def path_operand(state,value,spec,line=None):
     captured=[]
     for node in nodes:
         # Invalid unselected positions remain irrelevant to the move.
-        if type(node) is not runtime.Structure or node.spec!=layout or type(node.values) is not dict or 'NODE_POS' not in node.values:
-            captured.append('MOVE ALONG node does not match its declared NODE_POS storage')
-            continue
-        current=node.values['NODE_POS']
         try:
+            current=_node_position(node,layout)
             captured.append(current if current is runtime.UNINITIALIZED
                             else runtime._partial_aggregate_value(position,current))
         except runtime.KarelRuntimeError as error:

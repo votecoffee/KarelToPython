@@ -113,6 +113,23 @@ ENDMOVE''',ctx=planned(operation='MOVE ALONG',delay=13,nodes={'0':0,'1':13,'2':7
         saved=ctx.to_config()
         self.assertEqual(rt.ExecutionContext.from_config(saved).to_config(),saved)
 
+    def test_mixed_path_array_subscripts_keep_original_timeline_node_ids(self):
+        body='''APPEND_NODE(routes[2,1],s) routes[2,1,1].node_pos=p
+APPEND_NODE(routes[2,1],s) routes[2,1,2].node_pos=q
+n=0 ATTACH MOVE ALONG routes[2][1,2..1],
+WHEN TIME 3 BEFORE NODE[2] DO n=n*10+1
+WHEN AT NODE[2] DO n=n*10+2
+WHEN AT NODE[1] DO n=n*10+3
+ENDMOVE'''
+        values,ctx,_,report,_=execute(body,decl=DECL+' routes:ARRAY[2,2] OF PATH',
+            ctx=planned(operation='MOVE ALONG',delay=13,nodes={'0':0,'1':13,'2':7}))
+        self.assertEqual(values['N'],123)
+        data=move(ctx)['data']
+        self.assertEqual([node['value']['LOCATION']['X'] for node in data['nodes']],[40.,10.])
+        self.assertEqual(data['execution']['triggered'],[1,2,3])
+        self.assertTrue(any(row['normalized_selector']=='ROUTES[2,1,2..1]'
+                            for row in report.report['array_index_chains']))
+
     def test_schedule_for_opposite_travel_order_is_not_consumed(self):
         for source_range,nodes in (('2..1',{'0':0,'1':7,'2':23}),('1..2',{'0':0,'1':23,'2':7})):
             with self.subTest(source_range=source_range):

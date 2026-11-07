@@ -1324,8 +1324,8 @@ def collection_array_node_type(spec,count):
     return None
 
 
-def collection_path_reference(array,index,expected,line=None):
-    """Capture full ARRAY coordinates and a following PATH node once."""
+def _collection_path_slot(array,index,expected,line=None):
+    """Resolve checked ARRAY coordinates and the following one-based node index."""
     indexes=index if type(index) is tuple else (index,)
     if (not _pythonic() or collection_array_node_type(expected,len(indexes)) is None
             or type(array) is not Array or not parameter_accepts(expected,array.spec)):
@@ -1340,7 +1340,13 @@ def collection_path_reference(array,index,expected,line=None):
         current=current.values[offset];schema=schema[2];remaining=remaining[width:]
     if type(current) is not PathValue or current.spec!=schema or type(current.nodes) is not list:
         raise KarelRuntimeError('Collection ARRAY cell requires matching PATH storage',line)
-    node=integer(indexes[-1],line);value=current.node(node,line)
+    return current,integer(indexes[-1],line)
+
+
+def collection_path_reference(array,index,expected,line=None):
+    """Capture and validate the complete node for ordinary data access."""
+    current,node=_collection_path_slot(array,index,expected,line)
+    value=current.node(node,line)
     _aggregate_value(current.node_spec,value,line,allow_partial=True)
     return Reference(current.node_spec,current.nodes,node-1)
 
@@ -4878,6 +4884,6 @@ from .position_input import (PositionReadField as _PositionReadField,capture as 
                              validate_field as _validate_position_read_field,
                              validate_targets as _validate_position_read_targets,prepare_values as _prepare_position_read_values)
 from .motion import (MotionRequests,operand as motion_operand,path_operand as motion_path_operand,
-                     setting as motion_setting,selector as motion_selector,
+                     path_node_operand as motion_path_node_operand,setting as motion_setting,selector as motion_selector,
                      SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS,
                      SETTING_CONSTANTS as MOTION_SETTING_CONSTANTS)

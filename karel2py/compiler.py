@@ -101,7 +101,10 @@ def counter_text(value):
         return '$GROUP['+parts+'].'+('$UFRAME' if value.value=='ACTIVE_FRAME' else '$UTOOL')
     if value.kind=='using_ref':return value.value[4]
     if value.kind=='field':return counter_text(value.args[0])+'.'+value.value
-    if value.kind=='index':return counter_text(value.args[0])+'['+','.join(counter_text(item) for item in value.args[1:])+']'
+    if value.kind in ('index','motion_range'):
+        indexes=[counter_text(item) for item in value.args[1:]]
+        if value.kind=='motion_range':indexes[-2:]=['..'.join(indexes[-2:])]
+        return counter_text(value.args[0])+'['+','.join(indexes)+']'
     if value.kind=='group':return '('+counter_text(value.args[0])+')'
     if value.kind=='call':return value.value+'('+','.join(counter_text(item) for item in value.args)+')'
     if value.kind=='binary':return '('+counter_text(value.args[0])+value.value+counter_text(value.args[1])+')'
@@ -1813,17 +1816,18 @@ class Emitter:
         """
         def resolve(node,body):
             if isinstance(node,Expr):
-                if node.kind=='index':
+                if node.kind in ('index','motion_range'):
                     source=counter_text(node);segments=[];current=node
+                    end=node.args[-1:] if node.kind=='motion_range' else []
                     while True:
-                        segments.append(current.args[1:])
+                        segments.append(current.args[1:-1] if current.kind=='motion_range' else current.args[1:])
                         base=current.args[0];receiver=base
                         while receiver.kind=='group':receiver=receiver.args[0]
                         if receiver.kind!='index':break
                         current=receiver
                     if len(segments)>1:
                         segments.reverse()
-                        node.args=[base,*[value for segment in segments for value in segment]]
+                        node.args=[base,*[value for segment in segments for value in segment],*end]
                         self.array_index_chains.append(dict(body=body,line=current.token.line,column=current.token.column,
                             source_selector=source,normalized_selector=counter_text(node),
                             segment_lengths=[len(segment) for segment in segments],subscript_count=sum(map(len,segments))))
@@ -3989,6 +3993,28 @@ class Emitter:
             self.error('E_MOTION_TYPE','MOVE ALONG range requires a PATH and one starting node',operand.token)
         return operand,None,None
 
+    def motion_position_expression(self, expr, operation):
+        selected=expr
+        while selected.kind=='group':selected=selected.args[0]
+        if selected.kind=='index':
+            receiver=selected.args[0]
+            base=self.access_type(receiver)
+            node=rt.collection_array_node_type(base,len(selected.args)-1)
+            if base[0]=='PATH' or node is not None:
+                code,_=self.expression(receiver,raw=True)
+                if node is None:
+                    if len(selected.args)!=2:
+                        self.error('E_ARRAY_RANK','PATH requires one node index',selected.token)
+                    index=self.require_type(selected.args[1],'INTEGER')
+                    node=base[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+                else:
+                    index,_=self.index_code(selected,base)
+                position=dict(rt.record_fields(node)).get('NODE_POS')
+                if position is None:
+                    self.error('E_MOTION_TYPE',operation+' PATH node requires NODE_POS',expr.token)
+                return f'_rt.motion_path_node_operand({code},{index},{base!r},{expr.token.line})',position
+        return self.expression(expr)
+
     def statement_body(self, stmt, file_code=None):
         optional_file=self.mode=='pythonic' and file_code is None and stmt.kind in ('read','write_items')
         token, kind = stmt.token, stmt.kind
@@ -4044,15 +4070,10 @@ class Emitter:
                 elif key in ('distance','angle'):
                     code=self.require_type(expr,'REAL');spec=('REAL',)
                 else:
-                    code,spec=self.expression(expr)
-                    selected=expr
-                    while selected.kind=='group':selected=selected.args[0]
-                    if key in ('target','via') and selected.kind=='index':
-                        base=self.access_type(selected.args[0])
-                        if base[0]=='PATH' or rt.collection_array_node_type(base,len(selected.args)-1) is not None:
-                            fields=dict(rt.record_fields(spec));spec=fields.get('NODE_POS',())
-                            if not spec:self.error('E_MOTION_TYPE',operation+' PATH node requires NODE_POS',expr.token)
-                            code=f'_rt.load_field({code},"NODE_POS",{line})'
+                    if key in ('target','via'):
+                        code,spec=self.motion_position_expression(expr,operation)
+                    else:
+                        code,spec=self.expression(expr)
                     allowed=('PATH',) if key=='path' else ('VECTOR',) if key=='vector' else ('VECTOR','POSITION','XYZWPR','XYZWPREXT') if key=='offset' else ('POSITION','XYZWPR','XYZWPREXT') if operation=='MOVE NEAR' or key=='via' else ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
                     if spec[0] not in allowed:self.error('E_MOTION_TYPE','Unsupported '+operation+' '+key+' type: '+spec[0],expr.token)
                 temporary=self.fresh()
@@ -5341,7 +5362,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         motion_requests=emitter.motion_uses,
         motion_request_policy=dict(model='Explicit offline capture-only or supplied scripted completion responses',
             ownership='Explicit GroupLocks ownership; ATTACH and RELEASE validate atomically',
-            data='Complete detached positional operands captured once in source order. MOVE ALONG accepts scalar PATH values, selected PATH array cells and PATH routine results. It charges one step per node before snapshotting only NODE_POS and evaluating any range bounds; selected nodes validate in travel order. Direct PATH nodes also supply MOVE NEAR and VIA Cartesian operands.',
+            data='Complete detached positional operands captured once in source order. MOVE ALONG accepts scalar PATH values, selected PATH array cells and PATH routine results. It charges one step per node before snapshotting only NODE_POS and evaluating any range bounds; selected nodes validate in travel order. Direct PATH nodes supply NODE_POS without validating unrelated fields for MOVE TO, MOVE NEAR and VIA.',
             controls='HOLD and UNHOLD manage independent flags. Grouped STOP and RESUME freeze and continue owned logical scopes. CANCEL preserves stopped work, which CNCL_STP_MTN can discard.',
             settings='Checked local WITH values, including termination/orientation choices, captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
             boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or native queued motion',

@@ -305,6 +305,47 @@ BEGIN APPEND_NODE(route,s) ATTACH MOVE ALONG route END NO_NODE_POSITION''')
         self.assertEqual(move['data']['target']['value']['LOCATION']['X'],40.)
         self.assertEqual(move['data']['via']['value']['LOCATION']['X'],10.)
 
+    def test_direct_path_array_nodes_validate_only_position_for_motion(self):
+        prefix=('TYPE node_t=STRUCTURE node_pos:XYZWPR metadata:INTEGER ENDSTRUCTURE '
+                'route_t=PATH NODEDATA=node_t')
+        decl=DECL+' routes:ARRAY[2] OF route_t'
+        setup=SETUP+'seed(routes[2]) n=0 '
+        routines='''ROUTINE seed(selected:route_t)
+BEGIN selected[1].node_pos=p selected[2].node_pos=q END seed
+ROUTINE via_index(selected:route_t):INTEGER
+BEGIN n=n+1 selected[1].node_pos=q RETURN 2 END via_index'''
+        p,ctx,_=program('ATTACH MOVE NEAR routes[2,1] BY 1 '
+                        'MOVE TO routes[2,1] VIA routes[2,via_index(routes[2])]',
+                        prefix=prefix,decl=decl,setup=setup,routines=routines)
+        cell=p._state.values['ROUTES'].values[1]
+        for _ in range(2):
+            cell.append()
+            cell.nodes[-1].values['METADATA']='malformed'
+        self.assertEqual(p.run()['N'],1)
+        near,move=ctx.motion.history[-2:]
+        self.assertEqual(near['data']['target']['value']['X'],10.)
+        self.assertEqual(move['data']['target']['value']['X'],10.)
+        self.assertEqual(move['data']['via']['value']['X'],40.)
+
+        other,_,_=program('p=routes[2,1].node_pos',prefix=prefix,decl=decl,setup='')
+        other._state.values['ROUTES'].values[1]=cell
+        with self.assertRaises(rt.KarelRuntimeError):
+            other.run()
+
+    def test_bad_direct_path_node_stops_before_via_and_response_consumption(self):
+        ctx=context(capture_only=False,responses=[dict(operation='MOVE TO',completed=True)])
+        p,_,_=program('n=0 ATTACH MOVE TO routes[1,1] VIA via_pose()',
+                      decl=DECL+' routes:ARRAY[1] OF PATH',ctx=ctx,setup=SETUP,
+                      routines='ROUTINE via_pose:XYZWPR BEGIN n=n+1 RETURN q END via_pose')
+        path=p._state.values['ROUTES'].values[0]
+        path.append()
+        path.nodes[0].values['NODE_POS']='malformed'
+        with self.assertRaises(rt.KarelRuntimeError):
+            p.run()
+        self.assertEqual(p._state.values['N'],0)
+        self.assertEqual(len(ctx.motion.responses),1)
+        self.assertEqual([row['operation'] for row in ctx.motion.history],['ATTACH'])
+
     def test_move_along_skips_copying_unrelated_node_and_header_fields(self):
         class Uncopyable(int):
             def __deepcopy__(self,memo):
@@ -361,7 +402,9 @@ BEGIN APPEND_NODE(route,s) ATTACH MOVE ALONG route END NO_NODE_POSITION''')
         for selector,expected in [
                 ('routes[2,1]',[10.,40.]), ('(routes[2,1])',[10.,40.]),
                 ('routes[2,1][2]',[40.]), ('routes[2,1,2]',[40.]),
-                ('routes[2,1][2..1]',[40.,10.]), ('routes[2,1,2..1]',[40.,10.])]:
+                ('routes[2,1][2..1]',[40.,10.]), ('routes[2,1,2..1]',[40.,10.]),
+                ('routes[2][1,2..1]',[40.,10.]), ('(routes[2])[1,2..1]',[40.,10.]),
+                ('routes[2][1][2..1]',[40.,10.])]:
             with self.subTest(selector=selector):
                 _,ctx,_,_=execute('ATTACH MOVE ALONG '+selector+' NOWAIT',
                                   setup=setup,decl=DECL+' routes:ARRAY[2,2] OF PATH')
@@ -370,15 +413,15 @@ BEGIN APPEND_NODE(route,s) ATTACH MOVE ALONG route END NO_NODE_POSITION''')
 
     def test_move_along_array_selector_and_bounds_run_in_order(self):
         routines='''ROUTINE pick:INTEGER BEGIN n=n*10+1 RETURN 2 END pick
-ROUTINE first:INTEGER BEGIN n=n*10+2 routes[2,1].node_pos=q RETURN 1 END first
+ROUTINE first:INTEGER BEGIN n=n*10+2 routes[2,1,1].node_pos=q RETURN 1 END first
 ROUTINE last:INTEGER BEGIN n=n*10+3 RETURN 1 END last'''
-        setup=SETUP+'APPEND_NODE(routes[2],s) routes[2,1].node_pos=p n=0 '
-        for selector in ('routes[pick()][first()..last()]','routes[pick(),first()..last()]'):
+        setup=SETUP+'APPEND_NODE(routes[2,1],s) routes[2,1,1].node_pos=p n=0 '
+        for selector in ('routes[pick(),1][first()..last()]','routes[pick()][1,first()..last()]'):
             with self.subTest(selector=selector):
                 values,ctx,_,_=execute('ATTACH MOVE ALONG '+selector,setup=setup,
-                                       decl=DECL+' routes:ARRAY[2] OF PATH',routines=routines)
+                                       decl=DECL+' routes:ARRAY[2,2] OF PATH',routines=routines)
                 self.assertEqual(values['N'],123)
-                self.assertEqual(values['ROUTES'][1]['nodes'][0]['NODE_POS']['LOCATION']['X'],40.)
+                self.assertEqual(values['ROUTES'][1][0]['nodes'][0]['NODE_POS']['LOCATION']['X'],40.)
                 self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],10.)
 
     def test_move_along_handles_named_nested_and_borrowed_path_arrays(self):

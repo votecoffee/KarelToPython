@@ -25,8 +25,10 @@ Source operands are evaluated once from left to right and detached before the
 next operand is evaluated. PATH storage is captured before its range expressions;
 the capture charges one execution step per node before snapshotting NODE_POS.
 Only selected positions must be valid and complete. Other fields and PATH headers
-are excluded from the snapshot. Direct node operands can select nodes from PATH
-arrays, and parentheses preserve node selection. Distances and angles remain request data: the service does not
+are excluded from the snapshot. Direct node operands also read only NODE_POS.
+They check the array storage, node bounds and position, while ignoring unrelated
+fields. Parentheses preserve node selection. Distances and angles remain
+request data. The service does not
 derive destinations, infer units for unknown axes or apply native interpolation
 and motion-environment settings.
 
@@ -37,8 +39,9 @@ original endpoints and stores the snapshots in travel order.
 For a two-dimensional PATH array, `MOVE ALONG routes[2,1]` selects the
 whole path in cell (2,1). Use `routes[2,1][3..1]` or `routes[2,1,3..1]`
 to select nodes 3 through 1 in that cell. A start-only bound also works in
-either form. Named nested arrays can use separate brackets at each array
-boundary. For a PATH result, `MOVE ALONG choose()[2..3]` calls the routine
+either form. Adjacent brackets also work for mixed selectors such as `routes[2][1,3..1]`.
+Array coordinates are evaluated before the PATH capture, followed by the node
+bounds. Motion-local arrival schedules still use the original node numbers. For a PATH result, `MOVE ALONG choose()[2..3]` calls the routine
 once and snapshots the result before evaluating the bounds. Routine result
 and array-cell operands are Pythonic extensions.
 
