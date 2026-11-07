@@ -123,7 +123,8 @@ task checkpoints and exact grant checks before release.
 [Cooperative socket FILE operations](docs/communications.md#cooperative-input-and-output)
 can wait for explicit input or shared TX space. Complete typed READs consume
 only their RX prefix. WRITE captures its payload once and appends it atomically.
-CANCEL FILE can unwind either pending operation with status 6.
+CANCEL FILE can unwind either pending operation with status 6. Scheduled
+socket, serial and pipe FILE waits honor timed condition deadlines between polls.
 
 [Cooperative serial output](docs/serial-output-waits.md) now waits for explicitly
 drained TX space under an opt-in port policy. Scalar, aggregate, binary and
@@ -346,7 +347,8 @@ node lists detach and queue buffer links reset after bounded batch validation.
 [Collection ARRAY transfers](docs/collection-array-transfers.md) now copy logical
 PATH/QUEUE_TYPE banks through GET_VAR/SET_VAR, including rows/planes, created
 storage and linked routines. Independent snapshots retain destination cells and
-headers, detach old nodes, and reset copied queue buffer links.
+headers, detach old nodes, and reset copied queue buffer links. Source and
+receiver snapshots count against the execution step budget.
 
 [PATH integral counters](docs/path-for-counters.md) add FOR over owned header,
 node and bank cells, with checked capture, selected-leaf cleanup and whole-root
@@ -385,7 +387,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.011058**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.012830**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -797,7 +799,8 @@ CHECK_STACK, SET_DEBUG and SET_DB_EVENT use explicit offline diagnostics with
 bounded event history and configurable logical stack estimates. KCL,
 KCL_NO_WAIT and KCL_STATUS use a command channel with scripted replies, optional
 task, file, variable, device, dictionary, program and environment dispatch, completion waits
-and saved results. See [diagnostics](docs/diagnostics.md)
+and saved results. Scheduled scripted delays honor timed condition scans.
+See [diagnostics](docs/diagnostics.md)
 and [KCL commands](docs/kcl-commands.md) for setup and execution boundaries.
 
 Ten pendant calls now use an explicit headless display model: opaque link/menu

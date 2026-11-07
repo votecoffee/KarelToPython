@@ -27,7 +27,7 @@ Native defaults, status values, timing and binary layout remain unverified.
 
 `ATR_PIPWAIT,WAIT_USED` waits until an entire READ can complete. A scheduler task
 yields for logical 10 ms intervals and ordinary checkpoints, letting other tasks
-append data. Host code can append explicitly supplied ASCII text, bytes or a
+append data. Eligible timed conditions can run between polls. Host code can append explicitly supplied ASCII text, bytes or a
 `{"hex":"..."}` value with `bank.feed(name,data)`. No connection, host file,
 background thread or automatic producer is created.
 

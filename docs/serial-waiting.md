@@ -81,7 +81,7 @@ finalization. Otherwise it fails and retains the cursor and buffered bytes.
 
 An incomplete waiting READ uses 10 ms logical delay intervals and normal runtime
 checkpoints. Scheduled tasks yield so an explicitly driven producer can feed
-input or finalize the stream. Standalone execution requires an explicitly
+input or finalize the stream. Eligible timed conditions can run between polls. Standalone execution requires an explicitly
 injected sleeper callback before it may wait indefinitely. Merely using the
 runtime's default host sleeper does not authorize an indefinite standalone wait.
 The callback provenance follows same-task CALL_PROG and linked FROM routines.

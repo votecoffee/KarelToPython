@@ -70,7 +70,7 @@ def cells(reference):
 def collection_root(spec,value):
     """Validate owned collection cells before retaining their identities on restore."""
     from .storage import _collection_array_rows,collection_payload
-    runtime=rt();rows=_collection_array_rows(spec,value,False)
+    runtime=rt();rows,_=_collection_array_rows(spec,value,False)
     for schema,item in rows:collection_payload(schema,item)
     pending=[value];containers=set();occupied=set()
     while pending:
@@ -125,9 +125,10 @@ def roots(context,state,program):
 def schema(spec,value=None):
     from .storage import collection_data_spec
     if rt().collection_array_type(spec):
-        from .storage import _collection_array_rows,_collection_array_units
+        from .storage import _collection_array_rows
         encoded=type(value) is not rt().Array
-        return sum(_collection_array_units(schema,item,encoded) for schema,item in _collection_array_rows(spec,value,encoded))
+        _,units=_collection_array_rows(spec,value,encoded)
+        return units
     if spec==('QUEUE_TYPE',):
         from .storage import _collection_array_units
         leaves=_collection_array_units(spec,value,type(value) is not rt().QueueValue)

@@ -105,6 +105,42 @@ class CollectionTransferPrefixTests(unittest.TestCase):
 
 
 class CollectionTransferOrderingTests(unittest.TestCase):
+    def test_set_source_budget_precedes_payload_and_status_selector(self):
+        body=SET.replace(',status)',',statuses[later()])')
+        p,_=prepare(body,decl=QDECL+' visits:INTEGER statuses:ARRAY[1]OF INTEGER',
+                    prefix='',routines='ROUTINE later:INTEGER BEGIN visits=visits+1 RETURN(1) END later')
+        source=raw(p,'SOURCE').values[1]
+        source.sequence=12
+        source.entries=[(number,number) for number in range(1,13)]
+        p._state.values.update(ENTRY=77,VISITS=0)
+        p._state.values['STATUSES'].set(1,88)
+        target=raw(p);before=snapshot(target)
+        with patch('karel2py.storage.collection_payload',side_effect=AssertionError('Source was encoded before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=8)
+        result=p.snapshot()
+        self.assertEqual((result['ENTRY'],result['STATUSES'],result['VISITS']),(77,[88],0))
+        self.assertEqual(snapshot(target),before)
+        self.assertEqual(p._state.execution.entries,{})
+
+    def test_get_row_receiver_budget_preserves_cells_and_outputs(self):
+        p,_=row()
+        target=raw(p);cell=target.values[3];nodes=cell.nodes;header=cell.data
+        for value in range(12):
+            cell.append()
+            cell.nodes[-1].values['VALUE']=value
+        cell.data.values['COUNT']=12
+        before=snapshot(target)
+        p._state.values.update(ENTRY=77,STATUS=88)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=8)
+        self.assertIs(raw(p),target)
+        self.assertIs(target.values[3],cell)
+        self.assertIs(cell.nodes,nodes)
+        self.assertIs(cell.data,header)
+        self.assertEqual(snapshot(target),before)
+        result=p.snapshot()
+        self.assertEqual((result['ENTRY'],result['STATUS']),(77,88))
+        self.assertEqual(p._state.execution.entries,{})
+
     def test_set_snapshot_precedes_later_status_effects(self):
         p,_=row("SET_VAR(entry,'','TARGET[2]',source[2],statuses[later()])",decl='source,target:ARRAY[2,2]OF route_t entry,status,visits:INTEGER statuses:ARRAY[1]OF INTEGER',routines='ROUTINE later:INTEGER FROM HOST');ctx=p._state.execution;ctx.externals['HOST','LATER']=lambda:(raw(p,'SOURCE').values[3].nodes[0].values.update(VALUE=99) or 1);p.run();self.assertEqual(raw(p).values[3].nodes[0].values['VALUE'],17)
     def test_get_named_snapshot_follows_output_selector_effects(self):

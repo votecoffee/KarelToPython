@@ -134,7 +134,8 @@ aggregate operations and [bound predefined FILEs](predefined-files.md).
 Direct `State.file_read` and `State.write_items` calls keep their immediate
 behavior. A blocked generated operation requires an injected standalone
 sleeper or a scheduler. It yields at logical 10 ms intervals and checkpoints.
-Handlers can perform ready operations. A handler operation that would wait
+Eligible timed conditions in scheduled tasks can run between polls. Handlers can
+perform ready operations. A handler operation that would wait
 fails before yielding.
 
 [CANCEL FILE](file-cancellation.md) on the pending handle returns status 6 and

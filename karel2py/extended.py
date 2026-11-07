@@ -1084,9 +1084,17 @@ def collection_array_storage(spec,value,line=None):
     except (ValueError,rt.KarelRuntimeError) as error:fail('Collection ARRAY variable transfer: '+str(error),line)
 
 
-def collection_array_variable_value(spec,value,line=None):
+def collection_array_variable_value(spec,value,line=None,*,check=None):
     """Detach exact logical collection data, including explicitly captured row windows."""
-    from .storage import collection_array_payload,restore_collection_array
+    from .storage import _collection_array_rows,collection_array_payload,restore_collection_array
+    if check is not None:
+        try:
+            _,cost=_collection_array_rows(spec,value,False,allow_windows=True)
+            for _ in range(cost):check()
+            _,current_cost=_collection_array_rows(spec,value,False,allow_windows=True)
+            if current_cost!=cost:raise ValueError('Collection ARRAY size changed during preparation')
+        except (ValueError,runtime().KarelRuntimeError) as error:
+            fail('Collection ARRAY variable transfer: '+str(error),line)
     captured=collection_array_storage(spec,value,line)
     try:return restore_collection_array(spec,collection_array_payload(spec,captured))
     except (ValueError,runtime().KarelRuntimeError) as error:fail('Collection ARRAY variable transfer: '+str(error),line)
@@ -1097,7 +1105,7 @@ def variable_value(spec,value,line=None,*,check=None):
     rt=runtime()
     if spec[0]=='ARRAY' and isinstance(value,rt.Array) and rt.parameter_accepts(spec,value.spec): spec=value.spec
     _variable_data_spec(spec,line,queue=True,paths=True)
-    if rt.collection_array_type(spec):return VariableValue(spec,collection_array_variable_value(spec,value,line))
+    if rt.collection_array_type(spec):return VariableValue(spec,collection_array_variable_value(spec,value,line,check=check))
     if spec[0]=='PATH': return VariableValue(spec,path_variable_value(spec,value,line,check=check))
     if spec==('QUEUE_TYPE',): return VariableValue(spec,queue_variable_value(value,line,check=check))
     _variable_shape(spec,value,line)
@@ -1210,8 +1218,10 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
     _variable_data_spec(source.spec,line,queue=True,paths=paths);_variable_data_spec(spec,line,queue=True,paths=paths)
     if rt.collection_array_type(spec) or rt.collection_array_type(source.spec):
         if not paths or spec!=source.spec:return None
+        current=target.raw()
         copied=collection_array_variable_value(spec,source.value,line)
-        collection_array_variable_value(spec,target.raw(),line)
+        collection_array_variable_value(spec,current,line,check=check)
+        if target.raw() is not current: fail('Collection ARRAY receiver changed during preparation',line)
         return copied,_variable_missing(copied)
     if 'PATH' in (spec[0],source.spec[0]):
         if spec!=source.spec: return None

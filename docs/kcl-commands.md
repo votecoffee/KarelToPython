@@ -41,8 +41,9 @@ an earlier command is pending return portable busy status 2. These portable code
 are not native alarm numbers. Configured completion/acceptance values are supplied
 scenario data, not measured controller outcomes.
 
-Scheduled waits use the existing virtual clock and sleep events. Standalone waits
-use the captured clock and existing sleeper callback; callback completion is the
+Scheduled scripted waits use virtual time and allow eligible timed conditions to
+run before the configured reply is due. Standalone waits use the captured clock
+and existing sleeper callback; callback completion is the
 logical wait-completion signal, consistent with other offline waits. A pending
 reply whose clock has elapsed can be collected by a later request/status call or
 explicit host `poll()`. There is no background thread or automatic host action.

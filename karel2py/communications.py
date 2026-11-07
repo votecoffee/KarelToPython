@@ -374,7 +374,7 @@ class Messaging(MemoryFiles):
             fail('Pending socket ' + kind + ' cannot wait inside a handler action', line)
         if state._scheduler is None and not getattr(root, '_sleep_injected', False):
             fail('Indefinite standalone socket ' + kind + ' requires an explicit sleeper callback', line)
-        yield from runtime.delay_execution(state, 10, line)
+        yield from runtime.delay_execution(state, 10, line, scan_handlers=True)
         yield from runtime.checkpoint(state, line)
 
     def read_items(self, state, handle, targets, line=None, *, line_breaks=(), formats=None):
@@ -646,7 +646,7 @@ class FilePipes(MemoryFiles):
                     fail('Pending pipe READ cannot wait inside a handler action',line)
                 if state._scheduler is None and not getattr(root,'_sleep_injected',False):
                     fail('Indefinite standalone pipe wait requires an explicit sleeper callback',line)
-                yield from runtime.delay_execution(state,10,line)
+                yield from runtime.delay_execution(state,10,line,scan_handlers=True)
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:

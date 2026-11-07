@@ -3090,7 +3090,8 @@ class Emitter:
                 if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
                 if mode!='v' and kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
                 check=''
-                if self.mode=='pythonic' and expr.value=='SET_VAR' and index==3 and spec[0] in ('PATH','QUEUE_TYPE'):
+                if (self.mode=='pythonic' and expr.value=='SET_VAR' and index==3
+                        and (spec[0] in ('PATH','QUEUE_TYPE') or rt.collection_array_type(spec))):
                     check=f',check=lambda:self._state.tick({value.token.line})'
                 if reference_input: code=f'_rt.variable_reference({code},{value.token.line}{check})'
                 elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line}{check})'
@@ -5711,7 +5712,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         input='Explicit host feed and finish_input; validate a complete typed text/binary READ before consuming its RX prefix or publishing destinations',
         input_capacity='Fixed fields and required CR bytes must fit the bank. A full RX queue can wait only if EOF could complete the retained request.',
         output='Capture complete rendered WRITE bytes once; wait for bank space from explicit host drains or another endpoint consuming RX, then append atomically',
-        lifetime='Explicit standalone sleeper or scheduler; ten-millisecond delays and checkpoints; one pending operation per FILE with exact connection and buffer identity checks',
+        lifetime='Explicit standalone sleeper or scheduler; ten-millisecond delays with eligible timed condition scans in scheduled tasks; one pending operation per FILE with exact connection and buffer identity checks',
         cancellation='CANCEL FILE unwinds the exact pending READ/WRITE with portable status 6; disconnect fails pending operations even after reconnect; close/reposition require unwind',
         persistence='Closed endpoint flags and RX/TX data only; no pending operation, connection identity, handle or task stack is restored',
         guide='docs/communications.md#cooperative-input-and-output',controller_validated=False)
@@ -5720,7 +5721,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit FilePipes with up to 32 canonical PIP names and bounded combined configured sector capacities; zero sectors selects default eight KiB; DAQ and plain pipe names must be distinct',
         files='Circular byte histories retain newest configured bytes; independent text/binary cursors, optional WAIT_USED complete-read waits or WAIT_NOTUSED snapshot ends; absent attrs preserve immediate EOF and cursor clamping',
         attributes=dict(rt.COMMUNICATION_CONSTANTS),
-        reading='Explicit waits use logical 10 ms cooperative polls, staged typed fields and one final publication; standalone pending reads require an explicitly injected sleeper inherited through source linkage. Binary widths and waiting text fixed fields plus CR minima must fit the pipe.',
+        reading='Explicit waits use logical 10 ms cooperative polls with eligible timed condition scans, staged typed fields and one final publication; standalone pending reads require an explicitly injected sleeper inherited through source linkage. Binary widths and waiting text fixed fields plus CR minima must fit the pipe.',
         handler_reads='Ready reads may complete inside a handler. Reads that would wait fail before sleeping in the caller or a linked routine.',
         overflow='Opt-in EOF latch or capacity-checked byte advance rounded to record_size; recover a latched handle by close/reopen; bytes queries honor snapshot/overflow state',
         metadata='CMOS intent, binary record_size and formatting dictionary/element retained; ordinary FILE field encoding controls data, no record padding/alignment or dictionary rendering applied',
@@ -6681,7 +6682,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['kcl_policy']=dict(
         calls=['KCL','KCL_NO_WAIT','KCL_STATUS'],service='Explicit KclCommands channel with exact scripted replies and optional task, file, variable, virtual device, decoded dictionary, program, environment, procedure and debugging dispatch',
         requests='Printable ASCII 1..126 characters; trim outer spaces, exact case/internal-space reply matching; one accepted pending command; bounded request history',
-        completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time or captured standalone clock/sleeper completion',
+        completion='KCL waits for configured result, KCL_NO_WAIT returns acceptance, bare or called KCL_STATUS collects the selected accepted result; scheduler virtual time with eligible timed condition scans during scripted delays, or captured standalone clock/sleeper completion',
         lifetime='Scripted replies and task waits survive caller stop/failure. RUNCF and RESET belong to the invoking activation. Status collection does not resubmit and pending work cannot be serialized.',
         task_commands='Opt in with task_commands true. RUN starts an independent registered task or continues a pause. CONT/CONTINUE, PAUSE and ABORT support named or ALL selection. PAUSE/ABORT support FORCE. Standalone no-wait RUN/CONTINUE require a scheduler.',
         task_holds='HOLD applies the owned logical motion transition and requests pause for eligible unmasked tasks. UNHOLD clears owned logical holds independently of CONTINUE. Both require explicit shared MotionRequests and GroupLocks.',
@@ -6969,7 +6970,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         source='Newly generated Pythonic FILE and bound-default WRITE, including scalar, aggregate and portable binary items; old direct State.write_items remains synchronous',
         capture='Resolve FILE, values and formats once before waiting; render independent immutable bytes and apply configured text EOL once',
         admission='Validate complete payload against retained RX plus port/bank limits before waiting; require explicit host sleeper or scheduler for blocked output; no waits inside handler actions',
-        waiting='Cooperative ten-millisecond waits and checkpoints; host take_output drains retained TX; revalidate original handle, task, registration, mappings, buffer identities and fixed limits before publication',
+        waiting='Cooperative ten-millisecond waits and checkpoints with eligible timed condition scans in scheduled tasks; host take_output drains retained TX; revalidate original handle, task, registration, mappings, buffer identities and fixed limits before publication',
         cancellation='CANCEL FILE marks the exact pending WRITE; cancellation wins over newly available space; portable status 6 and source continuation without appending captured bytes',
         lifetime='One pending typed operation per FILE; pending WRITE blocks overlapping I/O, CLOSE, seek and flush; pause/resume retains bytes, stop/abort/budget/failure releases exact owned registrations',
         persistence='Enabled flag and ordinary RX/TX only after close; no pending writes, operation tokens, clocks, callbacks or source stacks reload',
@@ -6979,7 +6980,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         service='SerialStreams',context='Explicit ExecutionContext serial_streams; reserve numeric P-device prefixes and require configured canonical P1: through P5: endpoints; no ordinary filename fallback',
         transfer='Finite ASCII or portable binary scalar READ/WRITE, explicit FILE attributes, exclusive validated handles and separate input/output buffers; RO/WO/RW/UD/AP plus portable AO and binary suffix intent',
         input='Read cursor advances only after complete typed input validation; CLOSE consumes its RX prefix; finite defaults remain, wait=True permits explicit host-fed cooperative input with final/finish_input EOF and no loopback',
-        waiting='Capture destinations/formats once, distinguish incomplete from invalid input, retain prefix on EOF/failure; explicit standalone sleeper or scheduler, bounded checkpoints, pending direct-read/close guards and generator cleanup',
+        waiting='Capture destinations/formats once, distinguish incomplete from invalid input, retain prefix on EOF/failure; explicit standalone sleeper or scheduler, bounded checkpoints with eligible timed condition scans, pending direct-read/close guards and generator cleanup',
         handler_reads='Ready reads may complete inside a handler. Reads that would wait fail before sleeping in the caller or a linked routine.',
         input_capacity='Retained RX prefix, fixed fields and required CR bytes must fit the port. A full RX queue can wait only if EOF could complete the retained request.',
         output='Append retained TX after complete byte-budget checks, preserving RX; optional wait_output follows serial_output_wait_policy; no device call is performed',
@@ -7412,7 +7413,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         capture='SET snapshots independent logical data once before later status selectors; GET resolves named source after output selectors; prefix captures retain original cells and validate the containing bank',
         identity='Retain receiver ARRAY containers, collection cells and compatible PATH headers; detach old nodes and drop receiver queue buffer links; unselected rows retain objects, nodes and buffer links',
         status='0 copied known data; 12311 copied tracked missing PATH data or uninitialized queues; 1 failed named lookup; 3 incompatible schemas without data/cache/entry publication',
-        bounds='Each source/receiver snapshot fits 32767 descriptor/header/node/queue-entry scalar units and 64 data-schema levels; logical rank at most three; existing prefix-containing and persistence limits remain separate',
+        bounds='Each source/receiver snapshot fits 32767 descriptor/header/node/queue-entry scalar units and 64 data-schema levels; charge one step per snapshot unit for source and receiver preparation; logical rank at most three; existing prefix-containing and persistence limits remain separate',
         protection='Reject shared owned cells/headers/nodes, malformed storage and output/entry/status overlap before publication; preserve FOR, FILE, resource-field and ordinary resource-copy guards',
         persistence='Ordinary logical JSON/VR values and creation metadata; no aliases, live windows, queue buffers, callbacks, suspended frames or native ABI/controller/strict claim',
         guide='docs/collection-array-transfers.md',controller_validated=False)

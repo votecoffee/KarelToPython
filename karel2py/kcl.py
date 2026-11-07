@@ -1107,7 +1107,7 @@ class KclCommands:
             if job['clock'] is None:
                 raise rt().KarelRuntimeError('Cannot collect an executing inline KCL command', line)
             remaining=max(0,math.ceil((job['due']-job['clock']())/1000))
-            if remaining:yield from rt().delay_execution(state,remaining,line)
+            if remaining:yield from rt().delay_execution(state,remaining,line,scan_handlers=True)
             # Standalone sleeper completion is the logical completion signal;
             # scheduler/other callers may already have completed this request.
             self.complete(job)

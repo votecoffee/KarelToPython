@@ -52,7 +52,8 @@ RX still counts until ordinary CLOSE; no new input reclamation is added. Port
 and whole-bank availability are checked before one complete append, with no
 partial write, ring truncation, extra output observation or RX cursor advance.
 
-Blocked writes yield logical 10 ms delays and checkpoints. Standalone execution
+Blocked writes yield logical 10 ms delays and checkpoints. Eligible timed
+conditions in scheduled tasks can run between polls. Standalone execution
 requires an explicitly injected sleeper; the default host sleeper is rejected
 before waiting indefinitely. Ordinary execution budgets remain active. A handler
 may perform an immediately ready write but cannot enter a blocked TX wait.

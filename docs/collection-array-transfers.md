@@ -70,6 +70,9 @@ retain the existing status-1 resolver boundary.
 
 Each selected source/receiver snapshot is bounded to 32,767 units: collection
 descriptors, PATH header/node scalar leaves and two scalar units per queue entry.
+GET_VAR and SET_VAR charge one execution step per unit for the selected source
+and existing receiver. Budget exhaustion publishes no transfer changes. A SET
+source budget failure occurs before evaluating the status selector.
 Logical rank remains at most three; data components retain their 64-level bound.
 Prefix capture additionally validates the containing bank. Ordinary later
 collection growth, further captures and JSON/VR snapshots keep their separate

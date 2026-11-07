@@ -98,6 +98,52 @@ class ProjectTests(unittest.TestCase):
 
 
 class SchedulerTests(unittest.TestCase):
+    def test_timed_conditions_run_between_cooperative_file_polls(self):
+        serial=rt.SerialStreams({
+            1:dict(wait=True),
+            2:dict(wait_output=True,capacity=4,output=b'old'),
+        })
+        socket_input=rt.Messaging({'S1:':dict(connected=True,wait=True)})
+        socket_output=rt.Messaging({'S2:':dict(connected=True,wait_output=True,output=b'old')},limit=4)
+        pipes=rt.FilePipes()
+        pipes.configure('LOG',False,1,0,'',0)
+        cases=(
+            ('serial read',rt.ExecutionContext(serial_streams=serial),
+             "OPEN FILE f('RO','P1:') READ f(n,CR)",lambda:serial.feed(1,b'17\n'),17),
+            ('serial write',rt.ExecutionContext(serial_streams=serial),
+             "OPEN FILE f('WO','P2:') WRITE f('XY')",lambda:serial.take_output(2),77),
+            ('socket write',rt.ExecutionContext(messaging=socket_output),
+             "OPEN FILE f('WO','S2:') WRITE f('XY')",lambda:socket_output.take_output('S2:'),77),
+            ('socket read',rt.ExecutionContext(messaging=socket_input),
+             "OPEN FILE f('RO','S1:') READ f(n,CR)",lambda:socket_input.feed('S1:',b'17\n'),17),
+            ('pipe read',rt.ExecutionContext(file_pipes=pipes),
+             "SET_FILE_ATR(f,ATR_PIPWAIT,WAIT_USED) OPEN FILE f('RO','PIP:LOG') READ f(n,CR)",
+             lambda:pipes.feed('LOG',b'17\n'),17),
+        )
+        for label,context,operation,make_ready,expected in cases:
+            with self.subTest(label=label):
+                body=('n=77 seen=0 trigger=FALSE CONDITION[1]: WITH $SCAN_TIME=1 '
+                      'WHEN trigger DO seen=7 ENDCONDITION ENABLE CONDITION[1] '
+                      +operation+' CLOSE FILE f')
+                project=translate_project({'main':source('MAIN',body,decl='f:FILE n,seen:INTEGER trigger:BOOLEAN')}).instantiate(context=context)
+                scheduler=project.scheduler;task=project.programs['MAIN']
+                scheduler.start('MAIN')
+                for _ in range(25):
+                    scheduler.step()
+                    if 'MAIN' in scheduler.waiting:break
+                else:self.fail('FILE operation did not park')
+                parked_at=scheduler.now_us
+                task._state.set('TRIGGER',True)
+                for _ in range(25):
+                    scheduler.step()
+                    if task.snapshot()['SEEN']==7:break
+                self.assertEqual(task.snapshot()['SEEN'],7)
+                self.assertLess(scheduler.now_us-parked_at,8000)
+                self.assertEqual(task.snapshot()['N'],77)
+                make_ready()
+                result=scheduler.run()['MAIN']
+                self.assertEqual((result['state'],result['values']['N']),('completed',expected))
+
     def programs(self,main,child,**kwargs):
         return translate_project({'a':source('MAIN',main,**kwargs),'b':source('CHILD',child,**kwargs)}).instantiate()
 

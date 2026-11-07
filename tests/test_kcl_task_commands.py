@@ -146,6 +146,25 @@ class KclTaskCommandTests(unittest.TestCase):
         self.assertFalse(task._state._abort_requested)
         foreign.stop('WORKER')
 
+    def test_timed_condition_runs_while_scripted_reply_is_pending(self):
+        for call in ("KCL('SHOW',s)", "KCL_NO_WAIT('SHOW',n) s=KCL_STATUS"):
+            with self.subTest(call=call):
+                scheduler=rt.TaskScheduler()
+                ctx=context(scheduler=scheduler,replies={'SHOW':{'status':17,'delay_ms':80}})
+                body=('n=0 s=91 CONDITION[1]: WITH $SCAN_TIME=2 WHEN s=92 DO n=7 '
+                      'ENDCONDITION ENABLE CONDITION[1] '+call)
+                task=worker(ctx,'WORKER',body)
+                scheduler.start('WORKER')
+                advance_until(scheduler,lambda:'WORKER' in scheduler.waiting)
+                due=ctx.kcl._pending['due']
+                task._state.set('S',92)
+                advance_until(scheduler,lambda:task.snapshot()['N']==7)
+                self.assertLess(scheduler.now_us,due)
+                self.assertIsNotNone(ctx.kcl._pending)
+                self.assertEqual(task.snapshot()['S'],92)
+                scheduler.run()
+                self.assertEqual(task.snapshot(),{'N':7,'S':17})
+
     def test_pending_scripted_reply_and_synchronous_dispatch_share_busy_channel(self):
         ctx = context(replies={'SHOW': {'status': 17, 'delay_ms': 5}})
         task = worker(ctx, 'WORKER', "KCL('PAUSE ALL',s) n=9")

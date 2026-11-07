@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.012830 - 2026-11-07
+
+- Charge GET_VAR and SET_VAR for selected PATH and queue ARRAY snapshots,
+  including row and plane transfers.
+- Scan eligible timed conditions during scheduled scripted KCL delays and
+  between cooperative serial, socket and pipe FILE polls.
+
 ## 26.1107.011058 - 2026-11-07
 
 - Scan eligible timed conditions while a blocking PULSE waits in the offline

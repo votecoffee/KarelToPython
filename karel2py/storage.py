@@ -150,7 +150,7 @@ def _collection_array_units(spec,value,encoded):
     return 1+(runtime.scalar_leaf_count(spec[2]) if spec[2] else 0)+len(items)*runtime.scalar_leaf_count(node)
 
 
-def _collection_array_rows(spec,value,encoded):
+def _collection_array_rows(spec,value,encoded,*,allow_windows=False):
     """Check hierarchy and combined contents before encoding or allocating arrays."""
     runtime=rt();rows=[];units=0
     if collection_array_cost(spec) is None:raise ValueError('Collection ARRAY codec requires PATH or QUEUE_TYPE cells')
@@ -164,16 +164,17 @@ def _collection_array_rows(spec,value,encoded):
         if encoded:values=array_state_values(shape,item)
         else:
             if (type(item) is not runtime.Array or item.spec!=schema or item.shape!=shape
-                    or type(item.values) is not list or len(item.values)!=math.prod(shape)):
+                    or (not runtime._array_storage(item.values) if allow_windows else type(item.values) is not list)
+                    or len(item.values)!=math.prod(shape)):
                 raise ValueError('Collection ARRAY storage does not match its concrete schema')
             values=item.values
         for child in values:visit(schema[2],child)
     visit(spec,value)
-    return rows
+    return rows,units
 
 
 def collection_array_payload(spec,value):
-    runtime=rt();rows=_collection_array_rows(spec,value,False)
+    runtime=rt();rows,_=_collection_array_rows(spec,value,False)
     payloads=iter(collection_payload(schema,item) for schema,item in rows)
     def encode(schema,item):
         if schema[0]!='ARRAY':return next(payloads)
@@ -186,7 +187,7 @@ def collection_array_payload(spec,value):
 
 def restore_collection_array(spec,payload):
     """Validate counts first; restore independent cells with no queue buffer links."""
-    runtime=rt();rows=_collection_array_rows(spec,payload,True)
+    runtime=rt();rows,_=_collection_array_rows(spec,payload,True)
     restored=iter([restore_collection(schema,item) for schema,item in rows])
     def allocate(schema):
         if schema[0]!='ARRAY':return next(restored)

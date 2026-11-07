@@ -217,7 +217,7 @@ class SerialStreams:
                     raise runtime.KarelRuntimeError('Pending serial READ cannot wait inside a handler action',line)
                 if state._scheduler is None and not getattr(root,'_sleep_injected',False):
                     raise runtime.KarelRuntimeError('Indefinite standalone serial wait requires an explicit sleeper callback',line)
-                yield from runtime.delay_execution(state,10,line)
+                yield from runtime.delay_execution(state,10,line,scan_handlers=True)
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:
@@ -266,7 +266,7 @@ class SerialStreams:
                     raise runtime.KarelRuntimeError('Pending serial WRITE cannot wait inside a handler action',line)
                 if state._scheduler is None and not getattr(runtime.task_root(state),'_sleep_injected',False):
                     raise runtime.KarelRuntimeError('Indefinite standalone serial WRITE requires an explicit sleeper callback',line)
-                yield from runtime.delay_execution(state,10,line)
+                yield from runtime.delay_execution(state,10,line,scan_handlers=True)
                 yield from runtime.checkpoint(state,line)
         except GeneratorExit:raise
         except BaseException:
