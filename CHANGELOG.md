@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.175325 - 2026-11-07
+
+- Charge shifted PATH node references before source insertions and deletions.
+  Recheck the receiver and selected node before deleting.
+- Charge COPY_PATH before gathering selected nodes and verify source and
+  destination storage for exact and converted range copies.
+
 ## 26.1107.172006 - 2026-11-07
 
 - Charge detached KCL PATH edits for existing data and any new node before

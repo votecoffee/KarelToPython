@@ -1517,6 +1517,19 @@ class PathValue:
         index=runtime().integer(index,line)
         if not 1<=index<=len(self.nodes): fail('PATH node index out of range',line)
         return self.nodes[index-1]
+    def _node_edit_guard(self,index,reference,line):
+        nodes=self.nodes
+        count=len(nodes)
+        anchor=nodes[index-1] if index<=count else None
+
+        def validate():
+            if (self.nodes is not nodes or len(nodes)!=count
+                    or index<=count and nodes[index-1] is not anchor
+                    or reference is not None and reference.raw() is not self):
+                fail('PATH destination changed during node edit preparation',line)
+
+        return validate
+
     def append(self,index=None,line=None,*,seed=None,convert=None,check=None,state=None,reference=None):
         """Insert a node after seed validation and any requested layout conversion."""
         rt=runtime();target=self.node_spec
@@ -1529,16 +1542,9 @@ class PathValue:
         if count>=32767: fail('PATH node limit exceeded',line)
         index=count+1 if index is None else rt.integer(index,line)
         if not 1<=index<=count+1: return 2
-        anchor=nodes[index-1] if index<=count else None
-
-        def check_destination():
-            if (self.nodes is not nodes or len(nodes)!=count
-                    or index<=count and nodes[index-1] is not anchor
-                    or reference is not None and reference.raw() is not self):
-                fail('PATH destination changed during insertion preparation',line)
-
+        check_destination=self._node_edit_guard(index,reference,line)
         if check is not None:
-            cost=rt._validate_data_schema(target,line)
+            cost=rt._validate_data_schema(target,line)+(count+1-index)
             if changing:cost+=rt._validate_data_schema(seed.spec,line)
             for _ in range(cost):check()
             check_destination()
@@ -1553,6 +1559,19 @@ class PathValue:
             node=rt._aggregate_value(target,seed,line,allow_partial=False)
         check_destination()
         nodes.insert(index-1,node); return 0
+
+    def delete(self,index,line=None,*,check=None,reference=None):
+        nodes=self.nodes
+        index=runtime().integer(index,line)
+        count=len(nodes)
+        if not 1<=index<=count: return 2
+        if check is not None:
+            check_destination=self._node_edit_guard(index,reference,line)
+            for _ in range(count-index):check()
+            check_destination()
+        del nodes[index-1]
+        return 0
+
     def clone(self): return deepcopy(self)
 
 
@@ -2889,8 +2908,6 @@ class ExecutionContext:
                 path_conversion_layout(destination.spec,source.spec,model=rt._pythonic()) if convert else None)
             if layout is None:
                 status.set(3,line); return
-            modeled='kinematic' in layout
-            receiver=destination.raw() if modeled else None
             if type(source.nodes) is not list or len(source.nodes)>32767:
                 fail('COPY_PATH requires a bounded node list',line)
             size=len(source.nodes)
@@ -2901,9 +2918,23 @@ class ExecutionContext:
             else:
                 direction=1 if end>=start else -1
                 indices=range(start-1,end-1+direction,direction)
-            selected=self._copy_path_data(state,destination.spec,source,layout,line,indices=indices)
-            if modeled and destination.raw() is not receiver:fail('COPY_PATH destination changed during preparation',line)
-            destination.storage[destination.key]=selected
+            storage,key,spec=destination.storage,destination.key,destination.spec
+            receiver=destination.raw()
+            receiver_nodes=receiver.nodes if type(receiver) is PathValue else None
+            receiver_header=receiver.data if type(receiver) is PathValue else None
+            receiver_count=len(receiver_nodes) if type(receiver_nodes) is list else None
+
+            def check_destination():
+                if (destination.storage is not storage or destination.key!=key or destination.spec!=spec
+                        or destination.raw() is not receiver or type(receiver) is PathValue
+                        and (receiver.nodes is not receiver_nodes or receiver.data is not receiver_header
+                             or receiver_count is not None and len(receiver_nodes)!=receiver_count)):
+                    fail('COPY_PATH destination changed during preparation',line)
+
+            selected=self._copy_path_data(state,spec,source,layout,line,indices=indices,
+                                          check_destination=check_destination)
+            check_destination()
+            storage[key]=selected
             status.set(0,line); return
         if name=='INTSCT_VL_PL': return intersect_view_lines(state,*args,line=line)
         if name in ('APPEND_NODE','INSERT_NODE','DELETE_NODE','PATH_LEN','NODE_SIZE'):
@@ -2922,8 +2953,8 @@ class ExecutionContext:
                 check=(lambda:state.tick(line)) if rt._pythonic() or seed is not None else None
                 code=path.append(index,line,seed=seed,convert=convert,check=check,state=state,reference=args[0])
             else:
-                code=0 if 1<=args[1]<=len(path.nodes) else 2
-                if not code: del path.nodes[args[1]-1]
+                check=(lambda:state.tick(line)) if rt._pythonic() else None
+                code=path.delete(args[1],line,check=check,reference=args[0])
             args[-1].set(code,line); return
         if name=='COPY_QUEUE': return self.copy_queue(state,args,line)
         if 'QUEUE' in name: return self.queue(state,name,args,line)
@@ -3284,7 +3315,7 @@ class ExecutionContext:
             storage[key]=self._finish_path_data(state,leaf,path,line)
         return result
 
-    def _copy_path_data(self,state,target,source,layout,line,*,indices=None):
+    def _copy_path_data(self,state,target,source,layout,line,*,indices=None,check_destination=None):
         rt=runtime()
         whole=indices is None
         node,header=source.node_spec,source.spec[2]
@@ -3293,8 +3324,8 @@ class ExecutionContext:
         original=source.nodes;data=source.data
         if type(original) is not list or len(original)>32767:fail('PATH copy requires a bounded node list',line)
         if header is None and data is not None:fail('Headerless PATH cannot contain header data',line)
-        count=len(original) if whole else len(indices)
-        nodes=original if whole else [original[index] for index in indices]
+        original_count=len(original)
+        count=original_count if whole else len(indices)
         source_node_cost=rt._validate_data_schema(node,line) if count else 0
         source_header_cost=rt._validate_data_schema(header,line) if header is not None else 0
         target_node_cost=rt._validate_data_schema(target_node,line) if count else 0
@@ -3308,11 +3339,14 @@ class ExecutionContext:
             if target_node!=node:cost+=count*target_node_cost
             if target_header!=header:cost+=target_header_cost
         for _ in range(cost):state.tick(line)
+        if source.nodes is not original or len(original)!=original_count or source.data is not data:
+            fail('PATH source changed during copy preparation',line)
+        if check_destination is not None:check_destination()
         if whole:
-            if source.nodes is not original or len(original)!=count or source.data is not data:
-                fail('PATH source changed during conversion preparation',line)
             source=rt.collection_source_value(source.spec,source,line,source_spec=source.spec)
             nodes,data=source.nodes,source.data
+        else:
+            nodes=[original[index] for index in indices]
 
         prepared=self._prepare_path_data(target,source,nodes,data,layout,line,allow_missing=whole)
         return self._finish_path_data(state,target,prepared,line)

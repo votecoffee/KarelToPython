@@ -153,6 +153,112 @@ class SeededPathNodeTests(unittest.TestCase):
                 self.assertEqual((p.snapshot()['TRACK']['nodes'],p.snapshot()['S']),([],99))
 
 
+class PathListEditTests(unittest.TestCase):
+    def test_insert_and_delete_charge_shifted_nodes_before_publication(self):
+        for operation in ('INSERT_NODE(track,1,s)','DELETE_NODE(track,1,s)'):
+            with self.subTest(operation=operation):
+                program,_=compile_program('s=99 '+operation)
+                state=program._state
+                path=state.values['TRACK']
+                for _ in range(4):path.append()
+                nodes=path.nodes
+                original=nodes.copy()
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                    program.run(max_steps=3)
+                self.assertIs(path.nodes,nodes)
+                self.assertEqual(nodes,original)
+                self.assertEqual(state.values['S'],99)
+
+    def test_tail_delete_does_not_charge_unshifted_nodes(self):
+        program,_=compile_program('DELETE_NODE(track,2,s)')
+        path=program._state.values['TRACK']
+        path.append()
+        path.append()
+        first=path.nodes[0]
+        self.assertEqual(program.run(max_steps=1)['S'],0)
+        self.assertEqual(path.nodes,[first])
+
+    def test_delete_declines_a_replaced_node_at_the_same_index(self):
+        program,_=compile_program('s=99 DELETE_NODE(track,1,s)')
+        state=program._state
+        path=state.values['TRACK']
+        path.append()
+        path.append()
+        replacement=rt.Structure(path.node_spec)
+        original_tail=path.nodes[1]
+        tick=state.tick
+
+        def replace(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==3:path.nodes[0]=replacement
+
+        with (patch.object(state,'tick',side_effect=replace),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'PATH destination changed')):
+            program.run()
+        self.assertEqual(path.nodes,[replacement,original_tail])
+        self.assertEqual(state.values['S'],99)
+
+
+class PathCopyPreparationTests(unittest.TestCase):
+    def prepare(self,call='COPY_PATH(track,2,1,other,s)'):
+        program,_=compile_program('s=99 '+call,decl=DECL+' other:PATH NODEDATA=node_t PATHHEADER=header_t')
+        state=program._state
+        source=state.values['TRACK']
+        target=state.values['OTHER']
+        for path,values in ((source,(10,20)),(target,(30,))):
+            path.data.values['COUNT']=len(values)
+            for value in values:
+                path.append()
+                path.nodes[-1].values['VALUE']=value
+        return program,state,source,target
+
+    def test_range_copy_rejects_replaced_source_list_before_preparing_records(self):
+        program,state,source,target=self.prepare()
+        old=source.nodes
+        tick=state.tick
+
+        def replace(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==3:source.nodes=old[::-1]
+
+        with (patch.object(state,'tick',side_effect=replace),
+              patch.object(state.execution,'_prepare_path_data',side_effect=AssertionError('prepared a changed source')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'PATH source changed')):
+            program.run()
+        self.assertEqual([node.values['VALUE'] for node in source.nodes],[20,10])
+        self.assertIs(state.values['OTHER'],target)
+        self.assertEqual(([node.values['VALUE'] for node in target.nodes],state.values['S']),([30],99))
+
+    def test_exact_range_copy_declines_rebound_or_grown_receiver(self):
+        for rebound in (False,True):
+            with self.subTest(rebound=rebound):
+                program,state,_,target=self.prepare()
+                replacement=rt.PathValue(target.spec)
+                tick=state.tick
+
+                def replace(*args,**kwargs):
+                    tick(*args,**kwargs)
+                    if state.steps==3:
+                        if rebound:state.values['OTHER']=replacement
+                        else:target.append()
+
+                with (patch.object(state,'tick',side_effect=replace),
+                      patch.object(state.execution,'_prepare_path_data',
+                                   side_effect=AssertionError('prepared a changed destination')),
+                      self.assertRaisesRegex(rt.KarelRuntimeError,'COPY_PATH destination changed')):
+                    program.run()
+                self.assertIs(state.values['OTHER'],replacement if rebound else target)
+                self.assertEqual((len(target.nodes),state.values['S']),(1 if rebound else 2,99))
+
+    def test_reverse_self_copy_stages_independent_nodes(self):
+        program,state,source,_=self.prepare('COPY_PATH(track,2,1,track,s)')
+        original_nodes=source.nodes.copy()
+        result=program.run()
+        self.assertEqual((result['S'],result['TRACK']['nodes']),(0,[{'VALUE':20},{'VALUE':10}]))
+        self.assertIsNot(state.values['TRACK'].nodes[0],original_nodes[1])
+        self.assertEqual([node.values['VALUE'] for node in source.nodes],[10,20])
+
+
 class ModelPathConversionTests(unittest.TestCase):
     types=('TYPE joint_node=STRUCTURE point:JOINTPOS2 ENDSTRUCTURE '
            'pose_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE '

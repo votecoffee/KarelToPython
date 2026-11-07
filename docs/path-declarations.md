@@ -97,9 +97,10 @@ The seed capture charges one step per source leaf before copying data or
 evaluating the status selector and conversion flag. Node preparation then
 charges the target layout and, for a conversion, the source layout it reads.
 The unseeded forms charge the target layout before allocating a node with
-uninitialized data. Before publication, the edit verifies the original receiver,
-node list and insertion anchor, including after a model callback. Data and
-budget errors preserve the PATH and prior status.
+uninitialized data. INSERT_NODE and DELETE_NODE charge one step per node
+reference shifted by the edit. Both verify the receiver, node list and selected
+node before publication. An insertion also rechecks after model conversion.
+Data and budget errors preserve the PATH and prior status.
 
 ## Copy between compatible layouts
 
@@ -110,10 +111,11 @@ layouts must have matching field names and compatible data types under the
 [record conversion rules](record-schema-conversions.md), including explicit
 [model-backed joint and Cartesian fields](kinematic-records.md).
 
-The source order, range and missing scalar data follow the ordinary COPY_PATH
-rules. The selected nodes and header use the destination schemas. Conversion
-charges the source and destination leaves of changed layouts before publishing
-the copy. When a model conversion is needed, COPY_PATH validates all selected
+The selected nodes and header use the destination schemas. COPY_PATH charges
+the source leaves and any changed destination layouts before gathering the
+selected nodes. It verifies the original source list, count and header and
+checks the destination cell and containers before staging and publication.
+When a model conversion is needed, COPY_PATH validates all selected
 nodes and the header before invoking any model adapter. Model conversions use
 the selected group, frame, tool and supplied current inverse seed. Results
 remain private until all conversions succeed. Incompatible schemas return status 3. Budget or value errors preserve
