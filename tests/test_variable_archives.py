@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate,translate_project
 from karel2py.lexer import TranslationError
@@ -230,6 +231,41 @@ class VariableArchiveGuardTests(unittest.TestCase):
 
 
 class VariableArchiveBatchTests(unittest.TestCase):
+    def test_recursive_restore_charges_later_file_before_decode(self):
+        ctx=context(calls={'CACHE':['OLD']})
+        install(ctx,envelope(calls=['CHILD']))
+        install(ctx,envelope('CHILD'),path='FR:CHILD.VR')
+        ctx.files.files['FR:CHILD.VR'].extend(b' '*40960)
+        ctx.variables.bindings['CACHE','VALUE'].set(99)
+        p,_=compile_program("PROG_RESTORE('FR:CACHE.VR',s)",context=ctx)
+        p._state.values['S']=77
+        bank=ctx.variable_archives
+        with patch.object(bank,'decode',wraps=bank.decode) as decode:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual(decode.call_count,1)
+        self.assertEqual(p.snapshot()['S'],77)
+        self.assertEqual(ctx.variables.bindings['CACHE','VALUE'].raw(),99)
+        self.assertNotIn(('CHILD','VALUE'),ctx.variables.bindings)
+        self.assertEqual(bank.calls,{'CACHE':['OLD']})
+        self.assertEqual(p.run()['S'],0)
+
+    def test_save_and_recursive_backup_charge_staged_vr_bytes(self):
+        operations=("SAVE('CACHE','FR:CACHE.VR',s)","PROG_BACKUP('FR:CACHE',PBR_VRTYPE,0,TRUE,s)")
+        for operation in operations:
+            with self.subTest(operation=operation):
+                ctx=context()
+                p,_=compile_program(operation,context=ctx)
+                spec=('ARRAY',180,('STRING',250))
+                with rt._numeric_scope('pythonic'):
+                    data=rt.Array(spec)
+                    data.values[:]=['X'*250]*180
+                    ctx.variables.define('CACHE','TEXT',spec,data)
+                p._state.values['S']=77
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+                self.assertEqual((p.snapshot()['S'],ctx.files.files),(77,{}))
+                self.assertEqual(p.run()['S'],0)
+                self.assertGreater(len(ctx.files.files['FR:CACHE.VR']),40960)
+
     def test_recursive_vr_backup_clear_restore_uses_archived_dependency_graph(self):
         ctx=context(calls={'CACHE':['CHILD'],'CHILD':[]});ctx.variables.define('CHILD','TEXT',('STRING',8),'ready')
         self.assertEqual(execute(ctx,"PROG_BACKUP('FR:batch/CACHE',PBR_VRTYPE,0,TRUE,s) PROG_CLEAR('CACHE',PBR_VRTYPE,s)")['S'],0)

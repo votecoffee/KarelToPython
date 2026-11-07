@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1107.040930 - 2026-11-07
+
+- Charge portable VR archive reads and writes against the execution budget.
+- Include the PB manifest and each TP/VR member in mixed archive transfer
+  charges. Interrupted source and KCL batches publish no staged changes.
+
 ## 26.1107.035429 - 2026-11-07
 
 - Charge external case arguments before copying or matching snapshots.

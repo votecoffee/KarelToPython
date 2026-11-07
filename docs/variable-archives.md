@@ -159,6 +159,12 @@ graphs have at most the configured program count of keys/targets per row and
 32767 total edges. Recursive batches and saved flash also honor their combined
 byte/count limits.
 
+VR file transfers charge one execution step per 4 KiB, rounded up per input
+file on reads and across the staged batch on writes. Reads charge before copying
+or decoding. A budget failure leaves existing files and variables intact. Source
+archive calls also preserve their status target. KCL reports its ordinary
+command failure.
+
 | Status | Portable meaning |
 | --- | --- |
 | 0 | Complete operation succeeded |

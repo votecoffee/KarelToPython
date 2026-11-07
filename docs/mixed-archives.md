@@ -119,6 +119,12 @@ configured program count. Per-store graph/namespace/record capacities still
 apply, and combined edges cannot exceed 32767. JSON retains the existing depth-32,
 ASCII, duplicate-key and finite-number checks.
 
+The manifest and every member charge one execution step per 4 KiB, rounded up
+per input file before copying, hashing or decoding. Writes charge the complete
+staged batch before publishing any file. A budget failure preserves existing
+files, variables and teach programs. Source archive calls also preserve their
+status target. KCL reports its ordinary command failure.
+
 Statuses follow the portable archive table: 0 complete, 1 missing member/namespace
 or deliberately omitted identity, 2 invalid specification/hint, 4 busy/protected/
 unsupported service or backend, 5 capacity, and 6 malformed/incompatible/stale

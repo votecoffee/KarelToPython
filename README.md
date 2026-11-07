@@ -393,7 +393,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.035429**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.040930**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -916,7 +916,8 @@ namespaces, including recursive variable-only batches. SAVE_DRAM records guarded
 offline save points; see [variable archives](docs/variable-archives.md).
 [Mixed ALLTYPE batches](docs/mixed-archives.md) combine TP and VR dependencies,
 validate hashed member manifests, and preflight backup/restore/clear across both
-stores before committing changes.
+stores before committing changes. VR and mixed transfers charge the execution
+budget before copying input files or publishing a staged batch.
 
 [Model-backed variable transfers](docs/kinematic-variable-transfers.md) now apply
 explicit joint/Cartesian models across GET_VAR/SET_VAR values, same-rank ARRAY

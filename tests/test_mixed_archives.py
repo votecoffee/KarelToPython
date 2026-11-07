@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate
 from karel2py.lexer import TranslationError
@@ -178,6 +179,44 @@ class MixedAtomicGuardsTests(unittest.TestCase):
 
 
 class MixedFilesAndSourceTests(unittest.TestCase):
+    def test_mixed_backup_charges_whole_batch_before_replacement(self):
+        ctx=context()
+        self.assertEqual(execute(ctx,BACKUP),0)
+        before=ctx.files.snapshot()
+        ctx.teach_programs._programs['WORK']['instructions']=['X'*250]*180
+        p,_=compile_program(BACKUP,context=ctx)
+        p._state.values['S']=77
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual((p.snapshot()['S'],ctx.files.snapshot()),(77,before))
+        self.assertEqual(p.run()['S'],0)
+        self.assertNotEqual(ctx.files.snapshot(),before)
+
+    def test_mixed_restore_charges_manifest_before_decode(self):
+        ctx=context()
+        self.assertEqual(execute(ctx,BACKUP),0)
+        ctx.files.files['FR:batch/ROOT.PB'].extend(b' '*40960)
+        p,_=compile_program(RESTORE,context=ctx)
+        p._state.values['S']=77
+        before=state(ctx)
+        with patch('karel2py.mixed_archives.decode',side_effect=AssertionError('manifest decoded before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual((p.snapshot()['S'],state(ctx)),(77,before))
+        self.assertEqual(p.run()['S'],0)
+
+    def test_mixed_restore_charges_member_before_hash_and_keeps_prior_rows_private(self):
+        ctx=context()
+        ctx.teach_programs._programs['WORK']['instructions']=['X'*250]*180
+        self.assertEqual(execute(ctx,BACKUP),0)
+        self.assertEqual(execute(ctx,CLEAR),0)
+        p,_=compile_program(RESTORE,context=ctx)
+        p._state.values['S']=77
+        before=state(ctx)
+        with patch('karel2py.mixed_archives.hashlib.sha256',wraps=hashlib.sha256) as digest:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual(digest.call_count,2)
+        self.assertEqual((p.snapshot()['S'],state(ctx)),(77,before))
+        self.assertEqual(p.run()['S'],0)
+
     def test_whole_batch_quota_includes_manifest_and_both_formats(self):
         ctx=context();execute(ctx,BACKUP);size=sum(map(len,ctx.files.files.values()));files=rt.DeviceFiles({'FR:':{'capacity':size-1}});ctx=context(files=files)
         self.assertEqual(execute(ctx,BACKUP),5);self.assertFalse(files.files)

@@ -19,6 +19,20 @@ class KclBatchTests(unittest.TestCase):
         self.ctx = mixed_context()
         self.ctx.kcl = rt.KclCommands(program_commands=True)
 
+    def test_archive_budget_reports_command_failure_without_publishing(self):
+        ctx=self.ctx
+        ctx.teach_programs._programs['WORK']['instructions']=['X'*250]*180
+        save,_=compile_program("KCL('SAVE ALL ROOT.PB',s)",context=ctx)
+        self.assertEqual(save.run(max_steps=6)['S'],4)
+        self.assertEqual(ctx.files.files,{})
+        self.assertEqual(save.run()['S'],0)
+        self.assertEqual(issue(ctx,'CLEAR ALL Y')['S'],0)
+        before=mixed_state(ctx)
+        load,_=compile_program("KCL('LOAD ALL ROOT.PB',s)",context=ctx)
+        self.assertEqual(load.run(max_steps=6)['S'],4)
+        self.assertEqual(mixed_state(ctx),before)
+        self.assertEqual(load.run()['S'],0)
+
     def test_archive_batch_roundtrip_with_saved_default(self):
         before = mixed_state(self.ctx)
         self.assertEqual(issue(self.ctx, 'SAVE ALL')['S'], 502)

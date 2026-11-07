@@ -1,4 +1,5 @@
 """Portable owned-global snapshots and explicit offline DRAM save points."""
+from contextlib import contextmanager
 from copy import deepcopy
 from functools import wraps
 import re
@@ -23,6 +24,15 @@ def pythonic(function):
 
 class Failure(ValueError):
     def __init__(self,code,message):self.code=code;super().__init__(message)
+
+
+@contextmanager
+def archive_validation():
+    """Translate archive data errors while leaving checkpoints outside the scope."""
+    try:yield
+    except Failure:raise
+    except (ValueError,TypeError,rt().KarelRuntimeError) as error:
+        raise Failure(6,str(error)) from error
 
 
 def name(value):
@@ -394,59 +404,75 @@ def walk(context,state,bank,root,*,missing=False):
     return order
 
 
+def restore_files(state,bank,files,prefix,root,*,recursive,status,detached,line):
+    from .archives import read_file
+    context=state.execution
+    rows=[];pending=[root];seen=set();size=0
+    check=lambda:state.tick(line)
+    while pending:
+        selected=pending.pop()
+        if selected in seen:continue
+        seen.add(selected)
+        if len(seen)>bank.program_limit:raise Failure(5,'Variable restore count exceeded')
+        code,data=read_file(files,prefix+selected+'.VR',bank.limit-size,check=check)
+        if code:raise Failure(code,'Variable archive file unavailable')
+        size+=len(data)
+        with archive_validation():
+            row=bank.decode(data)
+            if recursive and row['program']!=selected:raise Failure(6,'Variable dependency archive identity differs')
+            if detached:
+                from .dynamic import detached_namespaces
+                code,_=detached_namespaces(state,{row['program']})
+                if code:return code
+        rows.append(row)
+        if recursive:pending.extend(reversed(row['calls']))
+    with archive_validation():
+        prepared=prepare(context,state,bank,rows,status)
+        commit(context,bank,prepared)
+    return 0
+
+
 def operate(state,operation,args,line=None,*,status=None,detached=False):
-    from .archives import specification,read_file,write_files
+    from .archives import specification,write_files
+    from .fileops import charge_file_bytes
     context=state.execution;bank=context.require('variable_archives',line)
     files=context.require('files',line) if operation in ('SAVE','LOAD','PROG_BACKUP','PROG_RESTORE') else None
     try:
-        if operation=='SAVE_DRAM':return bank.save_dram(state,args[0])
-        spec=args[1] if operation=='SAVE' else args[0]
-        try:prefix,root,extension=specification(spec,wildcard=operation=='SAVE')
-        except ValueError:raise Failure(2,'Invalid variable archive specification')
-        if operation=='SAVE':
-            if extension!='VR':raise Failure(4,'Variable SAVE requires VR')
-            if args[0]=='*':
-                names=sorted({state.program_name,*context.variables.programs,*[scope for scope,key in context.variables.bindings if re.fullmatch(IDENTIFIER,scope) and re.fullmatch(IDENTIFIER,key)]})
-            else:names=[name(args[0])]
-        elif operation in ('PROG_BACKUP','PROG_CLEAR'):names=walk(context,state,bank,root,missing=operation=='PROG_CLEAR')
-        else:names=[root]
-        if len(names)>bank.program_limit:raise Failure(5,'Variable archive namespace count exceeded')
+        with archive_validation():
+            if operation=='SAVE_DRAM':return bank.save_dram(state,args[0])
+            spec=args[1] if operation=='SAVE' else args[0]
+            try:prefix,root,extension=specification(spec,wildcard=operation=='SAVE')
+            except ValueError:raise Failure(2,'Invalid variable archive specification')
+            if operation=='SAVE':
+                if extension!='VR':raise Failure(4,'Variable SAVE requires VR')
+                if args[0]=='*':
+                    names=sorted({state.program_name,*context.variables.programs,*[scope for scope,key in context.variables.bindings if re.fullmatch(IDENTIFIER,scope) and re.fullmatch(IDENTIFIER,key)]})
+                else:names=[name(args[0])]
+            elif operation in ('PROG_BACKUP','PROG_CLEAR'):names=walk(context,state,bank,root,missing=operation=='PROG_CLEAR')
+            else:names=[root]
+            if len(names)>bank.program_limit:raise Failure(5,'Variable archive namespace count exceeded')
+            if operation in ('SAVE','PROG_BACKUP'):
+                if operation=='PROG_BACKUP' and (type(args[2]) is not int or not 0<=args[2]<=65536):raise Failure(2,'Invalid free-space hint')
+                if operation=='PROG_BACKUP' and not args[3]:
+                    names=[program for program in names if context.program_attributes is None or (context.program_attributes.record(program) or {}).get('attributes',{}).get('AT_PROTECT',1)!=2]
+                rows=[capture(context,state,program,calls=bank.calls.get(program,[]),limit=bank.limit) for program in names]
+                for row in rows:validate(row)
+                data=[bank.encode(row) for row in rows]
+                size=sum(map(len,data))
+                if size>bank.limit:raise Failure(5,'Variable archive batch exceeds byte budget')
+                plan=[(prefix+(root if operation=='SAVE' and args[0]!='*' else row['program'])+'.VR',payload) for row,payload in zip(rows,data)]
+            elif operation in ('CLEAR','PROG_CLEAR'):
+                if prefix:raise Failure(2,'Variable clear requires an ordinary program name')
+                if operation=='PROG_CLEAR':names=[program for program in names if context.program_attributes is None or (context.program_attributes.record(program) or {}).get('attributes',{}).get('AT_PROTECT',1)!=2]
+                rows=[capture(context,state,program,calls=bank.calls.get(program,[]),limit=bank.limit) for program in names]
+                prepared=prepare(context,state,bank,rows,status,clear=True);commit(context,bank,prepared);return 0
         if operation in ('SAVE','PROG_BACKUP'):
-            if operation=='PROG_BACKUP' and (type(args[2]) is not int or not 0<=args[2]<=65536):raise Failure(2,'Invalid free-space hint')
-            if operation=='PROG_BACKUP' and not args[3]:
-                names=[program for program in names if context.program_attributes is None or (context.program_attributes.record(program) or {}).get('attributes',{}).get('AT_PROTECT',1)!=2]
-            rows=[capture(context,state,program,calls=bank.calls.get(program,[]),limit=bank.limit) for program in names]
-            for row in rows:validate(row)
-            data=[bank.encode(row) for row in rows]
-            if sum(map(len,data))>bank.limit:raise Failure(5,'Variable archive batch exceeds byte budget')
-            plan=[(prefix+(root if operation=='SAVE' and args[0]!='*' else row['program'])+'.VR',payload) for row,payload in zip(rows,data)]
-            code=write_files(files,plan,overwrite=operation=='PROG_BACKUP',reserve_kb=args[2] if operation=='PROG_BACKUP' else 0)
-        elif operation in ('CLEAR','PROG_CLEAR'):
-            if prefix:raise Failure(2,'Variable clear requires an ordinary program name')
-            if operation=='PROG_CLEAR':names=[program for program in names if context.program_attributes is None or (context.program_attributes.record(program) or {}).get('attributes',{}).get('AT_PROTECT',1)!=2]
-            rows=[capture(context,state,program,calls=bank.calls.get(program,[]),limit=bank.limit) for program in names]
-            prepared=prepare(context,state,bank,rows,status,clear=True);commit(context,bank,prepared);code=0
-        else:
-            rows=[];pending=[root];seen=set();size=0
-            while pending:
-                selected=pending.pop()
-                if selected in seen:continue
-                seen.add(selected)
-                if len(seen)>bank.program_limit:raise Failure(5,'Variable restore count exceeded')
-                code,data=read_file(files,prefix+selected+'.VR',bank.limit-size)
-                if code:raise Failure(code,'Variable archive file unavailable')
-                size+=len(data);row=bank.decode(data)
-                if operation=='PROG_RESTORE' and row['program']!=selected:raise Failure(6,'Variable dependency archive identity differs')
-                if detached:
-                    from .dynamic import detached_namespaces
-                    code,_=detached_namespaces(state,{row['program']})
-                    if code:return code
-                rows.append(row)
-                if operation=='PROG_RESTORE':pending.extend(reversed(row['calls']))
-            prepared=prepare(context,state,bank,rows,status);commit(context,bank,prepared);code=0
-    except Failure as exc:code=exc.code
-    except (ValueError,TypeError,rt().KarelRuntimeError):code=6
-    return code
+            charge_file_bytes(size,lambda:state.tick(line))
+            with archive_validation():
+                return write_files(files,plan,overwrite=operation=='PROG_BACKUP',reserve_kb=args[2] if operation=='PROG_BACKUP' else 0)
+        return restore_files(state,bank,files,prefix,root,recursive=operation=='PROG_RESTORE',
+                             status=status,detached=detached,line=line)
+    except Failure as exc:return exc.code
 
 
 def invoke(state,operation,args,line=None):

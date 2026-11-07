@@ -1,9 +1,9 @@
 """Atomic portable TP/VR recursive batches over explicit in-memory services."""
-from copy import deepcopy
 import hashlib
 import re
 
 from . import archives as tp,variable_archives as vr
+from .fileops import charge_file_bytes
 
 FORMAT='karel2py-program-batch-v1'
 
@@ -72,7 +72,7 @@ def decode(data,root,limit,count):
     return entries
 
 
-def backup(context,state,root,prefix,reserve,include,*,overwrite=True):
+def backup_plan(context,state,root,prefix,reserve,include):
     if type(reserve) is not int or not 0<=reserve<=65536:raise vr.Failure(2,'Invalid mixed free-space hint')
     limit,_=limits(context);teach=context.teach_programs;bank=context.variable_archives;entries=[];plan=[];size=0
     rows=walk(context,state,root)
@@ -94,7 +94,16 @@ def backup(context,state,root,prefix,reserve,include,*,overwrite=True):
     try:data=manifest(root,entries,limit-size)
     except ValueError as error:raise vr.Failure(5,str(error)) from error
     plan.append((prefix+root+'.PB',data))
-    return tp.write_files(context.require('files'),plan,overwrite=overwrite,reserve_kb=reserve)
+    return plan,size+len(data)
+
+
+def backup(context,state,root,prefix,reserve,include,*,overwrite=True,line=None):
+    with vr.archive_validation():
+        plan,size=backup_plan(context,state,root,prefix,reserve,include)
+    files=context.require('files',line)
+    charge_file_bytes(size,lambda:state.tick(line))
+    with vr.archive_validation():
+        return tp.write_files(files,plan,overwrite=overwrite,reserve_kb=reserve)
 
 
 def clear(context,state,root,status):
@@ -112,57 +121,74 @@ def clear(context,state,root,status):
     vr.commit(context,bank,prepared);return 0
 
 
-def restore(context,state,root,prefix,data,status,*,detached=False):
+def restore(context,state,root,prefix,data,status,*,detached=False,line=None):
     limit,count=limits(context)
-    try:entries=decode(data,root,limit,count)
-    except vr.Failure as error:raise ValueError('Malformed mixed archive graph') from error
+    with vr.archive_validation():
+        try:entries=decode(data,root,limit,count)
+        except vr.Failure as error:raise ValueError('Malformed mixed archive graph') from error
     teach=context.teach_programs;bank=context.variable_archives
-    prepared={};graph={} if teach is None else deepcopy(teach._calls);snapshots=[];bridges={};size=len(data);files=context.require('files')
+    prepared={};calls_by_program={};snapshots=[];bridges={};size=len(data)
+    files=context.require('files',line);check=lambda:state.tick(line)
     for entry in entries:
         program=entry['name']
         if not entry['files']:raise vr.Failure(1,'Mixed archive omitted a required protected identity')
         covered=set()
         for kind,digest in entry['files'].items():
-            code,payload=tp.read_file(files,prefix+program+'.'+kind,limit-size)
+            code,payload=tp.read_file(files,prefix+program+'.'+kind,limit-size,check=check)
             if code:raise vr.Failure(code,'Mixed archive member unavailable')
             size+=len(payload)
-            if hashlib.sha256(payload).hexdigest()!=digest:raise ValueError('Mixed archive member hash differs')
-            if kind=='TP':
-                if teach is None:raise vr.Failure(4,'Mixed archive needs explicit TeachPrograms')
-                identity,row,calls=tp.decode(teach,payload)
-                if identity!=program or not set(calls)<=set(entry['calls']):raise ValueError('Mixed TP member identity/graph differs')
-                covered.update(calls)
-                if program not in teach._programs:
-                    code=tp.guard(context,state,teach,program,write=True)
-                    if code:raise vr.Failure(code,'Mixed TP restore is busy')
-                    prepared[program]=row;graph[program]=calls
-            else:
-                row=bank.decode(payload)
-                if row['program']!=program or not set(row['calls'])<=set(entry['calls']):raise ValueError('Mixed VR member identity/graph differs')
-                if guarded(context,program):raise vr.Failure(4,'Mixed VR restore is protected')
-                covered.update(row['calls']);snapshots.append(row)
+            with vr.archive_validation():
+                if hashlib.sha256(payload).hexdigest()!=digest:raise ValueError('Mixed archive member hash differs')
+                if kind=='TP':
+                    if teach is None:raise vr.Failure(4,'Mixed archive needs explicit TeachPrograms')
+                    identity,row,calls=tp.decode(teach,payload)
+                    if identity!=program or not set(calls)<=set(entry['calls']):raise ValueError('Mixed TP member identity/graph differs')
+                    covered.update(calls)
+                    if program not in teach._programs:
+                        code=tp.guard(context,state,teach,program,write=True)
+                        if code:raise vr.Failure(code,'Mixed TP restore is busy')
+                        prepared[program]=row;calls_by_program[program]=calls
+                else:
+                    row=bank.decode(payload)
+                    if row['program']!=program or not set(row['calls'])<=set(entry['calls']):raise ValueError('Mixed VR member identity/graph differs')
+                    if guarded(context,program):raise vr.Failure(4,'Mixed VR restore is protected')
+                    covered.update(row['calls']);snapshots.append(row)
         extra=[target for target in entry['calls'] if target not in covered]
         if extra:bridges[program]=extra
-    if teach is not None:
-        if len(teach._programs)+len(prepared)>teach.program_limit:raise vr.Failure(5,'Mixed TP program count exceeded')
-        try:graph=tp.call_graph(graph,teach.program_limit)
+    with vr.archive_validation():
+        if teach is not None:
+            if len(teach._programs)+len(prepared)>teach.program_limit:raise vr.Failure(5,'Mixed TP program count exceeded')
+            for program in prepared:
+                if program in teach._programs:raise vr.Failure(4,'Mixed TP target appeared during restore')
+                code=tp.guard(context,state,teach,program,write=True)
+                if code:raise vr.Failure(code,'Mixed TP restore is busy')
+            try:graph=tp.call_graph({**teach._calls,**calls_by_program},teach.program_limit)
+            except ValueError as error:raise vr.Failure(5,str(error)) from error
+        if detached and snapshots:
+            from .dynamic import detached_namespaces
+            programs={row['program'] for row in snapshots}
+            if 'SYSTEM' in programs:return 4
+            code,_=detached_namespaces(state,programs)
+            if code:return code
+        if any(guarded(context,row['program']) for row in snapshots):raise vr.Failure(4,'Mixed VR restore is protected')
+        variables=vr.prepare(context,state,bank,snapshots,status)
+        # Edges supplied for a namespace without that store's record must still
+        # survive fresh restore. Retain these bridge edges in the variable graph.
+        for program,targets in bridges.items():variables[3][program]=list(dict.fromkeys(variables[3].get(program,[])+targets))
+        try:vr.graph_value(variables[3],bank.program_limit)
         except ValueError as error:raise vr.Failure(5,str(error)) from error
-    if detached and snapshots:
-        from .dynamic import detached_namespaces
-        programs={row['program'] for row in snapshots}
-        if 'SYSTEM' in programs:return 4
-        code,_=detached_namespaces(state,programs)
-        if code:return code
-    variables=vr.prepare(context,state,bank,snapshots,status)
-    # Edges supplied for a namespace without that store's record must still
-    # survive fresh restore. Retain these bridge edges in the variable graph.
-    for program,targets in bridges.items():variables[3][program]=list(dict.fromkeys(variables[3].get(program,[])+targets))
-    try:vr.graph_value(variables[3],bank.program_limit)
-    except ValueError as error:raise vr.Failure(5,str(error)) from error
     if teach is not None:
         teach._programs.update(prepared);teach._calls=graph
         for program in prepared:tp.refresh_flags(context,teach,program)
     vr.commit(context,bank,variables);return 0
+
+
+def restore_file(state,root,prefix,status,line,*,explicit=True,detached=False):
+    context=state.execution;limit,_=limits(context)
+    files=context.require('files',line)
+    code,data=tp.read_file(files,prefix+root+'.PB',limit,check=lambda:state.tick(line))
+    if code==1 and not explicit:return None
+    return code or restore(context,state,root,prefix,data,status,detached=detached,line=line)
 
 
 def kcl_clear_all(state,line):
@@ -202,12 +228,9 @@ def kcl_batch(state,operation,operand,line=None):
     except (ValueError,rt().KarelRuntimeError):return 2
     if extension not in ('','PB'):return 2
     try:
-        if operation=='SAVE_ALL':return backup(context,state,root,prefix,0,True,overwrite=False)
-        limit,_=limits(context)
-        code,data=tp.read_file(context.files,prefix+root+'.PB',limit)
-        return code or restore(context,state,root,prefix,data,None,detached=True)
+        if operation=='SAVE_ALL':return backup(context,state,root,prefix,0,True,overwrite=False,line=line)
+        return restore_file(state,root,prefix,None,line,detached=True)
     except vr.Failure as error:return error.code
-    except (ValueError,TypeError,rt().KarelRuntimeError):return 6
 
 
 def invoke(state,operation,args,line=None):
@@ -218,19 +241,18 @@ def invoke(state,operation,args,line=None):
     status=args[-1]
     if operation in ('PROG_BACKUP','PROG_RESTORE'):context.require('files',line)
     try:
-        try:prefix,root,extension=tp.specification(args[0])
-        except ValueError:raise vr.Failure(2,'Invalid mixed archive specification')
+        with vr.archive_validation():
+            try:prefix,root,extension=tp.specification(args[0])
+            except ValueError:raise vr.Failure(2,'Invalid mixed archive specification')
         if operation=='PROG_RESTORE':
             if extension=='VR':return False
-            limit,_=limits(context);code,data=tp.read_file(context.require('files',line),prefix+root+'.PB',limit)
-            if code==1 and extension!='PB':return False
-            if code:raise vr.Failure(code,'Mixed archive manifest unavailable')
-            code=restore(context,state,root,prefix,data,status)
-        elif operation=='PROG_BACKUP':code=backup(context,state,root,prefix,args[2],args[3])
+            code=restore_file(state,root,prefix,status,line,explicit=extension=='PB')
+            if code is None:return False
+        elif operation=='PROG_BACKUP':code=backup(context,state,root,prefix,args[2],args[3],line=line)
         else:
             if prefix:raise vr.Failure(2,'Mixed clear requires a plain name')
             if extension not in ('','TP','VR'):raise vr.Failure(4,'Unsupported mixed clear extension')
-            code=clear(context,state,root,status)
+            with vr.archive_validation():
+                code=clear(context,state,root,status)
     except vr.Failure as error:code=error.code
-    except (ValueError,TypeError,rt().KarelRuntimeError):code=6
     status.set(code,line);return True
