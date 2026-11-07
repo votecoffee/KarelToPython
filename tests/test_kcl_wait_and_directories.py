@@ -28,6 +28,23 @@ class KclTaskWaitTests(unittest.TestCase):
         self.assertEqual([row['phase'] for row in ctx.kcl.history], ['completed'])
         self.assertEqual(scheduler._task_waits, {})
 
+    def test_timed_handler_resumes_target_during_task_wait(self):
+        for call in ("KCL('WAIT CHILD DONE',s)", "KCL_NO_WAIT('WAIT CHILD DONE',s) s=KCL_STATUS"):
+            with self.subTest(call=call):
+                scheduler,ctx=self.context()
+                worker(ctx,'CHILD','PAUSE n=7')
+                watch=worker(ctx,'WATCH',
+                             'n=0 CONNECT TIMER TO n CONDITION[1]: WITH $SCAN_TIME=20 '
+                             "WHEN n>=20 DO CONT_TASK('CHILD',s) ENDCONDITION ENABLE CONDITION[1] "+call)
+                scheduler.start('CHILD')
+                self.assertEqual(scheduler.run()['CHILD']['state'],'paused')
+                scheduler.start('WATCH')
+                result=scheduler.run(max_cycles=40)
+                self.assertEqual((result['CHILD']['state'],result['CHILD']['values']['N']),('completed',7))
+                self.assertEqual((result['WATCH']['state'],watch.snapshot()['S']),('completed',0))
+                self.assertGreaterEqual(watch.snapshot()['N'],20)
+                self.assertEqual(scheduler._task_waits,{})
+
     def test_direct_program_stop_clears_scheduler_deadline_and_completes_waiter(self):
         scheduler,ctx=self.context()
         child=worker(ctx,'CHILD','DELAY 8000000 n=7')
@@ -48,7 +65,8 @@ class KclTaskWaitTests(unittest.TestCase):
     def test_done_can_quiesce_on_pause_and_tracks_bound_identity_through_rename(self):
         scheduler, ctx = self.context()
         worker(ctx, 'CHILD', 'PAUSE n=7')
-        watcher = worker(ctx, 'WATCH', "KCL('WAIT CHILD DONE',s) n=KCL_STATUS")
+        watcher = worker(ctx, 'WATCH', 'CONDITION[1]: WITH $SCAN_TIME=10 WHEN TRUE DO n=7 ENDCONDITION '
+                         "KCL('WAIT CHILD DONE',s) n=KCL_STATUS")
         scheduler.start('CHILD')
         scheduler.start('WATCH')
         state = scheduler.run(max_cycles=30)

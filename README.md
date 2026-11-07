@@ -387,7 +387,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.012830**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.014517**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -799,7 +799,8 @@ CHECK_STACK, SET_DEBUG and SET_DB_EVENT use explicit offline diagnostics with
 bounded event history and configurable logical stack estimates. KCL,
 KCL_NO_WAIT and KCL_STATUS use a command channel with scripted replies, optional
 task, file, variable, device, dictionary, program and environment dispatch, completion waits
-and saved results. Scheduled scripted delays honor timed condition scans.
+and saved results. Scheduled scripted delays and task-state waits honor timed
+condition scans.
 See [diagnostics](docs/diagnostics.md)
 and [KCL commands](docs/kcl-commands.md) for setup and execution boundaries.
 
@@ -911,8 +912,9 @@ stores before committing changes.
 
 [Model-backed variable transfers](docs/kinematic-variable-transfers.md) now apply
 explicit joint/Cartesian models across GET_VAR/SET_VAR values, same-rank ARRAY
-prefixes and nested record fields. Complete preflight and private results preserve
-data, entry and cache outputs on failure.
+prefixes and nested record fields. The full batch is charged against the step
+budget before invoking adapters. Private results preserve data, entry and cache
+outputs on failure.
 
 [Bounded CONFIG input](docs/config-field-input.md) now reads turn integers and
 BOOLEAN flags through callbacks and text/binary FILEs, including captured nested

@@ -137,6 +137,20 @@ class ModelVariablePrefixTests(unittest.TestCase):
     def test_missing_whole_positional_array_is_rejected(self):
         p,_=arrays();p._state.values['A']=rt.UNINITIALIZED;failed(self,p)
 
+    def test_batch_budget_failure_precedes_any_adapter_calls(self):
+        for action in ('GET_VAR','SET_VAR'):
+            with self.subTest(action=action):
+                calls=[]
+                p,_=arrays(source='4',target='4',action=action,
+                           ctx=callback_context(forward=forward_adapter(calls)))
+                original=p.snapshot()
+                target=p._state.values['B']
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=3)
+                self.assertEqual(calls,[])
+                self.assertEqual(p.snapshot(),original)
+                self.assertIs(p._state.values['B'],target)
+                self.assertEqual(p._state.execution.entries,{})
+
     def test_late_adapter_failure_preserves_entire_prefix_and_cache(self):
         calls=[]
         def forward(*args):

@@ -143,8 +143,9 @@ can submit the request from a standalone observer with the same task
 registry. Terminal results and a matching paused state can complete inline.
 The command captures the bound task and its current run, including through
 a registry rename. It observes scheduler transitions without advancing the
-target itself. Acceptance, channel busy status and saved-history rules
-match other KCL jobs.
+target itself. Eligible timed conditions on a scheduled caller can run while
+the wait is pending, including when the caller is collecting it with KCL_STATUS.
+Acceptance, channel busy status and saved-history rules match other KCL jobs.
 
 An unresolved DONE wait can remain pending when its target is paused and
 the scheduler has no runnable or timed work. Continue or stop the target

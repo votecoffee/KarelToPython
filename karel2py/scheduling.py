@@ -367,12 +367,13 @@ def lifecycle_condition(state,name,key):
     return generation>previous
 
 
-class _PeriodicDelay:
-    """A parked wait with live condition deadlines and a fixed end."""
+class _PeriodicWait:
+    """Live condition deadlines for a fixed delay or an event-driven wait."""
 
-    def __init__(self,scopes,deadline):
+    def __init__(self,scopes,deadline,ready):
         self.scopes=scopes
         self.deadline=deadline
+        self.ready=ready
 
     def wake_at(self,now):
         wake=self.deadline
@@ -381,17 +382,19 @@ class _PeriodicDelay:
                 for handler in state._handlers.values():
                     if handler['enabled'] and handler['scan_ms']:
                         due=handler['due']
-                        wake=min(wake,now if due is None else due)
+                        if due is None:due=now
+                        if wake is None or due<wake:wake=due
         return wake
 
 
-def _periodic_delay(state,deadline):
+def _periodic_wait(state,*,deadline=None,ready=None):
+    if not rt().task_root(state)._scheduler_clock:return None
     scopes=[]
     while state is not None:
         if any(handler['scan_ms'] for handler in state._handlers.values()):
             scopes.append(state)
         state=state._budget_parent
-    return _PeriodicDelay(tuple(scopes),deadline) if scopes else None
+    return _PeriodicWait(tuple(scopes),deadline,ready) if scopes else None
 
 
 def delay_execution(state,milliseconds,line=None,*,scan_handlers=False):
@@ -402,9 +405,7 @@ def delay_execution(state,milliseconds,line=None,*,scan_handlers=False):
         state.delay(milliseconds,line); return
     if milliseconds:
         deadline=scheduler.now_us+milliseconds*1000
-        periodic=None
-        if scan_handlers and runtime.task_root(state)._scheduler_clock:
-            periodic=_periodic_delay(state,deadline)
+        periodic=_periodic_wait(state,deadline=deadline) if scan_handlers else None
         while scheduler.now_us<deadline:
             yield {'kind':'sleep','until':periodic if periodic is not None else deadline,'line':line}
             control=state._pause_requested or state._abort_requested
@@ -466,12 +467,16 @@ class TaskScheduler:
     def _notify_task_waits(self,state):
         for ready in tuple(self._task_waits.get(state,())):ready()
     def _wait_deadline(self,wait):
-        return wait.wake_at(self.now_us) if type(wait) is _PeriodicDelay else wait
+        if type(wait) is _PeriodicWait:return wait.wake_at(self.now_us)
+        return None if callable(wait) else wait
 
     def _wait_ready(self,name,state):
         if state._pause_requested or state._abort_requested:return True
         condition=self.waiting.get(name,0)
-        return condition() if callable(condition) else self.now_us>=self._wait_deadline(condition)
+        if callable(condition):return condition()
+        if type(condition) is _PeriodicWait and condition.ready is not None and condition.ready():return True
+        deadline=self._wait_deadline(condition)
+        return deadline is not None and self.now_us>=deadline
     def start(self,name,*,paused=False):
         if type(paused) is not bool: raise TypeError('paused must be BOOLEAN')
         name=name.upper()
@@ -594,7 +599,8 @@ class TaskScheduler:
                     if state.task_state!='running' or program._execution is None: break
         finally: self._step_names=None
         self.now_us+=self.quantum_us
-        deadlines=[self._wait_deadline(value) for value in self.waiting.values() if not callable(value)]
+        deadlines=[deadline for value in self.waiting.values()
+                   if (deadline:=self._wait_deadline(value)) is not None]
         deadlines.extend(self._pulse_deadlines());deadlines.extend(self._motion_deadlines())
         if not progressed and deadlines: self.now_us=max(self.now_us,min(deadlines))
         for bank in self._pulse_banks(): bank.poll_pulses()
@@ -611,7 +617,7 @@ class TaskScheduler:
                 for bank in self._pulse_banks(): bank.poll_pulses()
                 active = any(program._state._scheduler is self and (
                     program._state.task_state=='running' or program._state.task_state=='waiting'
-                    and (not callable(self.waiting.get(name)) or self._wait_ready(name,program._state)))
+                    and (self._wait_deadline(self.waiting.get(name)) is not None or self._wait_ready(name,program._state)))
                     for name,program in self._distinct_bindings())
                 if not (active or self._pulse_deadlines() or self._motion_deadlines()):
                     return self.snapshot()

@@ -11,7 +11,9 @@ for inverse conversion, supplied current joints. Nothing is discovered from a
 controller, and the operation does not update robot state.
 
 All selected source data and geometry are captured and validated before any
-model call. Calls follow receiver field order and ARRAY row-major order. Results
+model call. Each planned conversion costs one execution step. The entire batch
+must fit the step budget before any adapter is invoked. Calls follow receiver
+field order and ARRAY row-major order. Results
 remain private until the complete transfer succeeds. Receiver storage is rechecked
 after callbacks and before publication. Failure leaves data, entry,
 cache and status unchanged. Earlier explicit source/selector/adapter effects remain.
@@ -31,8 +33,8 @@ Original STRING capacities, numeric domains, schema limits and geometric checks
 run before model calls. No missing geometry is replaced by a default pose.
 
 Each call uses the root caller's group and current explicit selected frame/tool
-and inverse seed. There is no hidden seed chaining, new checkpoint or physical
-motion. Sticky ABORT prevents later calls and output publication. Ordinary alias,
+and inverse seed. Calls are synchronous. Sticky ABORT prevents later calls and
+output publication. Ordinary alias,
 readonly CONFIG/POSITION, overlap and FOR guards remain in force. Known receiver
 storage identities remain stable after successful publication.
 

@@ -1091,13 +1091,22 @@ class KclCommands:
 
     def wait(self,state,job,line=None,*,activate=False):
         if 'task_ready' in job:
-            root=rt().task_root(state)
-            while not job['task_ready']():
+            from .scheduling import _periodic_wait
+            runtime=rt()
+            root=runtime.task_root(state)
+            ready=job['task_ready']
+            periodic=_periodic_wait(state,ready=ready)
+            while not ready():
                 if root is job['target'] or root._scheduler is not job['scheduler']:
-                    raise rt().KarelRuntimeError('Unfinished KCL task wait requires another task on its owning scheduler',line)
-                yield dict(kind='kcl_wait',ready=job['task_ready'],line=line)
+                    raise runtime.KarelRuntimeError('Unfinished KCL task wait requires another task on its owning scheduler',line)
+                yield dict(kind='kcl_wait',ready=periodic if periodic is not None else ready,line=line)
                 if root._pause_requested or root._abort_requested:
-                    yield from rt().checkpoint(root,line,force_pause=True)
+                    yield from runtime.checkpoint(root,line,force_pause=True)
+                elif periodic is not None:
+                    now=job['scheduler'].now_us
+                    due=periodic.wake_at(now)
+                    if due is not None and now>=due and not ready():
+                        yield from runtime.checkpoint(state,line)
             return job['status']
         if self._pending is job:
             if 'runner' in job:

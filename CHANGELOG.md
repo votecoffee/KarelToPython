@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.014517 - 2026-11-07
+
+- Run eligible timed conditions during KCL task-state waits, including through
+  KCL_STATUS.
+- Charge the full model conversion batch for GET_VAR and SET_VAR before any
+  adapter calls.
+
 ## 26.1107.012830 - 2026-11-07
 
 - Charge GET_VAR and SET_VAR for selected PATH and queue ARRAY snapshots,

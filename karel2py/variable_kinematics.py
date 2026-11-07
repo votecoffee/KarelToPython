@@ -59,6 +59,9 @@ def transfer(state,target,source,line=None):
         for reference,item in zip(selected,ex._variable_array_values(actual,source.value)):
             store(first,second,item,reference.storage,reference.key)
     else:store(spec,actual,source.value,root,'value')
+    # Charge the complete batch before any adapter can observe a request.
+    for _ in pending:
+        state.tick(line)
     owner=rt.task_root(state)
     for storage,key,expected,captured in pending:
         if owner._aborted:raise rt.KarelAbort(owner._abort_line)
