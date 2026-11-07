@@ -134,6 +134,44 @@ def temporal_events(data, execution, operation):
     return events, tuple(sorted(breakpoints))
 
 
+class _PathOperand:
+    def __init__(self,spec,nodes):
+        self.spec=spec
+        self.nodes=nodes
+
+
+def path_operand(state,value,spec,line=None):
+    """Capture only positional fields before later range expressions run."""
+    runtime=rt()
+    if type(value) is not runtime.PathValue or value.spec!=spec:
+        raise runtime.KarelRuntimeError('MOVE ALONG requires exact PATH storage',line)
+    nodes=value.nodes
+    if type(nodes) is not list or len(nodes)>32767:
+        raise runtime.KarelRuntimeError('MOVE ALONG requires a bounded PATH node list',line)
+    count=len(nodes)
+    for _ in range(count):state.tick(line)
+    if value.nodes is not nodes or len(nodes)!=count:
+        raise runtime.KarelRuntimeError('MOVE ALONG PATH changed during capture',line)
+    layout=value.node_spec
+    position=dict(runtime.record_fields(layout)).get('NODE_POS')
+    if position is None or position[0] not in POSES:
+        return _PathOperand(None,(None,)*count)
+
+    captured=[]
+    for node in nodes:
+        # Invalid unselected positions remain irrelevant to the move.
+        if type(node) is not runtime.Structure or node.spec!=layout or type(node.values) is not dict or 'NODE_POS' not in node.values:
+            captured.append('MOVE ALONG node does not match its declared NODE_POS storage')
+            continue
+        current=node.values['NODE_POS']
+        try:
+            captured.append(current if current is runtime.UNINITIALIZED
+                            else runtime._partial_aggregate_value(position,current))
+        except runtime.KarelRuntimeError as error:
+            captured.append(str(error))
+    return _PathOperand(position,tuple(captured))
+
+
 def operand(value, spec, line=None):
     """Validate and freeze each source operand before evaluating the next one."""
     runtime = rt()
@@ -628,12 +666,17 @@ class MotionRequests:
                 indices = path_indices(start, end)
                 if len(indices) > 256:
                     raise ValueError('MOVE ALONG exceeds 256 selected nodes')
-                fields = dict(runtime.record_fields(path.node_spec))
-                spec = fields.get('NODE_POS')
+                captured=type(path) is _PathOperand
+                spec=path.spec if captured else dict(runtime.record_fields(path.node_spec)).get('NODE_POS')
                 if spec is None or spec[0] not in POSES:
                     raise ValueError('MOVE ALONG nodes require positional NODE_POS')
-                data = dict(start=start, end=end, nodes=[operand(path.nodes[index - 1].values['NODE_POS'], spec, line)
-                            for index in indices])
+                positions=[]
+                for index in indices:
+                    node=path.nodes[index-1]
+                    if captured and type(node) is str:raise ValueError(node)
+                    value=node if captured else node.values['NODE_POS']
+                    positions.append(operand(value,spec,line))
+                data=dict(start=start,end=end,nodes=positions)
             if settings:
                 data = dict(data, settings=[dict(row, group=group if row['group'] is None else row['group']) for row in settings])
             if operation in CONTROLS:

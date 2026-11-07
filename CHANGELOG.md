@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.161501 - 2026-11-07
+
+- Capture only NODE_POS for MOVE ALONG and charge the PATH snapshot before
+  evaluating range expressions.
+- Accept direct Cartesian PATH nodes for MOVE NEAR and VIA, including nodes in
+  PATH arrays and parenthesized operands.
+
 ## 26.1107.155541 - 2026-11-07
 
 - Support compatible PATH layouts in GET_VAR and SET_VAR for scalar paths,

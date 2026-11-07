@@ -4877,6 +4877,7 @@ from .serial_io import SerialStreams
 from .position_input import (PositionReadField as _PositionReadField,capture as _capture_position_read,
                              validate_field as _validate_position_read_field,
                              validate_targets as _validate_position_read_targets,prepare_values as _prepare_position_read_values)
-from .motion import (MotionRequests,operand as motion_operand,setting as motion_setting,selector as motion_selector,
+from .motion import (MotionRequests,operand as motion_operand,path_operand as motion_path_operand,
+                     setting as motion_setting,selector as motion_selector,
                      SETTINGS as MOTION_SETTINGS,KINDS as MOTION_KINDS,
                      SETTING_CONSTANTS as MOTION_SETTING_CONSTANTS)

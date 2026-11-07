@@ -8,8 +8,8 @@ perform reachability checks or map hands to physical signals.
 
 | Source form | Captured data |
 | --- | --- |
-| `MOVE TO point [VIA point] [NOWAIT]` | Complete POSITION, XYZWPR, XYZWPREXT or exact configured-width JOINTPOS destination; optional Cartesian via point. A direct `path[index]` destination extracts NODE_POS. |
-| `MOVE NEAR point BY distance [NOWAIT]` | Complete Cartesian point and finite numeric distance. |
+| `MOVE TO point [VIA point] [NOWAIT]` | Complete POSITION, XYZWPR, XYZWPREXT or exact configured-width JOINTPOS destination; optional Cartesian via point. Direct PATH nodes supply NODE_POS for either operand. |
+| `MOVE NEAR point BY distance [NOWAIT]` | Complete Cartesian point or direct PATH node with Cartesian NODE_POS, plus finite numeric distance. |
 | `MOVE AWAY distance [NOWAIT]` | Finite numeric distance. |
 | `MOVE ABOUT vector BY angle [NOWAIT]` | Complete VECTOR and finite numeric angle. |
 | `MOVE AXIS axis BY distance [NOWAIT]` | One-based INTEGER axis within the explicit group width and finite distance. |
@@ -23,8 +23,10 @@ perform reachability checks or map hands to physical signals.
 
 Source operands are evaluated once from left to right and detached before the
 next operand is evaluated. PATH storage is captured before its range expressions;
-only selected NODE_POS values must be initialized. Other node/header data does
-not participate. Distances and angles remain request data: the service does not
+the capture charges one execution step per node before snapshotting NODE_POS.
+Only selected positions must be valid and complete. Other fields and PATH headers
+are excluded from the snapshot. Direct node operands can select nodes from PATH
+arrays, and parentheses preserve node selection. Distances and angles remain request data: the service does not
 derive destinations, infer units for unknown axes or apply native interpolation
 and motion-environment settings.
 

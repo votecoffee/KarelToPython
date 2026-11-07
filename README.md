@@ -395,7 +395,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.155541**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.161501**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1244,6 +1244,8 @@ components while retaining exact source data and lossless PNG output.
 
 [Offline motion requests](docs/motion-requests.md) now cover all seven basic MOVE
 forms, VIA, PATH ranges, hand statements and logical ATTACH/RELEASE ownership.
+MOVE ALONG budgets its NODE_POS snapshots, and direct PATH nodes can supply
+MOVE TO, MOVE NEAR and VIA operands.
 An explicit service captures detached requests or consumes supplied
 completion responses, immediate by default or with an explicit finite delay. It does not calculate trajectories or update robot feedback.
 

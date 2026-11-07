@@ -4021,15 +4021,19 @@ class Emitter:
                     code=self.require_type(expr,'REAL');spec=('REAL',)
                 else:
                     code,spec=self.expression(expr)
-                    if (operation=='MOVE TO' and key=='target' and expr.kind=='index'
-                            and self.access_type(expr.args[0])[0]=='PATH'):
-                        fields=dict(rt.record_fields(spec));spec=fields.get('NODE_POS',())
-                        if not spec:self.error('E_MOTION_TYPE','MOVE TO PATH node requires NODE_POS',expr.token)
-                        code=f'_rt.load_field({code},"NODE_POS",{line})'
+                    selected=expr
+                    while selected.kind=='group':selected=selected.args[0]
+                    if key in ('target','via') and selected.kind=='index':
+                        base=self.access_type(selected.args[0])
+                        if base[0]=='PATH' or rt.collection_array_node_type(base,len(selected.args)-1) is not None:
+                            fields=dict(rt.record_fields(spec));spec=fields.get('NODE_POS',())
+                            if not spec:self.error('E_MOTION_TYPE',operation+' PATH node requires NODE_POS',expr.token)
+                            code=f'_rt.load_field({code},"NODE_POS",{line})'
                     allowed=('PATH',) if key=='path' else ('VECTOR',) if key=='vector' else ('VECTOR','POSITION','XYZWPR','XYZWPREXT') if key=='offset' else ('POSITION','XYZWPR','XYZWPREXT') if operation=='MOVE NEAR' or key=='via' else ('POSITION','XYZWPR','XYZWPREXT','JOINTPOS')
                     if spec[0] not in allowed:self.error('E_MOTION_TYPE','Unsupported '+operation+' '+key+' type: '+spec[0],expr.token)
                 temporary=self.fresh()
-                self.line(f'{temporary}=_rt.motion_operand({code},{spec!r},{line})',expr.token)
+                if key=='path':self.line(f'{temporary}=_rt.motion_path_operand(self._state,{code},{spec!r},{line})',expr.token)
+                else:self.line(f'{temporary}=_rt.motion_operand({code},{spec!r},{line})',expr.token)
                 captured.append(repr(key)+':'+temporary)
             self.features.add('offline motion requests')
             request_use=dict(body=self.current_routine.name if self.current_routine else self.program.name,
@@ -5313,7 +5317,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         motion_requests=emitter.motion_uses,
         motion_request_policy=dict(model='Explicit offline capture-only or supplied scripted completion responses',
             ownership='Explicit GroupLocks ownership; ATTACH and RELEASE validate atomically',
-            data='Complete detached positional operands, source order captured once, bounded PATH NODE_POS snapshots in ascending or descending travel order',
+            data='Complete detached positional operands captured once in source order. MOVE ALONG charges one step per node before snapshotting only NODE_POS; selected nodes validate in travel order. Direct PATH nodes also supply MOVE NEAR and VIA Cartesian operands.',
             controls='HOLD and UNHOLD manage independent flags. Grouped STOP and RESUME freeze and continue owned logical scopes. CANCEL preserves stopped work, which CNCL_STP_MTN can discard.',
             settings='Checked local WITH values, including termination/orientation choices, captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
             boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or native queued motion',

@@ -295,6 +295,57 @@ BEGIN APPEND_NODE(route,s) ATTACH MOVE ALONG route END NO_NODE_POSITION''')
         self.assertEqual(ctx.motion.history[-1]['data']['target']['type'],['POSITION'])
         self.assertEqual(ctx.motion.history[-1]['data']['target']['value']['LOCATION']['X'],10.)
 
+    def test_move_near_and_via_extract_grouped_path_array_nodes(self):
+        setup=SETUP+('APPEND_NODE(routes[1],s) routes[1,1].node_pos=p '
+                     'APPEND_NODE(routes[1],s) routes[1,2].node_pos=q ')
+        body='ATTACH MOVE NEAR (routes[1,1]) BY 2 MOVE TO routes[1,2] VIA (routes[1,1])'
+        _,ctx,_,_=execute(body,setup=setup,decl=DECL+' routes:ARRAY[1] OF PATH')
+        near,move=ctx.motion.history[-2:]
+        self.assertEqual(near['data']['target']['value']['LOCATION']['X'],10.)
+        self.assertEqual(move['data']['target']['value']['LOCATION']['X'],40.)
+        self.assertEqual(move['data']['via']['value']['LOCATION']['X'],10.)
+
+    def test_move_along_skips_copying_unrelated_node_and_header_fields(self):
+        class Uncopyable(int):
+            def __deepcopy__(self,memo):
+                raise AssertionError('copied unrelated PATH data')
+
+        prefix=('TYPE node_t=STRUCTURE node_pos:XYZWPR metadata:INTEGER ENDSTRUCTURE '
+                'header_t=STRUCTURE metadata:INTEGER ENDSTRUCTURE')
+        decl='route:PATH NODEDATA=node_t PATHHEADER=header_t p,q:XYZWPR c:CONFIG v:VECTOR s:INTEGER'
+        p,ctx,_=program('ATTACH MOVE ALONG route',prefix=prefix,decl=decl,
+                        setup=SETUP+'route[1].node_pos=p ')
+        path=p._state.values['ROUTE'];path.append()
+        path.nodes[0].values['METADATA']=Uncopyable(17)
+        path.data.values['METADATA']=Uncopyable(42)
+        p.run()
+        self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['X'],10.)
+
+    def test_move_along_freezes_positions_before_range_selector_mutates_path(self):
+        setup=SETUP+'APPEND_NODE(route,s) route[1].node_pos=p '
+        routines='ROUTINE change_node:INTEGER BEGIN route[1].node_pos=q RETURN 1 END change_node'
+        values,ctx,_,_=execute('ATTACH MOVE ALONG route[change_node()..1]',setup=setup,routines=routines)
+        self.assertEqual(values['ROUTE']['nodes'][0]['NODE_POS']['LOCATION']['X'],40.)
+        self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],10.)
+
+    def test_invalid_unselected_position_does_not_block_selected_request(self):
+        p,ctx,_=program('ATTACH MOVE ALONG route[2..2]',setup=SETUP+'route[2].node_pos=q ')
+        path=p._state.values['ROUTE'];path.append();path.append()
+        path.nodes[0].values['NODE_POS']='invalid'
+        p.run()
+        self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],40.)
+
+    def test_move_along_capture_budget_precedes_ranges_and_preserves_response(self):
+        ctx=context(capture_only=False,responses=[dict(operation='MOVE ALONG',completed=True)])
+        routines='ROUTINE pick:INTEGER BEGIN n=n+1 RETURN 1 END pick'
+        p,_,_=program('n=0 ATTACH MOVE ALONG route[pick()..1]',setup='',routines=routines,ctx=ctx)
+        for _ in range(12):p._state.values['ROUTE'].append()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            p.run(max_steps=6)
+        self.assertEqual(p._state.values['N'],0)
+        self.assertEqual(len(ctx.motion.responses),1)
+        self.assertEqual([row['operation'] for row in ctx.motion.history],['ATTACH'])
+
     def test_full_path_and_start_only_ranges(self):
         setup=SETUP+'APPEND_NODE(route,s) route[1].node_pos=p APPEND_NODE(route,s) route[2].node_pos=q '
         for selection,expected in [('route',(1,2)),('route[2]',(2,2)),('route[1..1]',(1,1))]:
