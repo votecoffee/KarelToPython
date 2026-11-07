@@ -88,7 +88,8 @@ receiver intact; earlier explicit callback/source effects remain visible.
 ## Case capture and matching
 
 All ordinary source arguments evaluate and undergo interface checks first. A case
-adapter snapshots every supplied ordinary data reference without changing it.
+adapter charges one step per incoming snapshot unit before copying any of the
+supplied ordinary data references.
 The complete concrete schema participates in matching, including nominal names,
 STRING capacities, actual dimensions, known values and explicit missing markers.
 Generic formals retain the caller's actual schema. Computed/grouped/converted
@@ -112,9 +113,9 @@ A call without a match or a default raises a source-line runtime error.
 
 A selected null result must be used by a procedure;
 a function still requires its declared data result. A procedure still rejects a
-non-None result. Case matching calls no host services and adds no checkpoints,
-clock reads or pauses. Ordinary handlers, FOR guards, pause/resume, stop,
-sticky abort and frame cleanup retain their existing contracts.
+non-None result. Argument preparation uses ordinary execution checkpoints.
+If the budget runs out during preparation, the case reply leaves the result
+and output arguments intact. Earlier source effects remain visible.
 
 ## Bounds, saved state and evidence
 

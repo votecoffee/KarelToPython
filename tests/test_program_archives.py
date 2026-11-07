@@ -4,9 +4,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt
-from karel2py.archives import encode,FORMAT
+from karel2py.archives import decode,encode,read_file,FORMAT
 from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program,run
 
@@ -206,6 +207,50 @@ class RecursiveProgramArchiveTests(unittest.TestCase):
 
 
 class ProgramArchiveFileTests(unittest.TestCase):
+    def test_load_charges_bytes_before_decode_and_preserves_status(self):
+        ctx=context()
+        data=encode(ctx.teach_programs,'A')+b' '*40960
+        ctx.files.files['FR:A.TP']=bytearray(data)
+        p,_=compile_program("LOAD('FR:A.TP',1,s)",context=ctx)
+        p._state.values['S']=99
+        before=ctx.teach_programs.to_config()
+        with patch('karel2py.archives.decode',side_effect=AssertionError('decoded before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual((p.snapshot()['S'],ctx.teach_programs.to_config()),(99,before))
+        self.assertEqual(p.run()['S'],0)
+
+    def test_recursive_restore_budget_failure_keeps_staged_root_private(self):
+        source=chain()
+        files={f'FR:{name}.TP':encode(source.teach_programs,name) for name in ('A','B','C')}
+        files['FR:B.TP']+=b' '*40960
+        ctx=context({},files=rt.MemoryFiles(files))
+        p,_=compile_program("PROG_RESTORE('FR:A',s)",context=ctx)
+        p._state.values['S']=99
+        with patch('karel2py.archives.decode',wraps=decode) as decoder:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual(decoder.call_count,1)
+        self.assertEqual((p.snapshot()['S'],ctx.teach_programs.entries),(99,()))
+        self.assertEqual(p.run()['S'],0)
+
+    def test_save_and_recursive_backup_charge_before_publication(self):
+        for operation in ("SAVE('*','FR:*.TP',s)","PROG_BACKUP('FR:A',PBR_ALLTYPE,0,TRUE,s)"):
+            with self.subTest(operation=operation):
+                ctx=context({'A':{},'B':{'instructions':['X'*250]*180}},calls={'A':['B']})
+                p,_=compile_program(operation,context=ctx)
+                p._state.values['S']=99
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+                self.assertEqual((p.snapshot()['S'],ctx.files.files),(99,{}))
+                self.assertEqual(p.run()['S'],0)
+                self.assertEqual(set(ctx.files.files),{'FR:A.TP','FR:B.TP'})
+
+    def test_archive_read_revalidates_file_after_checkpoint(self):
+        ctx=context(files=rt.MemoryFiles({'FR:A.TP':b'original'}))
+
+        def replace():
+            ctx.files.files['FR:A.TP']=bytearray(b'replaced')
+
+        self.assertEqual(read_file(ctx.files,'FR:A.TP',100,check=replace),(4,None))
+
     def test_busy_archive_target_and_source_preserve_files_and_store(self):
         ctx=context();execute(ctx,"SAVE('A','FR:A.TP',s)");handle=rt.FileHandle();ctx.files.open(handle,'R','FR:A.TP')
         before=ctx.teach_programs.to_config();data=bytes(ctx.files.files['FR:A.TP'])

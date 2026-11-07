@@ -1101,6 +1101,14 @@ def external_reply_result(spec,reply,arguments,line=None,*,check=None):
         raise KarelRuntimeError('External reply: '+str(error),line) from error
 
 
+class _ExternalValueCase:
+    def __init__(self,select):
+        self.select=select
+
+    def __call__(self,*arguments):
+        return self.select(arguments)
+
+
 def external_value_callbacks(config):
     """Prepare fixed replies or exact argument cases with an optional default."""
     import json
@@ -1135,21 +1143,29 @@ def external_value_callbacks(config):
         return json.dumps(normalize(arguments),sort_keys=True,separators=(',',':'),allow_nan=False)
     def cases_callback(table,arity,default):
         @_with_numeric_mode('pythonic')
-        def callback(*arguments):
+        def select(arguments,*,check=None):
             from .variable_archives import ordinary
             if len(arguments)!=arity:raise KarelRuntimeError('External value case argument count differs')
-            snapshots=[];incoming=0
-            for reference in arguments:
-                if not ordinary(reference):raise KarelRuntimeError('External value cases require ordinary typed data arguments')
-                incoming+=_external_value_units(reference.spec,reference.raw())
-                if incoming>32767:raise KarelRuntimeError('External value arguments exceed 32767 scalar leaves')
-            for reference in arguments:
-                copied=_external_value_snapshot(reference.spec,reference.raw())
-                snapshots.append(typed_value(copied,reference.spec))
+            def plan():
+                values=[];units=0
+                for reference in arguments:
+                    if not ordinary(reference):raise KarelRuntimeError('External value cases require ordinary typed data arguments')
+                    spec,value=reference.spec,reference.raw()
+                    units+=_external_value_units(spec,value)
+                    if units>32767:raise KarelRuntimeError('External value arguments exceed 32767 scalar leaves')
+                    values.append((spec,value))
+                return values,units
+
+            values,units=plan()
+            if check is not None:
+                for _ in range(units):check()
+                values,current_units=plan()
+                if current_units!=units:raise KarelRuntimeError('External value argument size changed during preparation')
+            snapshots=[typed_value(_external_value_snapshot(spec,value),spec) for spec,value in values]
             selected=table.get(key(snapshots),default)
             if selected is unmatched:raise KarelRuntimeError('No external value case matches the captured arguments')
             return deepcopy(selected)
-        return callback
+        return _ExternalValueCase(select)
     with _numeric_scope('pythonic'):
         try:
             for program,routines in config.items():
@@ -4605,7 +4621,10 @@ class State:
         if callback is None: raise KarelRuntimeError('External routine is not explicitly linked: '+program+'.'+name,line)
         try:
             linked=getattr(callback,'_karel_link',False)
-            result=callback.invoke(self,arguments,line) if linked else callback(*arguments)
+            if linked:result=callback.invoke(self,arguments,line)
+            elif type(callback) is _ExternalValueCase and _pythonic():
+                result=callback.select(arguments,check=lambda:self.tick(line))
+            else:result=callback(*arguments)
             if inspect.isgenerator(result): result=yield from result
         except KarelAbort as exc:
             self._aborted=True; self._abort_line=exc.line; raise

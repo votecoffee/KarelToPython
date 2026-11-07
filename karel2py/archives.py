@@ -1,7 +1,8 @@
 """Portable logical TP archives; never load native code or execute instructions."""
-from copy import deepcopy
 import json
 import re
+
+from .fileops import charge_file_bytes
 
 
 ARCHIVE_CONSTANTS={name:index for index,name in enumerate(('PBR_VRTYPE','PBR_MNTYPE','PBR_JBTYPE',
@@ -133,9 +134,9 @@ def decode(bank,data):
     return name,validated._programs[name],validated._calls[name]
 
 
-def read_file(files,name,limit):
+def read_file(files,name,limit,*,check=None):
     from .remote_messages import read_file as read
-    code,_,data=read(files,name,delete=False,limit=limit)
+    code,_,data=read(files,name,delete=False,limit=limit,check=check)
     return (4 if code==3 else code),data
 
 
@@ -199,7 +200,7 @@ def filter_kind(kind,selector):
     return kind in selected[selector] if selector in selected else None
 
 
-def save(context,state,bank,program,spec):
+def save(context,state,bank,program,spec,line=None):
     from .teach import name_key
     try:prefix,base,extension=specification(spec,wildcard=True)
     except ValueError:return 2
@@ -219,14 +220,16 @@ def save(context,state,bank,program,spec):
         size+=len(data)
         if size>bank.archive_limit:return 5
         plan.append((prefix+(name if program=='*' else base)+'.TP',data))
-    return write_files(context.require('files'),plan)
+    files=context.require('files',line)
+    charge_file_bytes(size,lambda:state.tick(line))
+    return write_files(files,plan)
 
 
-def load(context,state,bank,spec,overwrite):
+def load(context,state,bank,spec,overwrite,line=None):
     try:prefix,base,extension=specification(spec)
     except ValueError:return 2
     if extension!='TP':return 4
-    code,data=read_file(context.require('files'),prefix+base+'.TP',bank.archive_limit)
+    code,data=read_file(context.require('files',line),prefix+base+'.TP',bank.archive_limit,check=lambda:state.tick(line))
     if code:return code
     try:name,row,calls=decode(bank,data)
     except (ValueError,TypeError,rt().KarelRuntimeError):return 6
@@ -259,7 +262,7 @@ def clear(context,state,bank,spec,selector=None):
     return 0
 
 
-def backup(context,state,bank,spec,selector,reserve_kb,include_protected):
+def backup(context,state,bank,spec,selector,reserve_kb,include_protected,line=None):
     try:prefix,root,_=specification(spec)
     except ValueError:return 2
     if filter_kind('TP',selector) is None:return 4
@@ -277,14 +280,16 @@ def backup(context,state,bank,spec,selector,reserve_kb,include_protected):
         if size>bank.archive_limit:return 5
         plan.append((prefix+name+'.TP',data))
     if not plan:return 0
-    return write_files(context.require('files'),plan,overwrite=True,reserve_kb=reserve_kb)
+    files=context.require('files',line)
+    charge_file_bytes(size,lambda:state.tick(line))
+    return write_files(files,plan,overwrite=True,reserve_kb=reserve_kb)
 
 
-def restore(context,state,bank,spec):
+def restore(context,state,bank,spec,line=None):
     try:prefix,root,_=specification(spec)
     except ValueError:return 2
-    files=context.require('files');prepared={};seen=set();pending=[root];size=0
-    graph=deepcopy(bank._calls)
+    files=context.require('files',line);prepared={};seen=set();pending=[root];size=0
+    calls_by_program={};check=lambda:state.tick(line)
     while pending:
         name=pending.pop()
         if name in seen:continue
@@ -293,7 +298,7 @@ def restore(context,state,bank,spec):
         if name in bank._programs:
             row=bank._programs[name];calls=bank._calls.get(name,[])
         else:
-            code,data=read_file(files,prefix+name+'.TP',bank.archive_limit-size)
+            code,data=read_file(files,prefix+name+'.TP',bank.archive_limit-size,check=check)
             if code:return code
             size+=len(data)
             try:identity,row,calls=decode(bank,data)
@@ -302,11 +307,15 @@ def restore(context,state,bank,spec):
             if name!=root and row['type']=='MR':continue
             code=guard(context,state,bank,name,write=True)
             if code:return code
-            prepared[name]=row;graph[name]=calls
+            prepared[name]=row;calls_by_program[name]=calls
         if name!=root and row['type']=='MR':continue
         pending.extend(reversed(calls))
     if len(bank._programs)+len(prepared)>bank.program_limit:return 5
-    try:graph=call_graph(graph,bank.program_limit)
+    for name in prepared:
+        if name in bank._programs:return 4
+        code=guard(context,state,bank,name,write=True)
+        if code:return code
+    try:graph=call_graph({**bank._calls,**calls_by_program},bank.program_limit)
     except ValueError:return 5
     bank._programs.update(prepared);bank._calls=graph
     for name in prepared:refresh_flags(context,bank,name)
@@ -323,8 +332,8 @@ def kcl_program_archive(state,operation,args,line=None):
     if extension not in ('','TP'):return 2
     path=prefix+base+'.TP'
     if operation=='SAVE_TP':
-        return save(context,state,bank,args[1] or base,path)
-    return load(context,state,bank,path,args[1])
+        return save(context,state,bank,args[1] or base,path,line)
+    return load(context,state,bank,path,args[1],line)
 
 
 def invoke(state,operation,args,line=None):
@@ -335,10 +344,10 @@ def invoke(state,operation,args,line=None):
         from .mixed_archives import invoke as invoke_mixed
         if invoke_mixed(state,operation,args,line):return
     bank=context.require('teach_programs',line)
-    if operation=='SAVE':code=save(context,state,bank,*args[:-1])
-    elif operation=='LOAD':code=load(context,state,bank,args[0],args[1]==1)
+    if operation=='SAVE':code=save(context,state,bank,*args[:-1],line=line)
+    elif operation=='LOAD':code=load(context,state,bank,args[0],args[1]==1,line)
     elif operation=='CLEAR':code=clear(context,state,bank,args[0])
     elif operation=='PROG_CLEAR':code=clear(context,state,bank,*args[:-1])
-    elif operation=='PROG_BACKUP':code=backup(context,state,bank,*args[:-1])
-    else:code=restore(context,state,bank,args[0])
+    elif operation=='PROG_BACKUP':code=backup(context,state,bank,*args[:-1],line=line)
+    else:code=restore(context,state,bank,args[0],line)
     args[-1].set(code,line)

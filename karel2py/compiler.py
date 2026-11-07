@@ -7738,7 +7738,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['external_value_policy']=dict(
         source='Pythonic typed JSON callback data results plus explicit --external-values for fixed data, no-op procedures and exact argument/result cases with optional default replies',
         interfaces='Complete concrete metadata, exact declared scalar/record/joint schemas and existing ARRAY wildcard/inherited-capacity result rules; ordinary raw callbacks and source links retain their contracts',
-        capture='Validate supplied bindings before installation; fresh detached results; case arguments snapshot once after normal source evaluation, including partial data and concrete caller schemas',
+        capture='Validate supplied bindings before installation; fresh detached results; case arguments charge each snapshot unit after normal source evaluation and before copying, including partial data and concrete caller schemas',
         matching='Canonical typed snapshots use exact schemas, independent field order and normalized REAL zero sign. Explicit typed results charge one step per declared leaf before decoding. Validated exact cases take precedence over an explicit default. Default output batches follow external_output_policy.',
         bounds='128 bindings and fixed/case/default rows, 64 arguments per case, 32767 stored/incoming data or logical snapshot units, existing 64-level schema limit and bounded UTF-8 JSON reads within 4 MiB',
         persistence='Global result data only; callbacks/case tables are not persisted, supply the binding file again for saved-context replay',

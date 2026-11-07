@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1107.035429 - 2026-11-07
+
+- Charge external case arguments before copying or matching snapshots.
+- Charge portable TP reads before copying bytes and writes before publishing
+  archives. Budget failures preserve staged TP batches and status outputs.
+
 ## 26.1107.033429 - 2026-11-07
 
 - Charge standalone typed data and logical external callback results before

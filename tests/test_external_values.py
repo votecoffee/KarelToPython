@@ -345,6 +345,20 @@ class ExternalValueFileTests(unittest.TestCase):
 
 
 class ExternalValueBoundaryTests(unittest.TestCase):
+    def test_execution_charges_case_arguments_before_snapshot(self):
+        spec=['ARRAY',16,['INTEGER']]
+        binding=cases(([row(spec,[3]*16)],integer(17)))
+        p,_=build(binding,params='(value:ARRAY OF INTEGER)',
+                  decl='target:INTEGER source:ARRAY[16] OF INTEGER',body='target=fetch(source)')
+        source=p._state.values['SOURCE']
+        source.values[:]=[3]*16
+        p._state.values['TARGET']=7
+        with patch('karel2py.runtime._external_value_snapshot',side_effect=AssertionError('snapshot before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual(p.snapshot()['TARGET'],7)
+        self.assertEqual(source.values,[3]*16)
+        self.assertEqual(p.run()['TARGET'],17)
+
     def test_incoming_budget_precedes_argument_copies(self):
         callback=prepare(cases(([integer(1),integer(2)],integer(17))))['HOST','FETCH']
         with rt._numeric_scope('pythonic'):array=rt.Array(('ARRAY',16384,rt.INTEGER))

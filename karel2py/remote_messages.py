@@ -81,8 +81,8 @@ def xml_document(data):
     except (UnicodeError,ElementTree.ParseError,ValueError):return False
 
 
-def read_file(files,name,*,delete,limit):
-    """Preflight only the two explicit in-memory backends, without callbacks."""
+def read_file(files,name,*,delete,limit,check=None):
+    """Preflight the two explicit in-memory backends before copying file bytes."""
     runtime=rt()
     from .extended import MemoryFiles
     from .devices import DeviceFiles
@@ -93,9 +93,18 @@ def read_file(files,name,*,delete,limit):
         if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],write=delete)
         if files._busy(key):return 3,None,None
         if key not in files.files:return 1,None,None
-        if len(files.files[key])>min(files.limit,limit):return 5,None,None
-        return 0,key,bytes(files.files[key])
+        data=files.files[key];size=len(data)
+        if size>min(files.limit,limit):return 5,None,None
     except runtime.KarelRuntimeError:return 4,None,None
+    if check is not None:
+        from .fileops import charge_file_bytes
+        charge_file_bytes(size,check)
+        try:
+            if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],write=delete)
+            if files._busy(key):return 3,None,None
+            if files.files.get(key) is not data or len(data)!=size:return 4,None,None
+        except runtime.KarelRuntimeError:return 4,None,None
+    return 0,key,bytes(data)
 
 
 class RemoteMessages:

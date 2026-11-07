@@ -139,6 +139,11 @@ committing. A bad dependency, existing SAVE target, invalid archive, count or
 quota limit preserves all earlier state and files. This is a chosen Pythonic
 policy; native routines can complete only part of a batch.
 
+TP transfers charge one execution step per 4 KiB of archive data, rounded up
+per source file on reads and across the staged batch on writes. Reads charge
+before copying and decoding. A budget failure leaves the status target and the
+existing files and teach programs intact.
+
 Device preflight combines the entire batch's quota changes. Replacement respects
 retained-deletion garbage accounting, and identical files add no garbage.
 Each file must fit the file bank's limit; the complete archive batch must fit

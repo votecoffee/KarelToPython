@@ -199,7 +199,8 @@ and private argument rules.
 
 [Explicit external data](docs/external-values.md) accepts budgeted typed callback results and
 CLI JSON bindings for fixed data, no-op procedures and exact argument cases
-with optional explicit fallback responses.
+with optional explicit fallback responses. Case argument snapshots count
+against the execution budget before copying.
 Scalars, records, ARRAYs and pose/joint data retain checked independent values;
 legacy collection bindings can be supplied alongside disjoint data bindings.
 
@@ -392,7 +393,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.033429**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.035429**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -908,7 +909,8 @@ controller-style FILE names, MD retention and explicit host collection. See
 [mobile messages and attachments](docs/remote-messages.md).
 SAVE/LOAD/CLEAR and recursive PROG_BACKUP/PROG_RESTORE/PROG_CLEAR support
 portable TP data archives, explicit dependency graphs, guarded batch operations
-and saved-state replay; see [program archives](docs/program-archives.md).
+and saved-state replay. TP transfers charge the execution budget before copying
+input bytes or publishing staged files. See [program archives](docs/program-archives.md).
 Portable VR forms also save/load/reset owned KAREL globals and explicit variable
 namespaces, including recursive variable-only batches. SAVE_DRAM records guarded
 offline save points; see [variable archives](docs/variable-archives.md).
