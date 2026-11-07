@@ -489,15 +489,21 @@ class DirectoryFiles:
         if len(data)>self.limit: raise ValueError('File size limit exceeded')
         return data
 
-    def _prepare_named_read(self,name):
+    def _inspect_named_read(self,name):
         key=self._key(name)
         if self._busy(key):return 3,None
         path=self._path(key)
         try:info=path.stat()
         except FileNotFoundError:return 1,None
+        return 0,(key,path,info)
+
+    def _prepare_named_read(self,name):
+        code,plan=self._inspect_named_read(name)
+        if code:return code,None
+        _,_,info=plan
         if not S_ISREG(info.st_mode) or info.st_size>self.limit:
             raise ValueError('Invalid file or file size limit exceeded')
-        return 0,(key,path,info)
+        return 0,plan
 
     def _read_prepared(self,plan):
         key,path,info=plan

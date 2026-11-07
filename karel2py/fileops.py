@@ -1166,27 +1166,36 @@ def kcl_procedure_endpoint(state,name,suffix,line=None):
     return named_file_endpoint(state.execution,name,line)
 
 
-def kcl_read_bytes(files,key,limit,line=None):
+def kcl_read_bytes(files,key,limit,line=None,*,check=None):
     from .devices import DeviceFiles
     from .storage import DirectoryFiles
 
-    if files._busy(key):return 4,None,None
     limit=min(limit,files.limit)
     if type(files) is DirectoryFiles:
-        path=files._path(key)
-        if not path.exists():return 1,None,None
-        if not path.is_file():return 4,None,None
-        stat=path.stat()
-        if stat.st_size>limit:return 5,None,None
-        with path.open('rb') as stream:data=stream.read(limit+1)
-        identity=(stat.st_dev,stat.st_ino) if stat.st_ino else path
+        code,plan=files._inspect_named_read(key)
+        if code:return (4 if code==3 else code),None,None
+        _,path,info=plan
+        if not stat.S_ISREG(info.st_mode):return 4,None,None
+        if info.st_size>limit:return 5,None,None
+        charge_file_bytes(info.st_size,check)
+        try:code,data=files._read_prepared(plan)
+        except (OSError,ValueError):return 4,None,None
+        if code:return 4,None,None
+        identity=(info.st_dev,info.st_ino) if info.st_ino else path
     else:
-        if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],line=line)
+        if files._busy(key):return 4,None,None
+        device=key.split(':',1)[0] if type(files) is DeviceFiles else None
+        if device is not None:files.require_volume(device,line=line)
         value=files.files.get(key)
         if value is None:return 1,None,None
-        if len(value)>limit:return 5,None,None
+        size=len(value)
+        if size>limit:return 5,None,None
+        charge_file_bytes(size,check)
+        if check is not None:
+            if files._busy(key) or files.files.get(key) is not value or len(value)!=size or size>files.limit:
+                return 4,None,None
+            if device is not None:files.require_volume(device,line=line)
         data=bytes(value);identity=key
-    if len(data)>limit:return 5,None,None
     return 0,data,identity
 
 

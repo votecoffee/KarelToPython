@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.031659 - 2026-11-07
+
+- Charge RUNCF and its includes by source bytes before reading and verify
+  rooted procedure inputs against their planned metadata.
+- Charge structured external replies and their existing output targets
+  against the execution step budget before decoding or publishing the batch.
+
 ## 26.1107.030357 - 2026-11-07
 
 - Plan rooted COMPARE_FILE and KCL APPEND inputs before reading payloads.

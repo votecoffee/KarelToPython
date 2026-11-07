@@ -428,7 +428,7 @@ def procedure_plan(state,channel,args,line):
         count+=1
         if len(active)>=4 or count>32:raise ProcedureError(705)
         state.tick(line)
-        status,data,identity=kcl_read_bytes(files,key,remaining,line)
+        status,data,identity=kcl_read_bytes(files,key,remaining,line,check=lambda:state.tick(line))
         if status:raise ProcedureError(700+status)
         if identity in active:raise ProcedureError(706)
         remaining-=len(data)

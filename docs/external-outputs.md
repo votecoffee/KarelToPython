@@ -105,8 +105,9 @@ existing timer/frame cleanup retain their normal rules.
 The existing data configuration limits remain: 128 bindings/fixed/case rows,
 64-level schemas and 32767 stored scalar leaves. Each response's result and
 outputs share a 32767-unit budget checked before decoding, including
-[logical descriptors and contents](external-logical-values.md). A response call has
-at most 64 arguments and at most 64 outputs. The input file remains strict UTF-8
+[logical descriptors and contents](external-logical-values.md). Runtime charges
+one execution step per supplied unit and per unit in the existing output targets
+before decoding. A response call has at most 64 arguments and at most 64 outputs. The input file remains strict UTF-8
 JSON within 4 MiB, with duplicate-key/nonfinite checks and state/trace output
 alias protection, including hard links. All definitions validate before loading.
 

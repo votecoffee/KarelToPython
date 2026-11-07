@@ -96,6 +96,26 @@ class KclProcedureTests(unittest.TestCase):
         self.assertEqual(issue(ctx,'RUNCF start log')['S'],705)
         self.assertNotIn('log.LS',ctx.files.files)
 
+    def test_rooted_include_budget_is_checked_before_opening_payload(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            (root/'start.CF').write_bytes(b'COPY seed.txt TO copied.txt\n%INCLUDE child\n')
+            child=root/'child.CF'
+            child.write_bytes(b'-- '+b' ' * 16384+b'\n')
+            (root/'seed.txt').write_bytes(b'ready')
+            ctx=context(rt.DirectoryFiles(root))
+            task=program("KCL('RUNCF start result',s)",context=ctx)
+            original_open=Path.open
+            def reject_child_open(path,*args,**kwargs):
+                if path==child:self.fail('RUNCF opened an include before charging')
+                return original_open(path,*args,**kwargs)
+            with patch.object(Path,'open',new=reject_child_open):
+                self.assertEqual(task.run(max_steps=6)['S'],4)
+            self.assertFalse((root/'copied.txt').exists())
+            self.assertFalse((root/'result.LS').exists())
+            self.assertEqual(issue(ctx,'RUNCF start result')['S'],0)
+            self.assertEqual((root/'copied.txt').read_bytes(),b'ready')
+
     def test_rooted_include_listing_and_publication_race(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)

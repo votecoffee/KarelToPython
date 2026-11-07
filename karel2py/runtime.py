@@ -1006,39 +1006,52 @@ def _external_reply_outputs(outputs,arity=None):
     return sorted(rows,key=lambda row:row['argument'])
 
 
-def external_reply_result(spec,reply,arguments,line=None):
+def external_reply_result(spec,reply,arguments,line=None,*,check=None):
     """Stage a declared result and disjoint data/logical outputs before publication."""
     if not _pythonic():raise KarelRuntimeError('External reply outputs require Pythonic mode',line)
     from .storage import tuple_spec
     from .variable_archives import ordinary,cells,replace_collections
     try:
-        if type(reply) is not dict or set(reply)!={'result','outputs'}:raise ValueError('External reply requires exactly result and outputs')
-        if type(arguments) not in (list,tuple) or len(arguments)>64:raise ValueError('External reply requires at most 64 source arguments')
-        rows=_external_reply_outputs(reply['outputs'],len(arguments))
-        # Bound all supplied data before any decoding or target snapshot allocation.
-        units=1 if reply['result'] is None else 0
-        encoded=([reply['result']] if reply['result'] is not None else [])+[row['value'] for row in rows]
-        for value in encoded:
-            if type(value) is not dict or set(value)!={'type','value'} or type(value['type']) is not list:
-                raise ValueError('External reply data requires exactly type and value')
-            units+=_external_value_units(tuple_spec(value['type']),value['value'],line)
-            if units>32767:raise ValueError('External reply exceeds 32767 snapshot units including result and outputs')
+        def plan():
+            if type(reply) is not dict or set(reply)!={'result','outputs'}:raise ValueError('External reply requires exactly result and outputs')
+            if type(arguments) not in (list,tuple) or len(arguments)>64:raise ValueError('External reply requires at most 64 source arguments')
+            rows=_external_reply_outputs(reply['outputs'],len(arguments))
+            result_input=reply['result']
+            # Bound supplied data before allocating any detached snapshot.
+            units=1 if result_input is None else 0
+            encoded=([result_input] if result_input is not None else [])+[row['value'] for row in rows]
+            for value in encoded:
+                if type(value) is not dict or set(value)!={'type','value'} or type(value['type']) is not list:
+                    raise ValueError('External reply data requires exactly type and value')
+                units+=_external_value_units(tuple_spec(value['type']),value['value'],line)
+                if units>32767:raise ValueError('External reply exceeds 32767 snapshot units including result and outputs')
+            targets=[]
+            for row in rows:
+                target=arguments[row['argument']-1]
+                if not ordinary(target):raise ValueError('External reply output requires an ordinary writable data reference')
+                value=row['value']
+                actual=tuple_spec(value['type']);current=target.raw()
+                units+=_external_value_units(target.spec,current,line)
+                if target.spec!=actual:raise ValueError('External reply output differs from its captured argument schema')
+                if type(current) is Structure and current.read_only:raise ValueError('External reply cannot write a read-only record value')
+                targets.append((target,current,value))
+            return result_input,targets,units
+
+        result_input,targets,units=plan()
+        if check is not None:
+            for _ in range(units):check()
+            result_input,targets,current_units=plan()
+            if current_units!=units:raise ValueError('External reply size changed during preparation')
         if spec is None:
-            if reply['result'] is not None:raise ValueError('External procedure must return None')
+            if result_input is not None:raise ValueError('External procedure must return None')
             result=None
         else:
-            if reply['result'] is None:raise ValueError('External function requires its declared data result')
-            result=(external_collection_result(spec,reply['result'],line) if collection_type(spec) or collection_array_type(spec)
-                    else external_data_result(spec,reply['result'],line))
+            if result_input is None:raise ValueError('External function requires its declared data result')
+            result=(external_collection_result(spec,result_input,line) if collection_type(spec) or collection_array_type(spec)
+                    else external_data_result(spec,result_input,line))
         staged=[];occupied=set()
-        for row in rows:
-            target=arguments[row['argument']-1]
-            if not ordinary(target):raise ValueError('External reply output requires an ordinary writable data reference')
-            actual=tuple_spec(row['value']['type']);current=target.raw()
-            _external_value_units(target.spec,current,line)
-            if target.spec!=actual:raise ValueError('External reply output differs from its captured argument schema')
-            if type(current) is Structure and current.read_only:raise ValueError('External reply cannot write a read-only record value')
-            _external_value_snapshot(actual,current,line)
+        for target,current,value in targets:
+            _external_value_snapshot(target.spec,current,line)
             # PATH headers are retained and updated; old nodes are detached instead.
             pending=[current]
             while pending:
@@ -1046,7 +1059,7 @@ def external_reply_result(spec,reply,arguments,line=None):
                 if type(item) is Array and collection_array_type(item.spec):pending.extend(item.values)
                 elif type(item) is PathValue and type(item.data) is Structure and item.data.read_only:
                     raise ValueError('External reply cannot write a read-only PATH header')
-            _,prepared=_external_value_decode(row['value'],line,selector=True)
+            _,prepared=_external_value_decode(value,line,selector=True)
             addresses=cells(target)
             if occupied&addresses:raise ValueError('External reply output arguments overlap')
             occupied.update(addresses);staged.append((target,current,prepared))
@@ -4569,7 +4582,7 @@ class State:
         except Exception as exc: raise KarelRuntimeError('External routine failed: '+str(exc),line) from exc
         if self._aborted: raise KarelAbort(self._abort_line)
         if _pythonic() and type(result) is dict and set(result)=={'result','outputs'}:
-            return external_reply_result(result_spec,result,arguments,line)
+            return external_reply_result(result_spec,result,arguments,line,check=lambda:self.tick(line))
         if result_spec is None:
             if result is not None: raise KarelRuntimeError('External procedure must return None',line)
             return

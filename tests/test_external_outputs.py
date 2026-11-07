@@ -221,6 +221,37 @@ class ExternalOutputLifecycleTests(unittest.TestCase):
         p._state.execution.externals['HOST','WORK']=callback
         with self.assertRaises(rt.KarelAbort):p.run()
         self.assertEqual(p.snapshot()['N'],42)
+    def test_reply_step_budget_precedes_decoding_and_preserves_targets(self):
+        data=row(['ARRAY',16,['INTEGER']],[17]*16)
+        response=reply(output(1,data),output(2,integer(19)),result=integer(23))
+        p,_=build(response,direct=True,params='a:ARRAY OF INTEGER;b:INTEGER',kind='INTEGER',
+                  body='s=work(a,n)',decl='a:ARRAY[16] OF INTEGER n,s,visits:INTEGER')
+        p._state.values.update(N=77,S=88,VISITS=0)
+        target=p._state.values['A']
+        target.values[0]=7
+        def callback(*_):
+            p._state.set('VISITS',1)
+            return response
+        p._state.execution.externals['HOST','WORK']=callback
+        with patch('karel2py.storage.decode_typed',side_effect=AssertionError('decoded before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=8)
+        self.assertEqual((p.snapshot()['N'],p.snapshot()['S'],p.snapshot()['VISITS']),(77,88,1))
+        self.assertIs(p._state.values['A'],target)
+        self.assertEqual(target.values[0],7)
+
+    def test_step_budget_includes_existing_logical_output_contents(self):
+        empty=row(['QUEUE_TYPE'],dict(initialized=True,sequence=0,entries=[]))
+        p,_=build(reply(output(1,empty)),direct=True,params='value:QUEUE_TYPE',body='work(q)',decl='q:QUEUE_TYPE')
+        queue=p._state.values['Q']
+        queue.initialized=True
+        queue.sequence=12
+        queue.entries=[(index,index) for index in range(1,13)]
+        entries=queue.entries
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=8)
+        self.assertIs(p._state.values['Q'],queue)
+        self.assertIs(queue.entries,entries)
+        self.assertEqual(queue.entries,[(index,index) for index in range(1,13)])
+
     def test_budget_failure_prevents_call_outputs(self):
         p,_=build(reply(output(1,integer(17))),body='n=7 work(n)')
         with self.assertRaises(rt.KarelRuntimeError):p.run(max_steps=1)

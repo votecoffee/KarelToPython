@@ -73,6 +73,9 @@ and each queue entry adds two units for ID and value. ARRAY costs include every
 collection cell and its contents. Existing dimensions, 64-level data schemas,
 64 arguments/outputs, 128 bindings/rows and strict 4 MiB JSON-file bounds remain.
 Each selected old logical snapshot must independently fit these bounds.
+Structured replies charge one execution step per supplied snapshot unit and
+per existing output target unit before decoding. Budget exhaustion publishes
+no response outputs. The earlier effects of the calling Python callback remain.
 
 Pause delays response writes until return. Stop, abort, failure or budget
 exhaustion discards an unreturned response. Saved context/VR/DRAM includes copied

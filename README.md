@@ -42,7 +42,8 @@ listings, and typed variable filters.
 
 [KCL command procedures](docs/kcl-commands.md#command-procedures) add blocking
 RUNCF, bounded relative includes, SET VERIFY, and optional success-only
-listing files. Procedures can launch and wait for registered offline tasks.
+listing files. Procedure inputs count against the step budget before reading.
+Procedures can launch and wait for registered offline tasks.
 
 [KCL session defaults](docs/kcl-commands.md#program-defaults) add saved program
 and robot-group selectors. Live local variables, source call frames, and
@@ -190,8 +191,9 @@ links follow the existing logical-copy rules.
 
 [Explicit external outputs](docs/external-outputs.md) now let JSON responses update selected
 ordinary data arguments as well as returning data. Results, values and disjoint
-captured destinations validate before any response write; borrowed/private source
-argument rules and retained data aliases remain intact.
+captured destinations count against the step budget before decoding. The
+complete batch validates before any response write, with the existing borrowed
+and private argument rules.
 
 [Explicit external data](docs/external-values.md) now accepts typed callback results and
 CLI JSON bindings for fixed data, no-op procedures and exact argument cases
@@ -388,7 +390,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.030357**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.031659**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

@@ -754,7 +754,9 @@ KCL_NO_WAIT returns 3 for this form.
 The procedure accepts ASCII command lines, optional leading `>`, and
 `--` comments outside quoted values. `%INCLUDE file` expands an ordinary
 file relative to the containing procedure or to its explicit mapped device.
-The complete input graph is captured before executing commands. Limits
+The complete input graph is captured before executing commands. Each input
+costs one execution step per started 4096 bytes before reading. Rooted files
+are checked against their planned identity, size and modification time. Limits
 are 64 KiB of input, four file levels including the entry file, 32 file
 reads, and 256 expanded commands. Includes with cycles, nested RUNCF,
 unknown directives and unsafe paths fail during preflight.
