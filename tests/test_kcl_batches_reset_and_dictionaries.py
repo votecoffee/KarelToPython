@@ -110,6 +110,22 @@ class KclResetTests(unittest.TestCase):
         self.assertEqual(ctx.controller.elapsed_ms, 20)
         self.assertFalse(ctx.ports.read('OPOUT', 3))
 
+    def test_timed_condition_runs_before_first_reset_interval_finishes(self):
+        scheduler=rt.TaskScheduler()
+        ctx=self.context([{'completed':True,'fault':False,'delay_ms':30}],tasks=scheduler)
+        task=worker(ctx,'OWNER','n=0 s=99 CONDITION[1]: WITH $SCAN_TIME=1 WHEN s=98 DO n=7 '
+                    "ENDCONDITION ENABLE CONDITION[1] KCL('RESET',s)")
+        scheduler.start('OWNER')
+        advance_until(scheduler,lambda:'OWNER' in scheduler.waiting)
+        task._state.set('S',98)
+        advance_until(scheduler,lambda:task.snapshot()['N']==7)
+        self.assertEqual(ctx.controller.elapsed_ms,0)
+        self.assertTrue(ctx.ports.read('OPOUT',3))
+        self.assertEqual(task.snapshot()['S'],98)
+        self.assertEqual(scheduler.run()['OWNER']['values']['S'],0)
+        self.assertEqual(ctx.controller.elapsed_ms,30)
+        self.assertFalse(ctx.ports.read('OPOUT',3))
+
     def test_stop_retires_reset_and_releases_channel_without_publishing_fault(self):
         scheduler = rt.TaskScheduler()
         ctx = self.context([{'completed': True, 'fault': False, 'delay_ms': 100}], tasks=scheduler)

@@ -125,6 +125,12 @@ an independent typed source at its fourth argument, before the status selector.
 Generic STRING/ARRAY parameters inherit the actual source capacity/shape. GET
 resolves and snapshots the named global after output selectors have run.
 
+Resource-free aggregate transfers charge one execution step per declared scalar
+leaf for source capture and compatible receiver preparation. This includes
+missing leaves and the receiver tail kept by a prefix transfer. A SET source
+budget failure occurs before evaluating the status selector. Exhaustion during
+preparation publishes no transfer outputs or cache entry.
+
 For data transfers, source container/schema checks occur at capture. Known values in selected
 transfer cells are checked after lookup. Untransferred numeric source tail cells
 are not read as values; structural checks still cover the source containers and

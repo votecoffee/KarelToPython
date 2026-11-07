@@ -12,7 +12,8 @@ controller, and the operation does not update robot state.
 
 All selected source data and geometry are captured and validated before any
 model call. Each planned conversion costs one execution step. The entire batch
-must fit the step budget before any adapter is invoked. Calls follow receiver
+must fit the step budget before any adapter is invoked. These steps are in
+addition to the aggregate source and receiver charges. Calls follow receiver
 field order and ARRAY row-major order. Results
 remain private until the complete transfer succeeds. Receiver storage is rechecked
 after callbacks and before publication. Failure leaves data, entry,

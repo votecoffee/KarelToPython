@@ -221,7 +221,7 @@ class KeyboardInput:
         if state._scheduler is None and deadline is None and not future:raise rt().KarelRuntimeError('Indefinite standalone keyboard wait needs explicit queued input',line)
         delay=min([10]+[at-self.elapsed_ms for at in future]+([] if deadline is None else [deadline-self.elapsed_ms]))
         delay=max(1,delay);due=min(MAX_SEQUENCE,self.elapsed_ms+delay)
-        yield from rt().delay_execution(state,delay,line)
+        yield from rt().delay_execution(state,delay,line,scan_handlers=True)
         if state._scheduler is None:self.elapsed_ms=max(self.elapsed_ms,due)
         else:self.sync()
         yield from rt().checkpoint(state,line)

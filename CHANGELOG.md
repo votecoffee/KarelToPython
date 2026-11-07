@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.020313 - 2026-11-07
+
+- Charge resource-free aggregate GET_VAR and SET_VAR preparation by declared
+  scalar leaves, including array rows, records and joints.
+- Run eligible timed conditions during scheduled group lock, keyboard and
+  scripted controller reset waits.
+
 ## 26.1107.014517 - 2026-11-07
 
 - Run eligible timed conditions during KCL task-state waits, including through

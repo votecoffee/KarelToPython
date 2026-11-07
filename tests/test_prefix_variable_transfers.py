@@ -55,6 +55,19 @@ class PrefixPathSetTests(unittest.TestCase):
 
 
 class PrefixSourceAndOutputTests(unittest.TestCase):
+    def test_get_receiver_budget_preserves_selected_row_and_outputs(self):
+        p,_=program("GET_VAR(e,'','ROW',m[2],s)",
+                    decl='m:ARRAY[2,12] OF INTEGER row:ARRAY[1] OF INTEGER e,s:INTEGER')
+        p._state.values.update(E=77,S=88)
+        p._state.values['ROW'].set(1,7)
+        matrix=p._state.values['M']
+        matrix.values[:]=range(24)
+        original=p.snapshot()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual(p.snapshot(),original)
+        self.assertIs(p._state.values['M'],matrix)
+        self.assertEqual(p._state.execution.entries,{})
+
     def test_get_data_output_prefix(self):self.assertEqual(execute("row[1]=7 GET_VAR(e,'','ROW',m[2],s)")['M'][1],[7,U,U])
     def test_set_source_prefix(self):self.assertEqual(execute("m[2,1]=7 SET_VAR(e,'','ROW',m[2],s)")['ROW'],[7,U,U])
     def test_get_named_source_prefix_into_output_prefix(self):

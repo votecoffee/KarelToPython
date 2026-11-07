@@ -18,6 +18,21 @@ def transfer(action='GET_VAR',path='A',value='b',status='s'):
 
 
 class BoundedArrayTransferTests(unittest.TestCase):
+    def test_set_record_array_source_budget_precedes_status_selector(self):
+        p,_=compile_program(transfer('SET_VAR','B','a','codes[pick()]'),
+                            decl=BASE+' a:ARRAY[12] OF item_t b:ARRAY[2] OF item_t codes:ARRAY[1] OF INTEGER',
+                            prefix='TYPE item_t=STRUCTURE value:INTEGER tag:STRING[8] ENDSTRUCTURE',
+                            routines='ROUTINE pick:INTEGER BEGIN n=n+1 RETURN 1 END pick')
+        p._state.values.update(E=77,N=0)
+        p._state.values['CODES'].set(1,88)
+        p._state.values['B'].values[0].values.update(VALUE=19,TAG='old')
+        original=p.snapshot()
+        target=p._state.values['B']
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual(p.snapshot(),original)
+        self.assertIs(p._state.values['B'],target)
+        self.assertEqual(p._state.execution.entries,{})
+
     def test_get_smaller_source_preserves_destination_tail(self):
         state=run('a[1]=10 a[2]=20 b[3]=30 '+transfer(),decl=BASE+' a: ARRAY[2] OF INTEGER b: ARRAY[3] OF INTEGER')
         self.assertEqual((state['B'],state['S']),([10,20,30],0))

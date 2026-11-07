@@ -145,7 +145,8 @@ class ModelVariablePrefixTests(unittest.TestCase):
                            ctx=callback_context(forward=forward_adapter(calls)))
                 original=p.snapshot()
                 target=p._state.values['B']
-                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=3)
+                preparation=sum(rt.scalar_leaf_count(p._state.types[name]) for name in ('A','B'))
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=preparation+2)
                 self.assertEqual(calls,[])
                 self.assertEqual(p.snapshot(),original)
                 self.assertIs(p._state.values['B'],target)

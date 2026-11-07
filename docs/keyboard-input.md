@@ -91,6 +91,7 @@ future input fails explicitly rather than capturing a host keyboard or inventing
 a reply. Scheduler waits can remain pending for input while other tasks execute.
 
 Waiting uses cooperative delay and ordinary budget/handler/control checkpoints.
+Eligible timed conditions in scheduled tasks can run between keyboard polls.
 A standalone sleeper completion advances the keyboard's logical clock; scheduler
 requests share a captured virtual clock. Standalone requests from unrelated root
 clock domains cannot overlap. Time outside active requests does not advance this

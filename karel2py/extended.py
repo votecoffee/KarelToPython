@@ -986,6 +986,13 @@ def _variable_data_spec(spec,line=None,*,queue=False,paths=False):
         fail('Variable transfers require data values without resources',line)
 
 
+def _charge_variable_data(spec,line,check):
+    rt=runtime()
+    if check is not None and spec[0] in ('ARRAY','JOINTPOS',*rt.RECORD_TYPES):
+        for _ in range(rt._validate_data_schema(spec,line)):
+            check()
+
+
 def _variable_shape(spec,value,line=None):
     rt=runtime();kind=spec[0]
     if kind not in (*rt.RECORD_TYPES,'ARRAY','JOINTPOS','INTEGER','REAL','BOOLEAN','BYTE','SHORT','STRING'):
@@ -1108,6 +1115,7 @@ def variable_value(spec,value,line=None,*,check=None):
     if rt.collection_array_type(spec):return VariableValue(spec,collection_array_variable_value(spec,value,line,check=check))
     if spec[0]=='PATH': return VariableValue(spec,path_variable_value(spec,value,line,check=check))
     if spec==('QUEUE_TYPE',): return VariableValue(spec,queue_variable_value(value,line,check=check))
+    _charge_variable_data(spec,line,check)
     _variable_shape(spec,value,line)
     return VariableValue(spec,deepcopy(value))
 
@@ -1241,12 +1249,14 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
     positional=(representations and not arrays and spec!=source.spec and
         (spec[0]==source.spec[0]=='JOINTPOS' or spec[0] in ('POSITION','XYZWPR','XYZWPREXT') and source.spec[0] in ('POSITION','XYZWPR','XYZWPREXT')))
     if positional:
+        _charge_variable_data(spec,line,check)
         _variable_shape(spec,target.raw(),line)
         captured=_variable_copy(source.spec,source.value,line)
         converted=rt.convert_joint_width(spec,captured,line) if spec[0]=='JOINTPOS' else rt.convert_position(spec,captured,line)
         return converted,False
     word=representations and rt._pythonic() and rt.config_word_kind(spec,source.spec)
     if word:
+        _charge_variable_data(spec,line,check)
         _variable_shape(spec,target.raw(),line)
         copied=rt._config_word_data(spec,source.spec,_variable_copy(source.spec,source.value,line),line)
         return copied,_variable_missing(copied)
@@ -1263,6 +1273,7 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
     elif not (record_schema or _variable_compatible(spec,source.spec,numeric=numeric)): return None
     if record_schema or array_record:
         rt._validate_data_schema(spec,line);rt._validate_data_schema(source.spec,line)
+    _charge_variable_data(spec,line,check)
     _variable_shape(spec,target.raw(),line)
     if source.value is rt.UNINITIALIZED:
         if array_positional:fail('Positional ARRAY conversion requires initialized source values',line)

@@ -157,7 +157,7 @@ class ControllerServices:
         try:
             remaining=response['delay_ms']
             while remaining:
-                step=min(10,remaining);yield from rt().delay_execution(state,step,line)
+                step=min(10,remaining);yield from rt().delay_execution(state,step,line,scan_handlers=True)
                 self.elapsed_ms+=step;remaining-=step;yield from rt().checkpoint(state,line)
             if ports is not None:ports.update('OPOUT',3,response['fault'])
             # The documented successful output acknowledges the request even

@@ -3091,7 +3091,7 @@ class Emitter:
                 if mode!='v' and kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
                 check=''
                 if (self.mode=='pythonic' and expr.value=='SET_VAR' and index==3
-                        and (spec[0] in ('PATH','QUEUE_TYPE') or rt.collection_array_type(spec))):
+                        and spec[0] in ('PATH','QUEUE_TYPE','ARRAY','JOINTPOS',*RECORD_TYPES)):
                     check=f',check=lambda:self._state.tick({value.token.line})'
                 if reference_input: code=f'_rt.variable_reference({code},{value.token.line}{check})'
                 elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line}{check})'
@@ -5639,6 +5639,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         lookup='Five arguments; current/attached declared globals and explicit VariableStore roots; static fields, ARRAY subscripts and PATH nodes; no local-frame or controller discovery',
         arrays='Same logical rank and exact or checked integral-family/integral-to-REAL terminal data type; row-major prefix of the smaller total element count; outer extents and ARRAY identities may differ; preserve receiver tail; STRING leaves truncate to receiver capacity',
         capture='SET_VAR captures a typed independent input once before later selectors, including missing reference data; GET_VAR resolves and snapshots its source after output selectors; data structure checked at capture and transferred known data after lookup; whole queues validate complete logical source at capture',
+        budget='Charge one execution step per declared scalar leaf for resource-free aggregate source capture and compatible receiver preparation. Model dispatch has a separate per-call charge.',
         missing='Whole missing source clears a compatible receiver; partial missing leaves propagate in the transferred prefix; status 12311 reflects copied missing data only; unknown BYTE retained distinctly without inventing readable contents',
         status='Portable 0 success, 1 lookup missing, 3 incompatible type/rank, 12311 transferred missing data; type guard precedes missing propagation; failed lookup/type writes status only; cache IDs published only after complete data validation',
         outputs='Exact disjoint writable entry/status/GET destinations and dynamic SET target overlap guards. Named CONFIG scalar writes use checked field publication. Earlier argument effects survive later validation failures.',
@@ -5773,7 +5774,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit GroupLocks with distinct configured groups in 1..31 and optional idle/executing/stopped motion labels; bit n-1 selects group n, zero is a no-op; no robot-context or hardware inference',
         directives='Opt-in apply_directives acquires the root LOCKGROUP selection atomically before body effects; NOLOCKGROUP selects none, absent selection requests every configured group; default false preserves metadata-only behavior',
         ownership='Stable calling root identity, including nested programs, linked routines and task renames; repeated locks are idempotent; default contention partially acquires available selected groups',
-        waits='Independent lock_wait_ms and unlock_wait_ms in 0..86400000 ms. Positive limits enable atomic manual masks with cooperative delays. Acquire waits for foreign grants; release waits for owned busy labels and retains exact grant identities.',
+        waits='Independent lock_wait_ms and unlock_wait_ms in 0..86400000 ms. Positive limits enable atomic manual masks with cooperative delays and eligible timed condition scans. Acquire waits for foreign grants; release waits for owned busy labels and retains exact grant identities.',
         timeout='First blocked group status on timeout with no partial batch. Ready at the last retry succeeds. Blocked handlers and foreign unlocks return immediately. Standalone waits require an explicit sleeper.',
         release='Default unlock releases owned idle groups while preserving foreign/busy groups; pause retains locks, terminal completion/stop/abort/failure releases all root ownership even with supplied busy labels',
         status='Portable 0 success, 1 invalid/unconfigured mask, 2 foreign owner, 17039 executing label, 17040 stopped label; partial-operation status is the first blocked group in ascending order',
@@ -6860,7 +6861,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         service='Explicit ControllerServices, logical GroupLocks and supplied PortBank/TaskScheduler; no controller connection, physical motion or reset',
         ownership='MOTION_CTL explicit/default source group mask, false for zero selection, all selected groups owned by caller root; CNCL_STP_MTN clears only that root owned stopped labels',
         perches='Configured group/index bank, six finite joint values and nonnegative tolerances; detached storage in supplied units, caller root group selection; no native unit conversion or robot-state mutation',
-        reset='One explicit scripted response consumed at acceptance, budgeted cooperative delay, optional supplied OPOUT[3] fault update; Boolean acknowledgement remains TRUE even when scripted reset completion fails',
+        reset='One explicit scripted response consumed at acceptance, budgeted cooperative delay with eligible timed condition scans, optional supplied OPOUT[3] fault update; Boolean acknowledgement remains TRUE even when scripted reset completion fails',
         background='Configured slots bind attached cooperative tasks on an explicit scheduler; RUN starts/resumes, STOP requests suspension, masks/terminal states/renamed identities respected; no TP scan engine',
         persistence='Retain perches, unconsumed reset scripts, finite IDs/logical delay and bounded history; reject pending reset or live background frames; no executable links restored',
         ports='Explicit BOOLEAN OPIN/OPOUT/TPIN/TPOUT banks permit indices 0..configured maximum; existing port kinds remain one-based; no acquired panel values or native channel privileges',
@@ -7218,7 +7219,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/read-kb-cancellation.md',controller_validated=False)
     report['keyboard_policy']['predefined_files']='Explicit aliases and bare default-input cancellation follow predefined_file_policy; source CLOSE or owned host cleanup remains required'
     report['keyboard_policy']['cancellation']='Explicit CANCEL FILE supports READ_KB as well as typed FILE READ; status 6 and preserved text/count/key outputs, checked FILE binding, private pending state'
-    report['keyboard_policy']['read_kb_timing']='Positive/indefinite READ_KB visits blocking per-key checkpoints; positive deadline includes scheduled processing, zero-time poll remains atomic'
+    report['keyboard_policy']['read_kb_timing']='Positive/indefinite READ_KB visits blocking per-key checkpoints and honors eligible timed condition scans between polls. Positive deadline includes scheduled processing. Zero-time poll remains atomic'
     report['vision_palette_policy']=dict(
         input='Optional explicit palette on channels=1 index rasters; 1..256 packed RGBA entries as immutable Python bytes or canonical lowercase JSON hex; every index must be in range',
         persistence='Preserve palette and index bytes through supplied captures, image registers, finds and JSON; absent palette retains the existing grayscale interpretation',

@@ -79,6 +79,7 @@ That bank/address must exist before the request is accepted. Without a fault
 response, no port values change.
 
 Waits use cooperative steps of at most 10 ms, with ordinary task/handler checks.
+Eligible timed conditions in scheduled tasks can run between steps.
 They create no artificial PAUSE notification. Their accumulated scripted delay
 is retained as `elapsed_ms`; this is not controller elapsed time. Only one reset
 may be pending. A competing request fails without cancelling or borrowing the

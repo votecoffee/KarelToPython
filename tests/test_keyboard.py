@@ -77,6 +77,29 @@ class KeyboardReadTests(unittest.TestCase):
         values,_,_,_=execute(OPEN+READ.replace("0,'',","40,'ok',")+CLOSE,ctx=ctx)
         self.assertEqual((values['BUFFER'],values['S'],ctx.keyboard.elapsed_ms),('ok',0,25))
 
+    def test_timed_condition_runs_between_keyboard_polls(self):
+        ctx=context(events=[dict(key='ENTER',at_ms=60)])
+        body=('s=77 token=0 CONDITION[1]: WITH $SCAN_TIME=1 WHEN s=78 DO token=7 '
+              'ENDCONDITION ENABLE CONDITION[1] '+OPEN+READ.replace("0,'',","90,'seed',")+CLOSE)
+        project=translate_project({'main':source('MAIN',body,decl=DECL)}).instantiate(context=ctx)
+        scheduler=project.scheduler
+        task=project.programs['MAIN']
+        scheduler.start('MAIN')
+        for _ in range(25):
+            scheduler.step()
+            if 'MAIN' in scheduler.waiting:break
+        else:self.fail('Keyboard read did not park')
+        parked_at=scheduler.now_us
+        task._state.set('S',78)
+        for _ in range(20):
+            scheduler.step()
+            if task.snapshot()['TOKEN']==7:break
+        self.assertEqual((task.snapshot()['TOKEN'],task.snapshot()['S']),(7,78))
+        self.assertLess(scheduler.now_us-parked_at,8000)
+        self.assertEqual(len(ctx.keyboard.events),1)
+        result=scheduler.run()['MAIN']['values']
+        self.assertEqual((result['BUFFER'],result['S']),('seed',0))
+
     def test_timeout_preserves_future_event_for_later_read(self):
         ctx=context(events=[dict(key='ENTER',at_ms=25)])
         values,_,_,_=execute(OPEN+READ.replace("0,'',","10,'a',")+CLOSE,ctx=ctx)

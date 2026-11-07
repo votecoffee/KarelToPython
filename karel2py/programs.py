@@ -211,7 +211,7 @@ class GroupLocks:
         try:
             while remaining:
                 interval = min(10, remaining)
-                yield from runtime.delay_execution(state, interval, line)
+                yield from runtime.delay_execution(state, interval, line, scan_handlers=True)
                 remaining -= interval
                 yield from runtime.checkpoint(state, line)
                 if (self._pending is not pending or pending.get(root) is not ticket

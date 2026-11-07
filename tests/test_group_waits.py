@@ -8,6 +8,31 @@ from tests.test_directive_group_locks import program, source
 
 
 class GroupLockWaitTests(unittest.TestCase):
+    def test_timed_condition_runs_between_group_retries(self):
+        bank=rt.GroupLocks([1],lock_wait_ms=40)
+        owner=program(name='OWNER',bank=bank)
+        bank.update(owner._state,'LOCK_GROUP',1)
+        task=program('n=0 s=77 CONDITION[1]: WITH $SCAN_TIME=1 WHEN s=78 DO n=7 '
+                     'ENDCONDITION ENABLE CONDITION[1] LOCK_GROUP(1,s)',bank=bank)
+        scheduler=rt.TaskScheduler()
+        scheduler.bind('WAITER',task)
+        scheduler.start('WAITER')
+        for _ in range(20):
+            scheduler.step()
+            if 'WAITER' in scheduler.waiting:break
+        else:self.fail('Group request did not park')
+        parked_at=scheduler.now_us
+        task._state.set('S',78)
+        for _ in range(20):
+            scheduler.step()
+            if task.snapshot()['N']==7:break
+        self.assertEqual(task.snapshot(),{'N':7,'S':78})
+        self.assertLess(scheduler.now_us-parked_at,8000)
+        self.assertIs(bank.owners[1],owner._state)
+        bank.update(owner._state,'UNLOCK_GROUP',1)
+        self.assertEqual(scheduler.run()['WAITER']['values']['S'],0)
+        self.assertFalse(bank._pending)
+
     def test_waits_for_foreign_owner_without_partial_acquisition(self):
         bank = rt.GroupLocks([1, 2], lock_wait_ms=40)
         other = program(name='OTHER', bank=bank)

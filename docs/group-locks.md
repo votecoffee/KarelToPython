@@ -91,6 +91,7 @@ release. Invalid and empty masks return their usual status without waiting.
 The first blocked group in ascending order supplies the status on timeout or
 immediate rejection. A ready mask on the final retry succeeds. Each retry
 follows a delay of at most 10 logical milliseconds and a task checkpoint.
+Eligible timed conditions in scheduled tasks can run between retries.
 Mask and status selectors are captured once. Status is published only when the
 operation returns, so pause retains its previous value and the wait budget.
 

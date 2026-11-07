@@ -20,7 +20,8 @@ def transfer(state,target,source,line=None):
     record=rt.kinematic_record_kind(first,second)
     if not (model or record=='structure'):return None
     if arrays and len(rt.array_dimensions(spec))!=len(rt.array_dimensions(actual)):return None
-    rt._validate_data_schema(spec,line);rt._validate_data_schema(actual,line)
+    rt._validate_data_schema(actual,line)
+    ex._charge_variable_data(spec,line,lambda:state.tick(line))
     ex._variable_shape(actual,source.value,line);ex._variable_shape(spec,target.raw(),line)
     pending=[]
     def store(expected,declared,item,storage,key):

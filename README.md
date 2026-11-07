@@ -118,7 +118,7 @@ Nonnegative line hints select the main entry on a fresh KAREL start.
 [Bounded group lock waits](docs/group-locks.md#bounded-acquisition-and-release)
 let LOCK_GROUP wait for foreign owners and UNLOCK_GROUP wait for owned busy
 groups. Both opt-in operations apply the complete mask together, with ordinary
-task checkpoints and exact grant checks before release.
+task checkpoints, timed condition scans and exact grant checks before release.
 
 [Cooperative socket FILE operations](docs/communications.md#cooperative-input-and-output)
 can wait for explicit input or shared TX space. Complete typed READs consume
@@ -387,7 +387,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.014517**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.020313**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1063,8 +1063,9 @@ user STRUCTURE fields in GET_VAR/SET_VAR, including nested records, geometry and
 same-rank record ARRAY prefixes with preserved receiver tails.
 
 GET_VAR/SET_VAR copy bounded ARRAY prefixes across different sizes and preserve
-the receiver tail. Typed SET sources and partial aggregates can transfer missing
-data. GET_VAR reads named POSITION orientation and CONFIG fields by value.
+the receiver tail. Aggregate source capture and receiver preparation count
+against the step budget. Typed SET sources and partial aggregates can transfer
+missing data. GET_VAR reads named POSITION orientation and CONFIG fields by value.
 SET_VAR writes named CONFIG turns and flags through their field checks. See
 [variable transfers](docs/variable-transfers.md) for type, ordering and status rules.
 
