@@ -31,15 +31,19 @@ Validate the entire selected bank, concrete schemas, ordinary owned cells and
 known logical contents before format expressions or transport. WRITE captures
 complete immutable scalar values. READ captures original writable leaf cells;
 missing scalar values are permitted, but missing shaped containers are rejected.
-Later selectors or format routines may delete/replace nodes or bank cells without
+The execution budget charges one step per PATH cell and scalar field before
+payload validation. The bank checks that the selected cells, headers and node
+lists stayed in place during that charge. Later selectors or format routines
+may delete or replace nodes or bank cells without
 retargeting captured input. Earlier explicit source/format effects remain visible
 when a later validation fails.
 
 Banks retain one through three logical dimensions, 32,767 collection snapshot
 units and the existing 64-level data-schema bound. Each operation admits at most
 1,024 expanded scalar fields including CR markers. Combined source items also
-share ordinary output size/backend limits. A prefix additionally validates its
-containing bank before selecting its original cells.
+share ordinary output size/backend limits. A flat row or plane selection also charges and validates the containing bank
+before selecting cells. WRITE uses the checked row or plane view for its
+immediate scalar snapshot. Ordinary PATH array prefix values remain independent.
 
 Header-only PATHs contribute their header fields. Empty headerless cells contribute
 none. All-empty unformatted WRITE produces one empty item and still checks FILE

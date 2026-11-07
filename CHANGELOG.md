@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1107.180931 - 2026-11-07
+
+- Charge PATH READ and WRITE capture before validating payloads, including
+  containing-bank validation for selected rows and planes.
+- Snapshot WRITE row and plane scalars directly from a checked view and
+  enforce the combined field bound before preparing bank payloads.
+- Keep SET_VAR snapshot budget callbacks synchronous inside cooperative programs.
+
 ## 26.1107.175325 - 2026-11-07
 
 - Charge shifted PATH node references before source insertions and deletions.

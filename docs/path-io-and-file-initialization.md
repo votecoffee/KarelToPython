@@ -37,8 +37,9 @@ Explicit XYZWPR,
 XYZWPREXT, CONFIG, VECTOR and joint data can follow their normal scalar input
 rules.
 
-The complete PATH schema, ordinary container identities and known component data
-are checked before format expressions or transport. Components retain the
+PATH I/O charges one execution step per scalar field before validating and
+capturing component data. It verifies the node list, node count and header
+after charging. These checks precede format expressions and transport. Components retain the
 existing 64-level data-schema bound. The combined operation allows at most 1024
 expanded scalar fields including CR; PATH's existing node bound still applies.
 Nested resources, malformed schemas, substitute PATH subclasses and wrong

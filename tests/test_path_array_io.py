@@ -2,6 +2,7 @@
 import json
 import struct
 import unittest
+from unittest.mock import patch
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
 from tests.test_extended_services import compile_program
@@ -159,6 +160,60 @@ class PathBankTransportTests(unittest.TestCase):
         types='TYPE n=STRUCTURE amount:INTEGER ENDSTRUCTURE r=PATH NODEDATA=n'
         sources={'main':f'PROGRAM MAIN {types} VAR paths:ARRAY[2]OF r s:INTEGER ROUTINE fill(v:ARRAY OF r) FROM LIB BEGIN APPEND_NODE(paths[2],s) fill(paths) END MAIN','lib':f'PROGRAM LIB {types} ROUTINE fill(v:ARRAY OF r) BEGIN READ(v) WRITE(v) END fill BEGIN END LIB'}
         project=translate_project(sources).instantiate(options=dict(read=lambda r:[17]));state=project.run('MAIN');self.assertEqual(state['MAIN']['values']['PATHS'][1]['nodes'][0]['AMOUNT'],17)
+
+class PathBankBudgetTests(unittest.TestCase):
+    def test_bank_and_flat_prefix_budget_precede_payload_validation_and_transport(self):
+        routines='ROUTINE width:INTEGER BEGIN visits=visits+1 RETURN 4 END width'
+        for operation in ('READ','WRITE'):
+            for selector in ('paths','paths[2]'):
+                with self.subTest(operation=operation,selector=selector):
+                    requests=[]
+                    program,_=build(f'visits=0 {operation}({selector}::width())',seed=False,
+                                    decl='paths:ARRAY[2,2]OF route_t visits:INTEGER',
+                                    read=requests.append,routines=routines)
+                    cell=raw(program).values[3]
+                    cell.data.values['TOTAL']=3
+                    with (patch('karel2py.storage.collection_payload',
+                                side_effect=AssertionError('validated uncharged PATH bank')),
+                          self.assertRaisesRegex(rt.KarelRuntimeError,'step budget')):
+                        program.run(max_steps=2)
+                    self.assertEqual(program.snapshot()['VISITS'],0)
+                    self.assertEqual(requests,[])
+                    self.assertEqual(text(program),[])
+                    self.assertEqual(cell.data.values['TOTAL'],3)
+
+    def test_grouped_write_prefix_captures_values_without_cloning_row(self):
+        program,_=build('WRITE((paths[2])::width())',seed=False,
+                        prefix='TYPE n=STRUCTURE amount:INTEGER ENDSTRUCTURE r=PATH NODEDATA=n',
+                        decl='paths:ARRAY[2,2]OF r status:INTEGER',
+                        routines='ROUTINE width:INTEGER BEGIN DELETE_NODE(paths[2,2],1,status) RETURN 3 END width')
+        cell=raw(program).values[3]
+        cell.append()
+        cell.nodes[0].values['AMOUNT']=17
+        with patch.object(rt,'collection_array_source_value',side_effect=AssertionError('cloned output row')):
+            program.run()
+        self.assertEqual(text(program),[' 17'])
+        self.assertEqual(cell.nodes,[])
+
+    def test_bank_rejects_replaced_cell_during_charge(self):
+        program,_=build('WRITE(paths)',seed=False)
+        state=program._state
+        original=raw(program).values[1]
+        replacement=rt.PathValue(original.spec)
+        tick=state.tick
+
+        def replace(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==2:raw(program).values[1]=replacement
+
+        with (patch.object(state,'tick',side_effect=replace),
+              patch('karel2py.storage.collection_payload',
+                    side_effect=AssertionError('validated a replaced PATH bank')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'PATH ARRAY I/O storage changed')):
+            program.run()
+        self.assertIs(raw(program).values[1],replacement)
+        self.assertEqual(text(program),[])
+
 
 class PathBankGuardTests(unittest.TestCase):
     def test_shared_path_cells_reject_before_transport(self):

@@ -272,6 +272,7 @@ frame/tool reads. Supplied frame/tool tables now save/load without a robot model
 [Whole-PATH I/O and FILE queries](docs/path-io-and-file-initialization.md) expand
 supplied headers/nodes through ordinary READ/WRITE scalar transports and expose
 FILE open-state initialization queries. PATH input keeps its existing node count.
+PATH I/O charges the execution budget before validating or capturing fields.
 
 [FILE arrays](docs/file-arrays.md) now provide independent indexed streams,
 borrowed routine arguments, named rows and linked imports. Existing text/binary
@@ -369,6 +370,7 @@ PATH results use independent private headers with counter and timer checks.
 [PATH-bank I/O](docs/path-array-io.md) adds whole-bank and selected row/plane
 READ/WRITE over existing headers/nodes, with uniform formats and ordinary text,
 binary and cooperative transports. Input retains original captured cells.
+Output snapshots the selected fields before formats, including for rows and planes.
 
 [Scalar collection values](docs/scalar-collection-values.md) add PATH/QUEUE_TYPE
 assignment, private routine arguments and internal/linked results with independent
@@ -397,7 +399,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.175325**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.180931**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

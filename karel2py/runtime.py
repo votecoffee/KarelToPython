@@ -1599,7 +1599,7 @@ def same_array_storage(first,second):
     return left is right and li==ri
 
 
-def resource_array_prefix_reference(array,index,expected,line=None):
+def resource_array_prefix_reference(array,index,expected,line=None,*,check=None):
     """Borrow original resource cells; no descriptor/collection allocation or copy."""
     if not _pythonic():raise KarelRuntimeError('Resource ARRAY prefixes require Pythonic mode',line)
     indexes=index if type(index) is tuple else (index,)
@@ -1613,6 +1613,8 @@ def resource_array_prefix_reference(array,index,expected,line=None):
         if not resource_array_type(array.spec) or not parameter_accepts(expected,array.spec):
             raise ValueError('Resource ARRAY prefix storage does not match its declared schema')
     except (ValueError,KarelRuntimeError) as exc:raise KarelRuntimeError('Resource ARRAY prefix schema: '+str(exc),line) from exc
+    if check is not None and path_array_io_type(array.spec):
+        _path_bank_io_preflight(array,line,check)
     units=0;seen=set();pending=[(array.spec,array)]
     while pending:
         schema,current=pending.pop()
@@ -3368,15 +3370,21 @@ def path_io_components(spec,line=None):
     return node,header
 
 
-def _path_io_values(spec,value,line=None):
+def _path_io_values(spec,value,line=None,*,check=None):
     node,header=path_io_components(spec,line)
     if type(value) is not PathValue or value.spec!=spec or type(value.nodes) is not list or len(value.nodes)>32767:
         raise KarelRuntimeError('PATH I/O requires matching ordinary PATH storage',line)
     if header is None and value.data is not None:
         raise KarelRuntimeError('PATH I/O found unexpected header storage',line)
-    count=(scalar_leaf_count(header) if header is not None else 0)+len(value.nodes)*scalar_leaf_count(node)
+    nodes,data=value.nodes,value.data
+    length=len(nodes)
+    count=(scalar_leaf_count(header) if header is not None else 0)+length*scalar_leaf_count(node)
     if count>1024:raise KarelRuntimeError('PATH I/O is limited to 1024 scalar fields including CR',line)
-    values=([(header,value.data)] if header is not None else [])+[(node,item) for item in value.nodes]
+    if check is not None:
+        for _ in range(count):check(line)
+        if value.spec!=spec or value.nodes is not nodes or len(nodes)!=length or value.data is not data:
+            raise KarelRuntimeError('PATH I/O storage changed during preparation',line)
+    values=([(header,data)] if header is not None else [])+[(node,item) for item in nodes]
     for expected,item in values:_aggregate_value(expected,item,line,allow_partial=True)
     return values
 
@@ -3392,7 +3400,30 @@ def path_array_io_type(spec):
     return False
 
 
-def path_array_io_values(spec,value,line=None):
+def _path_bank_io_preflight(value,line,check,*,field_limit=None):
+    from .storage import _collection_array_rows
+
+    spec=value.spec
+    try:
+        rows,units=_collection_array_rows(spec,value,False,allow_windows=True)
+    except (ValueError,KarelRuntimeError) as error:
+        raise KarelRuntimeError('PATH ARRAY I/O: '+str(error),line) from error
+    if field_limit is not None and units-len(rows)>field_limit:
+        raise KarelRuntimeError('PATH ARRAY I/O is limited to 1024 scalar fields including CR',line)
+    if check is None:return
+    cells=[(path,path.nodes,len(path.nodes),path.data) for _,path in rows]
+    for _ in range(units):check(line)
+    try:
+        current,current_units=_collection_array_rows(spec,value,False,allow_windows=True)
+    except (ValueError,KarelRuntimeError) as error:
+        raise KarelRuntimeError('PATH ARRAY I/O storage changed during preparation',line) from error
+    if (current_units!=units or len(current)!=len(cells)
+            or any(path is not original or path.nodes is not nodes or len(nodes)!=length or path.data is not data
+                   for (_,path),(original,nodes,length,data) in zip(current,cells))):
+        raise KarelRuntimeError('PATH ARRAY I/O storage changed during preparation',line)
+
+
+def path_array_io_values(spec,value,line=None,*,check=None):
     """Preflight an entire selected bank and retain original PATH cell identities."""
     from .extended import collection_array_storage
     matches=False
@@ -3400,16 +3431,12 @@ def path_array_io_values(spec,value,line=None):
         try:matches=parameter_accepts(spec,value.spec)
         except (KarelRuntimeError,TypeError,IndexError,RecursionError):pass
     if not matches:raise KarelRuntimeError('PATH ARRAY I/O requires matching Pythonic storage',line)
-    captured=collection_array_storage(value.spec,value,line);result=[];count=0
+    _path_bank_io_preflight(value,line,check,field_limit=1024)
+    captured=collection_array_storage(value.spec,value,line);result=[]
     def visit(item):
-        nonlocal count
         if type(item) is Array:
             for child in item.values:visit(child)
-        else:
-            components=_path_io_values(item.spec,item,line)
-            count+=sum(scalar_leaf_count(schema) for schema,_ in components)
-            if count>1024:raise KarelRuntimeError('PATH ARRAY I/O is limited to 1024 scalar fields including CR',line)
-            result.append(item)
+        else:result.append(item)
     visit(captured)
     return result
 
@@ -3614,7 +3641,7 @@ class _AggregateWriteValue:
     def __init__(self,spec,fields):self.spec=spec;self.fields=tuple(fields)
 
 
-def capture_aggregate_write(spec,value,line=None):
+def capture_aggregate_write(spec,value,line=None,*,check=None):
     """Validate and detach complete immutable scalar leaves before format calls."""
     if not _pythonic():raise KarelRuntimeError('Aggregate WRITE requires Pythonic mode',line)
     if queue_io_type(spec):
@@ -3622,12 +3649,12 @@ def capture_aggregate_write(spec,value,line=None):
         return _AggregateWriteValue(spec,fields)
     if path_array_io_type(spec):
         fields=[]
-        for item in path_array_io_values(spec,value,line):
+        for item in path_array_io_values(spec,value,line,check=check):
             fields.extend(capture_aggregate_write(item.spec,item,line).fields)
         return _AggregateWriteValue(spec,fields)
     if spec[0]=='PATH':
         fields=[]
-        for expected,item in _path_io_values(spec,value,line):
+        for expected,item in _path_io_values(spec,value,line,check=check):
             fields.extend(capture_aggregate_write(expected,item,line).fields)
         return _AggregateWriteValue(spec,fields)
     actual=getattr(value,'spec',None)
@@ -3667,9 +3694,9 @@ def format_aggregate_write(captured,formats=(),line=None,*,file=None):
     return result
 
 
-def aggregate_write_pieces(spec,value,line=None,*,file=None):
+def aggregate_write_pieces(spec,value,line=None,*,file=None,check=None):
     """Preserve the original unformatted generated-code entry point."""
-    return format_aggregate_write(capture_aggregate_write(spec,value,line),(),line,file=file)
+    return format_aggregate_write(capture_aggregate_write(spec,value,line,check=check),(),line,file=file)
 
 
 def aggregate_read_type(spec,trail=()):
@@ -3688,7 +3715,7 @@ def aggregate_read_type(spec,trail=()):
     return False
 
 
-def capture_aggregate_read_target(target,formats,line=None):
+def capture_aggregate_read_target(target,formats,line=None,*,check=None):
     """Capture shaped data leaves once; keep ordinary scalar input transports."""
     if _pythonic() and type(target) is _ArrayPrefixTarget:
         return capture_prefix_read_target(target,formats,line)
@@ -3699,13 +3726,13 @@ def capture_aggregate_read_target(target,formats,line=None):
     if queue_io_type(target.spec):return _capture_queue_read(target,line)
     if path_array_io_type(target.spec):
         result=[]
-        for item in path_array_io_values(target.spec,target.raw(),line):
+        for item in path_array_io_values(target.spec,target.raw(),line,check=check):
             if item.data is not None or item.nodes:
                 result.extend(capture_aggregate_read_target(Reference(item.spec,{'value':item},'value'),[],line))
         if not result:raise KarelRuntimeError('PATH ARRAY READ requires existing header or node data',line)
         return result
     if target.spec[0]=='PATH':
-        value=target.raw();components=_path_io_values(target.spec,value,line)
+        value=target.raw();components=_path_io_values(target.spec,value,line,check=check)
         if not components:raise KarelRuntimeError('PATH READ requires an existing header or node',line)
         result=[]
         if target.spec[2] is not None:

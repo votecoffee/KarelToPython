@@ -323,15 +323,17 @@ class PathCopyGuardTests(unittest.TestCase):
 class PathCopyOrderingTests(unittest.TestCase):
     def test_set_source_budget_failure_precedes_status_selector(self):
         routine='ROUTINE choose:INTEGER BEGIN calls=calls+1 RETURN 1 END choose'
-        p,_=prepared(call('SET_VAR',status='statuses[choose()]'),routines=routine,
-                     decl=DECL+' statuses:ARRAY[1] OF INTEGER',seed=False)
-        fill(raw(p,'SOURCE'),range(12));fill(raw(p),[99])
-        p._state.values.update(ENTRY=77,CALLS=0)
-        p._state.values['STATUSES'].set(1,88)
-        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
-        self.assertEqual((p.snapshot()['CALLS'],p.snapshot()['ENTRY'],p.snapshot()['STATUSES']),(0,77,[88]))
-        self.assertEqual(snap(raw(p)),dict(nodes=[{'VALUE':99}],data={'COUNT':1}))
-        self.assertEqual(p._state.execution.entries,{})
+        for cooperative in (False,True):
+            with self.subTest(cooperative=cooperative):
+                p,_=prepared(call('SET_VAR',status='statuses[choose()]'),routines=routine,
+                             decl=DECL+' statuses:ARRAY[1] OF INTEGER',seed=False,cooperative=cooperative)
+                fill(raw(p,'SOURCE'),range(12));fill(raw(p),[99])
+                p._state.values.update(ENTRY=77,CALLS=0)
+                p._state.values['STATUSES'].set(1,88)
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+                self.assertEqual((p.snapshot()['CALLS'],p.snapshot()['ENTRY'],p.snapshot()['STATUSES']),(0,77,[88]))
+                self.assertEqual(snap(raw(p)),dict(nodes=[{'VALUE':99}],data={'COUNT':1}))
+                self.assertEqual(p._state.execution.entries,{})
 
     def test_get_receiver_budget_failure_preserves_existing_storage(self):
         p,_=prepared(seed=False)

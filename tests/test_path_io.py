@@ -2,6 +2,7 @@
 import json
 import struct
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt
 from karel2py.lexer import TranslationError
@@ -26,6 +27,47 @@ def text(program):return [row['text'] for row in program.write_requests]
 def file_program(body,**options):
     ctx=options.pop('context',rt.ExecutionContext(files=rt.MemoryFiles()))
     p,r=build(body,context=ctx,**options);return p,r,ctx
+
+
+class PathCaptureBudgetTests(unittest.TestCase):
+    def test_scalar_path_budget_precedes_values_formats_and_transport(self):
+        routines='ROUTINE width:INTEGER BEGIN visits=visits+1 RETURN 4 END width'
+        for operation in ('READ','WRITE'):
+            with self.subTest(operation=operation):
+                input_requests=[]
+                program,_=build('visits=0 '+operation+'(p::width())',seed=False,
+                                read=input_requests.append,routines=routines)
+                path=program._state.values['P']
+                path.append()
+                path.data.values['TOTAL']=7
+                node=path.nodes[0]
+                node.values.update(AMOUNT=17,LABEL='abcd')
+                with (patch.object(rt,'_aggregate_value',side_effect=AssertionError('captured uncharged PATH')),
+                      self.assertRaisesRegex(rt.KarelRuntimeError,'step budget')):
+                    program.run(max_steps=2)
+                self.assertEqual(program.snapshot()['VISITS'],0)
+                self.assertEqual(input_requests,[])
+                self.assertEqual(text(program),[])
+                self.assertEqual(node.values,{'AMOUNT':17,'LABEL':'abcd'})
+
+    def test_scalar_path_rejects_replaced_header_during_charge(self):
+        program,_=build('WRITE(p)',seed=False)
+        state=program._state
+        path=state.values['P']
+        path.data.values['TOTAL']=7
+        replacement=rt.Structure(path.spec[2])
+        replacement.values['TOTAL']=11
+        tick=state.tick
+
+        def replace(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==2:path.data=replacement
+
+        with (patch.object(state,'tick',side_effect=replace),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'PATH I/O storage changed')):
+            program.run()
+        self.assertIs(path.data,replacement)
+        self.assertEqual(text(program),[])
 
 
 class PathWriteTests(unittest.TestCase):
