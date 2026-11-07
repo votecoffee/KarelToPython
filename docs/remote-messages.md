@@ -55,8 +55,9 @@ retained as metadata; it does not schedule a background send.
 
 ## XML publication
 
-RMCN_SEND reads and validates the XML file before publishing its complete bytes
-as hex in the outbox. XML must be UTF-8, optionally with a BOM, contain one
+RMCN_SEND charges one execution step per 4 KiB, rounded up, before copying and
+validating the XML file. It publishes the complete bytes as hex in the outbox.
+Budget exhaustion preserves the XML source, outbox and status target. XML must be UTF-8, optionally with a BOM, contain one
 well-formed document, and stay within 64 nested elements and 4096 total elements.
 DTDs and entity declarations reject. There is no native iRConnect schema
 validation, template expansion or interpretation of the message body.

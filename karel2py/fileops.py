@@ -995,8 +995,26 @@ def _read_snapshot(files,name):
 
 
 def _plan_snapshot(files,name,*,plain_pipe_only=False):
+    from .devices import DeviceFiles
+    from .extended import MemoryFiles
     from .storage import DirectoryFiles
 
+    if type(files) in (MemoryFiles,DeviceFiles):
+        name=files.canonical(name) if type(files) is DeviceFiles else name
+        files._check(name,b'')
+        if files._busy(name):return 3,0,None
+        value=files.files.get(name)
+        if value is None:return 1,0,None
+        size=len(value)
+        files._check(name,value)
+
+        def read():
+            if files._busy(name):return 3,None
+            if files.files.get(name) is not value or len(value)!=size:return 2,None
+            files._check(name,value)
+            return 0,bytes(value)
+
+        return 0,size,read
     if type(files) is DirectoryFiles:
         code,plan=files._prepare_named_read(name)
         if code:return code,0,None
@@ -1079,17 +1097,12 @@ def write_json_lines(state,rows,line=None):
 
 
 def print_file(state,files,name,nowait,line=None):
-    from .storage import DirectoryFiles
-
     rt().boolean(nowait,line)
-    check=lambda:state.tick(line)
-    if type(files) is DirectoryFiles:
-        code,data=files.read_named(name,check=check)
-        if code:return code
-    else:
-        code,data=_read_snapshot(files,name)
-        if code:return code
-        charge_file_bytes(len(data),check)
+    code,size,read=_plan_snapshot(files,name,plain_pipe_only=True)
+    if code:return code
+    charge_file_bytes(size,lambda:state.tick(line))
+    code,data=read()
+    if code:return code
     write_file_text(state,data.decode('ascii'),line)
     return 0
 

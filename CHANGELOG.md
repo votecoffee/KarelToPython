@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1107.140840 - 2026-11-07
+
+- Check DAQ stream sinks without reading them at start, and charge the retained
+  prefix and new batch before automatic writes or final flushes.
+- Charge RMCN_SEND before copying, validating or deleting its XML source.
+- Defer ordinary in-memory FILE snapshots for PRINT, COMPARE and KCL APPEND
+  until their input budgets pass.
+
 ## 26.1107.040930 - 2026-11-07
 
 - Charge portable VR archive reads and writes against the execution budget.

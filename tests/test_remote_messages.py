@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
@@ -29,6 +30,21 @@ def selected(bank,paths=('TD:data.bin','MD:latest.dg')):
 
 
 class RemoteMessageSourceTests(unittest.TestCase):
+    def test_xml_input_budget_preserves_file_outbox_and_status(self):
+        xml=b'<message>'+b'X'*40960+b'</message>'
+        ctx=context({'TD:note.xml':xml})
+        p,_=compile_program("paths[1]='' paths[2]='' RMCN_SEND('TD:note.xml',paths,1,s)",decl=DECL,context=ctx)
+        p._state.values['S']=77
+        with patch('karel2py.remote_messages.xml_document',side_effect=AssertionError('parsed before charging')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual(p.snapshot()['S'],77)
+        self.assertEqual(ctx.remote_messages.sequence,0)
+        self.assertEqual(ctx.remote_messages.snapshot(),[])
+        self.assertEqual(ctx.files.snapshot(),{'TD:note.xml':xml})
+        self.assertEqual(p.run()['S'],0)
+        self.assertEqual(ctx.files.snapshot(),{})
+        self.assertEqual(bytes.fromhex(ctx.remote_messages.snapshot()[0]['data']),xml)
+
     def test_alert_explicit_defaults_and_custom_values(self):
         ctx=context(defaults={'address':'recipient@example.invalid','url':'offline://alerts'})
         data=run("RMCN_ALERT('','','','',s) RMCN_ALERT('local','subject','body','link',n)",context=ctx)

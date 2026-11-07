@@ -126,8 +126,12 @@ Set `stream_size` to 1..capacity to append that many records per batch to
 explicit MemoryFiles, DeviceFiles or DirectoryFiles backend. A zero stream size
 disables automatic output and ignores the device string.
 
-Batches append synchronously. The complete target write is checked before
-publishing the new record or changing pipe state. Busy output files, file-size
+DAQ_START checks the sink metadata and access without reading its payload.
+Batches append synchronously. The retained prefix and new batch together charge
+one execution step per 4 KiB, rounded up, before any prefix copy or file write.
+A budget failure preserves the pipe state and the source status target. The
+complete target write is checked before publishing the new record or changing
+pipe state. Busy output files, file-size
 limits, virtual mount/read-only/quota rules, missing parent directories and
 invalid rooted paths preserve the pending batch and ring data. A partial final
 batch flushes on the final or forced stop. Output batching is independent of

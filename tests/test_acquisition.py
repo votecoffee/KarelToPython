@@ -5,6 +5,7 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
@@ -201,6 +202,46 @@ class AcquisitionFileTests(unittest.TestCase):
 
 
 class AcquisitionStreamingTests(unittest.TestCase):
+    def test_rooted_start_does_not_open_existing_sink_and_write_charges_before_open(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            target=root/'AUTHORED.DAT'
+            prefix=b'X'*40960
+            target.write_bytes(prefix)
+            files=rt.DirectoryFiles(root,devices={'RD':''})
+            original_open=Path.open
+
+            def reject_sink_open(path,*args,**kwargs):
+                if path==target:self.fail('DAQ opened the sink before charging')
+                return original_open(path,*args,**kwargs)
+
+            with patch.object(Path,'open',new=reject_sink_open):
+                ctx=setup(stream=1,files=files)
+                self.assertEqual(ctx.acquisition.pipes[1]['starts'],1)
+                p,_=compile_program("value=17 DAQ_WRITE(1,'','value',s)",decl=DECL,context=ctx)
+                p._state.values['S']=77
+                before=ctx.acquisition.to_config()
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+            self.assertEqual((p.snapshot()['S'],ctx.acquisition.to_config()),(77,before))
+            self.assertEqual(target.read_bytes(),prefix)
+            self.assertEqual(p.run()['S'],0)
+            self.assertEqual(target.read_bytes(),prefix+struct.pack('<i',17))
+
+    def test_final_flush_budget_preserves_pending_batch_and_active_count(self):
+        name='RD:AUTHORED.DAT'
+        prefix=b'X'*40960
+        files=rt.MemoryFiles({name:prefix})
+        ctx=setup(stream=2,files=files)
+        self.assertEqual(write(ctx,17),0)
+        p,_=compile_program('DAQ_STOP(1,TRUE,s)',context=ctx)
+        p._state.values['S']=77
+        before=ctx.acquisition.to_config()
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+        self.assertEqual((p.snapshot()['S'],ctx.acquisition.to_config()),(77,before))
+        self.assertEqual(files.snapshot(),{name:prefix})
+        self.assertEqual(p.run()['S'],0)
+        self.assertEqual(files.snapshot(),{name:prefix+struct.pack('<i',17)})
+
     def test_batch_threshold_and_final_stop_flush(self):
         files=rt.MemoryFiles({'RD:AUTHORED.DAT':b'prefix'});ctx=setup(stream=2,files=files)
         self.assertEqual(write(ctx,1),0);self.assertEqual(files.snapshot()['RD:AUTHORED.DAT'],b'prefix')

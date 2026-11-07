@@ -37,28 +37,34 @@ def encode(spec,value,line=None):
         raise runtime.KarelRuntimeError('DAQ record cannot represent the supplied portable data',line) from exc
 
 
-def append_stream(files,name,data,line=None,*,commit=True):
-    """Preflight a whole batch; publish through explicitly supplied file backends."""
-    from .storage import DirectoryFiles,atomic_bytes
+def append_stream(files,name,data,line=None,*,commit=True,check=None):
+    """Plan the existing prefix without reading it until a batch can publish."""
     from .devices import DeviceFiles
+    from .fileops import _plan_snapshot,charge_file_bytes,publish_file_bytes
+    from .storage import DirectoryFiles
     if type(files) not in (MemoryFiles,DirectoryFiles,DeviceFiles):return 7
     try:
-        code,old=files.read_named(name)
+        code,size,read_prefix=_plan_snapshot(files,name)
         if code not in (0,1):return code
-        old=old or b''
-        if len(old)+len(data)>files.limit:return 5
+        length=size+len(data)
+        if length>files.limit:return 5
         if type(files) is DirectoryFiles:
-            key=files._key(name);path=files._path(key)
-            if not path.parent.is_dir():return 7
+            key=files._key(name)
+            if not files._path(key).parent.is_dir():return 7
         else:
             key=files.canonical(name) if type(files) is DeviceFiles else name
-            files._check(key,old+data)
-            if type(files) is DeviceFiles:files.reserve(key,len(old)+len(data),line=line)
-        if commit:
-            updated=old+data
-            if type(files) is DirectoryFiles:atomic_bytes(path,updated)
-            files.files[key]=bytearray(updated)
-        return 0
+            if type(files) is DeviceFiles:files.reserve(key,length,line=line)
+    except (OSError,ValueError,rt().KarelRuntimeError):return 7
+    if not commit:return 0
+
+    charge_file_bytes(length,check)
+    try:
+        old=b''
+        if read_prefix is not None:
+            code,old=read_prefix()
+            if code:return 3 if code==3 else 7
+        code=publish_file_bytes(files,key,old+data,read_prefix is not None,line,obsolete=0)
+        return 7 if code==2 else code
     except (OSError,ValueError,rt().KarelRuntimeError):return 7
 
 
@@ -105,12 +111,25 @@ class Acquisition(MemoryFiles):
         row.update(mode=mode,starts=row['starts']+1,created=True,stream_dev=device if row['stream_size'] else '')
         return 0
 
-    def stop(self,number,force,files,line=None):
+    def _stream_checkpoint(self,number,row,check,line):
+        if check is None:return None
+        starts,mode,device,pending=(row[key] for key in ('starts','mode','stream_dev','pending'))
+
+        def checkpoint():
+            check()
+            if (self.pipes.get(number) is not row or row['starts']!=starts or row['mode']!=mode
+                    or row['stream_dev']!=device or row['pending'] is not pending):
+                fail('DAQ stream changed during batch preparation',line)
+
+        return checkpoint
+
+    def stop(self,number,force,files,line=None,*,check=None):
         row=self.get(number,line)
         if row is None:return 1
         force=rt().boolean(force,line);remaining=0 if force else max(0,row['starts']-1)
         if not remaining and row['pending']:
-            code=append_stream(files,row['stream_dev']+row['name'][4:],row['pending'],line)
+            checkpoint=self._stream_checkpoint(number,row,check,line)
+            code=append_stream(files,row['stream_dev']+row['name'][4:],row['pending'],line,check=checkpoint)
             if code:return code
             row['pending']=b''
         row['starts']=remaining;return 0
@@ -130,7 +149,8 @@ class Acquisition(MemoryFiles):
         except rt().KarelRuntimeError:return 4
         pending=row['pending']+data if row['stream_size'] else b''
         if row['stream_size'] and len(pending)>=row['stream_size']*row['width']:
-            code=append_stream(files,row['stream_dev']+row['name'][4:],pending,line)
+            checkpoint=self._stream_checkpoint(number,row,lambda:state.tick(line),line)
+            code=append_stream(files,row['stream_dev']+row['name'][4:],pending,line,check=checkpoint)
             if code:return code
             pending=b''
         buffer=self.files[row['name']]
@@ -272,6 +292,6 @@ def invoke(state,operation,args,line=None):
             else:code=bank.register(args[0],args[1],args[2],reference.spec,args[5],args[6],line)
         else:code=bank.write_record(state,args[0],reference.spec,reference.raw(),context.files,line)
     elif operation=='DAQ_START':code=bank.start(*args[:3],context.files,line)
-    elif operation=='DAQ_STOP':code=bank.stop(*args[:2],context.files,line)
+    elif operation=='DAQ_STOP':code=bank.stop(*args[:2],context.files,line,check=lambda:state.tick(line))
     else:code=bank.unregister(args[0],line)
     args[-1].set(code,line)

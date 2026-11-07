@@ -146,6 +146,22 @@ class FileComparisonTests(unittest.TestCase):
         self.assertEqual(files.snapshot()['report'],b'');self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
 
 
+    def test_memory_compare_and_print_charge_before_payload_copy(self):
+        class Uncopyable(bytearray):
+            def __bytes__(self):
+                raise AssertionError('copied before charging')
+
+        for body in ("OPEN FILE f ('RW','report') "+COMPARE,"PRINT_FILE('a',FALSE,s)"):
+            with self.subTest(body=body):
+                files=rt.MemoryFiles({'report':b'keep'})
+                files.files.update(a=Uncopyable(b'X'*40960),b=Uncopyable(b'X'*40960))
+                p,_=compile_program(body,decl=DECL,context=rt.ExecutionContext(files=files))
+                p._state.values.update(N=7,S=8)
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=6)
+                self.assertEqual(files.files['report'],b'keep')
+                self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
+                self.assertEqual(p.write_requests,())
+
     def test_rooted_comparison_budget_precedes_both_payload_reads(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder).resolve()

@@ -86,8 +86,9 @@ assert records[2] == {"line": 3, "left": None, "right": "extra"}
 ## Printing files
 
 PRINT_FILE charges for the full captured input and validates it as ASCII before
-emitting output. On a rooted backend, the charge occurs before reading and the
-source metadata is verified before and after the bounded read. It preserves the exact text and newline bytes in chunks of at most 254 characters
+emitting output. On ordinary file backends, the charge occurs before copying
+input bytes. Rooted sources also verify file metadata before and after the
+bounded read. It preserves the exact text and newline bytes in chunks of at most 254 characters
 through the existing WRITE recorder or supplied write callback. An empty file
 produces no request. Both nowait values run synchronously in Pythonic mode.
 

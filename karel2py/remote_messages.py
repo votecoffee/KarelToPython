@@ -103,6 +103,7 @@ def read_file(files,name,*,delete,limit,check=None):
             if type(files) is DeviceFiles:files.require_volume(key.split(':',1)[0],write=delete)
             if files._busy(key):return 3,None,None
             if files.files.get(key) is not data or len(data)!=size:return 4,None,None
+            if size>files.limit:return 5,None,None
         except runtime.KarelRuntimeError:return 4,None,None
     return 0,key,bytes(data)
 
@@ -159,12 +160,12 @@ class RemoteMessages:
         if not self.room(row):return 5
         self.append(row);return 0
 
-    def send(self,files,xml_file,paths,priority):
+    def send(self,files,xml_file,paths,priority,*,check=None):
         try:
             name=file_name(xml_file);paths=attachments(paths);priority=priority_value(priority)
             if name in paths:return 2
         except ValueError:return 2
-        code,key,data=read_file(files,name,delete=True,limit=self.limit//2)
+        code,key,data=read_file(files,name,delete=True,limit=self.limit//2,check=check)
         if code:return code
         if not xml_document(data):return 4
         row=dict(sequence=self.sequence+1,kind='xml',xml_file=name,data=data.hex(),attachments=paths,priority=priority)
@@ -253,5 +254,5 @@ def invoke(state,operation,args,line=None):
     bank=state.execution.require('remote_messages',line)
     if operation=='RMCN_ALERT':code=bank.alert(*args[:-1])
     elif operation=='QUEUE_ATTACH':code=bank.queue_attach(*args[:-1])
-    else:code=bank.send(state.execution.require('files',line),*args[:-1])
+    else:code=bank.send(state.execution.require('files',line),*args[:-1],check=lambda:state.tick(line))
     args[-1].set(code,line)
