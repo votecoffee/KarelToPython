@@ -259,6 +259,65 @@ class DirectoryMoveTests(unittest.TestCase):
             self.assertEqual(external.read_bytes(),b'outside');self.assertTrue((root/'ram/a.KL').exists())
 
 
+class RootedHardlinkBusyTests(unittest.TestCase):
+    def link(self,alias,original):
+        try:alias.hardlink_to(original)
+        except OSError as error:self.skipTest(f'Host hard links are unavailable: {error}')
+
+    def test_exact_file_calls_share_busy_identity_through_hard_links(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);files=directory(root)
+            original=root/'ram/a.KL';alias=root/'flash/alias.KL'
+            original.write_bytes(b'payload');self.link(alias,original)
+            (root/'flash/from.KL').write_bytes(b'other')
+            handle=rt.FileHandle();files.open(handle,'R','RD:a.KL')
+            other=rt.FileHandle()
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'already open'):
+                files.open(other,'R','FR:alias.KL')
+            self.assertIsNone(other.owner)
+            self.assertEqual(files.read_named('FR:alias.KL'),(3,None))
+            for command in ("COPY_FILE('FR:alias.KL','FR:new.KL',TRUE,FALSE,s)",
+                            "COPY_FILE('FR:from.KL','FR:alias.KL',FALSE,FALSE,s)",
+                            "RENAME_FILE('FR:alias.KL','FR:new.KL',FALSE,s)",
+                            "DELETE_FILE('FR:alias.KL',FALSE,s)"):
+                with self.subTest(command=command):
+                    self.assertEqual(run(command,context=rt.ExecutionContext(files=files))['S'],3)
+            self.assertFalse((root/'flash/new.KL').exists())
+            self.assertEqual((original.read_bytes(),alias.read_bytes()),(b'payload',b'payload'))
+            files.close(handle)
+            self.assertEqual(files.read_named('FR:alias.KL'),(0,b'payload'))
+
+    def test_move_preflights_open_hardlink_alias_before_first_rename(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);files=directory(root)
+            first=root/'ram/a.KL';later=root/'ram/z.KL';alias=root/'open.KL'
+            first.write_bytes(b'first');later.write_bytes(b'later');self.link(alias,later)
+            handle=rt.FileHandle();files.open(handle,'R','open.KL')
+            self.assertEqual(move(files),3)
+            self.assertEqual((first.read_bytes(),later.read_bytes()),(b'first',b'later'))
+            self.assertEqual(list((root/'flash').iterdir()),[])
+            files.close(handle)
+            self.assertEqual(move(files),0)
+            self.assertEqual((root/'flash/z.KL').read_bytes(),b'later')
+
+    def test_move_rechecks_alias_opened_during_byte_preparation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);files=directory(root)
+            first=root/'ram/a.KL';later=root/'ram/z.KL';alias=root/'open.KL'
+            first.write_bytes(b'a'*8192);later.write_bytes(b'later');self.link(alias,later)
+            handle=rt.FileHandle();calls=0
+            def check():
+                nonlocal calls
+                calls+=1
+                # Two source entries and four planned operations precede byte charging.
+                if calls==7:files.open(handle,'R','open.KL')
+            self.assertEqual(files.move('RD:*.KL',check=check),3)
+            self.assertIs(handle.owner,files)
+            self.assertEqual((first.read_bytes(),later.read_bytes()),(b'a'*8192,b'later'))
+            self.assertEqual(list((root/'flash').iterdir()),[])
+            files.close(handle)
+
+
 class FileManagementIntegrationTests(unittest.TestCase):
     def test_move_requires_explicit_backend(self):
         program,_=compile_program("MOVE_FILE('RD:*.KL',s)")

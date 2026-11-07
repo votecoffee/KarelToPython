@@ -396,7 +396,25 @@ class DirectoryFiles:
 
     def _key(self,name): return self._path(name).relative_to(self.root).as_posix()
 
-    def _busy(self,key): return any(handle.owner is self and os.path.normcase(handle.name)==os.path.normcase(key) for handle in self.handles)
+    def _identity(self,name):
+        try: info=self._path(name).stat()
+        except FileNotFoundError:return None
+        return (info.st_dev,info.st_ino) if info.st_ino else None
+
+    def _busy_keys(self,keys,*,casefold=False):
+        open_names=[handle.name for handle in self.handles if handle.owner is self]
+        if not open_names:return False
+        normalize=str.casefold if casefold else os.path.normcase
+        open_keys={normalize(name) for name in open_names}
+        if any(normalize(key) in open_keys for key in keys):return True
+        identities=set()
+        for name in open_names:
+            try: identity=self._identity(name)
+            except (OSError,ValueError):continue
+            if identity is not None:identities.add(identity)
+        return bool(identities) and any(self._identity(key) in identities for key in keys)
+
+    def _busy(self,key): return self._busy_keys((key,))
 
     def _create_directory(self,name):
         target=self._path(name,directory=True)

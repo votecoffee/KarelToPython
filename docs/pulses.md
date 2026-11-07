@@ -74,8 +74,9 @@ assert ports.read("DOUT", 1) is False
 
 Scheduled pulses always use scheduler virtual time, including when a Program
 also has an injected clock for other features. Their captured clock remains
-valid after the owner finishes. The scheduler polls shared banks and drains
-its pending pulses when all tasks complete or pause. Idle steps can jump to
+valid after the owner finishes. Replacing a completed owner's binding keeps
+the old bank registered for its pending deadlines. The scheduler polls shared
+banks and drains its pending pulses when all tasks complete or pause. Idle steps can jump to
 the next pulse/wait deadline. Use step() when intermediate states matter;
 run() drains the scheduled work within its usual cycle budget.
 
@@ -90,7 +91,7 @@ python -m karel2py.project examples/pulse_project --entry MAIN --context example
 
 | Event | Pythonic result |
 | --- | --- |
-| Normal owner completion | Pending NOWAIT pulse remains until polled or drained |
+| Normal owner completion or later binding replacement | Pending NOWAIT pulse stays on its original clock until polled or drained |
 | Pause | Pulse can expire while the owner remains paused |
 | Abort, terminal STOP or runtime failure | Discard pending records created by the interrupted run and preserve their last modeled output values |
 | Successful direct/indirect/host write | Cancel that output's pending expiration and keep the new supplied value |

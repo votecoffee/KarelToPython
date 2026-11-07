@@ -305,10 +305,7 @@ def wildcard_file_operation(state,operation,args,line=None):
             if len(result)>WILDCARD_FILE_LIMIT:raise ValueError('Wildcard FILE batch exceeds 32767 entries')
             return sorted(result)
         def identity(self,name):
-            if not self.directory:return None
-            path=self.bank._path(name)
-            if not path.exists():return None
-            stat=path.stat();return (stat.st_dev,stat.st_ino) if stat.st_ino else None
+            return self.bank._identity(name) if self.directory else None
         def signature(self,name):
             if self.pipe:return tuple(sorted(self.bank.pipes[name].items())) if name in self.bank.pipes else None
             if not self.directory:return None
@@ -316,13 +313,14 @@ def wildcard_file_operation(state,operation,args,line=None):
             if not path.exists():return None
             stat=path.stat();return stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns
         def busy(self,names):
-            logical={name.casefold() for name in names};physical={self.identity(name) for name in names}-{None}
+            if self.directory:return self.bank._busy_keys(names,casefold=True)
+            logical={name.casefold() for name in names}
             if self.pipe:
                 identities={id(handle) for handle in self.bank.handles if handle.owner is self.bank}
                 if set(self.bank._reads)-identities:raise runtime.KarelRuntimeError('Unresolved pending pipe READ identity',line)
             for handle in self.bank.handles:
                 if handle.owner is not self.bank:continue
-                if handle.name.casefold() in logical or self.directory and self.identity(handle.name) in physical:return True
+                if handle.name.casefold() in logical:return True
             return any(self.bank._busy(name) for name in names)
         def source_names(self,folder,pattern,*,charge=True):
             if self.pipe and context.acquisition is not None:
@@ -335,7 +333,7 @@ def wildcard_file_operation(state,operation,args,line=None):
                 base=_wildcard_relative(name,folder) if recursive else name.rsplit('/',1)[-1].rsplit(':',1)[-1]
                 if base is None or not (_wildcard_path_match(base,pattern,check=check if charge else None) if recursive else fnmatch.fnmatchcase(base.casefold(),pattern.casefold())):continue
                 if recursive:self.key(name)
-                if self.directory and not self.bank._busy(name) and not self.bank._path(name).is_file():continue
+                if self.directory and not self.bank._path(name).is_file() and not self.bank._busy(name):continue
                 self.plain(name);found.append(name)
             return found
         def unchanged(self,name,data,signature):
@@ -925,9 +923,12 @@ def move_files(files,specification,*,check=None):
             return (found+':'+(folder+'/' if folder else '')+base).casefold()
         existing={logical_name(name) for name in files.files}
     if not plan: return 1
-    key=str.casefold if directory else logical_name
-    busy={key(handle.name) for handle in files.handles if handle.owner is files}
-    if any(key(source) in busy or key(target) in busy for source,target in plan): return 3
+    if directory:
+        rooted_keys=[name for pair in plan for name in pair]
+        if files._busy_keys(rooted_keys,casefold=True):return 3
+    else:
+        busy={logical_name(handle.name) for handle in files.handles if handle.owner is files}
+        if any(logical_name(source) in busy or logical_name(target) in busy for source,target in plan):return 3
     if directory and recursive:
         identities=set()
         for source,_ in plan:
@@ -955,6 +956,7 @@ def move_files(files,specification,*,check=None):
         charge_file_bytes(sum(size for size,*_ in rooted_sources.values()),byte_check)
         if any(source_signature(source)!=signature for source,signature in rooted_sources.items()):
             raise ValueError('MOVE_FILE source changed during byte preflight')
+        if files._busy_keys(rooted_keys,casefold=True):return 3
     for source,target in plan:
         if directory:
             code,data=files.read_named(source)

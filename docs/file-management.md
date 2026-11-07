@@ -17,6 +17,13 @@ invalid status reference retain ordinary data-domain/output errors. This grammar
 does not establish that a name is valid in the KAREL source-program grammar or
 match every native controller name rule.
 
+## Rooted file identity
+
+DirectoryFiles treats existing hard links to an open file as the same busy
+resource within that backend. OPEN rejects a second descriptor through the
+alias. Closed-file reads, copies, deletes and renames report busy status 3.
+The guard uses filesystem identity when available.
+
 ## Exact COPY_FILE
 
 Exact COPY_FILE on MemoryFiles, DeviceFiles and DirectoryFiles charges one
@@ -96,8 +103,10 @@ directory scan, or across the entire in-memory bank. Nonmatching entries count
 toward the scan limit and execution step budget. It checks the whole
 batch for open source/target handles, destination collisions, duplicate target
 names and the per-file size limit before the first move. Case-only collisions
-are rejected on every host. MemoryFiles also detects aliases formed by device
-case or a device-root separator. A busy candidate takes precedence over an
+are rejected on every host. A rooted batch also checks hard-link aliases of
+open handles before its first rename, including handles opened during byte
+preparation. MemoryFiles detects aliases formed by device case or a device-root
+separator. A busy candidate takes precedence over an
 existing-target collision. Directories are not files and are never moved.
 
 | Status | Portable MOVE_FILE meaning |

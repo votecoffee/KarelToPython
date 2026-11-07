@@ -395,6 +395,7 @@ class TaskScheduler:
         self.tasks={}; self.attributes={}; self.quantum_us=quantum_ms*1000; self.max_steps=max_steps
         self.now_us=0; self.waiting={}; self.errors={}; self._running=False; self._stepping=False; self._step_names=None
         self._task_waits={}
+        self._scheduled_pulse_banks=set()
     def bind(self, name, program, *, attributes=None):
         key = rt().ascii_string(name).upper()
         previous = self.tasks.get(key)
@@ -464,10 +465,14 @@ class TaskScheduler:
             state._lifecycle['POWERUP'] = state._lifecycle.get('POWERUP', 0) + 1
     def powerup(self,name): self.continue_task(name,powerup=True)
     def _pulse_banks(self):
-        # A completed task can leave a NOWAIT pulse on this clock after
-        # the same Program starts again under another scheduler.
-        return {program._state.execution.ports for program in self.tasks.values()
-                if program._state.execution.ports is not None}
+        # Pending pulses belong to this clock, even after the task's binding changes.
+        self._scheduled_pulse_banks={
+            bank for bank in self._scheduled_pulse_banks
+            if any(pulse.scheduler is self for pulse in bank._pulses.values())
+        }
+        bound={program._state.execution.ports for program in self.tasks.values()
+               if program._state.execution.ports is not None}
+        return bound | self._scheduled_pulse_banks
     def _pulse_deadlines(self):
         return [pulse.deadline for bank in self._pulse_banks() for pulse in bank._pulses.values() if pulse.scheduler is self]
     def _poll_motion(self):

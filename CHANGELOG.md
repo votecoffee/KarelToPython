@@ -1,5 +1,13 @@
 # Changelog
 
+## 26.1106.235842 - 2026-11-06
+
+- Keep scheduled NOWAIT pulses on their original clock after replacing a
+  completed task's binding. Release the old bank after its scheduled pulses
+  expire or are cancelled.
+- Treat rooted hard links to open files as busy for exact file calls and
+  batch move preparation.
+
 ## 26.1106.233654 - 2026-11-06
 
 - Add an explicit conversion flag to seeded APPEND_NODE and INSERT_NODE.

@@ -125,8 +125,9 @@ FOR counters remain protected through routines and condition actions. Arguments
 and selectors are captured once in source order.
 
 The backends expose read_named(name), returning (status, detached_bytes) on
-success or (status, None) on a missing/busy file. DirectoryFiles reads current
-disk contents rather than previously cached bytes, using its explicit root,
+success or (status, None) on a missing/busy file. A rooted hard link to a file
+open through that backend reports the same busy status. DirectoryFiles reads
+current disk contents rather than previously cached bytes, using its explicit root,
 device mapping, traversal restrictions and per-file limit. Named reads do not
 populate its buffered-file snapshot. Re-select a directory root after restoring
 context JSON; restored file bytes use MemoryFiles.

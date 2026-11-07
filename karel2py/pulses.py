@@ -77,6 +77,7 @@ def pulse_execution(state,number,milliseconds,nowait=False,line=None):
         duration=((milliseconds+7)//8)*8
         pulse=Pulse(key,owner,owner._task_run,clock,scheduler,now+duration*1000,now)
         bank.values[key]=True;bank._pulses[key]=pulse
+        if scheduler is not None:scheduler._scheduled_pulse_banks.add(bank)
         if pulse.run is not None:owner._task_run_services[bank]=None
         if not nowait:
             yield from runtime.delay_execution(state,duration,line)

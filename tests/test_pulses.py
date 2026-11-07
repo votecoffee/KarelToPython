@@ -192,6 +192,23 @@ class PulseSchedulerTests(unittest.TestCase):
         tasks,p,ports=self.scheduler('PULSE DOUT[1] FOR 9 NOWAIT n=1')
         tasks.run();self.assertEqual(p.task_state,'completed');self.assertFalse(ports.read('DOUT',1));self.assertGreaterEqual(tasks.now_us,16000)
 
+    def test_scheduler_drains_original_bank_after_completed_binding_is_replaced(self):
+        tasks,old,ports=self.scheduler('PULSE DOUT[1] FOR 80 NOWAIT')
+        for _ in range(10):
+            tasks.step()
+            if old.task_state=='completed':break
+        self.assertEqual((old.task_state,ports.pending_pulses),('completed',1))
+        replacement_ports=rt.PortBank({'DOUT':1},{('DOUT',1):True})
+        new,_=compile_program('n=1',cooperative=True,
+                              context=rt.ExecutionContext(tasks=tasks,ports=replacement_ports))
+        tasks.bind('worker',new)
+        self.assertEqual(tasks.run()['WORKER']['state'],'ready')
+        self.assertGreaterEqual(tasks.now_us,80000)
+        self.assertEqual(ports.pending_pulses,0)
+        self.assertFalse(ports.read('DOUT',1))
+        self.assertTrue(replacement_ports.read('DOUT',1))
+        self.assertEqual(tasks._pulse_banks(),{replacement_ports})
+
     def test_scheduler_drains_pulse_while_owner_is_paused(self):
         tasks,p,ports=self.scheduler('PULSE DOUT[1] FOR 9 NOWAIT PAUSE n=1')
         tasks.run();self.assertEqual(p.task_state,'paused');self.assertFalse(ports.read('DOUT',1));tasks.continue_task('worker');tasks.run();self.assertEqual(p.snapshot()['N'],1)
