@@ -59,9 +59,11 @@ frame identifiers. Existing nodes remain intact. A nonempty output must already
 use the same identifiers. Groups are 1..32 and user-frame IDs 0..32767; these
 are supplied metadata rather than discovered controller settings.
 
-The complete batch is staged before changing output nodes or header. Each input
-node consumes an ordinary execution step. Invalid/uninitialized values, improper
-matrices and exhausted step budgets raise while retaining output data. Existing
+The complete batch is staged before changing output nodes or header. The
+operation charges one step per input node before preparing the geometry, then
+checks that the destination and both node lists stayed in place. Invalid or
+uninitialized values, improper matrices and exhausted step budgets raise
+while retaining output data. Existing
 disjoint-output and transitive FOR-counter checks apply, including aliases into
 the output header. No handlers run inside this synchronous calculation.
 

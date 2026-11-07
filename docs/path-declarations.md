@@ -93,9 +93,11 @@ Conversion charges the scalar leaves of both layouts when they differ.
 An incompatible layout, or an explicit FALSE with a different layout, returns
 status 3. An out-of-range insert with a valid seed schema returns status 2.
 
-The seed is captured independently before the status selector and conversion flag
-are evaluated. Data and budget errors preserve the PATH and prior status. The
-original unseeded forms allocate a node with uninitialized data.
+The seed capture charges one step per source leaf before copying data or
+evaluating the status selector and conversion flag. Node preparation then
+charges the target layout and, for a conversion, the source layout it reads.
+The unseeded forms charge the target layout before allocating a node with
+uninitialized data. Data and budget errors preserve the PATH and prior status.
 
 ## Copy between compatible layouts
 

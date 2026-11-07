@@ -1,5 +1,6 @@
 """Packed portable PATH sizes and authored view-line/plane intersection data."""
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt
 from karel2py.lexer import TranslationError
@@ -105,8 +106,44 @@ class ViewLineIntersectionTests(unittest.TestCase):
     def test_budget_exhaustion_does_not_append(self):
         p=self.execute('APPEND_NODE(lines,s) lines[2]=lines[1]');p.run();state=p._state
         state.max_steps=state.steps+1;state.values['S']=99;target=state.values['POINTS']
-        with rt._numeric_scope('pythonic'),self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):
-            intersect_view_lines(state,state.values['LINES'],state.values['PLANE'],rt.Reference(target.spec,state.values,'POINTS'),rt.Reference(('INTEGER',),state.values,'S'))
+        with (rt._numeric_scope('pythonic'),
+              patch.object(rt,'_aggregate_value',side_effect=AssertionError('captured geometry before budget')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'budget')):
+            intersect_view_lines(state,state.values['LINES'],state.values['PLANE'],
+                                 rt.Reference(target.spec,state.values,'POINTS'),
+                                 rt.Reference(('INTEGER',),state.values,'S'))
+        self.assertEqual((state.values['S'],target.nodes),(99,[]))
+
+    def test_destination_rebinding_during_budget_preserves_status_and_both_paths(self):
+        p=self.execute('')
+        p.run()
+        state=p._state
+        target=state.values['POINTS']
+        replacement=rt.PathValue(target.spec)
+        state.values['S']=99
+
+        def rebind(_):
+            state.values['POINTS']=replacement
+
+        with (patch.object(state,'tick',side_effect=rebind),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'PATH storage changed')):
+            intersect_view_lines(state,state.values['LINES'],state.values['PLANE'],
+                                 rt.Reference(target.spec,state.values,'POINTS'),
+                                 rt.Reference(('INTEGER',),state.values,'S'))
+        self.assertEqual((state.values['S'],target.nodes,replacement.nodes),(99,[],[]))
+        self.assertIs(state.values['POINTS'],replacement)
+
+    def test_missing_destination_header_rejects_even_when_empty(self):
+        p=self.execute('')
+        p.run()
+        state=p._state
+        target=state.values['POINTS']
+        target.data=rt.UNINITIALIZED
+        state.values['S']=99
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'destination PATH header'):
+            intersect_view_lines(state,state.values['LINES'],state.values['PLANE'],
+                                 rt.Reference(target.spec,state.values,'POINTS'),
+                                 rt.Reference(('INTEGER',),state.values,'S'))
         self.assertEqual((state.values['S'],target.nodes),(99,[]))
 
     def test_schema_types_and_arity_fail_translation(self):

@@ -677,6 +677,15 @@ def service_value(value, line=None):
     return assignment_value(value,line)
 
 
+def path_node_seed(state,spec,value,line=None):
+    """Charge the source capture before copying a complete PATH node seed."""
+    if type(value) is not Structure or value.spec!=spec:
+        raise KarelRuntimeError('PATH node seed requires matching declared STRUCTURE storage',line)
+    for _ in range(_validate_data_schema(spec,line)):
+        state.tick(line)
+    return _aggregate_value(spec,value,line,allow_partial=False)
+
+
 def scalar_leaf_count(spec, limit=32767):
     """Bound allocation accounting, including nested structure/array contents."""
     if spec[0] == 'JOINTPOS': return joint_width(spec)

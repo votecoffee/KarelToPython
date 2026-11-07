@@ -395,7 +395,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.164938**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.170638**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -773,7 +773,7 @@ grayscale/RGB alpha in PNG and 32-bit BMP exports; see [alpha images](docs/visio
 Linked projects accept program-qualified ARRAY shapes, so modules can specialize
 the same variable name independently. See [project ARRAY shapes](docs/project-array-shapes.md)
 for API and CLI examples, including validation without executing source.
-PATH helpers include portable NODE_SIZE and supplied view-line/plane intersections
+PATH helpers include portable NODE_SIZE and budgeted view-line/plane intersections
 with staged append behavior; see [PATH geometry](docs/path-geometry.md).
 Five XML input calls provide registered-tag scanning, chunked text and attributes,
 and checked structure updates over explicit FILE backends. Dotted attributes can
@@ -946,7 +946,9 @@ Registers, ports and program globals share an explicit context with typed JSON
 save/load. FILE operations can use memory or a caller-selected directory. Typed
 PATH and QUEUE_TYPE collections work offline. APPEND_NODE and INSERT_NODE can
 take complete node values, with a final `TRUE` argument to convert compatible
-NODEDATA layouts. `COPY_PATH` validates and charges the header and selected
+NODEDATA layouts. Node edits charge seed capture and node allocation before
+copying or allocating the corresponding data. `COPY_PATH` validates and charges
+the header and selected
 nodes before replacing the destination. Its final `TRUE` argument also enables
 conversion between compatible PATH schemas. These opted-in edits and copies can
 convert joint and Cartesian fields using the calling task's supplied robot model.

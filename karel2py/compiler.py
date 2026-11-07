@@ -3129,6 +3129,8 @@ class Emitter:
                     check=f',check=lambda:self._state.tick({value.token.line})'
                 if reference_input: code=f'_rt.variable_reference({code},{value.token.line}{check})'
                 elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line}{check})'
+                elif self.mode=='pythonic' and kind=='PATH_NODE' and spec[0]=='STRUCTURE':
+                    code=f'_rt.path_node_seed(self._state,{spec!r},{code},{value.token.line})'
                 elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.service_value({code},{value.token.line})'
             if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
             if index==0 and expr.value in ex.OPTIONAL_PATH_NODE:
@@ -5584,7 +5586,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         context='Explicit ExecutionContext with bounded banks, typed JSON persistence and attached program namespaces; optional caller-rooted DirectoryFiles and configured DH model',
         values='Checked exact output references, disjoint resources, ordered input/selector capture; prior completed effects retained on error',
         files='MemoryFiles or explicit DirectoryFiles root; ASCII text, ATR_FIELD capacity-sized STRING reads, byte-accurate EOL cursors, ATR_UF binary, selectable byte order and interactive flush; bounded copy/delete/rename/list',
-        collections='Typed one-based PATH nodes and header, full or reversed inclusive range copies, and initialized fixed-capacity FIFO queues. APPEND_NODE and INSERT_NODE accept a complete seed with an optional flag for compatible NODEDATA conversion. COPY_PATH converts compatible node/header schemas with the same opt-in. Model-backed joint/Cartesian fields require explicit task robot context and whole-batch preflight. Seeded edits and copies charge data before publication.',
+        collections='Typed one-based PATH nodes and header, full or reversed inclusive range copies, and initialized fixed-capacity FIFO queues. APPEND_NODE and INSERT_NODE accept a complete seed with an optional flag for compatible NODEDATA conversion. COPY_PATH converts compatible node/header schemas with the same opt-in. Model-backed joint/Cartesian fields require explicit task robot context and whole-batch preflight. Unseeded edits charge allocation, seeded edits charge source capture and node preparation, and copies charge before publication.',
         queue_copy='COPY_QUEUE stages backing slots and selected view entries, charges each to the step budget, then binds and publishes. Exceptions during preparation preserve arrays, count, status and the existing binding.',
         queue_mutation='APPEND_QUEUE, INSERT_QUEUE, MODIFY_QUEUE, DELETE_QUEUE and GET_QUEUE stage the FIFO update, backing array and outputs. Each backing slot costs a step before publication.',
         robot='JOINT2POS/POS2JOINT/IN_RANGE/CHECK_EPOS use supplied callbacks or loadable standard-DH models; group/frame/tool data explicit; JOINT2POS accepts writable POSITION, XYZWPR or XYZWPREXT; bounded numerical IK is not certified reachability',
@@ -6362,7 +6364,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         node_size='Packed portable schema bytes: BYTE/BOOLEAN 1, SHORT 2, INTEGER/REAL 4, STRING declared capacity, JOINTPOS 4 per axis; ARRAY products and record field sums, no header/padding/native control data; contents need not be initialized',
         schemas='Structurally checked view-line PATH: DIR/POL VECTOR and MODEL_ID INTEGER, header GRP_NUM/UFRM_NUM INTEGER and FOCAL_POINT VECTOR; output POS/POL VECTOR and MODEL_ID INTEGER with group/frame header',
         intersection='Complete supplied lines in their application frame intersect the supplied plane XY surface; infinite lines, unit projected polarity with signed-distance direction, model IDs and explicit group/frame metadata retained; results append',
-        atomicity='Stage every result before changing destination/header; charge each line to step budget; nonempty output must share group/frame identifiers; invalid types/contents/matrices/budget raise',
+        atomicity='Charge all input lines before staging results; verify captured source and output storage, then publish nodes/header together. Nonempty output must share group/frame identifiers; invalid types/contents/matrices/budget raise',
         status='Portable 0 success, 1 parallel within unit-direction denominator tolerance 1e-12, 2 degenerate direction/projected polarity or focal-plane distance, 3 output frame/group mismatch, 4 node capacity; failures retain destination',
         boundary='No vision acquisition, camera calibration, background processing, proprietary PATH layout/file serializer or native status/geometry equivalence; strict remains future work',
         guide='docs/path-geometry.md',controller_validated=False)

@@ -74,6 +74,37 @@ class SeededPathNodeTests(unittest.TestCase):
         self.assertEqual((program.snapshot()['TRACK']['nodes'],program.snapshot()['S']),([],99))
 
 
+    def test_seed_budget_precedes_copy_and_status_selector(self):
+        routines='ROUTINE slot:INTEGER BEGIN n=n+1 RETURN 1 END slot'
+        program,_=compile_program('n=0 codes[1]=99 APPEND_NODE(track,seed,codes[slot()])',
+                                  decl=self.declarations+' codes:ARRAY[1] OF INTEGER',routines=routines)
+        path=program._state.values['TRACK']
+        nodes=path.nodes
+        with patch.object(rt,'_aggregate_value',side_effect=AssertionError('copied seed before budget')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                program.run(max_steps=3)
+        self.assertIs(path.nodes,nodes)
+        self.assertEqual((nodes,program.snapshot()['N'],program.snapshot()['CODES']),([],0,[99]))
+
+    def test_unseeded_node_budget_precedes_allocation_and_status(self):
+        types='TYPE node_t=STRUCTURE data:ARRAY[32] OF INTEGER ENDSTRUCTURE'
+        decl='track:PATH NODEDATA=node_t s:INTEGER'
+        for operation in ('APPEND_NODE(track,s)','INSERT_NODE(track,1,s)'):
+            with self.subTest(operation=operation):
+                program,_=compile_program('s=99 '+operation,types=types,decl=decl)
+                path=program._state.values['TRACK']
+                nodes=path.nodes
+                with patch.object(rt.Structure,'__init__',side_effect=AssertionError('allocated node before budget')):
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                        program.run(max_steps=4)
+                self.assertIs(path.nodes,nodes)
+                self.assertEqual((nodes,program.snapshot()['S']),([],99))
+
+    def test_invalid_unseeded_insert_skips_allocation_budget(self):
+        program,_=compile_program('INSERT_NODE(track,2,s)')
+        state=program.run(max_steps=1)
+        self.assertEqual((state['S'],state['TRACK']['nodes']),(2,[]))
+
     def test_conversion_flag_uses_captured_seed_and_status_selector_order(self):
         types=TYPES+' other_t=STRUCTURE value:REAL ENDSTRUCTURE'
         decl=DECL+' seed:other_t codes:ARRAY[1] OF INTEGER order:INTEGER'

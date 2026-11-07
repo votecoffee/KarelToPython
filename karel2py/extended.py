@@ -1529,13 +1529,13 @@ class PathValue:
         if count>=32767: fail('PATH node limit exceeded',line)
         index=count+1 if index is None else rt.integer(index,line)
         if not 1<=index<=count+1: return 2
+        if check is not None:
+            cost=rt._validate_data_schema(target,line)
+            if changing:cost+=rt._validate_data_schema(seed.spec,line)
+            for _ in range(cost):check()
         if seed is None:
             node=rt.Structure(target)
         else:
-            if check is not None:
-                cost=rt._validate_data_schema(target,line)
-                if changing:cost+=rt._validate_data_schema(seed.spec,line)
-                for _ in range(cost):check()
             if changing:
                 source=rt._aggregate_value(seed.spec,seed,line,allow_partial=False)
                 if kind=='kinematic':
@@ -1574,15 +1574,29 @@ def vision_path_schema(spec,kind):
 def intersect_view_lines(state,source,frame,destination,status,line=None):
     """Stage complete line/plane intersections before appending any PATH data."""
     rt=runtime();target=destination.raw()
-    if not vision_path_schema(source.spec,'VIEW_LINES') or not vision_path_schema(target.spec,'POINT_PATH'):
+    if (type(source) is not PathValue or type(target) is not PathValue
+            or target.spec!=destination.spec or not vision_path_schema(source.spec,'VIEW_LINES')
+            or not vision_path_schema(target.spec,'POINT_PATH')):
         fail('INTSCT_VL_PL requires the documented view-line and point PATH field schemas',line)
-    header=rt._aggregate_value(source.data.spec,source.data,line,allow_partial=False)
+    source_nodes,target_nodes=source.nodes,target.nodes
+    if type(source_nodes) is not list or type(target_nodes) is not list:
+        fail('INTSCT_VL_PL requires ordinary PATH node lists',line)
+    count,existing=len(source_nodes),len(target_nodes)
+    fits=count+existing<=32767
+    if fits:
+        for _ in range(count):state.tick(line)
+        if (destination.raw() is not target or source.nodes is not source_nodes
+                or target.nodes is not target_nodes or len(source_nodes)!=count or len(target_nodes)!=existing):
+            fail('INTSCT_VL_PL PATH storage changed during preparation',line)
+    header=rt._aggregate_value(source.spec[2],source.data,line,allow_partial=False)
     group=rt.integer(header.values['GRP_NUM'],line);uframe=rt.integer(header.values['UFRM_NUM'],line)
     if not 1<=group<=32 or not 0<=uframe<=32767: fail('INTSCT_VL_PL header identifiers are out of range',line)
-    if target.nodes:
-        current=rt._aggregate_value(target.data.spec,target.data,line,allow_partial=False)
-        if (current.values['GRP_NUM'],current.values['UFRM_NUM'])!=(group,uframe): status.set(3,line);return
-    if len(target.nodes)+len(source.nodes)>32767: status.set(4,line);return
+    if type(target.data) is not rt.Structure or target.data.spec!=target.spec[2]:
+        fail('INTSCT_VL_PL requires matching destination PATH header storage',line)
+    current=rt._aggregate_value(target.spec[2],target.data,line,allow_partial=not existing)
+    if existing and (current.values['GRP_NUM'],current.values['UFRM_NUM'])!=(group,uframe):
+        status.set(3,line);return
+    if not fits: status.set(4,line);return
     rotation,origin,_=rt._frame_parts(frame,line)
     normal=tuple(rotation[i][2] for i in range(3))
     focal=rt.vector_components(header.values['FOCAL_POINT'],line)
@@ -1590,8 +1604,7 @@ def intersect_view_lines(state,source,frame,destination,status,line=None):
     staged=[]
     try:
         offset=dot(normal,tuple(o-f for o,f in zip(origin,focal)))
-        for node in source.nodes:
-            state.tick(line)
+        for node in source_nodes:
             node=rt._aggregate_value(source.node_spec,node,line,allow_partial=False)
             direction=rt.vector_components(node.values['DIR'],line);polarity=rt.vector_components(node.values['POL'],line)
             length=math.hypot(*direction)
@@ -1610,7 +1623,7 @@ def intersect_view_lines(state,source,frame,destination,status,line=None):
     except (ArithmeticError,ValueError) as exc:
         raise rt.KarelRuntimeError('INTSCT_VL_PL numeric calculation failed: '+str(exc),line) from exc
     target.data.values.update(GRP_NUM=group,UFRM_NUM=uframe)
-    target.nodes.extend(staged);status.set(0,line)
+    target_nodes.extend(staged);status.set(0,line)
 
 
 class QueueValue:
@@ -2898,7 +2911,8 @@ class ExecutionContext:
                         fail('PATH node input must match the declared NODEDATA',line)
                     code=path.append(index,line,seed=seed,convert=convert,check=lambda:state.tick(line),state=state)
                 else:
-                    code=path.append(index,line)
+                    check=(lambda:state.tick(line)) if rt._pythonic() else None
+                    code=path.append(index,line,check=check)
             else:
                 code=0 if 1<=args[1]<=len(path.nodes) else 2
                 if not code: del path.nodes[args[1]-1]

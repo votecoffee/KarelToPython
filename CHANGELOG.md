@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.170638 - 2026-11-07
+
+- Charge PATH node seed capture before copying the seed and evaluating the
+  status selector. Unseeded node edits charge before allocating fields.
+- Charge the complete INTSCT_VL_PL input before staging geometry and verify
+  that the destination and PATH node lists stayed in place.
+
 ## 26.1107.164938 - 2026-11-07
 
 - Normalize chained and mixed MOVE ALONG array subscripts before separating
