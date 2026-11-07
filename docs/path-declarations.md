@@ -87,7 +87,8 @@ INSERT_NODE(track,1,external_seed,status,TRUE)
 ```
 
 The layouts must have matching field names and compatible types under the
-[context-free record conversion rules](record-schema-conversions.md).
+[record conversion rules](record-schema-conversions.md). Compatible joint and
+Cartesian fields can also use the calling task's explicit [robot model](kinematic-records.md).
 Conversion charges the scalar leaves of both layouts when they differ.
 An incompatible layout, or an explicit FALSE with a different layout, returns
 status 3. An out-of-range insert with a valid seed schema returns status 2.
@@ -102,12 +103,16 @@ original unseeded forms allocate a node with uninitialized data.
 across compatible NODEDATA and PATHHEADER declarations. The source and
 destination must both have a header or both omit it. Each pair of record
 layouts must have matching field names and compatible data types under the
-[record conversion rules](record-schema-conversions.md).
+[record conversion rules](record-schema-conversions.md), including explicit
+[model-backed joint and Cartesian fields](kinematic-records.md).
 
 The source order, range and missing scalar data follow the ordinary COPY_PATH
 rules. The selected nodes and header use the destination schemas. Conversion
 charges the source and destination leaves of changed layouts before publishing
-the copy. Incompatible schemas return status 3. Budget or value errors preserve
+the copy. When a model conversion is needed, COPY_PATH validates all selected
+nodes and the header before invoking any model adapter. Model conversions use
+the selected group, frame, tool and supplied current inverse seed. Results
+remain private until all conversions succeed. Incompatible schemas return status 3. Budget or value errors preserve
 the previous destination and status. The five-argument form and an explicit
 `FALSE` require exact PATH schemas.
 

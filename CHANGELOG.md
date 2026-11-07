@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1107.151150 - 2026-11-07
+
+- Allow explicit model-backed joint and Cartesian conversions for seeded PATH
+  node edits and COPY_PATH node/header batches. Validate the whole copy before
+  invoking any robot adapter.
+
 ## 26.1107.145538 - 2026-11-07
 
 - Let COPY_FILE and RENAME_FILE destination filenames reuse single-character

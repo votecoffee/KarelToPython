@@ -6,11 +6,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import translate,translate_project,runtime as rt
 from karel2py.lexer import TranslationError
 from karel2py.storage import typed_value,decode_typed
 from tests.legacy_numeric_support import translate as legacy_translate
+from tests.test_joint_interoperability import model_context
 
 ROOT=Path(__file__).resolve().parents[1]
 TYPES='TYPE node_t=STRUCTURE value:INTEGER ENDSTRUCTURE header_t=STRUCTURE count:INTEGER ENDSTRUCTURE'
@@ -99,6 +101,85 @@ class SeededPathNodeTests(unittest.TestCase):
                 p,_=compile_program(body,types=types,decl=DECL+' seed:other_t')
                 with self.assertRaisesRegex(rt.KarelRuntimeError,error):p.run(max_steps=budget)
                 self.assertEqual((p.snapshot()['TRACK']['nodes'],p.snapshot()['S']),([],99))
+
+
+class ModelPathConversionTests(unittest.TestCase):
+    types=('TYPE joint_node=STRUCTURE point:JOINTPOS2 ENDSTRUCTURE '
+           'pose_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE '
+           'joint_header=STRUCTURE origin:JOINTPOS2 ENDSTRUCTURE '
+           'pose_header=STRUCTURE origin:XYZWPREXT ENDSTRUCTURE')
+
+    def test_seeded_append_and_insert_use_explicit_model_with_detached_data(self):
+        body=("seed.point[1]=0 seed.point[2]=90 APPEND_NODE(track,seed,s,TRUE) "
+              "seed.point[2]=0 INSERT_NODE(track,1,seed,s,TRUE) seed.point[2]=30")
+        values=run(body,types=self.types,decl='track:PATH NODEDATA=pose_node seed:joint_node s:INTEGER',
+                   context=model_context((0.,90.)))
+        first,second=[node['POINT'] for node in values['TRACK']['nodes']]
+        self.assertEqual(values['S'],0)
+        self.assertAlmostEqual(first['X'],200.)
+        self.assertAlmostEqual(first['Y'],0.)
+        self.assertAlmostEqual(second['X'],100.)
+        self.assertAlmostEqual(second['Y'],100.)
+        self.assertEqual(values['SEED']['POINT']['axes'],[0.,30.])
+
+    def test_copy_uses_models_for_reverse_order_nodes_and_header(self):
+        body=("APPEND_NODE(p,s) APPEND_NODE(p,s) "
+              "p[1].point[1]=0 p[1].point[2]=0 p[2].point[1]=0 p[2].point[2]=90 "
+              "p.origin[1]=0 p.origin[2]=45 COPY_PATH(p,2,1,q,s,TRUE)")
+        declarations=('p:PATH NODEDATA=joint_node PATHHEADER=joint_header '
+                      'q:PATH NODEDATA=pose_node PATHHEADER=pose_header s:INTEGER')
+        values=run(body,types=self.types,decl=declarations,context=model_context((0.,90.)))
+        first,second=[node['POINT'] for node in values['Q']['nodes']]
+        self.assertEqual(values['S'],0)
+        self.assertAlmostEqual(first['Y'],100.)
+        self.assertAlmostEqual(second['X'],200.)
+        self.assertAlmostEqual(values['Q']['data']['ORIGIN']['Y'],70.71067811865476)
+
+    def test_late_invalid_node_or_header_blocks_all_model_calls(self):
+        declarations=('p:PATH NODEDATA=joint_node PATHHEADER=joint_header '
+                      'q:PATH NODEDATA=pose_node PATHHEADER=pose_header s:INTEGER')
+        for additional in ('p.origin[1]=0 p.origin[2]=0','p[2].point[1]=0 p[2].point[2]=90'):
+            with self.subTest(additional=additional):
+                ctx=model_context((0.,90.))
+                body=("APPEND_NODE(p,s) APPEND_NODE(p,s) p[1].point[1]=0 p[1].point[2]=90 "
+                      +additional+" APPEND_NODE(q,s) q.origin.x=7 s=77 COPY_PATH(p,0,0,q,s,TRUE)")
+                program,_=compile_program(body,types=self.types,decl=declarations,context=ctx)
+                with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'requires initialized axes'):
+                        program.run()
+                adapter.assert_not_called()
+                values=program.snapshot()
+                self.assertEqual((values['S'],len(values['Q']['nodes']),values['Q']['data']['ORIGIN']['X']),(77,1,7.))
+
+    def test_inverse_copy_uses_explicit_seed_and_keeps_old_result_on_failure(self):
+        ctx=rt.ExecutionContext.from_config({'robot':{'dh':[{'type':'prismatic'}],
+            'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+        types=('TYPE joint_node=STRUCTURE point:JOINTPOS1 ENDSTRUCTURE '
+               'pose_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE')
+        declarations='p:PATH NODEDATA=pose_node q:PATH NODEDATA=joint_node cfg:CONFIG s:INTEGER'
+        body=("CNV_STR_CONF('N',cfg,s) APPEND_NODE(p,s) APPEND_NODE(p,s) "
+              "p[1].point=POS(0,0,42,0,0,0,cfg) p[2].point=POS(0,0,87,0,0,0,cfg) "
+              "COPY_PATH(p,0,0,q,s,TRUE)")
+        values=run(body,types=types,decl=declarations,context=ctx)
+        self.assertEqual(values['S'],0)
+        for node,expected in zip(values['Q']['nodes'],(42.,87.)):
+            self.assertAlmostEqual(node['POINT']['axes'][0],expected,delta=.02)
+
+        failing=body.replace("COPY_PATH(p,0,0,q,s,TRUE)",
+                             "APPEND_NODE(q,s) q[1].point[1]=7 s=77 COPY_PATH(p,0,0,q,s,TRUE)")
+        program,_=compile_program(failing,types=types,decl=declarations,context=ctx)
+        inverse=ctx.robot.inverse
+
+        def reject_second(*args):
+            if args[1].values['Z']==87.:raise ValueError('authored later inverse failure')
+            return inverse(*args)
+
+        with patch.object(ctx.robot,'inverse',side_effect=reject_second) as adapter:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'authored later inverse failure'):
+                program.run()
+        self.assertEqual(adapter.call_count,2)
+        values=program.snapshot()
+        self.assertEqual((values['S'],values['Q']['nodes']),(77,[{'POINT':{'axes':[7.]}}]))
 
 
 class PathClauseSyntaxTests(unittest.TestCase):

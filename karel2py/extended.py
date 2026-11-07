@@ -1490,6 +1490,14 @@ class MemoryFiles:
         return move_files(self,specification,check=check)
 
 
+def _path_record_kind(target,source,*,model):
+    rt=runtime()
+    if target==source:return 'exact'
+    if rt.record_schema_kind(target,source)=='structure':return 'structure'
+    if model and rt.kinematic_record_kind(target,source)=='structure':return 'kinematic'
+    return None
+
+
 class PathValue:
     def __init__(self,spec): self.spec=spec; self.nodes=[]; self.data=runtime().initial_value(spec[2]) if spec[2] else None
     @property
@@ -1499,14 +1507,18 @@ class PathValue:
         index=runtime().integer(index,line)
         if not 1<=index<=len(self.nodes): fail('PATH node index out of range',line)
         return self.nodes[index-1]
-    def append(self,index=None,line=None,*,seed=None,convert=None,check=None):
+    def append(self,index=None,line=None,*,seed=None,convert=None,check=None,state=None):
         """Insert a node after seed validation and any requested layout conversion."""
         rt=runtime();target=self.node_spec
         changing=convert is not None and type(seed) is rt.Structure and seed.spec!=target
-        if changing and (not convert or rt.record_schema_kind(target,seed.spec)!='structure'):return 3
-        if len(self.nodes)>=32767: fail('PATH node limit exceeded',line)
-        index=len(self.nodes)+1 if index is None else rt.integer(index,line)
-        if not 1<=index<=len(self.nodes)+1: return 2
+        kind='exact'
+        if changing:
+            kind=_path_record_kind(target,seed.spec,model=state is not None and rt._pythonic()) if convert else None
+            if kind is None:return 3
+        nodes=self.nodes;count=len(nodes)
+        if count>=32767: fail('PATH node limit exceeded',line)
+        index=count+1 if index is None else rt.integer(index,line)
+        if not 1<=index<=count+1: return 2
         if seed is None:
             node=rt.Structure(target)
         else:
@@ -1516,9 +1528,12 @@ class PathValue:
                 for _ in range(cost):check()
             if changing:
                 source=rt._aggregate_value(seed.spec,seed,line,allow_partial=False)
-                seed=rt.convert_record_schema(target,source,line)
+                if kind=='kinematic':
+                    seed=state.execution.kinematic_record(state,target,source,line,source_spec=source.spec)
+                else:seed=rt.convert_record_schema(target,source,line)
             node=rt._aggregate_value(target,seed,line,allow_partial=False)
-        self.nodes.insert(index-1,node); return 0
+        if self.nodes is not nodes or len(nodes)!=count:fail('PATH nodes changed during insertion preparation',line)
+        nodes.insert(index-1,node); return 0
     def clone(self): return deepcopy(self)
 
 
@@ -2841,13 +2856,16 @@ class ExecutionContext:
             header=source.spec[2];target_header=destination.spec[2]
             node=source.node_spec
             target_node=destination.spec[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+            node_kind=header_kind='exact'
             if source.spec!=destination.spec:
                 if not convert:
                     status.set(3,line); return
-                nodes_match=node==target_node or rt.record_schema_kind(target_node,node)=='structure'
-                headers_match=header==target_header or rt.record_schema_kind(target_header,header)=='structure'
-                if not (nodes_match and headers_match):
+                node_kind=_path_record_kind(target_node,node,model=rt._pythonic())
+                header_kind=_path_record_kind(target_header,header,model=rt._pythonic())
+                if node_kind is None or header_kind is None:
                     status.set(3,line); return
+            modeled='kinematic' in (node_kind,header_kind)
+            receiver=destination.raw() if modeled else None
             if type(source.nodes) is not list or len(source.nodes)>32767:
                 fail('COPY_PATH requires a bounded node list',line)
             size=len(source.nodes)
@@ -2868,13 +2886,18 @@ class ExecutionContext:
             if target_header!=header:header_cost+=rt._validate_data_schema(target_header,line)
             for _ in range(header_cost+len(nodes)*node_cost):
                 state.tick(line)
-            def copy_component(expected,actual,value):
-                if expected==actual:return rt._aggregate_value(expected,value,line)
-                return rt.convert_record_schema(expected,value,line,source_spec=actual)
+            def prepare(expected,actual,value,kind):
+                if kind=='exact':return rt._aggregate_value(expected,value,line),()
+                if kind=='kinematic':return rt.prepare_kinematic_record(expected,value,line,source_spec=actual)
+                return rt.convert_record_schema(expected,value,line,source_spec=actual),()
+
+            prepared=[prepare(target_node,node,value,node_kind) for value in nodes]
+            prepared_header=prepare(target_header,header,data,header_kind) if header is not None else (None,())
             selected=PathValue(destination.spec)
-            selected.nodes=[copy_component(target_node,node,value) for value in nodes]
-            if header is not None:
-                selected.data=copy_component(target_header,header,data)
+            selected.nodes=[self._finish_kinematic_record(state,value,plan,line) if plan else value for value,plan in prepared]
+            value,plan=prepared_header
+            selected.data=self._finish_kinematic_record(state,value,plan,line) if plan else value
+            if modeled and destination.raw() is not receiver:fail('COPY_PATH destination changed during preparation',line)
             # The exact destination reference was checked with status before preparation.
             destination.storage[destination.key]=selected
             status.set(0,line); return
@@ -2891,7 +2914,7 @@ class ExecutionContext:
                     seed=args[-2]
                     if type(seed) is not rt.Structure or (convert is None and seed.spec!=path.node_spec):
                         fail('PATH node input must match the declared NODEDATA',line)
-                    code=path.append(index,line,seed=seed,convert=convert,check=lambda:state.tick(line))
+                    code=path.append(index,line,seed=seed,convert=convert,check=lambda:state.tick(line),state=state)
                 else:
                     code=path.append(index,line)
             else:
@@ -3184,8 +3207,11 @@ class ExecutionContext:
         status.set(1 if first is None else 0,line)
     def kinematic_record(self,state,target,value,line=None,*,source_spec=None):
         """Preflight a full record tree, then apply sequential scalar model calls."""
-        rt=runtime();result,pending=rt.prepare_kinematic_record(target,value,line,source_spec=source_spec)
-        root=rt.task_root(state)
+        result,pending=runtime().prepare_kinematic_record(target,value,line,source_spec=source_spec)
+        return self._finish_kinematic_record(state,result,pending,line)
+
+    def _finish_kinematic_record(self,state,result,pending,line):
+        rt=runtime();root=rt.task_root(state)
         for storage,key,spec,item in pending:
             if root._aborted:raise rt.KarelAbort(root._abort_line)
             if state._aborted:raise rt.KarelAbort(state._abort_line)
