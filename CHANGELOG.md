@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.155541 - 2026-11-07
+
+- Support compatible PATH layouts in GET_VAR and SET_VAR for scalar paths,
+  whole banks, and selected rows or planes, including model-backed fields.
+- Keep receiver and cache publication atomic across validation, budget and
+  model failures.
+
 ## 26.1107.153941 - 2026-11-07
 
 - Convert compatible PATH cells across whole arrays and selected rows or

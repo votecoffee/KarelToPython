@@ -165,6 +165,72 @@ class PathCopyValueTests(unittest.TestCase):
         p,_=prepared();raw(p,'SOURCE').nodes[1]=raw(p,'SOURCE').nodes[0];p.run();self.assertIsNot(raw(p).nodes[0],raw(p).nodes[1]);raw(p).nodes[0].values['VALUE']=88;self.assertEqual(raw(p).nodes[1].values['VALUE'],7)
 
 
+class PathLayoutTransferTests(unittest.TestCase):
+    types=('TYPE joint_node=STRUCTURE point:JOINTPOS1 ENDSTRUCTURE '
+           'pose_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE '
+           'joint_header=STRUCTURE tag:INTEGER ENDSTRUCTURE '
+           'pose_header=STRUCTURE tag:REAL ENDSTRUCTURE '
+           'joint_path=PATH NODEDATA=joint_node PATHHEADER=joint_header '
+           'pose_path=PATH NODEDATA=pose_node PATHHEADER=pose_header')
+    decl='source,back:joint_path target:pose_path entry,status:INTEGER'
+    seed='APPEND_NODE(source,status) source[1].point[1]=42 source.tag=7 '
+
+    def context(self):
+        return rt.ExecutionContext.from_config({'robot':{'dh':[{'type':'prismatic'}],
+            'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+
+    def test_get_converts_forward_and_set_converts_inverse_with_cache_entries(self):
+        ctx=self.context()
+        body=self.seed+call()+" SET_VAR(entry,'','BACK',target,status)"
+        program,_=compile_program(body,prefix=self.types,decl=self.decl,context=ctx)
+        target=raw(program);header=target.data
+        values=program.run()
+        self.assertIs(raw(program),target)
+        self.assertIs(target.data,header)
+        self.assertEqual((values['TARGET']['nodes'][0]['POINT']['Z'],header.values['TAG']),(42.,7.))
+        self.assertAlmostEqual(values['BACK']['nodes'][0]['POINT']['axes'][0],42.,delta=.02)
+        self.assertEqual((values['STATUS'],values['ENTRY']),(0,2))
+        self.assertEqual(ctx.entries,{('T','SOURCE'):1,('T','BACK'):2})
+
+    def test_set_model_conversion_uses_snapshot_before_later_status_selector(self):
+        body=self.seed+call('SET_VAR',status='codes[pick()]')
+        routines='ROUTINE pick:INTEGER BEGIN source[1].point[1]=17 RETURN 1 END pick'
+        program,_=compile_program(body,prefix=self.types,decl=self.decl+' codes:ARRAY[1] OF INTEGER',
+                                  routines=routines,context=self.context())
+        values=program.run()
+        self.assertEqual((values['SOURCE']['nodes'][0]['POINT']['axes'],
+                          values['TARGET']['nodes'][0]['POINT']['Z'],values['CODES']),([17.],42.,[0]))
+
+    def test_missing_model_context_preserves_output_and_cache(self):
+        program,_=compile_program(self.seed+'entry=77 '+call(),prefix=self.types,decl=self.decl)
+        values=program.run()
+        self.assertEqual((values['ENTRY'],values['STATUS'],values['TARGET']['nodes']),(77,3,[]))
+        self.assertEqual(program._state.execution.entries,{})
+
+    def test_model_conversion_preflights_existing_receiver(self):
+        ctx=self.context()
+        program,_=compile_program(self.seed+'entry=77 status=88 '+call(),
+                                  prefix=self.types,decl=self.decl,context=ctx)
+        target=raw(program);target.data.values['TAG']='bad'
+        with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+            with self.assertRaises(rt.KarelRuntimeError):
+                program.run()
+        adapter.assert_not_called()
+        self.assertEqual((program._state.values['ENTRY'],program._state.values['STATUS']),(77,88))
+        self.assertEqual(ctx.entries,{})
+        self.assertEqual(target.data.values['TAG'],'bad')
+
+    def test_context_free_layout_conversion_keeps_missing_status(self):
+        types=('TYPE n1=STRUCTURE value:INTEGER text:STRING[4] ENDSTRUCTURE '
+               'n2=STRUCTURE value:REAL text:STRING[8] ENDSTRUCTURE '
+               'a_t=PATH NODEDATA=n1 b_t=PATH NODEDATA=n2')
+        body='APPEND_NODE(source,status) source[1].value=17 '+call()
+        program,_=compile_program(body,prefix=types,decl='source:a_t target:b_t entry,status:INTEGER')
+        values=program.run()
+        self.assertEqual(values['STATUS'],12311)
+        self.assertEqual(values['TARGET']['nodes'],[{'VALUE':17.,'TEXT':{'uninitialized':True}}])
+
+
 class PathCopyGuardTests(unittest.TestCase):
     def test_scalar_to_path_mismatch_changes_only_status(self):
         for action in ('GET_VAR','SET_VAR'):
@@ -178,12 +244,12 @@ class PathCopyGuardTests(unittest.TestCase):
         for statement in (call(path='QUEUE'),call(value='queue')):
             p,_=prepared('entry=77 INIT_QUEUE(queue) '+statement,decl=DECL+' queue:QUEUE_TYPE');before=snap(raw(p));v=p.run();self.assertEqual((v['ENTRY'],v['STATUS']),(77,3));self.assertEqual(snap(raw(p)),before)
 
-    def test_different_node_nominal_layouts_return_status_three(self):
-        prefix=PREFIX+' TYPE other_node=STRUCTURE value:INTEGER ENDSTRUCTURE other_t=PATH NODEDATA=other_node PATHHEADER=header_t'
+    def test_incompatible_node_fields_return_status_three(self):
+        prefix=PREFIX+' TYPE other_node=STRUCTURE other:INTEGER ENDSTRUCTURE other_t=PATH NODEDATA=other_node PATHHEADER=header_t'
         p,_=prepared('entry=77 '+call(value='other'),prefix=prefix,decl=DECL+' other:other_t');v=p.run();self.assertEqual((v['ENTRY'],v['STATUS']),(77,3));self.assertEqual(raw(p,'OTHER').nodes,[])
 
-    def test_different_header_layouts_return_status_three(self):
-        prefix=PREFIX+' TYPE other_header=STRUCTURE count:INTEGER ENDSTRUCTURE other_t=PATH NODEDATA=node_t PATHHEADER=other_header'
+    def test_incompatible_header_fields_return_status_three(self):
+        prefix=PREFIX+' TYPE other_header=STRUCTURE other:INTEGER ENDSTRUCTURE other_t=PATH NODEDATA=node_t PATHHEADER=other_header'
         p,_=prepared('entry=77 '+call(value='other'),prefix=prefix,decl=DECL+' other:other_t');self.assertEqual(p.run()['STATUS'],3)
 
     def test_missing_name_keeps_receiver_entry_and_data(self):

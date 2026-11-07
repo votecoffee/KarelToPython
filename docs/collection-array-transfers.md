@@ -12,7 +12,7 @@ GET_VAR(entry,'','SOURCE[2]',target[2],status)
 SET_VAR(entry,'','TARGET[2]',source[2],status)
 ```
 
-## Selection and exact types
+## Selection and compatible types
 
 Declared globals, created variables, explicit context bindings, borrowed formals,
 linked owners and selected named components use the same contract. Blank program
@@ -20,12 +20,13 @@ names select the current module. Quoted paths remain checked static paths; no
 routine-local discovery, expressions in quoted indexes or host attributes are
 introduced. Adjacent numeric brackets normalize like comma indexes.
 
-Selected schemas must match exactly: concrete dimensions, ARRAY identities and
-named children, terminal PATH/queue types, PATH node/header field layouts,
-capacities and positional widths. Generic formals inherit actual storage types.
-There is no short-bank/tail copy, nominal erasure, reshape, numeric promotion or
-robot-model conversion inside a collection. Whole banks and anonymous suffixes
-can copy when their resolved schemas match.
+Exact copies retain the selected ARRAY identities and component schemas.
+Compatible PATH cells can also convert using the
+[scalar PATH rules](path-transfers.md) when dimensions and component ranks match.
+Joint and Cartesian fields use the supplied robot context. The runtime validates
+every selected cell and the existing receiver before calling the model. Queue
+schemas remain exact. Whole banks and anonymous suffixes use their resolved
+shapes, with no tail copy or reshape.
 
 [Logical source values](collection-source-values.md) now add ARRAY assignments,
 private arguments/results and independent prefixes under a separate ownership
@@ -57,7 +58,7 @@ INTEGER buffers when a later queue operation needs one.
 | --- | --- |
 | 0 | Copied without tracked missing data |
 | 1 | Named lookup failed; data/cache/entry unchanged |
-| 3 | Exact selected schemas differ; data/cache/entry unchanged |
+| 3 | Incompatible schemas or missing robot context for a model conversion. Data, cache and entry unchanged. |
 | 12311 | Copied tracked missing PATH data or an uninitialized queue |
 
 Unknown BYTE markers alone do not imply tracked missing data. Malformed known
@@ -71,7 +72,8 @@ retain the existing status-1 resolver boundary.
 Each selected source/receiver snapshot is bounded to 32,767 units: collection
 descriptors, PATH header/node scalar leaves and two scalar units per queue entry.
 GET_VAR and SET_VAR charge one execution step per unit for the selected source
-and existing receiver. Budget exhaustion publishes no transfer changes. A SET
+and existing receiver. A layout conversion also charges both conversion
+snapshots before calling the model. Budget exhaustion publishes no transfer changes. A SET
 source budget failure occurs before evaluating the status selector.
 Logical rank remains at most three; data components retain their 64-level bound.
 Prefix capture additionally validates the containing bank. Ordinary later

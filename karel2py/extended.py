@@ -3078,6 +3078,8 @@ class ExecutionContext:
             destination=target
         from .variable_kinematics import transfer as model_transfer
         prepared=None if system_target is not None else model_transfer(state,destination,source,line)
+        if prepared is None and system_target is None and pythonic:
+            prepared=self._converted_path_transfer(state,destination,source,entry,status,line,check)
         if prepared is None:
             prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,paths=True,line=line,check=check)
         if prepared is None: status.set(3,line);return
@@ -3104,6 +3106,31 @@ class ExecutionContext:
         else: destination.storage[destination.key]=rt.replace_value(current,copied)
         if key not in self.entries:self.entries[key]=max(self.entries.values(),default=0)+1
         entry.set(self.entries[key],line); status.set(12311 if missing else 0,line)
+    def _converted_path_transfer(self,state,destination,source,entry,status,line,check):
+        """Stage a compatible PATH transfer using the existing source conversion."""
+        rt=runtime();spec,actual=destination.spec,source.spec
+        if spec==actual:return None
+        if spec[0]==actual[0]=='PATH':
+            layout=path_conversion_layout(spec,actual,model=self.robot is not None)
+            validate=path_variable_value
+            convert=self.path_source_value
+        elif spec[0]==actual[0]=='ARRAY':
+            layout=rt.path_array_conversion_layout(spec,actual)
+            validate=collection_array_variable_value
+            convert=self.path_array_source_value
+        else:return None
+        if layout is None or 'kinematic' in layout and self.robot is None:return None
+
+        current=destination.raw()
+        validate(spec,current,line,check=check)
+        if destination.raw() is not current:fail('PATH transfer receiver changed during preparation',line)
+        copied=convert(state,spec,source.value,actual,line)
+        if destination.raw() is not current:fail('PATH transfer receiver changed during preparation',line)
+        validate(spec,current,line)
+        if _variable_cells(destination,line) & (rt._reference_cells(entry)|rt._reference_cells(status)):
+            fail('PATH transfer receiver overlaps entry/status',line)
+        return copied,_variable_missing(copied)
+
     def queue(self,state,name,args,line):
         rt=runtime()
         if name=='INIT_QUEUE':

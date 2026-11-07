@@ -4,8 +4,8 @@ Scalar source assignments, private arguments and function results now follow the
 [logical source-value policy](scalar-collection-values.md). GET_VAR/SET_VAR retain
 the transfer-specific cache/status and output-overlap rules below.
 
-Pythonic GET_VAR and SET_VAR copy whole logical PATH values with exact resolved
-NODEDATA and PATHHEADER schemas. This is an authored Pythonic extension: the
+Pythonic GET_VAR and SET_VAR copy whole logical PATH values with exact or
+compatible resolved NODEDATA and PATHHEADER schemas. This is an authored Pythonic extension: the
 reviewed KAREL manual excludes whole PATH from these calls. Offline translation
 and execution do not establish native source acceptance or controller behavior.
 Strict mode remains a future milestone.
@@ -35,13 +35,16 @@ copy rules. See the [copy example](../examples/path_transfer.kl),
 [dynamic example](../examples/path_dynamic_transfer.kl) and
 [linked example](../examples/path_transfer_project/main.kl).
 
-Node and header schemas must match exactly, including nominal STRUCTURE/ARRAY
-names, dimensions, STRING capacities and positional widths. Default NODEDATA
-canonicalizes to STD_PTH_NODE using existing declaration rules. There is no field
-mapping, numeric promotion, pose conversion or robot-model lookup inside a PATH.
-Resource fields and FILE ARRAYs remain excluded. [Collection ARRAY transfers](collection-array-transfers.md)
-now provide explicit whole-bank and row/plane GET_VAR/SET_VAR copies with their
-own exact-schema and ownership rules.
+Compatible PATH layouts match field names and follow the
+[scalar PATH conversion rules](scalar-collection-values.md). Both layouts must
+have a header or both must omit it. Default NODEDATA canonicalizes to STD_PTH_NODE.
+Joint and Cartesian conversion uses the calling task's explicit robot context.
+A missing context for a model-dependent conversion returns status 3. A model
+or data error raises before publishing the result or its cache entry.
+
+[Collection ARRAY transfers](collection-array-transfers.md) cover whole banks
+and selected rows or planes with matching component dimensions.
+Resource fields and FILE ARRAYs remain excluded.
 Whole FILE transfer and ordinary generic ANY acceptance remain excluded.
 
 ## Selecting a node or a field
@@ -94,7 +97,8 @@ storage are rejected. These transfer bounds are independent of the existing
 collection persistence and ordinary PATH operation limits.
 
 A whole PATH transfer charges one execution step per scalar leaf in the source
-and in the existing receiver. Budget exhaustion leaves the receiver, entry,
+and in the existing receiver. A layout conversion also charges its source and
+output snapshots before calling the model. Budget exhaustion leaves the receiver, entry,
 status and entry cache as they were before the transfer. A SET source budget
 failure occurs before evaluating the status selector.
 
@@ -102,7 +106,7 @@ failure occurs before evaluating the status selector.
 | --- | --- |
 | 0 | Copied without initialization-tracked missing data |
 | 1 | Named program/path unavailable; status only |
-| 3 | Incompatible exact schemas or data/resource kinds; status only |
+| 3 | Incompatible schemas or missing robot context for a model conversion. Status only. |
 | 12311 | Copied initialization-tracked missing data |
 
 Malformed or over-limit state raises a source-located runtime error before data,

@@ -256,6 +256,76 @@ class CollectionTransferPartialAndLimitTests(unittest.TestCase):
         p,_=prepare("work(source,target)",routines="ROUTINE work(first:ARRAY OF route_t;second:ARRAY OF route_t) BEGIN SET_VAR(entry,'','TARGET',first,status) END work");self.assertEqual(p.run()['STATUS'],0)
 
 
+class ConvertedPathArrayTransferTests(unittest.TestCase):
+    types=('TYPE joint_node=STRUCTURE point:JOINTPOS1 ENDSTRUCTURE '
+           'pose_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE '
+           'joint_path=PATH NODEDATA=joint_node pose_path=PATH NODEDATA=pose_node')
+
+    def context(self):
+        return rt.ExecutionContext.from_config({'robot':{'dh':[{'type':'prismatic'}],
+            'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+
+    def test_get_and_set_convert_selected_planes_and_keep_unselected_cells(self):
+        declarations=('source:ARRAY[2,2,2] OF joint_path target:ARRAY[2,2,2] OF pose_path '
+                      'entry,status:INTEGER')
+        seed='APPEND_NODE(source[2,1,2],status) source[2,1,2][1].point[1]=19 '
+        for transfer,key in (("GET_VAR(entry,'','SOURCE[2]',target[1],status)",'SOURCE[2]'),
+                             ("SET_VAR(entry,'','TARGET[1]',source[2],status)",'TARGET[1]')):
+            with self.subTest(transfer=transfer):
+                ctx=self.context()
+                program,_=compile_program(seed+transfer,decl=declarations,prefix=self.types,context=ctx)
+                target=raw(program);before=list(target.values)
+                values=program.run()
+                self.assertEqual(values['TARGET'][0][0][1]['nodes'][0]['POINT']['Z'],19.)
+                self.assertEqual((values['STATUS'],values['ENTRY']),(0,1))
+                self.assertEqual(ctx.entries,{('T',key):1})
+                self.assertTrue(all(old is new for old,new in zip(before,target.values)))
+                self.assertFalse(any(path.nodes for path in target.values[4:]))
+
+    def test_late_invalid_cell_keeps_receiver_entry_and_cache_and_skips_model(self):
+        ctx=self.context()
+        declarations='source:ARRAY[2] OF joint_path target:ARRAY[2] OF pose_path entry,status:INTEGER'
+        seed=('APPEND_NODE(source[1],status) source[1][1].point[1]=42 '
+              'APPEND_NODE(source[2],status) entry=77 status=88 ')
+        program,_=compile_program(seed+GET,decl=declarations,prefix=self.types,context=ctx)
+        receiver=raw(program);old=receiver.values[0]
+        old.append();old.nodes[0].values['POINT'].values['Z']=17.
+        before=snapshot(receiver)
+        with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'requires initialized axes'):
+                program.run()
+        adapter.assert_not_called()
+        self.assertEqual((program._state.values['ENTRY'],program._state.values['STATUS']),(77,88))
+        self.assertEqual(snapshot(receiver),before)
+        self.assertIs(raw(program),receiver)
+        self.assertEqual(ctx.entries,{})
+
+
+    def test_later_model_failure_preserves_existing_array_and_cache(self):
+        ctx=self.context()
+        ctx.entries[('T','OTHER')]=5
+        declarations='source:ARRAY[2] OF joint_path target:ARRAY[2] OF pose_path entry,status:INTEGER'
+        seed=('APPEND_NODE(source[1],status) source[1][1].point[1]=42 '
+              'APPEND_NODE(source[2],status) source[2][1].point[1]=87 entry=77 status=88 ')
+        program,_=compile_program(seed+GET,decl=declarations,prefix=self.types,context=ctx)
+        receiver=raw(program);before=snapshot(receiver)
+        forward=ctx.robot.forward
+        visits=[]
+
+        def reject_second(joints,*args):
+            visits.append(joints.values[0])
+            if len(visits)==2:raise ValueError('authored later PATH model failure')
+            return forward(joints,*args)
+
+        with patch.object(ctx.robot,'forward',side_effect=reject_second):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'authored later PATH model failure'):
+                program.run()
+        self.assertEqual(visits,[42.,87.])
+        self.assertEqual((program._state.values['ENTRY'],program._state.values['STATUS']),(77,88))
+        self.assertEqual(ctx.entries,{('T','OTHER'):5})
+        self.assertEqual(snapshot(receiver),before)
+
+
 class CollectionTransferIntegrationTests(unittest.TestCase):
     def test_explicit_dynamic_namespace_bank(self):
         from tests.test_collection_array_archives import context as stored,raw as stored_raw
@@ -289,8 +359,8 @@ class CollectionTransferDynamicAndSchemaTests(unittest.TestCase):
         p,_=queues(allocation()+"SET_VAR(entry,'CACHE','ITEM',source,status) RENAME_VARS('CACHE','MOVED',status) GET_VAR(entry,'MOVED','ITEM',target,status)");v=p.run();self.assertEqual(v['STATUS'],0);self.assertEqual(v['SOURCE'],v['TARGET'])
     def test_out_of_range_named_row_is_lookup_failure(self):
         p,_=row(ROW_GET.replace('SOURCE[2]','SOURCE[3]'));before=snapshot(raw(p));self.assertEqual(p.run()['STATUS'],1);self.assertEqual(snapshot(raw(p)),before)
-    def test_nominal_path_components_are_not_coerced(self):
-        prefix=PREFIX+' other_node=STRUCTURE value:INTEGER ENDSTRUCTURE other_route=PATH NODEDATA=other_node PATHHEADER=header_t';p,_=prepare(decl='source:ARRAY[2]OF route_t target:ARRAY[2]OF other_route entry,status,visits:INTEGER',prefix=prefix);self.assertEqual(p.run()['STATUS'],3)
+    def test_incompatible_path_component_fields_still_reject(self):
+        prefix=PREFIX+' other_node=STRUCTURE other:INTEGER ENDSTRUCTURE other_route=PATH NODEDATA=other_node PATHHEADER=header_t';p,_=prepare(decl='source:ARRAY[2]OF route_t target:ARRAY[2]OF other_route entry,status,visits:INTEGER',prefix=prefix,seed=False);self.assertEqual(p.run()['STATUS'],3)
     def test_selected_row_path_headers_do_not_share_source_storage(self):
         p,_=row();p.run();first=raw(p,'SOURCE').values[3].data;second=raw(p).values[3].data;self.assertIsNot(first,second);first.values['COUNT']=99;self.assertEqual(second.values['COUNT'],1)
     def test_generic_formal_inherits_actual_path_schema(self):

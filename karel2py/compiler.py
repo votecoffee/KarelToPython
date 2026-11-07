@@ -5974,13 +5974,13 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         guide='docs/path-archives.md',controller_validated=False)
     report['path_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
-        source='Pythonic whole-PATH extension uses exact NODEDATA and PATHHEADER schemas. Named PATH node and field selections follow ordinary checked GET_VAR/SET_VAR data conversions.',
+        source='Pythonic whole-PATH copies accept exact or compatible NODEDATA and PATHHEADER layouts. Model-backed fields use an explicit robot context. Named PATH node and field selections retain ordinary data rules.',
         capture='SET snapshots source once before later selectors; GET resolves and snapshots named source after output selectors; validate bounded schemas and complete source/receiver data before publication',
-        limits='At most 64 data-schema levels and 32767 header-plus-node scalar leaves on each side; charge one step per leaf for source capture and existing receiver validation; validate bounds before payload allocation; existing PATH collection/persistence limits remain independent',
+        limits='At most 64 data-schema levels and 32767 header-plus-node scalar leaves on each side; charge source and existing receiver snapshots plus the converted source and output when layouts differ; validate bounds before payload allocation; existing PATH collection/persistence limits remain independent',
         receiver='Preserve existing PathValue identity; retain compatible header containers through ordinary stable data replacement; install a fresh detached nodes list so captured old node references are not retargeted; applies to self-copy',
         missing='Preserve partial scalar/node/header markers and known BYTE values; status 12311 for copied uninitialized data, with BYTE unknown contents retaining their existing no-initialization-tracking policy; empty headerless PATH succeeds',
         guards='Missing names return 1, incompatible schemas/resources return 3 with status only; malformed/over-limit state raises without data/cache/status publication; exact disjoint outputs and SET target overlap checks remain',
-        boundaries='Whole missing PATH roots, resource fields or FILE ARRAYs, generic ANY or strict helper relaxation, whole-PATH layout conversion, inferred robot context and native PATH transfer equivalence remain unavailable',
+        boundaries='Whole missing PATH roots, resource fields or FILE ARRAYs, generic ANY or strict helper relaxation, inferred robot context and native PATH transfer equivalence remain unavailable',
         guide='docs/path-transfers.md',controller_validated=False)
     report['queue_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
@@ -7447,11 +7447,11 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['collection_array_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         source='Explicit whole PATH/QUEUE_TYPE ARRAY values and final selected rows/planes, including static, created, borrowed formal, linked and named-path storage; ordinary resource values remain reference-only',
-        schema='Exact concrete selected ARRAY schemas, dimensions, nominal components and PATH node/header types; no rank/length/name/capacity/representation conversion or partial-tail copy',
+        schema='Exact concrete selected ARRAY schemas for exact copies. Compatible PATH layouts can convert with matching dimensions and component ranks, and explicit model context for joint/Cartesian fields. No partial-tail copy',
         capture='SET snapshots independent logical data once before later status selectors; GET resolves named source after output selectors; prefix captures retain original cells and validate the containing bank',
         identity='Retain receiver ARRAY containers, collection cells and compatible PATH headers; detach old nodes and drop receiver queue buffer links; unselected rows retain objects, nodes and buffer links',
         status='0 copied known data; 12311 copied tracked missing PATH data or uninitialized queues; 1 failed named lookup; 3 incompatible schemas without data/cache/entry publication',
-        bounds='Each source/receiver snapshot fits 32767 descriptor/header/node/queue-entry scalar units and 64 data-schema levels; charge one step per snapshot unit for source and receiver preparation; logical rank at most three; existing prefix-containing and persistence limits remain separate',
+        bounds='Each source/receiver snapshot fits 32767 descriptor/header/node/queue-entry scalar units and 64 data-schema levels; charge source and existing receiver snapshots and both layouts when converting; logical rank at most three; existing prefix-containing and persistence limits remain separate',
         protection='Reject shared owned cells/headers/nodes, malformed storage and output/entry/status overlap before publication; preserve FOR, FILE, resource-field and ordinary resource-copy guards',
         persistence='Ordinary logical JSON/VR values and creation metadata; no aliases, live windows, queue buffers, callbacks, suspended frames or native ABI/controller/strict claim',
         guide='docs/collection-array-transfers.md',controller_validated=False)

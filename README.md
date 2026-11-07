@@ -395,7 +395,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.153941**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.155541**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -954,6 +954,8 @@ convert joint and Cartesian fields using the calling task's supplied robot model
 layouts at assignments, private arguments and returns.
 [PATH arrays](docs/collection-source-values.md) apply these conversions to whole
 banks and selected rows or planes with matching component dimensions.
+[GET_VAR and SET_VAR](docs/path-transfers.md) also convert compatible PATH
+layouts while retaining their checked status and cache behavior.
 Queue operations stage backing-array writes and outputs
 before publication. PATH declarations accept PATHHEADER
 and its PATHDATA compatibility spelling. Predefined DISP_DAT_T and portable
