@@ -28,6 +28,54 @@ class SemaphoreTests(unittest.TestCase):
         instance=translate_project({'a':source('MAIN','PEND_SEMA(1,5,timeout)',decl='timeout: BOOLEAN')}).instantiate(context=context())
         self.assertTrue(instance.run('MAIN')['MAIN']['values']['TIMEOUT']);self.assertGreaterEqual(instance.scheduler.now_us,5000)
 
+    def test_long_timeout_skips_idle_scheduler_quantums(self):
+        body='n=0 CONNECT TIMER TO n PEND_SEMA(1,8000000,timeout)'
+        instance=translate_project({'main':source('MAIN',body,
+                                                  decl='n:INTEGER timeout:BOOLEAN')}).instantiate(context=context())
+        scheduler=instance.scheduler
+        result=scheduler.run(entry='MAIN',max_cycles=15)
+        self.assertEqual(result['MAIN']['state'],'completed')
+        self.assertTrue(result['MAIN']['values']['TIMEOUT'])
+        self.assertGreaterEqual(result['MAIN']['values']['N'],8000000)
+        self.assertGreaterEqual(scheduler.now_us,8_000_000_000)
+        self.assertEqual(instance.context.semaphores.tickets,[])
+
+    def test_indefinite_wait_parks_and_observes_later_host_post(self):
+        instance=translate_project({'main':source('MAIN','PEND_SEMA(1,-1,timeout)',
+                                                  decl='timeout: BOOLEAN')}).instantiate(context=context())
+        scheduler=instance.scheduler
+        self.assertEqual(scheduler.run(entry='MAIN',max_cycles=12)['MAIN']['state'],'waiting')
+        self.assertEqual(instance.context.semaphores.value(1),-1)
+        instance.context.semaphores.post(1)
+        self.assertEqual(scheduler.run(max_cycles=12)['MAIN']['values']['TIMEOUT'],False)
+        self.assertEqual(instance.context.semaphores.tickets,[])
+
+    def test_handler_can_post_during_timed_and_quantum_waits(self):
+        for scan in ('WITH $SCAN_TIME=20 ', ''):
+            with self.subTest(scan=scan):
+                body=('n=0 CONNECT TIMER TO n CONDITION[1]: '+scan+
+                      'WHEN n>=15 DO POST_SEMA(1) ENDCONDITION ENABLE CONDITION[1] '
+                      'PEND_SEMA(1,-1,timeout)')
+                instance=translate_project({'main':source('MAIN',body,decl='n:INTEGER timeout:BOOLEAN')}).instantiate(context=context())
+                scheduler=instance.scheduler
+                result=scheduler.run(entry='MAIN',max_cycles=35)
+                self.assertEqual(result['MAIN']['state'],'completed')
+                self.assertFalse(result['MAIN']['values']['TIMEOUT'])
+                self.assertGreaterEqual(result['MAIN']['values']['N'],15)
+                self.assertEqual(instance.context.semaphores.tickets,[])
+
+    def test_abort_before_grant_consumption_refunds_token(self):
+        ctx=context()
+        p,_=compile_program('timeout=TRUE PEND_SEMA(1,-1,timeout)',decl='timeout:BOOLEAN',context=ctx)
+        scheduler=rt.TaskScheduler()
+        scheduler.bind('MAIN',p)
+        self.assertEqual(scheduler.run(entry='MAIN',max_cycles=12)['MAIN']['state'],'waiting')
+        ctx.semaphores.post(1)
+        rt.request_task_control(p._state,'ABORT')
+        with self.assertRaises(rt.KarelAbort):scheduler.run(max_cycles=12)
+        self.assertTrue(p.snapshot()['TIMEOUT'])
+        self.assertEqual((ctx.semaphores.tickets,ctx.semaphores.value(1)),([],1))
+
     def test_tasks_exchange_semaphore(self):
         instance=translate_project({'a':source('MAIN',"RUN_TASK('CHILD',0,FALSE,FALSE,0,s) PEND_SEMA(1,-1,timeout) n=7",decl='timeout: BOOLEAN n,s: INTEGER'),
             'b':source('CHILD','DELAY 5 POST_SEMA(1)')}).instantiate(context=context())

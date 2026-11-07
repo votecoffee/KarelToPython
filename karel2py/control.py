@@ -286,23 +286,36 @@ def named_task_control(state,name,args,line=None):
 
 
 def pend_semaphore(state,number,max_time,time_out,line=None):
+    from .scheduling import _periodic_wait
     runtime=rt(); bank=state.execution.require('semaphores',line)
     number=bank.number(number,line); max_time=runtime.integer(max_time,line)
     if not -1<=max_time<=86400000: raise runtime.KarelRuntimeError('PEND_SEMA max_time must be -1 or 0..86400000 ms',line)
     if type(time_out) is not runtime.Reference or time_out.spec!=('BOOLEAN',): raise runtime.KarelRuntimeError('PEND_SEMA requires a BOOLEAN output reference',line)
-    def now(): return state._scheduler.now_us if state._scheduler is not None else runtime.timer_clock(state,line)
+    scheduler=state._scheduler
+    def now(): return scheduler.now_us if scheduler is not None else runtime.timer_clock(state,line)
     deadline=None if max_time==-1 else now()+max_time*1000
     ticket=bank.request(number,line)
     try:
-        while not ticket['granted']:
+        while True:
             if state._pause_requested or state._abort_requested: yield from runtime.checkpoint(state,line,force_pause=True)
+            if ticket['granted']:break
             if deadline is not None and now()>=deadline:
                 time_out.set(True,line); return
             yield from runtime.checkpoint(state,line)
-            if ticket['granted']: break
-            if state._scheduler is not None:
-                until=state._scheduler.now_us+state._scheduler.quantum_us
-                yield dict(kind='sleep',until=min(until,deadline) if deadline is not None else until,line=line)
+            if ticket['granted']:continue
+            if scheduler is not None:
+                parked=None
+                if all(service is None for service in (
+                        state.execution.motion,state.execution.diagnostics,state.execution.dynamic_display)):
+                    parked=_periodic_wait(state,deadline=deadline,ready=lambda:ticket['granted'],require_timed_handlers=True)
+                if parked is None:
+                    next_poll=scheduler.now_us+scheduler.quantum_us
+                    until=min(next_poll,deadline) if deadline is not None else next_poll
+                else:
+                    until=parked
+                yield dict(kind='sleep',until=until,line=line)
+                if parked is not None and (ticket['granted'] or deadline is not None and now()>=deadline):
+                    state.tick(line)
             else:
                 try: state._sleep(.001)
                 except Exception as exc: raise runtime.KarelRuntimeError('Semaphore wait callback failed: '+str(exc),line) from exc

@@ -73,10 +73,31 @@ class ExactCopyBudgetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
             files=directory(root)
-            (root/'ram/a.KL').write_bytes(b'a'*8193)
+            source_path=root/'ram/a.KL'
+            source_path.write_bytes(b'a'*8193)
             (root/'flash/b.KL').write_bytes(b'old')
-            self.check_budget(files,'RD:a.KL','FR:b.KL')
+            original_open=Path.open
+            def reject_source_open(path,*args,**kwargs):
+                if path==source_path:self.fail('Rooted COPY_FILE read its source before charging')
+                return original_open(path,*args,**kwargs)
+            with patch.object(Path,'open',new=reject_source_open):
+                self.check_budget(files,'RD:a.KL','FR:b.KL')
             self.assertEqual((root/'flash/b.KL').read_bytes(),b'old')
+            self.assertEqual(files.snapshot(),{})
+
+
+    def test_rooted_copy_rejects_source_changed_during_budget_check(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            files=directory(root)
+            source_path=root/'ram/a.KL'
+            target=root/'flash/b.KL'
+            source_path.write_bytes(b'original')
+            target.write_bytes(b'old')
+            def change_source():source_path.write_bytes(b'replaced content')
+            with self.assertRaisesRegex(ValueError,'source changed'):
+                files.copy('RD:a.KL','FR:b.KL',True,check=change_source)
+            self.assertEqual(target.read_bytes(),b'old')
             self.assertEqual(files.snapshot(),{})
 
 

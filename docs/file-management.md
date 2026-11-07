@@ -28,8 +28,10 @@ The guard uses filesystem identity when available.
 
 Exact COPY_FILE on MemoryFiles, DeviceFiles and DirectoryFiles charges one
 execution step per started 4096 bytes of source data before publishing the
-destination. Budget exhaustion raises an execution error and preserves the
-destination and prior status.
+destination. DirectoryFiles charges before opening the source for a bounded
+read and checks its identity, size and metadata before and after that read.
+Budget exhaustion raises an execution error and preserves the destination and
+prior status.
 
 ## MOVE_FILE
 

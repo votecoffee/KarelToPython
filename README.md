@@ -387,7 +387,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.022706**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.024245**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -958,7 +958,8 @@ python services.py --context examples/offline_services.services.initial.json
 Counting semaphores, ERROR/POWERUP conditions and NOPAUSE/NOABORT/NOMESSAGE
 actions are also supported. Runtime failures notify handlers while preserving
 the exception. POST_ERR_L adds named portable severities and task-local scope.
-Task pause/abort requests honor handlers across linked calls. FILE reads support
+Task pause/abort requests honor handlers across linked calls. Scheduled semaphore
+waits can park until a grant, timeout or timed condition scan. FILE reads support
 capacity-sized ATR_FIELD strings and custom record terminators. See
 [control notifications](docs/control-notifications.md) and
 [task and file extensions](docs/task-and-file-extensions.md).
@@ -1024,7 +1025,8 @@ explicit groups, checked copies and RPREG spelling aliases.
 COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
 report to an open ordinary FILE. Both comparison modes charge for the full
 captured inputs and recheck the report FILE before writing. PRINT_FILE charges
-for the input and sends validated ASCII to the existing output recorder or callback. Both accept closed ordinary and plain PIP inputs
+for the input and sends validated ASCII to the existing output recorder or callback.
+Rooted COPY_FILE and PRINT_FILE charge before reading and check the source metadata. Both accept closed ordinary and plain PIP inputs
 from the supplied context. See
 [file comparison and printing](docs/file-comparison.md).
 

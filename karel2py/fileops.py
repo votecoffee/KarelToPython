@@ -1062,10 +1062,17 @@ def write_json_lines(state,rows,line=None):
 
 
 def print_file(state,files,name,nowait,line=None):
+    from .storage import DirectoryFiles
+
     rt().boolean(nowait,line)
-    code,data=_read_snapshot(files,name)
-    if code:return code
-    charge_file_bytes(len(data),lambda:state.tick(line))
+    check=lambda:state.tick(line)
+    if type(files) is DirectoryFiles:
+        code,data=files.read_named(name,check=check)
+        if code:return code
+    else:
+        code,data=_read_snapshot(files,name)
+        if code:return code
+        charge_file_bytes(len(data),check)
     write_file_text(state,data.decode('ascii'),line)
     return 0
 

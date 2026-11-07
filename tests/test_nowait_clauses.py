@@ -95,6 +95,20 @@ class NowaitClauseFrameTests(unittest.TestCase):
 
 
 class NowaitClauseSchedulerTests(unittest.TestCase):
+    def test_semaphore_wait_keeps_motion_callback_checkpoints(self):
+        response=dict(operation='MOVE AWAY',completed=True,delay_ms=25,node_times={'0':0,'1':25})
+        ctx=context(capture_only=False,responses=[response])
+        ctx.semaphores=rt.SemaphoreBank(1)
+        body=(SETUP+' ATTACH MOVE AWAY 1 NOWAIT, WHEN AT NODE[1] DO POST_SEMA(1) '
+              'ENDMOVE PEND_SEMA(1,-1,timeout)')
+        project=translate_project({'main':source('MAIN',body,decl=DECL+' timeout:BOOLEAN')}).instantiate(
+            context=ctx,options={'joint_axes':2})
+        values=project.scheduler.run(entry='MAIN',max_cycles=100)['MAIN']
+        self.assertEqual(values['state'],'completed')
+        self.assertFalse(values['values']['TIMEOUT'])
+        self.assertEqual(move(ctx)['outcome'],'completed')
+        self.assertEqual(ctx.semaphores.tickets,[])
+
     def test_waiting_owner_does_not_spin_at_supplied_completion(self):
         project,p,ctx=scheduled('n=0 ATTACH MOVE AWAY 1 NOWAIT, WHEN AT NODE[1] DO n=7 ENDMOVE DELAY 100 n=n+1')
         # The scripted response needs an explicit supplied arrival table.

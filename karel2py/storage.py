@@ -7,6 +7,7 @@ import json
 import math
 import os
 import re
+from stat import S_ISREG
 from pathlib import Path
 import tempfile
 
@@ -488,12 +489,34 @@ class DirectoryFiles:
         if len(data)>self.limit: raise ValueError('File size limit exceeded')
         return data
 
-    def read_named(self,name):
+    def read_named(self,name,*,check=None):
         key=self._key(name)
         if self._busy(key): return 3,None
         path=self._path(key)
         if not path.exists(): return 1,None
-        return 0,self._disk_bytes(path)
+        if check is None:return 0,self._disk_bytes(path)
+        from .fileops import charge_file_bytes
+
+        def stamp(info):
+            return (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns)
+
+        info=path.stat()
+        size=info.st_size
+        if not S_ISREG(info.st_mode) or size>self.limit:raise ValueError('Invalid file or file size limit exceeded')
+        expected=stamp(info)
+        charge_file_bytes(size,check)
+        if self._busy(key):return 3,None
+        if self._path(key)!=path or stamp(path.stat())!=expected or size>self.limit:
+            raise ValueError('Rooted FILE source changed during preparation')
+        with path.open('rb') as stream:
+            if stamp(os.fstat(stream.fileno()))!=expected:
+                raise ValueError('Rooted FILE source changed before reading')
+            data=stream.read(size+1)
+            if len(data)!=size or stamp(os.fstat(stream.fileno()))!=expected:
+                raise ValueError('Rooted FILE source changed while reading')
+        if self._path(key)!=path or stamp(path.stat())!=expected:
+            raise ValueError('Rooted FILE source changed while reading')
+        return 0,data
 
     def list_names(self,pattern='*',*,check=None):
         from .fileops import _listing_entries
@@ -525,16 +548,16 @@ class DirectoryFiles:
         return sorted(names)
 
     def copy(self,source,target,overwrite=False,*,check=None):
-        from .fileops import charge_file_bytes
-
         source=self._key(source); target=self._key(target)
         if self._busy(source) or self._busy(target): return 3
         src=self._path(source); dst=self._path(target)
         if not src.is_file(): return 1
         if dst.exists() and not overwrite: return 2
-        data=self._disk_bytes(src)
-        charge_file_bytes(len(data),check)
-        if check is not None:
+        if check is None:
+            data=self._disk_bytes(src)
+        else:
+            code,data=self.read_named(source,check=check)
+            if code:return code
             if self._busy(source) or self._busy(target):return 3
             dst=self._path(target)
         try:atomic_bytes(dst,data,overwrite=overwrite)

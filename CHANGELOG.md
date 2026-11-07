@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.024245 - 2026-11-07
+
+- Park scheduled semaphore waits on grants, timeouts and timed condition
+  deadlines. Pending pause and abort requests take priority over grant consumption.
+- Charge rooted COPY_FILE and PRINT_FILE inputs before reading, and check that
+  the source is still the same file with the expected size and metadata.
+
 ## 26.1107.022706 - 2026-11-07
 
 - Charge the complete captured input size for binary FILE comparison and

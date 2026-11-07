@@ -50,8 +50,13 @@ until it writes the output; cancellation returns that reservation to the next
 waiter or the bank. Stopping, aborting or failing a waiting task removes its ticket.
 Clearing a bank does not cancel waits or revoke granted tickets.
 
-With TaskScheduler, waits use virtual time and yield at checkpoints with at most
-one quantum between polls. A standalone Program uses a 1 ms sleeper callback and
+With TaskScheduler, waits use virtual time and can park until a grant, timeout or
+timed condition scan is due. An indefinite wait with no runnable or timed work
+lets the scheduler return with the ticket still pending. A later post wakes it
+on the next scheduler run. A grant or timeout wake refreshes connected timers.
+Waits with registered unthrottled handlers, an injected task clock or configured
+motion, diagnostics or dynamic display services keep quantum polling. Pending
+pause or abort is checked before consuming a grant. A standalone Program uses a 1 ms sleeper callback and
 the connected-timer clock. Budgets remain active for indefinite waits. An injected
 clock used for a timed standalone wait must advance. Semaphore methods and source
 operations are atomic between cooperative yields; they are not thread locks.

@@ -387,14 +387,17 @@ class _PeriodicWait:
         return wake
 
 
-def _periodic_wait(state,*,deadline=None,ready=None):
+def _periodic_wait(state,*,deadline=None,ready=None,require_timed_handlers=False):
     if not rt().task_root(state)._scheduler_clock:return None
     scopes=[]
     while state is not None:
-        if any(handler['scan_ms'] for handler in state._handlers.values()):
+        handlers=state._handlers.values()
+        if require_timed_handlers and any(not handler['scan_ms'] for handler in handlers):
+            return None
+        if any(handler['scan_ms'] for handler in handlers):
             scopes.append(state)
         state=state._budget_parent
-    return _PeriodicWait(tuple(scopes),deadline,ready) if scopes else None
+    return _PeriodicWait(tuple(scopes),deadline,ready) if scopes or ready is not None else None
 
 
 def delay_execution(state,milliseconds,line=None,*,scan_handlers=False):

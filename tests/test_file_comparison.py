@@ -275,6 +275,22 @@ class FilePrintingTests(unittest.TestCase):
         self.assertEqual(p.write_requests,())
         self.assertEqual(p.snapshot()['S'],7)
 
+    def test_rooted_print_budget_is_checked_before_opening_source(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            source=root/'message'
+            source.write_bytes(b'x'*16384)
+            p,_=compile_program("s=7 PRINT_FILE('message',FALSE,s)",
+                                context=rt.ExecutionContext(files=rt.DirectoryFiles(root)))
+            original_open=Path.open
+            def reject_source_open(path,*args,**kwargs):
+                if path==source:self.fail('Rooted PRINT_FILE read its source before charging')
+                return original_open(path,*args,**kwargs)
+            with patch.object(Path,'open',new=reject_source_open):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'):p.run(max_steps=3)
+            self.assertEqual(p.write_requests,())
+            self.assertEqual(p.snapshot()['S'],7)
+
     def test_print_budget_retains_only_completed_chunks(self):
         p,_=compile_program("s=7 PRINT_FILE('message',FALSE,s)",context=rt.ExecutionContext(files=rt.MemoryFiles({'message':'x'*300})))
         with self.assertRaisesRegex(rt.KarelRuntimeError,'budget'): p.run(max_steps=4)
