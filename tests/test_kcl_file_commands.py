@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt
 from tests.test_directive_group_locks import program
@@ -79,6 +80,24 @@ class KclFileCommandTests(unittest.TestCase):
         self.assertEqual(files.snapshot()['out.bin'],b'a'*8192)
         self.assertEqual(task.run(max_steps=5)['S'],0)
         self.assertEqual(files.snapshot()['out.bin'],b'a'*8192+b'x')
+
+    def test_rooted_append_budget_precedes_source_and_prefix_reads(self):
+        with TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            src,dst=root/'in.bin',root/'out.bin'
+            src.write_bytes(b'x')
+            dst.write_bytes(b'a'*8192)
+            task=program("s=99 KCL('APPEND FILE in.bin TO out.bin',s)",
+                         context=context(rt.DirectoryFiles(root)))
+            original_open=Path.open
+            def reject_input_open(path,*args,**kwargs):
+                if path in (src,dst):self.fail('Rooted APPEND read before charging')
+                return original_open(path,*args,**kwargs)
+            with patch.object(Path,'open',new=reject_input_open):
+                self.assertEqual(task.run(max_steps=4)['S'],4)
+            self.assertEqual(dst.read_bytes(),b'a'*8192)
+            self.assertEqual(task.run(max_steps=5)['S'],0)
+            self.assertEqual(dst.read_bytes(),b'a'*8192+b'x')
 
     def test_pipe_commands_keep_config_and_never_truncate_appended_prefix(self):
         pipes = rt.FilePipes()

@@ -52,8 +52,8 @@ Old direct-invoke generated output must be retranslated for blocking waits.
 
 Waiting progress remains zero until FIFO promotion. The source cooperates at
 checkpoints and sleeps at most ten milliseconds or the remaining head interval,
-rounding up fractional milliseconds. This is polling, not a background thread.
-Observe global handlers and task control while waiting. Supplied root-clock
+rounding up fractional milliseconds. Eligible timed conditions can wake the
+waiting task earlier. Observe global handlers and task control while waiting. Supplied root-clock
 progress, sub-millisecond remainders and scheduler completion deadlines retain
 the [queue policy](queued-motion.md).
 

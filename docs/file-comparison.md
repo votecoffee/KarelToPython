@@ -135,7 +135,9 @@ populate its buffered-file snapshot. Re-select a directory root after restoring
 context JSON; restored file bytes use MemoryFiles.
 
 Comparison and printing first charge one execution step per 4096 bytes of
-captured input, rounded up. Comparison counts both inputs even if the first byte
+input, rounded up. Comparison plans both inputs and charges their combined
+size before reading rooted payloads. Each rooted read checks the planned file
+identity, length and modification time. Comparison counts both inputs even if the first byte
 differs. Each ASCII record, each 4096-byte binary comparison block and each print
 chunk charges an additional step. These operations are synchronous and do not scan
 handlers or yield to another task internally. Callback latency has no wall-time

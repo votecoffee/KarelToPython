@@ -130,6 +130,38 @@ BEGIN local=value MOVE AWAY 1, WHEN local=value DO local=local+1 ENDMOVE RETURN 
 
 
 class ScriptedMotionProgressTests(unittest.TestCase):
+    def test_timed_hold_splits_active_interval_before_progress_freezes(self):
+        ctx=scripted(delay=25)
+        body=(SETUP+' n=0 s=77 '
+              'CONDITION[1]: WITH $SCAN_TIME=1 WHEN s=78 DO HOLD,n=7 ENDCONDITION '
+              'CONDITION[2]: WITH $SCAN_TIME=1 WHEN s=79 DO UNHOLD ENDCONDITION '
+              'ENABLE CONDITION[1] ENABLE CONDITION[2] ATTACH MOVE AWAY 1')
+        project=translate_project({'main':source('MAIN',body,decl=DECL)}).instantiate(
+            context=ctx,options={'joint_axes':2})
+        scheduler=project.scheduler
+        task=project.programs['MAIN']
+        scheduler.start('MAIN')
+        for _ in range(100):
+            scheduler.step()
+            if 'MAIN' in scheduler.waiting:break
+        else:self.fail('Blocking MOVE did not park')
+        task._state.set('S',78)
+        for _ in range(25):
+            scheduler.step()
+            if task.snapshot()['N']==7:break
+        self.assertEqual(task.snapshot()['N'],7)
+        motion=move(ctx)
+        execution=motion['data']['execution']
+        progress=execution['elapsed_ms']
+        self.assertGreater(progress,0)
+        self.assertLess(progress,10)
+        self.assertIn(1,ctx.group_locks.held)
+        for _ in range(12):scheduler.step()
+        self.assertEqual(execution['elapsed_ms'],progress)
+        task._state.set('S',79)
+        self.assertEqual(scheduler.run()['MAIN']['state'],'completed')
+        self.assertEqual((motion['outcome'],execution['elapsed_ms']),('completed',25))
+
     def test_explicit_delay_has_bounded_steps_and_complete_progress(self):
         _,ctx,_,_,pauses=execute('ATTACH MOVE AWAY 1',ctx=scripted(25))
         self.assertEqual(pauses,[.01,.01,.005])

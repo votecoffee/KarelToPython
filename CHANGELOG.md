@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.030357 - 2026-11-07
+
+- Plan rooted COMPARE_FILE and KCL APPEND inputs before reading payloads.
+  Check file identity and size while consuming the planned snapshots.
+- Wake blocking motion waits for eligible timed conditions and account for
+  the completed part of a shortened motion interval.
+
 ## 26.1107.024245 - 2026-11-07
 
 - Park scheduled semaphore waits on grants, timeouts and timed condition

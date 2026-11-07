@@ -159,7 +159,8 @@ clock/grant checks and existing counter-write proofs retain explicit boundaries.
 [Blocking moves after queued work](docs/synchronous-motion-queues.md) now join an
 enabled FIFO and wait for their own supplied result. All seven
 MOVE forms retain captured operands/settings, holds, pause/resume, cancellation
-and linked-task lifetime rules. Queueing remains an explicit offline opt-in.
+and linked-task lifetime rules. Timed conditions can wake scheduled blocking
+moves between progress polls. Queueing is an explicit offline opt-in.
 
 [Queued NOWAIT moves](docs/queued-motion.md) now provide an opt-in, bounded FIFO
 for motion requests, including checked NOWAIT handlers. Supplied delays progress in group order with
@@ -387,7 +388,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.024245**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.030357**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1026,8 +1027,9 @@ COMPARE_FILE compares ASCII records or binary bytes and writes a bounded JSON
 report to an open ordinary FILE. Both comparison modes charge for the full
 captured inputs and recheck the report FILE before writing. PRINT_FILE charges
 for the input and sends validated ASCII to the existing output recorder or callback.
-Rooted COPY_FILE and PRINT_FILE charge before reading and check the source metadata. Both accept closed ordinary and plain PIP inputs
-from the supplied context. See
+Rooted COPY_FILE, PRINT_FILE, COMPARE_FILE and KCL APPEND charge before disk
+reads and verify source metadata. Comparison and printing accept closed
+ordinary and plain PIP inputs from the supplied context. See
 [file comparison and printing](docs/file-comparison.md).
 
 Whole JOINTPOS/Cartesian assignments use supplied robot models, selected frames

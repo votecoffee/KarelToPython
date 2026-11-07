@@ -146,6 +146,41 @@ class FileComparisonTests(unittest.TestCase):
         self.assertEqual(files.snapshot()['report'],b'');self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
 
 
+    def test_rooted_comparison_budget_precedes_both_payload_reads(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            inputs=(root/'a',root/'b')
+            for path in inputs:path.write_bytes(b'x'*12288)
+            report=root/'report'
+            report.write_bytes(b'keep')
+            p,_=compile_program("OPEN FILE f ('RW','report') "+COMPARE,
+                                decl=DECL,context=rt.ExecutionContext(files=rt.DirectoryFiles(root)))
+            p._state.values.update(N=7,S=8)
+            original_open=Path.open
+            def reject_input_open(path,*args,**kwargs):
+                if path in inputs:self.fail('Comparison opened an input before charging')
+                return original_open(path,*args,**kwargs)
+            with patch.object(Path,'open',new=reject_input_open):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):p.run(max_steps=4)
+            self.assertEqual(report.read_bytes(),b'keep')
+            self.assertEqual((p.snapshot()['N'],p.snapshot()['S']),(7,8))
+
+    def test_missing_second_rooted_input_is_reported_before_reading_first(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            first=root/'a'
+            first.write_bytes(b'x'*12288)
+            p,_=compile_program("OPEN FILE f ('W','report') "+COMPARE,
+                                decl=DECL,context=rt.ExecutionContext(files=rt.DirectoryFiles(root)))
+            p._state.values.update(N=7,S=8)
+            original_open=Path.open
+            def reject_input_open(path,*args,**kwargs):
+                if path==first:self.fail('Comparison read the first input before checking the second')
+                return original_open(path,*args,**kwargs)
+            with patch.object(Path,'open',new=reject_input_open):
+                result=p.run(max_steps=3)
+            self.assertEqual((result['N'],result['S']),(7,1))
+
     def test_long_equal_ascii_records_charge_both_inputs_before_writing(self):
         line=b'x'*12288
         files=rt.MemoryFiles({'a':line,'b':line,'report':b'retained'})

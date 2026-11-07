@@ -489,22 +489,24 @@ class DirectoryFiles:
         if len(data)>self.limit: raise ValueError('File size limit exceeded')
         return data
 
-    def read_named(self,name,*,check=None):
+    def _prepare_named_read(self,name):
         key=self._key(name)
-        if self._busy(key): return 3,None
+        if self._busy(key):return 3,None
         path=self._path(key)
-        if not path.exists(): return 1,None
-        if check is None:return 0,self._disk_bytes(path)
-        from .fileops import charge_file_bytes
+        try:info=path.stat()
+        except FileNotFoundError:return 1,None
+        if not S_ISREG(info.st_mode) or info.st_size>self.limit:
+            raise ValueError('Invalid file or file size limit exceeded')
+        return 0,(key,path,info)
+
+    def _read_prepared(self,plan):
+        key,path,info=plan
+        size=info.st_size
 
         def stamp(info):
             return (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns)
 
-        info=path.stat()
-        size=info.st_size
-        if not S_ISREG(info.st_mode) or size>self.limit:raise ValueError('Invalid file or file size limit exceeded')
         expected=stamp(info)
-        charge_file_bytes(size,check)
         if self._busy(key):return 3,None
         if self._path(key)!=path or stamp(path.stat())!=expected or size>self.limit:
             raise ValueError('Rooted FILE source changed during preparation')
@@ -517,6 +519,15 @@ class DirectoryFiles:
         if self._path(key)!=path or stamp(path.stat())!=expected:
             raise ValueError('Rooted FILE source changed while reading')
         return 0,data
+
+    def read_named(self,name,*,check=None):
+        from .fileops import charge_file_bytes
+
+        code,plan=self._prepare_named_read(name)
+        if code:return code,None
+        _,_,info=plan
+        charge_file_bytes(info.st_size,check)
+        return self._read_prepared(plan)
 
     def list_names(self,pattern='*',*,check=None):
         from .fileops import _listing_entries

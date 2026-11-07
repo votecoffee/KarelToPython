@@ -227,6 +227,21 @@ def transition(operation, before):
     return after
 
 
+def _motion_delay(state,step,line):
+    """Wake at a timed scan and report only the completed part of this interval."""
+    from .scheduling import _periodic_wait
+
+    scheduler=state._scheduler
+    if scheduler is not None:
+        start=scheduler.now_us
+        periodic=_periodic_wait(state,deadline=start+step*1000)
+        if periodic is not None:
+            yield dict(kind='sleep',until=periodic,line=line)
+            return min(step,(scheduler.now_us-start)//1000)
+    yield from rt().delay_execution(state,step,line)
+    return step
+
+
 class MotionRequests:
     """Finite capture/scripted endpoint. No hardware adapter or implicit replies."""
     def __init__(self, groups, *, hands=None, capture_only=False, responses=None,
@@ -995,9 +1010,9 @@ class MotionRequests:
                     event_cursor += 1
                 if not held and event_cursor < len(scope['breakpoints']):
                     step = min(step, scope['breakpoints'][event_cursor] - progress['elapsed_ms'])
-                yield from runtime.delay_execution(state, step, line)
+                elapsed=yield from _motion_delay(state,step,line)
                 if not held:
-                    progress['elapsed_ms'] += step
+                    progress['elapsed_ms'] += elapsed
         except (GeneratorExit, runtime.KarelStop, runtime.KarelAbort):
             outcome = 'cancelled'
             raise
@@ -1039,7 +1054,7 @@ class MotionRequests:
                             remaining_us = min(remaining_us, distance)
                             break
                 step = 10 if self.background_blocked(head) else min(10, max(1, (remaining_us + 999) // 1000))
-                yield from runtime.delay_execution(state, step, line)
+                yield from _motion_delay(state,step,line)
             if scope['request']['outcome'] not in ('completed', 'cancelled'):
                 raise runtime.KarelRuntimeError('Queued synchronous motion did not complete successfully', line)
         except (GeneratorExit, runtime.KarelStop, runtime.KarelAbort):

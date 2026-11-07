@@ -994,6 +994,19 @@ def _read_snapshot(files,name):
     return files.read_named(name)
 
 
+def _plan_snapshot(files,name,*,plain_pipe_only=False):
+    from .storage import DirectoryFiles
+
+    if type(files) is DirectoryFiles:
+        code,plan=files._prepare_named_read(name)
+        if code:return code,0,None
+        _,_,info=plan
+        return 0,info.st_size,lambda:files._read_prepared(plan)
+    code,data=_read_snapshot(files,name) if plain_pipe_only else files.read_named(name)
+    if code:return code,0,None
+    return 0,len(data),lambda:(0,data)
+
+
 def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     runtime=rt();ascii_flag=runtime.boolean(ascii_flag,line)
     handle.require_open(line)
@@ -1005,17 +1018,21 @@ def compare_files(state,files,left_name,right_name,handle,ascii_flag,line=None):
     buffer=files.files[handle.name]
     size=len(buffer)
     limit=files.limit
-    left_code,left=_read_snapshot(*_snapshot_endpoint(state.execution,left_name,line))
-    if left_code: return left_code,None
-    right_code,right=_read_snapshot(*_snapshot_endpoint(state.execution,right_name,line))
-    if right_code: return right_code,None
+    left_code,left_size,read_left=_plan_snapshot(*_snapshot_endpoint(state.execution,left_name,line),plain_pipe_only=True)
+    if left_code:return left_code,None
+    right_code,right_size,read_right=_plan_snapshot(*_snapshot_endpoint(state.execution,right_name,line),plain_pipe_only=True)
+    if right_code:return right_code,None
+    charge_file_bytes(left_size+right_size,lambda:state.tick(line))
+    left_code,left=read_left()
+    if left_code:return left_code,None
+    right_code,right=read_right()
+    if right_code:return right_code,None
     start=size if handle.mode=='A' else position
     capacity=limit-start;records=bytearray();eol=bytes((handle.eol,))
     def record(value):
         data=json.dumps(value,ensure_ascii=True,separators=(',',':')).encode('ascii')+eol
         if len(records)+len(data)>capacity: raise runtime.KarelRuntimeError('Comparison report exceeds remaining FILE capacity',line)
         return data
-    charge_file_bytes(len(left)+len(right),lambda:state.tick(line))
     if ascii_flag:
         left_text=left.decode('ascii');right_text=right.decode('ascii');count=0
         for number,(a,b) in enumerate(zip_longest(ascii_lines(left_text),ascii_lines(right_text)),1):
@@ -1085,16 +1102,20 @@ def append_file(state,source_name,target_name,line=None):
     target,dst=named_file_endpoint(state.execution,target_name,line)
     if source is target and src==dst:return 2
     if source._busy(src) or target._busy(dst):return 3
-    code,content=source.read_named(src)
+    code,source_size,read_source=_plan_snapshot(source,src)
     if code:return code
-    code,prefix=target.read_named(dst)
+    code,prefix_size,read_prefix=_plan_snapshot(target,dst)
     if code:return code
     if source is target and type(target) is DirectoryFiles and source._path(src).samefile(target._path(dst)):
         return 2
     limit=target.pipes[dst]['sectors']*1024 if type(target) is rt().FilePipes else target.limit
-    if len(prefix)+len(content)>limit:return 4
-    charge_file_bytes(len(prefix)+len(content),lambda:state.tick(line))
-    code,current=target.read_named(dst)
+    if prefix_size+source_size>limit:return 4
+    charge_file_bytes(prefix_size+source_size,lambda:state.tick(line))
+    code,content=read_source()
+    if code:return code
+    code,prefix=read_prefix()
+    if code:return code
+    code,current=read_prefix() if type(target) is DirectoryFiles else target.read_named(dst)
     if code:return code
     if current!=prefix:return 2
     return publish_file_bytes(target,dst,prefix+content,True,line,obsolete=0)

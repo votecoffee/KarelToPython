@@ -65,7 +65,9 @@ applies.
 Without NOWAIT, a positive accepted delay or any local clauses creates a synchronous
 request scope. It temporarily marks the owned group executing. Global handlers scan
 first, then local clauses at entry and after supplied progress steps of at most
-10 ms. A zero-duration capture with local clauses scans at its request boundary.
+10 ms. Eligible timed conditions can shorten a scheduled blocking interval.
+Only the elapsed portion of an active interval is credited before handlers run.
+A zero-duration capture with local clauses scans at its request boundary.
 Every progress/poll cycle uses the existing execution budget and task scheduler.
 
 The supplied delay is model input. `elapsed_ms` counts progress steps, excluding

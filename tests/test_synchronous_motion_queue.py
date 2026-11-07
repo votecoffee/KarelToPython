@@ -244,6 +244,27 @@ class SynchronousQueueControlsTests(unittest.TestCase):
 
 
 class SynchronousQueueSchedulerTests(unittest.TestCase):
+    def test_timed_condition_wakes_queued_blocking_wait_between_polls(self):
+        body=('n=0 s=77 CONDITION[1]: WITH $SCAN_TIME=1 WHEN s=78 DO n=7 '
+              'ENDCONDITION ENABLE CONDITION[1] ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2')
+        linked,task,ctx=project(body,40,25)
+        waiting(linked,ctx)
+        scheduler=linked.scheduler
+        for _ in range(25):
+            scheduler.step()
+            if 'MAIN' in scheduler.waiting:break
+        else:self.fail('Queued blocking MOVE did not park')
+        parked_at=scheduler.now_us
+        task._state.set('S',78)
+        for _ in range(25):
+            scheduler.step()
+            if task.snapshot()['N']==7:break
+        self.assertEqual(task.snapshot()['N'],7)
+        self.assertLess(scheduler.now_us-parked_at,8000)
+        self.assertEqual(moves(ctx)[1]['outcome'],'pending')
+        self.assertEqual(scheduler.run()['MAIN']['state'],'completed')
+        self.assertEqual(elapsed(ctx),[40,25])
+
     def test_scheduler_source_waits_until_own_job_completes(self):
         linked,p,ctx=project('ATTACH MOVE AWAY 1 NOWAIT MOVE AWAY 2 n=7 RELEASE',10,20)
         linked.run('MAIN');self.assertEqual(p.snapshot()['N'],7);self.assertEqual(elapsed(ctx),[10,20])
