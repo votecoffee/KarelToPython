@@ -10,6 +10,37 @@ from tests.test_wildcard_file_operations import invoke,volumes,directory
 
 
 class QuestionWildcardTests(unittest.TestCase):
+    def test_fixed_filename_captures_keep_case_and_allow_full_stem_star(self):
+        files=rt.MemoryFiles({'src/Apart.x1':b'a','src/Bpart.y2':b'b','src/longpart.x1':b'other'})
+        self.assertEqual(invoke(files,'COPY_FILE','src/?part.?1','dst/?_*.?'),0)
+        self.assertEqual(files.snapshot()['dst/A_Apart.x'],b'a')
+        self.assertNotIn('dst/B_Bpart.y',files.files)
+
+    def test_rename_captures_after_source_directory_globstar(self):
+        files=rt.MemoryFiles({'src/Sub/One/a7.kl':b'7','src/a2.kl':b'2'})
+        retained=files.files['src/Sub/One/a7.kl']
+        self.assertEqual(invoke(files,'RENAME_FILE','src/**/a?.kl','done/saved?.py'),0)
+        self.assertEqual(files.snapshot(),{'done/saved2.py':b'2','done/saved7.py':b'7'})
+        self.assertIs(files.files['done/saved7.py'],retained)
+
+    def test_captures_into_configured_pipe_destinations(self):
+        files=rt.MemoryFiles({'a1.kl':b'1','a2.kl':b'2'})
+        ctx=pipe_context(files=files)
+        for name in ('PIP:OUT1.DAT','PIP:OUT2.DAT'):
+            self.assertEqual(ctx.file_pipes.configure(name,True,1,0,'',0),0)
+        self.assertEqual(invoke(files,'RENAME_FILE','a?.kl','PIP:OUT?.DAT',ctx=ctx),0)
+        self.assertEqual(files.files,{})
+        self.assertEqual(ctx.file_pipes.files['PIP:OUT1.DAT'],b'1')
+        self.assertEqual(ctx.file_pipes.files['PIP:OUT2.DAT'],b'2')
+
+    def test_ambiguous_or_missing_captures_reject_before_publication(self):
+        for pattern,target in (('a?*.kl','out?.py'),('a??.kl','out?.py'),('a?.kl','out??.py')):
+            with self.subTest(pattern=pattern,target=target):
+                files=rt.MemoryFiles({'a12.kl':b'12','a1.kl':b'1'})
+                before=files.snapshot()
+                self.assertEqual(invoke(files,'COPY_FILE',pattern,target),2)
+                self.assertEqual(files.snapshot(),before)
+
     def test_question_matches_exactly_one_character(self):
         files=rt.MemoryFiles({'src/a1.kl':b'1','src/a2.kl':b'2','src/a.kl':b'0','src/a12.kl':b'12'})
         self.assertEqual(invoke(files,'COPY_FILE','src/a?.kl','dst/*.py'),0)

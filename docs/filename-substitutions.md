@@ -71,9 +71,11 @@ configured where required by those routes.
 
 Input and expanded names stay at most 254 ASCII characters. Scans retain 32767
 entries, COPY retains its 64 MiB snapshot bound, and per-file, device, pipe and
-execution limits remain. Adjacent destination stars, question/bracket templates,
+execution limits remain. Adjacent destination stars, directory question and bracket templates,
 trailing dots/spaces, empty/dot/traversal components, reserved names and absolute
-host paths remain rejected. Ordinary runtime-error/status boundaries are retained.
+host paths remain rejected. [Fixed-width filename captures](question-file-wildcards.md)
+can supply destination question marks. Ordinary runtime-error/status boundaries
+are retained.
 
 Memory/device publication uses prepared state and existing retained-garbage
 accounting. Rooted filesystem publication stays per file: a late host failure may

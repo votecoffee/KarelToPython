@@ -70,6 +70,8 @@ select deeper matches; names are flattened through the existing final-name templ
 Names are collected in deterministic sorted order. Before changing files, the
 entire plan validates source/target paths, output collisions, case aliases,
 source-target overlap, open handles, source sizes, copied-byte limits and budget.
+COPY checks the complete name plan, file sizes and execution charges before
+reading any selected payload.
 A later conflicting or busy file prevents earlier files from changing. Wildcard
 in-place copies are rejected even when overwrite is true. Directory hardlink
 aliases and overlap are rejected when physical identities are available.

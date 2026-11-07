@@ -39,9 +39,11 @@ final * still preserves the whole basename. Empty expanded extensions omit the
 separator. A source with only filename matchers has no relative directory levels.
 
 Adjacent stars within an ordinary directory, filename stem or extension remain
-rejected. Whole-directory ** retains its distinct role. Question/bracket
+rejected. Whole-directory ** retains its distinct role. Directory question and bracket
 destination templates, partial/repeated ** directories,
 traversal, empty/dot components and absolute host paths remain excluded.
+[Fixed-width filename captures](question-file-wildcards.md) can supply destination
+question marks.
 
 ## Backends and preflight
 

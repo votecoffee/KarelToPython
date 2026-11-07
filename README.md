@@ -391,9 +391,11 @@ pagination, busy descriptor inspection and staged output checks.
 DELETE_FILE and RENAME_FILE match ordinary source directories with `*`, `?` and
 whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
+[Fixed-width filename captures](docs/question-file-wildcards.md) let COPY_FILE
+and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.144050**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.145538**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents

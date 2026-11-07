@@ -1,4 +1,4 @@
-# Single-character FILE wildcards
+# Single-character FILE wildcards and captures
 
 Pythonic COPY_FILE, DELETE_FILE, RENAME_FILE and MOVE_FILE accept `?` in their
 source's final filename. It matches exactly one ASCII character. Existing `*`
@@ -15,11 +15,19 @@ MOVE_FILE('RD:job?.kl',status)
 `part12.dat`. Matching remains case-insensitive. Question matching is an explicit
 portable Pythonic extension; native DOS/controller matching is unverified.
 
-Destination templates retain their existing whole-source stem/extension star
-substitution. Question marks cannot be destination substitutions: a destination
-template containing one returns invalid-template status 2 without mutation.
-For example, `backup_*.py` uses the full matched stem, rather than a single
-character captured by the source question mark.
+COPY_FILE and RENAME_FILE can reuse matched characters in the destination's
+final filename. For example, `src/part?.dat` to `stage/saved?.bak` maps
+`partA.dat` to `savedA.bak`. With multiple question marks, the captures keep
+their source spelling and are substituted from left to right, across the
+filename and extension. The source's final filename must have no stars and
+the two final filenames must have the same number of question marks. A
+different count or ambiguous source returns status 2 before any mutation.
+Directory selection can still use stars, questions and globstar. Directory
+captures are excluded from filename substitution.
+
+Destination stars still substitute the whole source stem or extension and can
+appear alongside destination questions. A question capture must be a portable
+filename character. Expanded paths retain the ordinary batch validation.
 
 MOVE_FILE retains its final-basename-only source contract. COPY_FILE, DELETE_FILE
 and RENAME_FILE also accept [ordinary directory patterns](directory-globs.md),

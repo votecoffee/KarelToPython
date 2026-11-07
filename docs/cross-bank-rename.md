@@ -73,8 +73,9 @@ Existing pattern/template rules apply: flat PIP source names and optional
 [ordinary source directory patterns](directory-globs.md), case-insensitive matching
 and uppercase PIP names, full-stem/extension star
 substitution, and standalone `*` to preserve a complete filename. Exact calls
-also support extensionless literal names. Destination question substitution,
-unsafe paths, symlinks, socket endpoints and DAQ-owned names remain excluded.
+also support extensionless literal names. [Fixed-width filename captures](question-file-wildcards.md)
+can supply destination question marks. Unsafe paths, symlinks, socket endpoints
+and DAQ-owned names remain excluded.
 
 The shared engine bounds scanned/matched/final ordinary entries to 32,767 and
 selected retained payloads to 64 MiB. Existing per-file limits, 32-pipe maximum,

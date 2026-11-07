@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.145538 - 2026-11-07
+
+- Let COPY_FILE and RENAME_FILE destination filenames reuse single-character
+  captures from fixed-width source filename patterns.
+- Check wildcard COPY_FILE names, per-file sizes and the full snapshot budget
+  before reading any source payload.
+
 ## 26.1107.144050 - 2026-11-07
 
 - Add opt-in active group reverse masks to GIN/GOUT projection and one-shot

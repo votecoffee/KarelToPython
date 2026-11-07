@@ -127,6 +127,29 @@ class WildcardMemoryTests(unittest.TestCase):
 
 
 class WildcardPreflightTests(unittest.TestCase):
+    def test_complete_byte_limit_rejects_before_any_payload_read(self):
+        files=rt.MemoryFiles({'src/a.kl':b'aa','src/b.kl':b'bb'})
+        before=files.snapshot()
+        with patch.object(files,'read_named',side_effect=AssertionError('read before batch bound')):
+            with patch('karel2py.fileops.WILDCARD_COPY_BYTES',3):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'64 MiB'):
+                    invoke(files,'COPY_FILE','src/*.kl','dst/*.py')
+        self.assertEqual(files.snapshot(),before)
+
+    def test_wildcard_copy_charges_full_batch_before_reading_any_file(self):
+        files=rt.MemoryFiles({'src/a.kl':b'X'*40960,'src/b.kl':b'Y'*40960})
+        with patch.object(files,'read_named',side_effect=AssertionError('read before batch budget')):
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                invoke(files,'COPY_FILE','src/*.kl','dst/*.py',max_steps=12)
+        self.assertEqual(set(files.files),{'src/a.kl','src/b.kl'})
+
+    def test_late_destination_conflict_rejects_before_first_source_read(self):
+        files=rt.MemoryFiles({'src/a.kl':b'a','src/b.kl':b'b','dst/b.py':b'keep'})
+        before=files.snapshot()
+        with patch.object(files,'read_named',side_effect=AssertionError('read before later collision')):
+            self.assertEqual(invoke(files,'COPY_FILE','src/*.kl','dst/*.py'),2)
+        self.assertEqual(files.snapshot(),before)
+
     def test_late_target_collision_blocks_all_earlier_copies(self):
         files=memory();files.files['dst/b.py']=bytearray(b'old');before=files.snapshot()
         self.assertEqual(copy(files),2);self.assertEqual(files.snapshot(),before)

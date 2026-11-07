@@ -201,17 +201,27 @@ def _directory_listing(files,pattern,check):
     return selected
 
 
-def _wildcard_template(template,source):
-    if '?' in template:raise ValueError('Question marks are source matchers, not destination substitutions')
-    if '**' in template:raise ValueError('Destination stars must be separated by literal text')
+def _wildcard_template(template,source,source_pattern):
     if template=='*':return source
-    if '*' not in template:return template
+    if not any(char in template for char in '*?'):return template
+    if '?' in template:
+        captured=[char for char,marker in zip(source,source_pattern) if marker=='?']
+        if any(char in '\\/:*?"<>|' for char in captured):
+            raise ValueError('Destination question captures require portable filename characters')
+    else:captured=[]
+    captures=iter(captured)
+
+    def expand(part,star):
+        return ''.join(star if char=='*' else next(captures) if char=='?' else char for char in part)
+
     def parts(name):
         stem,separator,extension=name.rpartition('.')
         return (stem,extension) if separator and stem else (name,'')
     stem,extension=parts(template);source_stem,source_extension=parts(source)
-    stem=stem.replace('*',source_stem);extension=extension.replace('*',source_extension)
-    return stem+('.'+extension if extension else '')
+    stem=expand(stem,source_stem);extension=expand(extension,source_extension)
+    result=stem+('.'+extension if extension else '')
+    if captured:_wildcard_parts(result,pattern=False)
+    return result
 
 
 def wildcard_file_operation(state,operation,args,line=None):
@@ -340,6 +350,7 @@ def wildcard_file_operation(state,operation,args,line=None):
             if self.signature(name)!=signature:return False
             return self.directory or name in self.bank.files and bytes(self.bank.files[name])==data
     def rename_cross_bank(source,target,source_folder,pattern,target_prefix,target_folder,template,selected):
+        filename_pattern=pattern.rsplit('/',1)[-1]
         """Prepared moves between plain PIP and one explicitly supplied file bank."""
         pipe=source if source.pipe else target;ordinary=target if source.pipe else source
         if type(pipe.bank) is not runtime.FilePipes:raise runtime.KarelRuntimeError('Cross-bank rename requires an exact plain FilePipes bank',line)
@@ -370,7 +381,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         plan=[];targets=set();total=0
         for name in selected:
             check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            try:destination=target.destination(target_prefix,_wildcard_template(template,base),name,source_folder,target_folder)
+            try:destination=target.destination(target_prefix,_wildcard_template(template,base,filename_pattern),name,source_folder,target_folder)
             except ValueError:return 2
             matches=aliases.get(destination.casefold(),[])
             if len(matches)>1:return 2
@@ -465,6 +476,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         return 0
 
     def rename_selected(source,target,source_folder,pattern,target_prefix,target_folder,template,selected,physical):
+        filename_pattern=pattern.rsplit('/',1)[-1]
         # Rename retains byte/configuration objects; fingerprints avoid taking
         # another complete in-memory copy of every retained file in the batch.
         def fingerprint(name,*,charge):
@@ -484,7 +496,7 @@ def wildcard_file_operation(state,operation,args,line=None):
         plan=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None}
         for name in selected:
             check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            try:target_base=_wildcard_template(template,base)
+            try:target_base=_wildcard_template(template,base,filename_pattern)
             except ValueError:return 2
             destination=target.destination(target_prefix,target_base,name,source_folder,target_folder);matches=aliases.get(destination.casefold(),[])
             if len(matches)>1:return 2
@@ -550,8 +562,10 @@ def wildcard_file_operation(state,operation,args,line=None):
         if source.device:source.bank.require_volume(source.key(source_prefix+'__wildcard_probe__').split(':',1)[0])
         if operation in ('COPY_FILE','RENAME_FILE'):
             target=View(operands[1]);target_prefix,template=target.spec(operands[1],destination=True);target_folder=target.parent(_wildcard_target_root(target_prefix))
-            try:_wildcard_template(template,'probe.ext')
-            except ValueError:return 2
+            filename_pattern=pattern.rsplit('/',1)[-1]
+            if '**' in template:return 2
+            if '?' in template and ('*' in filename_pattern or template.count('?')!=filename_pattern.count('?')):
+                return 2
             if operation=='COPY_FILE':overwrite=runtime.boolean(args[2],line);runtime.boolean(args[3],line)
             else:
                 runtime.boolean(args[2],line)
@@ -598,11 +612,11 @@ def wildcard_file_operation(state,operation,args,line=None):
             return 0
         existing=target.entries(target_folder,destination=True,recursive="*" in target_prefix);aliases={}
         for name in existing:aliases.setdefault(name.casefold(),[]).append(name)
-        plan=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None};total=0
+        pending=[];targets=set();source_keys={name.casefold() for name in selected};source_ids=set(physical)-{None};total=0
         same=source.bank is target.bank
         for name in selected:
             check();base=name.rsplit('/',1)[-1].rsplit(':',1)[-1]
-            try:target_base=_wildcard_template(template,base)
+            try:target_base=_wildcard_template(template,base,filename_pattern)
             except ValueError:return 2
             destination=target.destination(target_prefix,target_base,name,source_folder,target_folder);matches=aliases.get(destination.casefold(),[])
             if len(matches)>1:return 2
@@ -613,18 +627,36 @@ def wildcard_file_operation(state,operation,args,line=None):
             if target.pipe and not matches:return 1
             if matches and not overwrite:return 2
             if target.directory and target.bank._path(destination).exists() and not target.bank._path(destination).is_file():return 2
-            before=source.signature(name);target_before=target.signature(destination);code,data=source.bank.read_named(name)
-            if code:return code
-            if before!=source.signature(name):raise runtime.KarelRuntimeError('Wildcard source changed during preflight',line)
-            if source.pipe and len(data)>source.bank.pipes[name]['sectors']*1024:
+            before=source.signature(name);target_before=target.signature(destination)
+            if source.directory:
+                if before is None:return 1
+                size=before[2]
+            else:
+                if name not in source.bank.files:return 1
+                size=len(source.bank.files[name])
+            if source.pipe and size>source.bank.pipes[name]['sectors']*1024:
                 raise runtime.KarelRuntimeError('Configured pipe snapshot exceeds its retained capacity',line)
-            total+=len(data)
+            total+=size
             if total>WILDCARD_COPY_BYTES:raise runtime.KarelRuntimeError('Wildcard COPY_FILE snapshots exceed 64 MiB',line)
-            charge_file_bytes(len(data),check)
             if target.pipe:
-                if len(data)>target.bank.pipes[destination]['sectors']*1024:return 4
-            elif not target.directory:target.bank._check(destination,data)
-            plan.append((name,destination,data,bytes(target.bank.files.get(destination,b'')) if not target.directory else None,before,target_before))
+                if size>target.bank.pipes[destination]['sectors']*1024:return 4
+            elif size>target.bank.limit:
+                raise runtime.KarelRuntimeError('Wildcard COPY_FILE destination exceeds its file size limit',line)
+            pending.append((name,destination,size,before,target_before))
+        for _,_,size,_,_ in pending:charge_file_bytes(size,check)
+
+        plan=[]
+        for name,destination,size,before,target_before in pending:
+            if source.signature(name)!=before:raise runtime.KarelRuntimeError('Wildcard source changed during preflight',line)
+            if not source.directory and (name not in source.bank.files or len(source.bank.files[name])!=size):
+                raise runtime.KarelRuntimeError('Wildcard source size changed during preflight',line)
+            code,data=source.bank.read_named(name)
+            if code:return code
+            if len(data)!=size or before!=source.signature(name):
+                raise runtime.KarelRuntimeError('Wildcard source changed during preflight',line)
+            if not target.directory and not target.pipe:target.bank._check(destination,data)
+            old=None if target.directory else bytes(target.bank.files.get(destination,b''))
+            plan.append((name,destination,data,old,before,target_before))
         if selected!=source.source_names(source_folder,pattern,charge=False):
             raise runtime.KarelRuntimeError('Wildcard sources changed during preflight',line)
         if source.busy(selected) or target.busy([row[1] for row in plan]):return 3
