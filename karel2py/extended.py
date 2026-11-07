@@ -3194,6 +3194,47 @@ class ExecutionContext:
             fail('PATH conversion requires matching source storage and compatible node/header layouts',line)
         return self._copy_path_data(state,target,source,layout,line)
 
+    def path_array_source_value(self,state,target,source,source_spec,line=None):
+        from .storage import _collection_array_rows,collection_array_cost
+        rt=runtime()
+        if not rt._pythonic() or type(source) is not rt.Array:
+            fail('PATH ARRAY conversion requires Pythonic owned storage',line)
+        matches=(rt.collection_array_source_accepts(source_spec,source.spec) if None in rt.array_dimensions(source_spec)
+                 else source_spec==source.spec)
+        if not matches:fail('PATH ARRAY conversion requires matching declared source storage',line)
+        layout=rt.path_array_conversion_layout(target,source.spec)
+        if layout is None:fail('PATH ARRAY conversion requires matching component shapes and compatible PATH layouts',line)
+        concrete=rt._array_conversion_spec(target,source.spec)
+        leaf=rt.array_leaf_spec(concrete)
+        node=leaf[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+        node_width=rt._validate_data_schema(node,line)
+
+        def plan():
+            try:
+                rows,source_cost=_collection_array_rows(source.spec,source,False,allow_windows=True)
+                captures=[(item,item.nodes,len(item.nodes),item.data) for _,item in rows]
+                target_cost=collection_array_cost(concrete)+node_width*sum(count for _,_,count,_ in captures)
+            except ValueError as error:fail(str(error),line)
+            if target_cost>32767:fail('PATH ARRAY target snapshot exceeds 32767 units including contents',line)
+            return captures,source_cost,target_cost
+
+        captures,source_cost,target_cost=plan()
+        for _ in range(source_cost+target_cost):state.tick(line)
+        current,current_source,current_target=plan()
+        if (source_cost!=current_source or target_cost!=current_target
+                or any(item is not other or nodes is not other_nodes or count!=other_count or data is not other_data
+                       for (item,nodes,count,data),(other,other_nodes,other_count,other_data) in zip(captures,current))):
+            fail('PATH ARRAY source changed during conversion preparation',line)
+        snapshot=rt.collection_array_source_value(source.spec,source,line,source_spec=source.spec)
+        prepared=[]
+        for storage,key in rt._array_conversion_cells(snapshot):
+            path=storage[key]
+            prepared.append(self._prepare_path_data(leaf,path,path.nodes,path.data,layout,line,allow_missing=True))
+        result=rt.Array(concrete)
+        for (storage,key),path in zip(rt._array_conversion_cells(result),prepared):
+            storage[key]=self._finish_path_data(state,leaf,path,line)
+        return result
+
     def _copy_path_data(self,state,target,source,layout,line,*,indices=None):
         rt=runtime()
         whole=indices is None
@@ -3224,22 +3265,35 @@ class ExecutionContext:
             source=rt.collection_source_value(source.spec,source,line,source_spec=source.spec)
             nodes,data=source.nodes,source.data
 
+        prepared=self._prepare_path_data(target,source,nodes,data,layout,line,allow_missing=whole)
+        return self._finish_path_data(state,target,prepared,line)
+
+    def _prepare_path_data(self,target,source,nodes,data,layout,line,*,allow_missing):
+        rt=runtime()
+        node,header=source.node_spec,source.spec[2]
+        target_node=target[1] or rt.PREDEFINED_STRUCTURES['STD_PTH_NODE']
+        target_header=target[2]
+
         def prepare(expected,actual,value,kind):
-            if whole and value is rt.UNINITIALIZED and kind!='kinematic':return value,()
+            if allow_missing and value is rt.UNINITIALIZED and kind!='kinematic':return value,()
             if kind=='exact':return rt._aggregate_value(expected,value,line),()
             if kind=='kinematic':return rt.prepare_kinematic_record(expected,value,line,source_spec=actual)
             return rt.convert_record_schema(expected,value,line,source_spec=actual),()
 
-        def finish(prepared):
-            value,plan=prepared
-            return self._finish_kinematic_record(state,value,plan,line) if plan else value
-
         node_kind,header_kind=layout
         prepared=[prepare(target_node,node,value,node_kind) for value in nodes]
         prepared_header=prepare(target_header,header,data,header_kind) if header is not None else (None,())
+        return prepared,prepared_header
+
+    def _finish_path_data(self,state,target,prepared,line):
+        def finish(row):
+            value,plan=row
+            return self._finish_kinematic_record(state,value,plan,line) if plan else value
+
+        nodes,header=prepared
         selected=PathValue(target)
-        selected.nodes=[finish(row) for row in prepared]
-        selected.data=finish(prepared_header)
+        selected.nodes=[finish(row) for row in nodes]
+        selected.data=finish(header)
         return selected
 
     def kinematic_record(self,state,target,value,line=None,*,source_spec=None):

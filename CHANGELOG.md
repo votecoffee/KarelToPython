@@ -1,5 +1,11 @@
 # Changelog
 
+## 26.1107.153941 - 2026-11-07
+
+- Convert compatible PATH cells across whole arrays and selected rows or
+  planes at source assignments, private arguments and function returns.
+- Charge both snapshots and preflight every cell before calling the model.
+
 ## 26.1107.152647 - 2026-11-07
 
 - Convert compatible scalar PATH layouts at assignment, private argument and

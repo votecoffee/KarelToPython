@@ -2,6 +2,7 @@
 from copy import deepcopy
 import unittest
 from unittest.mock import patch
+from unittest.mock import patch
 from karel2py import runtime as rt,translate_project
 from karel2py.lexer import TranslationError
 from tests.test_collection_array_transfers import prepare,queues,row,collections,raw,snapshot,PREFIX,DECL,QDECL
@@ -197,8 +198,8 @@ class CollectionValueBoundaries(unittest.TestCase):
     def test_different_collection_kinds_remain_incompatible(self):
         with self.assertRaises(TranslationError):compile_program('paths=queues',decl='paths:ARRAY[2]OF PATH queues:ARRAY[2]OF QUEUE_TYPE')
 
-    def test_different_path_node_schemas_remain_incompatible(self):
-        with self.assertRaises(TranslationError):compile_program('b=a',prefix='TYPE n1=STRUCTURE value:INTEGER ENDSTRUCTURE n2=STRUCTURE value:REAL ENDSTRUCTURE p1=PATH NODEDATA=n1 p2=PATH NODEDATA=n2',decl='a:ARRAY[2]OF p1 b:ARRAY[2]OF p2')
+    def test_incompatible_path_node_field_names_still_reject(self):
+        with self.assertRaises(TranslationError):compile_program('b=a',prefix='TYPE n1=STRUCTURE value:INTEGER ENDSTRUCTURE n2=STRUCTURE other:REAL ENDSTRUCTURE p1=PATH NODEDATA=n1 p2=PATH NODEDATA=n2',decl='a:ARRAY[2]OF p1 b:ARRAY[2]OF p2')
 
     def test_different_outer_named_types_remain_incompatible(self):
         with self.assertRaises(TranslationError):compile_program('b=a',prefix='TYPE a_t=ARRAY[2]OF QUEUE_TYPE b_t=ARRAY[2]OF QUEUE_TYPE',decl='a:a_t b:b_t')
@@ -237,6 +238,119 @@ class CollectionValueBoundaries(unittest.TestCase):
         sources={'main':f"PROGRAM MAIN {prefix} VAR a,b:ARRAY[2]OF route_t s:INTEGER ROUTINE work(v:ARRAY OF route_t):ARRAY OF route_t FROM LIB BEGIN APPEND_NODE(a[2],s) a[2][1].value=17 b=work((a)) END MAIN",'lib':f"PROGRAM LIB {prefix} ROUTINE work(v:ARRAY OF route_t):ARRAY OF route_t BEGIN v[2][1].value=99 RETURN v END work BEGIN END LIB"}
         project=translate_project(sources).instantiate();state=project.run('MAIN')
         self.assertEqual((state['MAIN']['values']['A'][1]['nodes'][0]['VALUE'],state['MAIN']['values']['B'][1]['nodes'][0]['VALUE']),(17,99))
+
+
+class ConvertedPathArrayTests(unittest.TestCase):
+    types=('TYPE joint_node=STRUCTURE point:JOINTPOS1 ENDSTRUCTURE '
+           'pose_node=STRUCTURE point:XYZWPREXT ENDSTRUCTURE '
+           'joint_path=PATH NODEDATA=joint_node pose_path=PATH NODEDATA=pose_node')
+
+    def context(self):
+        return rt.ExecutionContext.from_config({'robot':{'dh':[{'type':'prismatic'}],
+            'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+
+    def test_named_whole_arrays_convert_and_retain_destination_cells(self):
+        types=self.types+' TYPE joint_bank=ARRAY[2] OF joint_path pose_bank=ARRAY[2] OF pose_path'
+        body=('APPEND_NODE(source[2],s) source[2][1].point[1]=42 '
+              'target=source source[2][1].point[1]=17')
+        program,report=compile_program(body,prefix=types,decl='source:joint_bank target:pose_bank s:INTEGER',
+                                       context=self.context())
+        target=raw(program);first,second=target.values
+        values=program.run()
+        self.assertIs(raw(program),target)
+        self.assertIs(target.values[0],first)
+        self.assertIs(target.values[1],second)
+        self.assertEqual(values['TARGET'][1]['nodes'][0]['POINT']['Z'],42.)
+        self.assertTrue(report.report['path_schema_conversions'][0]['model_backed'])
+
+    def test_context_free_conversion_preserves_partial_node_fields(self):
+        types=('TYPE n1=STRUCTURE value:INTEGER text:STRING[4] ENDSTRUCTURE '
+               'n2=STRUCTURE value:REAL text:STRING[8] ENDSTRUCTURE p1=PATH NODEDATA=n1 p2=PATH NODEDATA=n2')
+        program,_=compile_program('APPEND_NODE(a[2],s) a[2][1].value=7 b=a',prefix=types,
+                                  decl='a:ARRAY[2]OF p1 b:ARRAY[2]OF p2 s:INTEGER')
+        self.assertEqual(program.run()['B'][1]['nodes'],[{'VALUE':7.,'TEXT':{'uninitialized':True}}])
+
+    def test_generic_receiver_uses_its_concrete_named_layout(self):
+        types=self.types+' TYPE joint_bank=ARRAY[2] OF joint_path pose_bank=ARRAY[2] OF pose_path'
+        routines='ROUTINE convert(dst:ARRAY OF pose_path; src:ARRAY OF joint_path) BEGIN dst=src END convert'
+        program,_=compile_program('APPEND_NODE(source[2],s) source[2][1].point[1]=42 convert(target,source)',
+                                  prefix=types,decl='source:joint_bank target:pose_bank s:INTEGER',
+                                  routines=routines,context=self.context())
+        self.assertEqual(program.run()['TARGET'][1]['nodes'][0]['POINT']['Z'],42.)
+        self.assertEqual(rt.array_identity(raw(program).spec),'POSE_BANK')
+
+    def test_plane_conversion_preserves_unselected_cells(self):
+        body=('APPEND_NODE(source[2,1,2],s) source[2,1,2][1].point[1]=19 '
+              'target[1]=source[2]')
+        declarations='source:ARRAY[2,2,2] OF joint_path target:ARRAY[2,2,2] OF pose_path s:INTEGER'
+        program,_=compile_program(body,prefix=self.types,decl=declarations,context=self.context())
+        target=raw(program);retained=target.values[4:]
+        values=program.run()
+        self.assertEqual(values['TARGET'][0][0][1]['nodes'][0]['POINT']['Z'],19.)
+        self.assertTrue(all(old is new for old,new in zip(retained,target.values[4:])))
+        self.assertFalse(any(path.nodes for path in retained))
+
+    def test_private_prefix_argument_and_wildcard_result_keep_concrete_shape(self):
+        body=('APPEND_NODE(source[2,2],s) source[2,2][1].point[1]=42 '
+              'take(source[2]) target[1]=build()')
+        routines=('ROUTINE take(v:ARRAY OF pose_path) BEGIN '
+                  'seen=v[2][1].point.z v[2][1].point.z=17 END take '
+                  'ROUTINE build:ARRAY OF pose_path BEGIN RETURN source[2] END build')
+        declarations='source:ARRAY[2,2] OF joint_path target:ARRAY[2,2] OF pose_path s:INTEGER seen:REAL'
+        program,_=compile_program(body,prefix=self.types,decl=declarations,routines=routines,context=self.context())
+        values=program.run()
+        self.assertEqual(values['SEEN'],42.)
+        self.assertEqual(values['TARGET'][0][1]['nodes'][0]['POINT']['Z'],42.)
+        self.assertEqual(values['SOURCE'][1][1]['nodes'][0]['POINT']['axes'],[42.])
+
+    def test_late_invalid_cell_precedes_all_model_calls_and_publication(self):
+        ctx=self.context()
+        body=('APPEND_NODE(source[1],s) source[1][1].point[1]=42 '
+              'APPEND_NODE(source[2],s) target=source')
+        program,_=compile_program(body,prefix=self.types,
+                    decl='source:ARRAY[2] OF joint_path target:ARRAY[2] OF pose_path s:INTEGER',context=ctx)
+        receiver=raw(program);old=receiver.values[0]
+        old.append();old.nodes[0].values['POINT'].values['Z']=17.
+        with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'requires initialized axes'):
+                program.run()
+        adapter.assert_not_called()
+        self.assertIs(raw(program),receiver)
+        self.assertIs(receiver.values[0],old)
+        self.assertEqual(old.nodes[0].values['POINT'].values['Z'],17.)
+
+    def test_array_budget_precedes_first_model_call(self):
+        ctx=self.context()
+        body='APPEND_NODE(source[1],s) source[1][1].point[1]=42 target=source'
+        program,_=compile_program(body,prefix=self.types,
+                    decl='source:ARRAY[2] OF joint_path target:ARRAY[2] OF pose_path s:INTEGER',context=ctx)
+        with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                program.run(max_steps=6)
+        adapter.assert_not_called()
+        self.assertFalse(any(path.nodes for path in raw(program).values))
+
+    def test_wider_target_snapshot_limit_precedes_payload_preparation(self):
+        ctx=self.context()
+        program,_=compile_program('target=source',prefix=self.types,
+                                  decl='source:ARRAY[1] OF joint_path target:ARRAY[1] OF pose_path',context=ctx)
+        path=raw(program,'SOURCE').values[0]
+        for _ in range(3000):path.append()
+        with patch.object(ctx.robot,'forward',wraps=ctx.robot.forward) as adapter:
+            with self.assertRaisesRegex(rt.KarelRuntimeError,'target snapshot exceeds 32767'):
+                program.run()
+        adapter.assert_not_called()
+        self.assertFalse(raw(program).values[0].nodes)
+
+    def test_mismatched_borrowed_arrays_and_component_reshape_reject(self):
+        for body,types,declarations,routines in (
+            ('take(source)',self.types,'source:ARRAY[2] OF joint_path',
+             'ROUTINE take(value:ARRAY OF pose_path) BEGIN END take'),
+            ('target=source',self.types+' TYPE pose_row=ARRAY[2] OF pose_path',
+             'source:ARRAY[2,2] OF joint_path target:ARRAY[2] OF pose_row',''),
+        ):
+            with self.subTest(body=body),self.assertRaises(TranslationError):
+                compile_program(body,prefix=types,decl=declarations,routines=routines)
 
 
 class CollectionValueSchemaTests(unittest.TestCase):

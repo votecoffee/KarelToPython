@@ -852,6 +852,16 @@ def collection_array_source_accepts(target,source):
     except (KarelRuntimeError,TypeError,IndexError):return False
 
 
+def path_array_conversion_layout(target,source):
+    """Keep each ARRAY component rank while converting compatible PATH cells."""
+    from .extended import path_conversion_layout
+    if not _source_array_pair(target,source):return None
+    ranks=lambda spec:tuple(len(shape) for shape,_ in _array_conversion_layout(spec))
+    if ranks(target)!=ranks(source):return None
+    first,second=array_leaf_spec(target),array_leaf_spec(source)
+    return path_conversion_layout(first,second,model=True) if first!=second else None
+
+
 def collection_array_source_value(target,value,line=None,*,source_spec=None):
     """Detach bounded logical data without relaxing generic ARRAY codecs."""
     from .extended import collection_array_variable_value
@@ -4276,6 +4286,9 @@ class State:
 
     def path_source_value(self,target,value,line=None,*,source_spec):
         return self.execution.path_source_value(self,target,value,source_spec,line)
+
+    def path_array_source_value(self,target,value,line=None,*,source_spec):
+        return self.execution.path_array_source_value(self,target,value,source_spec,line)
 
     def kinematic_array(self,target,value,line=None,*,kind='ASSIGNMENT'):
         """Convert one whole ARRAY under explicit scalar model/adaptor contracts."""

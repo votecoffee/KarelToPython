@@ -2527,9 +2527,10 @@ class Emitter:
         if self.mode=='pythonic' and rt.joint_axis_access(spec,len(expr.args)-1):return f'_rt.joint_index_reference({base},{index},{spec!r},{line})',selected
         return f'_rt.index_reference({base}, {index}, {line})', selected
 
-    def path_conversion_value(self,expected,actual,value,token,operation):
-        layout=ex.path_conversion_layout(expected,actual,model=True)
-        if layout is None:self.error('E_TYPE','Logical collection values require compatible PATH or identical scalar schemas',token)
+    def path_conversion_value(self,expected,actual,value,token,operation,*,receiver=None):
+        array=expected[0]=='ARRAY'
+        layout=rt.path_array_conversion_layout(expected,actual) if array else ex.path_conversion_layout(expected,actual,model=True)
+        if layout is None:self.error('E_TYPE','Logical collection values require compatible PATH layouts and matching shapes',token)
         if 'kinematic' in layout:
             self.features.add('extended services')
             if self.current_routine:self.current_routine.may_services=True
@@ -2537,7 +2538,9 @@ class Emitter:
         self.path_schema_uses.append(dict(operation=operation,body=self.current_routine.name if self.current_routine else self.program.name,
             line=token.line,column=token.column,source_type_spec=actual,target_type_spec=expected,
             model_backed='kinematic' in layout,evaluated_once=True,independent_value=True))
-        return f'self._state.path_source_value({expected!r},{value},{token.line},source_spec={actual!r})'
+        method='path_array_source_value' if array else 'path_source_value'
+        receiver=repr(expected) if receiver is None else receiver
+        return f'self._state.{method}({receiver},{value},{token.line},source_spec={actual!r})'
 
     def collection_assignment(self,target,expression,token):
         reference,expected=self.reference(target)
@@ -2553,10 +2556,15 @@ class Emitter:
     def collection_array_assignment(self,target,expression,token):
         reference,expected=self.reference(target,allow_prefix=True,collection_prefix=True)
         value,actual=self.expression(expression,allow_array_result=True)
-        if not rt.collection_array_source_accepts(expected,actual):
-            self.error('E_TYPE',f'Collection ARRAY copy requires matching schemas: {actual} to {expected}',token)
         source=self.fresh();line=token.line
-        self.line(f'{source}=_rt.collection_array_source_value({actual!r},{value},{line},source_spec={actual!r})',token)
+        if rt.collection_array_source_accepts(expected,actual):
+            value=f'_rt.collection_array_source_value({actual!r},{value},{line},source_spec={actual!r})'
+        elif (target.kind=='name' and self.current_routine is not None and None in rt.array_shape(expected)
+              and any(name.value==target.value for name,_ in self.current_routine.parameters)):
+            self.line(f'{source}={value}',token)
+            value=self.path_conversion_value(expected,actual,source,token,'ASSIGNMENT',receiver=f'({reference}).spec')
+        else:value=self.path_conversion_value(expected,actual,value,token,'ASSIGNMENT')
+        self.line(f'{source}={value}',token)
         self.line(f'_rt.collection_array_assign({reference},{source},{line})',token)
         self.features.add('logical collection ARRAY source copy')
 
@@ -3347,7 +3355,9 @@ class Emitter:
                     code=f'_rt.collection_argument({expected!r},{value},{line},source_spec={actual!r})'
                     self.features.add('private logical scalar collection argument')
                 elif self.mode=='pythonic' and rt.collection_array_type(actual):
-                    if not rt.collection_array_source_accepts(expected,actual):self.error('E_TYPE','Collection ARRAY value argument requires matching component schemas',argument.token)
+                    if not rt.collection_array_source_accepts(expected,actual):
+                        value=self.path_conversion_value(expected,actual,value,argument.token,'ARGUMENT')
+                        actual=expected
                     code=f'_rt.collection_array_argument({expected!r},{value},{line},source_spec={actual!r})'
                     self.features.add('private logical collection ARRAY argument')
                 else:code = f'_rt.value_argument({expected!r}, {value}, {line})'
@@ -4644,7 +4654,11 @@ class Emitter:
                     self.line(f'return {value}',token)
                     self.features.add('logical scalar collection function result');return
                 if self.mode=='pythonic' and rt.collection_array_type(spec):
-                    if not rt.collection_array_source_accepts(spec,value_type):self.error('E_ARRAY_RETURN_SOURCE','Collection ARRAY result requires matching component schemas',expr.token)
+                    if not rt.collection_array_source_accepts(spec,value_type):
+                        if rt.path_array_conversion_layout(spec,value_type) is None:
+                            self.error('E_ARRAY_RETURN_SOURCE','Collection ARRAY result requires compatible PATH layouts or matching component schemas',expr.token)
+                        value=self.path_conversion_value(spec,value_type,value,expr.token,'RETURN')
+                        value_type=spec
                     self.line(f'return _rt.collection_array_result({spec!r},{value},{line},source_spec={value_type!r})',token)
                     self.features.add('logical collection ARRAY function result');return
                 if self.mode=='pythonic' and rt.real_integral_kind(spec,value_type):
@@ -7578,8 +7592,8 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['record_variable_transfer_policy']['boundary']='REAL narrowing follows real_integral_policy; model-backed fields require kinematic_variable_transfer_policy; no field renaming/addition/removal, BOOLEAN/numeric, native cache/ABI/controller equivalence, strict mode or generic helper compatibility relaxation'
     report['collection_array_source_policy']=dict(
         source='Pythonic PATH/QUEUE_TYPE ARRAY assignment, grouped/computed private routine arguments, internal/compiled linked results and independent incomplete row/plane values; static, created, borrowed and named-component storage',
-        schemas='Exact PATH node/header and queue terminal schemas plus matching outer component shape; named receiver/result identities remain checked; generic dimensions inherit concrete source storage without logical reshape or element coercion',
-        capture='Snapshot source once before target selectors or later arguments; validate concrete declared source schemas, owned cells/headers/nodes and complete logical contents before publication',
+        schemas='Compatible PATH cells may convert across matching component dimensions and ranks, using declared receiver names and explicit robot context for model-backed fields. Exact collection copies retain their existing nominal checks; generic dimensions inherit concrete source storage.',
+        capture='Snapshot source before target selectors or later arguments; validate owned cells/headers/nodes and complete logical contents. Converted PATH arrays charge both snapshots and prepare every cell before invoking any model adapter.',
         publication='Preserve existing receiver ARRAY containers, collection cells and compatible PATH headers; detach old nodes; reset copied queue buffer links; prefix writes retain unselected cells',
         arguments='Exact bare arrays retain borrowed references; grouped/computed and ordinary incomplete-prefix arguments own private values; retained handlers, pause, stop and failure never copy them back',
         results='Capture independent concrete results before routine cleanup; canonicalize declared outer result schema; compiled linked calls use the same checked logical result path; explicit callbacks also accept detached runtime/typed-JSON values under external_collection_result_policy',

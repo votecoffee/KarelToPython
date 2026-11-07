@@ -27,12 +27,13 @@ rules.
 
 ## Schemas, captures and bounds
 
-Collection kinds, PATH node/header types, scalar domains, STRING capacities and
-named inner ARRAY components match exactly. Outer component shapes match without
-reshape, flattening or element conversion. Named receiving storage/results require
-matching names. Generic formals/results inherit concrete dimensions; ordinary
-concrete declared sources cannot be relabelled. Anonymous result declarations
-canonicalize the returned outer schema after copying validated source storage.
+Exact collection copies retain their nominal and component schema checks.
+Compatible PATH cells can also convert on assignment, private argument and
+RETURN boundaries using the [scalar PATH layout rules](scalar-collection-values.md).
+Both arrays must have matching dimensions and component ranks. The converted
+value uses the declared receiver layout and its names. Generic formals and
+results inherit concrete dimensions. Ordinary declared source storage is still
+checked against its original type.
 
 Capture and validate the complete source before evaluating destination selectors
 or later arguments. Source and receiver preflight rejects malformed containers,
@@ -48,17 +49,19 @@ inferred from external files or devices.
 
 Known and partial PATH data, missing headers/nodes and unknown BYTE markers follow
 the existing logical codecs. An uninitialized queue is valid copyable state.
-Missing ARRAY containers remain invalid. Copying does not initialize invented
-scalar values or apply numeric/geometry conversions inside collections.
+Missing ARRAY containers remain invalid. Converting PATH arrays charges both
+snapshots, including each cell's descriptor and header/node leaves, and prepares
+every cell before invoking the first robot model adapter. Joint and Cartesian
+fields that use the model require complete data and explicit robot context.
 
 ## Routine interfaces and lifetime
 
 | Source argument | Behavior |
 | --- | --- |
-| Bare whole ARRAY or complete named component | Existing borrowed reference |
+| Bare whole ARRAY or complete named component | Existing exact borrowed reference |
 | Explicit BYNAME, including a row/plane | Existing captured live reference |
 | Grouped ARRAY or computed result | Private independent logical value |
-| Ordinary incomplete row/plane | Private independent logical value |
+| Ordinary incomplete row/plane | Private independent logical value, with compatible PATH conversion when required |
 
 Private arrays can be mutated, forwarded by exact reference and retained by an
 in-process condition handler. Pause/resume retains them; stop/failure unwinds normal
