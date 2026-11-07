@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.005351**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.011058**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -1042,7 +1042,8 @@ receive the external axes. Bare CURPOS/CURJPOS queries use supplied offline stat
 See [pose decomposition](docs/pose-decomposition.md).
 
 PULSE supports blocking and NOWAIT digital outputs with checked durations,
-explicit host polling and scheduler deadlines. A pending pulse stays on its
+explicit host polling and scheduler deadlines. Blocking pulses permit timed
+condition scans in scheduled tasks. A pending pulse stays on its
 original scheduler clock when a completed task's binding is replaced.
 Interruptions discard only the owning run's pending deadlines. See [output pulses](docs/pulses.md).
 
@@ -1064,7 +1065,8 @@ SET_VAR writes named CONFIG turns and flags through their field checks. See
 
 Whole QUEUE_TYPE values also transfer logical contents and sequence counters
 through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue
-operation. See [queue transfers](docs/queue-transfers.md).
+operation. Whole-queue transfers charge the step budget for source and receiver
+entries. See [queue transfers](docs/queue-transfers.md).
 
 [Dynamic typed data arrays](docs/dynamic-data-arrays.md) now accept ARRAY OF data
 types/aliases and extra outer dimensions around named arrays. Created layouts
@@ -1103,7 +1105,8 @@ Whole PATH values now support an exact Pythonic GET_VAR/SET_VAR copy extension,
 including partial nodes/header, created roots and linked references. Copies keep
 the root and compatible header aliases, and detach the old nodes. This extends
 beyond the reviewed manual, which excludes whole PATH for these calls. Named
-node paths such as `ROUTE[1].VALUE` use the ordinary typed transfer rules. See
+node paths such as `ROUTE[1].VALUE` use the ordinary typed transfer rules. Whole
+PATH transfers charge the step budget for source and receiver leaves. See
 [PATH transfers](docs/path-transfers.md) for limits and native evidence boundaries.
 
 CHECK_NAME validates portable base names. MOVE_FILE swaps selected RD/FR files

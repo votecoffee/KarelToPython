@@ -1010,16 +1010,25 @@ def _variable_shape(spec,value,line=None):
     elif kind=='STRING' and (type(value) is not str or len(value)>spec[1]): fail('Variable transfer found invalid STRING capacity',line)
 
 
-def queue_variable_value(value,line=None):
+def queue_variable_value(value,line=None,*,check=None):
     """Checked logical queue snapshot; never retain its backing ARRAY."""
     from .storage import collection_payload,restore_collection
     rt=runtime()
     if value is rt.UNINITIALIZED: value=rt.QueueValue()
-    try: return restore_collection(('QUEUE_TYPE',),collection_payload(('QUEUE_TYPE',),value))
+    try:
+        if check is not None and type(value) is rt.QueueValue:
+            entries=value.entries
+            if type(entries) is not list or len(entries)>32767:
+                raise ValueError('Invalid queue entry count')
+            count=len(entries)
+            for _ in range(count):check()
+            if value.entries is not entries or len(entries)!=count:
+                raise ValueError('Queue entries changed during preparation')
+        return restore_collection(('QUEUE_TYPE',),collection_payload(('QUEUE_TYPE',),value))
     except (ValueError,rt.KarelRuntimeError) as error: fail('Queue variable transfer: '+str(error),line)
 
 
-def path_variable_value(spec,value,line=None):
+def path_variable_value(spec,value,line=None,*,check=None):
     """Bound and detach one exact logical PATH, retaining partial data markers."""
     from .storage import collection_data_spec,collection_payload,restore_collection
     rt=runtime()
@@ -1039,10 +1048,17 @@ def path_variable_value(spec,value,line=None):
         if type(value) is not PathValue: raise ValueError('PATH requires exact logical storage')
         if value.spec is not spec: layout(value.spec)
         if value.spec!=spec: raise ValueError('PATH storage does not match its declared type')
-        if type(value.nodes) is not list or len(value.nodes)>32767:
+        nodes=value.nodes
+        if type(nodes) is not list or len(nodes)>32767:
             raise ValueError('PATH requires a bounded node list')
-        if header+len(value.nodes)*node>32767:
+        count=len(nodes)
+        cost=header+count*node
+        if cost>32767:
             raise ValueError('PATH variable copies are limited to 32767 scalar leaves')
+        if check is not None:
+            for _ in range(cost):check()
+            if value.nodes is not nodes or len(nodes)!=count:
+                raise ValueError('PATH nodes changed during preparation')
         return restore_collection(spec,collection_payload(spec,value))
     except (ValueError,rt.KarelRuntimeError) as error: fail('PATH variable transfer: '+str(error),line)
 
@@ -1076,22 +1092,22 @@ def collection_array_variable_value(spec,value,line=None):
     except (ValueError,runtime().KarelRuntimeError) as error:fail('Collection ARRAY variable transfer: '+str(error),line)
 
 
-def variable_value(spec,value,line=None):
+def variable_value(spec,value,line=None,*,check=None):
     """Capture source data once before later output-selector effects."""
     rt=runtime()
     if spec[0]=='ARRAY' and isinstance(value,rt.Array) and rt.parameter_accepts(spec,value.spec): spec=value.spec
     _variable_data_spec(spec,line,queue=True,paths=True)
     if rt.collection_array_type(spec):return VariableValue(spec,collection_array_variable_value(spec,value,line))
-    if spec[0]=='PATH': return VariableValue(spec,path_variable_value(spec,value,line))
-    if spec==('QUEUE_TYPE',): return VariableValue(spec,queue_variable_value(value,line))
+    if spec[0]=='PATH': return VariableValue(spec,path_variable_value(spec,value,line,check=check))
+    if spec==('QUEUE_TYPE',): return VariableValue(spec,queue_variable_value(value,line,check=check))
     _variable_shape(spec,value,line)
     return VariableValue(spec,deepcopy(value))
 
 
-def variable_reference(reference,line=None):
+def variable_reference(reference,line=None,*,check=None):
     rt=runtime()
     if not isinstance(reference,rt.Reference): fail('SET_VAR input requires a typed data reference',line)
-    return variable_value(reference.spec,reference.raw(),line)
+    return variable_value(reference.spec,reference.raw(),line,check=check)
 
 
 def _variable_compatible(target,source,*,numeric=False):
@@ -1187,7 +1203,7 @@ def _variable_array_targets(spec,value,limit):
             yield rt.Reference(spec[2],value.values,index);limit-=1
 
 
-def variable_transfer(target,source,*,numeric=False,representations=False,records=False,paths=False,line=None):
+def variable_transfer(target,source,*,numeric=False,representations=False,records=False,paths=False,line=None,check=None):
     """Prepare one complete replacement, preserving an ARRAY's unused tail."""
     rt=runtime();spec=target.spec;arrays=spec[0]==source.spec[0]=='ARRAY'
     paths=paths and rt._pythonic()
@@ -1199,11 +1215,17 @@ def variable_transfer(target,source,*,numeric=False,representations=False,record
         return copied,_variable_missing(copied)
     if 'PATH' in (spec[0],source.spec[0]):
         if spec!=source.spec: return None
-        copied=path_variable_value(spec,source.value,line);path_variable_value(spec,target.raw(),line)
+        current=target.raw()
+        copied=path_variable_value(spec,source.value,line)
+        path_variable_value(spec,current,line,check=check)
+        if target.raw() is not current: fail('PATH receiver changed during preparation',line)
         return copied,_variable_missing(copied)
     if 'QUEUE_TYPE' in (spec[0],source.spec[0]):
         if spec!=source.spec: return None
-        copied=queue_variable_value(source.value,line);queue_variable_value(target.raw(),line)
+        current=target.raw()
+        copied=queue_variable_value(source.value,line)
+        queue_variable_value(current,line,check=check)
+        if target.raw() is not current: fail('Queue receiver changed during preparation',line)
         return copied,not copied.initialized
     _variable_shape(source.spec,source.value,line)
     positional=(representations and not arrays and spec!=source.spec and
@@ -2972,6 +2994,7 @@ class ExecutionContext:
     def variable(self,state,name,args,line):
         rt=runtime(); entry,program,path,value,status=args
         pythonic=rt._pythonic()
+        check=(lambda:state.tick(line)) if pythonic else None
         try:
             target=self.resolve(state,rt.ascii_string(program,line),rt.ascii_string(path,line),line,
                                 path_nodes=pythonic,prefixes=pythonic,resources='collections' if pythonic else False,system_transfer=name)
@@ -2994,21 +3017,22 @@ class ExecutionContext:
             captured=target.raw()
             if type(target) is rt.ConfigFieldReference and captured is not rt.UNINITIALIZED:
                 target.validate(captured,line)
-            source=variable_value(target.spec,captured,line);destination=value
+            source=variable_value(target.spec,captured,line,check=check);destination=value
         else:
             if _variable_cells(target,line) & (rt._reference_cells(entry)|rt._reference_cells(status)): fail('SET_VAR target overlaps entry/status',line)
             if type(value) is VariableValue: source=value
             else:
                 spec=getattr(value,'spec',None) or (('BOOLEAN',) if type(value) is bool else ('INTEGER',) if type(value) is int else ('REAL',) if type(value) is float else ('STRING',254) if type(value) is str else None)
                 if spec is None: fail('SET_VAR requires a typed data input',line)
-                source=variable_value(spec,value,line)
+                source=variable_value(spec,value,line,check=check)
             if system_target is not None:
                 if not system_target.prepare(source,line):status.set(3,line);return
                 target=system_target.reference
             destination=target
         from .variable_kinematics import transfer as model_transfer
         prepared=None if system_target is not None else model_transfer(state,destination,source,line)
-        if prepared is None:prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,paths=True,line=line)
+        if prepared is None:
+            prepared=variable_transfer(destination,source,numeric=True,representations=True,records=True,paths=True,line=line,check=check)
         if prepared is None: status.set(3,line);return
         copied,missing=prepared
         key=(program.upper() or state.program_name,path.upper())

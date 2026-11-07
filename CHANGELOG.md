@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.011058 - 2026-11-07
+
+- Scan eligible timed conditions while a blocking PULSE waits in the offline
+  scheduler.
+- Charge whole PATH and QUEUE_TYPE GET_VAR/SET_VAR preparation against the step
+  budget. Exhaustion preserves the receiver, transfer outputs and entry cache.
+
 ## 26.1107.005351 - 2026-11-07
 
 - Refresh scheduled DELAY wake times when KCL enables or disables a timed

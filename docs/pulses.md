@@ -26,7 +26,9 @@ outside this implementation.
 Without NOWAIT, PULSE waits through the existing DELAY driver. A standalone
 Program calls its sleep callback with rounded seconds. Successful callback
 completion finishes the logical pulse even when the callback only records the
-delay. In a TaskScheduler, the task parks while other tasks can execute.
+delay. In a TaskScheduler, the task parks while other tasks can execute. Eligible
+timed conditions use the same virtual scan deadlines as scheduled DELAY, so a
+handler can observe the output while it is still high.
 
 ```python
 from karel2py import translate, runtime as rt

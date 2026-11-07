@@ -32,6 +32,36 @@ def prepared(body=None,**options):
 
 
 class QueueLogicalCopyTests(unittest.TestCase):
+    def test_set_source_budget_failure_precedes_status_selector(self):
+        routine='ROUTINE choose:INTEGER BEGIN n=n+1 RETURN 1 END choose'
+        program,_=compile_program(call('SET_VAR',status='view[choose()]'),routines=routine,decl=DECL)
+        values=program._state.values
+        values.update(ENTRY=77,N=0,SOURCE=queue(((i,i) for i in range(1,13)),12),TARGET=queue())
+        values['VIEW'].set(1,88)
+        target=values['TARGET'];entries=target.entries
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):program.run(max_steps=6)
+        self.assertEqual((values['N'],values['ENTRY'],values['VIEW'].get(1)),(0,77,88))
+        self.assertIs(values['TARGET'],target)
+        self.assertIs(target.entries,entries)
+        self.assertEqual(target.entries,[(2,70),(1,50)])
+        self.assertEqual(program._state.execution.entries,{})
+
+    def test_get_receiver_budget_failure_preserves_buffer_binding(self):
+        program,_=prepared()
+        values=program._state.values
+        target=queue(((i,i) for i in range(1,13)),12)
+        buffer=rt.Array(('ARRAY',12,('INTEGER',)))
+        target.buffer=buffer
+        values.update(ENTRY=77,STATUS=88,TARGET=target)
+        entries=target.entries
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):program.run(max_steps=6)
+        self.assertIs(values['TARGET'],target)
+        self.assertIs(target.entries,entries)
+        self.assertIs(target.buffer,buffer)
+        self.assertEqual(target.entries,[(i,i) for i in range(1,13)])
+        self.assertEqual((values['ENTRY'],values['STATUS']),(77,88))
+        self.assertEqual(program._state.execution.entries,{})
+
     def test_get_and_set_copy_order_counter_and_independent_entries(self):
         for action in ('GET_VAR','SET_VAR'):
             with self.subTest(action=action):

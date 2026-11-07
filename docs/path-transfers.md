@@ -93,6 +93,11 @@ nonfinite REALs, invalid CONFIG turns, SHORT/BYTE ranges, wrong fields and inval
 storage are rejected. These transfer bounds are independent of the existing
 collection persistence and ordinary PATH operation limits.
 
+A whole PATH transfer charges one execution step per scalar leaf in the source
+and in the existing receiver. Budget exhaustion leaves the receiver, entry,
+status and entry cache as they were before the transfer. A SET source budget
+failure occurs before evaluating the status selector.
+
 | Status | Portable meaning |
 | --- | --- |
 | 0 | Copied without initialization-tracked missing data |

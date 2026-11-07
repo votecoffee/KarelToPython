@@ -80,7 +80,7 @@ def pulse_execution(state,number,milliseconds,nowait=False,line=None):
         if scheduler is not None:scheduler._scheduled_pulse_banks.add(bank)
         if pulse.run is not None:owner._task_run_services[bank]=None
         if not nowait:
-            yield from runtime.delay_execution(state,duration,line)
+            yield from runtime.delay_execution(state,duration,line,scan_handlers=True)
             if owner._aborted: raise runtime.KarelAbort(owner._abort_line)
             if state._aborted: raise runtime.KarelAbort(state._abort_line)
             finish(bank,pulse)

@@ -217,6 +217,22 @@ class PulseSchedulerTests(unittest.TestCase):
         tasks,p,ports=self.scheduler('PULSE DOUT[1] FOR 9 n=1',sleep=lambda _:self.fail('scheduler called host sleep'))
         tasks.run();self.assertEqual(p.snapshot()['N'],1);self.assertFalse(ports.read('DOUT',1))
 
+    def test_timed_condition_observes_output_during_blocking_pulse(self):
+        body=('n=0 s=0 CONNECT TIMER TO s CONDITION[1]: WITH $SCAN_TIME=10 '
+              'WHEN (s>=10) AND DOUT[1] DO n=s ENDCONDITION ENABLE CONDITION[1] '
+              'PULSE DOUT[1] FOR 80 n=n+1')
+        tasks,p,ports=self.scheduler(body)
+        for _ in range(30):
+            tasks.step()
+            scanned_at=p.snapshot()['N']
+            if type(scanned_at) is int and scanned_at>=10:break
+        self.assertGreaterEqual(scanned_at,10)
+        self.assertLess(tasks.now_us,80000)
+        self.assertTrue(ports.read('DOUT',1))
+        tasks.run()
+        self.assertEqual(p.snapshot()['N'],scanned_at+1)
+        self.assertFalse(ports.read('DOUT',1))
+
     def test_scheduler_uses_virtual_time_with_an_injected_program_clock(self):
         tasks,p,ports=self.scheduler('PULSE DOUT[1] FOR 9 NOWAIT',clock_us=lambda:0)
         tasks.run();self.assertFalse(ports.read('DOUT',1));self.assertGreaterEqual(tasks.now_us,16000)

@@ -83,6 +83,9 @@ raises after argument capture, retaining earlier selector effects. Neither
 failure publishes cache IDs, queue changes or transfer outputs. Exact/disjoint
 output checks and SET's dynamic entry/status-overlap guard remain in force.
 Completed source statements and earlier host effects remain visible on errors.
+A whole queue transfer charges one execution step per entry in the source and
+in the existing receiver. Budget exhaustion follows the same publication and
+selector-order rules as malformed state.
 
 ## Host context and persistence
 

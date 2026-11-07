@@ -368,7 +368,7 @@ def lifecycle_condition(state,name,key):
 
 
 class _PeriodicDelay:
-    """A parked source DELAY with live condition deadlines and a fixed end."""
+    """A parked wait with live condition deadlines and a fixed end."""
 
     def __init__(self,scopes,deadline):
         self.scopes=scopes

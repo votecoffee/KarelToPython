@@ -3089,8 +3089,11 @@ class Emitter:
                 if kind=='GEOMETRY_POSE' and spec[0]=='JOINTPOS': code=self.geometry_operand(code,spec,value.token,expr.value)
                 if kind=='REAL' and spec[0] in INTEGRAL_TYPES: code=f'_rt.real({code},{value.token.line})'; spec=('REAL',)
                 if mode!='v' and kind=='INTEGER' and spec[0] in NARROW_TYPES: code=f'_rt.integer({code},{value.token.line})'; spec=('INTEGER',)
-                if reference_input: code=f'_rt.variable_reference({code},{value.token.line})'
-                elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line})'
+                check=''
+                if self.mode=='pythonic' and expr.value=='SET_VAR' and index==3 and spec[0] in ('PATH','QUEUE_TYPE'):
+                    check=f',check=lambda:self._state.tick({value.token.line})'
+                if reference_input: code=f'_rt.variable_reference({code},{value.token.line}{check})'
+                elif variable_input: code=f'_rt.variable_value({spec!r},{code},{value.token.line}{check})'
                 elif kind=='ANY' or spec[0] in (*RECORD_TYPES,'JOINTPOS','ARRAY'): code=f'_rt.service_value({code},{value.token.line})'
             if not ex.matches(spec,kind): self.error('E_TYPE',f'{expr.value} expects {kind}, found {spec[0]}',value.token)
             if index==0 and expr.value in ex.OPTIONAL_PATH_NODE:
@@ -5935,7 +5938,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         procedures=['GET_VAR','SET_VAR'],
         source='Pythonic whole-PATH extension uses exact NODEDATA and PATHHEADER schemas. Named PATH node and field selections follow ordinary checked GET_VAR/SET_VAR data conversions.',
         capture='SET snapshots source once before later selectors; GET resolves and snapshots named source after output selectors; validate bounded schemas and complete source/receiver data before publication',
-        limits='At most 64 data-schema levels and 32767 header-plus-node scalar leaves on each side; validate bounds before payload allocation; existing PATH collection/persistence limits remain independent',
+        limits='At most 64 data-schema levels and 32767 header-plus-node scalar leaves on each side; charge one step per leaf for source capture and existing receiver validation; validate bounds before payload allocation; existing PATH collection/persistence limits remain independent',
         receiver='Preserve existing PathValue identity; retain compatible header containers through ordinary stable data replacement; install a fresh detached nodes list so captured old node references are not retargeted; applies to self-copy',
         missing='Preserve partial scalar/node/header markers and known BYTE values; status 12311 for copied uninitialized data, with BYTE unknown contents retaining their existing no-initialization-tracking policy; empty headerless PATH succeeds',
         guards='Missing names return 1, incompatible schemas/resources return 3 with status only; malformed/over-limit state raises without data/cache/status publication; exact disjoint outputs and SET target overlap checks remain',
@@ -5944,7 +5947,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
     report['queue_transfer_policy']=dict(
         procedures=['GET_VAR','SET_VAR'],
         snapshot='Whole QUEUE_TYPE only; independent checked initialization flag, ordered sequence/value pairs and last sequence counter; exclude source backing ARRAY reference and capacity',
-        capture='SET source captured before status selectors; GET source resolved after output selectors; checked logical snapshots use the typed collection codec',
+        capture='SET source captured before status selectors; GET source resolved after output selectors; checked logical snapshots use the typed collection codec; charge one step per entry for source capture and existing receiver validation',
         receiver='Validate both queues before commit; preserve existing receiver QueueValue identity, replace entries with an independent list and release old buffer binding without synchronizing any ARRAY; applies to self-copy too',
         rebinding='First later queue operation explicitly supplies an adequate INTEGER ARRAY; normal same-buffer identity resumes after binding; too-small ARRAY fails before binding or consumption',
         missing='Portable uninitialized flag copies an empty uninitialized queue and returns 12311; whole missing source marker normalizes to that state; INIT_QUEUE is required before later operations',
@@ -6570,7 +6573,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         syntax='PULSE DOUT[port] FOR milliseconds [NOWAIT]; INTEGER operands captured once in source order; NOWAIT prohibited in handler actions',
         duration='Range 0..86400000 ms; zero does not change output or existing pulse; positive values round upward to multiples of 8 ms with deterministic modeled expiry',
         context='Explicit PortBank DOUT address; no physical output adapter; overlapping pulses reject; successful direct/indirect/host writes cancel the previous deadline',
-        waiting='Blocking uses existing DELAY driver; synchronous sleep callback completion completes the logical pulse; scheduler parks the task and uses virtual time regardless of injected program clock',
+        waiting='Blocking uses existing DELAY driver; synchronous sleep callback completion completes the logical pulse; scheduler parks the task, uses virtual time for pulse duration, and observes eligible timed condition scans while waiting',
         nowait='Nonblocking start; standalone clocks use captured clock_us or monotonic microseconds; checkpoints, port reads/snapshots and explicit poll_pulses service expirations without background threads',
         lifecycle='Pause permits expiration and normal completion retains pending pulses. Stop, abort and failure discard the interrupted run\'s pulses and preserve their last values. Earlier completed runs retain their deadlines. Linked calls belong to the calling root run.',
         scheduler='Polls shared banks and retains pending pulses on their original scheduler clock after owner completion, pause or binding replacement. Idle steps can jump to waiting and pulse deadlines.',
