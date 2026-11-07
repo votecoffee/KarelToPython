@@ -14,7 +14,7 @@ perform reachability checks or map hands to physical signals.
 | `MOVE ABOUT vector BY angle [NOWAIT]` | Complete VECTOR and finite numeric angle. |
 | `MOVE AXIS axis BY distance [NOWAIT]` | One-based INTEGER axis within the explicit group width and finite distance. |
 | `MOVE RELATIVE offset [NOWAIT]` | Complete VECTOR or Cartesian pose offset; no implicit kinematics. |
-| `MOVE ALONG path [NOWAIT]` | Complete positional NODE_POS values for all selected nodes. |
+| `MOVE ALONG path [NOWAIT]` | Complete positional NODE_POS values for all selected nodes. Select a scalar PATH, an array cell or a PATH-valued routine result. |
 | `MOVE ALONG path[start]` / `path[start..end]` | Inclusive range in travel order. An explicit lower end visits nodes in descending order. An omitted end selects the final node. NOWAIT is accepted. |
 | `OPEN HAND number`, `CLOSE HAND number`, `RELAX HAND number` | Update an explicitly configured logical hand, numbered 1 or 2. These are also accepted global handler actions. |
 | `ATTACH`, `RELEASE` | Acquire or release checked logical group ownership. |
@@ -33,6 +33,14 @@ and motion-environment settings.
 For example, `MOVE ALONG route[3..1]` captures nodes 3, 2 and 1 in that order.
 Descending ranges are a Pythonic offline extension. The history keeps the
 original endpoints and stores the snapshots in travel order.
+
+For a two-dimensional PATH array, `MOVE ALONG routes[2,1]` selects the
+whole path in cell (2,1). Use `routes[2,1][3..1]` or `routes[2,1,3..1]`
+to select nodes 3 through 1 in that cell. A start-only bound also works in
+either form. Named nested arrays can use separate brackets at each array
+boundary. For a PATH result, `MOVE ALONG choose()[2..3]` calls the routine
+once and snapshots the result before evaluating the bounds. Routine result
+and array-cell operands are Pythonic extensions.
 
 ## Configure execution explicitly
 
@@ -128,8 +136,8 @@ controller-validation boundary. Normal source maps retain include origins.
 
 - Groups 1..31, explicit widths 1..9, configured hands 1..2.
 - At most 4096 scripted responses and 128 retained history entries.
-- MOVE ALONG requires a named PATH, 1..256 selected nodes and forward in-range
-  indexes. Its nodes need a positional NODE_POS field; no associations are inferred.
+- MOVE ALONG requires a PATH value and 1..256 selected nodes with in-range
+  endpoints. Its nodes need a positional NODE_POS field.
 - Each request payload is limited to 64 KiB of canonical compact JSON, independently
   of the node bound. Sequence numbers stop at 2147483646.
 - Callbacks after defining-frame return, unsupplied arrival times, unresolved REF_POS,

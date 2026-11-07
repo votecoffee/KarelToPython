@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.163341 - 2026-11-07
+
+- Accept selected PATH array cells and PATH-valued routine results in MOVE
+  ALONG, with whole paths, start nodes or inclusive ranges.
+- Capture the selected PATH before evaluating range expressions, including
+  compact combined array and node subscripts.
+
 ## 26.1107.161501 - 2026-11-07
 
 - Capture only NODE_POS for MOVE ALONG and charge the PATH snapshot before

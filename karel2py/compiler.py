@@ -986,11 +986,14 @@ class Parser:
             self.error('E_MOTION','Unsupported MOVE form',form)
         operation='MOVE '+form.value
         if form.value=='ALONG':
-            path=self.name();arguments=[Expr('name',path,path.value),None,None]
-            if self.accept('['):
-                arguments[1]=self.expression()
-                if self.accept('..'):arguments[2]=self.expression()
-                self.expect(']')
+            opening=self.accept('(')
+            if opening:
+                path=Expr('group',opening,args=[self.expression()])
+                self.expect(')')
+            else:
+                name=self.name()
+                path=Expr('call',name,name.value,self.arguments()) if self.accept('(') else Expr('name',name,name.value)
+            arguments=[self.access(path,motion_path=True)]
         else:
             arguments=[self.expression()]
             if form.value in ('NEAR','ABOUT','AXIS'):
@@ -1099,12 +1102,16 @@ class Parser:
         kind='ACTIVE_FRAME' if member.value=='$UFRAME' else 'ACTIVE_TOOL'
         return self.access(Expr('system_pose',token,kind,[group]))
 
-    def access(self, base):
+    def access(self, base, *, motion_path=False):
         while self.current.value in ('[', '.'):
             token = self.take()
             if token.value == '[':
                 indexes = [self.expression()]
                 while self.accept(','): indexes.append(self.expression())
+                if motion_path and self.accept('..'):
+                    end = self.expression()
+                    self.expect(']')
+                    return Expr('motion_range', token, args=[base, *indexes, end])
                 self.expect(']')
                 base = Expr('index', token, args=[base, *indexes])
             else:
@@ -3967,6 +3974,21 @@ class Emitter:
         self.statement_body(stmt,file_code)
         if skippable:self.indent-=1
 
+    def motion_path_arguments(self, operand):
+        """Separate the typed PATH selector from its optional node bounds."""
+        if operand.kind not in ('index','motion_range'):
+            return operand,None,None
+        base,*indexes=operand.args
+        end=indexes.pop() if operand.kind=='motion_range' else None
+        spec=self.access_type(base)
+        if rt.collection_array_node_type(spec,len(indexes)) is not None:
+            return Expr('index',operand.token,args=[base,*indexes[:-1]]),indexes[-1],end
+        if spec[0]=='PATH' and len(indexes)==1:
+            return base,indexes[0],end
+        if end is not None:
+            self.error('E_MOTION_TYPE','MOVE ALONG range requires a PATH and one starting node',operand.token)
+        return operand,None,None
+
     def statement_body(self, stmt, file_code=None):
         optional_file=self.mode=='pythonic' and file_code is None and stmt.kind in ('read','write_items')
         token, kind = stmt.token, stmt.kind
@@ -4006,6 +4028,8 @@ class Emitter:
                     self.line(f'{temporary}=_rt.motion_setting({key.value!r},{code},{spec!r},{value.token.line})',value.token)
                     settings.append('{'+f'"name":{key.value!r},"group":{group_code},"value":{temporary}'+'}')
                 arguments=stmt.args[1];nowait=stmt.args[2]
+                if operation=='MOVE ALONG':
+                    arguments=self.motion_path_arguments(arguments[0])
                 names={'MOVE TO':('target','via'),'MOVE NEAR':('target','distance'),
                     'MOVE AWAY':('distance',),'MOVE ABOUT':('vector','angle'),
                     'MOVE AXIS':('axis','distance'),'MOVE RELATIVE':('offset',),
@@ -5317,7 +5341,7 @@ def _translate(source, *, filename='<input>', array_shapes=None, mode='strict', 
         motion_requests=emitter.motion_uses,
         motion_request_policy=dict(model='Explicit offline capture-only or supplied scripted completion responses',
             ownership='Explicit GroupLocks ownership; ATTACH and RELEASE validate atomically',
-            data='Complete detached positional operands captured once in source order. MOVE ALONG charges one step per node before snapshotting only NODE_POS; selected nodes validate in travel order. Direct PATH nodes also supply MOVE NEAR and VIA Cartesian operands.',
+            data='Complete detached positional operands captured once in source order. MOVE ALONG accepts scalar PATH values, selected PATH array cells and PATH routine results. It charges one step per node before snapshotting only NODE_POS and evaluating any range bounds; selected nodes validate in travel order. Direct PATH nodes also supply MOVE NEAR and VIA Cartesian operands.',
             controls='HOLD and UNHOLD manage independent flags. Grouped STOP and RESUME freeze and continue owned logical scopes. CANCEL preserves stopped work, which CNCL_STP_MTN can discard.',
             settings='Checked local WITH values, including termination/orientation choices, captured in source order before operands; selected group only, no global system-variable or robot-context mutation',
             boundary='No trajectories, physical hands, robot feedback updates, live adapters, inferred arrival timing or native queued motion',

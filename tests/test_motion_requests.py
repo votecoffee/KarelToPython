@@ -355,6 +355,95 @@ BEGIN APPEND_NODE(route,s) ATTACH MOVE ALONG route END NO_NODE_POSITION''')
                 self.assertEqual((row['start'],row['end']),expected)
                 self.assertEqual(len(row['nodes']),expected[1]-expected[0]+1)
 
+    def test_move_along_selects_path_cells_and_ranges(self):
+        setup=SETUP+('APPEND_NODE(routes[2,1],s) routes[2,1,1].node_pos=p '
+                     'APPEND_NODE(routes[2,1],s) routes[2,1,2].node_pos=q ')
+        for selector,expected in [
+                ('routes[2,1]',[10.,40.]), ('(routes[2,1])',[10.,40.]),
+                ('routes[2,1][2]',[40.]), ('routes[2,1,2]',[40.]),
+                ('routes[2,1][2..1]',[40.,10.]), ('routes[2,1,2..1]',[40.,10.])]:
+            with self.subTest(selector=selector):
+                _,ctx,_,_=execute('ATTACH MOVE ALONG '+selector+' NOWAIT',
+                                  setup=setup,decl=DECL+' routes:ARRAY[2,2] OF PATH')
+                data=ctx.motion.history[-1]['data']
+                self.assertEqual([node['value']['LOCATION']['X'] for node in data['nodes']],expected)
+
+    def test_move_along_array_selector_and_bounds_run_in_order(self):
+        routines='''ROUTINE pick:INTEGER BEGIN n=n*10+1 RETURN 2 END pick
+ROUTINE first:INTEGER BEGIN n=n*10+2 routes[2,1].node_pos=q RETURN 1 END first
+ROUTINE last:INTEGER BEGIN n=n*10+3 RETURN 1 END last'''
+        setup=SETUP+'APPEND_NODE(routes[2],s) routes[2,1].node_pos=p n=0 '
+        for selector in ('routes[pick()][first()..last()]','routes[pick(),first()..last()]'):
+            with self.subTest(selector=selector):
+                values,ctx,_,_=execute('ATTACH MOVE ALONG '+selector,setup=setup,
+                                       decl=DECL+' routes:ARRAY[2] OF PATH',routines=routines)
+                self.assertEqual(values['N'],123)
+                self.assertEqual(values['ROUTES'][1]['nodes'][0]['NODE_POS']['LOCATION']['X'],40.)
+                self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],10.)
+
+    def test_move_along_handles_named_nested_and_borrowed_path_arrays(self):
+        prefix='TYPE row_t=ARRAY[2] OF PATH bank_t=ARRAY[2] OF row_t'
+        setup=SETUP+'APPEND_NODE(bank[2][1],s) bank[2][1][1].node_pos=q '
+        routines='ROUTINE follow(items:bank_t) BEGIN MOVE ALONG items[2][1][1..1] END follow'
+        _,ctx,_,_=execute('ATTACH follow(bank)',prefix=prefix,decl=DECL+' bank:bank_t',
+                          setup=setup,routines=routines)
+        self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],40.)
+
+    def test_move_along_routine_and_array_results(self):
+        setup=SETUP+('APPEND_NODE(routes[1],s) routes[1,1].node_pos=p '
+                     'APPEND_NODE(routes[1],s) routes[1,2].node_pos=q n=0 ')
+        routines='''ROUTINE selected:PATH BEGIN n=n+1 RETURN routes[1] END selected
+ROUTINE bank:ARRAY OF PATH BEGIN n=n+10 RETURN routes END bank'''
+        values,ctx,_,_=execute('ATTACH MOVE ALONG selected()[2..1] MOVE ALONG (bank()[1])',
+                               setup=setup,decl=DECL+' routes:ARRAY[1] OF PATH',routines=routines)
+        self.assertEqual(values['N'],11)
+        paths=[row['data']['nodes'] for row in ctx.motion.history[-2:]]
+        self.assertEqual([[node['value']['LOCATION']['X'] for node in path] for path in paths],
+                         [[40.,10.],[10.,40.]])
+
+    def test_move_along_linked_path_result(self):
+        ctx=context()
+        sources={
+            'main':source('MAIN','ATTACH MOVE ALONG selected()[1..1]',routines='ROUTINE selected:PATH FROM LIB'),
+            'lib':source('LIB','',decl=DECL,routines=(
+                'ROUTINE selected:PATH BEGIN '+SETUP+
+                'APPEND_NODE(route,s) route[1].node_pos=q RETURN route END selected')),
+        }
+        translate_project(sources).instantiate(context=ctx).run('MAIN')
+        self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],40.)
+
+    def test_move_along_retains_selected_path_across_range_pause(self):
+        setup=SETUP+'APPEND_NODE(routes[1],s) routes[1,1].node_pos=p n=0 '
+        routines=('ROUTINE pick:INTEGER BEGIN n=n+1 RETURN 1 END pick '
+                  'ROUTINE first:INTEGER BEGIN PAUSE routes[1,1].node_pos=q RETURN 1 END first')
+        p,ctx,_=program('ATTACH MOVE ALONG routes[pick()][first()..1]',setup=setup,
+                        decl=DECL+' routes:ARRAY[1] OF PATH',routines=routines)
+        with self.assertRaises(rt.KarelPause):
+            p.run()
+        self.assertEqual(p._state.task_state,'paused')
+        self.assertEqual([row['operation'] for row in ctx.motion.history],['ATTACH'])
+        result=p.resume()
+        self.assertEqual(result['N'],1)
+        self.assertEqual(result['ROUTES'][0]['nodes'][0]['NODE_POS']['LOCATION']['X'],40.)
+        self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],10.)
+
+    def test_move_along_rejects_non_path_and_incomplete_array_coordinates(self):
+        decl=DECL+' routes:ARRAY[2,2] OF PATH'
+        for operand in ('routes','routes[1..2]','routes[1,1..2]','a[1]','route[1,2..3]'):
+            with self.subTest(operand=operand),self.assertRaises(TranslationError):
+                program('MOVE ALONG '+operand,decl=decl)
+
+    def test_bad_path_array_selector_precedes_range_evaluation(self):
+        ctx=context(capture_only=False,responses=[dict(operation='MOVE ALONG',completed=True)])
+        routines='ROUTINE first:INTEGER BEGIN n=n+1 RETURN 1 END first'
+        p,_,_=program('n=0 ATTACH MOVE ALONG routes[3,first()..1]',ctx=ctx,setup='',
+                      decl=DECL+' routes:ARRAY[2] OF PATH',routines=routines)
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'out of range|outside'):
+            p.run()
+        self.assertEqual(p._state.values['N'],0)
+        self.assertEqual(len(ctx.motion.responses),1)
+        self.assertEqual([row['operation'] for row in ctx.motion.history],['ATTACH'])
+
     def test_outside_selected_range_can_be_partial(self):
         _,ctx,_,_=execute('ATTACH MOVE ALONG route[2]',setup=SETUP+'APPEND_NODE(route,s) APPEND_NODE(route,s) route[2].node_pos=q ')
         self.assertEqual(ctx.motion.history[-1]['data']['nodes'][0]['value']['LOCATION']['X'],40.)

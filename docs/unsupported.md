@@ -52,7 +52,8 @@ not enter global type declarations, routine interfaces or caller/sibling scopes.
   a second opt-in enables [callee scopes](scoped-group-locks.md), while native
   waits remain unavailable. Include search does not discover native support installations.
 - Native motion execution, trajectories, feedback updates and controller queues. [Offline motion requests](motion-requests.md) now translate all
-  seven basic MOVE forms, VIA, direct PATH-node destinations, ordered PATH ranges,
+  seven basic MOVE forms, VIA, direct PATH-node destinations, and ordered ranges
+  on scalar PATH values, selected array cells and PATH routine results,
   hand state and logical ATTACH/RELEASE. They require explicit capture-only opt-in
   or immediate scripted responses plus logical ownership. [Logical controls](motion-controls.md)
   now support HOLD/UNHOLD/CANCEL, grouped STOP/RESUME, global handler actions and 21 per-group WITH
