@@ -680,11 +680,12 @@ class PortBank:
         self.values[kind,number]=value
         self._pulses.pop((kind,number),None)
 
-    def sample_inputs(self,points,*,apply_reverse=False):
+    def sample_inputs(self,points,*,apply_reverse=False,apply_group_reverse=False):
         """Project one complete set of supplied samples through active input mappings."""
         rt=runtime();config=self._configuration
         if config is None:raise ValueError('Physical input sampling requires explicit port configuration')
         if type(apply_reverse) is not bool:raise ValueError('Port sampling apply_reverse requires BOOLEAN')
+        if type(apply_group_reverse) is not bool:raise ValueError('Port sampling apply_group_reverse requires BOOLEAN')
         if type(points) is not dict or len(points)>32767:
             raise ValueError('Physical input sampling requires a mapping of at most 32767 points')
         samples={};prepared={}
@@ -705,6 +706,8 @@ class PortBank:
                     if not all(point in samples for point in span):
                         raise ValueError('Physical sample for GIN['+str(number)+'] must supply its complete span')
                     value=sum(int(samples[point])<<bit for bit,point in enumerate(span))
+                    if apply_group_reverse and config.modes.get(key,0)&1:
+                        value^=(1<<width)-1
                     prepared[key]=rt.checked(('INTEGER',),value)
                 else:
                     value=samples[span[0]]
@@ -714,12 +717,13 @@ class PortBank:
         self.values.update(prepared)
         return len(prepared)
 
-    def sample_outputs(self,*,apply_reverse=False,apply_complementary=False):
+    def sample_outputs(self,*,apply_reverse=False,apply_complementary=False,apply_group_reverse=False):
         """Return detached physical point values from active offline output mappings."""
         config=self._configuration
         if config is None:raise ValueError('Physical output sampling requires explicit port configuration')
         if type(apply_reverse) is not bool:raise ValueError('Port sampling apply_reverse requires BOOLEAN')
         if type(apply_complementary) is not bool:raise ValueError('Port sampling apply_complementary requires BOOLEAN')
+        if type(apply_group_reverse) is not bool:raise ValueError('Port sampling apply_group_reverse requires BOOLEAN')
         self.poll_pulses()
         points={}
         for key,(rack,slot,code,start,width) in config.assignments.items():
@@ -733,8 +737,10 @@ class PortBank:
             if apply_reverse and PORT_TYPES[kind]=='BOOLEAN' and config.modes.get(source,0)&1:
                 value=not value
             if complementary:value=not value
-            if kind=='GOUT' and not 0<=value<1<<width:
-                raise ValueError('GOUT['+str(number)+'] does not fit its mapped width')
+            if kind=='GOUT':
+                if not 0<=value<1<<width:raise ValueError('GOUT['+str(number)+'] does not fit its mapped width')
+                if apply_group_reverse and config.modes.get(key,0)&1:
+                    value^=(1<<width)-1
             for bit in range(width):
                 address=(rack,slot,code,start+bit)
                 sample=bool(value & (1<<bit)) if kind=='GOUT' else value
@@ -2435,7 +2441,7 @@ class ExecutionContext:
     @classmethod
     def from_config(cls,config):
         if type(config) is not dict or set(config)-{'strings','positions','ports','files','device_files','numeric','variables','robot','events','semaphores','errors','parameters','calendar','local_handlers','programs','config_text','program_attributes','peers','teach_programs','serial_ports','group_locks','acquisition','pc_exchange','messaging','file_pipes','remote_messages','variable_archives','diagnostics','kcl','pendant','dictionaries','dynamic_display','keyboard','table_controls','forms','controller','vision','source_translations','serial_streams','motion','predefined_files'}: raise ValueError('Unknown execution context fields')
-        for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration','physical_inputs','physical_input_reverse'})):
+        for name,allowed in (('strings',{'count','capacity','values','comments'}),('positions',{'count','groups','values','comments'}),('ports',{'counts','values','comments','simulated','type_codes','configuration','physical_inputs','physical_input_reverse','physical_input_group_reverse'})):
             if name in config and (type(config[name]) is not dict or set(config[name])-allowed): raise ValueError('Unknown '+name+' context fields')
         services={}
         if 'predefined_files' in config:
@@ -2514,8 +2520,9 @@ class ExecutionContext:
                 if type(numbers) is not list: raise ValueError('Simulated ports require lists of numbers')
                 simulated.extend((kind,n) for n in numbers)
             if 'configuration' in row and type(row['configuration']) is not dict: raise ValueError('Port configuration must be an object')
-            if 'physical_input_reverse' in row and 'physical_inputs' not in row:
-                raise ValueError('Port physical_input_reverse requires physical_inputs')
+            for option in ('physical_input_reverse','physical_input_group_reverse'):
+                if option in row and 'physical_inputs' not in row:
+                    raise ValueError('Port '+option+' requires physical_inputs')
             initial={}
             for kind,values in row.get('values',{}).items():
                 if type(kind) is not str or type(values) is not dict:
@@ -2536,7 +2543,8 @@ class ExecutionContext:
                     address=tuple(sample[field] for field in fields)
                     if address in points:raise ValueError('Duplicate physical input point')
                     points[address]=sample['value']
-                ports.sample_inputs(points,apply_reverse=row.get('physical_input_reverse',False))
+                ports.sample_inputs(points,apply_reverse=row.get('physical_input_reverse',False),
+                                    apply_group_reverse=row.get('physical_input_group_reverse',False))
             services['ports']=ports
         if 'files' in config:
             services['files']=MemoryFiles({name:bytes.fromhex(value['hex']) if type(value) is dict else value for name,value in config['files'].items()})

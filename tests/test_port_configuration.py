@@ -106,6 +106,49 @@ class PortInputSamplingTests(unittest.TestCase):
         ctx.ports.sample_inputs(self.samples())
         self.assertTrue(ctx.ports.read('DIN',1))
 
+    def test_group_reverse_uses_active_span_without_changing_boolean_projection(self):
+        ctx=context(self.topology())
+        self.assertEqual(run('SET_PORT_MOD(30,1,1,s)',context=ctx)['S'],0)
+        ctx.ports.sample_inputs(self.samples(),apply_group_reverse=True)
+        self.assertEqual(ctx.ports.read('GIN',1),5)
+        self.assertEqual(ctx.ports.apply_configuration(),1)
+        ctx.ports.sample_inputs(self.samples(),apply_group_reverse=True)
+        self.assertEqual(ctx.ports.snapshot(),{('DIN',1):True,('GIN',1):2,('AIN',2):1.25})
+        ctx.ports.sample_inputs(self.samples())
+        self.assertEqual(ctx.ports.read('GIN',1),5)
+
+    def test_reversed_32_bit_input_is_checked_before_batch_publication(self):
+        config=self.topology()
+        config['assignments'][2]['count']=32
+        config['modes']=[dict(kind='GIN',number=1,mask=1)]
+        ctx=context(config,initial={('DIN',1):False,('GIN',1):17})
+        points={(0,1,10,i):i!=5 for i in range(5,37)}
+        ctx.ports.sample_inputs(points,apply_group_reverse=True)
+        self.assertEqual(ctx.ports.read('GIN',1),1)
+        before=ctx.ports.snapshot()
+        points.update({(0,1,10,5):True,(0,1,10,36):False})
+        with self.assertRaises(rt.KarelRuntimeError):
+            ctx.ports.sample_inputs(points,apply_group_reverse=True)
+        self.assertEqual(ctx.ports.snapshot(),before)
+
+    def test_json_group_reverse_option_is_explicit_and_applies_once(self):
+        config=self.topology()
+        config['modes']=[dict(kind='GIN',number=1,mask=1)]
+        row=context(config).to_config()['ports']
+        row['physical_input_group_reverse']=True
+        with self.assertRaisesRegex(ValueError,'requires physical_inputs'):
+            rt.ExecutionContext.from_config({'ports':row})
+        row['physical_inputs']=[dict(rack=rack,slot=slot,type_code=code,point=point,value=value)
+                                for (rack,slot,code,point),value in self.samples().items()]
+        restored=rt.ExecutionContext.from_config({'ports':row})
+        self.assertEqual(restored.ports.read('GIN',1),2)
+        saved=restored.to_config()['ports']
+        self.assertNotIn('physical_input_group_reverse',saved)
+        self.assertEqual(saved['values']['GIN'],{'1':2})
+        row['physical_input_group_reverse']=1
+        with self.assertRaisesRegex(ValueError,'requires BOOLEAN'):
+            rt.ExecutionContext.from_config({'ports':row})
+
     def test_json_reverse_option_applies_once_and_requires_boolean(self):
         config=self.topology()
         config['modes']=[dict(kind='DIN',number=1,mask=1)]
@@ -177,6 +220,26 @@ class PortOutputSamplingTests(unittest.TestCase):
         self.assertEqual(ctx.ports.sample_outputs(apply_reverse=True),{(0,1,20,9):False,(0,1,20,10):False,(0,1,20,11):True})
         self.assertTrue(ctx.ports.read('DOUT',1))
         with self.assertRaisesRegex(ValueError,'requires BOOLEAN'):ctx.ports.sample_outputs(apply_reverse=1)
+
+    def test_group_reverse_applies_before_physical_overlap_and_keeps_logical_word(self):
+        config=self.topology()
+        config['modes']=[dict(kind='GOUT',number=1,mask=1)]
+        ctx=context(config,initial={('DOUT',1):True,('GOUT',1):2})
+        with self.assertRaisesRegex(ValueError,'Conflicting mapped output'):ctx.ports.sample_outputs()
+        expected={(0,1,20,9):True,(0,1,20,10):False,(0,1,20,11):True}
+        self.assertEqual(ctx.ports.sample_outputs(apply_group_reverse=True),expected)
+        self.assertEqual(ctx.ports.read('GOUT',1),2)
+        with self.assertRaisesRegex(ValueError,'requires BOOLEAN'):
+            ctx.ports.sample_outputs(apply_group_reverse=1)
+
+    def test_group_reverse_can_emit_all_32_physical_bits(self):
+        config=self.topology()
+        config['assignments'][1]['count']=32
+        config['modes']=[dict(kind='GOUT',number=1,mask=1)]
+        ctx=context(config,initial={('GOUT',1):0})
+        expected={(0,1,20,point):True for point in range(9,41)}
+        self.assertEqual(ctx.ports.sample_outputs(apply_group_reverse=True),expected)
+        self.assertEqual(ctx.ports.read('GOUT',1),0)
 
     def test_complementary_follower_uses_active_odd_source_and_optional_reverse(self):
         config=topology()

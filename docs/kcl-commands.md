@@ -228,8 +228,9 @@ A configured plain pipe retains its configuration and rejects data that would
 discard part of the existing history. A rooted append replaces the destination
 atomically within its configured root. APPEND charges one execution step per
 started 4096 bytes of the combined result, including the existing prefix.
-Rooted inputs are checked and charged before payload reads. APPEND checks that
-the prefix still matches before publication. An execution budget
+APPEND checks virtual volume capacity and the execution budget before reading.
+It reads each payload once, checking the source first and then the planned
+prefix immediately before publication. An execution budget
 failure during the command returns KCL status 4 and leaves the destination intact.
 
 DIRECTORY uses bounded component matching on ordinary backends and plain

@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.144050 - 2026-11-07
+
+- Add opt-in active group reverse masks to GIN/GOUT projection and one-shot
+  JSON input loading.
+- Preflight virtual volume capacity for KCL APPEND and read each planned
+  payload once before publishing the combined bytes.
+
 ## 26.1107.142407 - 2026-11-07
 
 - Charge numerical inverse and reachability evaluations for configured DH

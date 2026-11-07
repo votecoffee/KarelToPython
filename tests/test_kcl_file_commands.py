@@ -73,6 +73,35 @@ class KclFileCommandTests(unittest.TestCase):
         self.assertEqual(issue(ctx, 'APPEND FILE RD:in.dat TO FR:out.dat')['S'], 4)
         self.assertEqual(files.snapshot()['FR:out.dat'], b'abc123')
 
+    def test_append_virtual_capacity_rejects_before_payload_copy(self):
+        class Uncopyable(bytearray):
+            def __bytes__(self):
+                raise AssertionError('copied before quota preflight')
+
+        files=rt.DeviceFiles({'RD:':{'capacity':10},'FR:':{'capacity':4}},
+                             {'RD:in.dat':b'123','FR:out.dat':b'abc'})
+        files.files.update({'RD:in.dat':Uncopyable(b'123'),'FR:out.dat':Uncopyable(b'abc')})
+        self.assertEqual(issue(context(files),'APPEND FILE RD:in.dat TO FR:out.dat')['S'],4)
+        self.assertEqual(files.files,{'RD:in.dat':b'123','FR:out.dat':b'abc'})
+
+    def test_rooted_append_reads_source_and_prefix_once(self):
+        with TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            src,dst=root/'in.bin',root/'out.bin'
+            src.write_bytes(b'new')
+            dst.write_bytes(b'old')
+            original_open=Path.open
+            reads=[]
+
+            def observe_open(path,*args,**kwargs):
+                if path in (src,dst) and args==('rb',):reads.append(path)
+                return original_open(path,*args,**kwargs)
+
+            with patch.object(Path,'open',new=observe_open):
+                self.assertEqual(issue(context(rt.DirectoryFiles(root)),'APPEND FILE in.bin TO out.bin')['S'],0)
+            self.assertEqual(reads,[src,dst])
+            self.assertEqual(dst.read_bytes(),b'oldnew')
+
     def test_append_budget_charges_prefix_and_reports_command_failure(self):
         files=rt.MemoryFiles({'in.bin':b'x','out.bin':b'a'*8192})
         task=program("s=99 KCL('APPEND FILE in.bin TO out.bin',s)",context=context(files))

@@ -1120,6 +1120,7 @@ def print_file(state,files,name,nowait,line=None):
 
 def append_file(state,source_name,target_name,line=None):
     """Append one complete closed snapshot, retaining the target prefix."""
+    from .devices import DeviceFiles
     from .storage import DirectoryFiles
 
     source,src=named_file_endpoint(state.execution,source_name,line)
@@ -1133,15 +1134,14 @@ def append_file(state,source_name,target_name,line=None):
     if source is target and type(target) is DirectoryFiles and source._path(src).samefile(target._path(dst)):
         return 2
     limit=target.pipes[dst]['sectors']*1024 if type(target) is rt().FilePipes else target.limit
-    if prefix_size+source_size>limit:return 4
-    charge_file_bytes(prefix_size+source_size,lambda:state.tick(line))
+    length=prefix_size+source_size
+    if length>limit:return 4
+    if type(target) is DeviceFiles:target.reserve(dst,length,line=line)
+    charge_file_bytes(length,lambda:state.tick(line))
     code,content=read_source()
     if code:return code
     code,prefix=read_prefix()
     if code:return code
-    code,current=read_prefix() if type(target) is DirectoryFiles else target.read_named(dst)
-    if code:return code
-    if current!=prefix:return 2
     return publish_file_bytes(target,dst,prefix+content,True,line,obsolete=0)
 
 

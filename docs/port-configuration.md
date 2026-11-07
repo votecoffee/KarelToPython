@@ -154,8 +154,22 @@ logical values by default. Saved contexts keep the logical output values.
 Pass `apply_reverse=True` to either sampling method to invert mapped Boolean
 values whose active mode includes bit 1. Inputs are inverted before seeding
 logical values. Outputs are inverted before checking overlaps and returning
-the physical-point sample. This option covers Boolean ports. Group and
-analog values use their ordinary projections.
+the physical-point sample. This option covers Boolean ports.
+
+### Apply group reverse masks
+
+Pass `apply_group_reverse=True` to either sampling method to complement every
+bit in the mapped span of a `GIN` or `GOUT` whose active mode includes bit 1.
+The least significant bit still maps to the first physical point. `GIN` needs
+its complete span and the resulting word must fit the portable nonnegative
+INTEGER domain. `GOUT` validates the logical word against the mapped width
+before inverting the physical bits and checking for overlaps. A 32-bit output
+span can emit all 32 physical bits. The logical output word stays intact.
+
+`ports.physical_input_group_reverse` applies the same one-shot rule when
+loading `ports.physical_inputs`. Saved contexts keep the logical values.
+The Boolean and group options can be enabled independently. Analog values
+use their ordinary projections. Group inversion is an offline convention.
 
 ### Sample complementary outputs
 
