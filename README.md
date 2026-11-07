@@ -393,7 +393,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.140840**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.142407**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -957,7 +957,9 @@ KCL can change the next wake of a parked delay by enabling or disabling a timed
 condition. Source projects link typed external routines and imported globals.
 A configurable standard-DH
 robot model provides forward/inverse math, external joints and bounded
-reachability checks; extended-pose comparisons use explicit axis tolerances.
+reachability checks. Source inverse and reachability searches charge the
+execution budget per model evaluation. Extended-pose comparisons use explicit
+axis tolerances.
 
 ```sh
 python -m karel2py examples/offline_services.kl -o services.py

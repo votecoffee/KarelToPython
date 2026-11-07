@@ -159,7 +159,7 @@ class SerialRobotModel:
         axes=[values[index] for index in self._external_joints]
         return pose(result,cfg,extended=axes),cfg,axes+[0.]*(3-len(axes))
 
-    def solve(self,target,seed,*,fixed=None):
+    def solve(self,target,seed,*,fixed=None,check=None):
         if len(seed)!=self.axes: raise ValueError('IK reference width does not match model')
         q=[min(hi,max(lo,float(value))) for value,(lo,hi) in zip(seed,self.limits)]
         fixed=dict(fixed or {})
@@ -168,7 +168,11 @@ class SerialRobotModel:
             q[i]=value
         variables=[i for i in range(self.axes) if i not in fixed and self.limits[i][0]<self.limits[i][1]]
         damping=.1; weight=100.
-        current=self.chain(q); residual=error(current,target,weight)
+        def evaluate(joints):
+            if check is not None:check()
+            return self.chain(joints)
+
+        current=evaluate(q); residual=error(current,target,weight)
         for iteration in range(self.iterations+1):
             angle=math.hypot(*residual[3:])/weight
             if math.hypot(*residual[:3])<=self.position_tolerance and angle<=self.orientation_tolerance: return q
@@ -184,7 +188,7 @@ class SerialRobotModel:
                 # A nominal step can round to zero for a large joint value.
                 if neighbor==joint: neighbor=math.nextafter(joint,bound)
                 shifted[axis]=neighbor
-                columns.append([v/(neighbor-joint) for v in error(current,self.chain(shifted),weight)])
+                columns.append([v/(neighbor-joint) for v in error(current,evaluate(shifted),weight)])
             normal=[[sum(x*y for x,y in zip(left,right))+(damping*damping if i==j else 0.) for j,right in enumerate(columns)] for i,left in enumerate(columns)]
             before=sum(value*value for value in residual); improved=False
             goals=[residual]
@@ -198,7 +202,7 @@ class SerialRobotModel:
                 for _ in range(12):
                     trial=q.copy()
                     for axis,increment in zip(variables,delta): trial[axis]=min(self.limits[axis][1],max(self.limits[axis][0],q[axis]+scale*increment))
-                    trial_pose=self.chain(trial)
+                    trial_pose=evaluate(trial)
                     trial_residual=error(trial_pose,target,weight)
                     after=sum(value*value for value in trial_residual)
                     if after<before:
@@ -211,7 +215,7 @@ class SerialRobotModel:
                 if damping>1e6: break
         return None
 
-    def inverse(self,reference,position,uframe,utool,config_ref,config,external):
+    def inverse(self,reference,position,uframe,utool,config_ref,config,external,*,check=None):
         if config_ref!=0: raise ValueError('Portable DH model supports config_ref=0')
         values=rt().joint_values(reference,self.axes,pythonic_padding=True)
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe),matrix(position)),inverse(matrix(utool))))
@@ -221,12 +225,12 @@ class SerialRobotModel:
             if len(axes)<self.external_axes: raise ValueError('External-axis input is shorter than the model')
             fixed=dict(zip(self._external_joints,axes))
         for seed in (values,*self.ik_fallback_seeds):
-            result=self.solve(target,seed,fixed=fixed)
+            result=self.solve(target,seed,fixed=fixed,check=check)
             if result is not None:
                 joints=rt().JointPosition(('JOINTPOS',self.axes)); joints.values[:]=result; return joints
         raise ValueError('No IK solution within the supplied limits and iteration budget')
 
-    def reachable(self,position,uframe=None,utool=None,*,reference=None):
+    def reachable(self,position,uframe=None,utool=None,*,reference=None,check=None):
         target=multiply(inverse(self.base),multiply(multiply(matrix(uframe) if uframe is not None else IDENTITY,matrix(position)),inverse(matrix(utool)) if utool is not None else IDENTITY))
         midpoint=[(lo+hi)/2 for lo,hi in self.limits]
         fixed={index:position.values.get('EXT'+str(slot),0.) for slot,index in enumerate(self._external_joints,1)}
@@ -240,7 +244,7 @@ class SerialRobotModel:
             else:
                 seeds=(current,*seeds)
         for seed in seeds:
-            if self.solve(target,seed,fixed=fixed) is not None: return True
+            if self.solve(target,seed,fixed=fixed,check=check) is not None: return True
         return False
 
 
@@ -315,14 +319,19 @@ def robot_context_from_config(config):
     frames.setdefault(0,pose()); tools.setdefault(0,pose())
     if active_frame not in frames or active_tool not in tools: raise ValueError('Active frame/tool must be supplied')
     for value in (*frames.values(),*tools.values()): matrix(value)
-    def check_position(position,frame,tool):
+    def check_position(position,frame,tool,*,check=None):
         snapshot=context.current
         reference=snapshot.joints if snapshot is not None else None
-        return model.reachable(position,frame,tool,reference=reference)
+        return model.reachable(position,frame,tool,reference=reference,check=check)
 
     context=RobotContext(forward=model.forward,inverse=model.inverse,check_position=check_position,joint_limits=model.limits,frames=frames,tools=tools,current=current,active_frame=active_frame,active_tool=active_tool,active_group=config.get('active_group',1))
     context.model=model; context.model_config=deepcopy(config)
-    context.reachable=lambda p:check_position(p,context.frame(context.active_frame),context.tool(context.active_tool))
+    def reachable(position,*,check=None):
+        return check_position(position,context.frame(context.active_frame),context.tool(context.active_tool),check=check)
+
+    context.reachable=reachable
+    context._model_reachable=reachable
+    context._model_position_check=check_position
     for number in context.frames: context.frame(number)
     for number in context.tools: context.tool(number)
     context.frame(active_frame);context.tool(active_tool)

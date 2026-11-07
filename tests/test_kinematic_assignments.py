@@ -1,6 +1,7 @@
 """Authored model-backed Cartesian/joint assignments and retained boundaries."""
 import json
 import unittest
+from unittest.mock import patch
 
 from karel2py import translate,translate_project,runtime as rt
 from karel2py.kinematics import pose as identity_pose
@@ -20,6 +21,27 @@ def callback_context(*,forward=None,inverse=None,values=(10.,20.),**fields):
 
 
 class AssignmentModelTests(unittest.TestCase):
+    def test_model_inverse_budget_preserves_assignment_and_procedure_outputs(self):
+        for body in ('out=p','POS2JOINT(j,p,f,f,0,c,axes,out,s)'):
+            with self.subTest(body=body):
+                ctx=rt.ExecutionContext.from_config({'robot':{'dh':[{'type':'prismatic'}],
+                    'current':{'joints':{'type':['JOINTPOS',1],'value':[0.]}}}})
+                model=ctx.robot.model
+                program,_=compile_program(body,decl='p,f:POSITION j,out:JOINTPOS1 c:CONFIG axes:ARRAY[3] OF REAL s:INTEGER',context=ctx)
+                point=identity_pose()
+                point.values['LOCATION'].values['Z']=87.
+                axes=rt.Array(('ARRAY',3,('REAL',)))
+                axes.values[:]=[0.,0.,0.]
+                program._state.values.update(P=point,F=identity_pose(),J=joint([0.]),OUT=joint([7.]),
+                                             C=point.values['CONFIG_DATA'].clone(),AXES=axes,S=77)
+                with patch.object(model,'chain',wraps=model.chain) as chain:
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'KAREL line .*step budget'):
+                        program.run(max_steps=2)
+                    self.assertEqual(chain.call_count,1)
+                before=program.snapshot()
+                self.assertEqual((before['OUT']['axes'],before['S']),([7.],77))
+                self.assertAlmostEqual(program.run()['OUT']['axes'][0],87.,delta=.02)
+
     def test_dh_tolerances_require_positive_finite_numbers(self):
         for name in ('position_tolerance','orientation_tolerance'):
             for bad in ('0.1',True,None,0,-1,float('inf'),float('nan'),10**500):

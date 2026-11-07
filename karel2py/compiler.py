@@ -6544,7 +6544,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         group='Explicit INTEGER group or calling root task group, including linked routines; no discovery',
         status='Portable 0 when the supplied model/adapter accepts the target, 1 when it rejects it; errors preserve status and prior completed effects',
         adapter='RobotContext(check_position=callback) receives detached (position,frame,tool) and must return synchronous BOOLEAN; RobotContext.check_pose offers the host equivalent',
-        model='Loaded DH model reachability uses base, explicit frame/tool and bounded joint limits; try compatible current joints first, standard seeds next, then optional ik_fallback_seeds. External slots fix the supplied external rows for every attempt.',
+        model='Loaded DH model reachability uses base, explicit frame/tool and bounded joint limits; try compatible current joints first, standard seeds next, then optional ik_fallback_seeds. External slots fix the supplied external rows for every attempt. Each model evaluation charges the source execution budget.',
         ownership='Capture operands/selectors once left to right; validate all poses before callback; no current-state, frame/tool or motion updates',
         boundary='Portable geometric/model result only; no controller motion-error guarantee, configuration branch validation, collision checks or native alarm codes',
         guide='docs/position-checks.md',controller_validated=False)
@@ -6552,7 +6552,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         types=['POSITION','XYZWPR','XYZWPREXT'],
         external_axes='Three REAL metadata fields; INV and MIRROR preserve; colon selects right extended operand else left; FRAME selects origin axes else zero',
         mirror='Frame XZ plane reflection; orientation=True reverses local Y after reflection to retain a proper rotation; CONFIG preserved',
-        model='Explicit callbacks or configured standard-DH models; FK, bounded numerical IK, reachability search, joint limits, groups/frames/tools and tail external joints',
+        model='Explicit callbacks or configured standard-DH models; FK, numerical IK and reachability with per-evaluation source budgets, joint limits, groups/frames/tools and mapped external joints',
         boundary='Generic configured models only; no calibrated native robot configuration branches, collisions, motion or controller acceptance claim',
         guide='docs/portable-projects.md',controller_validated=False)
     report['abort_policy']['source']='Bare ABORT, handler action or explicitly registered task target; sticky offline termination'

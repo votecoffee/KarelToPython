@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.142407 - 2026-11-07
+
+- Charge numerical inverse and reachability evaluations for configured DH
+  models during source execution, including fallback seed searches.
+- Charge exact pipe COPY, PRINT, COMPARE and KCL APPEND inputs before copying
+  their payloads. Rooted sources for pipe COPY now use checked read plans.
+
 ## 26.1107.140840 - 2026-11-07
 
 - Check DAQ stream sinks without reading them at start, and charge the retained

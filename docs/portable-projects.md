@@ -293,7 +293,12 @@ Joint arrays keep DH row order. Supply all robot dimensions explicitly.
 
 The model provides real forward transformations and damped numerical inverse
 kinematics, seeded by the supplied reference joints. Limits and iteration budgets
-are enforced. For inverse conversion, `ik_fallback_seeds` can supply up to eight
+are enforced. During translated inverse conversion and reachability checks,
+each DH chain evaluation counts against the source execution budget, including
+seed, Jacobian and line-search evaluations. Budget exhaustion leaves the source
+result and status targets intact. Host calls retain the model iteration cap,
+and custom callbacks keep their existing interface. For inverse conversion,
+`ik_fallback_seeds` can supply up to eight
 additional in-limit joint vectors in DH row order. The solver tries them in
 order only after the reference attempt fails, with the same iteration limit
 per attempt and the external joints fixed throughout. Model-backed JOINT2POS

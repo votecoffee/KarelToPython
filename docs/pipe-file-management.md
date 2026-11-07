@@ -39,7 +39,9 @@ history, wait for future writes, follow producers, format dictionary records or
 convert text/binary data. After circular overflow, only the still-retained suffix
 is copied. Both values of `nowait` perform the same synchronous offline copy.
 
-The source and destination must be closed. A pipe destination must already be
+The source and destination must be closed. The execution budget charges the
+source bytes before a rooted file is opened or a pipe payload is copied.
+A pipe destination must already be
 configured. Because that name already exists, its copy requires `overwrite=TRUE`,
 even when it contains no bytes. No missing pipe or configuration is created by a
 copy. Replacement preserves all destination configuration fields, including

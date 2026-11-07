@@ -32,6 +32,41 @@ def open_pipe(bank,name='A.DAT',mode='RW'):
 
 
 class PipeFileManagementTests(unittest.TestCase):
+    def test_rooted_copy_to_pipe_charges_before_opening_source(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder).resolve()
+            source=root/'source'
+            source.write_bytes(b'X'*40960)
+            ctx=rt.ExecutionContext(files=rt.DirectoryFiles(root),file_pipes=pipe_bank(sectors=64))
+            program,_=compile_program("COPY_FILE('source','PIP:A.DAT',TRUE,FALSE,s)",decl=DECL,context=ctx)
+            program._state.values['S']=77
+            before=ctx.file_pipes.snapshot()
+            original_open=Path.open
+
+            def reject_open(path,*args,**kwargs):
+                if path==source:self.fail('Rooted copy opened the source before charging')
+                return original_open(path,*args,**kwargs)
+
+            with patch.object(Path,'open',new=reject_open):
+                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                    program.run(max_steps=6)
+            self.assertEqual((program.snapshot()['S'],ctx.file_pipes.snapshot()),(77,before))
+            self.assertEqual(program.run()['S'],0)
+            self.assertEqual(ctx.file_pipes.files['PIP:A.DAT'],source.read_bytes())
+
+    def test_copy_from_pipe_charges_before_copying_payload(self):
+        class Uncopyable(bytearray):
+            def __bytes__(self):
+                raise AssertionError('pipe copied before charging')
+
+        ctx=rt.ExecutionContext(files=rt.MemoryFiles({'target':b'keep'}),file_pipes=pipe_bank(sectors=64))
+        ctx.file_pipes.files['PIP:A.DAT']=Uncopyable(b'X'*40960)
+        program,_=compile_program("COPY_FILE('PIP:A.DAT','target',TRUE,FALSE,s)",decl=DECL,context=ctx)
+        program._state.values['S']=77
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+            program.run(max_steps=6)
+        self.assertEqual((program.snapshot()['S'],ctx.files.snapshot()),(77,{'target':b'keep'}))
+
     def test_pipe_to_pipe_copy_needs_no_ordinary_backend(self):
         ctx=context({'A.DAT':b'\xff\0abc','B.DAT':b'old'})
         values=execute("COPY_FILE('pip:/a.dat','PIP:b.dat',TRUE,FALSE,s)",ctx)

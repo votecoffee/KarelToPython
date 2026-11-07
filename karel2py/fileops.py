@@ -736,10 +736,11 @@ def pipe_file_operation(state,operation,args,line=None):
             # Both endpoints must be closed, even if the source is missing.
             if source._busy(source_name) or target._busy(target_name):code=3
             else:
-                code,data=source.read_named(source_name)
+                code,size,read=_plan_snapshot(source,source_name)
                 if not code:
-                    charge_file_bytes(len(data),lambda:state.tick(line))
-                    code=publish_file_bytes(target,target_name,data,overwrite,line)
+                    charge_file_bytes(size,lambda:state.tick(line))
+                    code,data=read()
+                    if not code:code=publish_file_bytes(target,target_name,data,overwrite,line)
         elif operation=='DELETE_FILE':
             runtime.boolean(args[1],line);files,key=plain_pipe(context,args[0],line);code=files.delete(key)
         else:
@@ -986,19 +987,29 @@ def _snapshot_endpoint(context,name,line):
     return context.require('files',line),name
 
 
-def _read_snapshot(files,name):
-    if type(files) is rt().FilePipes:
-        pipe=files.pipes.get(name)
-        if pipe is not None and (pipe['record_size'] or pipe['form_dict']):
-            return 2,None
-    return files.read_named(name)
-
-
 def _plan_snapshot(files,name,*,plain_pipe_only=False):
+    from .communications import FilePipes,pipe_name
     from .devices import DeviceFiles
     from .extended import MemoryFiles
     from .storage import DirectoryFiles
 
+    if type(files) is FilePipes:
+        name=pipe_name(name)
+        pipe=files.pipes.get(name)
+        if plain_pipe_only and pipe is not None and (pipe['record_size'] or pipe['form_dict']):
+            return 2,0,None
+        if files._busy(name):return 3,0,None
+        if pipe is None:return 1,0,None
+        value=files.files[name];size=len(value)
+
+        def read_pipe():
+            if files._busy(name):return 3,None
+            if files.pipes.get(name) is not pipe or files.files.get(name) is not value or len(value)!=size:
+                return 2,None
+            if plain_pipe_only and (pipe['record_size'] or pipe['form_dict']):return 2,None
+            return 0,bytes(value)
+
+        return 0,size,read_pipe
     if type(files) in (MemoryFiles,DeviceFiles):
         name=files.canonical(name) if type(files) is DeviceFiles else name
         files._check(name,b'')
@@ -1020,7 +1031,7 @@ def _plan_snapshot(files,name,*,plain_pipe_only=False):
         if code:return code,0,None
         _,_,info=plan
         return 0,info.st_size,lambda:files._read_prepared(plan)
-    code,data=_read_snapshot(files,name) if plain_pipe_only else files.read_named(name)
+    code,data=files.read_named(name)
     if code:return code,0,None
     return 0,len(data),lambda:(0,data)
 

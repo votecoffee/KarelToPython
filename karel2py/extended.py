@@ -1654,6 +1654,17 @@ class RobotState:
         return cls(position=point,joints=joints,axis_limit_mask=config.get('axis_limit_mask',0),overtravel_mask=config.get('overtravel_mask',0))
 
 
+def _call_robot_adapter(callback,inputs,label,line,check=None):
+    rt=runtime()
+    try:
+        return callback(*inputs,check=check) if check is not None else callback(*inputs)
+    except Exception as exc:
+        if check is not None and (isinstance(exc,(rt.KarelAbort,rt.KarelPause,rt.KarelStop))
+                                  or isinstance(exc,rt.KarelRuntimeError) and exc.line is not None):
+            raise
+        raise rt.KarelRuntimeError(label+' adapter failed: '+str(exc),line) from exc
+
+
 class RobotContext:
     """User-supplied offline kinematics/reachability, with no guessed robot model."""
     def __init__(self,*,forward=None,inverse=None,reachable=None,check_position=None,joint_limits=None,groups=None,active_group=1,frames=None,tools=None,current=None,active_frame=0,active_tool=0):
@@ -1665,6 +1676,7 @@ class RobotContext:
                 raise TypeError('Position check adapter must be synchronous')
         self.forward,self.inverse,self.reachable=forward,inverse,reachable
         self.check_position=check_position
+        self._model_position_check=self._model_reachable=None
         self.groups=dict(groups or {}); self.active_group=active_group
         if type(active_group) is not int or active_group<1 or any(type(group) is not int or group<1 or type(value) is not RobotContext for group,value in self.groups.items()): raise ValueError('Explicit positive robot groups required')
         if self.groups and active_group not in self.groups: raise ValueError('Active robot group is not configured')
@@ -1686,7 +1698,7 @@ class RobotContext:
         group=self.active_group if group is None else group
         if type(group) is not int or group not in self.groups: fail('Robot group has no configured model/state',line)
         return self.groups[group]
-    def in_range(self,value,name,line=None):
+    def in_range(self,value,name,line=None,*,check=None):
         """Portable predicates share explicit representation-based checks."""
         rt=runtime()
         if isinstance(value,rt.JointPosition):
@@ -1695,19 +1707,19 @@ class RobotContext:
             return all(lo<=axis<=hi for axis,(lo,hi) in zip(values,self.joint_limits))
         if self.reachable is None:fail(name+' requires an explicit reachability adapter',line)
         pose=rt.frame_value(value,line)
-        try:answer=self.reachable(pose)
-        except Exception as exc:raise rt.KarelRuntimeError('Reachability adapter failed: '+str(exc),line) from exc
+        checkpoint=check if self.reachable is self._model_reachable else None
+        answer=_call_robot_adapter(self.reachable,(pose,),'Reachability',line,checkpoint)
         if type(answer) is not bool:
             if inspect.iscoroutine(answer) or inspect.isgenerator(answer):answer.close()
             fail('Reachability adapter must return a synchronous BOOLEAN',line)
         return answer
-    def check_pose(self,position,uframe,utool,line=None):
+    def check_pose(self,position,uframe,utool,line=None,*,check=None):
         rt=runtime()
         if self.check_position is None: fail('CHECK_EPOS requires an explicit framed position check adapter or DH model',line)
         with rt._numeric_scope('pythonic'):
             inputs=tuple(rt.frame_value(value,line) for value in (position,uframe,utool))
-            try: answer=self.check_position(*inputs)
-            except Exception as exc: raise rt.KarelRuntimeError('Position check adapter failed: '+str(exc),line) from exc
+            checkpoint=check if self.check_position is self._model_position_check else None
+            answer=_call_robot_adapter(self.check_position,inputs,'Position check',line,checkpoint)
         if type(answer) is not bool:
             if inspect.iscoroutine(answer) or inspect.isgenerator(answer): answer.close()
             fail('Position check adapter must return a synchronous BOOLEAN',line)
@@ -2937,12 +2949,13 @@ class ExecutionContext:
             if isinstance(position,rt.JointPosition):
                 frame=rt.frame_value(frame,line);tool=rt.frame_value(tool,line)
                 position=self._forward_pose(position,frame,tool,group,line)
-            answer=robot.check_pose(position,frame,tool,line)
+            answer=robot.check_pose(position,frame,tool,line,check=lambda:state.tick(line))
             args[3].set(0 if answer else 1,line); return
         if name in ('IN_RANGE','J_IN_RANGE'):
             robot=self.require('robot',line).for_group(rt.task_root(state).robot_group,line)
-            return robot.in_range(args[0],name,line)
-        if name in ('JOINT2POS','POS2JOINT'): return self.kinematics(name,args,line,group=rt.task_root(state).robot_group)
+            return robot.in_range(args[0],name,line,check=lambda:state.tick(line))
+        if name in ('JOINT2POS','POS2JOINT'):
+            return self.kinematics(name,args,line,group=rt.task_root(state).robot_group,check=lambda:state.tick(line))
         fail('Unsupported extended operation '+name,line)
     def resolve(self,state,program,path,line=None,*,path_nodes=False,prefixes=False,resources=False,system_transfer=None):
         rt=runtime(); program=program.upper(); path=path.upper()
@@ -3300,11 +3313,13 @@ class ExecutionContext:
         reference=robot.current.joints;rt.joint_values(reference,rt.joint_width(reference.spec),line)
         point=pose_extended(value,line);axes=rt.Array(('ARRAY',3,('REAL',)))
         axes.values[:]=[point.values[f'EXT{i+1}'] for i in range(3)];result=output(target)
-        self.kinematics('POS2JOINT',[reference,point,frame,tool,0,point.values['CONFIG_DATA'],axes,result,status],line,group=group)
+        self.kinematics('POS2JOINT',[reference,point,frame,tool,0,point.values['CONFIG_DATA'],axes,result,status],
+                        line,group=group,check=lambda:state.tick(line))
         rt.joint_values(result.raw(),rt.joint_width(target),line)
         return result.raw().clone()
 
-    def kinematics(self,name,args,line,*,group=None):
+    def kinematics(self,name,args,line,*,group=None,check=None):
+        from .kinematics import SerialRobotModel
         rt=runtime(); robot=self.require('robot',line).for_group(group)
         callback=robot.forward if name=='JOINT2POS' else robot.inverse
         if callback is None: fail(name+' requires an explicit robot model adapter',line)
@@ -3314,8 +3329,10 @@ class ExecutionContext:
             if width<model.axes or (not rt._pythonic() and width not in (model.axes,9)):
                 fail('Inverse output must fit all model axes',line)
         inputs=deepcopy(tuple(args[:4] if name=='JOINT2POS' else args[:7]))
-        try: result=callback(*inputs)
-        except Exception as exc: raise rt.KarelRuntimeError('Robot model adapter failed: '+str(exc),line) from exc
+        metered=(name=='POS2JOINT' and type(model) is SerialRobotModel
+                 and getattr(callback,'__self__',None) is model
+                 and getattr(callback,'__func__',None) is SerialRobotModel.inverse)
+        result=_call_robot_adapter(callback,inputs,'Robot model',line,check if metered else None)
         if name=='JOINT2POS':
             if type(result) is not tuple or len(result)!=3: fail('Forward adapter must return (position,config,external_axes)',line)
             if not isinstance(result[0],rt.Structure) or result[0].spec[0] not in ('POSITION','XYZWPR','XYZWPREXT'):

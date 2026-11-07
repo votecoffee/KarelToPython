@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt, translate, translate_project
 from karel2py.kinematics import pose as identity_pose
@@ -89,6 +90,23 @@ class JointTargetPositionCheckTests(unittest.TestCase):
 
 
 class PositionModelCheckTests(unittest.TestCase):
+    def test_source_reachability_charges_before_each_model_evaluation(self):
+        cases=(('CHECK_EPOS(p,f,t,s)','S',77,0),('ready=IN_RANGE(p)','READY',False,True))
+        for body,field,prior,expected in cases:
+            with self.subTest(body=body):
+                ctx=context(dh=[{'type':'prismatic'}])
+                model=ctx.robot.model
+                program,_=compile_program(body,decl='p,f,t:POSITION s:INTEGER ready:BOOLEAN',context=ctx)
+                point=identity_pose()
+                point.values['LOCATION'].values['Z']=87.
+                program._state.values.update(P=point,F=identity_pose(),T=identity_pose(),S=77,READY=False)
+                with patch.object(model,'chain',wraps=model.chain) as chain:
+                    with self.assertRaisesRegex(rt.KarelRuntimeError,'KAREL line .*step budget'):
+                        program.run(max_steps=2)
+                    self.assertEqual(chain.call_count,1)
+                self.assertEqual(program.snapshot()[field],prior)
+                self.assertEqual(program.run()[field],expected)
+
     def test_reachability_uses_supplied_fallback_seeds_with_fixed_external_axes(self):
         model={'dh':[{'type':'prismatic'},{}],'external_axes':1,'iterations':1}
         for seeds,expected in (([],False),([[87.,-45.]],True)):
