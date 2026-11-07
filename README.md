@@ -400,7 +400,7 @@ existing collision, busy-file, quota and publication checks remain active.
 and RENAME_FILE reuse matched characters in their destination filenames.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.182721**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.184316**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -964,8 +964,8 @@ layouts at assignments, private arguments and returns.
 banks and selected rows or planes with matching component dimensions.
 [GET_VAR and SET_VAR](docs/path-transfers.md) also convert compatible PATH
 layouts while retaining their checked status and cache behavior.
-Queue operations stage backing-array writes and outputs
-before publication. PATH declarations accept PATHHEADER
+Queue operations charge the FIFO snapshot and backing slots before staging.
+COPY_QUEUE also charges the output array when it returns a page. PATH declarations accept PATHHEADER
 and its PATHDATA compatibility spelling. Predefined DISP_DAT_T and portable
 STD_PTH_NODE records work in declarations, routine interfaces, CREATE_VAR and
 saved state. See [PATH declarations](docs/path-declarations.md). A deterministic scheduler handles

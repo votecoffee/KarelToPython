@@ -222,14 +222,16 @@ means empty for GET; these are portable statuses. INSERT goes before an existing
 sequence. COPY starts at a specified sequence or the oldest entry for zero,
 then skips the requested count and copies as many entries as fit.
 `APPEND_QUEUE`, `INSERT_QUEUE`, `MODIFY_QUEUE`, `DELETE_QUEUE` and `GET_QUEUE`
-stage the FIFO changes, scalar outputs and backing array. Each backing slot
-costs one step. If preparation fails, the queue entries, sequence counter,
-backing binding and outputs retain their prior values.
+charge one step for each entry ID, entry value and backing slot before
+validating and capturing data. They stage FIFO changes, scalar outputs and
+the backing array, then verify the queue and backing storage before publishing.
+A preparation error leaves the edit unapplied.
 
-`COPY_QUEUE` charges one step for each backing slot and selected output entry.
-It stages the full backing array and selected output values before binding or
-writing either array. Invalid input and budget exhaustion preserve the arrays,
-count, status and previous backing binding. Unused output slots retain their values.
+`COPY_QUEUE` uses the same charges. A nonempty page also charges each output
+slot before staging the arrays. It rechecks entry contents and the output
+mapping after that charge. Invalid input and budget exhaustion preserve the
+arrays, count, status and previous backing binding. Unused output slots retain
+their values.
 
 `GET_QUEUE(queue,data,value,sequence,status)` follows the manual's parameter
 descriptions and worked example. Its syntax line lists the last two arguments

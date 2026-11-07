@@ -1668,12 +1668,41 @@ class QueueValue:
         for index in range(len(self.buffer.values)): self.buffer.set(index+1,self.entries[index][1] if index<len(self.entries) else 0,line)
 
 
-def _staged_queue_buffer(state,reference,buffer,entries,line):
+def _queue_operation_snapshot(state,name,target,backing,line):
+    rt=runtime()
+    queue,buffer=target.raw(),backing.raw()
+    if (type(queue) is not QueueValue or queue.spec!=target.spec
+            or type(queue.entries) is not list or len(queue.entries)>32767
+            or type(buffer) is not rt.Array or backing.spec!=buffer.spec):
+        fail(name+' requires ordinary queue and backing ARRAY storage',line)
+    mapping=rt._queue_buffer_witness(buffer,line)
+    queue._check_buffer(buffer,line)
+    stamp=rt._collection_io_stamp(queue)
+
+    def check_storage():
+        if (target.raw() is not queue or backing.raw() is not buffer
+                or queue.spec!=('QUEUE_TYPE',) or target.spec!=queue.spec or backing.spec!=buffer.spec
+                or type(queue.entries) is not list or not rt._collection_io_unchanged(queue,stamp)
+                or rt._queue_buffer_witness(buffer,line)!=mapping):
+            fail(name+' storage changed during preparation',line)
+
+    for _ in range(2*len(queue.entries)+len(buffer.values)):state.tick(line)
+    check_storage()
+    entries=tuple(tuple(pair) for pair in rt._queue_io_payload(queue,line)['entries'])
+
+    def check_publication():
+        check_storage()
+        if any(type(pair) not in (tuple,list) or len(pair)!=2 or type(pair[0]) is not int
+               or type(pair[1]) is not int or (pair[0],pair[1])!=original
+               for pair,original in zip(queue.entries,entries)):
+            fail(name+' entries changed during preparation',line)
+
+    return queue,buffer,entries,check_publication
+
+
+def _staged_queue_buffer(reference,buffer,entries,line):
     staged=runtime().checked(reference.spec,buffer,line)
-    for index in range(len(staged.values)):
-        state.tick(line)
-        value=entries[index][1] if index<len(entries) else 0
-        staged.set(index+1,value,line)
+    staged.values[:]=[value for _,value in entries]+[0]*(len(staged.values)-len(entries))
     return staged
 
 
@@ -3190,14 +3219,9 @@ class ExecutionContext:
             q=args[0].raw(); q.initialized=True; q.entries=[]; q.sequence=0; q.buffer=None; return
         offset=0 if name=='GET_QUEUE' else 2 if name in ('INSERT_QUEUE','MODIFY_QUEUE') else 1
         target,backing=args[offset:offset+2]
-        q,buffer=target.raw(),backing.raw()
-        q._check_buffer(buffer,line)
-        original_entries=q.entries
-        original_sequence=q.sequence
-        original_binding=q.buffer
-        snapshot=tuple(original_entries)
+        q,buffer,snapshot,check_publication=_queue_operation_snapshot(state,name,target,backing,line)
         entries=list(snapshot)
-        sequence=original_sequence
+        sequence=q.sequence
         outputs=[]
         code=0
         if name in ('APPEND_QUEUE','INSERT_QUEUE'):
@@ -3225,11 +3249,8 @@ class ExecutionContext:
 
         outputs.append((args[-1],code))
         prepared=[(reference,rt.checked(reference.spec,value,line)) for reference,value in outputs]
-        staged=_staged_queue_buffer(state,backing,buffer,entries,line)
-        if (target.raw() is not q or backing.raw() is not buffer or q.entries is not original_entries
-                or tuple(q.entries)!=snapshot or q.sequence!=original_sequence or q.buffer is not original_binding):
-            fail(name+' storage changed during preparation',line)
-        q._check_buffer(buffer,line)
+        staged=_staged_queue_buffer(backing,buffer,entries,line)
+        check_publication()
         rt.replace_value(buffer,staged)
         q.entries[:]=entries
         q.sequence=sequence
@@ -3241,31 +3262,28 @@ class ExecutionContext:
         rt=runtime()
         source,backing,sequence,skip,output,count,status=args
         if sequence<0 or skip<0: fail('Queue copy sequence and skip must be nonnegative',line)
-        queue,buffer,view=source.raw(),backing.raw(),output.raw()
-        queue._check_buffer(buffer,line)
-        entries=list(queue.entries)
-        staged=_staged_queue_buffer(state,backing,buffer,entries,line)
+        view=output.raw()
+        if type(view) is not rt.Array or output.spec!=view.spec:
+            fail('COPY_QUEUE requires ordinary output ARRAY storage',line)
+        mapping=rt._queue_buffer_witness(view,line)
+        queue,buffer,entries,check_publication=_queue_operation_snapshot(state,'COPY_QUEUE',source,backing,line)
         first=0 if sequence==0 else next((i for i,pair in enumerate(entries) if pair[0]==sequence),None)
-
-        page=[]
-        if first is not None:
-            start=first+skip
-            page=staged.values[start:min(len(entries),start+len(view.values))]
-        if page:
+        start=0 if first is None else first+skip
+        length=0 if first is None else min(max(0,len(entries)-start),len(view.values))
+        if length:
+            for _ in range(len(view.values)):state.tick(line)
+        check_publication()
+        if output.raw() is not view or rt._queue_buffer_witness(view,line)!=mapping:
+            fail('COPY_QUEUE output storage changed during preparation',line)
+        staged=_staged_queue_buffer(backing,buffer,entries,line)
+        if length:
             staged_view=rt.checked(output.spec,view,line)
-            for index,value in enumerate(page,1):
-                state.tick(line)
-                staged_view.set(index,value,line)
-
-        if (source.raw() is not queue or backing.raw() is not buffer or output.raw() is not view
-                or queue.entries!=entries):
-            fail('COPY_QUEUE storage changed during preparation',line)
-        queue._check_buffer(buffer,line)
+            staged_view.values[:length]=[value for _,value in entries[start:start+length]]
         rt.replace_value(buffer,staged)
-        if page:
+        if length:
             rt.replace_value(view,staged_view)
         queue.buffer=buffer
-        count.set(len(page),line)
+        count.set(length,line)
         status.set(1 if first is None else 0,line)
     def path_source_value(self,state,target,source,source_spec,line=None):
         rt=runtime()

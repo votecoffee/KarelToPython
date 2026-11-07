@@ -1,6 +1,7 @@
 """Authored logical queue transfers, ownership boundaries and copy failure guards."""
 import json
 import unittest
+from unittest.mock import patch
 
 from karel2py import runtime as rt,translate_project
 from karel2py.extended import matches
@@ -190,6 +191,76 @@ class QueueLogicalCopyTests(unittest.TestCase):
         self.assertEqual(program.snapshot(),before)
         self.assertIsNone(values['SOURCE'].buffer)
 
+    def test_copy_queue_charges_whole_output_before_staging_a_nonempty_page(self):
+        program,_=prepared('COPY_QUEUE(source,a,2,1,view,count,status)')
+        state=program._state
+        state.values.update(COUNT=98,STATUS=99)
+        state.values['VIEW'].set(2,91)
+        before=program.snapshot()
+        with (patch('karel2py.extended._staged_queue_buffer',
+                    side_effect=AssertionError('staged backing before full output charge')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'step budget')):
+            program.run(max_steps=9)
+        self.assertEqual(program.snapshot(),before)
+        self.assertIsNone(state.values['SOURCE'].buffer)
+        result=program.run(max_steps=11)
+        self.assertEqual((result['COUNT'],result['STATUS'],result['VIEW'][1]),(1,0,91))
+
+    def test_copy_queue_empty_page_skips_output_slot_charge(self):
+        program,_=prepared('COPY_QUEUE(source,a,0,2,view,count,status)')
+        program._state.values['VIEW'].set(2,91)
+        result=program.run(max_steps=8)
+        self.assertEqual((result['COUNT'],result['STATUS'],result['VIEW'][1]),(0,0,91))
+        self.assertEqual(result['A'],[70,50,0])
+
+    def test_copy_queue_rejects_mutated_entry_or_output_mapping_after_snapshot(self):
+        for changed in ('entry','output'):
+            with self.subTest(changed=changed):
+                program,_=prepared('COPY_QUEUE(source,a,0,0,view,count,status)')
+                state=program._state
+                q=state.values['SOURCE']
+                q.entries[0]=[2,70]
+                view=state.values['VIEW']
+                view.set(1,77)
+                state.values.update(COUNT=98,STATUS=99)
+                backing_before=state.values['A'].values[:]
+                tick=state.tick
+
+                def replace(*args,**kwargs):
+                    tick(*args,**kwargs)
+                    if state.steps==9:
+                        if changed=='entry':q.entries[0][1]=88
+                        else:view.values=[88,*view.values[1:]]
+
+                with (patch.object(state,'tick',side_effect=replace),
+                      self.assertRaisesRegex(rt.KarelRuntimeError,'changed during preparation')):
+                    program.run()
+                self.assertEqual(state.values['A'].values,backing_before)
+                self.assertEqual((state.values['COUNT'],state.values['STATUS']),(98,99))
+                self.assertEqual((q.entries[0][1],view.values[0]),(88,77) if changed=='entry' else (70,88))
+                self.assertIsNone(q.buffer)
+
+    def test_mutator_rejects_replaced_backing_cells_before_payload_validation(self):
+        program,_=prepared('GET_QUEUE(source,a,n,seq,status)')
+        state=program._state
+        q=state.values['SOURCE']
+        backing=state.values['A']
+        state.values.update(N=96,SEQ=97,STATUS=99)
+        tick=state.tick
+
+        def replace(*args,**kwargs):
+            tick(*args,**kwargs)
+            if state.steps==2:backing.values=[77,*backing.values[1:]]
+
+        with (patch.object(state,'tick',side_effect=replace),
+              patch('karel2py.storage.collection_payload',side_effect=AssertionError('copied stale queue')),
+              self.assertRaisesRegex(rt.KarelRuntimeError,'storage changed during preparation')):
+            program.run()
+        self.assertEqual((state.values['N'],state.values['SEQ'],state.values['STATUS']),(96,97,99))
+        self.assertEqual(q.entries,[(2,70),(1,50)])
+        self.assertEqual(backing.values[0],77)
+        self.assertIsNone(q.buffer)
+
     def test_queue_mutators_preserve_entries_and_outputs_on_budget_exhaustion(self):
         for call in ('APPEND_QUEUE(8,source,a,seq,status)',
                      'INSERT_QUEUE(8,1,source,a,status)',
@@ -203,7 +274,11 @@ class QueueLogicalCopyTests(unittest.TestCase):
                 values.update(STATUS=99,SEQ=97,N=96)
                 original=values['SOURCE'].entries
                 before=program.snapshot()
-                with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):
+                with (patch('karel2py.storage.collection_payload',
+                            side_effect=AssertionError('copied uncharged queue')),
+                      patch('karel2py.extended._staged_queue_buffer',
+                            side_effect=AssertionError('staged uncharged backing')),
+                      self.assertRaisesRegex(rt.KarelRuntimeError,'step budget')):
                     program.run(max_steps=3)
                 self.assertEqual(program.snapshot(),before)
                 self.assertIs(values['SOURCE'].entries,original)

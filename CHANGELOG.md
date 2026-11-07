@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.184316 - 2026-11-07
+
+- Charge queue entry IDs, values and backing slots before copying or staging
+  FIFO mutations. Recheck queue storage and array mappings before publication.
+- Charge the full COPY_QUEUE output array before staging a nonempty page.
+  Reject changed queue entries or destination mappings during preparation.
+
 ## 26.1107.182721 - 2026-11-07
 
 - Charge queue READ and WRITE for descriptors, entry IDs and values before
