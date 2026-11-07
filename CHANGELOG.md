@@ -1,5 +1,12 @@
 # Changelog
 
+## 26.1107.003555 - 2026-11-07
+
+- Let scheduled source DELAY wake at positive condition scan deadlines inside
+  the wait. Ordinary checkpoint ordering and task budgets apply.
+- Let GET_VAR read named POSITION orientation and CONFIG fields as detached
+  values with the ordinary missing-data and domain checks.
+
 ## 26.1107.001613 - 2026-11-07
 
 - Resolve named PATH nodes and their fields in GET_VAR and SET_VAR using the

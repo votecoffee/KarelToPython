@@ -4298,7 +4298,10 @@ class Emitter:
                                        line=line, column=token.column, scope='current offline execution'))
         elif kind == 'delay':
             duration = self.require_type(stmt.args[0], 'INTEGER')
-            self.line(f'yield from _rt.delay_execution(self._state,{duration},{line})' if self.cooperative else f'self._state.delay({duration}, {line})', token)
+            if self.cooperative:
+                self.line(f'yield from _rt.delay_execution(self._state,{duration},{line},scan_handlers={self.mode=="pythonic"!r})',token)
+            else:
+                self.line(f'self._state.delay({duration}, {line})',token)
             self.features.add('DELAY')
             self.delay_uses.append(dict(body=self.current_routine.name if self.current_routine else self.program.name,
                                         line=token.line, column=token.column, duration_type='INTEGER',
@@ -6121,6 +6124,7 @@ def translate(source, *, filename='<input>', array_shapes=None, mode='pythonic',
         syntax='CONDITION[n]: WITH $PRIORITY=INTEGER, $SCAN_TIME=INTEGER; comma-separated options or repeated WITH, no duplicates',
         capture='Number then option expressions once in source order; complete validation before registration; priority 1..99, lower first, default 50',
         scan='Stable per-namespace priority order at checkpoint entry; ties retain definition order, skip disabled/not-due handlers, one-shot clauses and existing caller-before-callee scans',
+        delays='Scheduled source DELAY can wake at positive scan deadlines inside the delay for handlers using the scheduler clock. Ordinary checkpoints and task budgets apply.',
         boundary='No preemption, global cross-task priority merge, live priority mutation, saved continuations or native interrupt timing; strict remains future work',
         guide='docs/handler-priority-and-system-poses.md',controller_validated=False)
     report['system_pose_policy']=dict(

@@ -367,16 +367,33 @@ def lifecycle_condition(state,name,key):
     return generation>previous
 
 
-def delay_execution(state,milliseconds,line=None):
+def _delay_handler_wake(state,now,deadline):
+    """Find the next periodic scan across the live caller chain."""
+    while state is not None:
+        if not state._in_handler:
+            for handler in state._handlers.values():
+                if handler['enabled'] and handler['scan_ms']:
+                    due=handler['due']
+                    deadline=min(deadline,now if due is None else max(now,due))
+        state=state._budget_parent
+    return deadline
+
+
+def delay_execution(state,milliseconds,line=None,*,scan_handlers=False):
     runtime=rt(); milliseconds=runtime.integer(milliseconds,line)
     if not 0<=milliseconds<=86400000: raise runtime.KarelRuntimeError('DELAY requires milliseconds in 0..86400000',line)
-    if state._scheduler is None:
+    scheduler=state._scheduler
+    if scheduler is None:
         state.delay(milliseconds,line); return
     if milliseconds:
-        deadline=state._scheduler.now_us+milliseconds*1000
-        while state._scheduler.now_us<deadline:
-            yield {'kind':'sleep','until':deadline,'line':line}
-            if state._pause_requested or state._abort_requested: yield from rt().checkpoint(state,line,force_pause=True)
+        periodic=scan_handlers and runtime.task_root(state)._scheduler_clock
+        deadline=scheduler.now_us+milliseconds*1000
+        while scheduler.now_us<deadline:
+            wake=_delay_handler_wake(state,scheduler.now_us,deadline) if periodic else deadline
+            yield {'kind':'sleep','until':wake,'line':line}
+            control=state._pause_requested or state._abort_requested
+            if control or (wake<deadline and scheduler.now_us>=wake):
+                yield from runtime.checkpoint(state,line,force_pause=control)
 
 
 @contextmanager

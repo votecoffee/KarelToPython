@@ -191,6 +191,43 @@ class SchedulerTests(unittest.TestCase):
         program=source('MAIN','n=0 s=0 CONNECT TIMER TO s CONDITION[1]: WITH $SCAN_TIME=10 WHEN s>=10 DO n=7 ENDCONDITION ENABLE CONDITION[1] DELAY 30 s=s')
         instance=translate_project({'a':program}).instantiate();self.assertEqual(instance.run('MAIN')['MAIN']['values']['N'],7)
 
+    def test_periodic_handler_runs_before_a_linked_delay_completes(self):
+        body=('n=0 s=0 CONNECT TIMER TO s CONDITION[1]: WITH $SCAN_TIME=10 '
+              'WHEN s>=10 DO n=7 ENDCONDITION ENABLE CONDITION[1] work() n=n+1')
+        instance=translate_project({
+            'main':source('MAIN',body,routines='ROUTINE work FROM LIB'),
+            'lib':source('LIB','',routines='ROUTINE work BEGIN DELAY 100 END work'),
+        }).instantiate()
+        scheduler=instance.scheduler
+        task=instance.programs['MAIN']
+        scheduler.start('MAIN')
+        for _ in range(30):
+            scheduler.step()
+            if task.snapshot()['N']==7:break
+        self.assertEqual(task.snapshot()['N'],7)
+        self.assertLess(scheduler.now_us,100000)
+        self.assertNotEqual(task.task_state,'completed')
+        self.assertEqual(scheduler.run()['MAIN']['values']['N'],8)
+
+    def test_injected_handler_clock_does_not_schedule_virtual_deadlines(self):
+        scheduler=rt.TaskScheduler()
+        p,_=compile_program('n=0 CONDITION[1]: WITH $SCAN_TIME=10 WHEN n=1 DO n=7 ENDCONDITION '
+                            'ENABLE CONDITION[1] n=1 DELAY 100',clock_us=lambda:0,
+                            context=rt.ExecutionContext(tasks=scheduler),cooperative=True)
+        scheduler.bind('MAIN',p)
+        result=scheduler.run(max_cycles=20,entry='MAIN')['MAIN']
+        self.assertEqual((result['state'],result['values']['N']),('completed',1))
+        self.assertGreaterEqual(scheduler.now_us,100000)
+
+    def test_periodic_scans_count_against_task_budget(self):
+        program=source('MAIN','n=0 CONDITION[1]: WITH $SCAN_TIME=1 WHEN FALSE DO n=7 ENDCONDITION '
+                               'ENABLE CONDITION[1] DELAY 1000 n=8')
+        instance=translate_project({'main':program}).instantiate()
+        instance.scheduler.max_steps=10
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'step budget'):instance.run('MAIN')
+        self.assertEqual(instance.programs['MAIN'].snapshot()['N'],0)
+        self.assertLess(instance.scheduler.now_us,1000000)
+
     def test_local_handler_lifetime(self):
         p,_=compile_program('work() n=1',routines='ROUTINE work BEGIN CONDITION[1]: WHEN FALSE DO n=9 ENDCONDITION END work',context=rt.ExecutionContext(local_handlers=True))
         p.run();self.assertEqual(p._state._handlers,{})

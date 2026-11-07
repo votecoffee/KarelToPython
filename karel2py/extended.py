@@ -2984,9 +2984,15 @@ class ExecutionContext:
         if rt._pythonic() and type(target) is rt.AssociationFieldReference:
             # An explicit named data transfer; never expose a borrowed field alias.
             target.validate_storage(line);target=rt.Reference(target.spec,target.storage,target.key)
-        if type(target) is not rt.Reference and not (rt._pythonic() and type(target) is rt._ArrayPrefixTarget): fail('Protected variable storage cannot be a GET_VAR/SET_VAR alias',line)
+        readable=(rt.ReadOnlyFieldReference,rt.ConfigFieldReference) if pythonic and name=='GET_VAR' else ()
+        allowed=(rt.Reference,rt._ArrayPrefixTarget) if pythonic else (rt.Reference,)
+        if type(target) not in allowed+readable:
+            fail('Protected variable storage cannot be a GET_VAR/SET_VAR alias',line)
         if name=='GET_VAR':
-            source=variable_value(target.spec,target.raw(),line);destination=value
+            captured=target.raw()
+            if type(target) is rt.ConfigFieldReference and captured is not rt.UNINITIALIZED:
+                target.validate(captured,line)
+            source=variable_value(target.spec,captured,line);destination=value
         else:
             if _variable_cells(target,line) & (rt._reference_cells(entry)|rt._reference_cells(status)): fail('SET_VAR target overlaps entry/status',line)
             if type(value) is VariableValue: source=value

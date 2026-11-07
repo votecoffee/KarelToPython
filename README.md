@@ -385,7 +385,7 @@ whole-component `**`. Selection stays inside an explicit root/device, and the
 existing collision, busy-file, quota and publication checks remain active.
 
 The repository is named **KarelToPython**; its Python package and command-line
-tool are named **karel2py**. The current implementation is **26.1107.001613**. It is a
+tool are named **karel2py**. The current implementation is **26.1107.003555**. It is a
 development prototype, with no claim of controller runtime equivalence.
 
 ## Table of Contents
@@ -936,8 +936,9 @@ before publication. PATH declarations accept PATHHEADER
 and its PATHDATA compatibility spelling. Predefined DISP_DAT_T and portable
 STD_PTH_NODE records work in declarations, routine interfaces, CREATE_VAR and
 saved state. See [PATH declarations](docs/path-declarations.md). A deterministic scheduler handles
-events, timers, delays and task pause/continue/stop. Source projects automatically
-link typed external routines and imported globals. A configurable standard-DH
+events, timers, delays and task pause/continue/stop. A scheduled source DELAY can
+wake for explicit positive [condition scan intervals](docs/handler-priority-and-system-poses.md#handler-options).
+Source projects automatically link typed external routines and imported globals. A configurable standard-DH
 robot model provides forward/inverse math, external joints and bounded
 reachability checks; extended-pose comparisons use explicit axis tolerances.
 
@@ -1055,8 +1056,9 @@ same-rank record ARRAY prefixes with preserved receiver tails.
 
 GET_VAR/SET_VAR copy bounded ARRAY prefixes across different sizes and preserve
 the receiver tail. Typed SET sources and partial aggregates can transfer missing
-data. See [variable transfers](docs/variable-transfers.md) for type, ordering,
-unknown BYTE and status rules.
+data. GET_VAR can read named POSITION orientation and CONFIG fields by value.
+See [variable transfers](docs/variable-transfers.md) for type, ordering, unknown
+BYTE and status rules.
 
 Whole QUEUE_TYPE values also transfer logical contents and sequence counters
 through GET_VAR/SET_VAR. Receivers bind an explicit buffer on their next queue

@@ -41,6 +41,14 @@ abort requested inside an action retains existing deferred delivery after the
 current scan, including other eligible actions. There is no new terminal scan:
 a final ordinary assignment alone does not create another checkpoint.
 
+When a scheduled source DELAY parks, enabled handlers with positive scan
+intervals can contribute an earlier wake deadline. This uses the scheduler
+clock and considers the live caller chain, including a caller waiting inside a
+linked routine. Each wake before the delay's original deadline runs the normal
+checkpoint, including timer updates, handler priority and step/cycle limits.
+Zero-interval handlers participate when a checkpoint runs. Standalone execution
+and injected clocks scan at their ordinary checkpoints.
+
 `handler_definitions` records source locations, option order, clause count and
 once-only capture. `handler_priority_policy` records the portable scheduling
 rules. Handler records and suspended scans are not serialized in context JSON.

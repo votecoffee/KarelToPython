@@ -138,8 +138,9 @@ distinct. Complete replacements are prepared before writes. See
 Foreign storage is supplied with `VariableStore.define(program,path,spec,value)`
 or `bind(program,path,reference)`. Whole QUEUE_TYPE values copy logical state
 and release receiver buffer binding; an uninitialized queue copies with status
-12311. Files, paths and protected positional fields remain excluded as generic
-variable outputs. See [queue transfers](queue-transfers.md).
+12311. [PATH transfers](path-transfers.md) cover logical copies and named nodes.
+GET_VAR reads protected POSITION orientation and CONFIG fields as data. Writable
+outputs use ordinary data references. See [queue transfers](queue-transfers.md).
 
 Output/resource references must be ordinary writable exact types and disjoint,
 including aggregate descendants. Inputs and reference selectors are captured once
@@ -266,8 +267,9 @@ stack. `stop()` closes the suspended generator and clears active FOR counters
 and frames. Bare ABORT remains sticky and distinct from a runtime failure.
 Calls are synchronous; concurrent drive of one Program is unsupported.
 
-Handlers 1..1000 scan at statements and loop tests, in definition order. The
-first true WHEN clause runs and disables the handler before its actions.
+Handlers 1..1000 scan at statements, loop tests and eligible periodic wakes
+during scheduled source delays. The first true WHEN clause runs and disables
+the handler before its actions.
 An ENABLE action can rearm it. Multiple actions accept commas or newlines.
 Purging is required before redefining an existing number; controls on undefined
 numbers have no effect. Predicates use ordinary BOOLEAN expressions, including

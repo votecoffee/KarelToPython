@@ -244,6 +244,34 @@ class DynamicTransferOrderAndGuardTests(unittest.TestCase):
         state=run("CNV_STR_CONF('N',cfg,s) point=POS(0,0,0,0,0,0,cfg) "+transfer('SET_VAR','B','point.normal'),decl=BASE+' cfg: CONFIG point: POSITION b: VECTOR')
         self.assertEqual(state['B'],{'X':1.,'Y':0.,'Z':0.})
 
+    def test_named_get_reads_orientation_vectors_scalars_and_config_fields(self):
+        body=("CNV_STR_CONF('N',cfg,s) cfg.cfg_turn_no1=-3 "
+              "point=POS(0,0,0,0,0,0,cfg) "+transfer('GET_VAR','POINT.NORMAL','direction')+
+              " direction.x=9 "+transfer('GET_VAR','POINT.NORMAL.X','x')+
+              " "+transfer('GET_VAR','POINT.CONFIG_DATA.CFG_TURN_NO1','n'))
+        result=run(body,decl=BASE+' cfg:CONFIG point:POSITION direction:VECTOR x:REAL')
+        self.assertEqual((result['POINT']['NORMAL']['X'],result['DIRECTION']['X'],result['X']),(1.,9.,1.))
+        self.assertEqual((result['N'],result['S']),(-3,0))
+
+    def test_named_get_protected_config_preserves_missing_marker(self):
+        result=run('n=17 '+transfer('GET_VAR','CFG.CFG_TURN_NO1','n'),decl=BASE+' cfg:CONFIG')
+        self.assertEqual((result['N'],result['S']),(MISSING,12311))
+
+    def test_named_get_rejects_malformed_config_without_publishing(self):
+        p,_=compile_program('n=17 e=77 s=88 '+transfer('GET_VAR','CFG.CFG_TURN_NO1','n'),
+                            decl=BASE+' cfg:CONFIG')
+        p._state.values['CFG'].values['CFG_TURN_NO1']=8
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'CONFIG turn'):p.run()
+        result=p.snapshot()
+        self.assertEqual((result['N'],result['E'],result['S']),(17,77,88))
+        self.assertEqual(p._state.execution.entries,{})
+
+    def test_named_set_still_rejects_protected_orientation_storage(self):
+        p,_=compile_program("CNV_STR_CONF('N',cfg,s) point=POS(0,0,0,0,0,0,cfg) "+
+                            transfer('SET_VAR','POINT.NORMAL.X','9'),decl=BASE+' cfg:CONFIG point:POSITION')
+        with self.assertRaisesRegex(rt.KarelRuntimeError,'Protected'):p.run()
+        self.assertEqual(p.snapshot()['POINT']['NORMAL']['X'],1.)
+
     def test_set_scalar_numeric_conversion_and_string_truncation_remain(self):
         state=run(transfer('SET_VAR','VALUE','7')+' '+transfer('SET_VAR','TEXT',"'abcdef'"),decl=BASE+' value: REAL text: STRING[3]')
         self.assertEqual((state['VALUE'],state['TEXT']),(7.,'abc'))
